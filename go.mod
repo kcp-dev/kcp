@@ -11,6 +11,8 @@ require (
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200625115826-4488595e0534
 	k8s.io/apiserver v0.0.0
 	k8s.io/client-go v0.0.0
+	k8s.io/klog v1.0.0
+	k8s.io/kube-aggregator v0.0.0
 	k8s.io/kubernetes v0.0.0-00010101000000-000000000000
 )
 
