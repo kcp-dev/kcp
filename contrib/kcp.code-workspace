@@ -1,0 +1,47 @@
+{
+	"folders": [
+		{
+			"name": "kubernetes",
+			"path": "../../../../k8s.io/kubernetes"
+		},
+		{
+			"name": "kcp",
+			"path": ".."
+		}
+	],
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [			
+			{
+				"name": "Launch kcp",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/kcp",
+				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod"},
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["start"]
+			},
+			{
+				"name": "Launch Kubectl apply pod",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kubernetes}/cmd/kubectl",
+				"env": { "GOMOD": "${workspaceFolder:kubernetes}/go.mod"},
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--cluster=admin", "apply", "-f", "contrib/examples/pod.yaml", "-n" , "test-admin"]				
+			},
+			{
+				"name": "Launch Kubectl explain pod",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kubernetes}/cmd/kubectl",
+				"env": { "GOMOD": "${workspaceFolder:kubernetes}/go.mod"},
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--cluster=admin", "explain", "pods"]				
+			}
+		]
+	}
+}
