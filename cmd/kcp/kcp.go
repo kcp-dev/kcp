@@ -17,7 +17,7 @@ import (
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 	"go.etcd.io/etcd/clientv3"
 
-	"github.com/openshift/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/etcd"
 
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
@@ -153,7 +153,7 @@ func main() {
 				}
 				clientConfig.Contexts = map[string]*clientcmdapi.Context{
 					"admin": {Cluster: "admin", AuthInfo: "loopback"},
-					"user": {Cluster: "user", AuthInfo: "loopback"},
+					"user":  {Cluster: "user", AuthInfo: "loopback"},
 				}
 				clientConfig.CurrentContext = "user"
 				if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.Dir, "admin.kubeconfig")); err != nil {
