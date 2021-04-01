@@ -12,7 +12,7 @@ However, before the generation, the types had to be fixed in order to:
 - Add required `kubebuilder` annotation such as `groupName`, sub-resource-related annotations, ...
 - `listType` and `listMapKeys` annotations wherever `patchStrategy` and `patchergeKey` was used, in order not to loose this precious information, since `patchStrategy` and `patchMergeKey` vendor extensions do not exist in CRD OpenAPI schema.
 
-The following PR against the KCP `kubernetes` repository: https://github.com/kcp-dev/kubernetes/pull/2 contains the changes made to the GO types to enable the generation of valid CRDs that can be successfully used, even with the Strategic Merge Patch support for CRDs, added in PR https://github.com/kcp-dev/kubernetes/pull/1 of the KCP `kubernetes` repository
+The following PR against the KCP `kubernetes` repository: https://github.com/kcp-dev/kubernetes/pull/2 contains the changes made to the GO types to enable the generation of valid CRDs that can be successfully used, even with the Strategic Merge Patch support for CRDs, added in commit https://github.com/kcp-dev/kubernetes/commit/33131378ff6e98ef3f5fdcf39fe40b8ed20da47b of the KCP `kubernetes` repository
 
 ## How to rebuild the CRDs
 
