@@ -1,0 +1,377 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: nodes.core
+spec:
+  group: ""
+  names:
+    kind: Node
+    listKind: NodeList
+    plural: nodes
+    singular: node
+  scope: Cluster
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: Node is a worker node in Kubernetes. Each node will have a unique identifier in the cache (i.e. in etcd).
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the behavior of a node. https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+            properties:
+              configSource:
+                description: If specified, the source to get node configuration from The DynamicKubeletConfig feature gate must be enabled for the Kubelet to use this field
+                properties:
+                  configMap:
+                    description: ConfigMap is a reference to a Node's ConfigMap
+                    properties:
+                      kubeletConfigKey:
+                        description: KubeletConfigKey declares which key of the referenced ConfigMap corresponds to the KubeletConfiguration structure This field is required in all cases.
+                        type: string
+                      name:
+                        description: Name is the metadata.name of the referenced ConfigMap. This field is required in all cases.
+                        type: string
+                      namespace:
+                        description: Namespace is the metadata.namespace of the referenced ConfigMap. This field is required in all cases.
+                        type: string
+                      resourceVersion:
+                        description: ResourceVersion is the metadata.ResourceVersion of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                        type: string
+                      uid:
+                        description: UID is the metadata.UID of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                        type: string
+                    required:
+                    - kubeletConfigKey
+                    - name
+                    - namespace
+                    type: object
+                type: object
+              externalID:
+                description: 'Deprecated. Not all kubelets will set this field. Remove field after 1.13. see: https://issues.k8s.io/61966'
+                type: string
+              podCIDR:
+                description: PodCIDR represents the pod IP range assigned to the node.
+                type: string
+              podCIDRs:
+                description: podCIDRs represents the IP ranges assigned to the node for usage by Pods on that node. If this field is specified, the 0th entry must match the podCIDR field. It may contain at most 1 value for each of IPv4 and IPv6.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+              providerID:
+                description: 'ID of the node assigned by the cloud provider in the format: <ProviderName>://<ProviderSpecificNodeID>'
+                type: string
+              taints:
+                description: If specified, the node's taints.
+                items:
+                  description: The node this Taint is attached to has the "effect" on any pod that does not tolerate the Taint.
+                  properties:
+                    effect:
+                      description: Required. The effect of the taint on pods that do not tolerate the taint. Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: Required. The taint key to be applied to a node.
+                      type: string
+                    timeAdded:
+                      description: TimeAdded represents the time at which the taint was added. It is only written for NoExecute taints.
+                      format: date-time
+                      type: string
+                    value:
+                      description: The taint value corresponding to the taint key.
+                      type: string
+                  required:
+                  - effect
+                  - key
+                  type: object
+                type: array
+              unschedulable:
+                description: 'Unschedulable controls node schedulability of new pods. By default, node is schedulable. More info: https://kubernetes.io/docs/concepts/nodes/node/#manual-node-administration'
+                type: boolean
+            type: object
+          status:
+            description: 'Most recently observed status of the node. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+            properties:
+              addresses:
+                description: 'List of addresses reachable to the node. Queried from cloud provider, if available. More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses Note: This field is declared as mergeable, but the merge key is not sufficiently unique, which can cause data corruption when it is merged. Callers should instead use a full-replacement patch. See http://pr.k8s.io/79391 for an example.'
+                items:
+                  description: NodeAddress contains information for the node's address.
+                  properties:
+                    address:
+                      description: The node address.
+                      type: string
+                    type:
+                      description: Node address type, one of Hostname, ExternalIP or InternalIP.
+                      type: string
+                  required:
+                  - address
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              allocatable:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: Allocatable represents the resources of a node that are available for scheduling. Defaults to Capacity.
+                type: object
+              capacity:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: 'Capacity represents the total resources of a node. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#capacity'
+                type: object
+              conditions:
+                description: 'Conditions is an array of current observed node conditions. More info: https://kubernetes.io/docs/concepts/nodes/node/#condition'
+                items:
+                  description: NodeCondition contains condition information for a node.
+                  properties:
+                    lastHeartbeatTime:
+                      description: Last time we got an update on a given condition.
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      description: Last time the condition transit from one status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: Human readable message indicating details about last transition.
+                      type: string
+                    reason:
+                      description: (brief) reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of node condition.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              config:
+                description: Status of the config assigned to the node via the dynamic Kubelet config feature.
+                properties:
+                  active:
+                    description: Active reports the checkpointed config the node is actively using. Active will represent either the current version of the Assigned config, or the current LastKnownGood config, depending on whether attempting to use the Assigned config results in an error.
+                    properties:
+                      configMap:
+                        description: ConfigMap is a reference to a Node's ConfigMap
+                        properties:
+                          kubeletConfigKey:
+                            description: KubeletConfigKey declares which key of the referenced ConfigMap corresponds to the KubeletConfiguration structure This field is required in all cases.
+                            type: string
+                          name:
+                            description: Name is the metadata.name of the referenced ConfigMap. This field is required in all cases.
+                            type: string
+                          namespace:
+                            description: Namespace is the metadata.namespace of the referenced ConfigMap. This field is required in all cases.
+                            type: string
+                          resourceVersion:
+                            description: ResourceVersion is the metadata.ResourceVersion of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                            type: string
+                          uid:
+                            description: UID is the metadata.UID of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                            type: string
+                        required:
+                        - kubeletConfigKey
+                        - name
+                        - namespace
+                        type: object
+                    type: object
+                  assigned:
+                    description: Assigned reports the checkpointed config the node will try to use. When Node.Spec.ConfigSource is updated, the node checkpoints the associated config payload to local disk, along with a record indicating intended config. The node refers to this record to choose its config checkpoint, and reports this record in Assigned. Assigned only updates in the status after the record has been checkpointed to disk. When the Kubelet is restarted, it tries to make the Assigned config the Active config by loading and validating the checkpointed payload identified by Assigned.
+                    properties:
+                      configMap:
+                        description: ConfigMap is a reference to a Node's ConfigMap
+                        properties:
+                          kubeletConfigKey:
+                            description: KubeletConfigKey declares which key of the referenced ConfigMap corresponds to the KubeletConfiguration structure This field is required in all cases.
+                            type: string
+                          name:
+                            description: Name is the metadata.name of the referenced ConfigMap. This field is required in all cases.
+                            type: string
+                          namespace:
+                            description: Namespace is the metadata.namespace of the referenced ConfigMap. This field is required in all cases.
+                            type: string
+                          resourceVersion:
+                            description: ResourceVersion is the metadata.ResourceVersion of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                            type: string
+                          uid:
+                            description: UID is the metadata.UID of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                            type: string
+                        required:
+                        - kubeletConfigKey
+                        - name
+                        - namespace
+                        type: object
+                    type: object
+                  error:
+                    description: Error describes any problems reconciling the Spec.ConfigSource to the Active config. Errors may occur, for example, attempting to checkpoint Spec.ConfigSource to the local Assigned record, attempting to checkpoint the payload associated with Spec.ConfigSource, attempting to load or validate the Assigned config, etc. Errors may occur at different points while syncing config. Earlier errors (e.g. download or checkpointing errors) will not result in a rollback to LastKnownGood, and may resolve across Kubelet retries. Later errors (e.g. loading or validating a checkpointed config) will result in a rollback to LastKnownGood. In the latter case, it is usually possible to resolve the error by fixing the config assigned in Spec.ConfigSource. You can find additional information for debugging by searching the error message in the Kubelet log. Error is a human-readable description of the error state; machines can check whether or not Error is empty, but should not rely on the stability of the Error text across Kubelet versions.
+                    type: string
+                  lastKnownGood:
+                    description: LastKnownGood reports the checkpointed config the node will fall back to when it encounters an error attempting to use the Assigned config. The Assigned config becomes the LastKnownGood config when the node determines that the Assigned config is stable and correct. This is currently implemented as a 10-minute soak period starting when the local record of Assigned config is updated. If the Assigned config is Active at the end of this period, it becomes the LastKnownGood. Note that if Spec.ConfigSource is reset to nil (use local defaults), the LastKnownGood is also immediately reset to nil, because the local default config is always assumed good. You should not make assumptions about the node's method of determining config stability and correctness, as this may change or become configurable in the future.
+                    properties:
+                      configMap:
+                        description: ConfigMap is a reference to a Node's ConfigMap
+                        properties:
+                          kubeletConfigKey:
+                            description: KubeletConfigKey declares which key of the referenced ConfigMap corresponds to the KubeletConfiguration structure This field is required in all cases.
+                            type: string
+                          name:
+                            description: Name is the metadata.name of the referenced ConfigMap. This field is required in all cases.
+                            type: string
+                          namespace:
+                            description: Namespace is the metadata.namespace of the referenced ConfigMap. This field is required in all cases.
+                            type: string
+                          resourceVersion:
+                            description: ResourceVersion is the metadata.ResourceVersion of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                            type: string
+                          uid:
+                            description: UID is the metadata.UID of the referenced ConfigMap. This field is forbidden in Node.Spec, and required in Node.Status.
+                            type: string
+                        required:
+                        - kubeletConfigKey
+                        - name
+                        - namespace
+                        type: object
+                    type: object
+                type: object
+              daemonEndpoints:
+                description: Endpoints of daemons running on the Node.
+                properties:
+                  kubeletEndpoint:
+                    description: Endpoint on which Kubelet is listening.
+                    properties:
+                      Port:
+                        description: Port number of the given endpoint.
+                        format: int32
+                        type: integer
+                    required:
+                    - Port
+                    type: object
+                type: object
+              images:
+                description: List of container images on this node
+                items:
+                  description: Describe a container image
+                  properties:
+                    names:
+                      description: Names by which this image is known. e.g. ["k8s.gcr.io/hyperkube:v1.0.7", "dockerhub.io/google_containers/hyperkube:v1.0.7"]
+                      items:
+                        type: string
+                      type: array
+                    sizeBytes:
+                      description: The size of the image in bytes.
+                      format: int64
+                      type: integer
+                  required:
+                  - names
+                  type: object
+                type: array
+              nodeInfo:
+                description: 'Set of ids/uuids to uniquely identify the node. More info: https://kubernetes.io/docs/concepts/nodes/node/#info'
+                properties:
+                  architecture:
+                    description: The Architecture reported by the node
+                    type: string
+                  bootID:
+                    description: Boot ID reported by the node.
+                    type: string
+                  containerRuntimeVersion:
+                    description: ContainerRuntime Version reported by the node through runtime remote API (e.g. docker://1.5.0).
+                    type: string
+                  kernelVersion:
+                    description: Kernel Version reported by the node from 'uname -r' (e.g. 3.16.0-0.bpo.4-amd64).
+                    type: string
+                  kubeProxyVersion:
+                    description: KubeProxy Version reported by the node.
+                    type: string
+                  kubeletVersion:
+                    description: Kubelet Version reported by the node.
+                    type: string
+                  machineID:
+                    description: 'MachineID reported by the node. For unique machine identification in the cluster this field is preferred. Learn more from man(5) machine-id: http://man7.org/linux/man-pages/man5/machine-id.5.html'
+                    type: string
+                  operatingSystem:
+                    description: The Operating System reported by the node
+                    type: string
+                  osImage:
+                    description: OS Image reported by the node from /etc/os-release (e.g. Debian GNU/Linux 7 (wheezy)).
+                    type: string
+                  systemUUID:
+                    description: SystemUUID reported by the node. For unique machine identification MachineID is preferred. This field is specific to Red Hat hosts https://access.redhat.com/documentation/en-US/Red_Hat_Subscription_Management/1/html/RHSM/getting-system-uuid.html
+                    type: string
+                required:
+                - architecture
+                - bootID
+                - containerRuntimeVersion
+                - kernelVersion
+                - kubeProxyVersion
+                - kubeletVersion
+                - machineID
+                - operatingSystem
+                - osImage
+                - systemUUID
+                type: object
+              phase:
+                description: 'NodePhase is the recently observed lifecycle phase of the node. More info: https://kubernetes.io/docs/concepts/nodes/node/#phase The field is never populated, and now is deprecated.'
+                type: string
+              volumesAttached:
+                description: List of volumes that are attached to the node.
+                items:
+                  description: AttachedVolume describes a volume attached to a node
+                  properties:
+                    devicePath:
+                      description: DevicePath represents the device path where the volume should be available
+                      type: string
+                    name:
+                      description: Name of the attached volume
+                      type: string
+                  required:
+                  - devicePath
+                  - name
+                  type: object
+                type: array
+              volumesInUse:
+                description: List of attachable volumes in use (mounted) by the node.
+                items:
+                  type: string
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
