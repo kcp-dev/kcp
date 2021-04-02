@@ -393,6 +393,7 @@ github.com/kcp-dev/kubernetes/staging/src/k8s.io/cloud-provider v0.0.0-202104011
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/cloud-provider v0.0.0-20210401173646-b7fe326f997d/go.mod h1:jW0IWD1v1cNcp/vvXbVuovmZNSieKSZBdM7VmX1lrVI=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/cluster-bootstrap v0.0.0-20210401173646-b7fe326f997d h1:RA/WIx9y5fE77Xo26DIHrdRj6vlwuGgR+/ZDawNVLBw=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/cluster-bootstrap v0.0.0-20210401173646-b7fe326f997d/go.mod h1:oHXhD/NqW/vlYggpTUWbP2x6disww69H1jdsyirbJl8=
+github.com/kcp-dev/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20210401173646-b7fe326f997d h1:Q58JEpIOlg+belJDFoD2TcoTkoUlZxKSyA1zvGBllns=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20210401173646-b7fe326f997d/go.mod h1:qBtAbyavqI3lGwEvxrQk9wwUTWntOADx38Iizyn31nw=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-base v0.0.0-20210401173646-b7fe326f997d h1:Ta6xOZk8Zx0f6iqfty9LNQWsAbeO0Kz6yDPhThd/0/w=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-base v0.0.0-20210401173646-b7fe326f997d/go.mod h1:zRlCznOsLYdwq5DB2b/26X/n/04fhV3U3rMC60t80/Q=
@@ -648,9 +649,8 @@ github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.3 h1:MUGmc65QhB3pIlaQ5bB4LwqSj6GIonVJXpZiaKNyaKk=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
+go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738 h1:VcrIfasaLFkyjk6KNlXQSzO+B0fZcnECiDrKJsfxka0=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=
-go.etcd.io/etcd v0.5.0-alpha.5.0.20200625115826-4488595e0534 h1:xNbMEc4ik0rYm84p8aZ6Xeg6q89L7H0NF1ygv0xUOQw=
-go.etcd.io/etcd v0.5.0-alpha.5.0.20200625115826-4488595e0534/go.mod h1:skWido08r9w6Lq/w70DO5XYIKMu4QFu1+4VsqLQuJy8=
 go.mongodb.org/mongo-driver v1.0.3/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
 go.mongodb.org/mongo-driver v1.1.1/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
 go.mongodb.org/mongo-driver v1.1.2 h1:jxcFYjlkl8xaERsgLo+RNquI0epW6zuy/ZRQs6jnrFA=
@@ -898,6 +898,7 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.2/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
+k8s.io/gengo v0.0.0-20200114144118-36b2048a9120 h1:RPscN6KhmG54S33L+lr3GS+oD1jmchIU0ll519K6FA4=
 k8s.io/gengo v0.0.0-20200114144118-36b2048a9120/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/heapster v1.2.0-beta.1/go.mod h1:h1uhptVXMwC8xtZBYsPXKVi8fpdlYkTs6k949KozGrM=
 k8s.io/klog v0.0.0-20181102134211-b9b56d5dfc92/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
