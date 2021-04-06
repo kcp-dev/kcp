@@ -1,0 +1,566 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/dcl2crd: "true"
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+  name: osconfigguestpolicies.osconfig.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: osconfig.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: OSConfigGuestPolicy
+    plural: osconfigguestpolicies
+    shortNames:
+    - gcposconfigguestpolicy
+    - gcposconfigguestpolicies
+    singular: osconfigguestpolicy
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            assignment:
+              description: Specifies the VMs that are assigned this policy. This allows you to target sets or groups of VMs by different parameters such as labels, names, OS, or zones. Empty assignments will target ALL VMs underneath this policy. Conflict Management Policies that exist higher up in the resource hierarchy (closer to the Org) will override those lower down if there is a conflict. At the same level in the resource hierarchy (ie. within a project), the service will prevent the creation of multiple policies that conflict with each other. If there are multiple policies that specify the same config (eg. package, software recipe, repository, etc.), the service will ensure that no VM could potentially receive instructions from both policies. To create multiple policies that specify different versions of a package or different configs for different Operating Systems, each policy must be mutually exclusive in their targeting according to labels, OS, or other criteria. Different configs are identified for conflicts in different ways. Packages are identified by their name and the package manager(s) they target. Package repositories are identified by their unique id where applicable. Some package managers don't have a unique identifier for repositories and where that's the case, no uniqueness is validated by the service. Note that if OS Inventory is disabled, a VM will not be assigned a policy that targets by OS because the service will see this VM's OS as unknown.
+              properties:
+                groupLabels:
+                  description: Targets instances matching at least one of these label sets. This allows an assignment to target disparate groups, for example "env=prod or env=staging".
+                  items:
+                    properties:
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: GCE instance labels that must be present for an instance to be included in this assignment group.
+                        type: object
+                    type: object
+                  type: array
+                instanceNamePrefixes:
+                  description: Targets VMs whose name starts with one of these prefixes. Like labels, this is another way to group VMs when targeting configs, for example prefix=”prod-”. Only supported for project-level policies.
+                  items:
+                    type: string
+                  type: array
+                instances:
+                  items:
+                    oneOf:
+                    - not:
+                        required:
+                        - external
+                      required:
+                      - name
+                    - not:
+                        anyOf:
+                        - required:
+                          - name
+                        - required:
+                          - namespace
+                      required:
+                      - external
+                    properties:
+                      external:
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                    type: object
+                  type: array
+                osTypes:
+                  items:
+                    properties:
+                      osArchitecture:
+                        description: Targets VMs with OS Inventory enabled and having one of the following OS architectures.
+                        type: string
+                      osShortName:
+                        description: Targets VMs with OS Inventory enabled and having one of the following OS short names, for example "debian", "windows".
+                        type: string
+                      osVersion:
+                        description: Targets VMs with OS Inventory enabled and having one of the following OS versions.
+                        type: string
+                    type: object
+                  type: array
+                zones:
+                  description: Targets instances in ANY of these zones. Leave empty to target instances in any zone. Zonal targeting is uncommon and is supported to facilitate orchestrating changes by zone.
+                  items:
+                    type: string
+                  type: array
+              type: object
+            description:
+              description: Description of the GuestPolicy. Length of the description is limited to 1024 characters.
+              type: string
+            etag:
+              description: The etag for this GuestPolicy. If this is provided on update, it must match the server's etag.
+              type: string
+            packageRepositories:
+              description: List of package repository configurations assigned to the VM instance.
+              items:
+                properties:
+                  apt:
+                    description: An Apt Repository.
+                    properties:
+                      archiveType:
+                        description: 'Type of archive files in this repository. The default behavior is DEB. Possible values: ARCHIVE_TYPE_UNSPECIFIED, DEB, DEB_SRC'
+                        type: string
+                      components:
+                        description: List of components for this repository. Must contain at least one item.
+                        items:
+                          type: string
+                        type: array
+                      distribution:
+                        description: Required. Distribution of this repository.
+                        type: string
+                      gpgKey:
+                        description: Optional. URI of the key file for this repository. The agent will maintain a keyring at /etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg containing all the keys in any applied GuestPolicy.
+                        type: string
+                      uri:
+                        description: Required. URI for this repository.
+                        type: string
+                    required:
+                    - distribution
+                    - uri
+                    type: object
+                  goo:
+                    description: A Goo Repository.
+                    properties:
+                      name:
+                        description: Required. The name of the repository.
+                        type: string
+                      url:
+                        description: Required. The url of the repository.
+                        type: string
+                    required:
+                    - name
+                    - url
+                    type: object
+                  yum:
+                    description: A Yum Repository.
+                    properties:
+                      baseUrl:
+                        description: Required. The location of the repository directory.
+                        type: string
+                      displayName:
+                        description: Optional.
+                        type: string
+                      gpgKeys:
+                        description: Optional. URIs of GPG keys.
+                        items:
+                          type: string
+                        type: array
+                      id:
+                        description: Required. A one word, unique name for this repository. This will be the `repo id` in the yum config file and also the `display_name` if `display_name` is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts.
+                        type: string
+                    required:
+                    - baseUrl
+                    - id
+                    type: object
+                  zypper:
+                    description: A Zypper Repository.
+                    properties:
+                      baseUrl:
+                        description: Required. The location of the repository directory.
+                        type: string
+                      displayName:
+                        description: Optional.
+                        type: string
+                      gpgKeys:
+                        description: Optional. URIs of GPG keys.
+                        items:
+                          type: string
+                        type: array
+                      id:
+                        description: Required. A one word, unique name for this repository. This will be the `repo id` in the zypper config file and also the `display_name` if `display_name` is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts.
+                        type: string
+                    required:
+                    - baseUrl
+                    - id
+                    type: object
+                type: object
+              type: array
+            packages:
+              description: List of package configurations assigned to the VM instance.
+              items:
+                properties:
+                  desiredState:
+                    description: 'Optional. The desired_state the agent should maintain for this package. The default is to ensure the package is installed. Possible values: DESIRED_STATE_UNSPECIFIED, INSTALLED, REMOVED'
+                    type: string
+                  manager:
+                    description: 'Optional. Type of package manager that can be used to install this package. If a system does not have the package manager, the package will not be installed/removed and there is no error. By default or when specifying ANY, the agent will attempt to install and remove this package using the default package manager. This is helpful when creating a policy that applies to different types of systems. The default behavior is ANY. Possible values: MANAGER_UNSPECIFIED, ANY, APT, YUM, ZYPPER, GOO'
+                    type: string
+                  name:
+                    description: The name of the package. A package is uniquely identified for conflict validation by checking its name and the manager(s) it targets.
+                    type: string
+                type: object
+              type: array
+            recipes:
+              description: Optional. A list of Recipes to install on the VM.
+              items:
+                properties:
+                  artifacts:
+                    description: Resources available to be used in the steps in the recipe.
+                    items:
+                      properties:
+                        allowInsecure:
+                          description: 'Defaults to false. When false, recipes will be subject to validations based on the artifact type: Remote: A checksum must be specified, and only protocols with transport-layer security will be permitted. GCS: An object generation number must be specified.'
+                          type: boolean
+                        gcs:
+                          description: A GCS artifact.
+                          properties:
+                            bucketRef:
+                              oneOf:
+                              - not:
+                                  required:
+                                  - external
+                                required:
+                                - name
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - name
+                                  - required:
+                                    - namespace
+                                required:
+                                - external
+                              properties:
+                                external:
+                                  description: Bucket of the GCS object.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                namespace:
+                                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                                  type: string
+                              type: object
+                            generation:
+                              description: Optional if allow_insecure is true. Generation number of the GCS object.
+                              format: int64
+                              type: integer
+                            object:
+                              description: Name of the GCS object.
+                              type: string
+                          type: object
+                        id:
+                          description: Id of the artifact, which the installation and update steps of this recipe can reference. Artifacts in a recipe cannot have the same id.
+                          type: string
+                        remote:
+                          description: A generic remote artifact.
+                          properties:
+                            checksum:
+                              description: Optional if allow_insecure is true. SHA256 checksum to compare to the checksum of the artifact. If the checksum is not empty and it doesn't match the artifact then the recipe installation will fail before running any of the steps.
+                              type: string
+                            uri:
+                              description: URI from which to fetch the object. It should contain both the protocol and path following the format {protocol}://{location}.
+                              type: string
+                          type: object
+                      type: object
+                    type: array
+                  desiredState:
+                    description: 'Default is INSTALLED. The desired state the agent should maintain for this recipe. INSTALLED: The software recipe will be installed on the instance but won''t be updated to new versions. INSTALLED_KEEP_UPDATED: The software recipe will be installed on the instance. It will also be updated to a higher version of the recipe if a higher version is assigned to this instance. REMOVE: Remove is unsupported for software recipes and attempts to create or update a recipe to the REMOVE state will be rejected. Possible values: DESIRED_STATE_UNSPECIFIED, INSTALLED, REMOVED'
+                    type: string
+                  installSteps:
+                    description: Actions to be taken for installing this recipe. On failure it will stop executing steps and not attempt another installation. Any steps taken (including partially completed steps) will not be rolled back.
+                    items:
+                      properties:
+                        archiveExtraction:
+                          description: Extracts an archive into the specified directory.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            destination:
+                              description: 'Directory to extract archive to. Defaults to / on Linux or C: on Windows.'
+                              type: string
+                            type:
+                              description: 'The type of the archive to extract. Possible values: TYPE_UNSPECIFIED, VALIDATION, DESIRED_STATE_CHECK, DESIRED_STATE_ENFORCEMENT, DESIRED_STATE_CHECK_POST_ENFORCEMENT'
+                              type: string
+                          type: object
+                        dpkgInstallation:
+                          description: Installs a deb file via dpkg.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                          type: object
+                        fileCopy:
+                          description: Copies a file onto the instance.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            destination:
+                              description: The absolute path on the instance to put the file.
+                              type: string
+                            overwrite:
+                              description: Whether to allow this step to overwrite existing files. If this is false and the file already exists the file will not be overwritten and the step will be considered a success. Defaults to false.
+                              type: boolean
+                            permissions:
+                              description: 'Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4'
+                              type: string
+                          type: object
+                        fileExec:
+                          description: Executes an artifact or local file.
+                          properties:
+                            allowedExitCodes:
+                              description: Defaults to . A list of possible return values that the program can return to indicate a success.
+                              items:
+                                format: int64
+                                type: integer
+                              type: array
+                            args:
+                              description: Arguments to be passed to the provided executable.
+                              items:
+                                type: string
+                              type: array
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            localPath:
+                              description: The absolute path of the file on the local filesystem.
+                              type: string
+                          type: object
+                        msiInstallation:
+                          description: Installs an MSI file.
+                          properties:
+                            allowedExitCodes:
+                              description: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to
+                              items:
+                                format: int64
+                                type: integer
+                              type: array
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            flags:
+                              description: The flags to use when installing the MSI defaults to (i.e. the install flag).
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        rpmInstallation:
+                          description: Installs an rpm file via the rpm utility.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                          type: object
+                        scriptRun:
+                          description: Runs commands in a shell.
+                          properties:
+                            allowedExitCodes:
+                              description: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to
+                              items:
+                                format: int64
+                                type: integer
+                              type: array
+                            interpreter:
+                              description: 'The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. (https://en.wikipedia.org/wiki/Shebang_(Unix)). Possible values: INTERPRETER_UNSPECIFIED, NONE, SHELL, POWERSHELL'
+                              type: string
+                            script:
+                              description: The shell script to be executed.
+                              type: string
+                          type: object
+                      type: object
+                    type: array
+                  name:
+                    description: Unique identifier for the recipe. Only one recipe with a given name will be installed on an instance. Names are also used to identify resource to determine whether guest policies conflict. This means that requests to create multiple recipes with the same name and version that could possibly have conflicting assignments will be rejected.
+                    type: string
+                  updateSteps:
+                    description: Actions to be taken for updating this recipe. On failure it will stop executing steps and not attempt another update for this recipe. Any steps taken (including partially completed steps) will not be rolled back.
+                    items:
+                      properties:
+                        archiveExtraction:
+                          description: Extracts an archive into the specified directory.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            destination:
+                              description: 'Directory to extract archive to. Defaults to / on Linux or C: on Windows.'
+                              type: string
+                            type:
+                              description: 'The type of the archive to extract. Possible values: TYPE_UNSPECIFIED, VALIDATION, DESIRED_STATE_CHECK, DESIRED_STATE_ENFORCEMENT, DESIRED_STATE_CHECK_POST_ENFORCEMENT'
+                              type: string
+                          type: object
+                        dpkgInstallation:
+                          description: Installs a deb file via dpkg.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                          type: object
+                        fileCopy:
+                          description: Copies a file onto the instance.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            destination:
+                              description: The absolute path on the instance to put the file.
+                              type: string
+                            overwrite:
+                              description: Whether to allow this step to overwrite existing files. If this is false and the file already exists the file will not be overwritten and the step will be considered a success. Defaults to false.
+                              type: boolean
+                            permissions:
+                              description: 'Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4'
+                              type: string
+                          type: object
+                        fileExec:
+                          description: Executes an artifact or local file.
+                          properties:
+                            allowedExitCodes:
+                              description: Defaults to . A list of possible return values that the program can return to indicate a success.
+                              items:
+                                format: int64
+                                type: integer
+                              type: array
+                            args:
+                              description: Arguments to be passed to the provided executable.
+                              items:
+                                type: string
+                              type: array
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            localPath:
+                              description: The absolute path of the file on the local filesystem.
+                              type: string
+                          type: object
+                        msiInstallation:
+                          description: Installs an MSI file.
+                          properties:
+                            allowedExitCodes:
+                              description: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to
+                              items:
+                                format: int64
+                                type: integer
+                              type: array
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                            flags:
+                              description: The flags to use when installing the MSI defaults to (i.e. the install flag).
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        rpmInstallation:
+                          description: Installs an rpm file via the rpm utility.
+                          properties:
+                            artifactId:
+                              description: The id of the relevant artifact in the recipe.
+                              type: string
+                          type: object
+                        scriptRun:
+                          description: Runs commands in a shell.
+                          properties:
+                            allowedExitCodes:
+                              description: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to
+                              items:
+                                format: int64
+                                type: integer
+                              type: array
+                            interpreter:
+                              description: 'The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. (https://en.wikipedia.org/wiki/Shebang_(Unix)). Possible values: INTERPRETER_UNSPECIFIED, NONE, SHELL, POWERSHELL'
+                              type: string
+                            script:
+                              description: The shell script to be executed.
+                              type: string
+                          type: object
+                      type: object
+                    type: array
+                  version:
+                    description: The version of this software recipe. Version can be up to 4 period separated numbers (e.g. 12.34.56.78).
+                    type: string
+                type: object
+              type: array
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            createTime:
+              description: Output only. Time this GuestPolicy was created.
+              format: date-time
+              type: string
+            updateTime:
+              description: Output only. Last time this GuestPolicy was updated.
+              format: date-time
+              type: string
+          type: object
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

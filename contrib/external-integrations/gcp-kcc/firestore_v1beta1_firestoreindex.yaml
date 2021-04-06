@@ -1,0 +1,145 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: firestoreindexes.firestore.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: firestore.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: FirestoreIndex
+    plural: firestoreindexes
+    shortNames:
+    - gcpfirestoreindex
+    - gcpfirestoreindexes
+    singular: firestoreindex
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            collection:
+              description: Immutable. The collection being indexed.
+              type: string
+            database:
+              description: Immutable. The Firestore database id. Defaults to '"(default)"'.
+              type: string
+            fields:
+              description: |-
+                Immutable. The fields supported by this index. The last field entry is always for
+                the field path '__name__'. If, on creation, '__name__' was not
+                specified as the last field, it will be added automatically with the
+                same direction as that of the last field defined. If the final field
+                in a composite index is not directional, the '__name__' will be
+                ordered '"ASCENDING"' (unless explicitly specified otherwise).
+              items:
+                properties:
+                  arrayConfig:
+                    description: |-
+                      Immutable. Indicates that this field supports operations on arrayValues. Only one of 'order' and 'arrayConfig' can
+                      be specified. Possible values: ["CONTAINS"]
+                    type: string
+                  fieldPath:
+                    description: Immutable. Name of the field.
+                    type: string
+                  order:
+                    description: |-
+                      Immutable. Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=.
+                      Only one of 'order' and 'arrayConfig' can be specified. Possible values: ["ASCENDING", "DESCENDING"]
+                    type: string
+                type: object
+              type: array
+            queryScope:
+              description: 'Immutable. The scope at which a query is run. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP"]'
+              type: string
+          required:
+          - collection
+          - fields
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            name:
+              description: |-
+                A server defined name for this index. Format:
+                'projects/{{project}}/databases/{{database}}/collectionGroups/{{collection}}/indexes/{{server_generated_id}}'
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

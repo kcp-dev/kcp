@@ -1,0 +1,313 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: computerouternats.compute.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: compute.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ComputeRouterNAT
+    plural: computerouternats
+    shortNames:
+    - gcpcomputerouternat
+    - gcpcomputerouternats
+    singular: computerouternat
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            drainNatIps:
+              items:
+                description: |-
+                  A list of IP resources to be drained. These IPs must be valid
+                  static external IPs that have been assigned to the NAT.
+                oneOf:
+                - not:
+                    required:
+                    - external
+                  required:
+                  - name
+                - not:
+                    anyOf:
+                    - required:
+                      - name
+                    - required:
+                      - namespace
+                  required:
+                  - external
+                properties:
+                  external:
+                    description: The selfLink of a ComputeAddress.
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    type: string
+                  namespace:
+                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    type: string
+                type: object
+              type: array
+            enableEndpointIndependentMapping:
+              description: |-
+                Specifies if endpoint independent mapping is enabled. This is enabled by default. For more information
+                see the [official documentation](https://cloud.google.com/nat/docs/overview#specs-rfcs).
+              type: boolean
+            icmpIdleTimeoutSec:
+              description: Timeout (in seconds) for ICMP connections. Defaults to 30s if not set.
+              type: integer
+            logConfig:
+              description: Configuration for logging on NAT
+              properties:
+                enable:
+                  description: Indicates whether or not to export logs.
+                  type: boolean
+                filter:
+                  description: 'Specifies the desired filtering of logs on this NAT. Possible values: ["ERRORS_ONLY", "TRANSLATIONS_ONLY", "ALL"]'
+                  type: string
+              required:
+              - enable
+              - filter
+              type: object
+            minPortsPerVm:
+              description: Minimum number of ports allocated to a VM from this NAT.
+              type: integer
+            natIpAllocateOption:
+              description: |-
+                How external IPs should be allocated for this NAT. Valid values are
+                'AUTO_ONLY' for only allowing NAT IPs allocated by Google Cloud
+                Platform, or 'MANUAL_ONLY' for only user-allocated NAT IP addresses. Possible values: ["MANUAL_ONLY", "AUTO_ONLY"]
+              type: string
+            natIps:
+              items:
+                description: NAT IPs. Only valid if natIpAllocateOption is set to MANUAL_ONLY.
+                oneOf:
+                - not:
+                    required:
+                    - external
+                  required:
+                  - name
+                - not:
+                    anyOf:
+                    - required:
+                      - name
+                    - required:
+                      - namespace
+                  required:
+                  - external
+                properties:
+                  external:
+                    description: The selfLink of a ComputeAddress.
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    type: string
+                  namespace:
+                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    type: string
+                type: object
+              type: array
+            region:
+              description: Immutable. Region where the router and NAT reside.
+              type: string
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            routerRef:
+              description: The Cloud Router in which this NAT will be configured.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a ComputeRouter.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            sourceSubnetworkIpRangesToNat:
+              description: |-
+                How NAT should be configured per Subnetwork.
+                If 'ALL_SUBNETWORKS_ALL_IP_RANGES', all of the
+                IP ranges in every Subnetwork are allowed to Nat.
+                If 'ALL_SUBNETWORKS_ALL_PRIMARY_IP_RANGES', all of the primary IP
+                ranges in every Subnetwork are allowed to Nat.
+                'LIST_OF_SUBNETWORKS': A list of Subnetworks are allowed to Nat
+                (specified in the field subnetwork below). Note that if this field
+                contains ALL_SUBNETWORKS_ALL_IP_RANGES or
+                ALL_SUBNETWORKS_ALL_PRIMARY_IP_RANGES, then there should not be any
+                other RouterNat section in any Router for this network in this region. Possible values: ["ALL_SUBNETWORKS_ALL_IP_RANGES", "ALL_SUBNETWORKS_ALL_PRIMARY_IP_RANGES", "LIST_OF_SUBNETWORKS"]
+              type: string
+            subnetwork:
+              description: |-
+                One or more subnetwork NAT configurations. Only used if
+                'source_subnetwork_ip_ranges_to_nat' is set to 'LIST_OF_SUBNETWORKS'
+              items:
+                properties:
+                  secondaryIpRangeNames:
+                    description: |-
+                      List of the secondary ranges of the subnetwork that are allowed
+                      to use NAT. This can be populated only if
+                      'LIST_OF_SECONDARY_IP_RANGES' is one of the values in
+                      sourceIpRangesToNat
+                    items:
+                      type: string
+                    type: array
+                  sourceIpRangesToNat:
+                    description: |-
+                      List of options for which source IPs in the subnetwork
+                      should have NAT enabled. Supported values include:
+                      'ALL_IP_RANGES', 'LIST_OF_SECONDARY_IP_RANGES',
+                      'PRIMARY_IP_RANGE'.
+                    items:
+                      type: string
+                    type: array
+                  subnetworkRef:
+                    description: The subnetwork to NAT.
+                    oneOf:
+                    - not:
+                        required:
+                        - external
+                      required:
+                      - name
+                    - not:
+                        anyOf:
+                        - required:
+                          - name
+                        - required:
+                          - namespace
+                      required:
+                      - external
+                    properties:
+                      external:
+                        description: The selfLink of a ComputeSubnetwork.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                    type: object
+                required:
+                - sourceIpRangesToNat
+                - subnetworkRef
+                type: object
+              type: array
+            tcpEstablishedIdleTimeoutSec:
+              description: |-
+                Timeout (in seconds) for TCP established connections.
+                Defaults to 1200s if not set.
+              type: integer
+            tcpTransitoryIdleTimeoutSec:
+              description: |-
+                Timeout (in seconds) for TCP transitory connections.
+                Defaults to 30s if not set.
+              type: integer
+            udpIdleTimeoutSec:
+              description: Timeout (in seconds) for UDP connections. Defaults to 30s if not set.
+              type: integer
+          required:
+          - natIpAllocateOption
+          - region
+          - routerRef
+          - sourceSubnetworkIpRangesToNat
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

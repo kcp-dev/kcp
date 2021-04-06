@@ -1,0 +1,205 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    controller-tools.k8s.io: "1.0"
+  name: iampolicies.iam.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True' the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    name: Status Age
+    type: date
+  group: iam.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: IAMPolicy
+    plural: iampolicies
+    shortNames:
+    - gcpiampolicy
+    - gcpiampolicies
+    singular: iampolicy
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            auditConfigs:
+              description: Optional. The list of IAM audit configs.
+              items:
+                properties:
+                  auditLogConfigs:
+                    description: Required. The configuration for logging of each type of permission.
+                    items:
+                      properties:
+                        exemptedMembers:
+                          description: Identities that do not cause logging for this type of permission. The format is the same as that for 'members' in IAMPolicy/IAMPolicyMember.
+                          items:
+                            pattern: ^(user|serviceAccount|group|domain|projectEditor|projectOwner|projectViewer):.+|allUsers|allAuthenticatedUsers$
+                            type: string
+                          pattern: ^(user|serviceAccount|group|domain|projectEditor|projectOwner|projectViewer):.+|allUsers|allAuthenticatedUsers$
+                          type: array
+                        logType:
+                          description: Permission type for which logging is to be configured. Must be one of 'DATA_READ', 'DATA_WRITE', or 'ADMIN_READ'.
+                          pattern: ^(DATA_READ|DATA_WRITE|ADMIN_READ)$
+                          type: string
+                      required:
+                      - logType
+                      type: object
+                    type: array
+                  service:
+                    description: 'Required. The service for which to enable Data Access audit logs. The special value ''allServices'' covers all services. Note that if there are audit configs covering both ''allServices'' and a specific service, then the union of the two audit configs is used for that service: the ''logTypes'' specified in each ''auditLogConfig'' are enabled, and the ''exemptedMembers'' in each ''auditLogConfg'' are exempted.'
+                    type: string
+                required:
+                - service
+                - auditLogConfigs
+                type: object
+              type: array
+            bindings:
+              description: Optional. The list of IAM bindings.
+              items:
+                properties:
+                  condition:
+                    description: Optional. The condition under which the binding applies.
+                    properties:
+                      description:
+                        type: string
+                      expression:
+                        type: string
+                      title:
+                        type: string
+                    required:
+                    - title
+                    - expression
+                    type: object
+                  members:
+                    description: Optional. The list of IAM users to be bound to the role.
+                    items:
+                      pattern: ^(user|serviceAccount|group|domain|projectEditor|projectOwner|projectViewer):.+|allUsers|allAuthenticatedUsers$
+                      type: string
+                    pattern: ^(user|serviceAccount|group|domain|projectEditor|projectOwner|projectViewer):.+|allUsers|allAuthenticatedUsers$
+                    type: array
+                  role:
+                    description: Required. The role to bind the users to.
+                    pattern: ^((projects|organizations)/[^/]+/)?roles/[\w_\.]+$
+                    type: string
+                required:
+                - role
+                type: object
+              type: array
+            resourceRef:
+              description: Immutable. Required. The GCP resource to set the IAM policy on.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                  - required:
+                    - apiVersion
+                  - required:
+                    - external
+              properties:
+                apiVersion:
+                  type: string
+                external:
+                  type: string
+                kind:
+                  type: string
+                name:
+                  type: string
+                namespace:
+                  type: string
+              required:
+              - kind
+              type: object
+          required:
+          - resourceRef
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observations of the IAM policy's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+          type: object
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

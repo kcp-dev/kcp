@@ -1,0 +1,349 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: computevpntunnels.compute.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: compute.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ComputeVPNTunnel
+    plural: computevpntunnels
+    shortNames:
+    - gcpcomputevpntunnel
+    - gcpcomputevpntunnels
+    singular: computevpntunnel
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            description:
+              description: Immutable. An optional description of this resource.
+              type: string
+            ikeVersion:
+              description: |-
+                Immutable. IKE protocol version to use when establishing the VPN tunnel with
+                peer VPN gateway.
+                Acceptable IKE versions are 1 or 2. Default version is 2.
+              type: integer
+            localTrafficSelector:
+              description: |-
+                Immutable. Local traffic selector to use when establishing the VPN tunnel with
+                peer VPN gateway. The value should be a CIDR formatted string,
+                for example '192.168.0.0/16'. The ranges should be disjoint.
+                Only IPv4 is supported.
+              items:
+                type: string
+              type: array
+            peerExternalGatewayInterface:
+              description: Immutable. The interface ID of the external VPN gateway to which this VPN tunnel is connected.
+              type: integer
+            peerExternalGatewayRef:
+              description: |-
+                The peer side external VPN gateway to which this VPN tunnel
+                is connected.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeExternalVPNGateway.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            peerGCPGatewayRef:
+              description: |-
+                The peer side HA GCP VPN gateway to which this VPN tunnel is
+                connected. If provided, the VPN tunnel will automatically use the
+                same VPN gateway interface ID in the peer GCP VPN gateway.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeVPNGateway.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            peerIp:
+              description: Immutable. IP address of the peer VPN gateway. Only IPv4 is supported.
+              type: string
+            region:
+              description: Immutable. The region where the tunnel is located. If unset, is set to the region of 'target_vpn_gateway'.
+              type: string
+            remoteTrafficSelector:
+              description: |-
+                Immutable. Remote traffic selector to use when establishing the VPN tunnel with
+                peer VPN gateway. The value should be a CIDR formatted string,
+                for example '192.168.0.0/16'. The ranges should be disjoint.
+                Only IPv4 is supported.
+              items:
+                type: string
+              type: array
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            routerRef:
+              description: The router to be used for dynamic routing.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeRouter.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            sharedSecret:
+              description: |-
+                Immutable. Shared secret used to set the secure session between the Cloud VPN
+                gateway and the peer VPN gateway.
+              oneOf:
+              - not:
+                  required:
+                  - valueFrom
+                required:
+                - value
+              - not:
+                  required:
+                  - value
+                required:
+                - valueFrom
+              properties:
+                value:
+                  description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                  type: string
+                valueFrom:
+                  description: Source for the field's value. Cannot be used if 'value' is specified.
+                  properties:
+                    secretKeyRef:
+                      description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                      properties:
+                        key:
+                          description: Key that identifies the value to be extracted.
+                          type: string
+                        name:
+                          description: Name of the Secret to extract a value from.
+                          type: string
+                      required:
+                      - name
+                      - key
+                      type: object
+                  type: object
+              type: object
+            targetVPNGatewayRef:
+              description: |-
+                The ComputeTargetVPNGateway with which this VPN tunnel is
+                associated.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeTargetVPNGateway.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            vpnGatewayInterface:
+              description: Immutable. The interface ID of the VPN gateway with which this VPN tunnel is associated.
+              type: integer
+            vpnGatewayRef:
+              description: |-
+                The ComputeVPNGateway with which this VPN tunnel is associated.
+                This must be used if a High Availability VPN gateway resource is
+                created.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeVPNGateway.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+          required:
+          - region
+          - sharedSecret
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            creationTimestamp:
+              description: Creation timestamp in RFC3339 text format.
+              type: string
+            detailedStatus:
+              description: Detailed status message for the VPN tunnel.
+              type: string
+            labelFingerprint:
+              description: |-
+                The fingerprint used for optimistic locking of this resource.  Used
+                internally during updates.
+              type: string
+            selfLink:
+              type: string
+            sharedSecretHash:
+              description: Hash of the shared secret.
+              type: string
+            tunnelId:
+              description: The unique identifier for the resource. This identifier is defined by the server.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

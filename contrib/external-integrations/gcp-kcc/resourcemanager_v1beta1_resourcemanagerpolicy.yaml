@@ -1,0 +1,256 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: resourcemanagerpolicies.resourcemanager.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: resourcemanager.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ResourceManagerPolicy
+    plural: resourcemanagerpolicies
+    shortNames:
+    - gcpresourcemanagerpolicy
+    - gcpresourcemanagerpolicies
+    singular: resourcemanagerpolicy
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            booleanPolicy:
+              description: A boolean policy is a constraint that is either enforced or not.
+              properties:
+                enforced:
+                  description: If true, then the Policy is enforced. If false, then any configuration is acceptable.
+                  type: boolean
+              required:
+              - enforced
+              type: object
+            constraint:
+              description: Immutable. The name of the Constraint the Policy is configuring, for example, serviceuser.services.
+              type: string
+            folderRef:
+              description: |-
+                The folder on which to configure the constraint. Only one of
+                projectRef, folderRef, or organizationRef may be specified.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a Folder.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            listPolicy:
+              description: 'A policy that can define specific values that are allowed or denied for the given constraint. It can also be used to allow or deny all values. '
+              properties:
+                allow:
+                  description: One or the other must be set.
+                  properties:
+                    all:
+                      description: The policy allows or denies all values.
+                      type: boolean
+                    values:
+                      description: The policy can define specific values that are allowed or denied.
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                deny:
+                  description: One or the other must be set.
+                  properties:
+                    all:
+                      description: The policy allows or denies all values.
+                      type: boolean
+                    values:
+                      description: The policy can define specific values that are allowed or denied.
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                inheritFromParent:
+                  description: If set to true, the values from the effective Policy of the parent resource are inherited, meaning the values set in this Policy are added to the values inherited up the hierarchy.
+                  type: boolean
+                suggestedValue:
+                  description: The Google Cloud Console will try to default to a configuration that matches the value specified in this field.
+                  type: string
+              type: object
+            organizationRef:
+              description: |-
+                The organization on which to configure the constraint. Only one of
+                projectRef, folderRef, or organizationRef may be specified.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of an Organization.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            projectRef:
+              description: |-
+                The project on which to configure the constraint. Only one of
+                projectRef, folderRef, or organizationRef may be specified.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a Project.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            restorePolicy:
+              description: A restore policy is a constraint to restore the default policy.
+              properties:
+                default:
+                  description: May only be set to true. If set, then the default Policy is restored.
+                  type: boolean
+              required:
+              - default
+              type: object
+            version:
+              description: Version of the Policy. Default version is 0.
+              type: integer
+          required:
+          - constraint
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            etag:
+              description: The etag of the organization policy. etag is used for optimistic concurrency control as a way to help prevent simultaneous updates of a policy from overwriting each other.
+              type: string
+            updateTime:
+              description: 'The timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds, representing when the variable was last updated. Example: "2016-10-09T12:33:37.578138407Z".'
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

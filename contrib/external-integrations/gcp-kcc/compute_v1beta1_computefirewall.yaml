@@ -1,0 +1,360 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: computefirewalls.compute.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: compute.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ComputeFirewall
+    plural: computefirewalls
+    shortNames:
+    - gcpcomputefirewall
+    - gcpcomputefirewalls
+    singular: computefirewall
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            allow:
+              description: |-
+                The list of ALLOW rules specified by this firewall. Each rule
+                specifies a protocol and port-range tuple that describes a permitted
+                connection.
+              items:
+                properties:
+                  ports:
+                    description: |-
+                      An optional list of ports to which this rule applies. This field
+                      is only applicable for UDP or TCP protocol. Each entry must be
+                      either an integer or a range. If not specified, this rule
+                      applies to connections through any port.
+
+                      Example inputs include: ["22"], ["80","443"], and
+                      ["12345-12349"].
+                    items:
+                      type: string
+                    type: array
+                  protocol:
+                    description: |-
+                      The IP protocol to which this rule applies. The protocol type is
+                      required when creating a firewall rule. This value can either be
+                      one of the following well known protocol strings (tcp, udp,
+                      icmp, esp, ah, sctp, ipip, all), or the IP protocol number.
+                    type: string
+                required:
+                - protocol
+                type: object
+              type: array
+            deny:
+              description: |-
+                The list of DENY rules specified by this firewall. Each rule specifies
+                a protocol and port-range tuple that describes a denied connection.
+              items:
+                properties:
+                  ports:
+                    description: |-
+                      An optional list of ports to which this rule applies. This field
+                      is only applicable for UDP or TCP protocol. Each entry must be
+                      either an integer or a range. If not specified, this rule
+                      applies to connections through any port.
+
+                      Example inputs include: ["22"], ["80","443"], and
+                      ["12345-12349"].
+                    items:
+                      type: string
+                    type: array
+                  protocol:
+                    description: |-
+                      The IP protocol to which this rule applies. The protocol type is
+                      required when creating a firewall rule. This value can either be
+                      one of the following well known protocol strings (tcp, udp,
+                      icmp, esp, ah, sctp, ipip, all), or the IP protocol number.
+                    type: string
+                required:
+                - protocol
+                type: object
+              type: array
+            description:
+              description: |-
+                An optional description of this resource. Provide this property when
+                you create the resource.
+              type: string
+            destinationRanges:
+              description: |-
+                If destination ranges are specified, the firewall will apply only to
+                traffic that has destination IP address in these ranges. These ranges
+                must be expressed in CIDR format. Only IPv4 is supported.
+              items:
+                type: string
+              type: array
+            direction:
+              description: |-
+                Immutable. Direction of traffic to which this firewall applies; default is
+                INGRESS. Note: For INGRESS traffic, it is NOT supported to specify
+                destinationRanges; For EGRESS traffic, it is NOT supported to specify
+                sourceRanges OR sourceTags. Possible values: ["INGRESS", "EGRESS"]
+              type: string
+            disabled:
+              description: |-
+                Denotes whether the firewall rule is disabled, i.e not applied to the
+                network it is associated with. When set to true, the firewall rule is
+                not enforced and the network behaves as if it did not exist. If this
+                is unspecified, the firewall rule will be enabled.
+              type: boolean
+            enableLogging:
+              description: DEPRECATED — Deprecated in favor of log_config. This field denotes whether to enable logging for a particular firewall rule. If logging is enabled, logs will be exported to Stackdriver.
+              type: boolean
+            logConfig:
+              description: |-
+                This field denotes the logging options for a particular firewall rule.
+                If defined, logging is enabled, and logs will be exported to Cloud Logging.
+              properties:
+                metadata:
+                  description: 'This field denotes whether to include or exclude metadata for firewall logs. Possible values: ["EXCLUDE_ALL_METADATA", "INCLUDE_ALL_METADATA"]'
+                  type: string
+              required:
+              - metadata
+              type: object
+            networkRef:
+              description: The network to attach this firewall to.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeNetwork.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            priority:
+              description: |-
+                Priority for this rule. This is an integer between 0 and 65535, both
+                inclusive. When not specified, the value assumed is 1000. Relative
+                priorities determine precedence of conflicting rules. Lower value of
+                priority implies higher precedence (eg, a rule with priority 0 has
+                higher precedence than a rule with priority 1). DENY rules take
+                precedence over ALLOW rules having equal priority.
+              type: integer
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            sourceRanges:
+              description: |-
+                If source ranges are specified, the firewall will apply only to
+                traffic that has source IP address in these ranges. These ranges must
+                be expressed in CIDR format. One or both of sourceRanges and
+                sourceTags may be set. If both properties are set, the firewall will
+                apply to traffic that has source IP address within sourceRanges OR the
+                source IP that belongs to a tag listed in the sourceTags property. The
+                connection does not need to match both properties for the firewall to
+                apply. Only IPv4 is supported.
+              items:
+                type: string
+              type: array
+            sourceServiceAccounts:
+              items:
+                description: |-
+                  If source service accounts are specified, the firewall will apply only
+                  to traffic originating from an instance with a service account in this
+                  list. Source service accounts cannot be used to control traffic to an
+                  instance's external IP address because service accounts are associated
+                  with an instance, not an IP address. sourceRanges can be set at the
+                  same time as sourceServiceAccounts. If both are set, the firewall will
+                  apply to traffic that has source IP address within sourceRanges OR the
+                  source IP belongs to an instance with service account listed in
+                  sourceServiceAccount. The connection does not need to match both
+                  properties for the firewall to apply. sourceServiceAccounts cannot be
+                  used at the same time as sourceTags or targetTags.
+                oneOf:
+                - not:
+                    required:
+                    - external
+                  required:
+                  - name
+                - not:
+                    anyOf:
+                    - required:
+                      - name
+                    - required:
+                      - namespace
+                  required:
+                  - external
+                properties:
+                  external:
+                    description: The email of an IAMServiceAccount.
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    type: string
+                  namespace:
+                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    type: string
+                type: object
+              type: array
+            sourceTags:
+              description: |-
+                If source tags are specified, the firewall will apply only to traffic
+                with source IP that belongs to a tag listed in source tags. Source
+                tags cannot be used to control traffic to an instance's external IP
+                address. Because tags are associated with an instance, not an IP
+                address. One or both of sourceRanges and sourceTags may be set. If
+                both properties are set, the firewall will apply to traffic that has
+                source IP address within sourceRanges OR the source IP that belongs to
+                a tag listed in the sourceTags property. The connection does not need
+                to match both properties for the firewall to apply.
+              items:
+                type: string
+              type: array
+            targetServiceAccounts:
+              items:
+                description: |-
+                  A list of service accounts indicating sets of instances located in the
+                  network that may make network connections as specified in allowed[].
+                  targetServiceAccounts cannot be used at the same time as targetTags or
+                  sourceTags. If neither targetServiceAccounts nor targetTags are
+                  specified, the firewall rule applies to all instances on the specified
+                  network.
+                oneOf:
+                - not:
+                    required:
+                    - external
+                  required:
+                  - name
+                - not:
+                    anyOf:
+                    - required:
+                      - name
+                    - required:
+                      - namespace
+                  required:
+                  - external
+                properties:
+                  external:
+                    description: The email of an IAMServiceAccount.
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    type: string
+                  namespace:
+                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    type: string
+                type: object
+              type: array
+            targetTags:
+              description: |-
+                A list of instance tags indicating sets of instances located in the
+                network that may make network connections as specified in allowed[].
+                If no targetTags are specified, the firewall rule applies to all
+                instances on the specified network.
+              items:
+                type: string
+              type: array
+          required:
+          - networkRef
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            creationTimestamp:
+              description: Creation timestamp in RFC3339 text format.
+              type: string
+            selfLink:
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

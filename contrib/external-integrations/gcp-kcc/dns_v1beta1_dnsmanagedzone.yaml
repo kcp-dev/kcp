@@ -1,0 +1,307 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: dnsmanagedzones.dns.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: dns.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: DNSManagedZone
+    plural: dnsmanagedzones
+    shortNames:
+    - gcpdnsmanagedzone
+    - gcpdnsmanagedzones
+    singular: dnsmanagedzone
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            description:
+              description: A textual description field. Defaults to 'Managed by Config Connector'.
+              type: string
+            dnsName:
+              description: Immutable. The DNS name of this managed zone, for instance "example.com.".
+              type: string
+            dnssecConfig:
+              description: DNSSEC configuration
+              properties:
+                defaultKeySpecs:
+                  description: |-
+                    Specifies parameters that will be used for generating initial DnsKeys
+                    for this ManagedZone. If you provide a spec for keySigning or zoneSigning,
+                    you must also provide one for the other.
+                    default_key_specs can only be updated when the state is 'off'.
+                  items:
+                    properties:
+                      algorithm:
+                        description: 'String mnemonic specifying the DNSSEC algorithm of this key Possible values: ["ecdsap256sha256", "ecdsap384sha384", "rsasha1", "rsasha256", "rsasha512"]'
+                        type: string
+                      keyLength:
+                        description: Length of the keys in bits
+                        type: integer
+                      keyType:
+                        description: |-
+                          Specifies whether this is a key signing key (KSK) or a zone
+                          signing key (ZSK). Key signing keys have the Secure Entry
+                          Point flag set and, when active, will only be used to sign
+                          resource record sets of type DNSKEY. Zone signing keys do
+                          not have the Secure Entry Point flag set and will be used
+                          to sign all other types of resource record sets. Possible values: ["keySigning", "zoneSigning"]
+                        type: string
+                      kind:
+                        description: Identifies what kind of resource this is
+                        type: string
+                    type: object
+                  type: array
+                kind:
+                  description: Identifies what kind of resource this is
+                  type: string
+                nonExistence:
+                  description: |-
+                    Specifies the mechanism used to provide authenticated denial-of-existence responses.
+                    non_existence can only be updated when the state is 'off'. Possible values: ["nsec", "nsec3"]
+                  type: string
+                state:
+                  description: 'Specifies whether DNSSEC is enabled, and what mode it is in Possible values: ["off", "on", "transfer"]'
+                  type: string
+              type: object
+            forwardingConfig:
+              description: |-
+                The presence for this field indicates that outbound forwarding is enabled
+                for this zone. The value of this field contains the set of destinations
+                to forward to.
+              properties:
+                targetNameServers:
+                  description: |-
+                    List of target name servers to forward to. Cloud DNS will
+                    select the best available name server if more than
+                    one target is given.
+                  items:
+                    properties:
+                      forwardingPath:
+                        description: |-
+                          Forwarding path for this TargetNameServer. If unset or 'default' Cloud DNS will make forwarding
+                          decision based on address ranges, i.e. RFC1918 addresses go to the VPC, Non-RFC1918 addresses go
+                          to the Internet. When set to 'private', Cloud DNS will always send queries through VPC for this target Possible values: ["default", "private"]
+                        type: string
+                      ipv4Address:
+                        description: IPv4 address of a target name server.
+                        type: string
+                    required:
+                    - ipv4Address
+                    type: object
+                  type: array
+              required:
+              - targetNameServers
+              type: object
+            peeringConfig:
+              description: |-
+                The presence of this field indicates that DNS Peering is enabled for this
+                zone. The value of this field contains the network to peer with.
+              properties:
+                targetNetwork:
+                  description: The network with which to peer.
+                  properties:
+                    networkRef:
+                      description: VPC network to forward queries to.
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: The selfLink of a ComputeNetwork.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                  required:
+                  - networkRef
+                  type: object
+              required:
+              - targetNetwork
+              type: object
+            privateVisibilityConfig:
+              description: |-
+                For privately visible zones, the set of Virtual Private Cloud
+                resources that the zone is visible from.
+              properties:
+                networks:
+                  items:
+                    properties:
+                      networkRef:
+                        description: VPC network to bind to.
+                        oneOf:
+                        - not:
+                            required:
+                            - external
+                          required:
+                          - name
+                        - not:
+                            anyOf:
+                            - required:
+                              - name
+                            - required:
+                              - namespace
+                          required:
+                          - external
+                        properties:
+                          external:
+                            description: The selfLink of a ComputeNetwork.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                            type: string
+                          namespace:
+                            description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                            type: string
+                        type: object
+                    required:
+                    - networkRef
+                    type: object
+                  type: array
+              required:
+              - networks
+              type: object
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            reverseLookup:
+              description: |-
+                Immutable. Specifies if this is a managed reverse lookup zone. If true, Cloud DNS will resolve reverse
+                lookup queries using automatically configured records for VPC resources. This only applies
+                to networks listed under 'private_visibility_config'.
+              type: boolean
+            serviceDirectoryConfig:
+              description: Immutable. The presence of this field indicates that this zone is backed by Service Directory. The value of this field contains information related to the namespace associated with the zone.
+              properties:
+                namespace:
+                  description: The namespace associated with the zone.
+                  properties:
+                    namespaceUrl:
+                      description: |-
+                        The fully qualified or partial URL of the service directory namespace that should be
+                        associated with the zone. This should be formatted like
+                        'https://servicedirectory.googleapis.com/v1/projects/{project}/locations/{location}/namespaces/{namespace_id}'
+                        or simply 'projects/{project}/locations/{location}/namespaces/{namespace_id}'
+                        Ignored for 'public' visibility zones.
+                      type: string
+                  required:
+                  - namespaceUrl
+                  type: object
+              required:
+              - namespace
+              type: object
+            visibility:
+              description: |-
+                Immutable. The zone's visibility: public zones are exposed to the Internet,
+                while private zones are visible only to Virtual Private Cloud resources. Default value: "public" Possible values: ["private", "public"]
+              type: string
+          required:
+          - dnsName
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            nameServers:
+              description: |-
+                Delegate your managed_zone to these virtual name servers;
+                defined by the server
+              items:
+                type: string
+              type: array
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

@@ -1,0 +1,270 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    controller-tools.k8s.io: "1.0"
+  name: servicemappings.core.cnrm.cloud.google.com
+spec:
+  group: core.cnrm.cloud.google.com
+  names:
+    kind: ServiceMapping
+    plural: servicemappings
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ServiceMappingSpec defines the aspects common to all resources of a particular service being mapped from the Terraform provider to Kubernetes Resource Model (KRM).
+          properties:
+            name:
+              description: Name is the name of the service being mapped (e.g. Spanner, PubSub). This is used for the construction of the generated CRDs' API group and kind.
+              type: string
+            resources:
+              description: Resources is a list of configurations specifying how to map a specific resource from the Terraform provider to KRM.
+              items:
+                properties:
+                  containers:
+                    description: 'Deprecated: use HierarchicalReferences instead. Only resources that already specify Containers should continue to specify Containers so that these resources can continue to support resource-level container annotations. Since new resources should not support resource-level container annotations, they should not specify Containers.  Containers describes all the container mappings this resource understands. Config Connector maps Kubernetes namespaces to the abstract GCP container objects they are scoped by via namespaces. For most resource types, this is a project, but certain resources live outside the scope of a project, like folders or projects themselves. Containers are expressed as annotations on a given Namespace, though users may provide resource-level overrides.'
+                    items:
+                      properties:
+                        tfField:
+                          description: TFField is the path to the field in the underlying Terraform provider that represents the implicit reference to the container object. Use periods to delimit the fields in the path. For example, if the field is "bar" nested inside "foo" ("foo" being either an object or a list of objects), the associated TFField should be "foo.bar")
+                          type: string
+                        type:
+                          description: Type is the type of container this represents.
+                          type: string
+                        valueTemplate:
+                          description: ValueTemplate is a template by which the value of the container annotation should be interpreted before being passed to the Terraform provider. {{value}} is used in place of this sourced value.  e.g. If the value sourced from the container annotation is "123456789", a valueTemplate of "folders/{{value}}" would mean the final value passed to the provider is "folders/123456789"
+                          type: string
+                      required:
+                      - type
+                      - tfField
+                      type: object
+                    type: array
+                  directives:
+                    description: Directives is a list of Terraform fields that perform unique behaviors on top of the resource which are not part of a GET response. If the KCC annotation's key contains a directive from this list (e.g. `cnrm.cloud.google.com/force-destroy`), the value from the annotation is stored/overwritten in the TF config (e.g. force_destroy -> true)
+                    items:
+                      type: string
+                    type: array
+                  hierarchicalReferences:
+                    description: HierarchicalReferences lists the resource references that represent references to hierarchical resources (e.g. project, folder, organization).
+                    items:
+                      properties:
+                        key:
+                          description: Key is the field name of the resource reference that this hierarchical reference configuration corresponds to (e.g. "projectRef"). It is assumed that all resource references marked as hierarchical references are located at the root-level of the spec.
+                          type: string
+                        type:
+                          description: Type is the type of hierarchical reference that this hierarchical reference configuration represents.
+                          type: string
+                      required:
+                      - type
+                      - key
+                      type: object
+                    type: array
+                  iamConfig:
+                    description: IAMConfig contains the mappings from a given resource onto its associated terraform IAM resources (policies, bindings, and members)
+                    properties:
+                      auditConfigName:
+                        description: AuditConfigName is the terraform name of the associated IAM Audit Config resource, if there is any (e.g. google_project_iam_audit_config for the Project resource)
+                        type: string
+                      policyMemberName:
+                        description: PolicyMemberName is the terraform name of the associated IAM Policy Member resource (e.g. google_spanner_instance_iam_member)
+                        type: string
+                      policyName:
+                        description: PolicyName is the terraform name of the associated IAM Policy resource (e.g. google_spanner_instance_iam_policy)
+                        type: string
+                      referenceField:
+                        description: A description of the manner in which the IAM Policy references its resource.
+                        properties:
+                          name:
+                            description: The name of the field in the policy or binding which references the resource. For 'google_spanner_instance_iam_policy' this value is 'instance'.
+                            type: string
+                          type:
+                            description: The type of value that should be used in this field. It can be one of { name, id }. For 'google_spanner_instance_iam_policy' it would be 'name' for 'google_kms_key_ring_iam_policy' it would be 'id'.
+                            type: string
+                        required:
+                        - name
+                        - type
+                        type: object
+                      supportsConditions:
+                        description: SupportsConditions indicates whether or not the resource supports IAM Conditions.
+                        type: boolean
+                    required:
+                    - policyName
+                    - policyMemberName
+                    - supportsConditions
+                    type: object
+                  iamMemberReferenceConfig:
+                    description: IAMMemberReferenceConfig configures the resource as a resource that can be referenced as an IAM member.
+                    properties:
+                      targetField:
+                        description: TargetField is the referenced resource's Terraform field that will be extracted and used as a member identity. For example, a LoggingLogSink's writer identity can be referenced by setting TargetField to "writer_identity", a field defined on the google_logging_log_sink resource.
+                        type: string
+                      valueTemplate:
+                        description: ValueTemplate is a template by which the value sourced from the reference should be interpreted before being used as a member identity. {{value}} is used in place of this sourced value. The template can contain other value placeholders that need to be sourced from the reference resource.  e.g. If the value sourced from the reference is "foo@domain.com", a valueTemplate of "serviceAccount:{{value}}" would mean the final value used as a member identity is "serviceAccount:foo@domain.com" e.g. If the template is "projects/{{project}}/topics/{{value}}", the project value will be sourced from the referenced resource.
+                        type: string
+                    required:
+                    - targetField
+                    type: object
+                  idTemplate:
+                    description: IDTemplate defines the format in which the ID fed into the TF resource's importer should look. Fields may be sourced from the TF resource by using the `{{foo}}` syntax. (e.g. {{project}}/{{location}}/{{name}}.  All fields are required. A field can be marked as optional with the ? suffix, e.g. with {{project}}/{{host?}}, the host field is optional  An OR condition can be defined on a portion of the template by enclosing the portion with brackets `[...]` and using a bar character, `|`, to deliminate the OR. Example, `my-template/[{{field1}}|text_{{field2}]`.  If SkipImport is true, this must be specified, and its expanded form will be directly used as the TF resource's `id` field.
+                    type: string
+                  idTemplateCanBeUsedToMatchResourceName:
+                    description: 'The resource name is the One Platform / GCP resource name, when this value is true, it means the IDTemplate can be converted to a regex and used to match against a given URL to determine if it is a name for the given ResourceConfig. If this flag is true then the ID Template is used by "config-connector export" to match against URLs.  see: https://cloud.google.com/apis/design/resource_names'
+                    type: boolean
+                  ignoredFields:
+                    description: IgnoredFields is a list of fields that should be dropped from the underlying Terraform resource.
+                    items:
+                      type: string
+                    type: array
+                  kind:
+                    description: Kind is the Kubernetes kind you wish the resource to have.
+                    type: string
+                  locationality:
+                    description: 'Locationality categorizes the GCP resources as global, regional, or zonal. It''s only applicable to the effort of unifying multiple locational TF resources into one, e.g. KCC could have a single ComputeAddress CRD to represent two TF/GCE resources - compute address and global compute address. The location field in ComputeAddress CRD is used to specify whether it is a global address or regional address. If unset, it''s assumed that there is no multiple TF locational resources mapping to the same compute resource schema. Currently, this supports the following values: global, regional, zonal.'
+                    type: string
+                  metadataMapping:
+                    description: MetadataMapping determines how to map Kubernetes metadata fields to the Terraform resource's configuration.
+                    properties:
+                      labels:
+                        description: Labels is a JSONPath to the field in the TF resource where the KRM "metadata.labels" field will be mapped to. By default, this is mapped to the "labels" field, if that field is found in the TF resource schema.
+                        type: string
+                      name:
+                        description: Name is a JSONPath to the field in the TF resource where the KRM "metadata.name" field will be mapped to. By default, this is mapped to the "name" field, if that field is found in the TF resource schema.
+                        type: string
+                      nameValueTemplate:
+                        description: NameValueTemplate is a template by which the value of the metadata.name field should be interpreted before being passed to the Terraform provider. {{value}} is used in place of this sourced value.  e.g. If the value sourced from metadata.name is "foo_bar", a nameValueTemplate of "resource/{{value}}" would mean the final value passed to the provider is "resource/foo_bar"
+                        type: string
+                    type: object
+                  mutableButUnreadableFields:
+                    description: MutableButUnreadableFields is a list of Terraform fields that are mutable but not returned by the Terraform read. KCC tracks the values of such fields to be able to determine if the user changed their values on the spec.
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    description: Name is the Terraform name of the resource (e.g. google_spanner_instance)
+                    type: string
+                  resourceID:
+                    description: ResourceID determines how to map the `spec.resourceID` field to the Terraform resource's configuration. For multiple ResourceConfigs that map to the same Kind, their ResourceID definition must be the same.
+                    properties:
+                      targetField:
+                        description: TargetField is the name of the field in the TF resource where the KRM `spec.resourceID` field will be mapped to.
+                        type: string
+                      valueTemplate:
+                        description: ValueTemplate is a template by which the value of the `spec.resourceID` field should be interpreted before being passed to the Terraform provider. {{value}} is used in place of the source value, i.e. the value of `spec.resourceID`.  E.g. If `spec.resourceID` is "foo", a ValueTemplate of "resources/{{value}}" means the final value passed to the Terraform provider is "resources/foo".
+                        type: string
+                    type: object
+                  resourceReferences:
+                    description: ResourceReferences configures the mapping of fields in the Terraform resource that implicitly define references to other GCP resources into explicit Kubernetes-style references.
+                    items:
+                      properties:
+                        description:
+                          description: Description is the description for the resource reference that will be exposed in the CRD.
+                          type: string
+                        gvk:
+                          description: GVK is the Group,Version,Kind of the resource being referenced.  This field is mutually exclusive with JSONSchemaType.
+                          type: object
+                        jsonSchemaType:
+                          description: JSONSchemaType specifies the type as understood by JSON schema validation of this reference field. Should never be specified for a TypeConfig inlined in the ReferenceConfig.  This field is mutually exclusive with Kind and TargetField.
+                          type: string
+                        key:
+                          description: 'Key is the field name that will be exposed through the KRM resource''s spec. It should follow the Kubernetes reference naming semantics:   `fooRef`, where foo is some describer of what is being referenced (e.g.   instanceRef, healthCheckRef) Complex references (those with a "Types" list defined) or lists of references should not specify a key.'
+                          type: string
+                        parent:
+                          description: Parent specifies whether the referenced resource is a parent. If the parent is successfully deleted, this resource may be deleted without any call to the underlying API. Only one parent may be present. A parent reference's TFField must not be a nested path.
+                          type: boolean
+                        targetField:
+                          description: TargetField is the referenced resource's Terraform field that will be extracted and set as the value of the TFField. For example, a ComputeSubnetwork can reference a ComputeNetwork's self link by setting TargetField to "self_link", a field defined on the google_compute_network resource.
+                          type: string
+                        tfField:
+                          description: TFField is the path to the field in the underlying Terraform provider that is the implicit reference. Use periods to delimit the fields in the path. For example, if the reference field is "bar" nested inside "foo" ("foo" being either an object or a list of objects), the associated TFField should be "foo.bar")
+                          type: string
+                        types:
+                          description: Types is the supported types this resource reference supports. Must not be specified if the inlined TypeConfig is filled out.  If the value for the reference is not specified in the KRM spec, it is possible that a default value may be set by GCP. This default reference value will be populated in the KRM resource's spec. In cases where a resource reference has multiple types, the first type in this list will become the default TypeConfig for that value.
+                          items:
+                            properties:
+                              gvk:
+                                description: GVK is the Group,Version,Kind of the resource being referenced.  This field is mutually exclusive with JSONSchemaType.
+                                type: object
+                              jsonSchemaType:
+                                description: JSONSchemaType specifies the type as understood by JSON schema validation of this reference field. Should never be specified for a TypeConfig inlined in the ReferenceConfig.  This field is mutually exclusive with Kind and TargetField.
+                                type: string
+                              key:
+                                description: 'Key is the field name that will be exposed through the KRM resource''s spec. It should follow the Kubernetes reference naming semantics:   `fooRef`, where foo is some describer of what is being referenced (e.g.   instanceRef, healthCheckRef) Complex references (those with a "Types" list defined) or lists of references should not specify a key.'
+                                type: string
+                              parent:
+                                description: Parent specifies whether the referenced resource is a parent. If the parent is successfully deleted, this resource may be deleted without any call to the underlying API. Only one parent may be present. A parent reference's TFField must not be a nested path.
+                                type: boolean
+                              targetField:
+                                description: TargetField is the referenced resource's Terraform field that will be extracted and set as the value of the TFField. For example, a ComputeSubnetwork can reference a ComputeNetwork's self link by setting TargetField to "self_link", a field defined on the google_compute_network resource.
+                                type: string
+                              valueTemplate:
+                                description: ValueTemplate is a template by which the value sourced from the reference should be interpreted before being passed to the Terraform provider. {{value}} is used in place of this sourced value. The template can contain other value placeholders that need to be sourced from the reference resource.  e.g. If the value sourced from the reference is "foo@domain.com", a valueTemplate of "serviceAccount:{{value}}" would mean the final value passed to the provider is "serviceAccount:foo@domain.com" e.g. If the template is "projects/{{project}}/topics/{{value}}", the project value will be sourced from the referenced resource.
+                                type: string
+                            type: object
+                          type: array
+                        valueTemplate:
+                          description: ValueTemplate is a template by which the value sourced from the reference should be interpreted before being passed to the Terraform provider. {{value}} is used in place of this sourced value. The template can contain other value placeholders that need to be sourced from the reference resource.  e.g. If the value sourced from the reference is "foo@domain.com", a valueTemplate of "serviceAccount:{{value}}" would mean the final value passed to the provider is "serviceAccount:foo@domain.com" e.g. If the template is "projects/{{project}}/topics/{{value}}", the project value will be sourced from the referenced resource.
+                          type: string
+                      required:
+                      - tfField
+                      type: object
+                    type: array
+                  serverGeneratedIDField:
+                    description: ServerGeneratedIDField is the field in the resource's status that corresponds to the server-generated resource ID. If unset, it's assumed the resource ID is specified by the user. Resources with this set do not support acquisition.
+                    type: string
+                  skipImport:
+                    description: SkipImport skips the import step when fetching the live state of the underlying resource. If specified, IDTemplate must also be specified, and its expanded form will be used as the TF resource's `id` field.
+                    type: boolean
+                required:
+                - name
+                - kind
+                type: object
+              type: array
+            serviceHostName:
+              description: ServiceHostName is the host portion of the URL for the associated service. IE, for Spanner, it is 'spanner.googleapis.com'
+              type: string
+            version:
+              description: Version is the API version for all the resource CRDs being generated.
+              type: string
+          required:
+          - name
+          - version
+          - serviceHostName
+          - resources
+          type: object
+      type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

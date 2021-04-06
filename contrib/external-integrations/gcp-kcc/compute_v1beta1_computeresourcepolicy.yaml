@@ -1,0 +1,231 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: computeresourcepolicies.compute.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: compute.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ComputeResourcePolicy
+    plural: computeresourcepolicies
+    shortNames:
+    - gcpcomputeresourcepolicy
+    - gcpcomputeresourcepolicies
+    singular: computeresourcepolicy
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            groupPlacementPolicy:
+              description: Immutable. Resource policy for instances used for placement configuration.
+              properties:
+                availabilityDomainCount:
+                  description: |-
+                    Immutable. The number of availability domains instances will be spread across. If two instances are in different
+                    availability domain, they will not be put in the same low latency network
+                  type: integer
+                collocation:
+                  description: |-
+                    Immutable. Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network.
+                    Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created
+                    with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy
+                    attached. Possible values: ["COLLOCATED"]
+                  type: string
+                vmCount:
+                  description: Immutable. Number of vms in this placement group.
+                  type: integer
+              type: object
+            region:
+              description: Immutable. Region where resource policy resides.
+              type: string
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            snapshotSchedulePolicy:
+              description: Immutable. Policy for creating snapshots of persistent disks.
+              properties:
+                retentionPolicy:
+                  description: Immutable. Retention policy applied to snapshots created by this resource policy.
+                  properties:
+                    maxRetentionDays:
+                      description: Immutable. Maximum age of the snapshot that is allowed to be kept.
+                      type: integer
+                    onSourceDiskDelete:
+                      description: |-
+                        Immutable. Specifies the behavior to apply to scheduled snapshots when
+                        the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"]
+                      type: string
+                  required:
+                  - maxRetentionDays
+                  type: object
+                schedule:
+                  description: Immutable. Contains one of an 'hourlySchedule', 'dailySchedule', or 'weeklySchedule'.
+                  properties:
+                    dailySchedule:
+                      description: Immutable. The policy will execute every nth day at the specified time.
+                      properties:
+                        daysInCycle:
+                          description: Immutable. The number of days between snapshots.
+                          type: integer
+                        startTime:
+                          description: |-
+                            Immutable. This must be in UTC format that resolves to one of
+                            00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example,
+                            both 13:00-5 and 08:00 are valid.
+                          type: string
+                      required:
+                      - daysInCycle
+                      - startTime
+                      type: object
+                    hourlySchedule:
+                      description: Immutable. The policy will execute every nth hour starting at the specified time.
+                      properties:
+                        hoursInCycle:
+                          description: Immutable. The number of hours between snapshots.
+                          type: integer
+                        startTime:
+                          description: |-
+                            Immutable. Time within the window to start the operations.
+                            It must be in an hourly format "HH:MM",
+                            where HH : [00-23] and MM : [00] GMT.
+                            eg: 21:00
+                          type: string
+                      required:
+                      - hoursInCycle
+                      - startTime
+                      type: object
+                    weeklySchedule:
+                      description: Immutable. Allows specifying a snapshot time for each day of the week.
+                      properties:
+                        dayOfWeeks:
+                          description: Immutable. May contain up to seven (one for each day of the week) snapshot times.
+                          items:
+                            properties:
+                              day:
+                                description: 'Immutable. The day of the week to create the snapshot. e.g. MONDAY Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]'
+                                type: string
+                              startTime:
+                                description: |-
+                                  Immutable. Time within the window to start the operations.
+                                  It must be in format "HH:MM", where HH : [00-23] and MM : [00-00] GMT.
+                                type: string
+                            required:
+                            - day
+                            - startTime
+                            type: object
+                          type: array
+                      required:
+                      - dayOfWeeks
+                      type: object
+                  type: object
+                snapshotProperties:
+                  description: Immutable. Properties with which the snapshots are created, such as labels.
+                  properties:
+                    guestFlush:
+                      description: Immutable. Whether to perform a 'guest aware' snapshot.
+                      type: boolean
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Immutable. A set of key-value pairs.
+                      type: object
+                    storageLocations:
+                      description: |-
+                        Immutable. Cloud Storage bucket location to store the auto snapshot
+                        (regional or multi-regional)
+                      items:
+                        type: string
+                      type: array
+                  type: object
+              required:
+              - schedule
+              type: object
+          required:
+          - region
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            selfLink:
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

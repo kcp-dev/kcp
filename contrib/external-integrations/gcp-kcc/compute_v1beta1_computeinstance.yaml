@@ -1,0 +1,712 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: computeinstances.compute.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: compute.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ComputeInstance
+    plural: computeinstances
+    shortNames:
+    - gcpcomputeinstance
+    - gcpcomputeinstances
+    singular: computeinstance
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          anyOf:
+          - required:
+            - bootDisk
+            - machineType
+            - networkInterface
+            - zone
+          - required:
+            - instanceTemplateRef
+            - zone
+          properties:
+            attachedDisk:
+              description: List of disks attached to the instance
+              items:
+                properties:
+                  deviceName:
+                    description: Name with which the attached disk is accessible under /dev/disk/by-id/
+                    type: string
+                  diskEncryptionKeyRaw:
+                    description: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link and disk_encryption_key_raw may be set.
+                    oneOf:
+                    - not:
+                        required:
+                        - valueFrom
+                      required:
+                      - value
+                    - not:
+                        required:
+                        - value
+                      required:
+                      - valueFrom
+                    properties:
+                      value:
+                        description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                        type: string
+                      valueFrom:
+                        description: Source for the field's value. Cannot be used if 'value' is specified.
+                        properties:
+                          secretKeyRef:
+                            description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                            properties:
+                              key:
+                                description: Key that identifies the value to be extracted.
+                                type: string
+                              name:
+                                description: Name of the Secret to extract a value from.
+                                type: string
+                            required:
+                            - name
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  diskEncryptionKeySha256:
+                    description: The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied encryption key that protects this resource.
+                    type: string
+                  kmsKeyRef:
+                    oneOf:
+                    - not:
+                        required:
+                        - external
+                      required:
+                      - name
+                    - not:
+                        anyOf:
+                        - required:
+                          - name
+                        - required:
+                          - namespace
+                      required:
+                      - external
+                    properties:
+                      external:
+                        description: The selfLink of a KMSCryptoKey.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                    type: object
+                  mode:
+                    description: Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE".
+                    type: string
+                  sourceDiskRef:
+                    oneOf:
+                    - not:
+                        required:
+                        - external
+                      required:
+                      - name
+                    - not:
+                        anyOf:
+                        - required:
+                          - name
+                        - required:
+                          - namespace
+                      required:
+                      - external
+                    properties:
+                      external:
+                        description: The selfLink of a ComputeDisk.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                    type: object
+                required:
+                - sourceDiskRef
+                type: object
+              type: array
+            bootDisk:
+              description: Immutable. The boot disk for the instance.
+              properties:
+                autoDelete:
+                  description: Immutable. Whether the disk will be auto-deleted when the instance is deleted.
+                  type: boolean
+                deviceName:
+                  description: Immutable. Name with which attached disk will be accessible under /dev/disk/by-id/
+                  type: string
+                diskEncryptionKeyRaw:
+                  description: Immutable. A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link and disk_encryption_key_raw may be set.
+                  oneOf:
+                  - not:
+                      required:
+                      - valueFrom
+                    required:
+                    - value
+                  - not:
+                      required:
+                      - value
+                    required:
+                    - valueFrom
+                  properties:
+                    value:
+                      description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                      type: string
+                    valueFrom:
+                      description: Source for the field's value. Cannot be used if 'value' is specified.
+                      properties:
+                        secretKeyRef:
+                          description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                          properties:
+                            key:
+                              description: Key that identifies the value to be extracted.
+                              type: string
+                            name:
+                              description: Name of the Secret to extract a value from.
+                              type: string
+                          required:
+                          - name
+                          - key
+                          type: object
+                      type: object
+                  type: object
+                diskEncryptionKeySha256:
+                  description: The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied encryption key that protects this resource.
+                  type: string
+                initializeParams:
+                  description: Immutable. Parameters with which a disk was created alongside the instance.
+                  properties:
+                    labels:
+                      description: Immutable. A set of key/value label pairs assigned to the disk.
+                      type: object
+                    size:
+                      description: Immutable. The size of the image in gigabytes.
+                      type: integer
+                    sourceImageRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: The selfLink of a ComputeImage.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    type:
+                      description: Immutable. The Google Compute Engine disk type. One of pd-standard, pd-ssd or pd-balanced.
+                      type: string
+                  type: object
+                kmsKeyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a KMSCryptoKey.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                mode:
+                  description: Immutable. Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE".
+                  type: string
+                sourceDiskRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a ComputeDisk.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+              type: object
+            canIpForward:
+              description: Immutable. Whether sending and receiving of packets with non-matching source or destination IPs is allowed.
+              type: boolean
+            confidentialInstanceConfig:
+              description: Immutable. The Confidential VM config being used by the instance.  on_host_maintenance has to be set to TERMINATE or this will fail to create.
+              properties:
+                enableConfidentialCompute:
+                  description: Defines whether the instance should have confidential compute enabled.
+                  type: boolean
+              required:
+              - enableConfidentialCompute
+              type: object
+            deletionProtection:
+              description: Whether deletion protection is enabled on this instance.
+              type: boolean
+            description:
+              description: Immutable. A brief description of the resource.
+              type: string
+            desiredStatus:
+              description: Desired status of the instance. Either "RUNNING" or "TERMINATED".
+              type: string
+            enableDisplay:
+              description: Whether the instance has virtual displays enabled.
+              type: boolean
+            guestAccelerator:
+              description: Immutable. List of the type and count of accelerator cards attached to the instance.
+              items:
+                properties:
+                  count:
+                    description: Immutable. The number of the guest accelerator cards exposed to this instance.
+                    type: integer
+                  type:
+                    description: Immutable. The accelerator type resource exposed to this instance. E.g. nvidia-tesla-k80.
+                    type: string
+                required:
+                - count
+                - type
+                type: object
+              type: array
+            hostname:
+              description: Immutable. A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid. Valid format is a series of labels 1-63 characters long matching the regular expression [a-z]([-a-z0-9]*[a-z0-9]), concatenated with periods. The entire hostname must not exceed 253 characters. Changing this forces a new resource to be created.
+              type: string
+            instanceTemplateRef:
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeInstanceTemplate.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            machineType:
+              description: The machine type to create.
+              type: string
+            metadata:
+              items:
+                properties:
+                  key:
+                    type: string
+                  value:
+                    type: string
+                required:
+                - key
+                - value
+                type: object
+              type: array
+            metadataStartupScript:
+              description: Immutable. Metadata startup scripts made available within the instance.
+              type: string
+            minCpuPlatform:
+              description: The minimum CPU platform specified for the VM instance.
+              type: string
+            networkInterface:
+              description: Immutable. The networks attached to the instance.
+              items:
+                properties:
+                  accessConfig:
+                    description: Access configurations, i.e. IPs via which this instance can be accessed via the Internet.
+                    items:
+                      properties:
+                        natIpRef:
+                          oneOf:
+                          - not:
+                              required:
+                              - external
+                            required:
+                            - name
+                          - not:
+                              anyOf:
+                              - required:
+                                - name
+                              - required:
+                                - namespace
+                            required:
+                            - external
+                          properties:
+                            external:
+                              description: The address of a ComputeAddress.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              type: string
+                            namespace:
+                              description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                              type: string
+                          type: object
+                        networkTier:
+                          description: The networking tier used for configuring this instance. One of PREMIUM or STANDARD.
+                          type: string
+                        publicPtrDomainName:
+                          description: The DNS domain name for the public PTR record.
+                          type: string
+                      type: object
+                    type: array
+                  aliasIpRange:
+                    description: An array of alias IP ranges for this network interface.
+                    items:
+                      properties:
+                        ipCidrRange:
+                          description: The IP CIDR range represented by this alias IP range.
+                          type: string
+                        subnetworkRangeName:
+                          description: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+                          type: string
+                      required:
+                      - ipCidrRange
+                      type: object
+                    type: array
+                  name:
+                    description: The name of the interface
+                    type: string
+                  networkIp:
+                    description: The private IP address assigned to the instance.
+                    type: string
+                  networkRef:
+                    oneOf:
+                    - not:
+                        required:
+                        - external
+                      required:
+                      - name
+                    - not:
+                        anyOf:
+                        - required:
+                          - name
+                        - required:
+                          - namespace
+                      required:
+                      - external
+                    properties:
+                      external:
+                        description: The selfLink of a ComputeNetwork.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                    type: object
+                  nicType:
+                    description: Immutable. The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET
+                    type: string
+                  subnetworkProject:
+                    description: The project in which the subnetwork belongs.
+                    type: string
+                  subnetworkRef:
+                    oneOf:
+                    - not:
+                        required:
+                        - external
+                      required:
+                      - name
+                    - not:
+                        anyOf:
+                        - required:
+                          - name
+                        - required:
+                          - namespace
+                      required:
+                      - external
+                    properties:
+                      external:
+                        description: The selfLink of a ComputeSubnetwork.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                    type: object
+                type: object
+              type: array
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            resourcePolicies:
+              items:
+                oneOf:
+                - not:
+                    required:
+                    - external
+                  required:
+                  - name
+                - not:
+                    anyOf:
+                    - required:
+                      - name
+                    - required:
+                      - namespace
+                  required:
+                  - external
+                properties:
+                  external:
+                    description: The selfLink of a ComputeResourcePolicy.
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    type: string
+                  namespace:
+                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    type: string
+                type: object
+              type: array
+            scheduling:
+              description: The scheduling strategy being used by the instance.
+              properties:
+                automaticRestart:
+                  description: Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user).
+                  type: boolean
+                minNodeCpus:
+                  type: integer
+                nodeAffinities:
+                  items:
+                    properties:
+                      value:
+                        type: object
+                    type: object
+                  type: array
+                onHostMaintenance:
+                  description: Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,
+                  type: string
+                preemptible:
+                  description: Immutable. Whether the instance is preemptible.
+                  type: boolean
+              type: object
+            scratchDisk:
+              description: Immutable. The scratch disks attached to the instance.
+              items:
+                properties:
+                  interface:
+                    description: The disk interface used for attaching this disk. One of SCSI or NVME.
+                    type: string
+                required:
+                - interface
+                type: object
+              type: array
+            serviceAccount:
+              description: The service account to attach to the instance.
+              properties:
+                scopes:
+                  description: A list of service scopes.
+                  items:
+                    type: string
+                  type: array
+                serviceAccountRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The email of an IAMServiceAccount.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+              required:
+              - scopes
+              type: object
+            shieldedInstanceConfig:
+              description: The shielded vm config being used by the instance.
+              properties:
+                enableIntegrityMonitoring:
+                  description: Whether integrity monitoring is enabled for the instance.
+                  type: boolean
+                enableSecureBoot:
+                  description: Whether secure boot is enabled for the instance.
+                  type: boolean
+                enableVtpm:
+                  description: Whether the instance uses vTPM.
+                  type: boolean
+              type: object
+            tags:
+              description: The list of tags attached to the instance.
+              items:
+                type: string
+              type: array
+            zone:
+              description: Immutable. The zone of the instance. If self_link is provided, this value is ignored. If neither self_link nor zone are provided, the provider zone is used.
+              type: string
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            cpuPlatform:
+              description: The CPU platform used by this instance.
+              type: string
+            currentStatus:
+              description: Current status of the instance.
+              type: string
+            instanceId:
+              description: The server-assigned unique identifier of this instance.
+              type: string
+            labelFingerprint:
+              description: The unique fingerprint of the labels.
+              type: string
+            metadataFingerprint:
+              description: The unique fingerprint of the metadata.
+              type: string
+            selfLink:
+              description: The URI of the created resource.
+              type: string
+            tagsFingerprint:
+              description: The unique fingerprint of the tags.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

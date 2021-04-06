@@ -1,0 +1,246 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: monitoringnotificationchannels.monitoring.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: monitoring.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: MonitoringNotificationChannel
+    plural: monitoringnotificationchannels
+    shortNames:
+    - gcpmonitoringnotificationchannel
+    - gcpmonitoringnotificationchannels
+    singular: monitoringnotificationchannel
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            description:
+              description: An optional human-readable description of this notification channel. This description may provide additional details, beyond the display name, for the channel. This may not exceed 1024 Unicode characters.
+              type: string
+            enabled:
+              description: Whether notifications are forwarded to the described channel. This makes it possible to disable delivery of notifications to a particular channel without removing the channel from all alerting policies that reference the channel. This is a more convenient approach when the change is temporary and you want to receive notifications from the same set of alerting policies on the channel at some point in the future.
+              type: boolean
+            labels:
+              additionalProperties:
+                type: string
+              type: object
+            resourceID:
+              description: Immutable. Optional. The service-generated name of the resource. Used for acquisition only. Leave unset to create a new resource.
+              type: string
+            sensitiveLabels:
+              description: |-
+                Different notification type behaviors are configured primarily using the the 'labels' field on this
+                resource. This block contains the labels which contain secrets or passwords so that they can be marked
+                sensitive and hidden from plan output. The name of the field, eg: password, will be the key
+                in the 'labels' map in the api request.
+
+                Credentials may not be specified in both locations and will cause an error. Changing from one location
+                to a different credential configuration in the config will require an apply to update state.
+              properties:
+                authToken:
+                  description: 'An authorization token for a notification channel. Channel types that support this field include: slack'
+                  oneOf:
+                  - not:
+                      required:
+                      - valueFrom
+                    required:
+                    - value
+                  - not:
+                      required:
+                      - value
+                    required:
+                    - valueFrom
+                  properties:
+                    value:
+                      description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                      type: string
+                    valueFrom:
+                      description: Source for the field's value. Cannot be used if 'value' is specified.
+                      properties:
+                        secretKeyRef:
+                          description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                          properties:
+                            key:
+                              description: Key that identifies the value to be extracted.
+                              type: string
+                            name:
+                              description: Name of the Secret to extract a value from.
+                              type: string
+                          required:
+                          - name
+                          - key
+                          type: object
+                      type: object
+                  type: object
+                password:
+                  description: 'An password for a notification channel. Channel types that support this field include: webhook_basicauth'
+                  oneOf:
+                  - not:
+                      required:
+                      - valueFrom
+                    required:
+                    - value
+                  - not:
+                      required:
+                      - value
+                    required:
+                    - valueFrom
+                  properties:
+                    value:
+                      description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                      type: string
+                    valueFrom:
+                      description: Source for the field's value. Cannot be used if 'value' is specified.
+                      properties:
+                        secretKeyRef:
+                          description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                          properties:
+                            key:
+                              description: Key that identifies the value to be extracted.
+                              type: string
+                            name:
+                              description: Name of the Secret to extract a value from.
+                              type: string
+                          required:
+                          - name
+                          - key
+                          type: object
+                      type: object
+                  type: object
+                serviceKey:
+                  description: 'An servicekey token for a notification channel. Channel types that support this field include: pagerduty'
+                  oneOf:
+                  - not:
+                      required:
+                      - valueFrom
+                    required:
+                    - value
+                  - not:
+                      required:
+                      - value
+                    required:
+                    - valueFrom
+                  properties:
+                    value:
+                      description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                      type: string
+                    valueFrom:
+                      description: Source for the field's value. Cannot be used if 'value' is specified.
+                      properties:
+                        secretKeyRef:
+                          description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                          properties:
+                            key:
+                              description: Key that identifies the value to be extracted.
+                              type: string
+                            name:
+                              description: Name of the Secret to extract a value from.
+                              type: string
+                          required:
+                          - name
+                          - key
+                          type: object
+                      type: object
+                  type: object
+              type: object
+            type:
+              description: The type of the notification channel. This field matches the value of the NotificationChannelDescriptor.type field. See https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannelDescriptors/list to get the list of valid values such as "email", "slack", etc...
+              type: string
+          required:
+          - type
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            name:
+              description: |-
+                The full REST resource name for this channel. The syntax is:
+                projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]
+                The [CHANNEL_ID] is automatically assigned by the server on creation.
+              type: string
+            verificationStatus:
+              description: Indicates whether this channel has been verified or not. On a ListNotificationChannels or GetNotificationChannel operation, this field is expected to be populated.If the value is UNVERIFIED, then it indicates that the channel is non-functioning (it both requires verification and lacks verification); otherwise, it is assumed that the channel works.If the channel is neither VERIFIED nor UNVERIFIED, it implies that the channel is of a type that does not require verification or that this specific channel has been exempted from verification because it was created prior to verification being required for channels of this type.This field cannot be modified using a standard UpdateNotificationChannel operation. To change the value of this field, you must call VerifyNotificationChannel.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

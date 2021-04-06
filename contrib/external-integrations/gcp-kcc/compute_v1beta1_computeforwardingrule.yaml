@@ -1,0 +1,615 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: computeforwardingrules.compute.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: compute.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ComputeForwardingRule
+    plural: computeforwardingrules
+    shortNames:
+    - gcpcomputeforwardingrule
+    - gcpcomputeforwardingrules
+    singular: computeforwardingrule
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            allPorts:
+              description: |-
+                Immutable. For internal TCP/UDP load balancing (i.e. load balancing scheme is
+                INTERNAL and protocol is TCP/UDP), set this to true to allow packets
+                addressed to any ports to be forwarded to the backends configured
+                with this forwarding rule. Used with backend service. Cannot be set
+                if port or portRange are set.
+              type: boolean
+            allowGlobalAccess:
+              description: |-
+                If true, clients can access ILB from all regions.
+                Otherwise only allows from the local region the ILB is located at.
+              type: boolean
+            backendServiceRef:
+              description: |-
+                A ComputeBackendService to receive the matched traffic. This is
+                used only for internal load balancing.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeBackendService.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            description:
+              description: |-
+                Immutable. An optional description of this resource. Provide this property when
+                you create the resource.
+              type: string
+            ipAddress:
+              description: |-
+                The IP address that this forwarding rule is serving on behalf of.
+
+                Addresses are restricted based on the forwarding rule's load
+                balancing scheme (EXTERNAL or INTERNAL) and scope (global or
+                regional).
+
+                When the load balancing scheme is EXTERNAL, for global forwarding
+                rules, the address must be a global IP, and for regional forwarding
+                rules, the address must live in the same region as the forwarding
+                rule. If this field is empty, an ephemeral IPv4 address from the
+                same scope (global or regional) will be assigned. A regional
+                forwarding rule supports IPv4 only. A global forwarding rule
+                supports either IPv4 or IPv6.
+
+                When the load balancing scheme is INTERNAL, this can only be an RFC
+                1918 IP address belonging to the network/subnet configured for the
+                forwarding rule. By default, if this field is empty, an ephemeral
+                internal IP address will be automatically allocated from the IP
+                range of the subnet or network configured for this forwarding rule.
+              oneOf:
+              - required:
+                - addressRef
+              - required:
+                - ip
+              properties:
+                addressRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The address of a ComputeAddress.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                ip:
+                  type: string
+              type: object
+            ipProtocol:
+              description: |-
+                Immutable. The IP protocol to which this rule applies.
+
+                When the load balancing scheme is INTERNAL, only TCP and UDP are
+                valid. Possible values: ["TCP", "UDP", "ESP", "AH", "SCTP", "ICMP"]
+              type: string
+            ipVersion:
+              description: 'Immutable. The IP Version that will be used by this global forwarding rule. Possible values: ["IPV4", "IPV6"]'
+              type: string
+            isMirroringCollector:
+              description: |-
+                Immutable. Indicates whether or not this load balancer can be used
+                as a collector for packet mirroring. To prevent mirroring loops,
+                instances behind this load balancer will not have their traffic
+                mirrored even if a PacketMirroring rule applies to them. This
+                can only be set to true for load balancers that have their
+                loadBalancingScheme set to INTERNAL.
+              type: boolean
+            loadBalancingScheme:
+              description: |-
+                Immutable. This signifies what the ForwardingRule will be used for and can be
+                EXTERNAL, INTERNAL, or INTERNAL_MANAGED. EXTERNAL is used for Classic
+                Cloud VPN gateways, protocol forwarding to VMs from an external IP address,
+                and HTTP(S), SSL Proxy, TCP Proxy, and Network TCP/UDP load balancers.
+                INTERNAL is used for protocol forwarding to VMs from an internal IP address,
+                and internal TCP/UDP load balancers.
+                INTERNAL_MANAGED is used for internal HTTP(S) load balancers. Default value: "EXTERNAL" Possible values: ["EXTERNAL", "INTERNAL", "INTERNAL_MANAGED"]
+              type: string
+            location:
+              description: 'Location represents the geographical location of the ComputeForwardingRule. Specify a region name or "global" for global resources. Reference: GCP definition of regions/zones (https://cloud.google.com/compute/docs/regions-zones/)'
+              type: string
+            metadataFilters:
+              description: |-
+                Immutable. Opaque filter criteria used by Loadbalancer to restrict routing
+                configuration to a limited set xDS compliant clients. In their xDS
+                requests to Loadbalancer, xDS clients present node metadata. If a
+                match takes place, the relevant routing configuration is made available
+                to those proxies.
+
+                For each metadataFilter in this list, if its filterMatchCriteria is set
+                to MATCH_ANY, at least one of the filterLabels must match the
+                corresponding label provided in the metadata. If its filterMatchCriteria
+                is set to MATCH_ALL, then all of its filterLabels must match with
+                corresponding labels in the provided metadata.
+
+                metadataFilters specified here can be overridden by those specified in
+                the UrlMap that this ForwardingRule references.
+
+                metadataFilters only applies to Loadbalancers that have their
+                loadBalancingScheme set to INTERNAL_SELF_MANAGED.
+              items:
+                properties:
+                  filterLabels:
+                    description: |-
+                      Immutable. The list of label value pairs that must match labels in the
+                      provided metadata based on filterMatchCriteria
+
+                      This list must not be empty and can have at the most 64 entries.
+                    items:
+                      properties:
+                        name:
+                          description: |-
+                            Immutable. Name of the metadata label. The length must be between
+                            1 and 1024 characters, inclusive.
+                          type: string
+                        value:
+                          description: |-
+                            Immutable. The value that the label must match. The value has a maximum
+                            length of 1024 characters.
+                          type: string
+                      required:
+                      - name
+                      - value
+                      type: object
+                    type: array
+                  filterMatchCriteria:
+                    description: |-
+                      Immutable. Specifies how individual filterLabel matches within the list of
+                      filterLabels contribute towards the overall metadataFilter match.
+
+                      MATCH_ANY - At least one of the filterLabels must have a matching
+                      label in the provided metadata.
+                      MATCH_ALL - All filterLabels must have matching labels in the
+                      provided metadata. Possible values: ["MATCH_ANY", "MATCH_ALL"]
+                    type: string
+                required:
+                - filterLabels
+                - filterMatchCriteria
+                type: object
+              type: array
+            networkRef:
+              description: |-
+                This field is not used for external load balancing. For internal
+                load balancing, this field identifies the network that the load
+                balanced IP should belong to for this forwarding rule. If this
+                field is not specified, the default network will be used.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The selfLink of a ComputeNetwork.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            networkTier:
+              description: |-
+                Immutable. The networking tier used for configuring this address. If this field is not
+                specified, it is assumed to be PREMIUM. Possible values: ["PREMIUM", "STANDARD"]
+              type: string
+            portRange:
+              description: |-
+                Immutable. This field is used along with the target field for TargetHttpProxy,
+                TargetHttpsProxy, TargetSslProxy, TargetTcpProxy, TargetVpnGateway,
+                TargetPool, TargetInstance.
+
+                Applicable only when IPProtocol is TCP, UDP, or SCTP, only packets
+                addressed to ports in the specified range will be forwarded to target.
+                Forwarding rules with the same [IPAddress, IPProtocol] pair must have
+                disjoint port ranges.
+
+                Some types of forwarding target have constraints on the acceptable
+                ports:
+
+                * TargetHttpProxy: 80, 8080
+                * TargetHttpsProxy: 443
+                * TargetTcpProxy: 25, 43, 110, 143, 195, 443, 465, 587, 700, 993, 995,
+                                  1883, 5222
+                * TargetSslProxy: 25, 43, 110, 143, 195, 443, 465, 587, 700, 993, 995,
+                                  1883, 5222
+                * TargetVpnGateway: 500, 4500
+              type: string
+            ports:
+              description: |-
+                Immutable. This field is used along with the backend_service field for internal
+                load balancing.
+
+                When the load balancing scheme is INTERNAL, a single port or a comma
+                separated list of ports can be configured. Only packets addressed to
+                these ports will be forwarded to the backends configured with this
+                forwarding rule.
+
+                You may specify a maximum of up to 5 ports.
+              items:
+                type: string
+              type: array
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            serviceLabel:
+              description: |-
+                Immutable. An optional prefix to the service name for this Forwarding Rule.
+                If specified, will be the first label of the fully qualified service
+                name.
+
+                The label must be 1-63 characters long, and comply with RFC1035.
+                Specifically, the label must be 1-63 characters long and match the
+                regular expression '[a-z]([-a-z0-9]*[a-z0-9])?' which means the first
+                character must be a lowercase letter, and all following characters
+                must be a dash, lowercase letter, or digit, except the last
+                character, which cannot be a dash.
+
+                This field is only used for INTERNAL load balancing.
+              type: string
+            subnetworkRef:
+              description: |-
+                The subnetwork that the load balanced IP should belong to for this
+                forwarding rule. This field is only used for internal load
+                balancing.
+
+                If the network specified is in auto subnet mode, this field is
+                optional. However, if the network is in custom subnet mode, a
+                subnetwork must be specified.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a ComputeSubnetwork.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            target:
+              description: |-
+                The target resource to receive the matched traffic. The forwarded
+                traffic must be of a type appropriate to the target object. For
+                INTERNAL_SELF_MANAGED load balancing, only HTTP and HTTPS targets
+                are valid.
+              oneOf:
+              - required:
+                - targetGRPCProxyRef
+              - required:
+                - targetHTTPProxyRef
+              - required:
+                - targetHTTPSProxyRef
+              - required:
+                - targetSSLProxyRef
+              - required:
+                - targetTCPProxyRef
+              - required:
+                - targetVPNGatewayRef
+              properties:
+                targetGRPCProxyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a ComputeTargetGRPCProxy.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                targetHTTPProxyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a ComputeTargetHTTPProxy.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                targetHTTPSProxyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a ComputeTargetHTTPSProxy.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                targetSSLProxyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a ComputeTargetSSLProxy.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                targetTCPProxyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a ComputeTargetTCPProxy.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                targetVPNGatewayRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a ComputeTargetVPNGateway.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+              type: object
+          required:
+          - location
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            creationTimestamp:
+              description: Creation timestamp in RFC3339 text format.
+              type: string
+            labelFingerprint:
+              description: |-
+                The fingerprint used for optimistic locking of this resource.  Used
+                internally during updates.
+              type: string
+            selfLink:
+              type: string
+            serviceName:
+              description: |-
+                The internal fully qualified service name for this Forwarding Rule.
+                This field is only used for INTERNAL load balancing.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

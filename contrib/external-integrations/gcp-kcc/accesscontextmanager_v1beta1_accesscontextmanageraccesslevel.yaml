@@ -1,0 +1,347 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: accesscontextmanageraccesslevels.accesscontextmanager.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: accesscontextmanager.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: AccessContextManagerAccessLevel
+    plural: accesscontextmanageraccesslevels
+    shortNames:
+    - gcpaccesscontextmanageraccesslevel
+    - gcpaccesscontextmanageraccesslevels
+    singular: accesscontextmanageraccesslevel
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            accessPolicyRef:
+              description: |-
+                The AccessContextManagerAccessPolicy this
+                AccessContextManagerAccessLevel lives in.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of an AccessContextManagerAccessPolicy.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            basic:
+              description: A set of predefined conditions for the access level and a combining function.
+              properties:
+                combiningFunction:
+                  description: |-
+                    How the conditions list should be combined to determine if a request
+                    is granted this AccessLevel. If AND is used, each Condition in
+                    conditions must be satisfied for the AccessLevel to be applied. If
+                    OR is used, at least one Condition in conditions must be satisfied
+                    for the AccessLevel to be applied. Default value: "AND" Possible values: ["AND", "OR"]
+                  type: string
+                conditions:
+                  description: A set of requirements for the AccessLevel to be granted.
+                  items:
+                    properties:
+                      devicePolicy:
+                        description: |-
+                          Device specific restrictions, all restrictions must hold for
+                          the Condition to be true. If not specified, all devices are
+                          allowed.
+                        properties:
+                          allowedDeviceManagementLevels:
+                            description: |-
+                              A list of allowed device management levels.
+                              An empty list allows all management levels. Possible values: ["MANAGEMENT_UNSPECIFIED", "NONE", "BASIC", "COMPLETE"]
+                            items:
+                              type: string
+                            type: array
+                          allowedEncryptionStatuses:
+                            description: |-
+                              A list of allowed encryptions statuses.
+                              An empty list allows all statuses. Possible values: ["ENCRYPTION_UNSPECIFIED", "ENCRYPTION_UNSUPPORTED", "UNENCRYPTED", "ENCRYPTED"]
+                            items:
+                              type: string
+                            type: array
+                          osConstraints:
+                            description: |-
+                              A list of allowed OS versions.
+                              An empty list allows all types and all versions.
+                            items:
+                              properties:
+                                minimumVersion:
+                                  description: |-
+                                    The minimum allowed OS version. If not set, any version
+                                    of this OS satisfies the constraint.
+                                    Format: "major.minor.patch" such as "10.5.301", "9.2.1".
+                                  type: string
+                                osType:
+                                  description: 'The operating system type of the device. Possible values: ["OS_UNSPECIFIED", "DESKTOP_MAC", "DESKTOP_WINDOWS", "DESKTOP_LINUX", "DESKTOP_CHROME_OS"]'
+                                  type: string
+                              required:
+                              - osType
+                              type: object
+                            type: array
+                          requireAdminApproval:
+                            description: Whether the device needs to be approved by the customer admin.
+                            type: boolean
+                          requireCorpOwned:
+                            description: Whether the device needs to be corp owned.
+                            type: boolean
+                          requireScreenLock:
+                            description: |-
+                              Whether or not screenlock is required for the DevicePolicy
+                              to be true. Defaults to false.
+                            type: boolean
+                        type: object
+                      ipSubnetworks:
+                        description: |-
+                          A list of CIDR block IP subnetwork specification. May be IPv4
+                          or IPv6.
+                          Note that for a CIDR IP address block, the specified IP address
+                          portion must be properly truncated (i.e. all the host bits must
+                          be zero) or the input is considered malformed. For example,
+                          "192.0.2.0/24" is accepted but "192.0.2.1/24" is not. Similarly,
+                          for IPv6, "2001:db8::/32" is accepted whereas "2001:db8::1/32"
+                          is not. The originating IP of a request must be in one of the
+                          listed subnets in order for this Condition to be true.
+                          If empty, all IP addresses are allowed.
+                        items:
+                          type: string
+                        type: array
+                      members:
+                        items:
+                          description: |-
+                            An allowed list of members (users, service accounts).
+                            Using groups is not supported.
+
+                            The signed-in user originating the request must be a part of one
+                            of the provided members. If not specified, a request may come
+                            from any user (logged in/not logged in, not present in any
+                            groups, etc.).
+                          oneOf:
+                          - required:
+                            - serviceAccountRef
+                          - required:
+                            - user
+                          properties:
+                            serviceAccountRef:
+                              oneOf:
+                              - not:
+                                  required:
+                                  - external
+                                required:
+                                - name
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - name
+                                  - required:
+                                    - namespace
+                                required:
+                                - external
+                              properties:
+                                external:
+                                  description: The email of an IAMServiceAccount.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                namespace:
+                                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                                  type: string
+                              type: object
+                            user:
+                              type: string
+                          type: object
+                        type: array
+                      negate:
+                        description: |-
+                          Whether to negate the Condition. If true, the Condition becomes
+                          a NAND over its non-empty fields, each field must be false for
+                          the Condition overall to be satisfied. Defaults to false.
+                        type: boolean
+                      regions:
+                        description: |-
+                          The request must originate from one of the provided
+                          countries/regions.
+                          Format: A valid ISO 3166-1 alpha-2 code.
+                        items:
+                          type: string
+                        type: array
+                      requiredAccessLevels:
+                        items:
+                          description: |-
+                            A list of other access levels defined in the same policy.
+                            Referencing an AccessContextManagerAccessLevel which does not exist
+                            is an error. All access levels listed must be granted for the
+                            condition to be true.
+                          oneOf:
+                          - not:
+                              required:
+                              - external
+                            required:
+                            - name
+                          - not:
+                              anyOf:
+                              - required:
+                                - name
+                              - required:
+                                - namespace
+                            required:
+                            - external
+                          properties:
+                            external:
+                              description: The name of an AccessContextManagerAccessLevel.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              type: string
+                            namespace:
+                              description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  type: array
+              required:
+              - conditions
+              type: object
+            custom:
+              description: "Custom access level conditions are set using the Cloud Common Expression Language to represent the necessary conditions for the level to apply to a request. \nSee CEL spec at: https://github.com/google/cel-spec."
+              properties:
+                expr:
+                  description: "Represents a textual expression in the Common Expression Language (CEL) syntax. CEL is a C-like expression language.\nThis page details the objects and attributes that are used to the build the CEL expressions for \ncustom access levels - https://cloud.google.com/access-context-manager/docs/custom-access-level-spec."
+                  properties:
+                    description:
+                      description: Description of the expression
+                      type: string
+                    expression:
+                      description: Textual representation of an expression in Common Expression Language syntax.
+                      type: string
+                    location:
+                      description: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file
+                      type: string
+                    title:
+                      description: Title for the expression, i.e. a short string describing its purpose.
+                      type: string
+                  required:
+                  - expression
+                  type: object
+              required:
+              - expr
+              type: object
+            description:
+              description: Description of the AccessLevel and its use. Does not affect behavior.
+              type: string
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            title:
+              description: Human readable title. Must be unique within the Policy.
+              type: string
+          required:
+          - accessPolicyRef
+          - title
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

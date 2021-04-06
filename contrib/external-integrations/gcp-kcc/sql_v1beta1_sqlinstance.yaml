@@ -1,0 +1,486 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: sqlinstances.sql.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: sql.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: SQLInstance
+    plural: sqlinstances
+    shortNames:
+    - gcpsqlinstance
+    - gcpsqlinstances
+    singular: sqlinstance
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            databaseVersion:
+              description: Immutable. The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, POSTGRES_9_6,POSTGRES_11, SQLSERVER_2017_STANDARD, SQLSERVER_2017_ENTERPRISE, SQLSERVER_2017_EXPRESS, SQLSERVER_2017_WEB. Database Version Policies includes an up-to-date reference of supported versions.
+              type: string
+            encryptionKMSCryptoKeyRef:
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a KMSCryptoKey.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            masterInstanceRef:
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a SQLInstance.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            region:
+              description: Immutable. The region the instance will sit in. Note, Cloud SQL is not available in all regions. A valid region must be provided to use this resource. If a region is not provided in the resource definition, the provider region will be used instead, but this will be an apply-time error for instances if the provider region is not supported with Cloud SQL. If you choose not to provide the region argument for this resource, make sure you understand this.
+              type: string
+            replicaConfiguration:
+              description: The configuration for replication.
+              properties:
+                caCertificate:
+                  description: Immutable. PEM representation of the trusted CA's x509 certificate.
+                  type: string
+                clientCertificate:
+                  description: Immutable. PEM representation of the replica's x509 certificate.
+                  type: string
+                clientKey:
+                  description: Immutable. PEM representation of the replica's private key. The corresponding public key in encoded in the client_certificate.
+                  type: string
+                connectRetryInterval:
+                  description: Immutable. The number of seconds between connect retries.
+                  type: integer
+                dumpFilePath:
+                  description: Immutable. Path to a SQL file in Google Cloud Storage from which replica instances are created. Format is gs://bucket/filename.
+                  type: string
+                failoverTarget:
+                  description: Immutable. Specifies if the replica is the failover target. If the field is set to true the replica will be designated as a failover replica. If the master instance fails, the replica instance will be promoted as the new master instance.
+                  type: boolean
+                masterHeartbeatPeriod:
+                  description: Immutable. Time in ms between replication heartbeats.
+                  type: integer
+                password:
+                  description: Immutable. Password for the replication connection.
+                  oneOf:
+                  - not:
+                      required:
+                      - valueFrom
+                    required:
+                    - value
+                  - not:
+                      required:
+                      - value
+                    required:
+                    - valueFrom
+                  properties:
+                    value:
+                      description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                      type: string
+                    valueFrom:
+                      description: Source for the field's value. Cannot be used if 'value' is specified.
+                      properties:
+                        secretKeyRef:
+                          description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                          properties:
+                            key:
+                              description: Key that identifies the value to be extracted.
+                              type: string
+                            name:
+                              description: Name of the Secret to extract a value from.
+                              type: string
+                          required:
+                          - name
+                          - key
+                          type: object
+                      type: object
+                  type: object
+                sslCipher:
+                  description: Immutable. Permissible ciphers for use in SSL encryption.
+                  type: string
+                username:
+                  description: Immutable. Username for replication connection.
+                  type: string
+                verifyServerCertificate:
+                  description: Immutable. True if the master's common name value is checked during the SSL handshake.
+                  type: boolean
+              type: object
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            rootPassword:
+              description: Immutable. Initial root password. Required for MS SQL Server, ignored by MySQL and PostgreSQL.
+              oneOf:
+              - not:
+                  required:
+                  - valueFrom
+                required:
+                - value
+              - not:
+                  required:
+                  - value
+                required:
+                - valueFrom
+              properties:
+                value:
+                  description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                  type: string
+                valueFrom:
+                  description: Source for the field's value. Cannot be used if 'value' is specified.
+                  properties:
+                    secretKeyRef:
+                      description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                      properties:
+                        key:
+                          description: Key that identifies the value to be extracted.
+                          type: string
+                        name:
+                          description: Name of the Secret to extract a value from.
+                          type: string
+                      required:
+                      - name
+                      - key
+                      type: object
+                  type: object
+              type: object
+            settings:
+              description: The settings to use for the database. The configuration is detailed below.
+              properties:
+                activationPolicy:
+                  description: This specifies when the instance should be active. Can be either ALWAYS, NEVER or ON_DEMAND.
+                  type: string
+                authorizedGaeApplications:
+                  description: DEPRECATED — This property is only applicable to First Generation instances, and First Generation instances are now deprecated. This property is only applicable to First Generation instances. First Generation instances are now deprecated, see https://cloud.google.com/sql/docs/mysql/deprecation-notice for information on how to upgrade to Second Generation instances. A list of Google App Engine project names that are allowed to access this instance.
+                  items:
+                    type: string
+                  type: array
+                availabilityType:
+                  description: |-
+                    The availability type of the Cloud SQL instance, high availability
+                    (REGIONAL) or single zone (ZONAL). For MySQL instances, ensure that
+                    settings.backup_configuration.enabled and
+                    settings.backup_configuration.binary_log_enabled are both set to true.
+                  type: string
+                backupConfiguration:
+                  properties:
+                    backupRetentionSettings:
+                      properties:
+                        retainedBackups:
+                          description: Number of backups to retain.
+                          type: integer
+                        retentionUnit:
+                          description: The unit that 'retainedBackups' represents. Defaults to COUNT
+                          type: string
+                      required:
+                      - retainedBackups
+                      type: object
+                    binaryLogEnabled:
+                      description: True if binary logging is enabled. If settings.backup_configuration.enabled is false, this must be as well. Cannot be used with Postgres.
+                      type: boolean
+                    enabled:
+                      description: True if backup configuration is enabled.
+                      type: boolean
+                    location:
+                      description: Location of the backup configuration.
+                      type: string
+                    pointInTimeRecoveryEnabled:
+                      description: True if Point-in-time recovery is enabled.
+                      type: boolean
+                    startTime:
+                      description: HH:MM format time indicating when backup configuration starts.
+                      type: string
+                    transactionLogRetentionDays:
+                      description: The number of days of transaction logs we retain for point in time restore, from 1-7.
+                      type: integer
+                  type: object
+                crashSafeReplication:
+                  description: DEPRECATED — This property is only applicable to First Generation instances, and First Generation instances are now deprecated. This property is only applicable to First Generation instances. First Generation instances are now deprecated, see here for information on how to upgrade to Second Generation instances. Specific to read instances, indicates when crash-safe replication flags are enabled.
+                  type: boolean
+                databaseFlags:
+                  items:
+                    properties:
+                      name:
+                        description: Name of the flag.
+                        type: string
+                      value:
+                        description: Value of the flag.
+                        type: string
+                    required:
+                    - name
+                    - value
+                    type: object
+                  type: array
+                diskAutoresize:
+                  type: boolean
+                diskSize:
+                  description: The size of data disk, in GB. Size of a running instance cannot be reduced but can be increased.
+                  type: integer
+                diskType:
+                  description: 'The type of data disk: PD_SSD or PD_HDD.'
+                  type: string
+                insightsConfig:
+                  description: Configuration of Query Insights.
+                  properties:
+                    queryInsightsEnabled:
+                      description: True if Query Insights feature is enabled.
+                      type: boolean
+                    queryStringLength:
+                      description: Maximum query length stored in bytes. Between 256 and 4500. Default to 1024.
+                      type: integer
+                    recordApplicationTags:
+                      description: True if Query Insights will record application tags from query when enabled.
+                      type: boolean
+                    recordClientAddress:
+                      description: True if Query Insights will record client address when enabled.
+                      type: boolean
+                  type: object
+                ipConfiguration:
+                  properties:
+                    authorizedNetworks:
+                      items:
+                        properties:
+                          expirationTime:
+                            type: string
+                          name:
+                            type: string
+                          value:
+                            type: string
+                        required:
+                        - value
+                        type: object
+                      type: array
+                    ipv4Enabled:
+                      description: Whether this Cloud SQL instance should be assigned a public IPV4 address. Either ipv4_enabled must be enabled or a private_network must be configured.
+                      type: boolean
+                    privateNetworkRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: The selfLink of a ComputeNetwork.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    requireSsl:
+                      type: boolean
+                  type: object
+                locationPreference:
+                  properties:
+                    followGaeApplication:
+                      description: A Google App Engine application whose zone to remain in. Must be in the same region as this instance.
+                      type: string
+                    zone:
+                      description: The preferred compute engine zone.
+                      type: string
+                  type: object
+                maintenanceWindow:
+                  description: Declares a one-hour maintenance window when an Instance can automatically restart to apply updates. The maintenance window is specified in UTC time.
+                  properties:
+                    day:
+                      description: Day of week (1-7), starting on Monday
+                      type: integer
+                    hour:
+                      description: Hour of day (0-23), ignored if day not set
+                      type: integer
+                    updateTrack:
+                      description: Receive updates earlier (canary) or later (stable)
+                      type: string
+                  type: object
+                pricingPlan:
+                  description: Pricing plan for this instance, can only be PER_USE.
+                  type: string
+                replicationType:
+                  description: DEPRECATED — This property is only applicable to First Generation instances, and First Generation instances are now deprecated. This property is only applicable to First Generation instances. First Generation instances are now deprecated, see here for information on how to upgrade to Second Generation instances. Replication type for this instance, can be one of ASYNCHRONOUS or SYNCHRONOUS.
+                  type: string
+                tier:
+                  description: The machine type to use. See tiers for more details and supported versions. Postgres supports only shared-core machine types such as db-f1-micro, and custom machine types such as db-custom-2-13312. See the Custom Machine Type Documentation to learn about specifying custom machine types.
+                  type: string
+              required:
+              - tier
+              type: object
+          required:
+          - settings
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            connectionName:
+              description: The connection name of the instance to be used in connection strings. For example, when connecting with Cloud SQL Proxy.
+              type: string
+            firstIpAddress:
+              type: string
+            ipAddress:
+              items:
+                properties:
+                  ipAddress:
+                    type: string
+                  timeToRetire:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              type: array
+            privateIpAddress:
+              type: string
+            publicIpAddress:
+              type: string
+            selfLink:
+              description: The URI of the created resource.
+              type: string
+            serverCaCert:
+              properties:
+                cert:
+                  description: The CA Certificate used to connect to the SQL Instance via SSL.
+                  type: string
+                commonName:
+                  description: The CN valid for the CA Cert.
+                  type: string
+                createTime:
+                  description: Creation time of the CA Cert.
+                  type: string
+                expirationTime:
+                  description: Expiration time of the CA Cert.
+                  type: string
+                sha1Fingerprint:
+                  description: SHA Fingerprint of the CA Cert.
+                  type: string
+              type: object
+            serviceAccountEmailAddress:
+              description: The service account email address assigned to the instance.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

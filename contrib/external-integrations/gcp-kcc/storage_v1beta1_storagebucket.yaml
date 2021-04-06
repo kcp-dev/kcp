@@ -1,0 +1,280 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: storagebuckets.storage.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: storage.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: StorageBucket
+    plural: storagebuckets
+    shortNames:
+    - gcpstoragebucket
+    - gcpstoragebuckets
+    singular: storagebucket
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            bucketPolicyOnly:
+              description: DEPRECATED — Please use the uniform_bucket_level_access as this field has been renamed by Google. Enables Bucket Policy Only access to a bucket.
+              type: boolean
+            cors:
+              description: The bucket's Cross-Origin Resource Sharing (CORS) configuration.
+              items:
+                properties:
+                  maxAgeSeconds:
+                    description: The value, in seconds, to return in the Access-Control-Max-Age header used in preflight responses.
+                    type: integer
+                  method:
+                    description: 'The list of HTTP methods on which to include CORS response headers, (GET, OPTIONS, POST, etc) Note: "*" is permitted in the list of methods, and means "any method".'
+                    items:
+                      type: string
+                    type: array
+                  origin:
+                    description: 'The list of Origins eligible to receive CORS response headers. Note: "*" is permitted in the list of origins, and means "any Origin".'
+                    items:
+                      type: string
+                    type: array
+                  responseHeader:
+                    description: The list of HTTP headers other than the simple response headers to give permission for the user-agent to share across domains.
+                    items:
+                      type: string
+                    type: array
+                type: object
+              type: array
+            defaultEventBasedHold:
+              type: boolean
+            encryption:
+              description: The bucket's encryption configuration.
+              properties:
+                kmsKeyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a KMSCryptoKey.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+              required:
+              - kmsKeyRef
+              type: object
+            lifecycleRule:
+              description: The bucket's Lifecycle Rules configuration.
+              items:
+                properties:
+                  action:
+                    description: The Lifecycle Rule's action configuration. A single block of this type is supported.
+                    properties:
+                      storageClass:
+                        description: 'The target Storage Class of objects affected by this Lifecycle Rule. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE.'
+                        type: string
+                      type:
+                        description: 'The type of the action of this Lifecycle Rule. Supported values include: Delete and SetStorageClass.'
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  condition:
+                    description: The Lifecycle Rule's condition configuration.
+                    properties:
+                      age:
+                        description: Minimum age of an object in days to satisfy this condition.
+                        type: integer
+                      createdBefore:
+                        description: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition.
+                        type: string
+                      customTimeBefore:
+                        description: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition.
+                        type: string
+                      daysSinceCustomTime:
+                        description: Number of days elapsed since the user-specified timestamp set on an object.
+                        type: integer
+                      daysSinceNoncurrentTime:
+                        description: "Number of days elapsed since the noncurrent timestamp of an object. This\n\t\t\t\t\t\t\t\t\t\tcondition is relevant only for versioned objects."
+                        type: integer
+                      matchesStorageClass:
+                        description: 'Storage Class of objects to satisfy this condition. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE, STANDARD, DURABLE_REDUCED_AVAILABILITY.'
+                        items:
+                          type: string
+                        type: array
+                      noncurrentTimeBefore:
+                        description: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition.
+                        type: string
+                      numNewerVersions:
+                        description: Relevant only for versioned objects. The number of newer versions of an object to satisfy this condition.
+                        type: integer
+                      withState:
+                        description: 'Match to live and/or archived objects. Unversioned buckets have only live objects. Supported values include: "LIVE", "ARCHIVED", "ANY".'
+                        type: string
+                    type: object
+                required:
+                - action
+                - condition
+                type: object
+              type: array
+            location:
+              description: Immutable. The Google Cloud Storage location
+              type: string
+            logging:
+              description: The bucket's Access & Storage Logs configuration.
+              properties:
+                logBucket:
+                  description: The bucket that will receive log objects.
+                  type: string
+                logObjectPrefix:
+                  description: The object prefix for log objects. If it's not provided, by default Google Cloud Storage sets this to this bucket's name.
+                  type: string
+              required:
+              - logBucket
+              type: object
+            requesterPays:
+              description: Enables Requester Pays on a storage bucket.
+              type: boolean
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            retentionPolicy:
+              description: Configuration of the bucket's data retention policy for how long objects in the bucket should be retained.
+              properties:
+                isLocked:
+                  description: 'If set to true, the bucket will be locked and permanently restrict edits to the bucket''s retention policy.  Caution: Locking a bucket is an irreversible action.'
+                  type: boolean
+                retentionPeriod:
+                  description: The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 3,155,760,000 seconds.
+                  type: integer
+              required:
+              - retentionPeriod
+              type: object
+            storageClass:
+              description: 'The Storage Class of the new bucket. Supported values include: STANDARD, MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE.'
+              type: string
+            uniformBucketLevelAccess:
+              description: Enables uniform bucket-level access on a bucket.
+              type: boolean
+            versioning:
+              description: The bucket's Versioning configuration.
+              properties:
+                enabled:
+                  description: While set to true, versioning is fully enabled for this bucket.
+                  type: boolean
+              required:
+              - enabled
+              type: object
+            website:
+              description: Configuration if the bucket acts as a website.
+              properties:
+                mainPageSuffix:
+                  description: Behaves as the bucket's directory index where missing objects are treated as potential directories.
+                  type: string
+                notFoundPage:
+                  description: The custom object to return when a requested resource is not found.
+                  type: string
+              type: object
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            selfLink:
+              description: The URI of the created resource.
+              type: string
+            url:
+              description: The base URL of the bucket, in the format gs://<bucket-name>.
+              type: string
+          type: object
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

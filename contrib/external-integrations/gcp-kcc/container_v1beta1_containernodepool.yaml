@@ -1,0 +1,394 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: containernodepools.container.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: container.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ContainerNodePool
+    plural: containernodepools
+    shortNames:
+    - gcpcontainernodepool
+    - gcpcontainernodepools
+    singular: containernodepool
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            autoscaling:
+              description: Configuration required by cluster autoscaler to adjust the size of the node pool to the current cluster usage.
+              properties:
+                maxNodeCount:
+                  description: Maximum number of nodes in the NodePool. Must be >= min_node_count.
+                  type: integer
+                minNodeCount:
+                  description: Minimum number of nodes in the NodePool. Must be >=0 and <= max_node_count.
+                  type: integer
+              required:
+              - maxNodeCount
+              - minNodeCount
+              type: object
+            clusterRef:
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a ContainerCluster.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            initialNodeCount:
+              description: Immutable. The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource.
+              type: integer
+            location:
+              description: Immutable. The location (region or zone) of the cluster.
+              type: string
+            management:
+              description: Node management configuration, wherein auto-repair and auto-upgrade is configured.
+              properties:
+                autoRepair:
+                  description: Whether the nodes will be automatically repaired.
+                  type: boolean
+                autoUpgrade:
+                  description: Whether the nodes will be automatically upgraded.
+                  type: boolean
+              type: object
+            maxPodsPerNode:
+              description: Immutable. The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled.
+              type: integer
+            namePrefix:
+              description: Immutable. Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name.
+              type: string
+            nodeConfig:
+              description: Immutable. The configuration of the nodepool
+              properties:
+                bootDiskKMSCryptoKeyRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The selfLink of a KMSCryptoKey.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                diskSizeGb:
+                  description: Immutable. Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB.
+                  type: integer
+                diskType:
+                  description: Immutable. Type of the disk attached to each node.
+                  type: string
+                ephemeralStorageConfig:
+                  description: Immutable.
+                  properties:
+                    localSsdCount:
+                      description: Immutable.
+                      type: integer
+                  required:
+                  - localSsdCount
+                  type: object
+                guestAccelerator:
+                  description: Immutable. List of the type and count of accelerator cards attached to the instance.
+                  items:
+                    properties:
+                      count:
+                        description: Immutable. The number of the accelerator cards exposed to an instance.
+                        type: integer
+                      type:
+                        description: Immutable. The accelerator type resource name.
+                        type: string
+                    required:
+                    - count
+                    - type
+                    type: object
+                  type: array
+                imageType:
+                  description: The image type to use for this node. Note that for a given image type, the latest version of it will be used.
+                  type: string
+                kubeletConfig:
+                  description: Node kubelet configs.
+                  properties:
+                    cpuCfsQuota:
+                      description: Enable CPU CFS quota enforcement for containers that specify CPU limits.
+                      type: boolean
+                    cpuCfsQuotaPeriod:
+                      description: Set the CPU CFS quota period value 'cpu.cfs_period_us'.
+                      type: string
+                    cpuManagerPolicy:
+                      description: Control the CPU management policy on the node.
+                      type: string
+                  required:
+                  - cpuManagerPolicy
+                  type: object
+                labels:
+                  additionalProperties:
+                    type: string
+                  description: Immutable. The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node.
+                  type: object
+                linuxNodeConfig:
+                  description: Parameters that can be configured on Linux nodes.
+                  properties:
+                    sysctls:
+                      additionalProperties:
+                        type: string
+                      description: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes.
+                      type: object
+                  required:
+                  - sysctls
+                  type: object
+                localSsdCount:
+                  description: Immutable. The number of local SSD disks to be attached to the node.
+                  type: integer
+                machineType:
+                  description: Immutable. The name of a Google Compute Engine machine type.
+                  type: string
+                metadata:
+                  additionalProperties:
+                    type: string
+                  description: Immutable. The metadata key/value pairs assigned to instances in the cluster.
+                  type: object
+                minCpuPlatform:
+                  description: Immutable. Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform.
+                  type: string
+                oauthScopes:
+                  description: Immutable. The set of Google API scopes to be made available on all of the node VMs.
+                  items:
+                    type: string
+                  type: array
+                preemptible:
+                  description: Immutable. Whether the nodes are created as preemptible VM instances.
+                  type: boolean
+                sandboxConfig:
+                  description: Immutable. Sandbox configuration for this node.
+                  properties:
+                    sandboxType:
+                      description: Type of the sandbox to use for the node (e.g. 'gvisor')
+                      type: string
+                  required:
+                  - sandboxType
+                  type: object
+                serviceAccountRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The email of an IAMServiceAccount.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                shieldedInstanceConfig:
+                  description: Immutable. Shielded Instance options.
+                  properties:
+                    enableIntegrityMonitoring:
+                      description: Immutable. Defines whether the instance has integrity monitoring enabled.
+                      type: boolean
+                    enableSecureBoot:
+                      description: Immutable. Defines whether the instance has Secure Boot enabled.
+                      type: boolean
+                  type: object
+                tags:
+                  description: Immutable. The list of instance tags applied to all nodes.
+                  items:
+                    type: string
+                  type: array
+                taint:
+                  description: Immutable. List of Kubernetes taints to be applied to each node.
+                  items:
+                    properties:
+                      effect:
+                        description: Immutable. Effect for taint.
+                        type: string
+                      key:
+                        description: Immutable. Key for taint.
+                        type: string
+                      value:
+                        description: Immutable. Value for taint.
+                        type: string
+                    required:
+                    - effect
+                    - key
+                    - value
+                    type: object
+                  type: array
+                workloadMetadataConfig:
+                  description: The workload metadata configuration for this node.
+                  properties:
+                    nodeMetadata:
+                      description: NodeMetadata is the configuration for how to expose metadata to the workloads running on the node.
+                      type: string
+                  required:
+                  - nodeMetadata
+                  type: object
+              type: object
+            nodeCount:
+              description: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling.
+              type: integer
+            nodeLocations:
+              description: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used.
+              items:
+                type: string
+              type: array
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            upgradeSettings:
+              description: Specify node upgrade settings to change how many nodes GKE attempts to upgrade at once. The number of nodes upgraded simultaneously is the sum of max_surge and max_unavailable. The maximum number of nodes upgraded simultaneously is limited to 20.
+              properties:
+                maxSurge:
+                  description: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater.
+                  type: integer
+                maxUnavailable:
+                  description: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater.
+                  type: integer
+              required:
+              - maxSurge
+              - maxUnavailable
+              type: object
+            version:
+              type: string
+          required:
+          - clusterRef
+          - location
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            instanceGroupUrls:
+              description: The resource URLs of the managed instance groups associated with this node pool.
+              items:
+                type: string
+              type: array
+            operation:
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

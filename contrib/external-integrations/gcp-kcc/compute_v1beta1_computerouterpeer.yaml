@@ -1,0 +1,248 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: computerouterpeers.compute.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: compute.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: ComputeRouterPeer
+    plural: computerouterpeers
+    shortNames:
+    - gcpcomputerouterpeer
+    - gcpcomputerouterpeers
+    singular: computerouterpeer
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            advertiseMode:
+              description: |-
+                Immutable. User-specified flag to indicate which mode to use for advertisement.
+                Valid values of this enum field are: 'DEFAULT', 'CUSTOM' Default value: "DEFAULT" Possible values: ["DEFAULT", "CUSTOM"]
+              type: string
+            advertisedGroups:
+              description: |-
+                Immutable. User-specified list of prefix groups to advertise in custom
+                mode, which can take one of the following options:
+
+                * 'ALL_SUBNETS': Advertises all available subnets, including peer VPC subnets.
+                * 'ALL_VPC_SUBNETS': Advertises the router's own VPC subnets.
+                * 'ALL_PEER_VPC_SUBNETS': Advertises peer subnets of the router's VPC network.
+
+
+                Note that this field can only be populated if advertiseMode is 'CUSTOM'
+                and overrides the list defined for the router (in the "bgp" message).
+                These groups are advertised in addition to any specified prefixes.
+                Leave this field blank to advertise no custom groups.
+              items:
+                type: string
+              type: array
+            advertisedIpRanges:
+              description: |-
+                User-specified list of individual IP ranges to advertise in
+                custom mode. This field can only be populated if advertiseMode
+                is 'CUSTOM' and is advertised to all peers of the router. These IP
+                ranges will be advertised in addition to any specified groups.
+                Leave this field blank to advertise no custom IP ranges.
+              items:
+                properties:
+                  description:
+                    description: User-specified description for the IP range.
+                    type: string
+                  range:
+                    description: |-
+                      The IP range to advertise. The value must be a
+                      CIDR-formatted string.
+                    type: string
+                required:
+                - range
+                type: object
+              type: array
+            advertisedRoutePriority:
+              description: |-
+                The priority of routes advertised to this BGP peer.
+                Where there is more than one matching route of maximum
+                length, the routes with the lowest priority value win.
+              type: integer
+            peerAsn:
+              description: |-
+                Immutable. Peer BGP Autonomous System Number (ASN).
+                Each BGP interface may use a different value.
+              type: integer
+            peerIpAddress:
+              description: |-
+                Immutable. IP address of the BGP interface outside Google Cloud Platform.
+                Only IPv4 is supported.
+              type: string
+            region:
+              description: |-
+                Immutable. Region where the router and BgpPeer reside.
+                If it is not provided, the provider region is used.
+              type: string
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            routerInterfaceRef:
+              description: The interface the BGP peer is associated with.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a ComputeRouterInterface.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+            routerRef:
+              description: The Cloud Router in which this BGP peer will be configured.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a ComputeRouter.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+          required:
+          - peerAsn
+          - peerIpAddress
+          - region
+          - routerInterfaceRef
+          - routerRef
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            ipAddress:
+              description: |-
+                IP address of the interface inside Google Cloud Platform.
+                Only IPv4 is supported.
+              type: string
+            managementType:
+              description: |-
+                The resource that configures and manages this BGP peer.
+
+                * 'MANAGED_BY_USER' is the default value and can be managed by
+                you or other users
+                * 'MANAGED_BY_ATTACHMENT' is a BGP peer that is configured and
+                managed by Cloud Interconnect, specifically by an
+                InterconnectAttachment of type PARTNER. Google automatically
+                creates, updates, and deletes this type of BGP peer when the
+                PARTNER InterconnectAttachment is created, updated,
+                or deleted.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

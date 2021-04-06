@@ -1,0 +1,856 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/dcl2crd: "true"
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+  name: dataprocclusters.dataproc.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: dataproc.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: DataprocCluster
+    plural: dataprocclusters
+    shortNames:
+    - gcpdataproccluster
+    - gcpdataprocclusters
+    singular: dataproccluster
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            config:
+              description: The cluster config. Note that Dataproc may set default values, and values may change when clusters are updated.
+              properties:
+                autoscalingConfig:
+                  description: Optional. Autoscaling config for the policy associated with the cluster. Cluster does not autoscale if this field is unset.
+                  properties:
+                    policyRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: 'Optional. The autoscaling policy used by the cluster. Only resource names including projectid and location (region) are valid. Examples: * `https://www.googleapis.com/compute/v1/projects/` Note that the policy must be in the same project and Dataproc region.'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                  type: object
+                encryptionConfig:
+                  description: Optional. Encryption settings for the cluster.
+                  properties:
+                    gcePdKmsKeyRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: Optional. The Cloud KMS key name to use for PD disk encryption for all instances in the cluster.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                  type: object
+                endpointConfig:
+                  description: Optional. Port/endpoint configuration for this cluster
+                  properties:
+                    enableHttpPortAccess:
+                      description: Optional. If true, enable http access to specific ports on the cluster from external sources. Defaults to false.
+                      type: boolean
+                  type: object
+                gceClusterConfig:
+                  description: Optional. The shared Compute Engine config settings for all instances in a cluster.
+                  properties:
+                    internalIPOnly:
+                      description: Optional. If true, all instances in the cluster will only have internal IP addresses. By default, clusters are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each instance. This `internal_ip_only` restriction can only be enabled for subnetwork enabled networks, and all off-cluster dependencies must be configured to be accessible without external IP addresses.
+                      type: boolean
+                    metadata:
+                      additionalProperties:
+                        type: string
+                      description: The Compute Engine metadata entries to add to all instances (see (https://cloud.google.com/compute/docs/storing-retrieving-metadata#project_and_instance_metadata)).
+                      type: object
+                    networkRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: Optional. The Compute Engine network to be used for machine communications. Cannot be specified with subnetwork_uri. If neither `network_uri` nor `subnetwork_uri` is specified, the "default" network of the project is used, if it exists. Cannot be a "Custom Subnet Network" (see /regions/global/default` * `default`
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    nodeGroupAffinity:
+                      description: Optional. Node Group Affinity for sole-tenant clusters.
+                      properties:
+                        nodeGroupRef:
+                          oneOf:
+                          - not:
+                              required:
+                              - external
+                            required:
+                            - name
+                          - not:
+                              anyOf:
+                              - required:
+                                - name
+                              - required:
+                                - namespace
+                            required:
+                            - external
+                          properties:
+                            external:
+                              description: Required. The URI of a sole-tenant /zones/us-central1-a/nodeGroups/node-group-1` * `node-group-1`
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              type: string
+                            namespace:
+                              description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                              type: string
+                          type: object
+                      required:
+                      - nodeGroupRef
+                      type: object
+                    privateIPv6GoogleAccess:
+                      description: 'Optional. The type of IPv6 access for a cluster. Possible values: PRIVATE_IPV6_GOOGLE_ACCESS_UNSPECIFIED, INHERIT_FROM_SUBNETWORK, OUTBOUND, BIDIRECTIONAL'
+                      type: string
+                    reservationAffinity:
+                      description: Optional. Reservation Affinity for consuming Zonal reservation.
+                      properties:
+                        consumeReservationType:
+                          description: 'Optional. Type of reservation to consume Possible values: TYPE_UNSPECIFIED, NO_RESERVATION, ANY_RESERVATION, SPECIFIC_RESERVATION'
+                          type: string
+                        key:
+                          description: Optional. Corresponds to the label key of reservation resource.
+                          type: string
+                        values:
+                          description: Optional. Corresponds to the label values of reservation resource.
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    serviceAccountRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: Optional. The (https://cloud.google.com/compute/docs/access/service-accounts#default_service_account) is used.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    serviceAccountScopes:
+                      description: 'Optional. The URIs of service account scopes to be included in Compute Engine instances. The following base set of scopes is always included: * https://www.googleapis.com/auth/cloud.useraccounts.readonly * https://www.googleapis.com/auth/devstorage.read_write * https://www.googleapis.com/auth/logging.write If no scopes are specified, the following defaults are also provided: * https://www.googleapis.com/auth/bigquery * https://www.googleapis.com/auth/bigtable.admin.table * https://www.googleapis.com/auth/bigtable.data * https://www.googleapis.com/auth/devstorage.full_control'
+                      items:
+                        type: string
+                      type: array
+                    subnetworkRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: 'Optional. The Compute Engine subnetwork to be used for machine communications. Cannot be specified with network_uri. A full URL, partial URI, or short name are valid. Examples: * `https://www.googleapis.com/compute/v1/projects//regions/us-east1/subnetworks/sub0` * `sub0`'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    tags:
+                      description: The Compute Engine tags to add to all instances (see (https://cloud.google.com/compute/docs/label-or-tag-resources#tags)).
+                      items:
+                        type: string
+                      type: array
+                    zone:
+                      description: 'Optional. The zone where the Compute Engine cluster will be located. On a create request, it is required in the "global" region. If omitted in a non-global Dataproc region, the service will pick a zone in the corresponding Compute Engine region. On a get request, zone will always be present. A full URL, partial URI, or short name are valid. Examples: * `https://www.googleapis.com/compute/v1/projects/` * `us-central1-f`'
+                      type: string
+                  type: object
+                initializationActions:
+                  description: 'Optional. Commands to execute on each node after config is completed. By default, executables are run on master and all worker nodes. You can test a node''s `role` metadata to run an executable on a master or worker node, as shown below using `curl` (you can also use `wget`): ROLE=$(curl -H Metadata-Flavor:Google http://metadata/computeMetadata/v1/instance/attributes/dataproc-role) if ; then ... master specific actions ... else ... worker specific actions ... fi'
+                  items:
+                    properties:
+                      executableFile:
+                        description: Required. Cloud Storage URI of executable file.
+                        type: string
+                      executionTimeout:
+                        description: Optional. Amount of time executable has to complete. Default is 10 minutes (see JSON representation of (https://developers.google.com/protocol-buffers/docs/proto3#json)). Cluster creation fails with an explanatory error message (the name of the executable that caused the error and the exceeded timeout period) if the executable is not completed at end of the timeout period.
+                        type: string
+                    required:
+                    - executableFile
+                    type: object
+                  type: array
+                lifecycleConfig:
+                  description: Optional. Lifecycle setting for the cluster.
+                  properties:
+                    autoDeleteTime:
+                      description: Optional. The time when cluster will be auto-deleted (see JSON representation of (https://developers.google.com/protocol-buffers/docs/proto3#json)).
+                      format: date-time
+                      type: string
+                    autoDeleteTtl:
+                      description: Optional. The lifetime duration of cluster. The cluster will be auto-deleted at the end of this period. Minimum value is 10 minutes; maximum value is 14 days (see JSON representation of (https://developers.google.com/protocol-buffers/docs/proto3#json)).
+                      type: string
+                    idleDeleteTtl:
+                      description: Optional. The duration to keep the cluster alive while idling (when no jobs are running). Passing this threshold will cause the cluster to be deleted. Minimum value is 5 minutes; maximum value is 14 days (see JSON representation of (https://developers.google.com/protocol-buffers/docs/proto3#json).
+                      type: string
+                  type: object
+                masterConfig:
+                  description: Optional. The Compute Engine config settings for additional worker instances in a cluster.
+                  properties:
+                    accelerators:
+                      description: Optional. The Compute Engine accelerator configuration for these instances.
+                      items:
+                        properties:
+                          acceleratorCount:
+                            description: The number of the accelerator cards of this type exposed to this instance.
+                            format: int64
+                            type: integer
+                          acceleratorType:
+                            description: Full URL, partial URI, or short name of the accelerator type resource to expose to this instance. See (https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/auto-zone#using_auto_zone_placement) feature, you must use the short name of the accelerator type resource, for example, `nvidia-tesla-k80`.
+                            type: string
+                        type: object
+                      type: array
+                    diskConfig:
+                      description: Optional. Disk option config settings.
+                      properties:
+                        bootDiskSizeGb:
+                          description: Optional. Size in GB of the boot disk (default is 500GB).
+                          format: int64
+                          type: integer
+                        bootDiskType:
+                          description: 'Optional. Type of the boot disk (default is "pd-standard"). Valid values: "pd-ssd" (Persistent Disk Solid State Drive) or "pd-standard" (Persistent Disk Hard Disk Drive).'
+                          type: string
+                        numLocalSsds:
+                          description: Optional. Number of attached SSDs, from 0 to 4 (default is 0). If SSDs are not attached, the boot disk is used to store runtime logs and (https://hadoop.apache.org/docs/r1.2.1/hdfs_user_guide.html) data. If one or more SSDs are attached, this runtime bulk data is spread across them, and the boot disk contains only basic config and installed binaries.
+                          format: int64
+                          type: integer
+                      type: object
+                    imageRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: 'Optional. The Compute Engine image resource used for cluster instances. The URI can represent an image or image family. Image examples: * `https://www.googleapis.com/compute/beta/projects/` If the URI is unspecified, it will be inferred from `SoftwareConfig.image_version` or the system default.'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    machineType:
+                      description: 'Optional. The Compute Engine machine type used for cluster instances. A full URL, partial URI, or short name are valid. Examples: * `https://www.googleapis.com/compute/v1/projects/(https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/auto-zone#using_auto_zone_placement) feature, you must use the short name of the machine type resource, for example, `n1-standard-2`.'
+                      type: string
+                    minCpuPlatform:
+                      description: Optional. Specifies the minimum cpu platform for the Instance Group. See (https://cloud.google.com/dataproc/docs/concepts/compute/dataproc-min-cpu).
+                      type: string
+                    numInstances:
+                      description: Optional. The number of VM instances in the instance group. For master instance groups, must be set to 1.
+                      format: int64
+                      type: integer
+                    preemptibility:
+                      description: 'Optional. Specifies the preemptibility of the instance group. The default value for master and worker groups is `NON_PREEMPTIBLE`. This default cannot be changed. The default value for secondary instances is `PREEMPTIBLE`. Possible values: PREEMPTIBILITY_UNSPECIFIED, NON_PREEMPTIBLE, PREEMPTIBLE'
+                      type: string
+                  type: object
+                secondaryWorkerConfig:
+                  description: Optional. The Compute Engine config settings for additional worker instances in a cluster.
+                  properties:
+                    accelerators:
+                      description: Optional. The Compute Engine accelerator configuration for these instances.
+                      items:
+                        properties:
+                          acceleratorCount:
+                            description: The number of the accelerator cards of this type exposed to this instance.
+                            format: int64
+                            type: integer
+                          acceleratorType:
+                            description: Full URL, partial URI, or short name of the accelerator type resource to expose to this instance. See (https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/auto-zone#using_auto_zone_placement) feature, you must use the short name of the accelerator type resource, for example, `nvidia-tesla-k80`.
+                            type: string
+                        type: object
+                      type: array
+                    diskConfig:
+                      description: Optional. Disk option config settings.
+                      properties:
+                        bootDiskSizeGb:
+                          description: Optional. Size in GB of the boot disk (default is 500GB).
+                          format: int64
+                          type: integer
+                        bootDiskType:
+                          description: 'Optional. Type of the boot disk (default is "pd-standard"). Valid values: "pd-ssd" (Persistent Disk Solid State Drive) or "pd-standard" (Persistent Disk Hard Disk Drive).'
+                          type: string
+                        numLocalSsds:
+                          description: Optional. Number of attached SSDs, from 0 to 4 (default is 0). If SSDs are not attached, the boot disk is used to store runtime logs and (https://hadoop.apache.org/docs/r1.2.1/hdfs_user_guide.html) data. If one or more SSDs are attached, this runtime bulk data is spread across them, and the boot disk contains only basic config and installed binaries.
+                          format: int64
+                          type: integer
+                      type: object
+                    imageRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: 'Optional. The Compute Engine image resource used for cluster instances. The URI can represent an image or image family. Image examples: * `https://www.googleapis.com/compute/beta/projects/` If the URI is unspecified, it will be inferred from `SoftwareConfig.image_version` or the system default.'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    machineType:
+                      description: 'Optional. The Compute Engine machine type used for cluster instances. A full URL, partial URI, or short name are valid. Examples: * `https://www.googleapis.com/compute/v1/projects/(https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/auto-zone#using_auto_zone_placement) feature, you must use the short name of the machine type resource, for example, `n1-standard-2`.'
+                      type: string
+                    minCpuPlatform:
+                      description: Optional. Specifies the minimum cpu platform for the Instance Group. See (https://cloud.google.com/dataproc/docs/concepts/compute/dataproc-min-cpu).
+                      type: string
+                    numInstances:
+                      description: Optional. The number of VM instances in the instance group. For master instance groups, must be set to 1.
+                      format: int64
+                      type: integer
+                    preemptibility:
+                      description: 'Optional. Specifies the preemptibility of the instance group. The default value for master and worker groups is `NON_PREEMPTIBLE`. This default cannot be changed. The default value for secondary instances is `PREEMPTIBLE`. Possible values: PREEMPTIBILITY_UNSPECIFIED, NON_PREEMPTIBLE, PREEMPTIBLE'
+                      type: string
+                  type: object
+                securityConfig:
+                  description: Optional. Security settings for the cluster.
+                  properties:
+                    kerberosConfig:
+                      description: Kerberos related configuration.
+                      properties:
+                        crossRealmTrustAdminServer:
+                          description: Optional. The admin server (IP or hostname) for the remote trusted realm in a cross realm trust relationship.
+                          type: string
+                        crossRealmTrustKdc:
+                          description: Optional. The KDC (IP or hostname) for the remote trusted realm in a cross realm trust relationship.
+                          type: string
+                        crossRealmTrustRealm:
+                          description: Optional. The remote realm the Dataproc on-cluster KDC will trust, should the user enable cross realm trust.
+                          type: string
+                        crossRealmTrustSharedPassword:
+                          description: Optional. The Cloud Storage URI of a KMS encrypted file containing the shared password between the on-cluster Kerberos realm and the remote trusted realm, in a cross realm trust relationship.
+                          type: string
+                        enableKerberos:
+                          description: 'Optional. Flag to indicate whether to Kerberize the cluster (default: false). Set this field to true to enable Kerberos on a cluster.'
+                          type: boolean
+                        kdcDbKey:
+                          description: Optional. The Cloud Storage URI of a KMS encrypted file containing the master key of the KDC database.
+                          type: string
+                        keyPassword:
+                          description: Optional. The Cloud Storage URI of a KMS encrypted file containing the password to the user provided key. For the self-signed certificate, this password is generated by Dataproc.
+                          type: string
+                        keystore:
+                          description: Optional. The Cloud Storage URI of the keystore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate.
+                          type: string
+                        keystorePassword:
+                          description: Optional. The Cloud Storage URI of a KMS encrypted file containing the password to the user provided keystore. For the self-signed certificate, this password is generated by Dataproc.
+                          type: string
+                        kmsKeyRef:
+                          oneOf:
+                          - not:
+                              required:
+                              - external
+                            required:
+                            - name
+                          - not:
+                              anyOf:
+                              - required:
+                                - name
+                              - required:
+                                - namespace
+                            required:
+                            - external
+                          properties:
+                            external:
+                              description: Optional. The uri of the KMS key used to encrypt various sensitive files.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              type: string
+                            namespace:
+                              description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                              type: string
+                          type: object
+                        realm:
+                          description: Optional. The name of the on-cluster Kerberos realm. If not specified, the uppercased domain of hostnames will be the realm.
+                          type: string
+                        rootPrincipalPassword:
+                          description: Optional. The Cloud Storage URI of a KMS encrypted file containing the root principal password.
+                          type: string
+                        tgtLifetimeHours:
+                          description: Optional. The lifetime of the ticket granting ticket, in hours. If not specified, or user specifies 0, then default value 10 will be used.
+                          format: int64
+                          type: integer
+                        truststore:
+                          description: Optional. The Cloud Storage URI of the truststore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate.
+                          type: string
+                        truststorePassword:
+                          description: Optional. The Cloud Storage URI of a KMS encrypted file containing the password to the user provided truststore. For the self-signed certificate, this password is generated by Dataproc.
+                          type: string
+                      type: object
+                  type: object
+                softwareConfig:
+                  description: Optional. The config settings for software inside the cluster.
+                  properties:
+                    imageVersion:
+                      description: Optional. The version of software inside the cluster. It must be one of the supported (https://cloud.google.com/dataproc/docs/concepts/versioning/dataproc-versions#other_versions). If unspecified, it defaults to the latest Debian version.
+                      type: string
+                    optionalComponents:
+                      description: Optional. The set of components to activate on the cluster.
+                      items:
+                        type: string
+                      type: array
+                    properties:
+                      additionalProperties:
+                        type: string
+                      description: 'Optional. The properties to set on daemon config files. Property keys are specified in `prefix:property` format, for example `core:hadoop.tmp.dir`. The following are supported prefixes and their mappings: * capacity-scheduler: `capacity-scheduler.xml` * core: `core-site.xml` * distcp: `distcp-default.xml` * hdfs: `hdfs-site.xml` * hive: `hive-site.xml` * mapred: `mapred-site.xml` * pig: `pig.properties` * spark: `spark-defaults.conf` * yarn: `yarn-site.xml` For more information, see (https://cloud.google.com/dataproc/docs/concepts/cluster-properties).'
+                      type: object
+                  type: object
+                stagingBucketRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: Optional. A Cloud Storage bucket used to stage job dependencies, config files, and job driver console output. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Compute Engine zone where your cluster is deployed, and then create and manage this project-level, per-location bucket (see (https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/staging-bucket)).
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                tempBucketRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: Optional. A Cloud Storage bucket used to store ephemeral cluster and jobs data, such as Spark and MapReduce history files. If you do not specify a temp bucket, Dataproc will determine a Cloud Storage location (US, ASIA, or EU) for your cluster's temp bucket according to the Compute Engine zone where your cluster is deployed, and then create and manage this project-level, per-location bucket. The default bucket has a TTL of 90 days, but you can use any TTL (or none) if you specify a bucket.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                workerConfig:
+                  description: Optional. The Compute Engine config settings for additional worker instances in a cluster.
+                  properties:
+                    accelerators:
+                      description: Optional. The Compute Engine accelerator configuration for these instances.
+                      items:
+                        properties:
+                          acceleratorCount:
+                            description: The number of the accelerator cards of this type exposed to this instance.
+                            format: int64
+                            type: integer
+                          acceleratorType:
+                            description: Full URL, partial URI, or short name of the accelerator type resource to expose to this instance. See (https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/auto-zone#using_auto_zone_placement) feature, you must use the short name of the accelerator type resource, for example, `nvidia-tesla-k80`.
+                            type: string
+                        type: object
+                      type: array
+                    diskConfig:
+                      description: Optional. Disk option config settings.
+                      properties:
+                        bootDiskSizeGb:
+                          description: Optional. Size in GB of the boot disk (default is 500GB).
+                          format: int64
+                          type: integer
+                        bootDiskType:
+                          description: 'Optional. Type of the boot disk (default is "pd-standard"). Valid values: "pd-ssd" (Persistent Disk Solid State Drive) or "pd-standard" (Persistent Disk Hard Disk Drive).'
+                          type: string
+                        numLocalSsds:
+                          description: Optional. Number of attached SSDs, from 0 to 4 (default is 0). If SSDs are not attached, the boot disk is used to store runtime logs and (https://hadoop.apache.org/docs/r1.2.1/hdfs_user_guide.html) data. If one or more SSDs are attached, this runtime bulk data is spread across them, and the boot disk contains only basic config and installed binaries.
+                          format: int64
+                          type: integer
+                      type: object
+                    imageRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: 'Optional. The Compute Engine image resource used for cluster instances. The URI can represent an image or image family. Image examples: * `https://www.googleapis.com/compute/beta/projects/` If the URI is unspecified, it will be inferred from `SoftwareConfig.image_version` or the system default.'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                    machineType:
+                      description: 'Optional. The Compute Engine machine type used for cluster instances. A full URL, partial URI, or short name are valid. Examples: * `https://www.googleapis.com/compute/v1/projects/(https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/auto-zone#using_auto_zone_placement) feature, you must use the short name of the machine type resource, for example, `n1-standard-2`.'
+                      type: string
+                    minCpuPlatform:
+                      description: Optional. Specifies the minimum cpu platform for the Instance Group. See (https://cloud.google.com/dataproc/docs/concepts/compute/dataproc-min-cpu).
+                      type: string
+                    numInstances:
+                      description: Optional. The number of VM instances in the instance group. For master instance groups, must be set to 1.
+                      format: int64
+                      type: integer
+                    preemptibility:
+                      description: 'Optional. Specifies the preemptibility of the instance group. The default value for master and worker groups is `NON_PREEMPTIBLE`. This default cannot be changed. The default value for secondary instances is `PREEMPTIBLE`. Possible values: PREEMPTIBILITY_UNSPECIFIED, NON_PREEMPTIBLE, PREEMPTIBLE'
+                      type: string
+                  type: object
+              type: object
+            location:
+              description: The location for the resource, usually a GCP region.
+              type: string
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+          required:
+          - location
+          type: object
+        status:
+          properties:
+            clusterUuid:
+              description: Output only. A cluster UUID (Unique Universal Identifier). Dataproc generates this value when it creates the cluster.
+              type: string
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            config:
+              properties:
+                endpointConfig:
+                  properties:
+                    httpPorts:
+                      additionalProperties:
+                        type: string
+                      description: Output only. The map of port descriptions to URLs. Will only be populated if enable_http_port_access is true.
+                      type: object
+                  type: object
+                lifecycleConfig:
+                  properties:
+                    idleStartTime:
+                      description: Output only. The time when cluster became idle (most recent job finished) and became eligible for deletion due to idleness (see JSON representation of (https://developers.google.com/protocol-buffers/docs/proto3#json)).
+                      format: date-time
+                      type: string
+                  type: object
+                masterConfig:
+                  properties:
+                    instanceNames:
+                      description: Output only. The list of instance names. Dataproc derives the names from `cluster_name`, `num_instances`, and the instance group.
+                      items:
+                        type: string
+                      type: array
+                    isPreemptible:
+                      description: Output only. Specifies that this instance group contains preemptible instances.
+                      type: boolean
+                    managedGroupConfig:
+                      description: Output only. The config for Compute Engine Instance Group Manager that manages this group. This is only used for preemptible instance groups.
+                      properties:
+                        instanceGroupManagerName:
+                          description: Output only. The name of the Instance Group Manager for this group.
+                          type: string
+                        instanceTemplateName:
+                          description: Output only. The name of the Instance Template used for the Managed Instance Group.
+                          type: string
+                      type: object
+                  type: object
+                secondaryWorkerConfig:
+                  properties:
+                    instanceNames:
+                      description: Output only. The list of instance names. Dataproc derives the names from `cluster_name`, `num_instances`, and the instance group.
+                      items:
+                        type: string
+                      type: array
+                    isPreemptible:
+                      description: Output only. Specifies that this instance group contains preemptible instances.
+                      type: boolean
+                    managedGroupConfig:
+                      description: Output only. The config for Compute Engine Instance Group Manager that manages this group. This is only used for preemptible instance groups.
+                      properties:
+                        instanceGroupManagerName:
+                          description: Output only. The name of the Instance Group Manager for this group.
+                          type: string
+                        instanceTemplateName:
+                          description: Output only. The name of the Instance Template used for the Managed Instance Group.
+                          type: string
+                      type: object
+                  type: object
+                workerConfig:
+                  properties:
+                    instanceNames:
+                      description: Output only. The list of instance names. Dataproc derives the names from `cluster_name`, `num_instances`, and the instance group.
+                      items:
+                        type: string
+                      type: array
+                    isPreemptible:
+                      description: Output only. Specifies that this instance group contains preemptible instances.
+                      type: boolean
+                    managedGroupConfig:
+                      description: Output only. The config for Compute Engine Instance Group Manager that manages this group. This is only used for preemptible instance groups.
+                      properties:
+                        instanceGroupManagerName:
+                          description: Output only. The name of the Instance Group Manager for this group.
+                          type: string
+                        instanceTemplateName:
+                          description: Output only. The name of the Instance Template used for the Managed Instance Group.
+                          type: string
+                      type: object
+                  type: object
+              type: object
+            metrics:
+              description: 'Output only. Contains cluster daemon metrics such as HDFS and YARN stats. **Beta Feature**: This report is available for testing purposes only. It may be changed before final release.'
+              properties:
+                hdfsMetrics:
+                  additionalProperties:
+                    type: string
+                  description: The HDFS metrics.
+                  type: object
+                yarnMetrics:
+                  additionalProperties:
+                    type: string
+                  description: The YARN metrics.
+                  type: object
+              type: object
+            status:
+              description: Output only. Cluster status.
+              properties:
+                detail:
+                  description: Optional. Output only. Details of cluster's state.
+                  type: string
+                state:
+                  description: 'Output only. The cluster''s state. Possible values: UNKNOWN, CREATING, RUNNING, ERROR, DELETING, UPDATING, STOPPING, STOPPED, STARTING'
+                  type: string
+                stateStartTime:
+                  description: Output only. Time when this state was entered (see JSON representation of (https://developers.google.com/protocol-buffers/docs/proto3#json)).
+                  format: date-time
+                  type: string
+                substate:
+                  description: 'Output only. Additional state information that includes status reported by the agent. Possible values: UNSPECIFIED, UNHEALTHY, STALE_STATUS'
+                  type: string
+              type: object
+            statusHistory:
+              description: Output only. The previous cluster status.
+              items:
+                properties:
+                  detail:
+                    description: Optional. Output only. Details of cluster's state.
+                    type: string
+                  state:
+                    description: 'Output only. The cluster''s state. Possible values: UNKNOWN, CREATING, RUNNING, ERROR, DELETING, UPDATING, STOPPING, STOPPED, STARTING'
+                    type: string
+                  stateStartTime:
+                    description: Output only. Time when this state was entered (see JSON representation of (https://developers.google.com/protocol-buffers/docs/proto3#json)).
+                    format: date-time
+                    type: string
+                  substate:
+                    description: 'Output only. Additional state information that includes status reported by the agent. Possible values: UNSPECIFIED, UNHEALTHY, STALE_STATUS'
+                    type: string
+                type: object
+              type: array
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

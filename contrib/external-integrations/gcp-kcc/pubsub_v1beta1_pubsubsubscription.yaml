@@ -1,0 +1,328 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: pubsubsubscriptions.pubsub.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: pubsub.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: PubSubSubscription
+    plural: pubsubsubscriptions
+    shortNames:
+    - gcppubsubsubscription
+    - gcppubsubsubscriptions
+    singular: pubsubsubscription
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            ackDeadlineSeconds:
+              description: |-
+                This value is the maximum time after a subscriber receives a message
+                before the subscriber should acknowledge the message. After message
+                delivery but before the ack deadline expires and before the message is
+                acknowledged, it is an outstanding message and will not be delivered
+                again during that time (on a best-effort basis).
+
+                For pull subscriptions, this value is used as the initial value for
+                the ack deadline. To override this value for a given message, call
+                subscriptions.modifyAckDeadline with the corresponding ackId if using
+                pull. The minimum custom deadline you can specify is 10 seconds. The
+                maximum custom deadline you can specify is 600 seconds (10 minutes).
+                If this parameter is 0, a default value of 10 seconds is used.
+
+                For push delivery, this value is also used to set the request timeout
+                for the call to the push endpoint.
+
+                If the subscriber never acknowledges the message, the Pub/Sub system
+                will eventually redeliver the message.
+              type: integer
+            deadLetterPolicy:
+              description: |-
+                A policy that specifies the conditions for dead lettering messages in
+                this subscription. If dead_letter_policy is not set, dead lettering
+                is disabled.
+
+                The Cloud Pub/Sub service account associated with this subscription's
+                parent project (i.e.,
+                service-{project_number}@gcp-sa-pubsub.iam.gserviceaccount.com) must have
+                permission to Acknowledge() messages on this subscription.
+              properties:
+                deadLetterTopicRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: The name of a PubSubTopic.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+                maxDeliveryAttempts:
+                  description: "The maximum number of delivery attempts for any message. The value must be\nbetween 5 and 100.\n\nThe number of delivery attempts is defined as 1 + (the sum of number of \nNACKs and number of times the acknowledgement deadline has been exceeded for the message).\n\nA NACK is any call to ModifyAckDeadline with a 0 deadline. Note that\nclient libraries may automatically extend ack_deadlines.\n\nThis field will be honored on a best effort basis.\n\nIf this parameter is 0, a default value of 5 is used."
+                  type: integer
+              type: object
+            enableMessageOrdering:
+              description: |-
+                Immutable. If 'true', messages published with the same orderingKey in PubsubMessage will be delivered to
+                the subscribers in the order in which they are received by the Pub/Sub system. Otherwise, they
+                may be delivered in any order.
+              type: boolean
+            expirationPolicy:
+              description: |-
+                A policy that specifies the conditions for this subscription's expiration.
+                A subscription is considered active as long as any connected subscriber
+                is successfully consuming messages from the subscription or is issuing
+                operations on the subscription. If expirationPolicy is not set, a default
+                policy with ttl of 31 days will be used.  If it is set but ttl is "", the
+                resource never expires.  The minimum allowed value for expirationPolicy.ttl
+                is 1 day.
+              properties:
+                ttl:
+                  description: |-
+                    Specifies the "time-to-live" duration for an associated resource. The
+                    resource expires if it is not active for a period of ttl.
+                    If ttl is not set, the associated resource never expires.
+                    A duration in seconds with up to nine fractional digits, terminated by 's'.
+                    Example - "3.5s".
+                  type: string
+              required:
+              - ttl
+              type: object
+            filter:
+              description: "Immutable. The subscription only delivers the messages that match the filter. \nPub/Sub automatically acknowledges the messages that don't match the filter. You can filter messages\nby their attributes. The maximum length of a filter is 256 bytes. After creating the subscription, \nyou can't modify the filter."
+              type: string
+            messageRetentionDuration:
+              description: |-
+                How long to retain unacknowledged messages in the subscription's
+                backlog, from the moment a message is published. If
+                retainAckedMessages is true, then this also configures the retention
+                of acknowledged messages, and thus configures how far back in time a
+                subscriptions.seek can be done. Defaults to 7 days. Cannot be more
+                than 7 days ('"604800s"') or less than 10 minutes ('"600s"').
+
+                A duration in seconds with up to nine fractional digits, terminated
+                by 's'. Example: '"600.5s"'.
+              type: string
+            pushConfig:
+              description: |-
+                If push delivery is used with this subscription, this field is used to
+                configure it. An empty pushConfig signifies that the subscriber will
+                pull and ack messages using API methods.
+              properties:
+                attributes:
+                  additionalProperties:
+                    type: string
+                  description: |-
+                    Endpoint configuration attributes.
+
+                    Every endpoint has a set of API supported attributes that can
+                    be used to control different aspects of the message delivery.
+
+                    The currently supported attribute is x-goog-version, which you
+                    can use to change the format of the pushed message. This
+                    attribute indicates the version of the data expected by
+                    the endpoint. This controls the shape of the pushed message
+                    (i.e., its fields and metadata). The endpoint version is
+                    based on the version of the Pub/Sub API.
+
+                    If not present during the subscriptions.create call,
+                    it will default to the version of the API used to make
+                    such call. If not present during a subscriptions.modifyPushConfig
+                    call, its value will not be changed. subscriptions.get
+                    calls will always return a valid version, even if the
+                    subscription was created without this attribute.
+
+                    The possible values for this attribute are:
+
+                    - v1beta1: uses the push format defined in the v1beta1 Pub/Sub API.
+                    - v1 or v1beta2: uses the push format defined in the v1 Pub/Sub API.
+                  type: object
+                oidcToken:
+                  description: |-
+                    If specified, Pub/Sub will generate and attach an OIDC JWT token as
+                    an Authorization header in the HTTP request for every pushed message.
+                  properties:
+                    audience:
+                      description: |-
+                        Audience to be used when generating OIDC token. The audience claim
+                        identifies the recipients that the JWT is intended for. The audience
+                        value is a single case-sensitive string. Having multiple values (array)
+                        for the audience field is not supported. More info about the OIDC JWT
+                        token audience here: https://tools.ietf.org/html/rfc7519#section-4.1.3
+                        Note: if not specified, the Push endpoint URL will be used.
+                      type: string
+                    serviceAccountEmail:
+                      description: |-
+                        Service account email to be used for generating the OIDC token.
+                        The caller (for subscriptions.create, subscriptions.patch, and
+                        subscriptions.modifyPushConfig RPCs) must have the
+                        iam.serviceAccounts.actAs permission for the service account.
+                      type: string
+                  required:
+                  - serviceAccountEmail
+                  type: object
+                pushEndpoint:
+                  description: |-
+                    A URL locating the endpoint to which messages should be pushed.
+                    For example, a Webhook endpoint might use
+                    "https://example.com/push".
+                  type: string
+              required:
+              - pushEndpoint
+              type: object
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            retainAckedMessages:
+              description: |-
+                Indicates whether to retain acknowledged messages. If 'true', then
+                messages are not expunged from the subscription's backlog, even if
+                they are acknowledged, until they fall out of the
+                messageRetentionDuration window.
+              type: boolean
+            retryPolicy:
+              description: "A policy that specifies how Pub/Sub retries message delivery for this subscription.\n\nIf not set, the default retry policy is applied. This generally implies that messages will be retried as soon as possible for healthy subscribers. \nRetryPolicy will be triggered on NACKs or acknowledgement deadline exceeded events for a given message"
+              properties:
+                maximumBackoff:
+                  description: "The maximum delay between consecutive deliveries of a given message. Value should be between 0 and 600 seconds. Defaults to 600 seconds. \nA duration in seconds with up to nine fractional digits, terminated by 's'. Example: \"3.5s\"."
+                  type: string
+                minimumBackoff:
+                  description: |-
+                    The minimum delay between consecutive deliveries of a given message. Value should be between 0 and 600 seconds. Defaults to 10 seconds.
+                    A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
+                  type: string
+              type: object
+            topicRef:
+              description: Reference to a PubSubTopic.
+              oneOf:
+              - not:
+                  required:
+                  - external
+                required:
+                - name
+              - not:
+                  anyOf:
+                  - required:
+                    - name
+                  - required:
+                    - namespace
+                required:
+                - external
+              properties:
+                external:
+                  description: The name of a PubSubTopic.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+              type: object
+          required:
+          - topicRef
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            path:
+              description: DEPRECATED — Deprecated in favor of id, which contains an identical value. This field will be removed in the next major release of the provider.  Path of the subscription in the format projects/{project}/subscriptions/{name}.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

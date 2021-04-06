@@ -1,0 +1,348 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/dcl2crd: "true"
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+  name: cloudschedulerjobs.cloudscheduler.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: cloudscheduler.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: CloudSchedulerJob
+    plural: cloudschedulerjobs
+    shortNames:
+    - gcpcloudschedulerjob
+    - gcpcloudschedulerjobs
+    singular: cloudschedulerjob
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            appEngineHttpTarget:
+              description: Appengine HTTP target.
+              properties:
+                appEngineRouting:
+                  description: Appengine Routing setting for the job.
+                  properties:
+                    instance:
+                      description: App instance. By default, the job is sent to an instance which is available when the job is attempted. Requests can only be sent to a specific instance if manual scaling is used in App Engine Standard. For more information, see App Engine Flex does not support instances. For more information, see App Engine Standard request routing and App Engine Flex request routing.
+                      type: string
+                    service:
+                      description: App service. By default, the job is sent to the service which is the default service when the job is attempted.
+                      type: string
+                    version:
+                      description: App version. By default, the job is sent to the version which is the default version when the job is attempted.
+                      type: string
+                  type: object
+                body:
+                  description: Body. HTTP request body. A request body is allowed only if the HTTP method is POST or PUT. It will result in invalid argument error to set a body on a job with an incompatible HttpMethod.
+                  type: string
+                headers:
+                  additionalProperties:
+                    type: string
+                  description: 'HTTP request headers. This map contains the header field names and values. Headers can be set when the job is created. Cloud Scheduler sets some headers to default values: * `User-Agent`: By default, this header is `"Appengine-Google; (+http://code.google.com/appengine)"`. This header can be modified, but Cloud Scheduler will append `"Appengine-Google; (+http://code.google.com/appengine)"` to the modified `User-Agent`. * `X-CloudScheduler`: This header will be set to true. The headers below are output only. They cannot be set or overridden: * `X-Google-*`: For Google internal use only. * `X-Appengine-*`: For Google internal use only. In addition, some Appengine headers, which contain job-specific information, are also be sent to the job handler.'
+                  type: object
+                httpMethod:
+                  description: 'The HTTP method to use for the request. PATCH and OPTIONS are not permitted. Possible values: HTTP_METHOD_UNSPECIFIED, POST, GET, HEAD, PUT, DELETE, PATCH, OPTIONS'
+                  type: string
+                relativeUri:
+                  description: The relative URI. The relative URL must begin with "/" and must be a valid HTTP relative URL. It can contain a path, query string arguments, and `#` fragments. If the relative URL is empty, then the root path "/" will be used. No spaces are allowed, and the maximum length allowed is 2083 characters.
+                  type: string
+              type: object
+            attemptDeadline:
+              description: The deadline for job attempts. If the request handler does not respond by this deadline then the request is cancelled and the attempt is marked as a `DEADLINE_EXCEEDED` failure. The failed attempt can be viewed in execution logs. Cloud Scheduler will retry the job according to the RetryConfig, between 15 seconds and 24 hours.
+              type: string
+            description:
+              description: Optionally caller-specified in jobs.create or jobs.patch. A human-readable description for the job. This string must not contain more than 500 characters.
+              type: string
+            httpTarget:
+              description: HTTP target.
+              properties:
+                body:
+                  description: HTTP request body. A request body is allowed only if the HTTP method is POST, PUT, or PATCH. It is an error to set body on a job with an incompatible HttpMethod.
+                  type: string
+                headers:
+                  additionalProperties:
+                    type: string
+                  description: 'The user can specify HTTP request headers to send with the job''s HTTP request. This map contains the header field names and values. Repeated headers are not supported, but a header value can contain commas. These headers represent a subset of the headers that will accompany the job''s HTTP request. Some HTTP request headers will be ignored or replaced. A partial list of headers that will be ignored or replaced is below: - Host: This will be computed by Cloud Scheduler and derived from uri. * `Content-Length`: This will be computed by Cloud Scheduler. * `User-Agent`: This will be set to `"Google-Cloud-Scheduler"`. * `X-Google-*`: Google internal use only. * `X-Appengine-*`: Google internal use only. The total size of headers must be less than 80KB.'
+                  type: object
+                httpMethod:
+                  description: 'Which HTTP method to use for the request. Possible values: HTTP_METHOD_UNSPECIFIED, POST, GET, HEAD, PUT, DELETE, PATCH, OPTIONS'
+                  type: string
+                oauthToken:
+                  description: If specified, an (https://developers.google.com/identity/protocols/OAuth2) will be generated and attached as an `Authorization` header in the HTTP request. This type of authorization should generally only be used when calling Google APIs hosted on *.googleapis.com.
+                  properties:
+                    scope:
+                      description: OAuth scope to be used for generating OAuth access token. If not specified, "https://www.googleapis.com/auth/cloud-platform" will be used.
+                      type: string
+                    serviceAccountRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: (https://cloud.google.com/iam/docs/service-accounts) to be used for generating OAuth token. The service account must be within the same project as the job. The caller must have iam.serviceAccounts.actAs permission for the service account.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                  type: object
+                oidcToken:
+                  description: If specified, an (https://developers.google.com/identity/protocols/OpenIDConnect) token will be generated and attached as an `Authorization` header in the HTTP request. This type of authorization can be used for many scenarios, including calling Cloud Run, or endpoints where you intend to validate the token yourself.
+                  properties:
+                    audience:
+                      description: Audience to be used when generating OIDC token. If not specified, the URI specified in target will be used.
+                      type: string
+                    serviceAccountRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: (https://cloud.google.com/iam/docs/service-accounts) to be used for generating OIDC token. The service account must be within the same project as the job. The caller must have iam.serviceAccounts.actAs permission for the service account.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                  type: object
+                uri:
+                  description: 'Required. The full URI path that the request will be sent to. This string must begin with either "http://" or "https://". Some examples of valid values for are: `http://acme.com` and `https://acme.com/sales:8080`. Cloud Scheduler will encode some characters for safety and compatibility. The maximum allowed URL length is 2083 characters after encoding.'
+                  type: string
+              required:
+              - uri
+              type: object
+            location:
+              description: The location for the resource
+              type: string
+            pubsubTarget:
+              description: Pub/Sub target.
+              properties:
+                attributes:
+                  additionalProperties:
+                    type: string
+                  description: Attributes for PubsubMessage. Pubsub message must contain either non-empty data, or at least one attribute.
+                  type: object
+                data:
+                  description: The message payload for PubsubMessage. Pubsub message must contain either non-empty data, or at least one attribute.
+                  type: string
+                topicRef:
+                  oneOf:
+                  - not:
+                      required:
+                      - external
+                    required:
+                    - name
+                  - not:
+                      anyOf:
+                      - required:
+                        - name
+                      - required:
+                        - namespace
+                    required:
+                    - external
+                  properties:
+                    external:
+                      description: Required. The name of the Cloud Pub/Sub topic to which messages will be published when a job is delivered. The topic name must be in the same format as required by Pub/Sub's PublishRequest.name, for example `projects/PROJECT_ID/topics/TOPIC_ID`. The topic must be in the same project as the Cloud Scheduler job.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                      type: string
+                    namespace:
+                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                      type: string
+                  type: object
+              required:
+              - topicRef
+              type: object
+            resourceID:
+              description: Immutable. Optional. The name of the resource. Used for creation and acquisition. When unset, the value of `metadata.name` is used as the default.
+              type: string
+            retryConfig:
+              description: Settings that determine the retry behavior.
+              properties:
+                maxBackoffDuration:
+                  description: The maximum amount of time to wait before retrying a job after it fails. The default value of this field is 1 hour.
+                  type: string
+                maxDoublings:
+                  description: The time between retries will double `max_doublings` times. A job's retry interval starts at times. Thus, the requests will retry at 10s, 20s, 40s, 80s, 160s, 240s, 300s, 300s, .... The default value of this field is 5.
+                  format: int64
+                  type: integer
+                maxRetryDuration:
+                  description: The time limit for retrying a failed job, measured from time when an execution was first attempted. If specified with retryCount, the job will be retried until both limits are reached. The default value for max_retry_duration is zero, which means retry duration is unlimited.
+                  type: string
+                minBackoffDuration:
+                  description: The minimum amount of time to wait before retrying a job after it fails. The default value of this field is 5 seconds.
+                  type: string
+                retryCount:
+                  description: The number of attempts that the system will make to run a job using the exponential backoff procedure described by maxDoublings. The default value of retry_count is zero. If retry_count is zero, a job attempt will *not* be retried if it fails. Instead the Cloud Scheduler system will wait for the next scheduled execution time. If retry_count is set to a non-zero number then Cloud Scheduler will retry failed attempts, using exponential backoff, retry_count times, or until the next scheduled execution time, whichever comes first. Values greater than 5 and negative values are not allowed.
+                  format: int64
+                  type: integer
+              type: object
+            schedule:
+              description: Required, except when used with times, with exponential backoff, until the next scheduled start time.
+              type: string
+            timeZone:
+              description: Specifies the time zone to be used in interpreting (http://en.wikipedia.org/wiki/Tz_database). Note that some time zones include a provision for daylight savings time. The rules for daylight saving time are determined by the chosen tz. For UTC use the string "utc". If a time zone is not specified, the default will be in UTC (also known as GMT).
+              type: string
+          required:
+          - location
+          type: object
+        status:
+          properties:
+            appEngineHttpTarget:
+              properties:
+                appEngineRouting:
+                  properties:
+                    host:
+                      description: 'Output only. The host that the job is sent to. For more information about how Appengine requests are routed, see (https://cloud.google.com/appengine/docs/standard/python/how-requests-are-routed). The host is constructed as: * `host = is invalid, then the job will be sent to the default version of the default service when the job is attempted.'
+                      type: string
+                  type: object
+              type: object
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            lastAttemptTime:
+              description: Output only. The time the last job attempt started.
+              format: date-time
+              type: string
+            scheduleTime:
+              description: Output only. The next time the job is scheduled. Note that this may be a retry of a previously failed attempt or the next execution time according to the schedule.
+              format: date-time
+              type: string
+            state:
+              description: 'Output only. State of the job. Possible values: STATE_UNSPECIFIED, ENABLED, PAUSED, DISABLED, UPDATE_FAILED'
+              type: string
+            status:
+              description: Output only. The response from the target for the last attempted execution.
+              properties:
+                code:
+                  description: The status code, which should be an enum value of google.rpc.Code.
+                  format: int64
+                  type: integer
+                details:
+                  description: A list of messages that carry the error details. There is a common set of message types for APIs to use.
+                  items:
+                    properties:
+                      typeUrl:
+                        description: 'A URL/resource name that uniquely identifies the type of the serialized protocol buffer message. This string must contain at least one "/" character. The last segment of the URL''s path must represent the fully qualified name of the type (as in `path/google.protobuf.Duration`). The name should be in a canonical form (e.g., leading "." is not accepted). In practice, teams usually precompile into the binary all types that they expect it to use in the context of Any. However, for URLs which use the scheme `http`, `https`, or no scheme, one can optionally set up a type server that maps type URLs to message definitions as follows: * If no scheme is provided, `https` is assumed. * An HTTP GET on the URL must yield a value in binary format, or produce an error. * Applications are allowed to cache lookup results based on the URL, or have them precompiled into a binary to avoid any lookup. Therefore, binary compatibility needs to be preserved on changes to types. (Use versioned type names to manage breaking changes.) Note: this functionality is not currently available in the official protobuf release, and it is not used for type URLs beginning with type.googleapis.com. Schemes other than `http`, `https` (or the empty scheme) might be used with implementation specific semantics.'
+                        type: string
+                      value:
+                        description: Must be a valid serialized protocol buffer of the above specified type.
+                        type: string
+                    type: object
+                  type: array
+                message:
+                  description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the field, or localized by the client.
+                  type: string
+              type: object
+            userUpdateTime:
+              description: Output only. The creation time of the job.
+              format: date-time
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

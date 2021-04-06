@@ -1,0 +1,386 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cnrm.cloud.google.com/version: 1.45.0
+  creationTimestamp: null
+  labels:
+    cnrm.cloud.google.com/managed-by-kcc: "true"
+    cnrm.cloud.google.com/system: "true"
+    cnrm.cloud.google.com/tf2crd: "true"
+  name: storagetransferjobs.storagetransfer.cnrm.cloud.google.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    description: When 'True', the most recent reconcile of the resource succeeded
+    name: Ready
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].reason
+    description: The reason for the value in 'Ready'
+    name: Status
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].lastTransitionTime
+    description: The last transition time for the value in 'Status'
+    name: Status Age
+    type: date
+  group: storagetransfer.cnrm.cloud.google.com
+  names:
+    categories:
+    - gcp
+    kind: StorageTransferJob
+    plural: storagetransferjobs
+    shortNames:
+    - gcpstoragetransferjob
+    - gcpstoragetransferjobs
+    singular: storagetransferjob
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'apiVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            description:
+              description: Unique description to identify the Transfer Job.
+              type: string
+            resourceID:
+              description: Immutable. Optional. The service-generated name of the resource. Used for acquisition only. Leave unset to create a new resource.
+              type: string
+            schedule:
+              description: Schedule specification defining when the Transfer Job should be scheduled to start, end and what time to run.
+              properties:
+                scheduleEndDate:
+                  description: Immutable. The last day the recurring transfer will be run. If schedule_end_date is the same as schedule_start_date, the transfer will be executed only once.
+                  properties:
+                    day:
+                      description: Immutable. Day of month. Must be from 1 to 31 and valid for the year and month.
+                      type: integer
+                    month:
+                      description: Immutable. Month of year. Must be from 1 to 12.
+                      type: integer
+                    year:
+                      description: Immutable. Year of date. Must be from 1 to 9999.
+                      type: integer
+                  required:
+                  - day
+                  - month
+                  - year
+                  type: object
+                scheduleStartDate:
+                  description: Immutable. The first day the recurring transfer is scheduled to run. If schedule_start_date is in the past, the transfer will run for the first time on the following day.
+                  properties:
+                    day:
+                      description: Immutable. Day of month. Must be from 1 to 31 and valid for the year and month.
+                      type: integer
+                    month:
+                      description: Immutable. Month of year. Must be from 1 to 12.
+                      type: integer
+                    year:
+                      description: Immutable. Year of date. Must be from 1 to 9999.
+                      type: integer
+                  required:
+                  - day
+                  - month
+                  - year
+                  type: object
+                startTimeOfDay:
+                  description: Immutable. The time in UTC at which the transfer will be scheduled to start in a day. Transfers may start later than this time. If not specified, recurring and one-time transfers that are scheduled to run today will run immediately; recurring transfers that are scheduled to run on a future date will start at approximately midnight UTC on that date. Note that when configuring a transfer with the Cloud Platform Console, the transfer's start time in a day is specified in your local timezone.
+                  properties:
+                    hours:
+                      description: Immutable. Hours of day in 24 hour format. Should be from 0 to 23.
+                      type: integer
+                    minutes:
+                      description: Immutable. Minutes of hour of day. Must be from 0 to 59.
+                      type: integer
+                    nanos:
+                      description: Immutable. Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
+                      type: integer
+                    seconds:
+                      description: Immutable. Seconds of minutes of the time. Must normally be from 0 to 59.
+                      type: integer
+                  required:
+                  - hours
+                  - minutes
+                  - nanos
+                  - seconds
+                  type: object
+              required:
+              - scheduleStartDate
+              type: object
+            status:
+              description: 'Status of the job. Default: ENABLED. NOTE: The effect of the new job status takes place during a subsequent job run. For example, if you change the job status from ENABLED to DISABLED, and an operation spawned by the transfer is running, the status change would not affect the current operation.'
+              type: string
+            transferSpec:
+              description: Transfer specification.
+              properties:
+                awsS3DataSource:
+                  description: An AWS S3 data source.
+                  properties:
+                    awsAccessKey:
+                      description: AWS credentials block.
+                      properties:
+                        accessKeyId:
+                          description: AWS Key ID.
+                          oneOf:
+                          - not:
+                              required:
+                              - valueFrom
+                            required:
+                            - value
+                          - not:
+                              required:
+                              - value
+                            required:
+                            - valueFrom
+                          properties:
+                            value:
+                              description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                              type: string
+                            valueFrom:
+                              description: Source for the field's value. Cannot be used if 'value' is specified.
+                              properties:
+                                secretKeyRef:
+                                  description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                                  properties:
+                                    key:
+                                      description: Key that identifies the value to be extracted.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret to extract a value from.
+                                      type: string
+                                  required:
+                                  - name
+                                  - key
+                                  type: object
+                              type: object
+                          type: object
+                        secretAccessKey:
+                          description: AWS Secret Access Key.
+                          oneOf:
+                          - not:
+                              required:
+                              - valueFrom
+                            required:
+                            - value
+                          - not:
+                              required:
+                              - value
+                            required:
+                            - valueFrom
+                          properties:
+                            value:
+                              description: Value of the field. Cannot be used if 'valueFrom' is specified.
+                              type: string
+                            valueFrom:
+                              description: Source for the field's value. Cannot be used if 'value' is specified.
+                              properties:
+                                secretKeyRef:
+                                  description: Reference to a value with the given key in the given Secret in the resource's namespace.
+                                  properties:
+                                    key:
+                                      description: Key that identifies the value to be extracted.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret to extract a value from.
+                                      type: string
+                                  required:
+                                  - name
+                                  - key
+                                  type: object
+                              type: object
+                          type: object
+                      required:
+                      - accessKeyId
+                      - secretAccessKey
+                      type: object
+                    bucketName:
+                      description: S3 Bucket name.
+                      type: string
+                  required:
+                  - awsAccessKey
+                  - bucketName
+                  type: object
+                gcsDataSink:
+                  description: A Google Cloud Storage data sink.
+                  properties:
+                    bucketRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: The name of a StorageBucket.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                  required:
+                  - bucketRef
+                  type: object
+                gcsDataSource:
+                  description: A Google Cloud Storage data source.
+                  properties:
+                    bucketRef:
+                      oneOf:
+                      - not:
+                          required:
+                          - external
+                        required:
+                        - name
+                      - not:
+                          anyOf:
+                          - required:
+                            - name
+                          - required:
+                            - namespace
+                        required:
+                        - external
+                      properties:
+                        external:
+                          description: The name of a StorageBucket.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                      type: object
+                  required:
+                  - bucketRef
+                  type: object
+                httpDataSource:
+                  description: An HTTP URL data source.
+                  properties:
+                    listUrl:
+                      description: The URL that points to the file that stores the object list entries. This file must allow public access. Currently, only URLs with HTTP and HTTPS schemes are supported.
+                      type: string
+                  required:
+                  - listUrl
+                  type: object
+                objectConditions:
+                  description: Only objects that satisfy these object conditions are included in the set of data source and data sink objects. Object conditions based on objects' last_modification_time do not exclude objects in a data sink.
+                  properties:
+                    excludePrefixes:
+                      description: exclude_prefixes must follow the requirements described for include_prefixes.
+                      items:
+                        type: string
+                      type: array
+                    includePrefixes:
+                      description: If include_refixes is specified, objects that satisfy the object conditions must have names that start with one of the include_prefixes and that do not start with any of the exclude_prefixes. If include_prefixes is not specified, all objects except those that have names starting with one of the exclude_prefixes must satisfy the object conditions.
+                      items:
+                        type: string
+                      type: array
+                    maxTimeElapsedSinceLastModification:
+                      description: 'A duration in seconds with up to nine fractional digits, terminated by ''s''. Example: "3.5s".'
+                      type: string
+                    minTimeElapsedSinceLastModification:
+                      description: 'A duration in seconds with up to nine fractional digits, terminated by ''s''. Example: "3.5s".'
+                      type: string
+                  type: object
+                transferOptions:
+                  description: Characteristics of how to treat files from datasource and sink during job. If the option delete_objects_unique_in_sink is true, object conditions based on objects' last_modification_time are ignored and do not exclude objects in a data source or a data sink.
+                  properties:
+                    deleteObjectsFromSourceAfterTransfer:
+                      description: Whether objects should be deleted from the source after they are transferred to the sink. Note that this option and delete_objects_unique_in_sink are mutually exclusive.
+                      type: boolean
+                    deleteObjectsUniqueInSink:
+                      description: Whether objects that exist only in the sink should be deleted. Note that this option and delete_objects_from_source_after_transfer are mutually exclusive.
+                      type: boolean
+                    overwriteObjectsAlreadyExistingInSink:
+                      description: Whether overwriting objects that already exist in the sink is allowed.
+                      type: boolean
+                  type: object
+              type: object
+          required:
+          - description
+          - schedule
+          - transferSpec
+          type: object
+        status:
+          properties:
+            conditions:
+              description: Conditions represent the latest available observation of the resource's current state.
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of the condition.
+                    type: string
+                type: object
+              type: array
+            creationTime:
+              description: When the Transfer Job was created.
+              type: string
+            deletionTime:
+              description: When the Transfer Job was deleted.
+              type: string
+            lastModificationTime:
+              description: When the Transfer Job was last modified.
+              type: string
+            name:
+              description: The name of the Transfer Job.
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
