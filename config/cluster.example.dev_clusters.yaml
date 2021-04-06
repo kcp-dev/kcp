@@ -33,7 +33,6 @@ spec:
             description: Spec holds the desired state.
             properties:
               kubeconfig:
-                format: byte
                 type: string
             required:
             - kubeconfig
@@ -43,6 +42,7 @@ spec:
             properties:
               conditions:
                 items:
+                  description: 'TODO: Use metav1.Condition (available in v1.19+)'
                   properties:
                     lastTransitionTime:
                       description: LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).

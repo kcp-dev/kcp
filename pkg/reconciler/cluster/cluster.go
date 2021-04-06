@@ -18,7 +18,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	log.Println("reconciling cluster", cluster.Name)
 
 	// Get client from kubeconfig
-	cfg, err := clientcmd.RESTConfigFromKubeConfig(cluster.Spec.KubeConfig)
+	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 			"InvalidKubeConfig",

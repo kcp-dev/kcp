@@ -42,7 +42,7 @@ type Cluster struct {
 
 // ClusterSpec holds the desired state of the Cluster (from the client).
 type ClusterSpec struct {
-	KubeConfig []byte `json:"kubeconfig"`
+	KubeConfig string `json:"kubeconfig"`
 }
 
 // ClusterStatus communicates the observed state of the Cluster (from the controller).
