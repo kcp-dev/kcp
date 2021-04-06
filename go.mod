@@ -9,6 +9,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200625115826-4488595e0534
+	k8s.io/apimachinery v0.0.0
 	k8s.io/apiserver v0.0.0
 	k8s.io/client-go v0.0.0
 	k8s.io/kube-aggregator v0.0.0
