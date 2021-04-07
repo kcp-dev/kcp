@@ -2,3 +2,5 @@
 kcp
 
 cluster-controller
+deployment-splitter
+syncer
