@@ -7,7 +7,9 @@ TYPE_SPEED=30
 PROMPT_AFTER=1
 DEMO_PROMPT="☸️ $ "
 
-export KUBECONFIG=.kcp/data/admin.kubeconfig
+# Run this within ./contrib/demo
+
+export KUBECONFIG=../../.kcp/data/admin.kubeconfig
 if ! kubectl get namespaces &>/dev/null; then
   echo "kcp server not started, run 'bin/kcp start'"
 fi
@@ -24,7 +26,7 @@ wait
 pei "kubectl api-resources"
 
 wait
-pei "kubectl apply -Rf contrib/demo/external-integrations"
+pei "kubectl apply -Rf external-integrations/"
 kubectl wait crd/databases.postgresql.crossplane.io --for condition=established > /dev/null
 sleep 1
 pei "kubectl explain database"
@@ -50,16 +52,14 @@ wait
 clear
 pr
 
-pei "head -n 10 cluster-us-west1.yaml"
-NO_WAIT=1 p  "kubectl apply -f cluster-us-west1.yaml"
-echo "clusters.cluster.example.dev/us-west1 created"
+pei "head -n 10 clusters/us-west1.yaml"
+NO_WAIT=1 p  "kubectl apply -f clusters/us-west1.yaml"
+echo "clusters.cluster.kcp.dev/us-west1 created"
 pr
 wait
-clear
-pr
-pei "head -n 10 cluster-us-east1.yaml"
-NO_WAIT=1 p  "kubectl apply -f cluster-us-east1.yaml"
-echo "clusters.cluster.example.dev/us-east1 created"
+pei "head -n 10 clusters/us-east1.yaml"
+NO_WAIT=1 p  "kubectl apply -f clusters/us-east1.yaml"
+echo "clusters.cluster.kcp.dev/us-east1 created"
 pr
 wait
 
@@ -129,14 +129,11 @@ wait
 clear
 pr
 pei "cat deployment.yaml"
-wait
 NO_WAIT=1 p "kubectl apply -f deployment.yaml"
 echo "deployment.apps/my-deployment created"
 pr
 wait
 
-clear
-pr
 NO_WAIT=1 p "kubectl get deployments"
 cat << EOF
 NAME            READY   UP-TO-DATE   AVAILABLE   AGE
