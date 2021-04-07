@@ -26,6 +26,9 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
+
 type Cluster struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -47,7 +50,7 @@ type ClusterSpec struct {
 
 // ClusterStatus communicates the observed state of the Cluster (from the controller).
 type ClusterStatus struct {
-	Conditions Conditions `json:"conditions"`
+	Conditions Conditions `json:"conditions,omitempty"`
 }
 
 // ClusterList is a list of Cluster resources
