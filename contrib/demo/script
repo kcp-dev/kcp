@@ -1,0 +1,29 @@
+#!/bin/bash
+
+b="$( dirname "${BASH_SOURCE[0]}" )"
+. $b/demo-magic
+
+TYPE_SPEED=30
+PROMPT_AFTER=1
+
+export KUBECONFIG=.kcp/data/admin.kubeconfig
+if ! kubectl get namespaces &>/dev/null; then
+  echo "kcp server not started, run 'bin/kcp start'"
+fi
+
+kubectl config use-context admin
+
+clear
+wait
+
+pr
+pei "kubectl get pods"
+sleep 5
+pei "kubectl api-resources"
+
+wait
+pei "kubectl apply -Rf contrib/demo/external-integrations"
+sleep 3
+pei "kubectl explain database"
+
+NO_WAIT=1 p "Thanks for watching!"
