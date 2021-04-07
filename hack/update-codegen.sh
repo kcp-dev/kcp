@@ -4,11 +4,23 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# If we run with -mod=vendor here, then generate-groups.sh looks for vendor files in the wrong place.
-export GOFLAGS=-mod=
+GOPATH=$(go env GOPATH)
+if [[ -x "${GOPATH}/bin/controller-gen" ]]
+then
+    version=$(${GOPATH}/bin/controller-gen --version | sed -e 's/Version: v0\.\(5\)\../\1/')
+    if [[ $version -lt 5 ]]
+    then
+        echo "You should use at least version 0.5.0 of controller-gen" 
+        exit 1
+    fi
+else
+    echo "Installing 'controller-gen'"
+    go get sigs.k8s.io/controller-tools/cmd/controller-gen
+    go install sigs.k8s.io/controller-tools/cmd/controller-gen
+fi
 
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/code-generator)}
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
@@ -16,4 +28,4 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt
 
 # Update generated CRD YAML
-controller-gen crd:trivialVersions=true,preserveUnknownFields=false rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/
+${GOPATH}/bin/controller-gen crd:trivialVersions=true,preserveUnknownFields=false rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/

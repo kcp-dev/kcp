@@ -1,7 +1,5 @@
 #!/bin/bash
 
-GOPATH=$(go env GOPATH)
-
 if [[ "$1" == "" ]]
 then
     echo "Usage: generate-crds.sh <output directory>"
@@ -11,6 +9,7 @@ destination="$(realpath $1)"
 
 echo "Checking the presence of 'controller-gen'"
 
+GOPATH=$(go env GOPATH)
 if [[ -x "${GOPATH}/bin/controller-gen" ]]
 then
     version=$(${GOPATH}/bin/controller-gen --version | sed -e 's/Version: v0\.\(5\)\../\1/')
