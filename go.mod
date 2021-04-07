@@ -8,12 +8,14 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0
-	go.etcd.io/etcd v0.5.0-alpha.5.0.20200625115826-4488595e0534
+	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
+	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/apiserver v0.0.0
 	k8s.io/client-go v0.0.0
+	k8s.io/code-generator v0.0.0
 	k8s.io/kube-aggregator v0.0.0
-	k8s.io/kubernetes v0.0.0-00010101000000-000000000000
+	k8s.io/kubernetes v0.0.0
 )
 
 replace (
