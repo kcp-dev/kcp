@@ -10,12 +10,15 @@ require (
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0
 	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 	k8s.io/api v0.0.0
+	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/apiserver v0.0.0
 	k8s.io/client-go v0.0.0
 	k8s.io/code-generator v0.0.0
 	k8s.io/kube-aggregator v0.0.0
+	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/kubernetes v0.0.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
