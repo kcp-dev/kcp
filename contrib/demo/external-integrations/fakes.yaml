@@ -1,0 +1,198 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: functions.lambda.aws
+spec:
+  group: lambda.aws
+  names:
+    kind: LambdaFunction
+    listKind: LambdaFunctionList
+    plural: functions
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: topics.pubsub.gcp
+spec:
+  group: pubsub.gcp
+  names:
+    kind: PubSubTopic
+    listKind: PubSubTopicList
+    plural: topics
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: buckets.s3.aws
+spec:
+  group: s3.aws
+  names:
+    kind: Bucket
+    listKind: BucketList
+    plural: buckets
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: repos.github.com
+spec:
+  group: github.com
+  names:
+    kind: Repo
+    listKind: RepoList
+    plural: repos
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: databases.spanner.gcp
+spec:
+  group: spanner.gcp
+  names:
+    kind: Database
+    listKind: DatabaseList
+    plural: databases
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: website.netlify.com
+spec:
+  group: netlify.com
+  names:
+    kind: Website
+    listKind: WebsiteList
+    plural: website
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: domainnames.discountdomainnames.biz
+spec:
+  group: discountdomainnames.biz
+  names:
+    kind: DomainName
+    listKind: DomainNameList
+    plural: domainnames
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: topics.sns.aws
+spec:
+  group: sns.aws
+  names:
+    kind: Topic
+    listKind: TopicList
+    plural: topics
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: channels.slack.com
+spec:
+  group: slack.com
+  names:
+    kind: Channel
+    listKind: ChannelList
+    plural: channels
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: loadbalancers.multicloud.media
+spec:
+  group: multicloud.media
+  names:
+    kind: LoadBalancer
+    listKind: LoadBalancerList
+    plural: loadbalancers
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
