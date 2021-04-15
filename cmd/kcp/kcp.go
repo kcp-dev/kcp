@@ -6,18 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
-	"unicode"
 
-	"github.com/MakeNowJust/heredoc"
-	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	terminal "github.com/wayneashleyberry/terminal-dimensions"
 	"go.etcd.io/etcd/clientv3"
 
 	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/cmd/help"
 
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
@@ -25,30 +20,14 @@ import (
 	"k8s.io/kubernetes/pkg/controlplane"
 	"k8s.io/kubernetes/pkg/controlplane/options"
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
-
 )
 
-var reEmptyLine = regexp.MustCompile(`(?m)([\w[:punct:]])[ ]*\n([\w[:punct:]])`)
-
-func Helpdoc(s string) string {
-	s = heredoc.Doc(s)
-	s = reEmptyLine.ReplaceAllString(s, "$1 $2")
-	return s
-}
-
 func main() {
-	cobra.AddTemplateFunc("trimTrailingWhitespaces", func(s string) string {
-		w, err := terminal.Width()
-		if err != nil {
-			w = 80
-		}
-		return strings.TrimRightFunc(wordwrap.String(s, int(w)), unicode.IsSpace)
-	})
-
+	help.FitTerminal()
 	cmd := &cobra.Command{
 		Use:   "kcp",
 		Short: "Kube for Control Plane (KCP)",
-		Long: Helpdoc(`
+		Long: help.Doc(`
 			KCP is the easiest way to manage Kubernetes applications against one or
 			more clusters, by giving you a personal control plane that schedules your
 			workloads onto one or many clusters, and making it simple to pick up and
@@ -67,7 +46,7 @@ func main() {
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the control plane process",
-		Long: Helpdoc(`
+		Long: help.Doc(`
 			Start the control plane process
 
 			The server process listens on port 6443 and will act like a Kubernetes

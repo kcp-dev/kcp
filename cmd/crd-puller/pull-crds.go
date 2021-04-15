@@ -5,42 +5,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"regexp"
-	"strings"
-	"unicode"
 
-	"github.com/MakeNowJust/heredoc"
 	crdpuller "github.com/kcp-dev/kcp/pkg/crdpuller"
-	"github.com/muesli/reflow/wordwrap"
+	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/spf13/cobra"
-	terminal "github.com/wayneashleyberry/terminal-dimensions"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 )
 
-var reEmptyLine = regexp.MustCompile(`(?m)([\w[:punct:]])[ ]*\n([\w[:punct:]])`)
-
-func Helpdoc(s string) string {
-	s = heredoc.Doc(s)
-	s = reEmptyLine.ReplaceAllString(s, "$1 $2")
-	return s
-}
-
 func main() {
-	cobra.AddTemplateFunc("trimTrailingWhitespaces", func(s string) string {
-		w, err := terminal.Width()
-		if err != nil {
-			w = 80
-		}
-		return strings.TrimRightFunc(wordwrap.String(s, int(w)), unicode.IsSpace)
-	})
-
+	help.FitTerminal()
 	cmd := &cobra.Command{
 		Use:        "pull-crds",
 		Aliases:    []string{},
 		SuggestFor: []string{},
 		Short:      "Pull CRDs from a Kubernetes cluster",
-		Long: Helpdoc(`
+		Long: help.Doc(`
 					Pull CRDs from a Kubernetes cluster
 					Based on a kubeconfig file, it uses dicovery API and the OpenAPI v2
 					model on the cluster to build CRDs for a list of api resource names.
