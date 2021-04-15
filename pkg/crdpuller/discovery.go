@@ -378,6 +378,10 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
+// knownPackages is a map whose content is directly borrowed from the `KnownPackages`
+// map in `controller-tools `, and used to hard-code the OpenAPI V3 schema for a number
+// of well-known Kubernetes types:
+// https://github.com/kubernetes-sigs/controller-tools/blob/v0.5.0/pkg/crd/known_types.go#L26
 var knownPackages map[string]map[string]apiextensionsv1.JSONSchemaProps = map[string]map[string]apiextensionsv1.JSONSchemaProps {
 	"k8s.io/api/core/v1": {
 		// Explicit defaulting for the corev1.Protocol type in lieu of https://github.com/kubernetes/enhancements/pull/1928
