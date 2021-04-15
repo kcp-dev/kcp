@@ -16,7 +16,11 @@ import (
 	"k8s.io/kube-openapi/pkg/util/sets"
 )
 
+// SchemaPuller allows pulling the API resources as CRDs
+// from a kubernetes cluster.
 type SchemaPuller interface {
+	// PullCRDs allows pulling the resources named by their plural names
+	// and make them available as CRDs in the output map.
 	PullCRDs(context context.Context, resourceNames ...string) (map[string]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
@@ -28,6 +32,9 @@ type schemaPuller struct {
 
 var _ SchemaPuller = &schemaPuller{}
 
+// NewSchemaPuller allows creating a SchemaPuller from the `Config` of
+// a given Kubernetes cluster, that will be able to pull API resources
+// as CRDs from the given Kubernetes cluster.
 func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
 	crdClient, err := apiextensionsv1client.NewForConfig(config)
 	if err != nil {
@@ -54,6 +61,8 @@ func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
 	}, nil
 }
 
+// PullCRDs allows pulling the resources named by their plural names
+// and make them available as CRDs in the output map.
 func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...string) (map[string]*apiextensionsv1.CustomResourceDefinition, error) {
 	crds := map[string]*apiextensionsv1.CustomResourceDefinition{}
 	_, apiResourcesLists, err := sp.discoveryClient.ServerGroupsAndResources()
