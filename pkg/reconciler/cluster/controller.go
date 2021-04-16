@@ -27,22 +27,25 @@ const resyncPeriod = 10 * time.Hour
 func NewController(cfg *rest.Config, syncerImage string) *Controller {
 	client := clusterv1alpha1.NewForConfigOrDie(cfg)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	sif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
-	sif.Cluster().V1alpha1().Clusters().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { queue.AddRateLimited(obj) },
-		UpdateFunc: func(_, obj interface{}) { queue.AddRateLimited(obj) },
-	})
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
-	sif.WaitForCacheSync(stopCh)
-	sif.Start(stopCh)
 
-	return &Controller{
+	c := &Controller{
 		queue:       queue,
 		client:      client,
-		indexer:     sif.Cluster().V1alpha1().Clusters().Informer().GetIndexer(),
 		syncerImage: syncerImage,
 		stopCh:      stopCh,
 	}
+
+	sif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
+	sif.Cluster().V1alpha1().Clusters().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+	})
+	c.indexer = sif.Cluster().V1alpha1().Clusters().Informer().GetIndexer()
+	sif.WaitForCacheSync(stopCh)
+	sif.Start(stopCh)
+
+	return c
 }
 
 type Controller struct {
@@ -51,6 +54,15 @@ type Controller struct {
 	indexer     cache.Indexer
 	syncerImage string
 	stopCh      chan struct{}
+}
+
+func (c *Controller) enqueue(obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.queue.Add(key)
 }
 
 func (c *Controller) Start(numThreads int) {
@@ -88,6 +100,7 @@ func (c *Controller) processNextWorkItem() bool {
 func (c *Controller) handleErr(err error, key string) {
 	// Reconcile worked, nothing else to do for this workqueue item.
 	if err == nil {
+		log.Println("Successfully reconciled", key)
 		c.queue.Forget(key)
 		return
 	}
