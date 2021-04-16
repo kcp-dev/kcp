@@ -167,18 +167,18 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				}
 
 				scaleSubResource := &apiextensionsv1.CustomResourceSubresourceScale{
-					SpecReplicasPath:   ".replicas",
-					StatusReplicasPath: ".replicas",
+					SpecReplicasPath:   ".spec.replicas",
+					StatusReplicasPath: ".status.replicas",
 				}
 				if ! hasSubResource("scale") {
 					scaleSubResource = nil
 				}
-
-				crds[apiResource.Name] = &apiextensionsv1.CustomResourceDefinition{
+ 
+				crd = &apiextensionsv1.CustomResourceDefinition{
 					TypeMeta: typeMeta,
 					ObjectMeta: objectMeta,
 					Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-						Group: apiResource.Group,
+						Group: gv.Group,
 						Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
 							{
 								Name: gv.Version,
@@ -200,10 +200,12 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 							Categories: apiResource.Categories,
 							ShortNames: apiResource.ShortNames,
 							Singular:   apiResource.SingularName,
-							ListKind:   apiResource.Kind + "List",
 						},
 					},
 				}
+
+				apiextensionsv1.SetDefaults_CustomResourceDefinition(crd)
+				crds[apiResource.Name] = crd
 
 				break
 			}
@@ -261,16 +263,27 @@ func (sc *SchemaConverter) VisitArray(a *proto.Array) {
 	sc.setupDescription(a)	
 	sc.schemaProps.Type = "array"
 	if len(a.Extensions) > 0 {
+		var kind *proto.Kind = nil
+		switch subType := a.SubType.(type) {
+		case *proto.Ref:
+			refSchema := subType.SubSchema()
+			if aKind, isKind := refSchema.(*proto.Kind); isKind {
+				kind = aKind
+			}
+		case *proto.Kind:
+			kind = subType
+		}
+
 		if val := a.Extensions["x-kubernetes-list-type"]; val != nil {
 			listType := val.(string)
 			sc.schemaProps.XListType = &listType
 		} else if val := a.Extensions["x-kubernetes-patch-strategy"]; val != nil && val != "" {
 			listType := "atomic"
-			if val.(string) == "merge" || strings.HasPrefix(val.(string), "merge,") {
-				if _, isPrimitive := a.SubType.(*proto.Primitive); isPrimitive {
-					listType = "set"
-				} else {
+			if val.(string) == "merge" || strings.HasPrefix(val.(string), "merge,") || strings.HasSuffix(val.(string), ",merge") {
+				if kind != nil {
 					listType = "map"
+				} else {
+					listType = "set"
 				}
 			}
 			sc.schemaProps.XListType = &listType
@@ -287,23 +300,6 @@ func (sc *SchemaConverter) VisitArray(a *proto.Array) {
 				sc.schemaProps.XListType = &listType
 			}
 		}
-		if len(sc.schemaProps.XListMapKeys) > 0 {
-			var kind *proto.Kind = nil
-			switch subType := a.SubType.(type) {
-			case *proto.Ref:
-				refSchema := subType.SubSchema()
-				if aKind, isKind := refSchema.(*proto.Kind); isKind {
-					kind = aKind
-				}
-			case *proto.Kind:
-				kind = subType
-			}
-			if kind != nil {
-				required := sets.NewString(kind.RequiredFields...)
-				required.Insert(sc.schemaProps.XListMapKeys...)
-				kind.RequiredFields = required.List()
-			}
-		}
 	}
 	subtypeSchemaProps := apiextensionsv1.JSONSchemaProps{}
 	a.SubType.Accept(&SchemaConverter{
@@ -311,6 +307,17 @@ func (sc *SchemaConverter) VisitArray(a *proto.Array) {
 		schemaName:  sc.schemaName,
 		description: a.SubType.GetDescription(),
 	})
+	if len(subtypeSchemaProps.Properties) > 0 && len(sc.schemaProps.XListMapKeys) > 0 {
+		required := sets.NewString(subtypeSchemaProps.Required...)
+		required.Insert(sc.schemaProps.XListMapKeys...)
+		for fieldName, field := range subtypeSchemaProps.Properties {
+			if field.Default != nil {
+				required.Delete(fieldName)
+			}
+		}
+		subtypeSchemaProps.Required = required.List()
+	}
+
 	sc.schemaProps.Items = &apiextensionsv1.JSONSchemaPropsOrArray{
 		Schema: &subtypeSchemaProps,
 	}
@@ -325,6 +332,7 @@ func (sc *SchemaConverter) VisitMap(m *proto.Map) {
 	})
 	sc.schemaProps.AdditionalProperties = &apiextensionsv1.JSONSchemaPropsOrBool{
 		Schema: &subtypeSchemaProps,
+		Allows: true,
 	}
 	sc.schemaProps.Type = "object"
 }
