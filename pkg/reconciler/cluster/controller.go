@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -29,9 +30,12 @@ func NewController(cfg *rest.Config, syncerImage string) *Controller {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
 
+	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
+	
 	c := &Controller{
 		queue:       queue,
 		client:      client,
+		crdClient:   crdClient,
 		syncerImage: syncerImage,
 		stopCh:      stopCh,
 	}
@@ -52,6 +56,7 @@ type Controller struct {
 	queue       workqueue.RateLimitingInterface
 	client      clusterv1alpha1.ClusterV1alpha1Interface
 	indexer     cache.Indexer
+	crdClient   apiextensionsv1client.ApiextensionsV1Interface
 	syncerImage string
 	stopCh      chan struct{}
 }
