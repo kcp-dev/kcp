@@ -1,6 +1,6 @@
 # KCP: A control plane for Kube-like Applications
 
-IMPORTANT: This is a prototype of a first-draft of a set of ideas - it is not production software, or a fully realized project. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. Please explore and play, but don'tdepend on it.
+IMPORTANT: This is a prototype of a first-draft of a set of ideas - it is not production software, or a fully realized project. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. Please explore and play, but don't depend on it.
 
 KCP manages Kubernetes applications across one or more clusters. To an end user, KCP appears to be a normal cluster (supports the same APIs, client tools, and extensibility) but allows you to move your workloads between clusters or span multiple clusters without effort. KCP lets you keep your existing workflow and abstract Kube clusters like a Kube cluster abstracts individual machines.
 
