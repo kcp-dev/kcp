@@ -9,6 +9,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -52,10 +53,18 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		return nil // Don't retry.
 	}
 
-	for resourceName, crd := range crds {
-		_, err := c.crdClient.CustomResourceDefinitions().Create(ctx, crd, v1.CreateOptions{})
+	for resourceName, pulledCrd := range crds {
+		clusterCrd, err := c.crdClient.CustomResourceDefinitions().Create(ctx, pulledCrd, v1.CreateOptions{})
 		if errors.IsAlreadyExists(err) {
-			_, err = c.crdClient.CustomResourceDefinitions().Update(ctx, crd, v1.UpdateOptions{})
+			clusterCrd, err = c.crdClient.CustomResourceDefinitions().Get(ctx, pulledCrd.Name, v1.GetOptions{})
+			if err == nil {
+				if !equality.Semantic.DeepEqual(pulledCrd.Spec, clusterCrd.Spec) ||
+					!equality.Semantic.DeepEqual(pulledCrd.Annotations, clusterCrd.Annotations) ||
+					!equality.Semantic.DeepEqual(pulledCrd.Labels, clusterCrd.Labels) {
+					pulledCrd.ResourceVersion = clusterCrd.ResourceVersion
+					_, err = c.crdClient.CustomResourceDefinitions().Update(ctx, pulledCrd, v1.UpdateOptions{})
+				}
+			}
 		}
 		if err != nil {
 			log.Printf("Error when applying CRD pulled from cluster %s for resource %s: %v\n", cluster.Name, resourceName, err)
