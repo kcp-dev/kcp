@@ -37,3 +37,25 @@ go run ./cmd/cluster-controller \
 
 `ko publish` requires the `KO_DOCKER_REPO` env var to be set to the container image registry to push the image to (e.g., `KO_DOCKER_REPO=quay.io/my-user`).
 If you're using [KinD](https://kind.sigs.k8s.io), you can set `KO_DOCKER_REPO=kind.local` to publish to your local KinD cluster.
+
+# Test the registration of a Physical Cluster
+
+Registering a physical cluster can be done by simply creating a `cluster resource` that embeds a kubeconfig file.
+
+For example, in order to register the default cluster of your default kubeconfig file, you can use the following command:
+
+```bash
+sed -e 's/^/    /' ${HOME}/.kube/config | cat contrib/examples/cluster.yaml - | kubectl apply -f -
+```
+
+# Using vscode
+
+## Workspace
+
+A configured VSCode workspace is available in `contrib/kcp.code-workspace`
+## Debug configuration
+
+You can use the `Launch kcp` configuration to start the KCP lightweight API Server in debug mode inside VSCode.
+
+If you're using [KinD](https://kind.sigs.k8s.io), as the physical cluster you want to register inside KCP,
+then you can use the `Launch cluster controller` configuration to debug the cluster controller against a started KCP instance.

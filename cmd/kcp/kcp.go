@@ -142,7 +142,7 @@ func main() {
 					"admin": {Cluster: "admin", AuthInfo: "loopback"},
 					"user":  {Cluster: "user", AuthInfo: "loopback"},
 				}
-				clientConfig.CurrentContext = "user"
+				clientConfig.CurrentContext = "admin"
 				if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.Dir, "admin.kubeconfig")); err != nil {
 					return err
 				}

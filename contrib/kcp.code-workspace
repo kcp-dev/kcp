@@ -9,6 +9,21 @@
 			"path": ".."
 		}
 	],
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "ko syncer to local kind",
+				"type": "shell",
+				"command": "echo SYNCER_IMAGE=$(ko publish ./cmd/syncer) > ${workspaceFolder:kcp}/.kcp/syncer.env",
+				"problemMatcher": [],
+				"options": {
+					"cwd": "${workspaceFolder:kcp}",
+					"env": { "KO_DOCKER_REPO": "kind.local"}
+				}
+			}
+		]
+	},
 	"launch": {
 		"version": "0.2.0",
 		"configurations": [			
@@ -41,6 +56,28 @@
 				"env": { "GOMOD": "${workspaceFolder:kubernetes}/go.mod"},
 				"cwd": "${workspaceFolder:kcp}",
 				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--cluster=admin", "explain", "pods"]				
+			},
+			{
+				"name": "Launch crd-puller on default cluster",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/crd-puller",
+				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod"},
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["--kubeconfig=${env:HOME}/.kube/config", "pods", "clusters"]
+			},
+			{
+				"name": "Launch cluster controller",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/cluster-controller",
+				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--syncer_image=${env:SYNCER_IMAGE}"],
+				"envFile": "${workspaceFolder:kcp}/.kcp/syncer.env",
+				"preLaunchTask": "ko syncer to local kind"
 			}
 		]
 	}
