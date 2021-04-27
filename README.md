@@ -63,3 +63,12 @@ kubefed (aka Ubernetes) began very early in the Kubernetes project lifecycle and
 Work within the community over the years has shown that there are limits to tenancy within a single Kubernetes cluster. The virtual-cluster project within sig-multicluster and the work done by Hauwei and others was a step in this direction - what if we could run arbitrarily many clusters?  How can we make each of those more efficient?  What changes to Kubernetes itself would be necessary to better support lots of smaller clusters?  This key insight from virtual-cluster leads to an obvious question - can we make virtual-clusters even more efficient and more representative of a single app / team domain?
 
 * 
+
+## Join the KCP Community
+
+- Join the mailing lists
+    - [kcp-dev](https://groups.google.com/g/kcp-dev) for development discussions
+    - [kcp-users](https://groups.google.com/g/kcp-users) for discussions among users and potential users
+- Subscribe to the [community calendar](https://calendar.google.com/calendar/embed?src=ujjomvk4fa9fgdaem32afgl7g0%40group.calendar.google.com) for community meetings and events
+    - The kcp-dev mailing list is subscribed to this calendar
+- Browse the [shared Google Drive](https://drive.google.com/drive/folders/1FN7AZ_Q1CQor6eK0gpuKwdGFNwYI517M?usp=sharing) to share design docs, demo videos, meeting recordings
