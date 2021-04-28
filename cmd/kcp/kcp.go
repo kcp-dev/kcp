@@ -19,7 +19,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/controlplane"
 	"k8s.io/kubernetes/pkg/controlplane/options"
-	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 )
 
 func main() {
@@ -107,18 +106,12 @@ func main() {
 					return err
 				}
 
-				var server  *aggregatorapiserver.APIAggregator
-				server, err = controlplane.CreateServerChain(cpOptions, ctx.Done())
+				server, err := controlplane.CreateServerChain(cpOptions, ctx.Done())
 				if err != nil {
 					return err
 				}
 
-				preparedAggregator, err := server.PrepareRun()
-				if err != nil {
-					return err
-				}
-
-				prepared := server.GenericAPIServer
+				prepared := server.PrepareRun()
 
 				var clientConfig clientcmdapi.Config
 				clientConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
@@ -147,7 +140,7 @@ func main() {
 					return err
 				}
 
-				return preparedAggregator.Run(ctx.Done())
+				return prepared.Run(ctx.Done())
 			})
 		},
 	}
