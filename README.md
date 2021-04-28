@@ -1,72 +1,98 @@
-# KCP: A control plane for Kube-like Applications
+# `kcp` is a minimal Kubernetes API server
 
 ![build status badge](https://github.com/kcp-dev/kcp/actions/workflows/ci.yaml/badge.svg)
 
-IMPORTANT: This is a prototype of a first-draft of a set of ideas - it is not production software, or a fully realized project. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. Please explore and play, but don't depend on it.
+How minimal exactly? `kcp` doesn't know about [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s or [`Node`](https://kubernetes.io/docs/concepts/architecture/nodes/)s, let alone `Deployment`s, `Service`s, `LoadBalancer`s, etc.
 
-KCP manages Kubernetes applications across one or more clusters. To an end user, KCP appears to be a normal cluster (supports the same APIs, client tools, and extensibility) but allows you to move your workloads between clusters or span multiple clusters without effort. KCP lets you keep your existing workflow and abstract Kube clusters like a Kube cluster abstracts individual machines.
+By default, `kcp` only knows about:
 
-## What does it do for me?
+- [`Namespaces`](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)
+- [`ServiceAccounts`](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/) and [role-based access control](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) types like `Role` and `RoleBinding`
+- [`Secrets`](https://kubernetes.io/docs/concepts/configuration/secret/) and [`ConfigMaps`](https://kubernetes.io/docs/concepts/configuration/configmap/), to store configuration data
+- [`CustomResourceDefinitions`](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), to define new types
+- a handful of other low-level resources like [`Lease`](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/lease-v1/)s, [`Event`](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application-introspection/)s, etc.
 
-As a Kubernetes application author, KCP allows you to:
+<!-- TODO link to full list? -->
 
-* Take existing Kubernetes applications and set them up to run across one or more clusters even if a cluster fails
-* Set up a development workflow that uses existing Kubernetes tools but brings your diverse environments (local, dev, staging, production) together
-* Run multiple applications side by side in **tenant clusters**
+Like vanilla Kubernetes, `kcp` persists these resources in etcd for durable storage.
 
-As a Kubernetes administrator, KCP allows you to:
-
-* Support a large number of application teams building applications without giving them access to clusters
-* Have strong tenant separation between different application teams and control who can run where
-* Allow tenant teams to run their own custom resources (CRDs) and controllers without impacting others
-* Subdivide access to the underlying clusters, keep those clusters simpler and with fewer extensions, and reduce the impact of cluster failure
-
-As an author of Kubernetes extensions, KCP allows you to:
-
-* Build multi-cluster integrations more easily by providing standard ways to abstract multi-cluster actions like placement/scheduling, admission, and recovery
-* Test and run Kubernetes CRDs and controllers in isolation without needing a full cluster
+Any other resource, including Kubernetes-standard resources like `Pod`s, `Node`s and the rest, can be added as [CRDs](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) and reconciled using the standard conrtollers.
 
 
-As a Kubernetes community member, KCP is intended to:
+## Why would I want that?
 
-* Solve problems that benefit both regular Kubernetes clusters and the standalone KCP control plane
-* Improve low level tooling for client authors writing controllers across multiple namespaces and clusters
+Kubernetes is mainly known as a container orchestration platform today, but we believe it can be even more.
 
+With the power of `CustomResourceDefinition`s, Kubernetes provides a flexible platform for declarative APIs of _all types_, and the reconciliation pattern common to Kubernetes controllers is a powerful tool in building robust, expressive systems.
 
-## Key ideas
+At the same time, a diverse and creative community of tools and services has sprung up around Kubernetes APIs.
 
-* Use Kubernetes APIs to decouple desired intent and actual state for replicating applications to multiple clusters
+Imagine a declarative Kubernetes-style API for _anything_, supported by an ecosystem of Kubernetes-aware tooling, separate from Kubernetes-the-container-orchestrator.
 
-* Virtualize some key user focused Kube APIs so that the control plane can delegate complexity to a target cluster
-
-* Identify and invest in workload APIs and integrations that enable applications to spread across clusters
-
-* Use logical tenant clusters as the basis for application and security isolation
-
-Allow a single kube-apiserver to support multiple (up to 1000) logical clusters that can map/sync/schedule to zero or many physical clusters. Each logical cluster could be much more focused - only the resources needed to support a single application or team, but with the ability to scale to lots of applications. Because the logical clusters are served by the same server, we could amortize the cost of each individual cluster (things like RBAC, CRDs, and authentication can be shared / hierarchal).
-
-By relying on cluster tenancy, we gain the ability to bring new isolation mechanisms that can be stronger than what is possible within an existing Kubernetes cluster, but we also can:
-
-* Support multiple versions of APIs from multiple clusters cleanly, allowing tenancy
-
-* 
+That's **`kcp`**.
 
 
-## Inspired and influenced by
+## Is `kcp` a "fork" of Kubernetes? 🍴
 
-KCP explores many ideas that have been present in the Kubernetes community since the early days of the project. It attempts to address a number of existing challenges in a unified way and builds on the hard work and investments of many projects and individuals:
+_No._
 
-* Kubernetes Federation
+`kcp` as a prototype currently depends on some unmerged changes to Kubernetes, but we intend to pursue these changes through the usual KEP process, until (hopefully!) Kubernetes can be configured to run as `kcp` runs today.
 
-kubefed (aka Ubernetes) began very early in the Kubernetes project lifecycle and explored creating a control plane that behaved like Kubernetes on top of Kube. However, much of the key infrastructure that would be required to lifecycle API objects across multiple Kubernetes clusters and versions did not exist, nor were our core APIs mature, nor did we have the ability to extend the API server. The key lesson KCP iterates on from kubefed is explicitly handling API versioning across multiple clusters, supporting CRDs explicitly even for core resources, and the ability to subdivide by tenant cluster instead of just namespaces.
+Our intention is that our experiments _improve Kubernetes for everyone_, by improving CRDs and scaling resource watching, and enabling more, better controllers _for everyone_, whether you're using Kubernetes as a container orchestrator or not.
 
-* Kubernetes `virtual-cluster`
+Our `kcp` specific patches are in the [feature-logical-clusters](https://github.com/kcp-dev/kubernetes/tree/feature-logical-clusters) feature branch in the [kcp-dev/kubernetes](https://github.com/kcp-dev/kubernetes) repo. See [DEVELOPMENT.md](DEVELOPMENT.md) for how the patches are structured and how they must be formatted during our experimentation phase.  See [GOALS.md](GOALS.md) for more info on how we intend to use `kcp` as a test-bed for exploring ideas that improve the entire ecosystem.
 
-Work within the community over the years has shown that there are limits to tenancy within a single Kubernetes cluster. The virtual-cluster project within sig-multicluster and the work done by Hauwei and others was a step in this direction - what if we could run arbitrarily many clusters?  How can we make each of those more efficient?  What changes to Kubernetes itself would be necessary to better support lots of smaller clusters?  This key insight from virtual-cluster leads to an obvious question - can we make virtual-clusters even more efficient and more representative of a single app / team domain?
 
-* 
+## What's in this repo?
 
-## Join the KCP Community
+First off, this is a prototype, not a project. We're exploring these ideas here to try them out, experiment, and bounce them off each other.  Our [basic demo](contrib/demo/README.md) leverages the following components to show off these ideas:
+
+- **`kcp`**, which serves a Kubernetes-style API with a minimum of built-in types.
+- **`cluster-controller`**, which along with the `Cluster` CRD allows `kcp` to connect to other full-featured Kubernetes clusters, and includes these components:
+  - **`syncer`**, which runs on Kubernetes clusters registered with the `cluster-controller`, and watches `kcp` for resources assigned to the cluster
+  - **`deployment-splitter`**, which demonstrates a controller that can split a `Deployment` object into multiple "virtual Deployment" objects across multiple clusters.
+  - **`crd-puller`** which demonstrates mirroring CRDs from a cluster back to `kcp`
+
+
+## So what's this for?
+
+#### Multi-Cluster Kubernetes?
+
+`kcp` could be _useful_ for multi-cluster scenarios, by running `kcp` has a hybrid control plane outside of any of your workload clusters.
+
+<!-- TODO: pay homage to and contrast with kubefed? -->
+
+#### Multi-Tenant Kubernetes?
+
+`kcp` could be _useful_ for multi-tenancy scenarios, by allowing multiple tenant clusters inside a cluster to be managed by a single `kcp` control plane.
+
+#### Local Kubernetes Development?
+
+`kcp` could be _useful_ for local development scenarios, where you don't necessarily care about all of Kubernetes' many built-in resources and their reconiling controllers.
+
+#### Embedded/low-resource scenarios?
+
+`kcp` could be _useful_ for environments where resources are scarce, by limiting the number of controllers that need to run. Kubernetes' asynchronous reconciliation pattern can also be very powerful in disconnected or intermittently connected environments, regardless of how workloads actually run.
+
+### Is that all?
+
+No! See our [GOALS.md](GOALS.md) doc for more on what we are trying to accomplish with this prototype.
+
+
+## What does `kcp` stand for?
+
+`kcp` as a project stands for equality and justice for all people.
+
+However, `kcp` is not an acronym.
+
+
+## This sounds cool and I want to help!
+
+Thanks! And great!
+
+This work is still in early development, which means it's _not ready for production_, but also that your feedback can have a big impact.  
+
+You can reach us here, in this repository via issues and discussion, or:
 
 - Join the mailing lists
     - [kcp-dev](https://groups.google.com/g/kcp-dev) for development discussions
