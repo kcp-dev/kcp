@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/muesli/reflow/wordwrap"
 	"github.com/MakeNowJust/heredoc"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 )
@@ -28,4 +28,3 @@ func FitTerminal() {
 		return strings.TrimRightFunc(wordwrap.String(s, int(w)), unicode.IsSpace)
 	})
 }
-

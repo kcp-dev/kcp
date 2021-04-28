@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -11,15 +12,24 @@ import (
 	"github.com/spf13/pflag"
 	"go.etcd.io/etcd/clientv3"
 
-	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/controlplane"
+	"k8s.io/kubernetes/pkg/controlplane/clientutils"
 	"k8s.io/kubernetes/pkg/controlplane/options"
-	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
+)
+
+var (
+	syncerImage              string
+	resourcesToSync          []string
+	installClusterController bool
+	pullModel                bool
 )
 
 func main() {
@@ -107,35 +117,27 @@ func main() {
 					return err
 				}
 
-				var server  *aggregatorapiserver.APIAggregator
-				server, err = controlplane.CreateServerChain(cpOptions, ctx.Done())
+				server, err := controlplane.CreateServerChain(cpOptions, ctx.Done())
 				if err != nil {
 					return err
 				}
-
-				preparedAggregator, err := server.PrepareRun()
-				if err != nil {
-					return err
-				}
-
-				prepared := server.GenericAPIServer
 
 				var clientConfig clientcmdapi.Config
 				clientConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-					"loopback": {Token: prepared.LoopbackClientConfig.BearerToken},
+					"loopback": {Token: server.LoopbackClientConfig.BearerToken},
 				}
 				clientConfig.Clusters = map[string]*clientcmdapi.Cluster{
 					// admin is the virtual cluster running by default
 					"admin": {
-						Server:                   prepared.LoopbackClientConfig.Host,
-						CertificateAuthorityData: prepared.LoopbackClientConfig.CAData,
-						TLSServerName:            prepared.LoopbackClientConfig.TLSClientConfig.ServerName,
+						Server:                   server.LoopbackClientConfig.Host,
+						CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+						TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
 					},
 					// user is a virtual cluster that is lazily instantiated
 					"user": {
-						Server:                   prepared.LoopbackClientConfig.Host + "/clusters/user",
-						CertificateAuthorityData: prepared.LoopbackClientConfig.CAData,
-						TLSServerName:            prepared.LoopbackClientConfig.TLSClientConfig.ServerName,
+						Server:                   server.LoopbackClientConfig.Host + "/clusters/user",
+						CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+						TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
 					},
 				}
 				clientConfig.Contexts = map[string]*clientcmdapi.Context{
@@ -147,11 +149,55 @@ func main() {
 					return err
 				}
 
-				return preparedAggregator.Run(ctx.Done())
+				if installClusterController {
+					server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+						// Register the `clusters` CRD in both the admin and user logical clusters
+						for contextName := range clientConfig.Contexts {
+							logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+							if err != nil {
+								return err
+							}
+							cluster.RegisterClusterCRD(logicalClusterConfig)
+						}
+						adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+						if err != nil {
+							return err
+						}
+
+						kubeconfig := clientConfig.DeepCopy()
+						for _, cluster := range kubeconfig.Clusters {
+							hostURL, err := url.Parse(cluster.Server)
+							if err != nil {
+								return err
+							}
+							hostURL.Host = server.ExternalAddress
+							cluster.Server = hostURL.String()
+						}
+
+						clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions")
+						clusterController := cluster.NewController(
+							adminConfig,
+							syncerImage,
+							*kubeconfig,
+							resourcesToSync,
+							pullModel,
+						)
+						clusterController.Start(2)
+						return nil
+					})
+				}
+
+				prepared := server.PrepareRun()
+
+				return prepared.Run(ctx.Done())
 			})
 		},
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
+	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
+	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string{"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", true, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
+	startCmd.Flags().BoolVar(&pullModel, "pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	cmd.AddCommand(startCmd)
 
 	if err := cmd.Execute(); err != nil {

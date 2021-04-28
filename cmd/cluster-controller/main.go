@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"log"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
@@ -12,22 +11,29 @@ import (
 const numThreads = 2
 
 var (
-	kubeconfig  = flag.String("kubeconfig", "", "Path to kubeconfig")
-	syncerImage = flag.String("syncer_image", "", "Syncer image to install on clusters")
+	kubeconfigPath = flag.String("kubeconfig", "", "Path to kubeconfig")
+	syncerImage    = flag.String("syncer_image", "", "Syncer image to install on clusters")
+	pullModel      = flag.Bool("pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 )
 
 func main() {
 	flag.Parse()
 
-	r, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *kubeconfigPath},
+		&clientcmd.ConfigOverrides{})
+
+	r, err := configLoader.ClientConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	kubeconfigBytes, err := ioutil.ReadFile(*kubeconfig)
+	kubeconfig, err := configLoader.RawConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	cluster.NewController(r, *syncerImage, string(kubeconfigBytes)).Start(numThreads)
+	resourcesToSync := flag.Args()
+
+	cluster.NewController(r, *syncerImage, kubeconfig, resourcesToSync, *pullModel).Start(numThreads)
 }
