@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -34,8 +35,7 @@ func main() {
 	flag.Parse()
 
 	// Create a client to dynamically watch "from".
-	//fromConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-	fromConfig, err := rest.InClusterConfig()
+	fromConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,17 +64,9 @@ func main() {
 
 	// Get all types the upstream API server knows about.
 	// TODO: watch this and learn about new types, or forget about old ones.
-	/*
-		gvrstrs, err := getAllGVRs(fromConfig)
-		if err != nil {
-			log.Fatal(err)
-		}
-	*/
-	// TODO: For now, only care about:
-	gvrstrs := []string{
-		".v1.namespaces",
-		".v1.pods",
-		".v1.deployments",
+	gvrstrs, err := getAllGVRs(fromConfig)
+	if err != nil {
+		log.Fatal(err)
 	}
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)

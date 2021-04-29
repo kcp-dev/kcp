@@ -16,7 +16,10 @@ const (
 	syncerPodName = "syncer"
 )
 
-func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage string) error {
+// installSyncer installs the syncer image on the target cluster.
+//
+// It takes the syncer image name to run, and the kubeconfig of the kcp
+func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID string) error {
 	// Create Namespace
 	if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -26,7 +29,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 		return err
 	}
 
-	// Create ServiceAccount
+	// Create ServiceAccount.
 	if _, err := client.CoreV1().ServiceAccounts(syncerNS).Create(ctx, &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: syncerNS,
@@ -40,6 +43,20 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 
 	// TODO: Create ClusterRoleBinding
 
+	// Populate a ConfigMap with the kubeconfig to reach the kcp, to be
+	// mounted into the syncer's Pod.
+	if _, err := client.CoreV1().ConfigMaps(syncerNS).Create(ctx, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: syncerNS,
+			Name:      "kubeconfig",
+		},
+		Data: map[string]string{
+			"kubeconfig": kubeconfig,
+		},
+	}, metav1.CreateOptions{}); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
 	// Create or Update Pod
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -50,6 +67,28 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 			Containers: []corev1.Container{{
 				Name:  "syncer",
 				Image: syncerImage,
+				Args: []string{
+					"-cluster", clusterID,
+					"-kubeconfig", "/kcp/kubeconfig",
+				},
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "kubeconfig",
+					MountPath: "/kcp",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "kubeconfig",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "kubeconfig",
+						},
+						Items: []corev1.KeyToPath{{
+							Key: "kubeconfig", Path: "kubeconfig",
+						}},
+					},
+				},
 			}},
 		},
 	}
