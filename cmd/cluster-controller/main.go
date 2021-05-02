@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	"log"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
@@ -23,5 +24,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cluster.NewController(r, *syncerImage).Start(numThreads)
+	kubeconfigBytes, err := ioutil.ReadFile(*kubeconfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cluster.NewController(r, *syncerImage, string(kubeconfigBytes)).Start(numThreads)
 }

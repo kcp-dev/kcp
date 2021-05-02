@@ -11,13 +11,6 @@ KUBECONFIG=.kcp/data/admin.kubeconfig
 kubectl api-resources
 ```
 
-The kubeconfig configures two contexts, `user` (the default) and `admin`.
-Switch the default context to `admin` with the following command:
-
-```
-kubectl config use-context admin
-```
-
 # Build and run Cluster Controller
 
 First, be sure to define the Cluster CRD type:
@@ -36,7 +29,6 @@ go run ./cmd/cluster-controller \
 ```
 
 `ko publish` requires the `KO_DOCKER_REPO` env var to be set to the container image registry to push the image to (e.g., `KO_DOCKER_REPO=quay.io/my-user`).
-If you're using [KinD](https://kind.sigs.k8s.io), you can set `KO_DOCKER_REPO=kind.local` to publish to your local KinD cluster.
 
 # Test the registration of a Physical Cluster
 

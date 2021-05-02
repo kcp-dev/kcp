@@ -9,6 +9,7 @@ import (
 	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -25,18 +25,19 @@ const resyncPeriod = 10 * time.Hour
 // server it reaches using the REST client.
 //
 // When new Clusters are found, the syncer will be run there using the given image.
-func NewController(cfg *rest.Config, syncerImage string) *Controller {
+func NewController(cfg *rest.Config, syncerImage, kubeconfig string) *Controller {
 	client := clusterv1alpha1.NewForConfigOrDie(cfg)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
 
 	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
-	
+
 	c := &Controller{
 		queue:       queue,
 		client:      client,
 		crdClient:   crdClient,
 		syncerImage: syncerImage,
+		kubeconfig:  kubeconfig,
 		stopCh:      stopCh,
 	}
 
@@ -58,6 +59,7 @@ type Controller struct {
 	indexer     cache.Indexer
 	crdClient   apiextensionsv1client.ApiextensionsV1Interface
 	syncerImage string
+	kubeconfig  string
 	stopCh      chan struct{}
 }
 
@@ -145,9 +147,11 @@ func (c *Controller) process(key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
+		log.Println("saw update")
 		_, uerr := c.client.Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
+	log.Println("no update")
 
-	return err
+	return nil
 }

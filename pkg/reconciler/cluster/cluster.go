@@ -24,6 +24,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
+		log.Printf("invalid kubeconfig: %v", err)
 		cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 			"InvalidKubeConfig",
 			fmt.Sprintf("Invalid kubeconfig: %v", err))
@@ -31,6 +32,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
+		log.Printf("error creating client: %v", err)
 		cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 			"ErrorCreatingClient",
 			fmt.Sprintf("Error creating client from kubeconfig: %v", err))
@@ -39,14 +41,16 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 
 	schemaPuller, err := crdpuller.NewSchemaPuller(cfg)
 	if err != nil {
+		log.Printf("error creating schemapuller: %v", err)
 		cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
-			"ErrorCreatingClient",
+			"ErrorCreatingSchemaPuller",
 			fmt.Sprintf("Error creating schema puller client from kubeconfig: %v", err))
 		return nil // Don't retry.
 	}
 
 	crds, err := schemaPuller.PullCRDs(ctx, "pods", "deployments")
 	if err != nil {
+		log.Printf("error pulling CRDs: %v", err)
 		cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 			"ErrorPullingResourceSchemas",
 			fmt.Sprintf("Error pulling API Resource Schemas from cluster %s: %v", cluster.Name, err))
@@ -72,22 +76,26 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 
 	if !cluster.Status.Conditions.HasReady() {
-		if err := installSyncer(ctx, client, c.syncerImage); err != nil {
+		if err := installSyncer(ctx, client, c.syncerImage, c.kubeconfig, cluster.Name); err != nil {
+			log.Printf("error installing syncer: %v", err)
 			cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 				"ErrorInstallingSyncer",
 				fmt.Sprintf("Error installing syncer: %v", err))
 			return nil // Don't retry.
 		}
 
+		log.Println("syncer installing...")
 		cluster.Status.Conditions.SetReady(corev1.ConditionUnknown,
 			"SyncerInstalling",
 			"Installing syncer on cluster")
 	} else {
 		if err := healthcheckSyncer(ctx, client); err != nil {
+			log.Println("syncer not yet ready")
 			cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 				"SyncerNotReady",
 				err.Error())
 		} else {
+			log.Println("syncer ready!")
 			cluster.Status.Conditions.SetReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
