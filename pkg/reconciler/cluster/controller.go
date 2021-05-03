@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
 	"time"
 
@@ -9,14 +10,18 @@ import (
 	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/yaml"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -25,7 +30,7 @@ const resyncPeriod = 10 * time.Hour
 // server it reaches using the REST client.
 //
 // When new Clusters are found, the syncer will be run there using the given image.
-func NewController(cfg *rest.Config, syncerImage, kubeconfig string) *Controller {
+func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config) *Controller {
 	client := clusterv1alpha1.NewForConfigOrDie(cfg)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
@@ -59,7 +64,7 @@ type Controller struct {
 	indexer     cache.Indexer
 	crdClient   apiextensionsv1client.ApiextensionsV1Interface
 	syncerImage string
-	kubeconfig  string
+	kubeconfig  clientcmdapi.Config
 	stopCh      chan struct{}
 }
 
@@ -152,6 +157,25 @@ func (c *Controller) process(key string) error {
 		return uerr
 	}
 	log.Println("no update")
+
+	return nil
+}
+
+func RegisterClusterCRD(cfg *rest.Config) error {
+	bytes, err := ioutil.ReadFile("config/cluster.example.dev_clusters.yaml")
+	
+	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
+	
+	crd := &apiextensionsv1.CustomResourceDefinition{}
+	err = yaml.Unmarshal(bytes, crd)
+	if err != nil {
+		return err
+	}
+
+	_, err = crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
 
 	return nil
 }

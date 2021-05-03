@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 )
 
 const (
@@ -37,7 +37,7 @@ func main() {
 	// Create a client to dynamically watch "from".
 	fromConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 	fromClient := dynamic.NewForConfigOrDie(fromConfig)
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -45,9 +45,9 @@ func main() {
 	})
 
 	// Create a client to modify "to".
-	toConfig, err := rest.InClusterConfig()
+	toConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig) // rest.InClusterConfig()
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 	toClient := dynamic.NewForConfigOrDie(toConfig)
 
@@ -66,13 +66,13 @@ func main() {
 	// TODO: watch this and learn about new types, or forget about old ones.
 	gvrstrs, err := getAllGVRs(fromConfig)
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 
 		if _, err := fromDSIF.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
-			log.Println("Failed to list all %q: %v", gvrstr, err)
+			klog.Infof("Failed to list all %q: %v", gvrstr, err)
 			continue
 		}
 
@@ -81,7 +81,7 @@ func main() {
 			UpdateFunc: func(_, obj interface{}) { c.AddToQueue(*gvr, obj) },
 			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
 		})
-		log.Printf("Set up informer for %v", gvr)
+		klog.Infof("Set up informer for %v", gvr)
 	}
 	stopCh := make(chan struct{})
 	fromDSIF.WaitForCacheSync(stopCh)
@@ -90,9 +90,9 @@ func main() {
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(c.StartWorker, time.Second, stopCh)
 	}
-	log.Println("Starting workers")
+	klog.Infoln("Starting workers")
 	<-stopCh
-	log.Println("Stopping workers")
+	klog.Infoln("Stopping workers")
 }
 
 func contains(ss []string, s string) bool {
@@ -133,7 +133,7 @@ func getAllGVRs(config *rest.Config) ([]string, error) {
 				continue
 			}
 			if !contains(ai.Verbs, "watch") {
-				log.Printf("resource %s %s is not watchable: %v", vr, ai.Name, ai.Verbs)
+				klog.Infof("resource %s %s is not watchable: %v", vr, ai.Name, ai.Verbs)
 				continue
 			}
 			gvrstrs = append(gvrstrs, fmt.Sprintf("%s.%s", ai.Name, vr))
