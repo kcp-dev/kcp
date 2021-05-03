@@ -4,7 +4,7 @@ b="$( dirname "${BASH_SOURCE[0]}" )"
 . $b/demo-magic
 
 TYPE_SPEED=30
-PROMPT_AFTER=1
+#PROMPT_AFTER=1
 DEMO_PROMPT="☸️ $ "
 
 function pause() {
@@ -29,53 +29,37 @@ pushd contrib/demo
 kubectl config use-context admin
 
 clear
-pause
 
-pr
-pei "kubectl get pods"
-pause
-pei "kubectl api-resources"
+pe "kubectl get pods"
+pe "kubectl api-resources"
 
-pause
-pei "kubectl apply -Rf external-integrations/"
+pe "kubectl apply -Rf external-integrations/"
 kubectl wait crd/databases.postgresql.crossplane.io --for condition=established &>/dev/null
-pause 1
-pei "kubectl explain database"
-pause
+pe "kubectl explain database"
 
+pause
 clear
-pr
 
-pause
-pei "kubectl config view --minify | grep server:"
-pause
-pei "kubectl config use-context user"
-pause
-pei "kubectl config view --minify | grep server:"
-pause
-NO_WAIT=1 p "kubectl get databases"
+pe "kubectl config view --minify | grep server:"
+pe "kubectl config use-context user"
+pe "kubectl config view --minify | grep server:"
+p "kubectl get databases"
 echo "error: the server doesn't have a resource type \"databases\""
-pr
-pause
-pei "kubectl get crds" # no crds
+pe "kubectl get crds" # no crds
 
 pause
+
 # TODO: implement
 clear
-pr
 
-pei "head -n 10 clusters/us-west1.yaml"
-NO_WAIT=1 p  "kubectl apply -f clusters/us-west1.yaml"
+pe "head -n 10 clusters/us-west1.yaml"
+pe  "kubectl apply -f clusters/us-west1.yaml"
 echo "clusters.cluster.kcp.dev/us-west1 created"
-pr
-pause
-pei "head -n 10 clusters/us-east1.yaml"
-NO_WAIT=1 p  "kubectl apply -f clusters/us-east1.yaml"
+pe "head -n 10 clusters/us-east1.yaml"
+pe  "kubectl apply -f clusters/us-east1.yaml"
 echo "clusters.cluster.kcp.dev/us-east1 created"
-pr
-pause
 
-NO_WAIT=1 p "kubectl api-resources"
+p "kubectl api-resources"
 cat << EOF
 NAME                              SHORTNAMES   APIVERSION                             NAMESPACED   KIND
 bindings                                       v1                                     true         Binding
@@ -135,26 +119,18 @@ csinodes                                       storage.k8s.io/v1                
 storageclasses                    sc           storage.k8s.io/v1                      false        StorageClass
 volumeattachments                              storage.k8s.io/v1                      false        VolumeAttachment
 EOF
-pr
 
-pause
-clear
-pr
-pei "cat deployment.yaml"
-NO_WAIT=1 p "kubectl apply -f deployment.yaml"
+pe "cat deployment.yaml"
+p "kubectl apply -f deployment.yaml"
 echo "deployment.apps/my-deployment created"
-pr
-pause
 
-NO_WAIT=1 p "kubectl get deployments"
+p "kubectl get deployments"
 cat << EOF
 NAME            READY   UP-TO-DATE   AVAILABLE   AGE
 my-deployment                                    1s
 EOF
 
-pr
-pause
-NO_WAIT=1 p "kubectl get deployments"
+p "kubectl get deployments"
 cat << EOF
 NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
 my-deployment            8/15    8            8           10s
@@ -162,9 +138,7 @@ my-deployment--us-east1  1/6     1            1           3s
 my-deployment--us-west1  7/9     7            7           3s
 EOF
 
-pr
-pause
-NO_WAIT=1 p "kubectl get deployments"
+p "kubectl get deployments"
 cat << EOF
 NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
 my-deployment            15/15   15           15          14s
@@ -172,9 +146,7 @@ my-deployment--us-east1  6/6     6            6           7s
 my-deployment--us-west1  9/9     9            9           7s
 EOF
 
-pr
-pause
-NO_WAIT=1 p "kubectl get pods"
+p "kubectl get pods"
 echo "error: the server doesn't have a resource type \"pods\""
 
 wait
