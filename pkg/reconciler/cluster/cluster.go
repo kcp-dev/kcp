@@ -13,7 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 )
 
 const pollInterval = time.Minute
@@ -76,7 +78,22 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 
 	if !cluster.Status.Conditions.HasReady() {
-		if err := installSyncer(ctx, client, c.syncerImage, c.kubeconfig, cluster.Name); err != nil {
+		logicalCluster := cluster.GetClusterName()
+		kubeConfig := c.kubeconfig.DeepCopy()
+		if _, exists := kubeConfig.Contexts[logicalCluster]; !exists {
+			log.Printf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
+			cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
+				"ErrorInstallingSyncer",
+				fmt.Sprintf("Error installing syncer: no context with the name of the expected cluster: %s", logicalCluster))
+			return nil // Don't retry.
+		}
+
+		kubeConfig.CurrentContext = logicalCluster
+		bytes, err := clientcmd.Write(*kubeConfig)
+		if err == nil {
+			err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name)
+		}
+		if err != nil {
 			log.Printf("error installing syncer: %v", err)
 			cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 				"ErrorInstallingSyncer",
@@ -103,6 +120,11 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 
 	// Enqueue another check later
-	c.queue.AddAfter(cluster, pollInterval)
+	key, err := cache.MetaNamespaceKeyFunc(cluster)
+	if err != nil {
+		klog.Error(err)
+	} else {
+		c.queue.AddAfter(key, pollInterval)
+	}
 	return nil
 }

@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 )
 
 const (
@@ -57,45 +59,66 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 		return err
 	}
 
+	var one int32 = 1
 	// Create or Update Pod
-	pod := &corev1.Pod{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: syncerNS,
 			Name:      syncerPodName,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{{
-				Name:  "syncer",
-				Image: syncerImage,
-				Args: []string{
-					"-cluster", clusterID,
-					"-kubeconfig", "/kcp/kubeconfig",
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &one,
+			Selector: &metav1.LabelSelector {
+				MatchLabels: map[string]string{
+					"app": "syncer",
 				},
-				VolumeMounts: []corev1.VolumeMount{{
-					Name:      "kubeconfig",
-					MountPath: "/kcp",
-					ReadOnly:  true,
-				}},
-			}},
-			Volumes: []corev1.Volume{{
-				Name: "kubeconfig",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "kubeconfig",
-						},
-						Items: []corev1.KeyToPath{{
-							Key: "kubeconfig", Path: "kubeconfig",
-						}},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+			Template: corev1.PodTemplateSpec {
+				ObjectMeta: metav1.ObjectMeta {
+					Labels: map[string]string{
+						"app": "syncer",
 					},
 				},
-			}},
-		},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "syncer",
+						Image: syncerImage,
+						Args: []string{
+							"-cluster", clusterID,
+							"-kubeconfig", "/kcp/kubeconfig",
+						},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "kubeconfig",
+							MountPath: "/kcp",
+							ReadOnly:  true,
+						}},
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "kubeconfig",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "kubeconfig",
+								},
+								Items: []corev1.KeyToPath{{
+									Key: "kubeconfig", Path: "kubeconfig",
+								}},
+							},
+						},
+					}},
+				},
+			},
+		},		
 	}
-	if _, err := client.CoreV1().Pods(syncerNS).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
+	if _, err := client.AppsV1().Deployments(syncerNS).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			// Update Pod
-			if _, err := client.CoreV1().Pods(syncerNS).Update(ctx, pod, metav1.UpdateOptions{}); err != nil {
+			// Update Deployment
+			if _, err := client.AppsV1().Deployments(syncerNS).Update(ctx, deployment, metav1.UpdateOptions{}); err != nil {
+				klog.Error(err)
 				return err
 			}
 		} else {
@@ -106,12 +129,19 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 }
 
 func healthcheckSyncer(ctx context.Context, client kubernetes.Interface) error {
-	pod, err := client.CoreV1().Pods(syncerNS).Get(ctx, syncerPodName, metav1.GetOptions{})
+	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: "app=" + syncerPodName })
 	if err != nil {
 		return err
 	}
-	if pod.Status.Phase == corev1.PodRunning {
-		return nil
+	if len(pods.Items) == 0 {
+		return fmt.Errorf("Syncer pod not ready: not syncer pod found")
 	}
-	return fmt.Errorf("Syncer pod not ready: %s", pod.Status.Phase)
+	if len(pods.Items) > 1 {
+		return fmt.Errorf("Syncer pod not ready: there should be only 1 syncer pod")
+	}
+	pod := pods.Items[0]
+	if pod.Status.Phase != corev1.PodRunning {
+		return fmt.Errorf("Syncer pod not ready: %s", pod.Status.Phase)
+	}
+	return nil
 }

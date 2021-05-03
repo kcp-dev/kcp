@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -11,13 +12,16 @@ import (
 	"github.com/spf13/pflag"
 	"go.etcd.io/etcd/clientv3"
 
-	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/controlplane"
+	"k8s.io/kubernetes/pkg/controlplane/clientutils"
 	"k8s.io/kubernetes/pkg/controlplane/options"
 )
 
@@ -42,6 +46,7 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	var syncerImage *string
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the control plane process",
@@ -111,24 +116,23 @@ func main() {
 					return err
 				}
 
-				prepared := server.PrepareRun()
-
 				var clientConfig clientcmdapi.Config
 				clientConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-					"loopback": {Token: prepared.LoopbackClientConfig.BearerToken},
+					"loopback": {Token: server.LoopbackClientConfig.BearerToken},
 				}
 				clientConfig.Clusters = map[string]*clientcmdapi.Cluster{
 					// admin is the virtual cluster running by default
 					"admin": {
-						Server:                   prepared.LoopbackClientConfig.Host,
-						CertificateAuthorityData: prepared.LoopbackClientConfig.CAData,
-						TLSServerName:            prepared.LoopbackClientConfig.TLSClientConfig.ServerName,
+						Server:                   server.LoopbackClientConfig.Host,
+						CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+						TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
+
 					},
 					// user is a virtual cluster that is lazily instantiated
 					"user": {
-						Server:                   prepared.LoopbackClientConfig.Host + "/clusters/user",
-						CertificateAuthorityData: prepared.LoopbackClientConfig.CAData,
-						TLSServerName:            prepared.LoopbackClientConfig.TLSClientConfig.ServerName,
+						Server:                   server.LoopbackClientConfig.Host + "/clusters/user",
+						CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+						TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
 					},
 				}
 				clientConfig.Contexts = map[string]*clientcmdapi.Context{
@@ -140,11 +144,49 @@ func main() {
 					return err
 				}
 
+				server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+					// Register the `clusters` CRD in both the admin and user logical clusters
+					
+					for contextName, _ := range clientConfig.Contexts {
+						logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+						if err != nil {
+							return err
+						}
+						cluster.RegisterClusterCRD(logicalClusterConfig)
+					}
+					adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+					if err != nil {
+						return err
+					}
+
+					kubeconfig := clientConfig.DeepCopy()
+					for _, cluster := range kubeconfig.Clusters {
+						hostURL, err := url.Parse(cluster.Server)
+						if err != nil {
+							return err
+						}
+						hostURL.Host = server.ExternalAddress
+						cluster.Server = hostURL.String()
+					}
+
+					clientutils.EnableMultiCluster(adminConfig, nil, "clusters")
+					clusterController := cluster.NewController(
+						adminConfig,
+						*syncerImage,
+						*kubeconfig,
+					)
+					clusterController.Start(2)
+					return nil
+				})
+
+				prepared := server.PrepareRun()
+
 				return prepared.Run(ctx.Done())
 			})
 		},
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
+	syncerImage = startCmd.Flags().String("syncer-image", "quay.io/dfestal/kcp-syncer", "syncer-image is the reference of a container image that containers th syncer and will be used by the syncer POD in registered physical clusters.")
 	cmd.AddCommand(startCmd)
 
 	if err := cmd.Execute(); err != nil {
