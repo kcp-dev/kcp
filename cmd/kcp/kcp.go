@@ -169,7 +169,7 @@ func main() {
 						cluster.Server = hostURL.String()
 					}
 
-					clientutils.EnableMultiCluster(adminConfig, nil, "clusters")
+					clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions")
 					clusterController := cluster.NewController(
 						adminConfig,
 						*syncerImage,

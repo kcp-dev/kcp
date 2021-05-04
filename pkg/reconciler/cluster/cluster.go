@@ -23,6 +23,8 @@ const pollInterval = time.Minute
 func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) error {
 	log.Println("reconciling cluster", cluster.Name)
 
+	logicalCluster := cluster.GetClusterName()
+
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
@@ -60,6 +62,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 
 	for resourceName, pulledCrd := range crds {
+		pulledCrd.SetClusterName(logicalCluster)
 		clusterCrd, err := c.crdClient.CustomResourceDefinitions().Create(ctx, pulledCrd, v1.CreateOptions{})
 		if errors.IsAlreadyExists(err) {
 			clusterCrd, err = c.crdClient.CustomResourceDefinitions().Get(ctx, pulledCrd.Name, v1.GetOptions{})
@@ -78,7 +81,6 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 
 	if !cluster.Status.Conditions.HasReady() {
-		logicalCluster := cluster.GetClusterName()
 		kubeConfig := c.kubeconfig.DeepCopy()
 		if _, exists := kubeConfig.Contexts[logicalCluster]; !exists {
 			log.Printf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
@@ -91,7 +93,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		kubeConfig.CurrentContext = logicalCluster
 		bytes, err := clientcmd.Write(*kubeConfig)
 		if err == nil {
-			err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name)
+			err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster)
 		}
 		if err != nil {
 			log.Printf("error installing syncer: %v", err)
@@ -106,7 +108,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			"SyncerInstalling",
 			"Installing syncer on cluster")
 	} else {
-		if err := healthcheckSyncer(ctx, client); err != nil {
+		if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
 			log.Println("syncer not yet ready")
 			cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 				"SyncerNotReady",

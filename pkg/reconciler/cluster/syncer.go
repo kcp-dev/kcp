@@ -15,13 +15,21 @@ import (
 const (
 	syncerNS      = "syncer-system"
 	syncerSAName  = "syncer"
-	syncerPodName = "syncer"
+	syncerPrefix = "syncer"
 )
+
+func syncerWorkloadName(logicalCluster string) string {
+	return syncerPrefix + "-from-" + logicalCluster
+}
+
+func syncerConfigMapName(logicalCluster string) string {
+	return "kubeconfig-for-" + logicalCluster
+}
 
 // installSyncer installs the syncer image on the target cluster.
 //
 // It takes the syncer image name to run, and the kubeconfig of the kcp
-func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID string) error {
+func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID, logicalCluster string) error {
 	// Create Namespace
 	if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -47,16 +55,22 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 
 	// Populate a ConfigMap with the kubeconfig to reach the kcp, to be
 	// mounted into the syncer's Pod.
-	if _, err := client.CoreV1().ConfigMaps(syncerNS).Create(ctx, &corev1.ConfigMap{
+	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: syncerNS,
-			Name:      "kubeconfig",
+			Name:      syncerConfigMapName(logicalCluster),
 		},
 		Data: map[string]string{
 			"kubeconfig": kubeconfig,
 		},
-	}, metav1.CreateOptions{}); err != nil && !k8serrors.IsAlreadyExists(err) {
-		return err
+	}
+	if _, err := client.CoreV1().ConfigMaps(syncerNS).Create(ctx, &configMap, metav1.CreateOptions{}); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			if _, err := client.CoreV1().ConfigMaps(syncerNS).Update(ctx, &configMap, metav1.UpdateOptions{}); err != nil {
+			}
+		} else {
+			return err
+		}
 	}
 
 	var one int32 = 1
@@ -64,13 +78,13 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: syncerNS,
-			Name:      syncerPodName,
+			Name:      syncerWorkloadName(logicalCluster),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &one,
 			Selector: &metav1.LabelSelector {
 				MatchLabels: map[string]string{
-					"app": "syncer",
+					"app": syncerWorkloadName(logicalCluster),
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -79,7 +93,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 			Template: corev1.PodTemplateSpec {
 				ObjectMeta: metav1.ObjectMeta {
 					Labels: map[string]string{
-						"app": "syncer",
+						"app": syncerWorkloadName(logicalCluster),
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -102,7 +116,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 						VolumeSource: corev1.VolumeSource{
 							ConfigMap: &corev1.ConfigMapVolumeSource{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "kubeconfig",
+									Name: syncerConfigMapName(logicalCluster),
 								},
 								Items: []corev1.KeyToPath{{
 									Key: "kubeconfig", Path: "kubeconfig",
@@ -128,8 +142,8 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 	return nil
 }
 
-func healthcheckSyncer(ctx context.Context, client kubernetes.Interface) error {
-	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: "app=" + syncerPodName })
+func healthcheckSyncer(ctx context.Context, client kubernetes.Interface, logicalCluster string) error {
+	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: "app=" + syncerConfigMapName(logicalCluster) })
 	if err != nil {
 		return err
 	}
