@@ -57,13 +57,11 @@ First off, this is a prototype, not a project. We're exploring these ideas here 
 
 #### Multi-Cluster Kubernetes?
 
-`kcp` could be _useful_ for multi-cluster scenarios, by running `kcp` has a hybrid control plane outside of any of your workload clusters.
-
-<!-- TODO: pay homage to and contrast with kubefed? -->
+`kcp` could be _useful_ for [multi-cluster scenarios](docs/investigations/transparent-multi-cluster.md), by running `kcp` as a control plane outside of any of your workload clusters.
 
 #### Multi-Tenant Kubernetes?
 
-`kcp` could be _useful_ for multi-tenancy scenarios, by allowing multiple tenant clusters inside a cluster to be managed by a single `kcp` control plane.
+`kcp` could be _useful_ for multi-tenancy scenarios, by allowing [multiple tenant clusters inside a cluster](docs/investigations/logical-clusters.md) to be managed by a single `kcp` control plane.
 
 #### Local Kubernetes Development?
 
@@ -75,7 +73,7 @@ First off, this is a prototype, not a project. We're exploring these ideas here 
 
 ### Is that all?
 
-No! See our [GOALS.md](GOALS.md) doc for more on what we are trying to accomplish with this prototype.
+No! See our [GOALS.md](GOALS.md) doc for more on what we are trying to accomplish with this prototype and our [docs/ directory](docs/).
 
 
 ## What does `kcp` stand for?
@@ -89,7 +87,7 @@ However, `kcp` is not an acronym.
 
 Thanks! And great!
 
-This work is still in early development, which means it's _not ready for production_, but also that your feedback can have a big impact.  
+This work is still in early development, which means it's _not ready for production_, but also that your feedback can have a big impact.
 
 You can reach us here, in this repository via issues and discussion, or:
 
