@@ -13,6 +13,7 @@ const numThreads = 2
 var (
 	kubeconfigPath  = flag.String("kubeconfig", "", "Path to kubeconfig")
 	syncerImage = flag.String("syncer_image", "", "Syncer image to install on clusters")
+	pullModel = flag.Bool("pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 )
 
 func main() {
@@ -32,5 +33,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cluster.NewController(r, *syncerImage, kubeconfig).Start(numThreads)
+	resourcesToSync := flag.Args()
+
+	cluster.NewController(r, *syncerImage, kubeconfig, resourcesToSync, *pullModel).Start(numThreads)
 }

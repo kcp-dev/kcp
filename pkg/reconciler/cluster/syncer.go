@@ -29,7 +29,7 @@ func syncerConfigMapName(logicalCluster string) string {
 // installSyncer installs the syncer image on the target cluster.
 //
 // It takes the syncer image name to run, and the kubeconfig of the kcp
-func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID, logicalCluster string) error {
+func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID, logicalCluster string, resourcesToSync []string) error {
 	// Create Namespace
 	if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -74,6 +74,12 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 		}
 	}
 
+	args := []string{
+		"-cluster", clusterID,
+		"-kubeconfig", "/kcp/kubeconfig",
+	}
+	args = append(args, resourcesToSync...)
+
 	var one int32 = 1
 	// Create or Update Pod
 	deployment := &appsv1.Deployment{
@@ -104,10 +110,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 					Containers: []corev1.Container{{
 						Name:  "syncer",
 						Image: syncerImage,
-						Args: []string{
-							"-cluster", clusterID,
-							"-kubeconfig", "/kcp/kubeconfig",
-						},
+						Args: args,
 						VolumeMounts: []corev1.VolumeMount{{
 							Name:      "kubeconfig",
 							MountPath: "/kcp",

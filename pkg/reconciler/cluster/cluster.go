@@ -29,10 +29,9 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	log.Println("reconciling cluster", cluster.Name)
 
 	logicalCluster := cluster.GetClusterName()
-	logicalClusterContext := genericapirequest.WithCluster(ctx, genericapirequest.Cluster {
+	logicalClusterContext := genericapirequest.WithCluster(ctx, genericapirequest.Cluster{
 		Name: logicalCluster,
 	})
-
 
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
@@ -100,29 +99,43 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			return nil // Don't retry.
 		}
 
-		kubeConfig.CurrentContext = logicalCluster
-		bytes, err := clientcmd.Write(*kubeConfig)
-		if err == nil {
-			err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster)
-		}
-		if err != nil {
-			log.Printf("error installing syncer: %v", err)
-			cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
-				"ErrorInstallingSyncer",
-				fmt.Sprintf("Error installing syncer: %v", err))
-			return nil // Don't retry.
-		}
+		if c.pullModel {
+			kubeConfig.CurrentContext = logicalCluster
+			bytes, err := clientcmd.Write(*kubeConfig)
+			if err == nil {
+				err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, c.resourcesToSync)
+			}
+			if err != nil {
+				log.Printf("error installing syncer: %v", err)
+				cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
+					"ErrorInstallingSyncer",
+					fmt.Sprintf("Error installing syncer: %v", err))
+				return nil // Don't retry.
+			}
 
-		log.Println("syncer installing...")
-		cluster.Status.Conditions.SetReady(corev1.ConditionUnknown,
-			"SyncerInstalling",
-			"Installing syncer on cluster")
+			log.Println("syncer installing...")
+			cluster.Status.Conditions.SetReady(corev1.ConditionUnknown,
+				"SyncerInstalling",
+				"Installing syncer on cluster")
+		} else {
+			log.Println("syncer ready!")
+			cluster.Status.Conditions.SetReady(corev1.ConditionTrue,
+				"SyncerReady",
+				"Syncer ready")
+		}
 	} else {
-		if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
-			log.Println("syncer not yet ready")
-			cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
-				"SyncerNotReady",
-				err.Error())
+		if c.pullModel {
+			if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
+				log.Println("syncer not yet ready")
+				cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
+					"SyncerNotReady",
+					err.Error())
+			} else {
+				log.Println("syncer ready!")
+				cluster.Status.Conditions.SetReady(corev1.ConditionTrue,
+					"SyncerReady",
+					"Syncer ready")
+			}
 		} else {
 			log.Println("syncer ready!")
 			cluster.Status.Conditions.SetReady(corev1.ConditionTrue,
@@ -146,7 +159,7 @@ func (c *Controller) cleanup(ctx context.Context, deletedCluster *v1alpha1.Clust
 
 	logicalCluster := deletedCluster.GetClusterName()
 
-	logicalClusterContext := genericapirequest.WithCluster(ctx, genericapirequest.Cluster {
+	logicalClusterContext := genericapirequest.WithCluster(ctx, genericapirequest.Cluster{
 		Name: logicalCluster,
 	})
 
@@ -171,18 +184,20 @@ func (c *Controller) cleanup(ctx context.Context, deletedCluster *v1alpha1.Clust
 			if err != nil {
 				klog.Error(err)
 			}
-		} 
+		}
 	}
 
-	// Get client from kubeconfig
-	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(deletedCluster.Spec.KubeConfig))
-	if err != nil {
-		klog.Errorf("invalid kubeconfig: %v", err)
-	}
-	client, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf("error creating client: %v", err)
-	}
+	if c.pullModel {
+		// Get client from kubeconfig
+		cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(deletedCluster.Spec.KubeConfig))
+		if err != nil {
+			klog.Errorf("invalid kubeconfig: %v", err)
+		}
+		client, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			klog.Errorf("error creating client: %v", err)
+		}
 
-	uninstallSyncer(ctx, client, logicalCluster)
+		uninstallSyncer(ctx, client, logicalCluster)
+	}
 }

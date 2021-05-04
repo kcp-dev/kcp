@@ -25,6 +25,13 @@ import (
 	"k8s.io/kubernetes/pkg/controlplane/options"
 )
 
+var (
+	syncerImage string
+	resourcesToSync []string
+	installClusterController bool
+	pullModel bool
+)
+
 func main() {
 	help.FitTerminal()
 	cmd := &cobra.Command{
@@ -46,7 +53,6 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	var syncerImage *string
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the control plane process",
@@ -61,7 +67,7 @@ func main() {
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			//flag.CommandLine.Lookup("v").Value.Set("9")
-
+			
 			dir := filepath.Join(".", ".kcp")
 			if fi, err := os.Stat(dir); err != nil {
 				if !os.IsNotExist(err) {
@@ -126,7 +132,6 @@ func main() {
 						Server:                   server.LoopbackClientConfig.Host,
 						CertificateAuthorityData: server.LoopbackClientConfig.CAData,
 						TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
-
 					},
 					// user is a virtual cluster that is lazily instantiated
 					"user": {
@@ -144,40 +149,43 @@ func main() {
 					return err
 				}
 
-				server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
-					// Register the `clusters` CRD in both the admin and user logical clusters
-					
-					for contextName, _ := range clientConfig.Contexts {
-						logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+				if installClusterController {
+					server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+						// Register the `clusters` CRD in both the admin and user logical clusters
+						for contextName, _ := range clientConfig.Contexts {
+							logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+							if err != nil {
+								return err
+							}
+							cluster.RegisterClusterCRD(logicalClusterConfig)
+						}
+						adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 						if err != nil {
 							return err
 						}
-						cluster.RegisterClusterCRD(logicalClusterConfig)
-					}
-					adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-					if err != nil {
-						return err
-					}
 
-					kubeconfig := clientConfig.DeepCopy()
-					for _, cluster := range kubeconfig.Clusters {
-						hostURL, err := url.Parse(cluster.Server)
-						if err != nil {
-							return err
+						kubeconfig := clientConfig.DeepCopy()
+						for _, cluster := range kubeconfig.Clusters {
+							hostURL, err := url.Parse(cluster.Server)
+							if err != nil {
+								return err
+							}
+							hostURL.Host = server.ExternalAddress
+							cluster.Server = hostURL.String()
 						}
-						hostURL.Host = server.ExternalAddress
-						cluster.Server = hostURL.String()
-					}
 
-					clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions")
-					clusterController := cluster.NewController(
-						adminConfig,
-						*syncerImage,
-						*kubeconfig,
-					)
-					clusterController.Start(2)
-					return nil
-				})
+						clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions")
+						clusterController := cluster.NewController(
+							adminConfig,
+							syncerImage,
+							*kubeconfig,
+							resourcesToSync,
+							pullModel,
+						)
+						clusterController.Start(2)
+						return nil
+					})
+				}
 
 				prepared := server.PrepareRun()
 
@@ -186,7 +194,10 @@ func main() {
 		},
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
-	syncerImage = startCmd.Flags().String("syncer-image", "quay.io/dfestal/kcp-syncer", "syncer-image is the reference of a container image that containers th syncer and will be used by the syncer POD in registered physical clusters.")
+	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/dfestal/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
+	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string {"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", true, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
+	startCmd.Flags().BoolVar(&pullModel, "pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	cmd.AddCommand(startCmd)
 
 	if err := cmd.Execute(); err != nil {
