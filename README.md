@@ -82,7 +82,6 @@ No! See our [GOALS.md](GOALS.md) doc for more on what we are trying to accomplis
 
 However, `kcp` is not an acronym.
 
-
 ## This sounds cool and I want to help!
 
 Thanks! And great!
@@ -97,3 +96,8 @@ You can reach us here, in this repository via issues and discussion, or:
 - Subscribe to the [community calendar](https://calendar.google.com/calendar/embed?src=ujjomvk4fa9fgdaem32afgl7g0%40group.calendar.google.com) for community meetings and events
     - The kcp-dev mailing list is subscribed to this calendar
 - Browse the [shared Google Drive](https://drive.google.com/drive/folders/1FN7AZ_Q1CQor6eK0gpuKwdGFNwYI517M?usp=sharing) to share design docs, demo videos, meeting recordings
+
+## References
+
+- [OpenShift Commons: Kubernetes as the Control Plane for the Hybrid Cloud - Clayton Coleman (video)](https://www.youtube.com/watch?v=Y3Y11Aj_01I)
+<!-- TODO KubeCon keynote presentation -->
