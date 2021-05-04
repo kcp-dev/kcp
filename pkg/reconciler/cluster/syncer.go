@@ -142,6 +142,18 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 	return nil
 }
 
+// uninstallSyncer uninstalls the syncer image from the target cluster.
+func uninstallSyncer(ctx context.Context, client kubernetes.Interface, logicalCluster string) {
+	if err := client.CoreV1().ConfigMaps(syncerNS).Delete(ctx, syncerConfigMapName(logicalCluster), metav1.DeleteOptions{}); err != nil {
+		klog.Error(err)
+	}
+
+	if err := client.AppsV1().Deployments(syncerNS).Delete(ctx, syncerWorkloadName(logicalCluster), metav1.DeleteOptions{}); err != nil {
+		klog.Error(err)
+	}
+}
+
+
 func healthcheckSyncer(ctx context.Context, client kubernetes.Interface, logicalCluster string) error {
 	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: "app=" + syncerConfigMapName(logicalCluster) })
 	if err != nil {

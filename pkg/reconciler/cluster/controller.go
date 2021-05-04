@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 	"sigs.k8s.io/yaml"
 )
 
@@ -50,6 +51,7 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 	sif.Cluster().V1alpha1().Clusters().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+		DeleteFunc: func(obj interface{})  { c.deletedCluster(obj) },
 	})
 	c.indexer = sif.Cluster().V1alpha1().Clusters().Informer().GetIndexer()
 	sif.WaitForCacheSync(stopCh)
@@ -139,7 +141,7 @@ func (c *Controller) process(key string) error {
 
 	if !exists {
 		log.Printf("Object with key %q was deleted", key)
-		return nil
+		return nil		
 	}
 	current := obj.(*v1alpha1.Cluster)
 	previous := current.DeepCopy()
@@ -160,6 +162,26 @@ func (c *Controller) process(key string) error {
 
 	return nil
 }
+
+func (c *Controller) deletedCluster(obj interface{}) {
+	castObj, ok := obj.(*v1alpha1.Cluster)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			klog.Errorf("Couldn't get object from tombstone %#v", obj)
+			return
+		}
+		castObj, ok = tombstone.Obj.(*v1alpha1.Cluster)
+		if !ok {
+			klog.Errorf("Tombstone contained object that is not expected %#v", obj)
+			return
+		}
+	}
+	klog.V(4).Infof("Deleting cluster %q", castObj.Name)
+	ctx := context.TODO()
+	c.cleanup(ctx, castObj)
+}
+
 
 func RegisterClusterCRD(cfg *rest.Config) error {
 	bytes, err := ioutil.ReadFile("config/cluster.example.dev_clusters.yaml")
