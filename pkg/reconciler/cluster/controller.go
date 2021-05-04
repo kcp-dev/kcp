@@ -31,7 +31,7 @@ const resyncPeriod = 10 * time.Hour
 // server it reaches using the REST client.
 //
 // When new Clusters are found, the syncer will be run there using the given image.
-func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config) *Controller {
+func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config, resourcesToSync []string, pullModel bool) *Controller {
 	client := clusterv1alpha1.NewForConfigOrDie(cfg)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
@@ -45,6 +45,8 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		syncerImage: syncerImage,
 		kubeconfig:  kubeconfig,
 		stopCh:      stopCh,
+		resourcesToSync: resourcesToSync,
+		pullModel: pullModel,
 	}
 
 	sif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
@@ -68,6 +70,8 @@ type Controller struct {
 	syncerImage string
 	kubeconfig  clientcmdapi.Config
 	stopCh      chan struct{}
+	resourcesToSync []string
+	pullModel   bool
 }
 
 func (c *Controller) enqueue(obj interface{}) {
