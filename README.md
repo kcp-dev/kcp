@@ -12,12 +12,11 @@ By default, `kcp` only knows about:
 - [`CustomResourceDefinitions`](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), to define new types
 - a handful of other low-level resources like [`Lease`](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/lease-v1/)s, [`Event`](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application-introspection/)s, etc.
 
-<!-- TODO link to full list? -->
+![kubectl api-resources showing minimal API resources](./docs/images/kubectl-api-resources.png)
 
 Like vanilla Kubernetes, `kcp` persists these resources in etcd for durable storage.
 
-Any other resource, including Kubernetes-standard resources like `Pod`s, `Node`s and the rest, can be added as [CRDs](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) and reconciled using the standard conrtollers.
-
+Any other resources, including Kubernetes-standard resources like `Pod`s, `Node`s and the rest, can be added as [CRDs](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) and reconciled using the standard controllers.
 
 ## Why would I want that?
 

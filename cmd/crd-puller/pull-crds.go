@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	crdpuller "github.com/kcp-dev/kcp/pkg/crdpuller"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	crdpuller "github.com/kcp-dev/kcp/pkg/crdpuller"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
@@ -22,7 +22,7 @@ func main() {
 		Short:      "Pull CRDs from a Kubernetes cluster",
 		Long: help.Doc(`
 					Pull CRDs from a Kubernetes cluster
-					Based on a kubeconfig file, it uses dicovery API and the OpenAPI v2
+					Based on a kubeconfig file, it uses discovery API and the OpenAPI v2
 					model on the cluster to build CRDs for a list of api resource names.
 				`),
 		Example: "",
