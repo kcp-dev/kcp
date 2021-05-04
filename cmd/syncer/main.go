@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+	"k8s.io/kube-openapi/pkg/util/sets"
 )
 
 const (
@@ -33,6 +34,7 @@ var (
 
 func main() {
 	flag.Parse()
+	syncedResourceTypes := flag.Args()
 
 	// Create a client to dynamically watch "from".
 	fromConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
@@ -64,7 +66,7 @@ func main() {
 
 	// Get all types the upstream API server knows about.
 	// TODO: watch this and learn about new types, or forget about old ones.
-	gvrstrs, err := getAllGVRs(fromConfig)
+	gvrstrs, err := getAllGVRs(fromConfig, syncedResourceTypes...)
 	if err != nil {
 		klog.Fatal(err)
 	}
@@ -104,12 +106,14 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-func getAllGVRs(config *rest.Config) ([]string, error) {
+func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error) {
+	toSyncSet := sets.NewString(resourcesToSync...)
+	willBeSyncedSet := sets.NewString()
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	rs, err := dc.ServerResources()
+	rs, err := dc.ServerPreferredResources()
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +128,10 @@ func getAllGVRs(config *rest.Config) ([]string, error) {
 			vr = parts[1] + "." + parts[0]
 		}
 		for _, ai := range r.APIResources {
+			if !toSyncSet.Has(ai.Name) {
+				// We're not interested in this resource type
+				continue
+			}
 			if strings.Contains(ai.Name, "/") {
 				// foo/status, pods/exec, namespace/finalize, etc.
 				continue
@@ -137,7 +145,13 @@ func getAllGVRs(config *rest.Config) ([]string, error) {
 				continue
 			}
 			gvrstrs = append(gvrstrs, fmt.Sprintf("%s.%s", ai.Name, vr))
+			willBeSyncedSet.Insert(ai.Name)
 		}
+	}
+
+	notFoundResourceTypes := toSyncSet.Difference(willBeSyncedSet)
+	if notFoundResourceTypes.Len() != 0 {
+		return nil, fmt.Errorf("The following resource types should be synced and we not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
 	}
 	return gvrstrs, nil
 }
