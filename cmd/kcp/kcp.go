@@ -194,7 +194,7 @@ func main() {
 		},
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
-	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/dfestal/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
+	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
 	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string {"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", true, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
 	startCmd.Flags().BoolVar(&pullModel, "pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
