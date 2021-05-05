@@ -26,10 +26,10 @@ import (
 )
 
 var (
-	syncerImage string
-	resourcesToSync []string
+	syncerImage              string
+	resourcesToSync          []string
 	installClusterController bool
-	pullModel bool
+	pullModel                bool
 )
 
 func main() {
@@ -67,7 +67,7 @@ func main() {
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			//flag.CommandLine.Lookup("v").Value.Set("9")
-			
+
 			dir := filepath.Join(".", ".kcp")
 			if fi, err := os.Stat(dir); err != nil {
 				if !os.IsNotExist(err) {
@@ -152,7 +152,7 @@ func main() {
 				if installClusterController {
 					server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
 						// Register the `clusters` CRD in both the admin and user logical clusters
-						for contextName, _ := range clientConfig.Contexts {
+						for contextName := range clientConfig.Contexts {
 							logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 							if err != nil {
 								return err

@@ -110,7 +110,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 					Containers: []corev1.Container{{
 						Name:  "syncer",
 						Image: syncerImage,
-						Args: args,
+						Args:  args,
 						VolumeMounts: []corev1.VolumeMount{{
 							Name:      "kubeconfig",
 							MountPath: "/kcp",

@@ -39,21 +39,21 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
 
 	c := &Controller{
-		queue:       queue,
-		client:      client,
-		crdClient:   crdClient,
-		syncerImage: syncerImage,
-		kubeconfig:  kubeconfig,
-		stopCh:      stopCh,
+		queue:           queue,
+		client:          client,
+		crdClient:       crdClient,
+		syncerImage:     syncerImage,
+		kubeconfig:      kubeconfig,
+		stopCh:          stopCh,
 		resourcesToSync: resourcesToSync,
-		pullModel: pullModel,
+		pullModel:       pullModel,
 	}
 
 	sif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
 	sif.Cluster().V1alpha1().Clusters().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
-		DeleteFunc: func(obj interface{})  { c.deletedCluster(obj) },
+		DeleteFunc: func(obj interface{}) { c.deletedCluster(obj) },
 	})
 	c.indexer = sif.Cluster().V1alpha1().Clusters().Informer().GetIndexer()
 	sif.WaitForCacheSync(stopCh)
@@ -63,15 +63,15 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 }
 
 type Controller struct {
-	queue       workqueue.RateLimitingInterface
-	client      clusterv1alpha1.ClusterV1alpha1Interface
-	indexer     cache.Indexer
-	crdClient   apiextensionsv1client.ApiextensionsV1Interface
-	syncerImage string
-	kubeconfig  clientcmdapi.Config
-	stopCh      chan struct{}
+	queue           workqueue.RateLimitingInterface
+	client          clusterv1alpha1.ClusterV1alpha1Interface
+	indexer         cache.Indexer
+	crdClient       apiextensionsv1client.ApiextensionsV1Interface
+	syncerImage     string
+	kubeconfig      clientcmdapi.Config
+	stopCh          chan struct{}
 	resourcesToSync []string
-	pullModel   bool
+	pullModel       bool
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -145,7 +145,7 @@ func (c *Controller) process(key string) error {
 
 	if !exists {
 		log.Printf("Object with key %q was deleted", key)
-		return nil		
+		return nil
 	}
 	current := obj.(*v1alpha1.Cluster)
 	previous := current.DeepCopy()
@@ -186,12 +186,11 @@ func (c *Controller) deletedCluster(obj interface{}) {
 	c.cleanup(ctx, castObj)
 }
 
-
 func RegisterClusterCRD(cfg *rest.Config) error {
 	bytes, err := ioutil.ReadFile("config/cluster.example.dev_clusters.yaml")
-	
+
 	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
-	
+
 	crd := &apiextensionsv1.CustomResourceDefinition{}
 	err = yaml.Unmarshal(bytes, crd)
 	if err != nil {

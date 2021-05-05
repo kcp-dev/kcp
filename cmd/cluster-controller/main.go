@@ -12,9 +12,9 @@ import (
 const numThreads = 2
 
 var (
-	kubeconfigPath  = flag.String("kubeconfig", "", "Path to kubeconfig")
-	syncerImage = flag.String("syncer_image", "", "Syncer image to install on clusters")
-	pullModel = flag.Bool("pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	kubeconfigPath = flag.String("kubeconfig", "", "Path to kubeconfig")
+	syncerImage    = flag.String("syncer_image", "", "Syncer image to install on clusters")
+	pullModel      = flag.Bool("pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 )
 
 func main() {
