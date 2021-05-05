@@ -28,8 +28,9 @@ const (
 )
 
 var (
-	kubeconfig = flag.String("kubeconfig", "", "Config file for -from cluster")
-	clusterID  = flag.String("cluster", "", "ID of this cluster")
+	kubeconfig   = flag.String("from", "", "Kubeconfig file for -from cluster")
+	toKubeconfig = flag.String("to", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used")
+	clusterID    = flag.String("cluster", "", "ID of this cluster")
 )
 
 func main() {
@@ -46,11 +47,17 @@ func main() {
 		o.LabelSelector = fmt.Sprintf("cluster = %s", *clusterID)
 	})
 
-	// Create a client to modify "to".
-	toConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig) // rest.InClusterConfig()
+	var toConfig *rest.Config
+	if *toKubeconfig != "" {
+		toConfig, err = clientcmd.BuildConfigFromFlags("", *kubeconfig) // rest.InClusterConfig()
+	} else {
+		toConfig, err = rest.InClusterConfig()
+	}
 	if err != nil {
 		klog.Fatal(err)
 	}
+
+	// Create a client to modify "to".
 	toClient := dynamic.NewForConfigOrDie(toConfig)
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())

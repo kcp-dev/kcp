@@ -3,7 +3,7 @@ package syncer
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"errors"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 )
 
 type Controller struct {
@@ -67,7 +68,7 @@ func (c *Controller) handleErr(err error, i interface{}) {
 	// Re-enqueue up to 5 times.
 	num := c.Queue.NumRequeues(i)
 	if num < 5 {
-		log.Printf("Error reconciling key %q, retrying... (#%d): %v", i, num, err)
+		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", i, num, err)
 		c.Queue.AddRateLimited(i)
 		return
 	}
@@ -75,24 +76,40 @@ func (c *Controller) handleErr(err error, i interface{}) {
 	// Give up and report error elsewhere.
 	c.Queue.Forget(i)
 	utilruntime.HandleError(err)
-	log.Printf("Dropping key %q after failed retries: %v", i, err)
+	klog.Errorf("Dropping key %q after failed retries: %v", i, err)
 }
 
 func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
+	klog.Infof("Process object of type: %T : %v", obj, obj)
 	obj, exists, err := c.FromDSIF.ForResource(gvr).Informer().GetIndexer().Get(obj)
 	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	/*
+		unstrob, err := interfaceToUnstructured(obj)
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+	*/
+	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
+
+	if !isUnstructured {
+		err := errors.New("Object to synchronize is expected to be Unstructured")
+		klog.Error(err)
 		return err
 	}
 
-	unstrob, err := interfaceToUnstructured(obj)
-	if err != nil {
+	namespace, name := unstrob.GetNamespace(), unstrob.GetName()
+	if err := c.ensureNamespaceExists(namespace); err != nil {
+		klog.Error(err)
 		return err
 	}
-	namespace, name := unstrob.GetNamespace(), unstrob.GetName()
 
 	ctx := context.TODO()
 	if !exists {
-		log.Printf("Object with gvr=%q was deleted", gvr, obj)
+		klog.Infof("Object with gvr=%q was deleted", gvr, obj)
 		c.delete(ctx, gvr, namespace, name)
 		return nil
 	}
@@ -101,6 +118,28 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	}
 
 	return err
+}
+
+func (c *Controller) ensureNamespaceExists(namespace string) error {
+	klog.Infof("Ensuring namespace %s exists", namespace)
+
+	namespaces := c.ToClient.Resource(schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "namespaces",
+	})
+	newNamespace := &unstructured.Unstructured{}
+	newNamespace.SetAPIVersion("v1")
+	newNamespace.SetKind("Namespace")
+	newNamespace.SetName(namespace)
+	klog.Infof("Trying to create namespace %v", newNamespace)
+	if _, err := namespaces.Create(context.TODO(), newNamespace, metav1.CreateOptions{}); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			klog.Error(err)
+			return err
+		}
+	}
+	return nil
 }
 
 // getClient gets a dynamic client for the GVR, scoped to namespace if the namespace is not "".
@@ -120,37 +159,57 @@ func (c *Controller) delete(ctx context.Context, gvr schema.GroupVersionResource
 }
 
 func (c *Controller) upsert(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
+
 	client := c.getClient(gvr, namespace)
 
 	// Attempt to update the object; if the object isn't found, create it.
-	unstrob.SetResourceVersion("")
+
 	unstrob.SetUID("")
-	if _, err := client.Update(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
-		if k8serrors.IsNotFound(err) {
-			if _, err := client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
-				return err
-			}
-		} else {
+	existing, err := client.Get(ctx, unstrob.GetName(), metav1.GetOptions{})
+	if err == nil {
+		klog.Infof("Object %s/%s already exists: update it", gvr.Resource, unstrob.GetName())
+
+		unstrob.SetResourceVersion(existing.GetResourceVersion())
+		if _, err = client.Update(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
+			klog.Error(err)
 			return err
 		}
+	} else if k8serrors.IsNotFound(err) {
+		klog.Infof("Object %s/%s doesn't already exist: create it", gvr.Resource, unstrob.GetName())
+		unstrob.SetResourceVersion("")
+		if _, err = client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
+			klog.Error(err)
+			return err
+		}
+	} else {
+		klog.Error(err)
+		return err
 	}
-	_, err := client.UpdateStatus(ctx, unstrob, metav1.UpdateOptions{})
+
+	klog.Infof("Update the status of object %s/%s", gvr.Resource, unstrob.GetName())
+	_, err = client.UpdateStatus(ctx, unstrob, metav1.UpdateOptions{})
+	if err != nil {
+		klog.Error(err)
+	}
 	return err
 }
 
 func interfaceToUnstructured(i interface{}) (*unstructured.Unstructured, error) {
 	b, err := json.Marshal(i)
 	if err != nil {
+		klog.Error(err)
 		return nil, err
 	}
 
 	o, _, err := unstructured.UnstructuredJSONScheme.Decode(b, nil, nil)
 	if err != nil {
+		klog.Error(err)
 		return nil, err
 	}
 
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
 	if err != nil {
+		klog.Error(err)
 		return nil, err
 	}
 

@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -60,7 +61,9 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		return nil // Don't retry.
 	}
 
-	crds, err := schemaPuller.PullCRDs(ctx, "pods", "deployments")
+	apiGroups := sets.NewString()
+	resources := sets.NewString()
+	crds, err := schemaPuller.PullCRDs(ctx, c.resourcesToSync...)
 	if err != nil {
 		log.Printf("error pulling CRDs: %v", err)
 		cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
@@ -86,6 +89,9 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		}
 		if err != nil {
 			log.Printf("Error when applying CRD pulled from cluster %s for resource %s: %v\n", cluster.Name, resourceName, err)
+		} else {
+			apiGroups.Insert(pulledCrd.Spec.Group)
+			resources.Insert(pulledCrd.Spec.Names.Plural)
 		}
 	}
 
@@ -103,7 +109,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			kubeConfig.CurrentContext = logicalCluster
 			bytes, err := clientcmd.Write(*kubeConfig)
 			if err == nil {
-				err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, c.resourcesToSync)
+				err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, apiGroups.List(), resources.List())
 			}
 			if err != nil {
 				log.Printf("error installing syncer: %v", err)
