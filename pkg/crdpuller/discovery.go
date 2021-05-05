@@ -56,7 +56,7 @@ func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
 
 	return &schemaPuller{
 		discoveryClient: discoveryClient,
-		crdClient: crdClient,
+		crdClient:       crdClient,
 		models:          models,
 	}, nil
 }
@@ -70,7 +70,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 		return nil, err
 	}
 
-	apiResourceNames := map[schema.GroupVersion]sets.String {}
+	apiResourceNames := map[schema.GroupVersion]sets.String{}
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		if err != nil {
@@ -81,7 +81,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 		for _, apiResource := range apiResourcesList.APIResources {
 			apiResourceNames[gv].Insert(apiResource.Name)
 		}
-		 
+
 	}
 
 	apiResourcesLists, err = sp.discoveryClient.ServerPreferredResources()
@@ -120,9 +120,9 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				crd, err := sp.crdClient.CustomResourceDefinitions().Get(context, CRDName, metav1.GetOptions{})
 				if err == nil {
 					crds[apiResource.Name] = &apiextensionsv1.CustomResourceDefinition{
-						TypeMeta: typeMeta,
+						TypeMeta:   typeMeta,
 						ObjectMeta: objectMeta,
-						Spec: crd.Spec,
+						Spec:       crd.Spec,
 					}
 					continue
 				} else {
@@ -160,9 +160,9 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 					}
 					return false
 				}
-		
+
 				statusSubResource := &apiextensionsv1.CustomResourceSubresourceStatus{}
-				if ! hasSubResource("status") {
+				if !hasSubResource("status") {
 					statusSubResource = nil
 				}
 
@@ -170,12 +170,12 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 					SpecReplicasPath:   ".spec.replicas",
 					StatusReplicasPath: ".status.replicas",
 				}
-				if ! hasSubResource("scale") {
+				if !hasSubResource("scale") {
 					scaleSubResource = nil
 				}
- 
+
 				crd = &apiextensionsv1.CustomResourceDefinition{
-					TypeMeta: typeMeta,
+					TypeMeta:   typeMeta,
 					ObjectMeta: objectMeta,
 					Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 						Group: gv.Group,
@@ -223,9 +223,9 @@ type SchemaConverter struct {
 var _ proto.SchemaVisitorArbitrary = (*SchemaConverter)(nil)
 
 func (sc *SchemaConverter) setupDescription(schema proto.Schema) {
-	schemaDescription := schema.GetDescription() 
+	schemaDescription := schema.GetDescription()
 	inheritedDescription := sc.description
-	subSchemaDescription := "" 
+	subSchemaDescription := ""
 
 	switch typed := schema.(type) {
 	case *proto.Arbitrary:
@@ -260,7 +260,7 @@ func (sc *SchemaConverter) VisitArbitrary(a *proto.Arbitrary) {
 }
 
 func (sc *SchemaConverter) VisitArray(a *proto.Array) {
-	sc.setupDescription(a)	
+	sc.setupDescription(a)
 	sc.schemaProps.Type = "array"
 	if len(a.Extensions) > 0 {
 		var kind *proto.Kind = nil
@@ -323,7 +323,7 @@ func (sc *SchemaConverter) VisitArray(a *proto.Array) {
 	}
 }
 func (sc *SchemaConverter) VisitMap(m *proto.Map) {
-	sc.setupDescription(m)	
+	sc.setupDescription(m)
 	subtypeSchemaProps := apiextensionsv1.JSONSchemaProps{}
 	m.SubType.Accept(&SchemaConverter{
 		schemaProps: &subtypeSchemaProps,
@@ -399,7 +399,7 @@ func boolPtr(b bool) *bool {
 // map in `controller-tools `, and used to hard-code the OpenAPI V3 schema for a number
 // of well-known Kubernetes types:
 // https://github.com/kubernetes-sigs/controller-tools/blob/v0.5.0/pkg/crd/known_types.go#L26
-var knownPackages map[string]map[string]apiextensionsv1.JSONSchemaProps = map[string]map[string]apiextensionsv1.JSONSchemaProps {
+var knownPackages map[string]map[string]apiextensionsv1.JSONSchemaProps = map[string]map[string]apiextensionsv1.JSONSchemaProps{
 	"k8s.io/api/core/v1": {
 		// Explicit defaulting for the corev1.Protocol type in lieu of https://github.com/kubernetes/enhancements/pull/1928
 		"Protocol": apiextensionsv1.JSONSchemaProps{
@@ -486,7 +486,7 @@ var knownPackages map[string]map[string]apiextensionsv1.JSONSchemaProps = map[st
 var knownSchemas map[string]apiextensionsv1.JSONSchemaProps
 
 func init() {
-	knownSchemas = map[string]apiextensionsv1.JSONSchemaProps {}
+	knownSchemas = map[string]apiextensionsv1.JSONSchemaProps{}
 	for pkgName, schemas := range knownPackages {
 		for typeName, schema := range schemas {
 			schemaName := util.ToRESTFriendlyName(pkgName + "." + typeName)
