@@ -64,7 +64,9 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 
 		// Cheat and set the root .status.conditions to the first leaf's .status.conditions.
 		// TODO: do better.
-		deployment.Status.Conditions = others[0].Status.Conditions
+		if len(others) > 0 {
+			deployment.Status.Conditions = others[0].Status.Conditions
+		}
 	}
 
 	return nil
@@ -119,9 +121,11 @@ func (c *Controller) createLeafs(ctx context.Context, root *appsv1.Deployment) e
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 			UID:        root.UID,
+			Name:       root.Name,
 		}}
 
 		// TODO: munge namespace
+		vd.SetResourceVersion("")
 		if _, err := c.kubeClient.AppsV1().Deployments(root.Namespace).Create(ctx, vd, metav1.CreateOptions{}); err != nil {
 			return err
 		}
