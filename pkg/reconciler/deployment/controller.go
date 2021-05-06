@@ -31,37 +31,51 @@ func NewController(cfg *rest.Config) *Controller {
 	client := appsv1client.NewForConfigOrDie(cfg)
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	sif := informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
-	sif.Apps().V1().Deployments().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { queue.AddRateLimited(obj) },
-		UpdateFunc: func(_, obj interface{}) { queue.AddRateLimited(obj) },
-	})
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
-	sif.WaitForCacheSync(stopCh)
-	sif.Start(stopCh)
 
 	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
 	csif.WaitForCacheSync(stopCh)
 	csif.Start(stopCh)
 
-	return &Controller{
+	c := &Controller{
 		queue:         queue,
 		client:        client,
-		indexer:       sif.Apps().V1().Deployments().Informer().GetIndexer(),
-		lister:        sif.Apps().V1().Deployments().Lister(),
 		clusterLister: csif.Cluster().V1alpha1().Clusters().Lister(),
+		kubeClient:    kubeClient,
 		stopCh:        stopCh,
 	}
+
+	sif := informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	sif.Apps().V1().Deployments().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+	})
+	sif.WaitForCacheSync(stopCh)
+	sif.Start(stopCh)
+
+	c.indexer = sif.Apps().V1().Deployments().Informer().GetIndexer()
+	c.lister = sif.Apps().V1().Deployments().Lister()
+
+	return c
 }
 
 type Controller struct {
 	queue         workqueue.RateLimitingInterface
 	client        *appsv1client.AppsV1Client
-	indexer       cache.Indexer
-	lister        appsv1lister.DeploymentLister
 	clusterLister clusterlisters.ClusterLister
 	kubeClient    kubernetes.Interface
 	stopCh        chan struct{}
+	indexer       cache.Indexer
+	lister        appsv1lister.DeploymentLister
+}
+
+func (c *Controller) enqueue(obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.queue.AddRateLimited(key)
 }
 
 func (c *Controller) Start(numThreads int) {
