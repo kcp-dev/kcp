@@ -413,6 +413,12 @@ var knownPackages map[string]map[string]apiextensionsv1.JSONSchemaProps = map[st
 		// generate validation for it.
 		"ObjectMeta": apiextensionsv1.JSONSchemaProps{
 			Type: "object",
+
+			// CHANGE vs the OperatorSDK code:
+			// Add `x-preserve-unknown-fields: true` here since it is necessary when metadata is not at the top-level
+			// (for example in Deployment spec.template.metadata), in order not to prune unknown fields and avoid
+			// emptying metadata
+			XPreserveUnknownFields: boolPtr(true),
 		},
 		"Time": apiextensionsv1.JSONSchemaProps{
 			Type:   "string",
