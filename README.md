@@ -52,16 +52,6 @@ First off, this is a prototype, not a project. We're exploring these ideas here 
   - **`deployment-splitter`**, which demonstrates a controller that can split a `Deployment` object into multiple "virtual Deployment" objects across multiple clusters.
   - **`crd-puller`** which demonstrates mirroring CRDs from a cluster back to `kcp`
 
-## How do I get started?
-1. Clone the repository.
-2. [Install Go](https://golang.org/doc/install).
-3. Download the [latest kubectl binary for your OS](https://kubernetes.io/docs/tasks/tools/#kubectl).
-4. Build and start `kcp` in the background: `go run ./cmd/kcp start`.
-5. Tell `kubectl` where to find the kubeconfig: `export KUBECONFIG=./kcp/data/admin.kubeconfig` (this assumes your working directory is the root directory of the repository).
-6. Confirm you can connect to `kcp`: `kubectl api-resources`.
-
-For more scenarios, see [DEVELOPMENT.md](DEVELOPMENT.md).
-
 ## So what's this for?
 
 #### Multi-Cluster Kubernetes?
@@ -90,6 +80,16 @@ No! See our [GOALS.md](GOALS.md) doc for more on what we are trying to accomplis
 `kcp` as a project stands for equality and justice for all people.
 
 However, `kcp` is not an acronym.
+
+## How do I get started?
+1. Clone the repository.
+2. [Install Go](https://golang.org/doc/install).
+3. Download the [latest kubectl binary for your OS](https://kubernetes.io/docs/tasks/tools/#kubectl).
+4. Build and start `kcp` in the background: `go run ./cmd/kcp start`.
+5. Tell `kubectl` where to find the kubeconfig: `export KUBECONFIG=./kcp/data/admin.kubeconfig` (this assumes your working directory is the root directory of the repository).
+6. Confirm you can connect to `kcp`: `kubectl api-resources`.
+
+For more scenarios, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## This sounds cool and I want to help!
 
