@@ -11,7 +11,7 @@ Ideally, as a community we could improve both namespace and cluster tenancy at t
 
 ## Goal: Getting a new cluster that allows a team to add extensions efficiently should be effectively zero cost
 
-If a cluster is a desirable unit of tenancy, clusters should be amortized "free" and easy to operationalize as self-service. We have explored in the community a number of approaches that make new clusters cheaper (specifically `virtual clusters` in SIG-multi-tenancy, as well as the natural cloud vendor "as-a-service" options where they amortize the cost of many small clusters), but there are certain fundamental fixed costs that inflate the cost of those clusters. If we could make one more cluster the same cost as a namespace, we could dramatically improve isolation of teams as well as offering an advantage for more alignment on tenancy across the ecosystem.
+If a cluster is a desirable unit of tenancy, clusters should be amortized "free" and easy to operationalize as self-service. We have explored in the community a number of approaches that make new clusters cheaper (specifically [virtual clusters](https://github.com/kubernetes-sigs/multi-tenancy/tree/master/incubator/virtualcluster) in SIG-multi-tenancy, as well as the natural cloud vendor "as-a-service" options where they amortize the cost of many small clusters), but there are certain fundamental fixed costs that inflate the cost of those clusters. If we could make one more cluster the same cost as a namespace, we could dramatically improve isolation of teams as well as offering an advantage for more alignment on tenancy across the ecosystem.
 
 ### Constraint: A naive client should see no difference between a physical or logical cluster
 
