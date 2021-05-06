@@ -78,6 +78,26 @@
 				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--syncer_image=${env:SYNCER_IMAGE}"],
 				"envFile": "${workspaceFolder:kcp}/.kcp/syncer.env",
 				"preLaunchTask": "ko syncer to local kind"
+			},
+			{
+				"name": "Launch syncer",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/syncer",
+				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["-cluster", "local", "-from_kubeconfig", "${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "-from_context", "admin", "-to_kubeconfig", "${env:HOME}/.kube/config", "pods", "deployments" ],
+			},
+			{
+				"name": "Launch Deployment Splitter",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/deployment-splitter",
+				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["-kubeconfig", "${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "-context", "admin"],
 			}
 		]
 	}
