@@ -11,7 +11,7 @@ import (
 const numThreads = 2
 
 var kubeconfig = flag.String("kubeconfig", "", "Path to kubeconfig")
-var kubecontext    = flag.String("context", "", "Context to use in the Kubeconfig file, instead of the current context")
+var kubecontext = flag.String("context", "", "Context to use in the Kubeconfig file, instead of the current context")
 
 func main() {
 	flag.Parse()
