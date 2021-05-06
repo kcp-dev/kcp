@@ -2,7 +2,7 @@ package syncer
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,31 +79,40 @@ func (c *Controller) handleErr(err error, i interface{}) {
 
 func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
 	klog.V(2).Infof("Process object of type: %T : %v", obj, obj)
+	meta, isMeta := obj.(metav1.Object)
+	if !isMeta {
+		err := fmt.Errorf("Object to synchronize is expected to be a metav1.Object, but is %T", obj)
+		klog.Error(err)
+		return err
+	}
+	namespace, name := meta.GetNamespace(), meta.GetName()
+
+	ctx := context.TODO()
+
 	obj, exists, err := c.FromDSIF.ForResource(gvr).Informer().GetIndexer().Get(obj)
 	if err != nil {
 		klog.Error(err)
 		return err
 	}
-	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
 
+	if !exists {
+		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, name)
+		c.delete(ctx, gvr, namespace, name)
+		return nil
+	}
+
+	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
 	if !isUnstructured {
-		err := errors.New("Object to synchronize is expected to be Unstructured")
+		err := fmt.Errorf("Object to synchronize is expected to be Unstructured, but is %T", obj)
 		klog.Error(err)
 		return err
 	}
 
-	namespace, name := unstrob.GetNamespace(), unstrob.GetName()
 	if err := c.ensureNamespaceExists(namespace); err != nil {
 		klog.Error(err)
 		return err
 	}
 
-	ctx := context.TODO()
-	if !exists {
-		klog.Infof("Object with gvr=%q was deleted", gvr, obj)
-		c.delete(ctx, gvr, namespace, name)
-		return nil
-	}
 	if err := c.upsert(ctx, gvr, namespace, unstrob); err != nil {
 		return err
 	}
@@ -173,6 +182,8 @@ func (c *Controller) upsert(ctx context.Context, gvr schema.GroupVersionResource
 			klog.Error(err)
 			return err
 		}
+	} else {
+		klog.Infof("Created object %s/%s", gvr.Resource, unstrob.GetName())
 	}
 
 	klog.Infof("Update the status of object %s/%s", gvr.Resource, unstrob.GetName())
