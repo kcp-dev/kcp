@@ -52,6 +52,7 @@ First off, this is a prototype, not a project. We're exploring these ideas here 
   - **`deployment-splitter`**, which demonstrates a controller that can split a `Deployment` object into multiple "virtual Deployment" objects across multiple clusters.
   - **`crd-puller`** which demonstrates mirroring CRDs from a cluster back to `kcp`
 
+
 ## So what's this for?
 
 #### Multi-Cluster Kubernetes?
