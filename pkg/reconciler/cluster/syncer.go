@@ -6,6 +6,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -29,7 +31,7 @@ func syncerConfigMapName(logicalCluster string) string {
 // installSyncer installs the syncer image on the target cluster.
 //
 // It takes the syncer image name to run, and the kubeconfig of the kcp
-func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID, logicalCluster string, resourcesToSync []string) error {
+func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID, logicalCluster string, apiGroups, resourcesToSync []string) error {
 	// Create Namespace
 	if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -49,9 +51,68 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 		return err
 	}
 
-	// TODO: Create or Update ClusterRole
+	// Create or Update ClusterRole
 
-	// TODO: Create ClusterRoleBinding
+	var resourcesWithStatus []string
+	resourcesWithStatus = append(resourcesWithStatus, resourcesToSync...)
+	for _, resourceToSync := range resourcesToSync {
+		resourcesWithStatus = append(resourcesWithStatus, resourceToSync+"/status")
+	}
+
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: syncerSAName,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"create"},
+				APIGroups: []string{""},
+				Resources: []string{"namespaces"},
+			},
+			{
+				Verbs:     []string{"create", "update", "get"},
+				Resources: resourcesWithStatus,
+				APIGroups: apiGroups,
+			},
+		},
+	}
+	if _, err := client.RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{}); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return err
+		}
+		existing, err := client.RbacV1().ClusterRoles().Get(ctx, clusterRole.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !equality.Semantic.DeepEqual(existing.Rules, clusterRole.Rules) {
+			clusterRole.ResourceVersion = existing.ResourceVersion
+			if _, err := client.RbacV1().ClusterRoles().Update(ctx, clusterRole, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Create ClusterRoleBinding
+
+	if _, err := client.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: syncerSAName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      syncerSAName,
+				Namespace: syncerNS,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     syncerSAName,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}, metav1.CreateOptions{}); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
 
 	// Populate a ConfigMap with the kubeconfig to reach the kcp, to be
 	// mounted into the syncer's Pod.
@@ -76,7 +137,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 
 	args := []string{
 		"-cluster", clusterID,
-		"-kubeconfig", "/kcp/kubeconfig",
+		"-from_kubeconfig", "/kcp/kubeconfig",
 	}
 	args = append(args, resourcesToSync...)
 
@@ -131,6 +192,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 							},
 						},
 					}},
+					ServiceAccountName: syncerSAName,
 				},
 			},
 		},
