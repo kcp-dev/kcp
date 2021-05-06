@@ -80,7 +80,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.queue.Add(key)
+	c.queue.AddRateLimited(key)
 }
 
 func (c *Controller) Start(numThreads int) {
