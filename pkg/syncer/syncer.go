@@ -2,13 +2,11 @@ package syncer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -80,19 +78,12 @@ func (c *Controller) handleErr(err error, i interface{}) {
 }
 
 func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
-	klog.Infof("Process object of type: %T : %v", obj, obj)
+	klog.V(2).Infof("Process object of type: %T : %v", obj, obj)
 	obj, exists, err := c.FromDSIF.ForResource(gvr).Informer().GetIndexer().Get(obj)
 	if err != nil {
 		klog.Error(err)
 		return err
 	}
-	/*
-		unstrob, err := interfaceToUnstructured(obj)
-		if err != nil {
-			klog.Error(err)
-			return err
-		}
-	*/
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
 
 	if !isUnstructured {
@@ -121,8 +112,6 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 }
 
 func (c *Controller) ensureNamespaceExists(namespace string) error {
-	klog.Infof("Ensuring namespace %s exists", namespace)
-
 	namespaces := c.ToClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
@@ -132,10 +121,9 @@ func (c *Controller) ensureNamespaceExists(namespace string) error {
 	newNamespace.SetAPIVersion("v1")
 	newNamespace.SetKind("Namespace")
 	newNamespace.SetName(namespace)
-	klog.Infof("Trying to create namespace %v", newNamespace)
 	if _, err := namespaces.Create(context.TODO(), newNamespace, metav1.CreateOptions{}); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			klog.Error(err)
+			klog.Infof("Error while creating namespace %s: %v", namespace, err)
 			return err
 		}
 	}
@@ -162,56 +150,36 @@ func (c *Controller) upsert(ctx context.Context, gvr schema.GroupVersionResource
 
 	client := c.getClient(gvr, namespace)
 
-	// Attempt to update the object; if the object isn't found, create it.
+	// Attempt to create the object; if the object already exists, update it.
 
 	unstrob.SetUID("")
-	existing, err := client.Get(ctx, unstrob.GetName(), metav1.GetOptions{})
-	if err == nil {
+	unstrob.SetResourceVersion("")
+	if _, err := client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			klog.Error(err)
+			return err
+		}
+
+		existing, err := client.Get(ctx, unstrob.GetName(), metav1.GetOptions{})
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
 		klog.Infof("Object %s/%s already exists: update it", gvr.Resource, unstrob.GetName())
 
 		unstrob.SetResourceVersion(existing.GetResourceVersion())
-		if _, err = client.Update(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
+		unstrob, err = client.Update(ctx, unstrob, metav1.UpdateOptions{})
+		if err != nil {
 			klog.Error(err)
 			return err
 		}
-	} else if k8serrors.IsNotFound(err) {
-		klog.Infof("Object %s/%s doesn't already exist: create it", gvr.Resource, unstrob.GetName())
-		unstrob.SetResourceVersion("")
-		if _, err = client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
-			klog.Error(err)
-			return err
-		}
-	} else {
+	}
+
+	klog.Infof("Update the status of object %s/%s", gvr.Resource, unstrob.GetName())
+	if _, err := client.UpdateStatus(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		return err
 	}
 
-	klog.Infof("Update the status of object %s/%s", gvr.Resource, unstrob.GetName())
-	_, err = client.UpdateStatus(ctx, unstrob, metav1.UpdateOptions{})
-	if err != nil {
-		klog.Error(err)
-	}
-	return err
-}
-
-func interfaceToUnstructured(i interface{}) (*unstructured.Unstructured, error) {
-	b, err := json.Marshal(i)
-	if err != nil {
-		klog.Error(err)
-		return nil, err
-	}
-
-	o, _, err := unstructured.UnstructuredJSONScheme.Decode(b, nil, nil)
-	if err != nil {
-		klog.Error(err)
-		return nil, err
-	}
-
-	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
-	if err != nil {
-		klog.Error(err)
-		return nil, err
-	}
-
-	return &unstructured.Unstructured{Object: m}, nil
+	return nil
 }

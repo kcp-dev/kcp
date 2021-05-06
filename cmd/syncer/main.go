@@ -28,9 +28,11 @@ const (
 )
 
 var (
-	kubeconfig   = flag.String("from", "", "Kubeconfig file for -from cluster")
-	toKubeconfig = flag.String("to", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used")
-	clusterID    = flag.String("cluster", "", "ID of this cluster")
+	fromKubeconfig = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster")
+	fromContext    = flag.String("from_context", "", "Context to use in the Kubeconfig file for -from cluster, instead of the current context")
+	toKubeconfig   = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used")
+	toContext      = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context")
+	clusterID      = flag.String("cluster", "", "ID of this cluster")
 )
 
 func main() {
@@ -38,10 +40,19 @@ func main() {
 	syncedResourceTypes := flag.Args()
 
 	// Create a client to dynamically watch "from".
-	fromConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+
+	var fromOverrides clientcmd.ConfigOverrides
+	if *fromContext != "" {
+		fromOverrides.CurrentContext = *fromContext
+	}
+
+	fromConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *fromKubeconfig},
+		&fromOverrides).ClientConfig()
 	if err != nil {
 		klog.Fatal(err)
 	}
+
 	fromClient := dynamic.NewForConfigOrDie(fromConfig)
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = fmt.Sprintf("cluster = %s", *clusterID)
@@ -49,7 +60,17 @@ func main() {
 
 	var toConfig *rest.Config
 	if *toKubeconfig != "" {
-		toConfig, err = clientcmd.BuildConfigFromFlags("", *kubeconfig) // rest.InClusterConfig()
+		var toOverrides clientcmd.ConfigOverrides
+		if *toContext != "" {
+			toOverrides.CurrentContext = *toContext
+		}
+
+		toConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			&clientcmd.ClientConfigLoadingRules{ExplicitPath: *toKubeconfig},
+			&toOverrides).ClientConfig()
+		if err != nil {
+			klog.Fatal(err)
+		}
 	} else {
 		toConfig, err = rest.InClusterConfig()
 	}
