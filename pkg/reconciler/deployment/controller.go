@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"log"
 	"time"
 
 	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -20,6 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -34,8 +34,6 @@ func NewController(cfg *rest.Config) *Controller {
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
 
 	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
-	csif.WaitForCacheSync(stopCh)
-	csif.Start(stopCh)
 
 	c := &Controller{
 		queue:         queue,
@@ -44,6 +42,8 @@ func NewController(cfg *rest.Config) *Controller {
 		kubeClient:    kubeClient,
 		stopCh:        stopCh,
 	}
+	csif.WaitForCacheSync(stopCh)
+	csif.Start(stopCh)
 
 	sif := informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	sif.Apps().V1().Deployments().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -83,9 +83,9 @@ func (c *Controller) Start(numThreads int) {
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(c.startWorker, time.Second, c.stopCh)
 	}
-	log.Println("Starting workers")
+	klog.Infof("Starting workers")
 	<-c.stopCh
-	log.Println("Stopping workers")
+	klog.Infof("Stopping workers")
 }
 
 func (c *Controller) startWorker() {
@@ -120,7 +120,7 @@ func (c *Controller) handleErr(err error, key string) {
 	// Re-enqueue up to 5 times.
 	num := c.queue.NumRequeues(key)
 	if num < 5 {
-		log.Printf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
+		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
 		c.queue.AddRateLimited(key)
 		return
 	}
@@ -128,7 +128,7 @@ func (c *Controller) handleErr(err error, key string) {
 	// Give up and report error elsewhere.
 	c.queue.Forget(key)
 	runtime.HandleError(err)
-	log.Printf("Dropping key %q after failed retries: %v", key, err)
+	klog.Infof("Dropping key %q after failed retries: %v", key, err)
 }
 
 func (c *Controller) process(key string) error {
@@ -138,7 +138,7 @@ func (c *Controller) process(key string) error {
 	}
 
 	if !exists {
-		log.Printf("Object with key %q was deleted", key)
+		klog.Infof("Object with key %q was deleted", key)
 		return nil
 	}
 	current := obj.(*appsv1.Deployment)
