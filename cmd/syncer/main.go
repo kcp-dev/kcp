@@ -38,6 +38,9 @@ var (
 func main() {
 	flag.Parse()
 	syncedResourceTypes := flag.Args()
+	if len(syncedResourceTypes) == 0 {
+		syncedResourceTypes = []string{"pods", "deployments"}
+	}
 
 	// Create a client to dynamically watch "from".
 
