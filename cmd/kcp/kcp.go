@@ -16,6 +16,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 
+	netutils "github.com/kcp-dev/kcp/pkg/utils/net"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,6 +28,7 @@ import (
 
 var (
 	syncerImage              string
+	listenAt                 string
 	resourcesToSync          []string
 	installClusterController bool
 	pullModel                bool
@@ -112,6 +114,14 @@ func main() {
 					KeyFile:       cfg.KeyFile,
 					TrustedCAFile: cfg.TrustedCAFile,
 				}
+
+				if listenAt != "" {
+					serverOptions.SecureServing.BindAddress, serverOptions.SecureServing.BindPort, err = netutils.SplitAddrPort(listenAt)
+					if err != nil {
+						return err
+					}
+				}
+
 				cpOptions, err := controlplane.Complete(serverOptions)
 				if err != nil {
 					return err
@@ -195,6 +205,7 @@ func main() {
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
 	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
+	startCmd.Flags().StringVar(&listenAt, "listen-at", ":6443", "Address and port that KCP listens at")
 	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string{"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", false, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
 	startCmd.Flags().BoolVar(&pullModel, "pull_model", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
