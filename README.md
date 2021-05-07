@@ -65,7 +65,7 @@ First off, this is a prototype, not a project. We're exploring these ideas here 
 
 #### Local Kubernetes Development?
 
-`kcp` could be _useful_ for local development scenarios, where you don't necessarily care about all of Kubernetes' many built-in resources and their reconiling controllers.
+`kcp` could be _useful_ for local development scenarios, where you don't necessarily care about all of Kubernetes' many built-in resources and their reconciling controllers.
 
 #### Embedded/low-resource scenarios?
 
