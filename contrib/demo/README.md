@@ -20,7 +20,8 @@ In order to get the functionality of K8s-the-container-orchestrator, the demo co
 
 Instead of connecting real Kubernetes clusters, you could define a Pod CRD yourself, and provide a controller that understands what to do when users request Pods.
 
-### Cluster CRD
+### Physical Clusters
+#### Cluster CRD
 
 To be able to connect multiple "physical" clusters, we define a `Cluster` CRD type.
 This effectively includes a kubeconfig to locate and authenticate with the cluster.
@@ -48,11 +49,11 @@ spec:
 
 Again, `kcp` doesn't _need_ to know about this type at all; you can use `kcp` without connecting to any real clusters.
 
-This type is also not intended to define "The One True Cluster Type", it's only for demonstration purposes.
+The Cluster type is also not intended to define "The One True Cluster Type", it's only for demonstration purposes.
 
-### Cluster Controller 
+#### Cluster Controller 
 
-If `kcp` _does_ know about this Cluster type, you also need some controller to run against it that knows what to do with objects of that type.
+If `kcp` _does_ know about the Cluster type, you also need some controller to run against it that knows what to do with objects of that type.
 For this demo, that's the *Cluster Controller*.
 
 As with the Cluster CRD, the Cluster Controller is for demonstration purposes.
@@ -65,6 +66,14 @@ The Cluster Controller watches each cluster's Syncer installation to determine w
 If the Cluster Controller determines the Syncer isn't installed, it will install it, giving the Syncer the config it needs to connect to the `kcp`.
 
 Q: When the Cluster object is deleted, should Syncer be uninstalled, or otherwise told to stop syncing? Perhaps using a [Finalizer](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#finalizers)?
+
+### Logical Clusters
+By default, there is a single logical cluster created in `kcp`. To create more logical clusters, you have two options:
+
+- Pass `--server=https://localhost:6443/clusters/<logical-cluster-name> --insecure-skip-tls-verify` to your `kubectl` command.
+- Edit your kubeconfig to add another cluster and context
+
+You can also use /clusters/* to try listing/watching all clusters from kubectl.
 
 ## Syncer
 
