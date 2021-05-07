@@ -65,7 +65,7 @@ First off, this is a prototype, not a project. We're exploring these ideas here 
 
 #### Local Kubernetes Development?
 
-`kcp` could be _useful_ for local development scenarios, where you don't necessarily care about all of Kubernetes' many built-in resources and their reconiling controllers.
+`kcp` could be _useful_ for local development scenarios, where you don't necessarily care about all of Kubernetes' many built-in resources and their reconciling controllers.
 
 #### Embedded/low-resource scenarios?
 
@@ -84,7 +84,7 @@ However, `kcp` is not an acronym.
 
 ## How do I get started?
 1. Clone the repository.
-2. [Install Go](https://golang.org/doc/install).
+2. [Install Go](https://golang.org/doc/install) (1.16+).
 3. Download the [latest kubectl binary for your OS](https://kubernetes.io/docs/tasks/tools/#kubectl).
 4. Build and start `kcp` in the background: `go run ./cmd/kcp start`.
 5. Tell `kubectl` where to find the kubeconfig: `export KUBECONFIG=.kcp/data/admin.kubeconfig` (this assumes your working directory is the root directory of the repository).
