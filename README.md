@@ -2,27 +2,27 @@
 
 ![build status badge](https://github.com/kcp-dev/kcp/actions/workflows/ci.yaml/badge.svg)
 
-How minimal exactly? `kcp` doesn't know about [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s or [`Node`](https://kubernetes.io/docs/concepts/architecture/nodes/)s, let alone `Deployment`s, `Service`s, `LoadBalancer`s, etc.
+How minimal exactly? `kcp` doesn't know about [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s or [`Node`](https://kubernetes.io/docs/concepts/architecture/nodes/)s, let alone [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)s, [`Service`](https://kubernetes.io/docs/concepts/services-networking/service/)s, [`LoadBalancer`](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/)s, etc.
 
 By default, `kcp` only knows about:
 
-- [`Namespaces`](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)
-- [`ServiceAccounts`](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/) and [role-based access control](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) types like `Role` and `RoleBinding`
-- [`Secrets`](https://kubernetes.io/docs/concepts/configuration/secret/) and [`ConfigMaps`](https://kubernetes.io/docs/concepts/configuration/configmap/), to store configuration data
-- [`CustomResourceDefinitions`](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), to define new types
+- [`Namespace`](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)s
+- [`ServiceAccount`](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/)s and [role-based access control](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) types like [`Role`](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#role-and-clusterrole) and [`RoleBinding`](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#rolebinding-and-clusterrolebinding)
+- [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/)s and [`ConfigMap`](https://kubernetes.io/docs/concepts/configuration/configmap/)s, to store configuration data
+- [`CustomResourceDefinition`](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)s, to define new types
 - a handful of other low-level resources like [`Lease`](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/lease-v1/)s, [`Event`](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application-introspection/)s, etc.
 
 ![kubectl api-resources showing minimal API resources](./docs/images/kubectl-api-resources.png)
 
 Like vanilla Kubernetes, `kcp` persists these resources in etcd for durable storage.
 
-Any other resources, including Kubernetes-standard resources like `Pod`s, `Node`s and the rest, can be added as [CRDs](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) and reconciled using the standard controllers.
+Any other resources, including Kubernetes-standard resources like [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s, [`Node`](https://kubernetes.io/docs/concepts/architecture/nodes/)s and the rest, can be added as [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)s and reconciled using the standard controllers.
 
 ## Why would I want that?
 
 Kubernetes is mainly known as a container orchestration platform today, but we believe it can be even more.
 
-With the power of `CustomResourceDefinition`s, Kubernetes provides a flexible platform for declarative APIs of _all types_, and the reconciliation pattern common to Kubernetes controllers is a powerful tool in building robust, expressive systems.
+With the power of [`CustomResourceDefinition`](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)s, Kubernetes provides a flexible platform for declarative APIs of _all types_, and the reconciliation pattern common to Kubernetes controllers is a powerful tool in building robust, expressive systems.
 
 At the same time, a diverse and creative community of tools and services has sprung up around Kubernetes APIs.
 
@@ -37,7 +37,7 @@ _No._
 
 `kcp` as a prototype currently depends on some unmerged changes to Kubernetes, but we intend to pursue these changes through the usual KEP process, until (hopefully!) Kubernetes can be configured to run as `kcp` runs today.
 
-Our intention is that our experiments _improve Kubernetes for everyone_, by improving CRDs and scaling resource watching, and enabling more, better controllers _for everyone_, whether you're using Kubernetes as a container orchestrator or not.
+Our intention is that our experiments _improve Kubernetes for everyone_, by improving [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)s and scaling resource watching, and enabling more, better controllers _for everyone_, whether you're using Kubernetes as a container orchestrator or not.
 
 Our `kcp` specific patches are in the [feature-logical-clusters](https://github.com/kcp-dev/kubernetes/tree/feature-logical-clusters) feature branch in the [kcp-dev/kubernetes](https://github.com/kcp-dev/kubernetes) repo. See [DEVELOPMENT.md](DEVELOPMENT.md) for how the patches are structured and how they must be formatted during our experimentation phase.  See [GOALS.md](GOALS.md) for more info on how we intend to use `kcp` as a test-bed for exploring ideas that improve the entire ecosystem.
 
