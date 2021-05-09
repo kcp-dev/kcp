@@ -7,7 +7,7 @@ go run ./cmd/kcp start
 This will build and run your kcp server, and generate a kubeconfig in `.kcp/data/admin.kubeconfig` you can use to connect to it:
 
 ```
-KUBECONFIG=.kcp/data/admin.kubeconfig
+export KUBECONFIG=.kcp/data/admin.kubeconfig
 kubectl api-resources
 ```
 
