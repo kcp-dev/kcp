@@ -150,8 +150,8 @@ func (c *Controller) process(key string) error {
 	}
 
 	// If the object being reconciled changed as a result, update it.
-	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.client.Deployments(current.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
+	if !equality.Semantic.DeepEqual(previous, current) {
+		_, uerr := c.client.Deployments(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 
