@@ -4,9 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -30,6 +32,7 @@ var (
 	resourcesToSync          []string
 	installClusterController bool
 	pullModel                bool
+	listen                   string
 )
 
 func main() {
@@ -104,6 +107,22 @@ func main() {
 				}
 
 				serverOptions := options.NewServerRunOptions()
+				host, port, err := net.SplitHostPort(listen)
+				if err != nil {
+					return fmt.Errorf("--listen must be of format host:port: %w", err)
+				}
+
+				if host != "" {
+					serverOptions.SecureServing.BindAddress = net.ParseIP(host)
+				}
+				if port != "" {
+					p, err := strconv.Atoi(port)
+					if err != nil {
+						return err
+					}
+					serverOptions.SecureServing.BindPort = p
+				}
+
 				serverOptions.SecureServing.ServerCert.CertDirectory = s.Dir
 				serverOptions.InsecureServing = nil
 				serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
@@ -198,6 +217,7 @@ func main() {
 	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string{"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", false, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
 	startCmd.Flags().BoolVar(&pullModel, "pull_model", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	startCmd.Flags().StringVar(&listen, "listen", ":6443", "Address:port to bind to")
 	cmd.AddCommand(startCmd)
 
 	if err := cmd.Execute(); err != nil {
