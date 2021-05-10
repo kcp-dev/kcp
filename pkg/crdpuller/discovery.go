@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/sets"
@@ -91,6 +92,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		if err != nil {
+			klog.Errorf("skipping discovery due to error parsing GroupVersion %s: %v", apiResourcesList.GroupVersion, err)
 			continue
 		}
 
@@ -124,9 +126,11 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 						ObjectMeta: objectMeta,
 						Spec:       crd.Spec,
 					}
+					klog.Infof("resource %s was previously discovered", CRDName)
 					continue
 				} else {
 					if !errors.IsNotFound(err) {
+						klog.Errorf("error looking up CRD for %s: %v", CRDName, err)
 						return nil, err
 					}
 				}
@@ -145,8 +149,14 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 					swaggerSpecDefinitionName = "io.k8s.api." + swaggerSpecDefinitionName
 				}
 				swaggerSpecDefinitionName = swaggerSpecDefinitionName + "." + gv.Version + "." + apiResource.Kind
-
 				protoSchema := sp.models.LookupModel(swaggerSpecDefinitionName)
+				if protoSchema == nil {
+					klog.Errorf("no model for %s -- skipping discovery", swaggerSpecDefinitionName)
+					continue
+				}
+
+				klog.Infof("processing discovery for resource %s (%s)", apiResource.Name, CRDName)
+
 				schemaProps := apiextensionsv1.JSONSchemaProps{}
 				protoSchema.Accept(&SchemaConverter{
 					schemaProps: &schemaProps,

@@ -182,7 +182,7 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error
 
 	notFoundResourceTypes := toSyncSet.Difference(willBeSyncedSet)
 	if notFoundResourceTypes.Len() != 0 {
-		return nil, fmt.Errorf("The following resource types should be synced and we not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
+		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
 	}
 	return gvrstrs, nil
 }
