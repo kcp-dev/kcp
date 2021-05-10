@@ -8,6 +8,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
+	"github.com/kcp-dev/kcp/pkg/syncer"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +21,10 @@ import (
 	"k8s.io/klog"
 )
 
-const pollInterval = time.Minute
+const (
+	pollInterval     = time.Minute
+	numSyncerThreads = 2
+)
 
 func clusterOriginLabel(clusterID string) string {
 	return "imported-from/" + clusterID
@@ -105,13 +109,18 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			return nil // Don't retry.
 		}
 
-		if c.pullModel {
+		switch c.syncerMode {
+		case SyncerModePull:
 			kubeConfig.CurrentContext = logicalCluster
 			bytes, err := clientcmd.Write(*kubeConfig)
-			if err == nil {
-				err = installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, apiGroups.List(), resources.List())
-			}
 			if err != nil {
+				log.Printf("error writing kubeconfig for syncer: %v", err)
+				cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
+					"ErrorInstallingSyncer",
+					fmt.Sprintf("Error installing syncer: %v", err))
+				return nil // Don't retry.
+			}
+			if err := installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, apiGroups.List(), resources.List()); err != nil {
 				log.Printf("error installing syncer: %v", err)
 				cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
@@ -123,14 +132,37 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			cluster.Status.Conditions.SetReady(corev1.ConditionUnknown,
 				"SyncerInstalling",
 				"Installing syncer on cluster")
-		} else {
+		case SyncerModePush:
+			kubeConfig.CurrentContext = logicalCluster
+			from, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+			if err != nil {
+				log.Printf("error getting kcp kubeconfig: %v", err)
+				cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
+					"ErrorStartingSyncer",
+					fmt.Sprintf("Error starting syncer: %v", err))
+				return nil // Don't retry.
+			}
+
+			to, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
+			if err != nil {
+				log.Printf("error getting cluster kubeconfig: %v", err)
+				cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
+					"ErrorStartingSyncer",
+					fmt.Sprintf("Error starting syncer: %v", err))
+				return nil // Don't retry.
+			}
+
+			s := syncer.New(to, from, resources.List(), cluster.Name)
+			c.syncers[cluster.Name] = s
+			s.Start(numSyncerThreads)
+		case SyncerModeNone:
 			log.Println("syncer ready!")
 			cluster.Status.Conditions.SetReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
 		}
 	} else {
-		if c.pullModel {
+		if c.syncerMode == SyncerModePull {
 			if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
 				log.Println("syncer not yet ready")
 				cluster.Status.Conditions.SetReady(corev1.ConditionFalse,
@@ -193,17 +225,29 @@ func (c *Controller) cleanup(ctx context.Context, deletedCluster *v1alpha1.Clust
 		}
 	}
 
-	if c.pullModel {
+	switch c.syncerMode {
+	case SyncerModePull:
 		// Get client from kubeconfig
 		cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(deletedCluster.Spec.KubeConfig))
 		if err != nil {
 			klog.Errorf("invalid kubeconfig: %v", err)
+			return
 		}
 		client, err := kubernetes.NewForConfig(cfg)
 		if err != nil {
 			klog.Errorf("error creating client: %v", err)
+			return
 		}
 
 		uninstallSyncer(ctx, client, logicalCluster)
+	case SyncerModePush:
+		s, ok := c.syncers[deletedCluster.Name]
+		if !ok {
+			klog.Errorf("could not find syncer for cluster %q", deletedCluster.Name)
+			return
+		}
+		klog.Infof("stopping syncer for cluster %q", deletedCluster.Name)
+		s.Stop()
+		delete(c.syncers, deletedCluster.Name)
 	}
 }

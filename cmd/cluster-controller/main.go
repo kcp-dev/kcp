@@ -14,7 +14,8 @@ const numThreads = 2
 var (
 	kubeconfigPath = flag.String("kubeconfig", "", "Path to kubeconfig")
 	syncerImage    = flag.String("syncer_image", "", "Syncer image to install on clusters")
-	pullModel      = flag.Bool("pull_model", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	pullMode       = flag.Bool("pull_mode", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	pushMode       = flag.Bool("push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
 )
 
 func main() {
@@ -39,5 +40,16 @@ func main() {
 		resourcesToSync = []string{"pods", "deployments"}
 	}
 
-	cluster.NewController(r, *syncerImage, kubeconfig, resourcesToSync, *pullModel).Start(numThreads)
+	if *pullMode && *pushMode {
+		log.Fatal("can't set --push_mode and --pull_mode")
+	}
+	syncerMode := cluster.SyncerModeNone
+	if *pullMode {
+		syncerMode = cluster.SyncerModePull
+	}
+	if *pushMode {
+		syncerMode = cluster.SyncerModePush
+	}
+
+	cluster.NewController(r, *syncerImage, kubeconfig, resourcesToSync, syncerMode).Start(numThreads)
 }

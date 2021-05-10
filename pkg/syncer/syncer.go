@@ -3,26 +3,144 @@ package syncer
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 )
 
+const resyncPeriod = 10 * time.Hour
+
 type Controller struct {
-	Queue workqueue.RateLimitingInterface
+	queue workqueue.RateLimitingInterface
 
 	// Upstream
-	FromDSIF dynamicinformer.DynamicSharedInformerFactory
+	fromDSIF dynamicinformer.DynamicSharedInformerFactory
 
 	// Downstream
-	ToClient dynamic.Interface
+	toClient dynamic.Interface
+
+	stopCh chan struct{}
+}
+
+// New returns a new syncer Controller syncing spec from "from" to "to".
+func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) *Controller {
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	stopCh := make(chan struct{})
+
+	c := Controller{
+		// TODO: should we have separate upstream and downstream sync workqueues?
+		queue: queue,
+
+		toClient: dynamic.NewForConfigOrDie(to),
+
+		stopCh: stopCh,
+	}
+
+	fromClient := dynamic.NewForConfigOrDie(from)
+	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster = %s", clusterID)
+	})
+
+	// Get all types the upstream API server knows about.
+	// TODO: watch this and learn about new types, or forget about old ones.
+	gvrstrs, err := getAllGVRs(from, syncedResourceTypes...)
+	if err != nil {
+		klog.Fatal(err)
+	}
+	for _, gvrstr := range gvrstrs {
+		gvr, _ := schema.ParseResourceArg(gvrstr)
+
+		if _, err := fromDSIF.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
+			klog.Infof("Failed to list all %q: %v", gvrstr, err)
+			continue
+		}
+
+		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+			UpdateFunc: func(_, obj interface{}) { c.AddToQueue(*gvr, obj) },
+			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+		})
+		klog.Infof("Set up informer for %v", gvr)
+	}
+	fromDSIF.WaitForCacheSync(stopCh)
+	fromDSIF.Start(stopCh)
+	c.fromDSIF = fromDSIF
+
+	return &c
+}
+
+func contains(ss []string, s string) bool {
+	for _, n := range ss {
+		if n == s {
+			return true
+		}
+	}
+	return false
+}
+
+func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error) {
+	toSyncSet := sets.NewString(resourcesToSync...)
+	willBeSyncedSet := sets.NewString()
+	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	rs, err := dc.ServerPreferredResources()
+	if err != nil {
+		return nil, err
+	}
+	var gvrstrs []string
+	for _, r := range rs {
+		// v1 -> v1.
+		// apps/v1 -> v1.apps
+		// tekton.dev/v1beta1 -> v1beta1.tekton.dev
+		parts := strings.SplitN(r.GroupVersion, "/", 2)
+		vr := parts[0] + "."
+		if len(parts) == 2 {
+			vr = parts[1] + "." + parts[0]
+		}
+		for _, ai := range r.APIResources {
+			if !toSyncSet.Has(ai.Name) {
+				// We're not interested in this resource type
+				continue
+			}
+			if strings.Contains(ai.Name, "/") {
+				// foo/status, pods/exec, namespace/finalize, etc.
+				continue
+			}
+			if !ai.Namespaced {
+				// Ignore cluster-scoped things.
+				continue
+			}
+			if !contains(ai.Verbs, "watch") {
+				klog.Infof("resource %s %s is not watchable: %v", vr, ai.Name, ai.Verbs)
+				continue
+			}
+			gvrstrs = append(gvrstrs, fmt.Sprintf("%s.%s", ai.Name, vr))
+			willBeSyncedSet.Insert(ai.Name)
+		}
+	}
+
+	notFoundResourceTypes := toSyncSet.Difference(willBeSyncedSet)
+	if notFoundResourceTypes.Len() != 0 {
+		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
+	}
+	return gvrstrs, nil
 }
 
 type holder struct {
@@ -31,17 +149,40 @@ type holder struct {
 }
 
 func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
-	c.Queue.AddRateLimited(holder{gvr: gvr, obj: obj})
+	c.queue.AddRateLimited(holder{gvr: gvr, obj: obj})
 }
 
-func (c *Controller) StartWorker() {
-	for c.processNextWorkItem() {
+// Start starts N worker processes processing work items.
+func (c *Controller) Start(numThreads int) {
+	for i := 0; i < numThreads; i++ {
+		go c.startWorker()
 	}
 }
 
+// startWorker processes work items until stopCh is closed.
+func (c *Controller) startWorker() {
+	for {
+		select {
+		case <-c.stopCh:
+			log.Println("stopping syncer worker")
+		default:
+			c.processNextWorkItem()
+		}
+	}
+}
+
+// Stop stops the syncer.
+func (c *Controller) Stop() {
+	c.queue.ShutDown()
+	close(c.stopCh)
+}
+
+// Done returns a channel that's closed when the syncer is stopped.
+func (c *Controller) Done() <-chan struct{} { return c.stopCh }
+
 func (c *Controller) processNextWorkItem() bool {
 	// Wait until there is a new item in the working queue
-	i, quit := c.Queue.Get()
+	i, quit := c.queue.Get()
 	if quit {
 		return false
 	}
@@ -49,7 +190,7 @@ func (c *Controller) processNextWorkItem() bool {
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
-	defer c.Queue.Done(i)
+	defer c.queue.Done(i)
 
 	err := c.process(h.gvr, h.obj)
 	c.handleErr(err, i)
@@ -59,20 +200,20 @@ func (c *Controller) processNextWorkItem() bool {
 func (c *Controller) handleErr(err error, i interface{}) {
 	// Reconcile worked, nothing else to do for this workqueue item.
 	if err == nil {
-		c.Queue.Forget(i)
+		c.queue.Forget(i)
 		return
 	}
 
 	// Re-enqueue up to 5 times.
-	num := c.Queue.NumRequeues(i)
+	num := c.queue.NumRequeues(i)
 	if num < 5 {
 		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", i, num, err)
-		c.Queue.AddRateLimited(i)
+		c.queue.AddRateLimited(i)
 		return
 	}
 
 	// Give up and report error elsewhere.
-	c.Queue.Forget(i)
+	c.queue.Forget(i)
 	utilruntime.HandleError(err)
 	klog.Errorf("Dropping key %q after failed retries: %v", i, err)
 }
@@ -89,7 +230,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 
 	ctx := context.TODO()
 
-	obj, exists, err := c.FromDSIF.ForResource(gvr).Informer().GetIndexer().Get(obj)
+	obj, exists, err := c.fromDSIF.ForResource(gvr).Informer().GetIndexer().Get(obj)
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -121,7 +262,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 }
 
 func (c *Controller) ensureNamespaceExists(namespace string) error {
-	namespaces := c.ToClient.Resource(schema.GroupVersionResource{
+	namespaces := c.toClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
 		Resource: "namespaces",
@@ -141,7 +282,7 @@ func (c *Controller) ensureNamespaceExists(namespace string) error {
 
 // getClient gets a dynamic client for the GVR, scoped to namespace if the namespace is not "".
 func (c *Controller) getClient(gvr schema.GroupVersionResource, namespace string) dynamic.ResourceInterface {
-	nri := c.ToClient.Resource(gvr)
+	nri := c.toClient.Resource(gvr)
 	if namespace != "" {
 		return nri.Namespace(namespace)
 	}

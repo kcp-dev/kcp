@@ -10,6 +10,7 @@ import (
 	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/syncer"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -27,11 +28,19 @@ import (
 
 const resyncPeriod = 10 * time.Hour
 
+type SyncerMode int
+
+const (
+	SyncerModePull SyncerMode = iota
+	SyncerModePush
+	SyncerModeNone
+)
+
 // NewController returns a new Controller which reconciles Cluster resources in the API
 // server it reaches using the REST client.
 //
 // When new Clusters are found, the syncer will be run there using the given image.
-func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config, resourcesToSync []string, pullModel bool) *Controller {
+func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config, resourcesToSync []string, syncerMode SyncerMode) *Controller {
 	client := clusterv1alpha1.NewForConfigOrDie(cfg)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
@@ -46,7 +55,8 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		kubeconfig:      kubeconfig,
 		stopCh:          stopCh,
 		resourcesToSync: resourcesToSync,
-		pullModel:       pullModel,
+		syncerMode:      syncerMode,
+		syncers:         map[string]*syncer.Controller{},
 	}
 
 	sif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
@@ -71,7 +81,8 @@ type Controller struct {
 	kubeconfig      clientcmdapi.Config
 	stopCh          chan struct{}
 	resourcesToSync []string
-	pullModel       bool
+	syncerMode      SyncerMode
+	syncers         map[string]*syncer.Controller
 }
 
 func (c *Controller) enqueue(obj interface{}) {
