@@ -100,6 +100,7 @@ This work is still in early development, which means it's _not ready for product
 
 You can reach us here, in this repository via issues and discussion, or:
 
+- Join the [`#kcp-prototype` channel](https://app.slack.com/client/T09NY5SBT/C021U8WSAFK) in the [Kubernetes Slack workspace](https://slack.k8s.io)
 - Join the mailing lists
     - [kcp-dev](https://groups.google.com/g/kcp-dev) for development discussions
     - [kcp-users](https://groups.google.com/g/kcp-users) for discussions among users and potential users
