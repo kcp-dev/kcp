@@ -108,6 +108,8 @@ Not every idea below may bear fruit, but it's never the wrong time to look for n
 
   Finally, the bar is still high to writing controllers. Lowering the friction of automation and integration is in everyone's benefit - whether that's a bash script, a Terraform configuration, or custom SRE services.  If we can reduce the cost of both infrastructure as code and new infrastructure APIs we can potentially make operational investments more composable.
 
+  See the [investigations doc for minimal API server](docs/investigations/minimal-api-server.md) for more on improving the composability of the Kube API server.
+
 * Drive new workload APIs and explore standardization in the ecosystem
 
   There are hundreds of ways to build and run applications, and that will never change. The key success of Kubernetes was offering "good enough" standardized deployment, which created a center of gravity for the concepts around deployment. There are plenty of deployments that will never run in containers yet consume them daily. Aligning the deployment of multiple types of workloads from common CI/CD tooling at a higher level, as well as abstracting their dependencies, is something in widespread practice today.
@@ -155,3 +157,7 @@ Principles are the high level guiding rules we'd like to frame designs around. T
 5. Be open to change
 
     There is a massive ecosystem of users, vendors, service providers, hackers, operators, developers, and machine AIs (maybe not the last one) building and developing on Kubernetes. This is a starting point, a stake in the ground, a rallying cry. It should challenge, excite, and inspire others, but never limit. As we evolve, we should stay open to new ideas and also opening the door for dramatic rethinks of the possibilites by ourselves or others. Whether this becomes a project, inspires many projects, or fails gloriously, it's about making our lives a bit easier and our tools a bit more reliable, and a meaningful dialogue with the real world is fundamental to success.
+
+6. Consolidate efforts in the ecosystem into a more focused effort
+
+    Kubernetes is mature and changes to the core happen slowly. By concentrating use cases among a number of participants we can better articulate common needs, focus the design time spent in the core project into a smaller set of efforts, and bring new investment into common shared problems strategically. We should make fast progress and be able to suggest high-impact changes without derailing other important Kubernetes initiatives.
