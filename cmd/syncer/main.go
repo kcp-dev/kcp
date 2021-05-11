@@ -58,7 +58,7 @@ func main() {
 
 	fromClient := dynamic.NewForConfigOrDie(fromConfig)
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("cluster = %s", *clusterID)
+		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster = %s", *clusterID)
 	})
 
 	var toConfig *rest.Config
