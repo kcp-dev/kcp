@@ -156,40 +156,31 @@ func (c *Controller) delete(ctx context.Context, gvr schema.GroupVersionResource
 }
 
 func (c *Controller) upsert(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
-
 	client := c.getClient(gvr, namespace)
 
 	// Attempt to create the object; if the object already exists, update it.
-
 	unstrob.SetUID("")
 	unstrob.SetResourceVersion("")
 	if _, err := client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			klog.Error(err)
+			klog.Error("Creating resource %s/%s: %v", namespace, unstrob.GetName(), err)
 			return err
 		}
 
 		existing, err := client.Get(ctx, unstrob.GetName(), metav1.GetOptions{})
 		if err != nil {
-			klog.Error(err)
+			klog.Errorf("Getting resource %s/%s: %v", namespace, unstrob.GetName(), err)
 			return err
 		}
 		klog.Infof("Object %s/%s already exists: update it", gvr.Resource, unstrob.GetName())
 
 		unstrob.SetResourceVersion(existing.GetResourceVersion())
-		unstrob, err = client.Update(ctx, unstrob, metav1.UpdateOptions{})
-		if err != nil {
-			klog.Error(err)
+		if _, err := client.Update(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
+			klog.Errorf("Updating resource %s/%s: %v", namespace, unstrob.GetName(), err)
 			return err
 		}
 	} else {
 		klog.Infof("Created object %s/%s", gvr.Resource, unstrob.GetName())
-	}
-
-	klog.Infof("Update the status of object %s/%s", gvr.Resource, unstrob.GetName())
-	if _, err := client.UpdateStatus(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
-		klog.Error(err)
-		return err
 	}
 
 	return nil
