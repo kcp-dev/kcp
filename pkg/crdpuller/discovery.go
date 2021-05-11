@@ -19,7 +19,16 @@ import (
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/sets"
+
+	// The following import is to provide access to the KCP control plane scheme, 
+	// that gathers a minimal set of Kubernetes APIs without any workload-related APIs.
+	//
+	// We don't want to import, from physical clusters; resources
+	// that are already part of the control plane scheme
 	"k8s.io/kubernetes/pkg/api/controlplanescheme"
+
+	// The following import is to required to install all the required resources
+	// in the control plane scheme
 	_ "k8s.io/kubernetes/pkg/controlplane/apis/install"
 )
 
@@ -107,43 +116,32 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		if err != nil {
-			klog.Errorf("CRDPuller: Skipping discovery due to error parsing GroupVersion %s: %v", apiResourcesList.GroupVersion, err)
+			klog.Errorf("skipping discovery due to error parsing GroupVersion %s: %v", apiResourcesList.GroupVersion, err)
 			continue
 		}
 
 		if controlplanescheme.Scheme.IsGroupRegistered(gv.Group) && !controlplanescheme.Scheme.IsVersionRegistered(gv) {
-			klog.Warningf("CRDPuller: Ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
+			klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
 			continue
 		}
 
 		for _, apiResource := range apiResourcesList.APIResources {
 			gvk := gv.WithKind(apiResource.Kind)
 			if controlplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
-				klog.Infof("CRDPuller: Ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
+				klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
 				continue
 			}
 
 			if !pullAllResources && !resourcesToPull.Has(apiResource.Name) {
-				klog.Infof("CRDPuller: Ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
+				klog.Infof("ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
 				continue
 			}
 
-			CRDName := apiResource.Name
+			crdName := apiResource.Name
 			if gv.Group == "" {
-				CRDName = CRDName + ".core"
+				crdName = crdName + ".core"
 			} else {
-				CRDName = CRDName + "." + gv.Group
-			}
-
-			objectMeta := metav1.ObjectMeta{
-				Name:        CRDName,
-				Labels:      map[string]string{},
-				Annotations: map[string]string{},
-			}
-
-			typeMeta := metav1.TypeMeta{
-				Kind:       "CustomResourceDefinition",
-				APIVersion: "apiextensions.k8s.io/v1",
+				crdName = crdName + "." + gv.Group
 			}
 
 			var resourceScope apiextensionsv1.ResourceScope
@@ -153,12 +151,12 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				resourceScope = apiextensionsv1.ClusterScoped
 			}
 
-			klog.Infof("Processing discovery for resource %s (%s)", apiResource.Name, CRDName)
+			klog.Infof("processing discovery for resource %s (%s)", apiResource.Name, crdName)
 			var schemaProps apiextensionsv1.JSONSchemaProps
-			crd, err := sp.crdClient.CustomResourceDefinitions().Get(context, CRDName, metav1.GetOptions{})
+			crd, err := sp.crdClient.CustomResourceDefinitions().Get(context, crdName, metav1.GetOptions{})
 			if err == nil {
 				if apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.NonStructuralSchema) {
-					klog.Warningf("CRDPuller: Non structural schema for resource %s (%s): the resources will not be validated", apiResource.Name, gvk.String())
+					klog.Warningf("non-structural schema for resource %s (%s): the resources will not be validated", apiResource.Name, gvk.String())
 					schemaProps = apiextensionsv1.JSONSchemaProps{
 						Type:                   "object",
 						XPreserveUnknownFields: boolPtr(true),
@@ -173,7 +171,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 						}
 					}
 					if !versionFound {
-						klog.Errorf("CRDPuller: Expected version not found in CRD %s: %s", CRDName, gv.Version)
+						klog.Errorf("expected version not found in CRD %s: %s", crdName, gv.Version)
 						schemaProps = apiextensionsv1.JSONSchemaProps{
 							Type:                   "object",
 							XPreserveUnknownFields: boolPtr(true),
@@ -182,12 +180,12 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				}
 			} else {
 				if !errors.IsNotFound(err) {
-					klog.Errorf("CRDPuller: Error looking up CRD for %s: %v", CRDName, err)
+					klog.Errorf("error looking up CRD for %s: %v", crdName, err)
 					return nil, err
 				}
 				protoSchema := sp.models[gvk]
 				if protoSchema == nil {
-					klog.Infof("CRDPuller: Ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
+					klog.Infof("ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
 					continue
 				}
 				swaggerSpecDefinitionName := protoSchema.GetPath().String()
@@ -201,7 +199,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				}
 				protoSchema.Accept(converter)
 				if len(*converter.errors) > 0 {
-					klog.Errorf("CRDPuller: Error during the OpenAPI schema import of resource %s (%s) : %v", apiResource.Name, gvk.String(), *converter.errors)
+					klog.Errorf("error during the OpenAPI schema import of resource %s (%s) : %v", apiResource.Name, gvk.String(), *converter.errors)
 					continue
 				}
 			}
@@ -228,8 +226,15 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 			}
 
 			crd = &apiextensionsv1.CustomResourceDefinition{
-				TypeMeta:   typeMeta,
-				ObjectMeta: objectMeta,
+				TypeMeta:   metav1.TypeMeta{
+					Kind:       "CustomResourceDefinition",
+					APIVersion: "apiextensions.k8s.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        crdName,
+					Labels:      map[string]string{},
+					Annotations: map[string]string{},
+				},
 				Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 					Group: gv.Group,
 					Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
@@ -258,6 +263,16 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 			}
 
 			apiextensionsv1.SetDefaults_CustomResourceDefinition(crd)
+
+			// In Kubernetes, to make it clear to the API consumer that APIs in *.k8s.io or *.kubernetes.io domains 
+			// should be following all quality standards of core Kubernetes, CRDs under these domains
+			// are expected to go through the API Review process and so must link the API review approval PR
+			// in an `api-approved.kubernetes.io` annotation.
+			// Without this annotation, a CRD under the *.k8s.io or *.kubernetes.io domains is rejected by the API server
+			//
+			// Of course here we're simply adding already-known resources of existing physical clusters as CRDs in KCP.
+			// But to please this Kubernetes approval requirement, let's add the required annotation in imported CRDs
+			// with one of the KCP PRs that hacked Kubernetes CRD support for KCP.
 			if apihelpers.IsProtectedCommunityGroup(gv.Group) {
 				crd.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
 			}
