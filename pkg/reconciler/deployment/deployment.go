@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	clusterLabel = "cluster"
-	ownedByLabel = "owned-by"
+	clusterLabel = "kcp.dev/cluster"
+	ownedByLabel = "kcp.dev/owned-by"
 	pollInterval = time.Minute
 )
 
