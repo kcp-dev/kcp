@@ -38,7 +38,7 @@ type Controller struct {
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) *Controller {
+func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{})
 
@@ -53,14 +53,14 @@ func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) 
 
 	fromClient := dynamic.NewForConfigOrDie(from)
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster = %s", clusterID)
+		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", clusterID)
 	})
 
 	// Get all types the upstream API server knows about.
 	// TODO: watch this and learn about new types, or forget about old ones.
 	gvrstrs, err := getAllGVRs(from, syncedResourceTypes...)
 	if err != nil {
-		klog.Fatal(err)
+		return nil, err
 	}
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
@@ -81,7 +81,7 @@ func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) 
 	fromDSIF.Start(stopCh)
 	c.fromDSIF = fromDSIF
 
-	return &c
+	return &c, nil
 }
 
 func contains(ss []string, s string) bool {
