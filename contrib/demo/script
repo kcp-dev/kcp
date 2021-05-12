@@ -1,7 +1,10 @@
 #!/bin/bash
 
-b="$( dirname "${BASH_SOURCE[0]}" )"
-. $b/demo-magic
+DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+. ${DEMO_DIR}/demo-magic
+
+ROOT_DIR="$( cd ${DEMO_DIR}/../.. && pwd)"
+CLUSTERS_DIR=${CLUSTERS_DIR:-${DEMO_DIR}/clusters/kind}
 
 TYPE_SPEED=30
 #PROMPT_AFTER=1
@@ -19,12 +22,10 @@ function pause() {
   fi
 }
 
-export KUBECONFIG=$(pwd)/.kcp/data/admin.kubeconfig
+export KUBECONFIG=${ROOT_DIR}/.kcp/data/admin.kubeconfig
 if ! kubectl get namespaces &>/dev/null; then
   echo "kcp server not started, run 'bin/kcp start'"
 fi
-
-pushd contrib/demo
 
 kubectl config use-context admin
 
@@ -33,7 +34,7 @@ clear
 pe "kubectl get pods"
 pe "kubectl api-resources"
 
-pe "kubectl apply -Rf external-integrations/"
+pe "kubectl apply -Rf ${DEMO_DIR}/external-integrations/"
 kubectl wait crd/databases.postgresql.crossplane.io --for condition=established &>/dev/null
 pe "kubectl explain database"
 
@@ -43,110 +44,65 @@ clear
 pe "kubectl config view --minify | grep server:"
 pe "kubectl config use-context user"
 pe "kubectl config view --minify | grep server:"
-p "kubectl get databases"
-echo "error: the server doesn't have a resource type \"databases\""
+pe "kubectl get databases"
+#echo "error: the server doesn't have a resource type \"databases\""
 pe "kubectl get crds" # no crds
 
 pause
 
-# TODO: implement
 clear
 
-pe "head -n 10 clusters/us-west1.yaml"
-pe  "kubectl apply -f clusters/us-west1.yaml"
-echo "clusters.cluster.kcp.dev/us-west1 created"
-pe "head -n 10 clusters/us-east1.yaml"
-pe  "kubectl apply -f clusters/us-east1.yaml"
-echo "clusters.cluster.kcp.dev/us-east1 created"
+pe "kubectl config use-context admin"
 
-p "kubectl api-resources"
-cat << EOF
-NAME                              SHORTNAMES   APIVERSION                             NAMESPACED   KIND
-bindings                                       v1                                     true         Binding
-componentstatuses                 cs           v1                                     false        ComponentStatus
-configmaps                        cm           v1                                     true         ConfigMap
-endpoints                         ep           v1                                     true         Endpoints
-events                            ev           v1                                     true         Event
-limitranges                       limits       v1                                     true         LimitRange
-namespaces                        ns           v1                                     false        Namespace
-nodes                             no           v1                                     false        Node
-persistentvolumeclaims            pvc          v1                                     true         PersistentVolumeClaim
-persistentvolumes                 pv           v1                                     false        PersistentVolume
-pods                              po           v1                                     true         Pod
-podtemplates                                   v1                                     true         PodTemplate
-replicationcontrollers            rc           v1                                     true         ReplicationController
-resourcequotas                    quota        v1                                     true         ResourceQuota
-secrets                                        v1                                     true         Secret
-serviceaccounts                   sa           v1                                     true         ServiceAccount
-services                          svc          v1                                     true         Service
-mutatingwebhookconfigurations                  admissionregistration.k8s.io/v1        false        MutatingWebhookConfiguration
-validatingwebhookconfigurations                admissionregistration.k8s.io/v1        false        ValidatingWebhookConfiguration
-customresourcedefinitions         crd,crds     apiextensions.k8s.io/v1                false        CustomResourceDefinition
-apiservices                                    apiregistration.k8s.io/v1              false        APIService
-controllerrevisions                            apps/v1                                true         ControllerRevision
-daemonsets                        ds           apps/v1                                true         DaemonSet
-deployments                       deploy       apps/v1                                true         Deployment
-replicasets                       rs           apps/v1                                true         ReplicaSet
-statefulsets                      sts          apps/v1                                true         StatefulSet
-tokenreviews                                   authentication.k8s.io/v1               false        TokenReview
-localsubjectaccessreviews                      authorization.k8s.io/v1                true         LocalSubjectAccessReview
-selfsubjectaccessreviews                       authorization.k8s.io/v1                false        SelfSubjectAccessReview
-selfsubjectrulesreviews                        authorization.k8s.io/v1                false        SelfSubjectRulesReview
-subjectaccessreviews                           authorization.k8s.io/v1                false        SubjectAccessReview
-horizontalpodautoscalers          hpa          autoscaling/v1                         true         HorizontalPodAutoscaler
-cronjobs                          cj           batch/v1beta1                          true         CronJob
-jobs                                           batch/v1                               true         Job
-certificatesigningrequests        csr          certificates.k8s.io/v1                 false        CertificateSigningRequest
-leases                                         coordination.k8s.io/v1                 true         Lease
-endpointslices                                 discovery.k8s.io/v1beta1               true         EndpointSlice
-events                            ev           events.k8s.io/v1                       true         Event
-ingresses                         ing          extensions/v1beta1                     true         Ingress
-flowschemas                                    flowcontrol.apiserver.k8s.io/v1beta1   false        FlowSchema
-prioritylevelconfigurations                    flowcontrol.apiserver.k8s.io/v1beta1   false        PriorityLevelConfiguration
-ingressclasses                                 networking.k8s.io/v1                   false        IngressClass
-ingresses                         ing          networking.k8s.io/v1                   true         Ingress
-networkpolicies                   netpol       networking.k8s.io/v1                   true         NetworkPolicy
-runtimeclasses                                 node.k8s.io/v1                         false        RuntimeClass
-poddisruptionbudgets              pdb          policy/v1beta1                         true         PodDisruptionBudget
-podsecuritypolicies               psp          policy/v1beta1                         false        PodSecurityPolicy
-clusterrolebindings                            rbac.authorization.k8s.io/v1           false        ClusterRoleBinding
-clusterroles                                   rbac.authorization.k8s.io/v1           false        ClusterRole
-rolebindings                                   rbac.authorization.k8s.io/v1           true         RoleBinding
-roles                                          rbac.authorization.k8s.io/v1           true         Role
-priorityclasses                   pc           scheduling.k8s.io/v1                   false        PriorityClass
-csidrivers                                     storage.k8s.io/v1                      false        CSIDriver
-csinodes                                       storage.k8s.io/v1                      false        CSINode
-storageclasses                    sc           storage.k8s.io/v1                      false        StorageClass
-volumeattachments                              storage.k8s.io/v1                      false        VolumeAttachment
-EOF
+pe "kubectl apply -f config/cluster.example.dev_clusters.yaml"
 
-pe "cat deployment.yaml"
-p "kubectl apply -f deployment.yaml"
-echo "deployment.apps/my-deployment created"
+pe "head -n 15 ${CLUSTERS_DIR}/us-west1.yaml"
+pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"
+#echo "clusters.cluster.kcp.dev/us-west1 created"
+pe "head -n 15 ${CLUSTERS_DIR}/us-east1.yaml"
+pe "kubectl apply -f ${CLUSTERS_DIR}/us-east1.yaml"
+#echo "clusters.cluster.kcp.dev/us-east1 created"
 
-p "kubectl get deployments"
-cat << EOF
-NAME            READY   UP-TO-DATE   AVAILABLE   AGE
-my-deployment                                    1s
-EOF
+kubectl wait crd/deployments.apps --for condition=established &>/dev/null
+sleep 2
 
-p "kubectl get deployments"
-cat << EOF
-NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
-my-deployment            8/15    8            8           10s
-my-deployment--us-east1  1/6     1            1           3s
-my-deployment--us-west1  7/9     7            7           3s
-EOF
+pe "kubectl api-resources"
+#cat << EOF
+#NAME                              SHORTNAMES   APIVERSION                             NAMESPACED   KIND
+#bindings                                       v1                                     true         Binding
+#componentstatuses                 cs           v1                                     false        ComponentStatus
+# ...
+#EOF
 
-p "kubectl get deployments"
-cat << EOF
-NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
-my-deployment            15/15   15           15          14s
-my-deployment--us-east1  6/6     6            6           7s
-my-deployment--us-west1  9/9     9            9           7s
-EOF
+pe "kubectl create namespace demo"
+pe "cat ${DEMO_DIR}/deployment.yaml"
 
-p "kubectl get pods"
-echo "error: the server doesn't have a resource type \"pods\""
+pe "kubectl apply -f ${DEMO_DIR}/deployment.yaml -n demo"
+#echo "deployment.apps/my-deployment created"
+
+pe "kubectl get deployments -n demo"
+#cat << EOF
+#NAME            READY   UP-TO-DATE   AVAILABLE   AGE
+#my-deployment                                    1s
+#EOF
+
+pe "kubectl get deployments -n demo"
+#cat << EOF
+#NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+#my-deployment            8/15    8            8           10s
+#my-deployment--us-east1  1/6     1            1           3s
+#my-deployment--us-west1  7/9     7            7           3s
+#EOF
+
+pe "kubectl get deployments -n demo"
+#cat << EOF
+#NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+#my-deployment            15/15   15           15          14s
+#my-deployment--us-east1  6/6     6            6           7s
+#my-deployment--us-west1  9/9     9            9           7s
+#EOF
+
+pe "kubectl get pods"
+#echo "error: the server doesn't have a resource type \"pods\""
 
 wait
