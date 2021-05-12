@@ -15,10 +15,10 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 )
@@ -222,9 +222,18 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	klog.V(2).Infof("Process object of type: %T : %v", obj, obj)
 	meta, isMeta := obj.(metav1.Object)
 	if !isMeta {
-		err := fmt.Errorf("Object to synchronize is expected to be a metav1.Object, but is %T", obj)
-		klog.Error(err)
-		return err
+		if tombstone, isTombstone := obj.(cache.DeletedFinalStateUnknown); isTombstone {
+			meta, isMeta = tombstone.Obj.(metav1.Object)
+			if !isMeta {
+				err := fmt.Errorf("Tombstone contained object that is not expected %#v", obj)
+				klog.Error(err)
+				return err
+			}
+		} else {
+			err := fmt.Errorf("Object to synchronize is expected to be a metav1.Object, but is %T", obj)
+			klog.Error(err)
+			return err
+		}
 	}
 	namespace, name := meta.GetNamespace(), meta.GetName()
 
