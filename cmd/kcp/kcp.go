@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -31,7 +32,7 @@ var (
 	syncerImage              string
 	resourcesToSync          []string
 	installClusterController bool
-	pullModel                bool
+	pullMode, pushMode       bool
 	listen                   string
 )
 
@@ -193,13 +194,24 @@ func main() {
 							cluster.Server = hostURL.String()
 						}
 
+						if pullMode && pushMode {
+							log.Fatal("can't set --push_mode and --pull_mode")
+						}
+						syncerMode := cluster.SyncerModeNone
+						if pullMode {
+							syncerMode = cluster.SyncerModePull
+						}
+						if pushMode {
+							syncerMode = cluster.SyncerModePush
+						}
+
 						clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions")
 						clusterController := cluster.NewController(
 							adminConfig,
 							syncerImage,
 							*kubeconfig,
 							resourcesToSync,
-							pullModel,
+							syncerMode,
 						)
 						clusterController.Start(2)
 						return nil
@@ -216,7 +228,8 @@ func main() {
 	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
 	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string{"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", false, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
-	startCmd.Flags().BoolVar(&pullModel, "pull_model", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	startCmd.Flags().BoolVar(&pullMode, "pull_mode", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	startCmd.Flags().BoolVar(&pushMode, "push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
 	startCmd.Flags().StringVar(&listen, "listen", ":6443", "Address:port to bind to")
 	cmd.AddCommand(startCmd)
 
