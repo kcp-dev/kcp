@@ -120,20 +120,19 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 			continue
 		}
 
-		if controlplanescheme.Scheme.IsGroupRegistered(gv.Group) && !controlplanescheme.Scheme.IsVersionRegistered(gv) {
-			klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
-			continue
-		}
-
 		for _, apiResource := range apiResourcesList.APIResources {
-			gvk := gv.WithKind(apiResource.Kind)
-			if controlplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
-				klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
+			if !pullAllResources && !resourcesToPull.Has(apiResource.Name) {
 				continue
 			}
 
-			if !pullAllResources && !resourcesToPull.Has(apiResource.Name) {
-				klog.Infof("ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
+			if controlplanescheme.Scheme.IsGroupRegistered(gv.Group) && !controlplanescheme.Scheme.IsVersionRegistered(gv) {
+				klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
+				continue
+			}
+	
+			gvk := gv.WithKind(apiResource.Kind)
+			if controlplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
+				klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
 				continue
 			}
 
