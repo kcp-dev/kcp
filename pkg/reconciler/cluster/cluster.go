@@ -239,7 +239,7 @@ func (c *Controller) cleanup(ctx context.Context, deletedCluster *v1alpha1.Clust
 			return
 		}
 
-		uninstallSyncer(ctx, client, logicalCluster)
+		uninstallSyncer(ctx, client)
 	case SyncerModePush:
 		s, ok := c.syncers[deletedCluster.Name]
 		if !ok {

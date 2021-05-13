@@ -142,7 +142,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 	args = append(args, resourcesToSync...)
 
 	var one int32 = 1
-	// Create or Update Pod
+	// Create or Update Deployment
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: syncerNS,
@@ -211,14 +211,10 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 	return nil
 }
 
-// uninstallSyncer uninstalls the syncer image from the target cluster.
-func uninstallSyncer(ctx context.Context, client kubernetes.Interface, logicalCluster string) {
-	if err := client.CoreV1().ConfigMaps(syncerNS).Delete(ctx, syncerConfigMapName(logicalCluster), metav1.DeleteOptions{}); err != nil {
-		klog.Error(err)
-	}
-
-	if err := client.AppsV1().Deployments(syncerNS).Delete(ctx, syncerWorkloadName(logicalCluster), metav1.DeleteOptions{}); err != nil {
-		klog.Error(err)
+// uninstallSyncer uninstalls the syncer from the target cluster by deleting the syncer namespace.
+func uninstallSyncer(ctx context.Context, client kubernetes.Interface) {
+	if err := client.CoreV1().Namespaces().Delete(ctx, syncerNS, metav1.DeleteOptions{}); err != nil {
+		klog.Errorf("Deleting namespace %q: %v", syncerNS, err)
 	}
 }
 
