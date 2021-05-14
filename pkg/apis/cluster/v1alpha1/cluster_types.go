@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,6 +52,28 @@ type ClusterSpec struct {
 // ClusterStatus communicates the observed state of the Cluster (from the controller).
 type ClusterStatus struct {
 	Conditions Conditions `json:"conditions,omitempty"`
+}
+
+func (cs *ClusterStatus) SetConditionReady(status corev1.ConditionStatus, reason, message string) {
+	for idx, cond := range cs.Conditions {
+		if cond.Type == ClusterConditionReady {
+			cs.Conditions[idx] = Condition{
+				Type:               ClusterConditionReady,
+				Status:             status,
+				Reason:             reason,
+				Message:            message,
+				LastTransitionTime: cond.LastTransitionTime,
+			}
+			return
+		}
+	}
+	cs.Conditions = append(cs.Conditions, Condition{
+		Type:               ClusterConditionReady,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+		LastTransitionTime: metav1.Now(),
+	})
 }
 
 // ClusterList is a list of Cluster resources
