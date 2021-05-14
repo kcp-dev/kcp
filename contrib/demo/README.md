@@ -35,16 +35,16 @@ spec:
   kubeconfig: |
     apiVersion: v1
     kind: Config
-  clusters:
-  - name: cluster
-    cluster:
-      certificate-authority-data: ...
-      server: https://5.6.7.8:5678
-  users:
-  - name: user
-    user:
-      client-certifcate-data: ...
-      client-data-key: ...
+    clusters:
+    - name: cluster
+      cluster:
+        certificate-authority-data: ...
+        server: https://5.6.7.8:5678
+    users:
+    - name: user
+      user:
+        client-certifcate-data: ...
+        client-data-key: ...
 ```
 
 Again, `kcp` doesn't _need_ to know about this type at all; you can use `kcp` without connecting to any real clusters.
