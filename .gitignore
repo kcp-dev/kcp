@@ -4,3 +4,5 @@ kcp
 cluster-controller
 deployment-splitter
 syncer
+contrib/demo/clusters/kind/us-east1*
+contrib/demo/clusters/kind/us-west1*

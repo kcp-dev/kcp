@@ -64,7 +64,10 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	s := syncer.New(fromConfig, toConfig, syncedResourceTypes, *clusterID)
+	s, err := syncer.New(fromConfig, toConfig, syncedResourceTypes, *clusterID)
+	if err != nil {
+		klog.Fatal(err)
+	}
 
 	s.Start(numThreads)
 	klog.Infoln("Starting workers")

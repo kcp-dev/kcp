@@ -1,23 +1,6 @@
-apiVersion: kcp.dev/v1alpha1
+apiVersion: cluster.example.dev/v1alpha1
 kind: Cluster
 metadata:
   name: us-west1
 spec:
   kubeconfig: |
-    apiVersion: v1
-    clusters:
-    - cluster:
-        server: https://127.0.0.1:49533
-      name: kind-kind
-    contexts:
-    - context:
-        cluster: kind-kind
-        user: kind-kind
-      name: kind-kind
-    current-context: kind-kind
-    kind: Config
-    preferences: {}
-    users:
-    - name: kind-kind
-      user:
-

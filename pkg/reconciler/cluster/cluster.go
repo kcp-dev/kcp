@@ -99,7 +99,8 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		}
 	}
 
-	if !cluster.Status.Conditions.HasReady() {
+	if !cluster.Status.Conditions.HasReady() ||
+	(c.syncerMode == SyncerModePush && c.syncers[cluster.Name] == nil) {
 		kubeConfig := c.kubeconfig.DeepCopy()
 		if _, exists := kubeConfig.Contexts[logicalCluster]; !exists {
 			log.Printf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
@@ -152,9 +153,20 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 				return nil // Don't retry.
 			}
 
-			s := syncer.New(to, from, resources.List(), cluster.Name)
+			s, err := syncer.New(from, to, resources.List(), cluster.Name)
+			if err != nil {
+				log.Printf("error starting syncer in push mode: %v", err)
+				cluster.Status.SetConditionReady(corev1.ConditionFalse,
+					"ErrorStartingSyncer",
+					fmt.Sprintf("Error starting syncer: %v", err))
+				return err
+			}
 			c.syncers[cluster.Name] = s
 			s.Start(numSyncerThreads)
+			log.Println("syncer ready!")
+			cluster.Status.SetConditionReady(corev1.ConditionTrue,
+				"SyncerReady",
+				"Syncer ready")
 		case SyncerModeNone:
 			log.Println("syncer ready!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
