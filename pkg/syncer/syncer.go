@@ -225,7 +225,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 		if tombstone, isTombstone := obj.(cache.DeletedFinalStateUnknown); isTombstone {
 			meta, isMeta = tombstone.Obj.(metav1.Object)
 			if !isMeta {
-				err := fmt.Errorf("Tombstone contained object that is not expected %#v", obj)
+				err := fmt.Errorf("Tombstone contained object is expected to be a metav1.Object, but is %T: %#v", obj, obj)
 				klog.Error(err)
 				return err
 			}

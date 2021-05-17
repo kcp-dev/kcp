@@ -45,8 +45,7 @@ pe "kubectl config view --minify | grep server:"
 pe "kubectl config use-context user"
 pe "kubectl config view --minify | grep server:"
 pe "kubectl get databases"
-#echo "error: the server doesn't have a resource type \"databases\""
-pe "kubectl get crds" # no crds
+pe "kubectl get crds"
 
 pause
 
@@ -58,51 +57,36 @@ pe "kubectl apply -f config/cluster.example.dev_clusters.yaml"
 
 pe "head -n 15 ${CLUSTERS_DIR}/us-west1.yaml"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"
-#echo "clusters.cluster.kcp.dev/us-west1 created"
 pe "head -n 15 ${CLUSTERS_DIR}/us-east1.yaml"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-east1.yaml"
-#echo "clusters.cluster.kcp.dev/us-east1 created"
 
 kubectl wait crd/deployments.apps --for condition=established &>/dev/null
 sleep 2
 
 pe "kubectl api-resources"
-#cat << EOF
-#NAME                              SHORTNAMES   APIVERSION                             NAMESPACED   KIND
-#bindings                                       v1                                     true         Binding
-#componentstatuses                 cs           v1                                     false        ComponentStatus
-# ...
-#EOF
 
 pe "kubectl create namespace demo"
 pe "cat ${DEMO_DIR}/deployment.yaml"
 
 pe "kubectl apply -f ${DEMO_DIR}/deployment.yaml -n demo"
-#echo "deployment.apps/my-deployment created"
 
 pe "kubectl get deployments -n demo"
-#cat << EOF
-#NAME            READY   UP-TO-DATE   AVAILABLE   AGE
-#my-deployment                                    1s
-#EOF
 
 pe "kubectl get deployments -n demo"
-#cat << EOF
-#NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
-#my-deployment            8/15    8            8           10s
-#my-deployment--us-east1  1/6     1            1           3s
-#my-deployment--us-west1  7/9     7            7           3s
-#EOF
+# Expected result:
+# NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+# my-deployment            8/15    8            8           10s
+# my-deployment--us-east1  1/6     1            1           3s
+# my-deployment--us-west1  7/9     7            7           3s
 
 pe "kubectl get deployments -n demo"
-#cat << EOF
-#NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
-#my-deployment            15/15   15           15          14s
-#my-deployment--us-east1  6/6     6            6           7s
-#my-deployment--us-west1  9/9     9            9           7s
-#EOF
+# Expected result:
+# NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+# my-deployment            15/15   15           15          14s
+# my-deployment--us-east1  6/6     6            6           7s
+# my-deployment--us-west1  9/9     9            9           7s
+# EOF
 
 pe "kubectl get pods"
-#echo "error: the server doesn't have a resource type \"pods\""
 
 wait
