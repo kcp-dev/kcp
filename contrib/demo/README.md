@@ -27,7 +27,7 @@ To be able to connect multiple "physical" clusters, we define a `Cluster` CRD ty
 This effectively includes a kubeconfig to locate and authenticate with the cluster.
 
 ```yaml
-apiVersion: kcp.dev/v1alpha1
+apiVersion: cluster.example.dev/v1alpha1
 kind: Cluster
 metadata:
   name: my-cluster
@@ -51,7 +51,7 @@ Again, `kcp` doesn't _need_ to know about this type at all; you can use `kcp` wi
 
 The Cluster type is also not intended to define "The One True Cluster Type", it's only for demonstration purposes.
 
-#### Cluster Controller 
+#### Cluster Controller
 
 If `kcp` _does_ know about the Cluster type, you also need some controller to run against it that knows what to do with objects of that type.
 For this demo, that's the *Cluster Controller*.
@@ -178,7 +178,7 @@ my-deployment--cluster-1
 my-deployment--cluster-2
 ```
 
-These 
+These
 
 At this point the clusters' Syncers will be notified of these virtual Deployment objects, and will sync them to their local API servers, which have controllers running to create Pods, schedule those Pods to Nodes, start containers on those Nodes and bubble the status of those containers back up to the cluster's API server, and the Syncers will sync that status back up to the `kcp`.
 
