@@ -32,28 +32,6 @@ func (c Conditions) HasReady() bool {
 	return false
 }
 
-func (c Conditions) SetReady(status corev1.ConditionStatus, reason, message string) {
-	for idx, cond := range c {
-		if cond.Type == ClusterConditionReady {
-			c[idx] = Condition{
-				Type:               ClusterConditionReady,
-				Status:             status,
-				Reason:             reason,
-				Message:            message,
-				LastTransitionTime: metav1.Now(),
-			}
-			return
-		}
-	}
-	c = append(c, Condition{
-		Type:               ClusterConditionReady,
-		Status:             status,
-		Reason:             reason,
-		Message:            message,
-		LastTransitionTime: metav1.Now(),
-	})
-}
-
 type ConditionType string
 
 const (
