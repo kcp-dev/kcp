@@ -15,10 +15,10 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 )
@@ -165,6 +165,7 @@ func (c *Controller) startWorker() {
 		select {
 		case <-c.stopCh:
 			log.Println("stopping syncer worker")
+			return
 		default:
 			c.processNextWorkItem()
 		}
