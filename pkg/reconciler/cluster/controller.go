@@ -56,7 +56,7 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		stopCh:          stopCh,
 		resourcesToSync: resourcesToSync,
 		syncerMode:      syncerMode,
-		syncers:         map[string]*syncer.Controller{},
+		syncers:         map[string]*Syncer{},
 	}
 
 	sif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
@@ -72,6 +72,16 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 	return c
 }
 
+type Syncer struct {
+	specSyncer   *syncer.Controller
+	statusSyncer *syncer.Controller
+}
+
+func (s *Syncer) Stop() {
+	s.specSyncer.Stop()
+	s.statusSyncer.Stop()
+}
+
 type Controller struct {
 	queue           workqueue.RateLimitingInterface
 	client          clusterv1alpha1.ClusterV1alpha1Interface
@@ -82,7 +92,7 @@ type Controller struct {
 	stopCh          chan struct{}
 	resourcesToSync []string
 	syncerMode      SyncerMode
-	syncers         map[string]*syncer.Controller
+	syncers         map[string]*Syncer
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -121,12 +131,12 @@ func (c *Controller) processNextWorkItem() bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	err := c.process(key)
-	c.handleErr(err, key)
+	err, alwaysRetry := c.process(key)
+	c.handleErr(err, key, alwaysRetry)
 	return true
 }
 
-func (c *Controller) handleErr(err error, key string) {
+func (c *Controller) handleErr(err error, key string, alwaysRetry bool) {
 	// Reconcile worked, nothing else to do for this workqueue item.
 	if err == nil {
 		log.Println("Successfully reconciled", key)
@@ -136,7 +146,7 @@ func (c *Controller) handleErr(err error, key string) {
 
 	// Re-enqueue up to 5 times.
 	num := c.queue.NumRequeues(key)
-	if num < 5 {
+	if num < 5 || alwaysRetry {
 		log.Printf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
 		c.queue.AddRateLimited(key)
 		return
@@ -148,34 +158,34 @@ func (c *Controller) handleErr(err error, key string) {
 	log.Printf("Dropping key %q after failed retries: %v", key, err)
 }
 
-func (c *Controller) process(key string) error {
+func (c *Controller) process(key string) (_ error, alwaysRetry bool) {
 	obj, exists, err := c.indexer.GetByKey(key)
 	if err != nil {
-		return err
+		return err, false
 	}
 
 	if !exists {
 		log.Printf("Object with key %q was deleted", key)
-		return nil
+		return nil, false
 	}
 	current := obj.(*v1alpha1.Cluster)
 	previous := current.DeepCopy()
 
 	ctx := context.TODO()
 
-	if err := c.reconcile(ctx, current); err != nil {
-		return err
+	if err, alwaysRetry := c.reconcile(ctx, current); err != nil {
+		return err, alwaysRetry
 	}
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
 		log.Println("saw update")
 		_, uerr := c.client.Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
-		return uerr
+		return uerr, false
 	}
 	log.Println("no update")
 
-	return nil
+	return nil, false
 }
 
 func (c *Controller) deletedCluster(obj interface{}) {

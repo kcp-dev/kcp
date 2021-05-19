@@ -30,7 +30,7 @@ func clusterOriginLabel(clusterID string) string {
 	return "imported-from/" + clusterID
 }
 
-func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) error {
+func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (_ error, alwaysRetry bool) {
 	log.Println("reconciling cluster", cluster.Name)
 
 	logicalCluster := cluster.GetClusterName()
@@ -45,7 +45,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"InvalidKubeConfig",
 			fmt.Sprintf("Invalid kubeconfig: %v", err))
-		return nil // Don't retry.
+		return nil, false // Don't retry.
 	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -53,7 +53,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorCreatingClient",
 			fmt.Sprintf("Error creating client from kubeconfig: %v", err))
-		return nil // Don't retry.
+		return nil, false // Don't retry.
 	}
 
 	schemaPuller, err := crdpuller.NewSchemaPuller(cfg)
@@ -62,7 +62,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorCreatingSchemaPuller",
 			fmt.Sprintf("Error creating schema puller client from kubeconfig: %v", err))
-		return nil // Don't retry.
+		return nil, false // Don't retry.
 	}
 
 	apiGroups := sets.NewString()
@@ -73,7 +73,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorPullingResourceSchemas",
 			fmt.Sprintf("Error pulling API Resource Schemas from cluster %s: %v", cluster.Name, err))
-		return nil // Don't retry.
+		return nil, false // Don't retry.
 	}
 
 	for resourceName, pulledCrd := range crds {
@@ -100,14 +100,14 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 
 	if !cluster.Status.Conditions.HasReady() ||
-	(c.syncerMode == SyncerModePush && c.syncers[cluster.Name] == nil) {
+		(c.syncerMode == SyncerModePush && c.syncers[cluster.Name] == nil) {
 		kubeConfig := c.kubeconfig.DeepCopy()
 		if _, exists := kubeConfig.Contexts[logicalCluster]; !exists {
 			log.Printf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
 			cluster.Status.SetConditionReady(corev1.ConditionFalse,
 				"ErrorInstallingSyncer",
 				fmt.Sprintf("Error installing syncer: no context with the name of the expected cluster: %s", logicalCluster))
-			return nil // Don't retry.
+			return nil, false // Don't retry.
 		}
 
 		switch c.syncerMode {
@@ -119,14 +119,14 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
 					fmt.Sprintf("Error installing syncer: %v", err))
-				return nil // Don't retry.
+				return nil, false // Don't retry.
 			}
 			if err := installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, apiGroups.List(), resources.List()); err != nil {
 				log.Printf("error installing syncer: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
 					fmt.Sprintf("Error installing syncer: %v", err))
-				return nil // Don't retry.
+				return nil, false // Don't retry.
 			}
 
 			log.Println("syncer installing...")
@@ -135,34 +135,47 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 				"Installing syncer on cluster")
 		case SyncerModePush:
 			kubeConfig.CurrentContext = logicalCluster
-			from, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+			upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 			if err != nil {
 				log.Printf("error getting kcp kubeconfig: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
-				return nil // Don't retry.
+				return nil, false // Don't retry.
 			}
 
-			to, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
+			downstream, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 			if err != nil {
 				log.Printf("error getting cluster kubeconfig: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
-				return nil // Don't retry.
+				return nil, false // Don't retry.
 			}
 
-			s, err := syncer.New(from, to, resources.List(), cluster.Name)
+			specSyncer, err, alwaysRetry := syncer.NewSpecSyncer(upstream, downstream, resources.List(), cluster.Name)
 			if err != nil {
 				log.Printf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
-				return err
+				return err, alwaysRetry
 			}
-			c.syncers[cluster.Name] = s
-			s.Start(numSyncerThreads)
+			statusSyncer, err, alwaysRetry := syncer.NewStatusSyncer(downstream, upstream, resources.List(), cluster.Name)
+			if err != nil {
+				specSyncer.Stop()
+				log.Printf("error starting syncer in push mode: %v", err)
+				cluster.Status.SetConditionReady(corev1.ConditionFalse,
+					"ErrorStartingSyncer",
+					fmt.Sprintf("Error starting syncer: %v", err))
+				return err, alwaysRetry
+			}
+			c.syncers[cluster.Name] = &Syncer{
+				specSyncer:   specSyncer,
+				statusSyncer: statusSyncer,
+			}
+			specSyncer.Start(numSyncerThreads)
+			statusSyncer.Start(numSyncerThreads)
 			log.Println("syncer ready!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
@@ -201,7 +214,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	} else {
 		c.queue.AddAfter(key, pollInterval)
 	}
-	return nil
+	return nil, false
 }
 
 func (c *Controller) cleanup(ctx context.Context, deletedCluster *v1alpha1.Cluster) {
