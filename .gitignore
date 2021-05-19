@@ -1,8 +1,9 @@
 .kcp
-kcp
-
-cluster-controller
-deployment-splitter
-syncer
-contrib/demo/clusters/kind/us-east1*
-contrib/demo/clusters/kind/us-west1*
+/bin/kcp
+/bin/cluster-controller
+/bin/deployment-splitter
+/bin/syncer
+contrib/demo/clusters/kind/us-east1.yaml
+contrib/demo/clusters/kind/us-east1.kubeconfig
+contrib/demo/clusters/kind/us-west1.yaml
+contrib/demo/clusters/kind/us-west1.kubeconfig
