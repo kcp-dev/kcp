@@ -11,10 +11,11 @@ import (
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/util/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -131,12 +132,12 @@ func (c *Controller) processNextWorkItem() bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	err, alwaysRetry := c.process(key)
-	c.handleErr(err, key, alwaysRetry)
+	err := c.process(key)
+	c.handleErr(err, key)
 	return true
 }
 
-func (c *Controller) handleErr(err error, key string, alwaysRetry bool) {
+func (c *Controller) handleErr(err error, key string) {
 	// Reconcile worked, nothing else to do for this workqueue item.
 	if err == nil {
 		log.Println("Successfully reconciled", key)
@@ -146,7 +147,7 @@ func (c *Controller) handleErr(err error, key string, alwaysRetry bool) {
 
 	// Re-enqueue up to 5 times.
 	num := c.queue.NumRequeues(key)
-	if num < 5 || alwaysRetry {
+	if errors.IsRetryable(err) || num < 5 {
 		log.Printf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
 		c.queue.AddRateLimited(key)
 		return
@@ -158,34 +159,34 @@ func (c *Controller) handleErr(err error, key string, alwaysRetry bool) {
 	log.Printf("Dropping key %q after failed retries: %v", key, err)
 }
 
-func (c *Controller) process(key string) (_ error, alwaysRetry bool) {
+func (c *Controller) process(key string) error {
 	obj, exists, err := c.indexer.GetByKey(key)
 	if err != nil {
-		return err, false
+		return err
 	}
 
 	if !exists {
 		log.Printf("Object with key %q was deleted", key)
-		return nil, false
+		return nil
 	}
 	current := obj.(*v1alpha1.Cluster)
 	previous := current.DeepCopy()
 
 	ctx := context.TODO()
 
-	if err, alwaysRetry := c.reconcile(ctx, current); err != nil {
-		return err, alwaysRetry
+	if err := c.reconcile(ctx, current); err != nil {
+		return err
 	}
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
 		log.Println("saw update")
 		_, uerr := c.client.Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
-		return uerr, false
+		return uerr
 	}
 	log.Println("no update")
 
-	return nil, false
+	return nil
 }
 
 func (c *Controller) deletedCluster(obj interface{}) {
@@ -219,7 +220,7 @@ func RegisterClusterCRD(cfg *rest.Config) error {
 	}
 
 	_, err = crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serorrs.IsAlreadyExists(err) {
 		return err
 	}
 

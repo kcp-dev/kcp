@@ -92,14 +92,13 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 			rootDeployment.Status.Conditions = others[0].Status.Conditions
 		}
 
-		_, err = c.client.Deployments(rootDeployment.Namespace).UpdateStatus(ctx, rootDeployment, metav1.UpdateOptions{})
-		if err != nil {
+		if _, err := c.client.Deployments(rootDeployment.Namespace).UpdateStatus(ctx, rootDeployment, metav1.UpdateOptions{}); err != nil {
 			if errors.IsConflict(err) {
 				key, err := cache.MetaNamespaceKeyFunc(deployment)
 				if err != nil {
 					return err
 				}
-				c.queue.AddAfter(key, 2*time.Second)
+				c.queue.AddRateLimited(key)
 				return nil
 			}
 			return err

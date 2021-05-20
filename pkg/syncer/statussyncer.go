@@ -12,21 +12,26 @@ import (
 	"k8s.io/klog"
 )
 
+func deepEqualStatus(oldObj, newObj interface{}) bool {
+	oldUnstrob, isOldObjUnstructured := oldObj.(*unstructured.Unstructured)
+	newUnstrob, isNewObjUnstructured := newObj.(*unstructured.Unstructured)
+	if !isOldObjUnstructured || !isNewObjUnstructured || oldObj == nil || newObj == nil {
+		return false
+	}
 
-func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error, bool) {
-	return New(from, to, updateStatusInUpstream, nil, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs{
+	if newStatus, statusExists := newUnstrob.UnstructuredContent()["status"]; statusExists {
+		oldStatus := oldUnstrob.UnstructuredContent()["status"]
+		return equality.Semantic.DeepEqual(oldStatus, newStatus)
+	}
+	return false
+}
+
+func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error) {
+	return New(from, to, updateStatusInUpstream, nil, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs {
 		return cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, obj interface{}) {
-				oldUnstrob, isOldObjUnstructured := oldObj.(*unstructured.Unstructured)
-				newUnstrob, isNewObjUnstructured := obj.(*unstructured.Unstructured)
-				if isOldObjUnstructured && isNewObjUnstructured && oldUnstrob != nil && newUnstrob != nil {
-					if newStatus, statusExists := newUnstrob.UnstructuredContent()["status"]; statusExists {
-						oldStatus := oldUnstrob.UnstructuredContent()["status"]
-						areEqual := equality.Semantic.DeepEqual(oldStatus, newStatus)
-						if ! areEqual {
-							c.AddToQueue(gvr, obj)
-						}
-					}
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if !deepEqualStatus(oldObj, newObj) {
+					c.AddToQueue(gvr, newObj)
 				}
 			},
 		}

@@ -64,11 +64,11 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	specSyncer, err, _ := syncer.NewSpecSyncer(fromConfig, toConfig, syncedResourceTypes, *clusterID)
+	specSyncer, err := syncer.NewSpecSyncer(fromConfig, toConfig, syncedResourceTypes, *clusterID)
 	if err != nil {
 		klog.Fatal(err)
 	}
-	statusSyncer, err, _ := syncer.NewStatusSyncer(fromConfig, toConfig, syncedResourceTypes, *clusterID)
+	statusSyncer, err := syncer.NewStatusSyncer(fromConfig, toConfig, syncedResourceTypes, *clusterID)
 	if err != nil {
 		klog.Fatal(err)
 	}

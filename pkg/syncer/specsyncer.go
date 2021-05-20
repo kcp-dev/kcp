@@ -14,33 +14,39 @@ import (
 	"k8s.io/klog"
 )
 
+func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
+	oldUnstrob, isOldObjUnstructured := oldObj.(*unstructured.Unstructured)
+	newUnstrob, isNewObjUnstructured := newObj.(*unstructured.Unstructured)
+	if !isOldObjUnstructured || !isNewObjUnstructured {
+		return false
+	}
+	if !equality.Semantic.DeepEqual(oldUnstrob.GetAnnotations(), newUnstrob.GetAnnotations()) {
+		return false
+	}
+	if !equality.Semantic.DeepEqual(oldUnstrob.GetLabels(), newUnstrob.GetLabels()) {
+		return false
+	}
 
-func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error, bool) {
-	return New(from, to, upsertIntoDownstream, deleteFromDownstream, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs{
+	oldObjKeys := sets.StringKeySet(oldUnstrob.UnstructuredContent())
+	newObjKeys := sets.StringKeySet(newUnstrob.UnstructuredContent())
+	for _, key := range oldObjKeys.Union(newObjKeys).UnsortedList() {
+		if key == "metadata" || key == "status" {
+			continue
+		}
+		if !equality.Semantic.DeepEqual(oldUnstrob.UnstructuredContent()[key], newUnstrob.UnstructuredContent()[key]) {
+			return false
+		}
+	}
+	return true
+}
+
+func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error) {
+	return New(from, to, upsertIntoDownstream, deleteFromDownstream, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs {
 		return cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.AddToQueue(gvr, obj) },
+			AddFunc: func(obj interface{}) { c.AddToQueue(gvr, obj) },
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldUnstrob, isOldObjUnstructured := oldObj.(*unstructured.Unstructured)
-				newUnstrob, isNewObjUnstructured := newObj.(*unstructured.Unstructured)
-				if isOldObjUnstructured && isNewObjUnstructured {
-					if ! equality.Semantic.DeepEqual(oldUnstrob.GetAnnotations(), newUnstrob.GetAnnotations()) {
-						c.AddToQueue(gvr, newObj)
-					}
-					if ! equality.Semantic.DeepEqual(oldUnstrob.GetLabels(), newUnstrob.GetLabels()) {
-						c.AddToQueue(gvr, newObj)
-					}
-	
-					oldObjKeys := sets.StringKeySet(oldUnstrob.UnstructuredContent())
-					newObjKeys := sets.StringKeySet(newUnstrob.UnstructuredContent())
-					for _, key := range oldObjKeys.Union(newObjKeys).UnsortedList() {
-						if key == "metadata" || key == "status" {
-							continue
-						}
-						if ! equality.Semantic.DeepEqual(oldUnstrob.UnstructuredContent()[key], newUnstrob.UnstructuredContent()[key]) {
-							c.AddToQueue(gvr, newObj)
-						}
-					} 
-
+				if !deepEqualApartFromStatus(oldObj, newObj) {
+					c.AddToQueue(gvr, newObj)
 				}
 			},
 			DeleteFunc: func(obj interface{}) { c.AddToQueue(gvr, obj) },
@@ -48,6 +54,9 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterI
 	}, syncedResourceTypes, clusterID)
 }
 
+// TODO:
+// This function is there as a quick and dirty implementation of namespace creation.
+// In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
 func (c *Controller) ensureNamespaceExists(namespace string) error {
 	namespaces := c.toClient.Resource(schema.GroupVersionResource{
 		Group:    "",
@@ -87,7 +96,7 @@ func upsertIntoDownstream(c *Controller, ctx context.Context, gvr schema.GroupVe
 	// Attempt to create the object; if the object already exists, update it.
 	unstrob.SetUID("")
 	unstrob.SetResourceVersion("")
-	
+
 	ownedByLabel := unstrob.GetLabels()["kcp.dev/owned-by"]
 	var ownerReferences []metav1.OwnerReference
 	for _, reference := range unstrob.GetOwnerReferences() {
@@ -116,9 +125,8 @@ func upsertIntoDownstream(c *Controller, ctx context.Context, gvr schema.GroupVe
 			klog.Errorf("Updating resource %s/%s: %v", namespace, unstrob.GetName(), err)
 			return err
 		}
-	} else {
-		klog.Infof("Created object %s/%s", gvr.Resource, unstrob.GetName())
+		return nil
 	}
-
+	klog.Infof("Created object %s/%s", gvr.Resource, unstrob.GetName())
 	return nil
 }

@@ -30,7 +30,7 @@ func clusterOriginLabel(clusterID string) string {
 	return "imported-from/" + clusterID
 }
 
-func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (_ error, alwaysRetry bool) {
+func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) error {
 	log.Println("reconciling cluster", cluster.Name)
 
 	logicalCluster := cluster.GetClusterName()
@@ -45,7 +45,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"InvalidKubeConfig",
 			fmt.Sprintf("Invalid kubeconfig: %v", err))
-		return nil, false // Don't retry.
+		return nil // Don't retry.
 	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -53,7 +53,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorCreatingClient",
 			fmt.Sprintf("Error creating client from kubeconfig: %v", err))
-		return nil, false // Don't retry.
+		return nil // Don't retry.
 	}
 
 	schemaPuller, err := crdpuller.NewSchemaPuller(cfg)
@@ -62,7 +62,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorCreatingSchemaPuller",
 			fmt.Sprintf("Error creating schema puller client from kubeconfig: %v", err))
-		return nil, false // Don't retry.
+		return nil // Don't retry.
 	}
 
 	apiGroups := sets.NewString()
@@ -73,7 +73,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorPullingResourceSchemas",
 			fmt.Sprintf("Error pulling API Resource Schemas from cluster %s: %v", cluster.Name, err))
-		return nil, false // Don't retry.
+		return nil // Don't retry.
 	}
 
 	for resourceName, pulledCrd := range crds {
@@ -88,15 +88,23 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 					!equality.Semantic.DeepEqual(pulledCrd.Labels, clusterCrd.Labels) {
 					pulledCrd.ResourceVersion = clusterCrd.ResourceVersion
 					_, err = c.crdClient.CustomResourceDefinitions().Update(logicalClusterContext, pulledCrd, v1.UpdateOptions{})
+					if errors.IsConflict(err) {
+						log.Printf("Conflict when applying CRD pulled from cluster %s for resource %s: %v ... Retrying\n", cluster.Name, resourceName, err)
+						c.enqueue(cluster)
+						return nil
+					}
 				}
 			}
 		}
 		if err != nil {
-			log.Printf("Error when applying CRD pulled from cluster %s for resource %s: %v\n", cluster.Name, resourceName, err)
-		} else {
-			apiGroups.Insert(pulledCrd.Spec.Group)
-			resources.Insert(pulledCrd.Spec.Names.Plural)
+			log.Printf("error applying pull CRDs: %v", err)
+			cluster.Status.SetConditionReady(corev1.ConditionFalse,
+				"ErrorApplyingPulledResourceSchemas",
+				fmt.Sprintf("Error applying the pulled API Resource Schemas from cluster %s: %v", cluster.Name, err))
+			return nil // Don't retry.
 		}
+		apiGroups.Insert(pulledCrd.Spec.Group)
+		resources.Insert(pulledCrd.Spec.Names.Plural)
 	}
 
 	if !cluster.Status.Conditions.HasReady() ||
@@ -107,7 +115,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 			cluster.Status.SetConditionReady(corev1.ConditionFalse,
 				"ErrorInstallingSyncer",
 				fmt.Sprintf("Error installing syncer: no context with the name of the expected cluster: %s", logicalCluster))
-			return nil, false // Don't retry.
+			return nil // Don't retry.
 		}
 
 		switch c.syncerMode {
@@ -119,14 +127,14 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
 					fmt.Sprintf("Error installing syncer: %v", err))
-				return nil, false // Don't retry.
+				return nil // Don't retry.
 			}
 			if err := installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, apiGroups.List(), resources.List()); err != nil {
 				log.Printf("error installing syncer: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
 					fmt.Sprintf("Error installing syncer: %v", err))
-				return nil, false // Don't retry.
+				return nil // Don't retry.
 			}
 
 			log.Println("syncer installing...")
@@ -141,7 +149,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
-				return nil, false // Don't retry.
+				return nil // Don't retry.
 			}
 
 			downstream, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
@@ -150,25 +158,25 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
-				return nil, false // Don't retry.
+				return nil // Don't retry.
 			}
 
-			specSyncer, err, alwaysRetry := syncer.NewSpecSyncer(upstream, downstream, resources.List(), cluster.Name)
+			specSyncer, err := syncer.NewSpecSyncer(upstream, downstream, resources.List(), cluster.Name)
 			if err != nil {
 				log.Printf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
-				return err, alwaysRetry
+				return err
 			}
-			statusSyncer, err, alwaysRetry := syncer.NewStatusSyncer(downstream, upstream, resources.List(), cluster.Name)
+			statusSyncer, err := syncer.NewStatusSyncer(downstream, upstream, resources.List(), cluster.Name)
 			if err != nil {
 				specSyncer.Stop()
 				log.Printf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
-				return err, alwaysRetry
+				return err
 			}
 			c.syncers[cluster.Name] = &Syncer{
 				specSyncer:   specSyncer,
@@ -214,7 +222,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) (
 	} else {
 		c.queue.AddAfter(key, pollInterval)
 	}
-	return nil, false
+	return nil
 }
 
 func (c *Controller) cleanup(ctx context.Context, deletedCluster *v1alpha1.Cluster) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/kcp/pkg/util/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -44,7 +45,7 @@ type Controller struct {
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handlers HandlersProvider, syncedResourceTypes []string, clusterID string) (_ *Controller, _ error, alwaysRetry bool) {
+func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handlers HandlersProvider, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{})
 
@@ -67,16 +68,16 @@ func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handle
 
 	// Get all types the upstream API server knows about.
 	// TODO: watch this and learn about new types, or forget about old ones.
-	gvrstrs, err, alwaysRetry := getAllGVRs(from, syncedResourceTypes...)
+	gvrstrs, err := getAllGVRs(from, syncedResourceTypes...)
 	if err != nil {
-		return nil, err, alwaysRetry
+		return nil, err
 	}
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 
 		if _, err := fromDSIF.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
 			klog.Infof("Failed to list all %q: %v", gvrstr, err)
-			return nil, err, true
+			return nil, errors.NewRetryableError(err)
 		}
 
 		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(handlers(&c, *gvr))
@@ -86,7 +87,7 @@ func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handle
 	fromDSIF.Start(stopCh)
 	c.fromDSIF = fromDSIF
 
-	return &c, nil, false
+	return &c, nil
 }
 
 func contains(ss []string, s string) bool {
@@ -98,12 +99,12 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-func getAllGVRs(config *rest.Config, resourcesToSync ...string) (_ []string, _ error, alwaysRetry bool) {
+func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error) {
 	toSyncSet := sets.NewString(resourcesToSync...)
 	willBeSyncedSet := sets.NewString()
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return nil, err, false
+		return nil, err
 	}
 	rs, err := dc.ServerPreferredResources()
 	if err != nil {
@@ -114,9 +115,9 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) (_ []string, _ e
 			// In fact this might be related to a bug in the changes made on the feature-logical-cluster
 			// Kubernetes branch to support legacy schema resources added as CRDs.
 			// If this is confirmed, this test will be removed when the CRD bug is fixed.
-			return nil, err, true
+			return nil, errors.NewRetryableError(err)
 		} else {
-			return nil, err, false
+			return nil, err
 		}
 	}
 	var gvrstrs []string
@@ -156,9 +157,9 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) (_ []string, _ e
 		// Some of the API resources expected to be there are still not published by KCP.
 		// We should just retry without a limit on the number of retries in such a case,
 		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
-		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List()), true
+		return nil, errors.NewRetryableError(fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List()))
 	}
-	return gvrstrs, nil, false
+	return gvrstrs, nil
 }
 
 type holder struct {
