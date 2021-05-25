@@ -11,10 +11,11 @@ import (
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/util/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -56,7 +57,7 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		stopCh:          stopCh,
 		resourcesToSync: resourcesToSync,
 		syncerMode:      syncerMode,
-		syncers:         map[string]*syncer.Controller{},
+		syncers:         map[string]*Syncer{},
 	}
 
 	sif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
@@ -72,6 +73,16 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 	return c
 }
 
+type Syncer struct {
+	specSyncer   *syncer.Controller
+	statusSyncer *syncer.Controller
+}
+
+func (s *Syncer) Stop() {
+	s.specSyncer.Stop()
+	s.statusSyncer.Stop()
+}
+
 type Controller struct {
 	queue           workqueue.RateLimitingInterface
 	client          clusterv1alpha1.ClusterV1alpha1Interface
@@ -82,7 +93,7 @@ type Controller struct {
 	stopCh          chan struct{}
 	resourcesToSync []string
 	syncerMode      SyncerMode
-	syncers         map[string]*syncer.Controller
+	syncers         map[string]*Syncer
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -136,7 +147,7 @@ func (c *Controller) handleErr(err error, key string) {
 
 	// Re-enqueue up to 5 times.
 	num := c.queue.NumRequeues(key)
-	if num < 5 {
+	if errors.IsRetryable(err) || num < 5 {
 		log.Printf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
 		c.queue.AddRateLimited(key)
 		return
@@ -209,7 +220,7 @@ func RegisterClusterCRD(cfg *rest.Config) error {
 	}
 
 	_, err = crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serorrs.IsAlreadyExists(err) {
 		return err
 	}
 

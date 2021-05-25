@@ -9,9 +9,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/util/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -80,7 +81,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		pulledCrd.SetClusterName(logicalCluster)
 		pulledCrd.Labels[clusterOriginLabel(cluster.Name)] = ""
 		clusterCrd, err := c.crdClient.CustomResourceDefinitions().Create(logicalClusterContext, pulledCrd, v1.CreateOptions{})
-		if errors.IsAlreadyExists(err) {
+		if k8serrors.IsAlreadyExists(err) {
 			clusterCrd, err = c.crdClient.CustomResourceDefinitions().Get(logicalClusterContext, pulledCrd.Name, v1.GetOptions{})
 			if err == nil {
 				if !equality.Semantic.DeepEqual(pulledCrd.Spec, clusterCrd.Spec) ||
@@ -88,19 +89,25 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 					!equality.Semantic.DeepEqual(pulledCrd.Labels, clusterCrd.Labels) {
 					pulledCrd.ResourceVersion = clusterCrd.ResourceVersion
 					_, err = c.crdClient.CustomResourceDefinitions().Update(logicalClusterContext, pulledCrd, v1.UpdateOptions{})
+					if k8serrors.IsConflict(err) {
+						return errors.NewRetryableError(fmt.Errorf("Conflict when applying CRD pulled from cluster %s for resource %s: %v", cluster.Name, resourceName, err))
+					}
 				}
 			}
 		}
 		if err != nil {
-			log.Printf("Error when applying CRD pulled from cluster %s for resource %s: %v\n", cluster.Name, resourceName, err)
-		} else {
-			apiGroups.Insert(pulledCrd.Spec.Group)
-			resources.Insert(pulledCrd.Spec.Names.Plural)
+			log.Printf("error applying pull CRDs: %v", err)
+			cluster.Status.SetConditionReady(corev1.ConditionFalse,
+				"ErrorApplyingPulledResourceSchemas",
+				fmt.Sprintf("Error applying the pulled API Resource Schemas from cluster %s: %v", cluster.Name, err))
+			return nil // Don't retry.
 		}
+		apiGroups.Insert(pulledCrd.Spec.Group)
+		resources.Insert(pulledCrd.Spec.Names.Plural)
 	}
 
 	if !cluster.Status.Conditions.HasReady() ||
-	(c.syncerMode == SyncerModePush && c.syncers[cluster.Name] == nil) {
+		(c.syncerMode == SyncerModePush && c.syncers[cluster.Name] == nil) {
 		kubeConfig := c.kubeconfig.DeepCopy()
 		if _, exists := kubeConfig.Contexts[logicalCluster]; !exists {
 			log.Printf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
@@ -135,7 +142,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 				"Installing syncer on cluster")
 		case SyncerModePush:
 			kubeConfig.CurrentContext = logicalCluster
-			from, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+			upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 			if err != nil {
 				log.Printf("error getting kcp kubeconfig: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
@@ -144,7 +151,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 				return nil // Don't retry.
 			}
 
-			to, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
+			downstream, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 			if err != nil {
 				log.Printf("error getting cluster kubeconfig: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
@@ -153,7 +160,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 				return nil // Don't retry.
 			}
 
-			s, err := syncer.New(from, to, resources.List(), cluster.Name)
+			specSyncer, err := syncer.NewSpecSyncer(upstream, downstream, resources.List(), cluster.Name)
 			if err != nil {
 				log.Printf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
@@ -161,8 +168,21 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 					fmt.Sprintf("Error starting syncer: %v", err))
 				return err
 			}
-			c.syncers[cluster.Name] = s
-			s.Start(numSyncerThreads)
+			statusSyncer, err := syncer.NewStatusSyncer(downstream, upstream, resources.List(), cluster.Name)
+			if err != nil {
+				specSyncer.Stop()
+				log.Printf("error starting syncer in push mode: %v", err)
+				cluster.Status.SetConditionReady(corev1.ConditionFalse,
+					"ErrorStartingSyncer",
+					fmt.Sprintf("Error starting syncer: %v", err))
+				return err
+			}
+			c.syncers[cluster.Name] = &Syncer{
+				specSyncer:   specSyncer,
+				statusSyncer: statusSyncer,
+			}
+			specSyncer.Start(numSyncerThreads)
+			statusSyncer.Start(numSyncerThreads)
 			log.Println("syncer ready!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",

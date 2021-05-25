@@ -61,7 +61,8 @@ pe "head -n 15 ${CLUSTERS_DIR}/us-east1.yaml"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-east1.yaml"
 
 kubectl wait crd/deployments.apps --for condition=established &>/dev/null
-sleep 2
+kubectl wait apiservices/v1.apps --for condition=available &>/dev/null
+pause 5
 
 pe "kubectl api-resources"
 

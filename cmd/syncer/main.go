@@ -64,13 +64,19 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	s, err := syncer.New(fromConfig, toConfig, syncedResourceTypes, *clusterID)
+	specSyncer, err := syncer.NewSpecSyncer(fromConfig, toConfig, syncedResourceTypes, *clusterID)
+	if err != nil {
+		klog.Fatal(err)
+	}
+	statusSyncer, err := syncer.NewStatusSyncer(fromConfig, toConfig, syncedResourceTypes, *clusterID)
 	if err != nil {
 		klog.Fatal(err)
 	}
 
-	s.Start(numThreads)
+	specSyncer.Start(numThreads)
+	statusSyncer.Start(numThreads)
 	klog.Infoln("Starting workers")
-	<-s.Done()
+	<-specSyncer.Done()
+	<-statusSyncer.Done()
 	klog.Infoln("Stopping workers")
 }

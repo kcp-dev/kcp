@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"github.com/kcp-dev/kcp/pkg/util/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -25,6 +25,10 @@ import (
 
 const resyncPeriod = 10 * time.Hour
 
+type UpsertFunc func(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
+type DeleteFunc func(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
+type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
+
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -35,10 +39,13 @@ type Controller struct {
 	toClient dynamic.Interface
 
 	stopCh chan struct{}
+
+	upsertFn UpsertFunc
+	deleteFn DeleteFunc
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error) {
+func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handlers HandlersProvider, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{})
 
@@ -49,6 +56,9 @@ func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) 
 		toClient: dynamic.NewForConfigOrDie(to),
 
 		stopCh: stopCh,
+
+		upsertFn: upsertFn,
+		deleteFn: deleteFn,
 	}
 
 	fromClient := dynamic.NewForConfigOrDie(from)
@@ -67,14 +77,10 @@ func New(from, to *rest.Config, syncedResourceTypes []string, clusterID string) 
 
 		if _, err := fromDSIF.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
 			klog.Infof("Failed to list all %q: %v", gvrstr, err)
-			continue
+			return nil, errors.NewRetryableError(err)
 		}
 
-		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.AddToQueue(*gvr, obj) },
-			UpdateFunc: func(_, obj interface{}) { c.AddToQueue(*gvr, obj) },
-			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
-		})
+		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(handlers(&c, *gvr))
 		klog.Infof("Set up informer for %v", gvr)
 	}
 	fromDSIF.WaitForCacheSync(stopCh)
@@ -102,7 +108,17 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error
 	}
 	rs, err := dc.ServerPreferredResources()
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "unable to retrieve the complete list of server APIs") {
+			// This error may occur when some API resources added from CRDs are not completely ready.
+			// We should just retry without a limit on the number of retries in such a case.
+			//
+			// In fact this might be related to a bug in the changes made on the feature-logical-cluster
+			// Kubernetes branch to support legacy schema resources added as CRDs.
+			// If this is confirmed, this test will be removed when the CRD bug is fixed.
+			return nil, errors.NewRetryableError(err)
+		} else {
+			return nil, err
+		}
 	}
 	var gvrstrs []string
 	for _, r := range rs {
@@ -138,7 +154,10 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error
 
 	notFoundResourceTypes := toSyncSet.Difference(willBeSyncedSet)
 	if notFoundResourceTypes.Len() != 0 {
-		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
+		// Some of the API resources expected to be there are still not published by KCP.
+		// We should just retry without a limit on the number of retries in such a case,
+		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
+		return nil, errors.NewRetryableError(fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List()))
 	}
 	return gvrstrs, nil
 }
@@ -248,7 +267,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 
 	if !exists {
 		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, name)
-		c.delete(ctx, gvr, namespace, name)
+		c.deleteFn(c, ctx, gvr, namespace, name)
 		return nil
 	}
 
@@ -259,35 +278,11 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 		return err
 	}
 
-	if err := c.ensureNamespaceExists(namespace); err != nil {
-		klog.Error(err)
-		return err
-	}
-
-	if err := c.upsert(ctx, gvr, namespace, unstrob); err != nil {
-		return err
+	if c.upsertFn != nil {
+		return c.upsertFn(c, ctx, gvr, namespace, unstrob)
 	}
 
 	return err
-}
-
-func (c *Controller) ensureNamespaceExists(namespace string) error {
-	namespaces := c.toClient.Resource(schema.GroupVersionResource{
-		Group:    "",
-		Version:  "v1",
-		Resource: "namespaces",
-	})
-	newNamespace := &unstructured.Unstructured{}
-	newNamespace.SetAPIVersion("v1")
-	newNamespace.SetKind("Namespace")
-	newNamespace.SetName(namespace)
-	if _, err := namespaces.Create(context.TODO(), newNamespace, metav1.CreateOptions{}); err != nil {
-		if !k8serrors.IsAlreadyExists(err) {
-			klog.Infof("Error while creating namespace %s: %v", namespace, err)
-			return err
-		}
-	}
-	return nil
 }
 
 // getClient gets a dynamic client for the GVR, scoped to namespace if the namespace is not "".
@@ -297,42 +292,4 @@ func (c *Controller) getClient(gvr schema.GroupVersionResource, namespace string
 		return nri.Namespace(namespace)
 	}
 	return nri
-}
-
-func (c *Controller) delete(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
-	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
-	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
-
-	return c.getClient(gvr, namespace).Delete(ctx, name, metav1.DeleteOptions{})
-}
-
-func (c *Controller) upsert(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
-	client := c.getClient(gvr, namespace)
-
-	// Attempt to create the object; if the object already exists, update it.
-	unstrob.SetUID("")
-	unstrob.SetResourceVersion("")
-	if _, err := client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
-		if !k8serrors.IsAlreadyExists(err) {
-			klog.Error("Creating resource %s/%s: %v", namespace, unstrob.GetName(), err)
-			return err
-		}
-
-		existing, err := client.Get(ctx, unstrob.GetName(), metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("Getting resource %s/%s: %v", namespace, unstrob.GetName(), err)
-			return err
-		}
-		klog.Infof("Object %s/%s already exists: update it", gvr.Resource, unstrob.GetName())
-
-		unstrob.SetResourceVersion(existing.GetResourceVersion())
-		if _, err := client.Update(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Updating resource %s/%s: %v", namespace, unstrob.GetName(), err)
-			return err
-		}
-	} else {
-		klog.Infof("Created object %s/%s", gvr.Resource, unstrob.GetName())
-	}
-
-	return nil
 }
