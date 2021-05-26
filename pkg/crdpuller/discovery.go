@@ -20,7 +20,7 @@ import (
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/sets"
 
-	// The following import is to provide access to the KCP control plane scheme, 
+	// The following import is to provide access to the KCP control plane scheme,
 	// that gathers a minimal set of Kubernetes APIs without any workload-related APIs.
 	//
 	// We don't want to import, from physical clusters; resources
@@ -129,7 +129,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
 				continue
 			}
-	
+
 			gvk := gv.WithKind(apiResource.Kind)
 			if controlplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
 				klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
@@ -152,6 +152,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 
 			klog.Infof("processing discovery for resource %s (%s)", apiResource.Name, crdName)
 			var schemaProps apiextensionsv1.JSONSchemaProps
+			var additionalPrinterColumns []apiextensionsv1.CustomResourceColumnDefinition
 			crd, err := sp.crdClient.CustomResourceDefinitions().Get(context, crdName, metav1.GetOptions{})
 			if err == nil {
 				if apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.NonStructuralSchema) {
@@ -165,6 +166,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 					for _, version := range crd.Spec.Versions {
 						if version.Name == gv.Version {
 							schemaProps = *version.Schema.OpenAPIV3Schema
+							additionalPrinterColumns = version.AdditionalPrinterColumns
 							versionFound = true
 							break
 						}
@@ -225,7 +227,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 			}
 
 			crd = &apiextensionsv1.CustomResourceDefinition{
-				TypeMeta:   metav1.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "CustomResourceDefinition",
 					APIVersion: "apiextensions.k8s.io/v1",
 				},
@@ -260,10 +262,12 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 					},
 				},
 			}
-
+			if len(additionalPrinterColumns) != 0 {
+				crd.Spec.Versions[0].AdditionalPrinterColumns = additionalPrinterColumns
+			}
 			apiextensionsv1.SetDefaults_CustomResourceDefinition(crd)
 
-			// In Kubernetes, to make it clear to the API consumer that APIs in *.k8s.io or *.kubernetes.io domains 
+			// In Kubernetes, to make it clear to the API consumer that APIs in *.k8s.io or *.kubernetes.io domains
 			// should be following all quality standards of core Kubernetes, CRDs under these domains
 			// are expected to go through the API Review process and so must link the API review approval PR
 			// in an `api-approved.kubernetes.io` annotation.
