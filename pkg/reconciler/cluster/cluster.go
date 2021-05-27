@@ -11,6 +11,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/util/errors"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,17 +81,27 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	for resourceName, pulledCrd := range crds {
 		pulledCrd.SetClusterName(logicalCluster)
 		pulledCrd.Labels[clusterOriginLabel(cluster.Name)] = ""
-		clusterCrd, err := c.crdClient.CustomResourceDefinitions().Create(logicalClusterContext, pulledCrd, v1.CreateOptions{})
+		_, err := c.crdClient.CustomResourceDefinitions().Create(logicalClusterContext, pulledCrd, v1.CreateOptions{})
 		if k8serrors.IsAlreadyExists(err) {
+			var clusterCrd *apiextensionsv1.CustomResourceDefinition
 			clusterCrd, err = c.crdClient.CustomResourceDefinitions().Get(logicalClusterContext, pulledCrd.Name, v1.GetOptions{})
+
 			if err == nil {
 				if !equality.Semantic.DeepEqual(pulledCrd.Spec, clusterCrd.Spec) ||
-					!equality.Semantic.DeepEqual(pulledCrd.Annotations, clusterCrd.Annotations) ||
-					!equality.Semantic.DeepEqual(pulledCrd.Labels, clusterCrd.Labels) {
+					!equality.Semantic.DeepEqual(pulledCrd.Annotations, clusterCrd.Annotations) {
+
 					pulledCrd.ResourceVersion = clusterCrd.ResourceVersion
 					_, err = c.crdClient.CustomResourceDefinitions().Update(logicalClusterContext, pulledCrd, v1.UpdateOptions{})
 					if k8serrors.IsConflict(err) {
-						return errors.NewRetryableError(fmt.Errorf("Conflict when applying CRD pulled from cluster %s for resource %s: %v", cluster.Name, resourceName, err))
+						return errors.NewRetryableError(fmt.Errorf("conflict when applying CRD pulled from cluster %s for resource %s: %v", cluster.Name, resourceName, err))
+					}
+				} else if !equality.Semantic.DeepEqual(pulledCrd.Labels, clusterCrd.Labels) {
+					if _, ok := clusterCrd.Labels[clusterOriginLabel(cluster.Name)]; !ok {
+						clusterCrd.Labels[clusterOriginLabel(cluster.Name)] = ""
+						_, err = c.crdClient.CustomResourceDefinitions().Update(logicalClusterContext, clusterCrd, v1.UpdateOptions{})
+						if k8serrors.IsConflict(err) {
+							return errors.NewRetryableError(fmt.Errorf("conflict when applying CRD pulled from cluster %s for resource %s: %v", cluster.Name, resourceName, err))
+						}
 					}
 				}
 			}
