@@ -53,7 +53,7 @@ clear
 
 pe "kubectl config use-context admin"
 
-pe "kubectl apply -f config/cluster.example.dev_clusters.yaml"
+pe "kubectl apply -f ${ROOT_DIR}/config/cluster.example.dev_clusters.yaml"
 
 pe "head -n 15 ${CLUSTERS_DIR}/us-west1.yaml"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"
