@@ -20,7 +20,7 @@ KCP_PID=$!
 sleep 5
 
 echo "Starting Cluster Controller"
-${KCP_ROOT}/bin/cluster-controller -pull_model=false -kubeconfig=${KUBECONFIG} deployments &> cluster-controller.log &
+${KCP_ROOT}/bin/cluster-controller -pull_mode=false -kubeconfig=${KUBECONFIG} deployments &> cluster-controller.log &
 CC_PID=$!
 
 echo "Use ctrl-C to stop them"
