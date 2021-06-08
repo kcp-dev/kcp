@@ -20,6 +20,10 @@ It continues to be possible to build different abstractions on top of Kube, but 
 
 By choosing this constraint, we also accept that we will have to be opinionated on making the underlying clusters consistent, and we will have to limit / constrain certain behaviors. Ideally, we focus on preserving the user's view of the changes on a logical cluster, while making the workloads on a physical cluster look more consistent for infrastructure admins. This implies we need to explore both what these workloads might look like (a review of applications) and describe the points of control / abstraction between levels.
 
+### Constraint: 90% of application infrastructure controllers should be useful against `kcp`
+
+A controller that performs app infra related functions should be useful without change against `kcp`. For instance, the etcd operator takes an `Etcd` cluster CRD and creates pods. It should be possible for that controller to target a `kcp` logical cluster with the CRD and create pods on the logical cluster that are transparently placed onto a cluster.
+
 
 ## Areas of investigation
 
@@ -62,3 +66,16 @@ Representing feedback from a number of multi-cluster users with a diverse set of
 ## Progress
 
 In the early prototype stage `kcp` uses the `syncer` and the `deployment-splitter` as stand-ins for more complex scheduling and transformation. This section should see more updates in the near term as we move beyond areas 1-2 (use cases and ecosystem research)
+
+
+### Possible design simplifications
+
+1. Focus on every object having an annotation saying which clusters it is targeted at
+   * We can control the annotation via admission eventually, works for all objects
+   * Tracking declarative and atomic state change (NONE -> A, A->(A,B), A->NONE) on
+     objects
+2. RBAC stays at the higher level and applies to the logical clusters, is not synced
+   * Implication is that controllers won't be syncable today, BUT that's ok because it's likely giving workloads control over the underlying cluster is a non-goal to start and would have to be explicit opt-in by admin
+   * Controllers already need to separate input from output - most controllers assume they're the same (but things like service load balancer)
+3. Think of scheduling as a policy at global, per logical cluster, and optionally the namespace (policy of object type -> 0..N clusters)
+   * Simplification over doing a bunch of per object work, since we want to be transparent (per object is a future optimization with some limits)
