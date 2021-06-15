@@ -3,7 +3,6 @@ package cluster
 import (
 	"context"
 	"io/ioutil"
-	"log"
 	"time"
 
 	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
@@ -110,9 +109,9 @@ func (c *Controller) Start(numThreads int) {
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(c.startWorker, time.Second, c.stopCh)
 	}
-	log.Println("Starting workers")
+	klog.Info("Starting workers")
 	<-c.stopCh
-	log.Println("Stopping workers")
+	klog.Info("Stopping workers")
 }
 
 func (c *Controller) startWorker() {
@@ -140,7 +139,7 @@ func (c *Controller) processNextWorkItem() bool {
 func (c *Controller) handleErr(err error, key string) {
 	// Reconcile worked, nothing else to do for this workqueue item.
 	if err == nil {
-		log.Println("Successfully reconciled", key)
+		klog.Infof("Successfully reconciled %q", key)
 		c.queue.Forget(key)
 		return
 	}
@@ -148,7 +147,7 @@ func (c *Controller) handleErr(err error, key string) {
 	// Re-enqueue up to 5 times.
 	num := c.queue.NumRequeues(key)
 	if errors.IsRetryable(err) || num < 5 {
-		log.Printf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
+		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
 		c.queue.AddRateLimited(key)
 		return
 	}
@@ -156,7 +155,7 @@ func (c *Controller) handleErr(err error, key string) {
 	// Give up and report error elsewhere.
 	c.queue.Forget(key)
 	runtime.HandleError(err)
-	log.Printf("Dropping key %q after failed retries: %v", key, err)
+	klog.Errorf("Dropping key %q after failed retries: %v", key, err)
 }
 
 func (c *Controller) process(key string) error {
@@ -166,7 +165,7 @@ func (c *Controller) process(key string) error {
 	}
 
 	if !exists {
-		log.Printf("Object with key %q was deleted", key)
+		klog.Errorf("Object with key %q was deleted", key)
 		return nil
 	}
 	current := obj.(*v1alpha1.Cluster)
@@ -180,11 +179,9 @@ func (c *Controller) process(key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		log.Println("saw update")
 		_, uerr := c.client.Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
-	log.Println("no update")
 
 	return nil
 }

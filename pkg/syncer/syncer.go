@@ -3,7 +3,6 @@ package syncer
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -183,7 +182,7 @@ func (c *Controller) startWorker() {
 	for {
 		select {
 		case <-c.stopCh:
-			log.Println("stopping syncer worker")
+			klog.Info("stopping syncer worker")
 			return
 		default:
 			c.processNextWorkItem()

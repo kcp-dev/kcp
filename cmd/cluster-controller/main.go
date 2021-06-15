@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"log"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/controlplane/clientutils"
 )
 
@@ -27,12 +27,12 @@ func main() {
 
 	r, err := configLoader.ClientConfig()
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 	clientutils.EnableMultiCluster(r, nil, "clusters", "customresourcedefinitions")
 	kubeconfig, err := configLoader.RawConfig()
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 
 	resourcesToSync := flag.Args()
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	if *pullMode && *pushMode {
-		log.Fatal("can't set --push_mode and --pull_mode")
+		klog.Fatal("can't set --push_mode and --pull_mode")
 	}
 	syncerMode := cluster.SyncerModeNone
 	if *pullMode {
