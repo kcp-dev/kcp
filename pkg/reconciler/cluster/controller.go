@@ -19,7 +19,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -285,14 +285,15 @@ func RegisterCRDs(cfg *rest.Config) error {
 			continue
 		}
 		bytes, err := ioutil.ReadFile("config/" + file.Name())
-		crd := &apiextensionsv1.CustomResourceDefinition{}
-		err = yaml.Unmarshal(bytes, crd)
 		if err != nil {
 			return err
 		}
+		crd := &apiextensionsv1.CustomResourceDefinition{}
+		if err := yaml.Unmarshal(bytes, crd); err != nil {
+			return err
+		}
 
-		_, err = crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-		if k8serorrs.IsAlreadyExists(err) {
+		if _, err := crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); k8serrors.IsAlreadyExists(err) {
 			existingCRD, err := crdClient.CustomResourceDefinitions().Get(context.TODO(), crd.Name, metav1.GetOptions{})
 			if err != nil {
 				return err

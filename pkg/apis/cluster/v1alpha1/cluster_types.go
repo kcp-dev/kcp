@@ -60,6 +60,18 @@ type ClusterStatus struct {
 	SyncedResources []string `json:"syncedResources,omitempty"`
 }
 
+// IsReady returns true if the cluster's status indicates it's Ready.
+func (c *Cluster) IsReady() bool {
+	for _, cond := range c.Status.Conditions {
+		if cond.Type == ClusterConditionReady {
+			return cond.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
+
+// SetConditionReady sets the Ready-type condition to report the given status,
+// reason, and message.
 func (cs *ClusterStatus) SetConditionReady(status corev1.ConditionStatus, reason, message string) {
 	for idx, cond := range cs.Conditions {
 		if cond.Type == ClusterConditionReady {

@@ -10,11 +10,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1lister "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -28,22 +28,25 @@ const resyncPeriod = 10 * time.Hour
 // into N virtual Deployments labeled for each Cluster that exists at the time
 // the Deployment is created.
 func NewController(cfg *rest.Config) *Controller {
-	client := appsv1client.NewForConfigOrDie(cfg)
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
 
-	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
-
 	c := &Controller{
-		queue:         queue,
-		client:        client,
-		clusterLister: csif.Cluster().V1alpha1().Clusters().Lister(),
-		kubeClient:    kubeClient,
-		stopCh:        stopCh,
+		kubeClient:   kubeClient,
+		stopCh:       stopCh,
+		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		clusterQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
+
+	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
+	csif.Cluster().V1alpha1().Clusters().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueCluster(obj) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueCluster(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueCluster(obj) },
+	})
 	csif.WaitForCacheSync(stopCh)
 	csif.Start(stopCh)
+	c.clusterLister = csif.Cluster().V1alpha1().Clusters().Lister()
 
 	sif := informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	sif.Apps().V1().Deployments().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -52,7 +55,6 @@ func NewController(cfg *rest.Config) *Controller {
 	})
 	sif.WaitForCacheSync(stopCh)
 	sif.Start(stopCh)
-
 	c.indexer = sif.Apps().V1().Deployments().Informer().GetIndexer()
 	c.lister = sif.Apps().V1().Deployments().Lister()
 
@@ -60,13 +62,21 @@ func NewController(cfg *rest.Config) *Controller {
 }
 
 type Controller struct {
-	queue         workqueue.RateLimitingInterface
-	client        *appsv1client.AppsV1Client
-	clusterLister clusterlisters.ClusterLister
-	kubeClient    kubernetes.Interface
-	stopCh        chan struct{}
-	indexer       cache.Indexer
-	lister        appsv1lister.DeploymentLister
+	kubeClient          kubernetes.Interface
+	stopCh              chan struct{}
+	queue, clusterQueue workqueue.RateLimitingInterface
+	lister              appsv1lister.DeploymentLister
+	clusterLister       clusterlisters.ClusterLister
+	indexer             cache.Indexer
+}
+
+func (c *Controller) enqueueCluster(obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.clusterQueue.AddRateLimited(key)
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -80,8 +90,10 @@ func (c *Controller) enqueue(obj interface{}) {
 
 func (c *Controller) Start(numThreads int) {
 	defer c.queue.ShutDown()
+	defer c.clusterQueue.ShutDown()
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(c.startWorker, time.Second, c.stopCh)
+		go wait.Until(c.startClusterWorker, time.Second, c.stopCh)
 	}
 	klog.Infof("Starting workers")
 	<-c.stopCh
@@ -90,6 +102,11 @@ func (c *Controller) Start(numThreads int) {
 
 func (c *Controller) startWorker() {
 	for c.processNextWorkItem() {
+	}
+}
+
+func (c *Controller) startClusterWorker() {
+	for c.processNextClusterWorkItem() {
 	}
 }
 
@@ -106,27 +123,44 @@ func (c *Controller) processNextWorkItem() bool {
 	defer c.queue.Done(key)
 
 	err := c.process(key)
-	c.handleErr(err, key)
+	handleErr(err, key, c.queue)
 	return true
 }
 
-func (c *Controller) handleErr(err error, key string) {
+func (c *Controller) processNextClusterWorkItem() bool {
+	// Wait until there is a new item in the working queue
+	k, quit := c.clusterQueue.Get()
+	if quit {
+		return false
+	}
+	key := k.(string)
+
+	// No matter what, tell the queue we're done with this key, to unblock
+	// other workers.
+	defer c.queue.Done(key)
+
+	err := c.processCluster(key)
+	handleErr(err, key, c.clusterQueue)
+	return true
+}
+
+func handleErr(err error, key string, queue workqueue.RateLimitingInterface) {
 	// Reconcile worked, nothing else to do for this workqueue item.
 	if err == nil {
-		c.queue.Forget(key)
+		queue.Forget(key)
 		return
 	}
 
 	// Re-enqueue up to 5 times.
-	num := c.queue.NumRequeues(key)
+	num := queue.NumRequeues(key)
 	if num < 5 {
 		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
-		c.queue.AddRateLimited(key)
+		queue.AddRateLimited(key)
 		return
 	}
 
 	// Give up and report error elsewhere.
-	c.queue.Forget(key)
+	queue.Forget(key)
 	runtime.HandleError(err)
 	klog.Infof("Dropping key %q after failed retries: %v", key, err)
 }
@@ -151,9 +185,35 @@ func (c *Controller) process(key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous, current) {
-		_, uerr := c.client.Deployments(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kubeClient.AppsV1().Deployments(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
-
+	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
+		_, uerr := c.kubeClient.AppsV1().Deployments(current.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		return uerr
+	}
 	return err
+}
+
+// processCluster triggers a full rebalance of all roots.
+func (c *Controller) processCluster(string) error {
+	// Get all deployments, filter out non-roots, and enqueue a
+	// reconciliation of all remaining roots.
+	//
+	// This will trigger a rebalance of replicas across available clusters,
+	// taking into account new clusters, updated (newly ready or not
+	// ready), and deleted clusters.
+	ds, err := c.lister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	for _, d := range ds {
+		if d.Labels == nil {
+			d.Labels = map[string]string{}
+		}
+		if d.Labels[ownedByLabel] == "" {
+			c.enqueue(d)
+		}
+	}
+	return nil
 }
