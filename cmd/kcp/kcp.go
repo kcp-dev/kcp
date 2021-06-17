@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -32,6 +35,7 @@ var (
 	installClusterController bool
 	pullMode, pushMode       bool
 	listen                   string
+	etcdClientInfo           etcd.ClientInfo
 )
 
 func main() {
@@ -88,7 +92,7 @@ func main() {
 			}
 			ctx := context.TODO()
 
-			return s.Run(func(cfg etcd.ClientInfo) error {
+			runFunc := func(cfg etcd.ClientInfo) error {
 				c, err := clientv3.New(clientv3.Config{
 					Endpoints: cfg.Endpoints,
 					TLS:       cfg.TLS,
@@ -219,7 +223,37 @@ func main() {
 				prepared := server.PrepareRun()
 
 				return prepared.Run(ctx.Done())
-			})
+			}
+
+			if len(etcdClientInfo.Endpoints) == 0 {
+				// No etcd servers specified so create one in-process:
+				return s.Run(runFunc)
+			}
+
+			etcdClientInfo.TLS = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+
+			if len(etcdClientInfo.CertFile) > 0 && len(etcdClientInfo.KeyFile) > 0 {
+				cert, err := tls.LoadX509KeyPair(etcdClientInfo.CertFile, etcdClientInfo.KeyFile)
+				if err != nil {
+					return fmt.Errorf("failed to load x509 keypair: %s", err)
+				}
+				etcdClientInfo.TLS.Certificates = []tls.Certificate{cert}
+			}
+
+			if len(etcdClientInfo.TrustedCAFile) > 0 {
+				if caCert, err := ioutil.ReadFile(etcdClientInfo.TrustedCAFile); err != nil {
+					return fmt.Errorf("failed to read ca file: %s", err)
+				} else {
+					caPool := x509.NewCertPool()
+					caPool.AppendCertsFromPEM(caCert)
+					etcdClientInfo.TLS.RootCAs = caPool
+					etcdClientInfo.TLS.InsecureSkipVerify = false
+				}
+			}
+
+			return runFunc(etcdClientInfo)
 		},
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
@@ -229,8 +263,17 @@ func main() {
 	startCmd.Flags().BoolVar(&pullMode, "pull_mode", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	startCmd.Flags().BoolVar(&pushMode, "push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
 	startCmd.Flags().StringVar(&listen, "listen", ":6443", "Address:port to bind to")
-	cmd.AddCommand(startCmd)
 
+	startCmd.Flags().StringSliceVar(&etcdClientInfo.Endpoints, "etcd-servers", etcdClientInfo.Endpoints,
+		"List of external etcd servers to connect with (scheme://ip:port), comma separated. If absent an in-process etcd will be created.")
+	startCmd.Flags().StringVar(&etcdClientInfo.KeyFile, "etcd-keyfile", etcdClientInfo.KeyFile,
+		"TLS key file used to secure etcd communication.")
+	startCmd.Flags().StringVar(&etcdClientInfo.CertFile, "etcd-certfile", etcdClientInfo.CertFile,
+		"TLS certification file used to secure etcd communication.")
+	startCmd.Flags().StringVar(&etcdClientInfo.TrustedCAFile, "etcd-cafile", etcdClientInfo.TrustedCAFile,
+		"TLS Certificate Authority file used to secure etcd communication.")
+
+	cmd.AddCommand(startCmd)
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
