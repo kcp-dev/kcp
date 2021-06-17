@@ -2,23 +2,21 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"go.etcd.io/etcd/clientv3"
-
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
-
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"go.etcd.io/etcd/clientv3"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
@@ -195,7 +193,7 @@ func main() {
 						}
 
 						if pullMode && pushMode {
-							log.Fatal("can't set --push_mode and --pull_mode")
+							return errors.New("can't set --push_mode and --pull_mode")
 						}
 						syncerMode := cluster.SyncerModeNone
 						if pullMode {

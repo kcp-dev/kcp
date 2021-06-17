@@ -3,7 +3,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
@@ -33,7 +32,7 @@ func clusterOriginLabel(clusterID string) string {
 }
 
 func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) error {
-	log.Println("reconciling cluster", cluster.Name)
+	klog.Infof("reconciling cluster %q", cluster.Name)
 
 	logicalCluster := cluster.GetClusterName()
 	logicalClusterContext := genericapirequest.WithCluster(ctx, genericapirequest.Cluster{
@@ -43,7 +42,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
-		log.Printf("invalid kubeconfig: %v", err)
+		klog.Errorf("invalid kubeconfig: %v", err)
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"InvalidKubeConfig",
 			fmt.Sprintf("Invalid kubeconfig: %v", err))
@@ -51,7 +50,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		log.Printf("error creating client: %v", err)
+		klog.Errorf("error creating client: %v", err)
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorCreatingClient",
 			fmt.Sprintf("Error creating client from kubeconfig: %v", err))
@@ -60,7 +59,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 
 	schemaPuller, err := crdpuller.NewSchemaPuller(cfg)
 	if err != nil {
-		log.Printf("error creating schemapuller: %v", err)
+		klog.Errorf("error creating schemapuller: %v", err)
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorCreatingSchemaPuller",
 			fmt.Sprintf("Error creating schema puller client from kubeconfig: %v", err))
@@ -71,7 +70,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	resources := sets.NewString()
 	crds, err := schemaPuller.PullCRDs(ctx, c.resourcesToSync...)
 	if err != nil {
-		log.Printf("error pulling CRDs: %v", err)
+		klog.Errorf("error pulling CRDs: %v", err)
 		cluster.Status.SetConditionReady(corev1.ConditionFalse,
 			"ErrorPullingResourceSchemas",
 			fmt.Sprintf("Error pulling API Resource Schemas from cluster %s: %v", cluster.Name, err))
@@ -107,7 +106,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			}
 		}
 		if err != nil {
-			log.Printf("error applying pull CRDs: %v", err)
+			klog.Errorf("error applying pull CRDs: %v", err)
 			cluster.Status.SetConditionReady(corev1.ConditionFalse,
 				"ErrorApplyingPulledResourceSchemas",
 				fmt.Sprintf("Error applying the pulled API Resource Schemas from cluster %s: %v", cluster.Name, err))
@@ -121,7 +120,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 		(c.syncerMode == SyncerModePush && c.syncers[cluster.Name] == nil) {
 		kubeConfig := c.kubeconfig.DeepCopy()
 		if _, exists := kubeConfig.Contexts[logicalCluster]; !exists {
-			log.Printf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
+			klog.Errorf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
 			cluster.Status.SetConditionReady(corev1.ConditionFalse,
 				"ErrorInstallingSyncer",
 				fmt.Sprintf("Error installing syncer: no context with the name of the expected cluster: %s", logicalCluster))
@@ -133,21 +132,21 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			kubeConfig.CurrentContext = logicalCluster
 			bytes, err := clientcmd.Write(*kubeConfig)
 			if err != nil {
-				log.Printf("error writing kubeconfig for syncer: %v", err)
+				klog.Errorf("error writing kubeconfig for syncer: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
 					fmt.Sprintf("Error installing syncer: %v", err))
 				return nil // Don't retry.
 			}
 			if err := installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, apiGroups.List(), resources.List()); err != nil {
-				log.Printf("error installing syncer: %v", err)
+				klog.Errorf("error installing syncer: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
 					fmt.Sprintf("Error installing syncer: %v", err))
 				return nil // Don't retry.
 			}
 
-			log.Println("syncer installing...")
+			klog.Info("syncer installing...")
 			cluster.Status.SetConditionReady(corev1.ConditionUnknown,
 				"SyncerInstalling",
 				"Installing syncer on cluster")
@@ -155,7 +154,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			kubeConfig.CurrentContext = logicalCluster
 			upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 			if err != nil {
-				log.Printf("error getting kcp kubeconfig: %v", err)
+				klog.Errorf("error getting kcp kubeconfig: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
@@ -164,7 +163,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 
 			downstream, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 			if err != nil {
-				log.Printf("error getting cluster kubeconfig: %v", err)
+				klog.Errorf("error getting cluster kubeconfig: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
@@ -173,7 +172,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 
 			specSyncer, err := syncer.NewSpecSyncer(upstream, downstream, resources.List(), cluster.Name)
 			if err != nil {
-				log.Printf("error starting syncer in push mode: %v", err)
+				klog.Errorf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
@@ -182,7 +181,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			statusSyncer, err := syncer.NewStatusSyncer(downstream, upstream, resources.List(), cluster.Name)
 			if err != nil {
 				specSyncer.Stop()
-				log.Printf("error starting syncer in push mode: %v", err)
+				klog.Errorf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorStartingSyncer",
 					fmt.Sprintf("Error starting syncer: %v", err))
@@ -194,12 +193,12 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 			}
 			specSyncer.Start(numSyncerThreads)
 			statusSyncer.Start(numSyncerThreads)
-			log.Println("syncer ready!")
+			klog.Info("syncer ready!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
 		case SyncerModeNone:
-			log.Println("syncer ready!")
+			klog.Info("syncer ready!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
@@ -207,18 +206,18 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 	} else {
 		if c.syncerMode == SyncerModePull {
 			if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
-				log.Println("syncer not yet ready")
+				klog.Error("syncer not yet ready")
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"SyncerNotReady",
 					err.Error())
 			} else {
-				log.Println("syncer ready!")
+				klog.Info("syncer ready!")
 				cluster.Status.SetConditionReady(corev1.ConditionTrue,
 					"SyncerReady",
 					"Syncer ready")
 			}
 		} else {
-			log.Println("syncer ready!")
+			klog.Info("syncer ready!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
@@ -236,7 +235,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *v1alpha1.Cluster) e
 }
 
 func (c *Controller) cleanup(ctx context.Context, deletedCluster *v1alpha1.Cluster) {
-	log.Println("cleanup resources for cluster", deletedCluster.Name)
+	klog.Infof("cleanup resources for cluster %q", deletedCluster.Name)
 
 	logicalCluster := deletedCluster.GetClusterName()
 

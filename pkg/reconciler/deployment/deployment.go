@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -12,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 )
 
 func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deployment) error {
-	log.Println("reconciling deployment", deployment.Name)
+	klog.Infof("reconciling deployment %q", deployment.Name)
 
 	if deployment.Labels == nil || deployment.Labels[clusterLabel] == "" {
 		// This is a root deployment; get its leafs.
@@ -170,7 +170,7 @@ func (c *Controller) createLeafs(ctx context.Context, root *appsv1.Deployment) e
 		if _, err := c.kubeClient.AppsV1().Deployments(root.Namespace).Create(ctx, vd, metav1.CreateOptions{}); err != nil {
 			return err
 		}
-		log.Printf("created child deployment %q", vd.Name)
+		klog.Infof("created child deployment %q", vd.Name)
 	}
 
 	return nil
