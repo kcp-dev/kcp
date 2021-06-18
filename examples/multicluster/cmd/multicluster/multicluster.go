@@ -2,22 +2,28 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/kcp-dev/kcp/examples/multicluster/pkg/reconciler/cluster"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"go.etcd.io/etcd/clientv3"
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/controlplane"
+	"k8s.io/kubernetes/pkg/controlplane/clientutils"
 	"k8s.io/kubernetes/pkg/controlplane/options"
 )
 
@@ -35,7 +41,17 @@ func main() {
 		Use:   "kcp",
 		Short: "Kube for Control Plane (KCP)",
 		Long: help.Doc(`
-			KCP is a barebones API server with no practical usage atm.
+			KCP is the easiest way to manage Kubernetes applications against one or
+			more clusters, by giving you a personal control plane that schedules your
+			workloads onto one or many clusters, and making it simple to pick up and
+			move. Advanced use cases including spreading your apps across clusters for
+			resiliency, scheduling batch workloads onto clusters with free capacity,
+			and enabling collaboration for individual teams without having access to
+			the underlying clusters.
+
+			To get started, launch a new cluster with 'kcp start', which will
+			initialize your personal control plane and write an admin kubeconfig file
+			to disk.
 		`),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -53,6 +69,8 @@ func main() {
 			used to access the control plane.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//flag.CommandLine.Lookup("v").Value.Set("9")
+
 			dir := filepath.Join(".", ".kcp")
 			if fi, err := os.Stat(dir); err != nil {
 				if !os.IsNotExist(err) {
@@ -150,9 +168,54 @@ func main() {
 					return err
 				}
 
-				//
-				// This is where you'd install controllers.
-				//
+				if installClusterController {
+					server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+						// Register the `clusters` CRD in both the admin and user logical clusters
+						for contextName := range clientConfig.Contexts {
+							logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+							if err != nil {
+								return err
+							}
+							cluster.RegisterClusterCRD(logicalClusterConfig)
+						}
+						adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+						if err != nil {
+							return err
+						}
+
+						kubeconfig := clientConfig.DeepCopy()
+						for _, cluster := range kubeconfig.Clusters {
+							hostURL, err := url.Parse(cluster.Server)
+							if err != nil {
+								return err
+							}
+							hostURL.Host = server.ExternalAddress
+							cluster.Server = hostURL.String()
+						}
+
+						if pullMode && pushMode {
+							return errors.New("can't set --push_mode and --pull_mode")
+						}
+						syncerMode := cluster.SyncerModeNone
+						if pullMode {
+							syncerMode = cluster.SyncerModePull
+						}
+						if pushMode {
+							syncerMode = cluster.SyncerModePush
+						}
+
+						clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions")
+						clusterController := cluster.NewController(
+							adminConfig,
+							syncerImage,
+							*kubeconfig,
+							resourcesToSync,
+							syncerMode,
+						)
+						clusterController.Start(2)
+						return nil
+					})
+				}
 
 				prepared := server.PrepareRun()
 
@@ -161,6 +224,11 @@ func main() {
 		},
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
+	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
+	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string{"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", false, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
+	startCmd.Flags().BoolVar(&pullMode, "pull_mode", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	startCmd.Flags().BoolVar(&pushMode, "push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
 	startCmd.Flags().StringVar(&listen, "listen", ":6443", "Address:port to bind to")
 	cmd.AddCommand(startCmd)
 
