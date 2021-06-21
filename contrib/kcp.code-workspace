@@ -38,6 +38,16 @@
 				"args": ["start"]
 			},
 			{
+				"name": "Launch all-in-one kcp in push mode",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/kcp",
+				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod"},
+				"cwd": "${workspaceFolder:kcp}",
+				"args": ["start", "--install_cluster_controller", "--pull_mode=false", "--push_mode=true", "--resources_to_sync", "deployments.apps"]
+			},
+			{
 				"name": "Launch Kubectl apply pod",
 				"type": "go",
 				"request": "launch",
@@ -97,7 +107,7 @@
 				"program": "${workspaceFolder:kcp}/cmd/syncer",
 				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["-cluster", "local", "-from_kubeconfig", "${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "-from_context", "admin", "-to_kubeconfig", "${env:HOME}/.kube/config", "pods", "deployments" ],
+				"args": ["-cluster", "local", "-from_kubeconfig", "${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "-from_context", "admin", "-to_kubeconfig", "${env:HOME}/.kube/config", "pods", "deployments.apps" ],
 			},
 			{
 				"name": "Launch Deployment Splitter",

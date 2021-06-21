@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
@@ -31,7 +33,7 @@ func syncerConfigMapName(logicalCluster string) string {
 // installSyncer installs the syncer image on the target cluster.
 //
 // It takes the syncer image name to run, and the kubeconfig of the kcp
-func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID, logicalCluster string, apiGroups, resourcesToSync []string) error {
+func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage, kubeconfig, clusterID, logicalCluster string, groupResourcesToSync []string) error {
 	// Create Namespace
 	if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -53,10 +55,13 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 
 	// Create or Update ClusterRole
 
-	var resourcesWithStatus []string
-	resourcesWithStatus = append(resourcesWithStatus, resourcesToSync...)
-	for _, resourceToSync := range resourcesToSync {
-		resourcesWithStatus = append(resourcesWithStatus, resourceToSync+"/status")
+	resourcesWithStatus := sets.NewString()
+	apiGroups := sets.NewString()
+
+	for _, groupResourceToSync := range groupResourcesToSync {
+		gr := schema.ParseGroupResource(groupResourceToSync)
+		resourcesWithStatus.Insert(gr.Resource, gr.Resource+"/status")
+		apiGroups.Insert(gr.Group)
 	}
 
 	clusterRole := &rbacv1.ClusterRole{
@@ -71,8 +76,8 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 			},
 			{
 				Verbs:     []string{"create", "update", "get"},
-				Resources: resourcesWithStatus,
-				APIGroups: apiGroups,
+				Resources: resourcesWithStatus.List(),
+				APIGroups: apiGroups.List(),
 			},
 		},
 	}
@@ -139,7 +144,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 		"-cluster", clusterID,
 		"-from_kubeconfig", "/kcp/kubeconfig",
 	}
-	args = append(args, resourcesToSync...)
+	args = append(args, groupResourcesToSync...)
 
 	var one int32 = 1
 	// Create or Update Deployment

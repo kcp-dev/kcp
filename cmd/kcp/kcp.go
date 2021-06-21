@@ -16,6 +16,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -30,12 +31,12 @@ import (
 )
 
 var (
-	syncerImage              string
-	resourcesToSync          []string
-	installClusterController bool
-	pullMode, pushMode       bool
-	listen                   string
-	etcdClientInfo           etcd.ClientInfo
+	syncerImage                         string
+	resourcesToSync                     []string
+	installClusterController            bool
+	pullMode, pushMode, autoPublishAPIs bool
+	listen                              string
+	etcdClientInfo                      etcd.ClientInfo
 )
 
 func main() {
@@ -207,7 +208,7 @@ func main() {
 							syncerMode = cluster.SyncerModePush
 						}
 
-						clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions")
+						clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 						clusterController := cluster.NewController(
 							adminConfig,
 							syncerImage,
@@ -216,6 +217,13 @@ func main() {
 							syncerMode,
 						)
 						clusterController.Start(2)
+
+						apiresourceController := apiresource.NewController(
+							adminConfig,
+							autoPublishAPIs,
+						)
+						apiresourceController.Start(2)
+
 						return nil
 					})
 				}
@@ -258,11 +266,12 @@ func main() {
 	}
 	startCmd.Flags().AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
 	startCmd.Flags().StringVar(&syncerImage, "syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
-	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string{"pods", "deployments"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	startCmd.Flags().StringArrayVar(&resourcesToSync, "resources_to_sync", []string{"pods", "deployments.apps"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	startCmd.Flags().BoolVar(&installClusterController, "install_cluster_controller", false, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
 	startCmd.Flags().BoolVar(&pullMode, "pull_mode", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	startCmd.Flags().BoolVar(&pushMode, "push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
 	startCmd.Flags().StringVar(&listen, "listen", ":6443", "Address:port to bind to")
+	startCmd.Flags().BoolVar(&autoPublishAPIs, "auto_publish_apis", false, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
 
 	startCmd.Flags().StringSliceVar(&etcdClientInfo.Endpoints, "etcd-servers", etcdClientInfo.Endpoints,
 		"List of external etcd servers to connect with (scheme://ip:port), comma separated. If absent an in-process etcd will be created.")

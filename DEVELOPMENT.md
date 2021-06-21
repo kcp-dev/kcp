@@ -13,10 +13,10 @@ kubectl api-resources
 
 # Build and run Cluster Controller
 
-First, be sure to define the Cluster CRD type:
+First, be sure to define the Cluster CRD type, as well as the API Negotiation CRD types (APIResourceImport and NegotiatedAPIResource):
 
 ```
-kubectl apply -f config/cluster.example.dev_clusters.yaml
+kubectl apply -f config/
 ```
 
 The Cluster Controller requires a `--syncer_image` to install on new clusters.
