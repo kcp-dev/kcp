@@ -161,3 +161,7 @@ Principles are the high level guiding rules we'd like to frame designs around. T
 6. Consolidate efforts in the ecosystem into a more focused effort
 
     Kubernetes is mature and changes to the core happen slowly. By concentrating use cases among a number of participants we can better articulate common needs, focus the design time spent in the core project into a smaller set of efforts, and bring new investment into common shared problems strategically. We should make fast progress and be able to suggest high-impact changes without derailing other important Kubernetes initiatives.
+
+7. Make individual clusters transient / make multi-cluster as easy as multi-node
+
+    Just like Kubernetes made multi-node use cases trivial for applications, multi-cluster use cases should be trivial with `kcp` (or at least, the transparent multi-cluster approach). That doesn't eliminate the need to have deep control, just clarifies it.
