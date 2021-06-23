@@ -21,7 +21,7 @@ import (
 //
 // PLEASE NOTE that the implementation is incomplete (it's ongoing work), but still consistent:
 // if some Json Schema elements are changed and the comparison of this type of element is not yet implemented,
-// then an incompatible change error is triggered explaining that the compatison on this element type is not supported.
+// then an incompatible change error is triggered explaining that the comparison on this element type is not supported.
 // So there should never be any case when a schema is considered backward-compatible while in fact it is not.
 //
 // If the narrowExisting argument is true, then the LCD (Lowest-Common-Denominator) between existing schema and the new schema
@@ -54,7 +54,7 @@ func EnsureStructuralSchemaCompatibility(fldPath *field.Path, existing, new *api
 		return nil, utilerrors.NewAggregate([]error{err})
 	}
 	var jsonSchemaProps apiextensionsv1.JSONSchemaProps
-	json.Unmarshal(serialized, &jsonSchemaProps)
+	err := json.Unmarshal(serialized, &jsonSchemaProps)
 	if err != nil {
 		return nil, utilerrors.NewAggregate([]error{err})
 	}
@@ -78,8 +78,8 @@ func checkUnsupportedValidation(fldPath *field.Path, existing, new interface{}, 
 func checkUnsupportedValidationForNumerics(fldPath *field.Path, existing, new *schema.ValueValidation, typeName string) (errorList field.ErrorList) {
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Not, new.Not, "not", typeName)...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "allOf", typeName)...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "anytOf", typeName)...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", typeName)...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AnyOf, new.AnyOf, "anyOf", typeName)...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.OneOf, new.OneOf, "oneOf", typeName)...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Enum, new.Enum, "enum", typeName)...)
 	if !(new.Maximum == existing.Maximum && new.Minimum == existing.Minimum && new.ExclusiveMaximum == existing.ExclusiveMaximum && new.ExclusiveMinimum == existing.ExclusiveMinimum) {
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Maximum, new.Maximum, "maximum", typeName)...)
