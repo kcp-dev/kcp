@@ -45,8 +45,7 @@ func EnsureStructuralSchemaCompatibility(fldPath *field.Path, existing, new *api
 	}
 
 	lcdStructural := existingStructural.DeepCopy()
-	errs := lcdForStructural(fldPath, existingStructural, newStrucural, lcdStructural, narrowExisting)
-	if len(errs) > 0 {
+	if errs := lcdForStructural(fldPath, existingStructural, newStrucural, lcdStructural, narrowExisting); len(errs) > 0 {
 		return nil, errs.ToAggregate()
 	}
 	serialized, err := json.Marshal(lcdStructural.ToGoOpenAPI())
@@ -54,8 +53,7 @@ func EnsureStructuralSchemaCompatibility(fldPath *field.Path, existing, new *api
 		return nil, utilerrors.NewAggregate([]error{err})
 	}
 	var jsonSchemaProps apiextensionsv1.JSONSchemaProps
-	err := json.Unmarshal(serialized, &jsonSchemaProps)
-	if err != nil {
+	if err := json.Unmarshal(serialized, &jsonSchemaProps); err != nil {
 		return nil, utilerrors.NewAggregate([]error{err})
 	}
 	return &jsonSchemaProps, nil
@@ -75,17 +73,50 @@ func checkUnsupportedValidation(fldPath *field.Path, existing, new interface{}, 
 	return nil
 }
 
+func floatPointersEqual(p1, p2 *float64) bool {
+	if p1 == nil && p2 == nil {
+		return true
+	}
+	if p1 != nil && p2 != nil {
+		return *p1 == *p2
+	}
+	return false
+}
+
+func intPointersEqual(p1, p2 *int64) bool {
+	if p1 == nil && p2 == nil {
+		return true
+	}
+	if p1 != nil && p2 != nil {
+		return *p1 == *p2
+	}
+	return false
+}
+
+func stringPointersEqual(p1, p2 *string) bool {
+	if p1 == nil && p2 == nil {
+		return true
+	}
+	if p1 != nil && p2 != nil {
+		return *p1 == *p2
+	}
+	return false
+}
+
 func checkUnsupportedValidationForNumerics(fldPath *field.Path, existing, new *schema.ValueValidation, typeName string) (errorList field.ErrorList) {
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Not, new.Not, "not", typeName)...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "allOf", typeName)...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AnyOf, new.AnyOf, "anyOf", typeName)...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.OneOf, new.OneOf, "oneOf", typeName)...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Enum, new.Enum, "enum", typeName)...)
-	if !(new.Maximum == existing.Maximum && new.Minimum == existing.Minimum && new.ExclusiveMaximum == existing.ExclusiveMaximum && new.ExclusiveMinimum == existing.ExclusiveMinimum) {
+	if !floatPointersEqual(new.Maximum, existing.Maximum) ||
+		!floatPointersEqual(new.Minimum, existing.Minimum) ||
+		new.ExclusiveMaximum != existing.ExclusiveMaximum ||
+		new.ExclusiveMinimum != existing.ExclusiveMinimum {
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Maximum, new.Maximum, "maximum", typeName)...)
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Minimum, new.Minimum, "minimum", typeName)...)
 	}
-	if new.MultipleOf != existing.MultipleOf {
+	if !floatPointersEqual(new.MultipleOf, existing.MultipleOf) {
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.MultipleOf, new.MultipleOf, "multipleOf", typeName)...)
 	}
 	return
@@ -175,7 +206,8 @@ func lcdForStringValidation(fldPath *field.Path, existing, new, lcd *schema.Valu
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "allOf", "string")...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "anytOf", "string")...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", "string")...)
-	if !(new.MaxLength == existing.MaxLength && new.MinLength == existing.MinLength) {
+	if !intPointersEqual(new.MaxLength, existing.MaxLength) ||
+		!intPointersEqual(new.MinLength, existing.MinLength) {
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.MaxLength, new.MaxLength, "maxLength", "string")...)
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.MinLength, new.MinLength, "minLength", "string")...)
 	}
@@ -240,7 +272,8 @@ func lcdForArrayValidation(fldPath *field.Path, existing, new, lcd *schema.Value
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "anytOf", "array")...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", "array")...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Enum, new.Enum, "enum", "array")...)
-	if !(new.MaxItems == existing.MaxItems && new.MinItems == existing.MinItems) {
+	if !intPointersEqual(new.MaxItems, existing.MaxItems) ||
+		!intPointersEqual(new.MinItems, existing.MinItems) {
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.MaxLength, new.MaxLength, "maxItems", "array")...)
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.MinLength, new.MinLength, "minItems", "array")...)
 	}
@@ -254,21 +287,11 @@ func lcdForArrayValidation(fldPath *field.Path, existing, new, lcd *schema.Value
 	return
 }
 
-func valuesEqual(v1, v2 *string) bool {
-	if v1 == nil && v2 == nil {
-		return true
-	}
-	if v1 != nil && v2 != nil {
-		return *v1 == *v2
-	}
-	return false
-}
-
 func lcdForArray(fldPath *field.Path, existing, new *schema.Structural, lcd *schema.Structural, narrowExisting bool) (errorList field.ErrorList) {
 	errorList = append(errorList, checkTypesAreTheSame(fldPath, existing, new)...)
 	errorList = append(errorList, lcdForArrayValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting)...)
 	errorList = append(errorList, lcdForStructural(fldPath.Child("Items"), existing.Items, new.Items, lcd.Items, narrowExisting)...)
-	if !valuesEqual(existing.Extensions.XListType, new.Extensions.XListType) {
+	if !stringPointersEqual(existing.Extensions.XListType, new.Extensions.XListType) {
 		errorList = append(errorList, field.Invalid(fldPath.Child("x-kubernetes-list-type"), new.Extensions.XListType, "x-kubernetes-list-type value has been changed in an incompatible way"))
 	}
 	if !sets.NewString(existing.Extensions.XListMapKeys...).Equal(sets.NewString(new.Extensions.XListMapKeys...)) {
@@ -288,7 +311,7 @@ func lcdForObjectValidation(fldPath *field.Path, existing, new, lcd *schema.Valu
 func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *schema.Structural, narrowExisting bool) (errorList field.ErrorList) {
 	errorList = append(errorList, checkTypesAreTheSame(fldPath, existing, new)...)
 
-	if existing.Extensions.XMapType != new.Extensions.XMapType {
+	if !stringPointersEqual(existing.Extensions.XMapType, new.Extensions.XMapType) {
 		errorList = append(errorList, field.Invalid(fldPath.Child("x-kubernetes-map-type"), new.Extensions.XListType, "x-kubernetes-map-type value has been changed in an incompatible way"))
 	}
 

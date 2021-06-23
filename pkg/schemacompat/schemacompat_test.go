@@ -14,20 +14,14 @@ func TestSuccessNewHasMoreProperties(t *testing.T) {
 	existing := &apiextensionsv1.JSONSchemaProps{
 		Type: "object",
 		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"existing": {
-				Type: "string",
-			},
+			"existing": {Type: "string"},
 		},
 	}
 	new := &apiextensionsv1.JSONSchemaProps{
 		Type: "object",
 		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"existing": {
-				Type: "string",
-			},
-			"new": {
-				Type: "integer",
-			},
+			"existing": {Type: "string"},
+			"new":      {Type: "integer"},
 		},
 	}
 
@@ -40,20 +34,14 @@ func TestErrorNewHasLessProperties(t *testing.T) {
 	existing := &apiextensionsv1.JSONSchemaProps{
 		Type: "object",
 		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"existing": {
-				Type: "string",
-			},
-			"new": {
-				Type: "integer",
-			},
+			"existing": {Type: "string"},
+			"new":      {Type: "integer"},
 		},
 	}
 	new := &apiextensionsv1.JSONSchemaProps{
 		Type: "object",
 		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"existing": {
-				Type: "string",
-			},
+			"existing": {Type: "string"},
 		},
 	}
 
@@ -63,7 +51,7 @@ func TestErrorNewHasLessProperties(t *testing.T) {
 		errors.NewAggregate([]error{
 			field.Invalid(
 				basePath.Child("properties"),
-				[]string{ "new" },
+				[]string{"new"},
 				"properties have been removed in an incompatible way")}),
 		errs, "Adding a property to a schema should not be an incompatibility error")
 	assert.Nil(t, lcd, "LCD should be nil")
@@ -73,20 +61,14 @@ func TestSuccessNewHasLessPropertiesNarrowExisting(t *testing.T) {
 	existing := &apiextensionsv1.JSONSchemaProps{
 		Type: "object",
 		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"existing": {
-				Type: "string",
-			},
-			"new": {
-				Type: "integer",
-			},
+			"existing": {Type: "string"},
+			"new":      {Type: "integer"},
 		},
 	}
 	new := &apiextensionsv1.JSONSchemaProps{
 		Type: "object",
 		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"existing": {
-				Type: "string",
-			},
+			"existing": {Type: "string"},
 		},
 	}
 
@@ -102,20 +84,14 @@ func TestSuccessNewAllowsAnyPropertiesOfAschemaCompatibleWithAllExistingProperti
 			"prop1": {
 				Type: "object",
 				Properties: map[string]apiextensionsv1.JSONSchemaProps{
-					"subProp1": {
-						Type: "string",
-					},
+					"subProp1": {Type: "string"},
 				},
 			},
 			"prop2": {
 				Type: "object",
 				Properties: map[string]apiextensionsv1.JSONSchemaProps{
-					"subProp1": {
-						Type: "string",
-					},
-					"subProp2": {
-						Type: "string",
-					},
+					"subProp1": {Type: "string"},
+					"subProp2": {Type: "string"},
 				},
 			},
 		},
@@ -126,12 +102,8 @@ func TestSuccessNewAllowsAnyPropertiesOfAschemaCompatibleWithAllExistingProperti
 			Schema: &apiextensionsv1.JSONSchemaProps{
 				Type: "object",
 				Properties: map[string]apiextensionsv1.JSONSchemaProps{
-					"subProp1": {
-						Type: "string",
-					},
-					"subProp2": {
-						Type: "string",
-					},
+					"subProp1": {Type: "string"},
+					"subProp2": {Type: "string"},
 				},
 			},
 		},
@@ -149,20 +121,14 @@ func TestErrorNewAllowsAnyPropertiesOfAschemaNotCompatibleWithAllExistingPropert
 			"prop1": {
 				Type: "object",
 				Properties: map[string]apiextensionsv1.JSONSchemaProps{
-					"subProp1": {
-						Type: "string",
-					},
+					"subProp1": {Type: "string"},
 				},
 			},
 			"prop2": {
 				Type: "object",
 				Properties: map[string]apiextensionsv1.JSONSchemaProps{
-					"subProp1": {
-						Type: "string",
-					},
-					"subProp2": {
-						Type: "string",
-					},
+					"subProp1": {Type: "string"},
+					"subProp2": {Type: "string"},
 				},
 			},
 		},
@@ -174,9 +140,7 @@ func TestErrorNewAllowsAnyPropertiesOfAschemaNotCompatibleWithAllExistingPropert
 			Schema: &apiextensionsv1.JSONSchemaProps{
 				Type: "object",
 				Properties: map[string]apiextensionsv1.JSONSchemaProps{
-					"subProp1": {
-						Type: "string",
-					},
+					"subProp1": {Type: "string"},
 				},
 			},
 		},
@@ -189,7 +153,7 @@ func TestErrorNewAllowsAnyPropertiesOfAschemaNotCompatibleWithAllExistingPropert
 		errors.NewAggregate([]error{
 			field.Invalid(
 				basePath.Child("properties").Key("prop2").Child("properties"),
-				[]string{ "subProp2" },
+				[]string{"subProp2"},
 				"properties have been removed in an incompatible way")}),
 		errs, "Allowing any properties of a schema that is not compatible with the schemas of all the existing fixed properties should be an incompatibility error")
 	assert.Nil(t, lcd, "LCD should be nil")
@@ -199,9 +163,7 @@ func TestSuccessNewAllowsAnyPropertiesOfAnySchema(t *testing.T) {
 	existing := &apiextensionsv1.JSONSchemaProps{
 		Type: "object",
 		Properties: map[string]apiextensionsv1.JSONSchemaProps{
-			"existing": {
-				Type: "string",
-			},
+			"existing": {Type: "string"},
 		},
 	}
 	new := &apiextensionsv1.JSONSchemaProps{
