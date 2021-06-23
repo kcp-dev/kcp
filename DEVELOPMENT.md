@@ -13,7 +13,10 @@ kubectl api-resources
 
 # Build and run Cluster Controller
 
-First, be sure to define the Cluster CRD type, as well as the API Negotiation CRD types (APIResourceImport and NegotiatedAPIResource):
+First, be sure to install the CRD types needed by the controller. These are:
+- `Cluster`
+- `APIResourceImport`
+- `NegotiatedAPIResource`
 
 ```
 kubectl apply -f config/
