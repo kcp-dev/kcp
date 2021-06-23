@@ -17,8 +17,6 @@ limitations under the License.
 package apiresource
 
 import (
-	"context"
-	"io/ioutil"
 	"time"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -33,7 +31,6 @@ import (
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	crdlister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -42,11 +39,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	"sigs.k8s.io/yaml"
 )
 
 const resyncPeriod = 10 * time.Hour
-const ClusterNameAndGVRIndexName = "clusterNameAndGVR"
+const clusterNameAndGVRIndexName = "clusterNameAndGVR"
 
 func GetClusterNameAndGVRIndexKey(clusterName string, gvr metav1.GroupVersionResource) string {
 	return clusterName + "$" + gvr.String()
@@ -69,13 +65,13 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Con
 
 	apiresourceSif := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(cfg), resyncPeriod)
 	apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(Add, nil, obj) },
-		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(Update, oldObj, obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueue(Delete, nil, obj) },
+		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
+		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
 	c.negotiatedApiResourceIndexer = apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Informer().GetIndexer()
 	c.negotiatedApiResourceIndexer.AddIndexers(map[string]cache.IndexFunc{
-		ClusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
+		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if negotiatedApiResource, ok := obj.(*apiresourcev1alpha1.NegotiatedAPIResource); ok {
 				return []string{GetClusterNameAndGVRIndexKey(negotiatedApiResource.ClusterName, negotiatedApiResource.GVR())}, nil
 			}
@@ -84,13 +80,13 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Con
 	})
 	c.negotiatedApiResourceLister = apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Lister()
 	apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(Add, nil, obj) },
-		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(Update, oldObj, obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueue(Delete, nil, obj) },
+		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
+		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
 	c.apiResourceImportIndexer = apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
 	c.apiResourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
-		ClusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
+		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
 				return []string{GetClusterNameAndGVRIndexKey(apiResourceImport.ClusterName, apiResourceImport.GVR())}, nil
 			}
@@ -104,13 +100,13 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Con
 
 	crdSif := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(cfg), resyncPeriod)
 	crdSif.Apiextensions().V1().CustomResourceDefinitions().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(Add, nil, obj) },
-		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(Update, oldObj, obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueue(Delete, nil, obj) },
+		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
+		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
 	c.crdIndexer = crdSif.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer()
 	c.crdIndexer.AddIndexers(map[string]cache.IndexFunc{
-		ClusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
+		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition); ok {
 				return []string{GetClusterNameAndGVRIndexKey(crd.ClusterName, metav1.GroupVersionResource{
 					Group:    crd.Spec.Group,
@@ -145,45 +141,45 @@ type Controller struct {
 	AutoPublishNegotiatedAPIResource bool
 }
 
-type QueueElementType string
+type queueElementType string
 
 const (
-	CustomResourceDefinitionType QueueElementType = "CustomResourceDefinition"
-	NegotiatedAPIResourceType    QueueElementType = "NegotiatedAPIResource"
-	APIResourceImportType        QueueElementType = "APIResourceImport"
+	customResourceDefinitionType queueElementType = "CustomResourceDefinition"
+	negotiatedAPIResourceType    queueElementType = "NegotiatedAPIResource"
+	apiResourceImportType        queueElementType = "APIResourceImport"
 )
 
-type QueueElementAction string
+type queueElementAction string
 
 const (
-	SpecChangedAction             QueueElementAction = "SpecChanged"
-	StatusOnlyChangedAction       QueueElementAction = "StatusOnlyChanged"
-	AnnotationOrLabelsOnlyChanged QueueElementAction = "AnnotationOrLabelsOnlyChanged"
-	Deleted                       QueueElementAction = "Deleted"
-	Created                       QueueElementAction = "Created"
+	specChangedAction             queueElementAction = "SpecChanged"
+	statusOnlyChangedAction       queueElementAction = "StatusOnlyChanged"
+	annotationOrLabelsOnlyChanged queueElementAction = "AnnotationOrLabelsOnlyChanged"
+	deletedAction                       queueElementAction = "Deleted"
+	createdAction                       queueElementAction = "Created"
 )
 
-type ResourceHandlerAction string
+type resourceHandlerAction string
 
 const (
-	Add    ResourceHandlerAction = "Add"
-	Update ResourceHandlerAction = "Update"
-	Delete ResourceHandlerAction = "Delete"
+	addHandlerAction    resourceHandlerAction = "Add"
+	updateHandlerAction resourceHandlerAction = "Update"
+	deleteHandlerAction resourceHandlerAction = "Delete"
 )
 
 type queueElement struct {
-	theAction     QueueElementAction
-	theType       QueueElementType
+	theAction     queueElementAction
+	theType       queueElementType
 	theKey        string
 	gvr           metav1.GroupVersionResource
 	clusterName   string
 	deletedObject interface{}
 }
 
-func toQueueElementType(oldObj, obj interface{}) (theType QueueElementType, gvr metav1.GroupVersionResource, oldMeta, newMeta metav1.Object, oldStatus, newStatus interface{}) {
+func toQueueElementType(oldObj, obj interface{}) (theType queueElementType, gvr metav1.GroupVersionResource, oldMeta, newMeta metav1.Object, oldStatus, newStatus interface{}) {
 	switch typedObj := obj.(type) {
 	case *apiextensionsv1.CustomResourceDefinition:
-		theType = CustomResourceDefinitionType
+		theType = customResourceDefinitionType
 		newMeta = typedObj
 		newStatus = typedObj.Status
 		if oldObj != nil {
@@ -196,7 +192,7 @@ func toQueueElementType(oldObj, obj interface{}) (theType QueueElementType, gvr 
 			Resource: typedObj.Spec.Names.Plural,
 		}
 	case *apiresourcev1alpha1.APIResourceImport:
-		theType = APIResourceImportType
+		theType = apiResourceImportType
 		newMeta = typedObj
 		newStatus = typedObj.Status
 		if oldObj != nil {
@@ -210,7 +206,7 @@ func toQueueElementType(oldObj, obj interface{}) (theType QueueElementType, gvr 
 			Resource: typedObj.Spec.Plural,
 		}
 	case *apiresourcev1alpha1.NegotiatedAPIResource:
-		theType = NegotiatedAPIResourceType
+		theType = negotiatedAPIResourceType
 		newMeta = typedObj
 		newStatus = typedObj.Status
 		if oldObj != nil {
@@ -233,7 +229,7 @@ func toQueueElementType(oldObj, obj interface{}) (theType QueueElementType, gvr 
 	return
 }
 
-func (c *Controller) enqueue(action ResourceHandlerAction, oldObj, obj interface{}) {
+func (c *Controller) enqueue(action resourceHandlerAction, oldObj, obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -244,15 +240,15 @@ func (c *Controller) enqueue(action ResourceHandlerAction, oldObj, obj interface
 	}
 
 	theType, gvr, oldMeta, newMeta, oldStatus, newStatus := toQueueElementType(oldObj, obj)
-	var theAction QueueElementAction
+	var theAction queueElementAction
 	var deletedObject interface{}
 
 	switch action {
 	case "Add":
-		theAction = Created
+		theAction = createdAction
 	case "Update":
 		if oldMeta == nil {
-			theAction = Created
+			theAction = createdAction
 			break
 		}
 
@@ -261,24 +257,24 @@ func (c *Controller) enqueue(action ResourceHandlerAction, oldObj, obj interface
 		}
 
 		if oldMeta.GetGeneration() != newMeta.GetGeneration() {
-			theAction = SpecChangedAction
+			theAction = specChangedAction
 			break
 		}
 
 		if !equality.Semantic.DeepEqual(oldStatus, newStatus) {
-			theAction = StatusOnlyChangedAction
+			theAction = statusOnlyChangedAction
 			break
 		}
 
 		if !equality.Semantic.DeepEqual(oldMeta.GetAnnotations(), newMeta.GetAnnotations()) ||
 			equality.Semantic.DeepEqual(oldMeta.GetLabels(), newMeta.GetLabels()) {
-			theAction = AnnotationOrLabelsOnlyChanged
+			theAction = annotationOrLabelsOnlyChanged
 			break
 		}
 		// Nothing significant changed. Ignore the event.
 		return
 	case "Delete":
-		theAction = Deleted
+		theAction = deletedAction
 		deletedObject = obj
 	}
 
@@ -351,23 +347,4 @@ func (c *Controller) handleErr(err error, key queueElement) {
 	c.queue.Forget(key)
 	runtime.HandleError(err)
 	klog.Infof("Dropping key %q after failed retries: %v", key, err)
-}
-
-func RegisterClusterCRD(cfg *rest.Config) error {
-	bytes, err := ioutil.ReadFile("config/cluster.example.dev_clusters.yaml")
-
-	crdClient := typedapiextensions.NewForConfigOrDie(cfg)
-
-	crd := &apiextensionsv1.CustomResourceDefinition{}
-	err = yaml.Unmarshal(bytes, crd)
-	if err != nil {
-		return err
-	}
-
-	_, err = crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-	if err != nil && !k8serorrs.IsAlreadyExists(err) {
-		return err
-	}
-
-	return nil
 }

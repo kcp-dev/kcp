@@ -204,8 +204,8 @@ func lcdForInteger(fldPath *field.Path, existing, new *schema.Structural, lcd *s
 
 func lcdForStringValidation(fldPath *field.Path, existing, new, lcd *schema.ValueValidation, narrowExisting bool) (errorList field.ErrorList) {
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "allOf", "string")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "anytOf", "string")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", "string")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AnyOf, new.AnyOf, "anyOf", "string")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.OneOf, new.OneOf, "oneOf", "string")...)
 	if !intPointersEqual(new.MaxLength, existing.MaxLength) ||
 		!intPointersEqual(new.MinLength, existing.MinLength) {
 		errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.MaxLength, new.MaxLength, "maxLength", "string")...)
@@ -255,8 +255,8 @@ func lcdForString(fldPath *field.Path, existing, new *schema.Structural, lcd *sc
 
 func lcdForBooleanValidation(fldPath *field.Path, existing, new, lcd *schema.ValueValidation, narrowExisting bool) (errorList field.ErrorList) {
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "allOf", "boolean")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "anytOf", "boolean")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", "boolean")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AnyOf, new.AnyOf, "anyOf", "boolean")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.OneOf, new.OneOf, "oneOf", "boolean")...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Enum, new.Enum, "enum", "boolean")...)
 	return
 }
@@ -269,8 +269,8 @@ func lcdForBoolean(fldPath *field.Path, existing, new *schema.Structural, lcd *s
 
 func lcdForArrayValidation(fldPath *field.Path, existing, new, lcd *schema.ValueValidation, narrowExisting bool) (errorList field.ErrorList) {
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "allOf", "array")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "anytOf", "array")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", "array")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AnyOf, new.AnyOf, "anyOf", "array")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.OneOf, new.OneOf, "oneOf", "array")...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Enum, new.Enum, "enum", "array")...)
 	if !intPointersEqual(new.MaxItems, existing.MaxItems) ||
 		!intPointersEqual(new.MinItems, existing.MinItems) {
@@ -302,8 +302,8 @@ func lcdForArray(fldPath *field.Path, existing, new *schema.Structural, lcd *sch
 
 func lcdForObjectValidation(fldPath *field.Path, existing, new, lcd *schema.ValueValidation, narrowExisting bool) (errorList field.ErrorList) {
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "allOf", "object")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "anytOf", "object")...)
-	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", "object")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.AnyOf, new.AnyOf, "anyOf", "object")...)
+	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.OneOf, new.OneOf, "oneOf", "object")...)
 	errorList = append(errorList, checkUnsupportedValidation(fldPath, existing.Enum, new.Enum, "enum", "object")...)
 	return
 }
@@ -385,8 +385,21 @@ func lcdForIntOrString(fldPath *field.Path, existing, new *schema.Structural, lc
 		errorList = append(errorList, field.Invalid(fldPath.Child("x-kubernetes-int-or-string"), new.XIntOrString, "x-kubernetes-int-or-string value has been changed in an incompatible way"))
 	}
 
+	// We special-case IntOrString, since they are expected to have a fixed AnyOf value.
+	// So we'll check the AnyOf separately and remove it from the further string-related or int-related validation
+	// where anyOf is currently not supported.
+	existingAnyOf := existing.ValueValidation.AnyOf
+	newAnyOf := new.ValueValidation.AnyOf
+	if !reflect.DeepEqual(existingAnyOf, newAnyOf) {
+		errorList = append(errorList, field.Invalid(fldPath.Child("anyOf"), newAnyOf, "anyOf value has been changed in an incompatible way"))
+	}
+	existing.ValueValidation.AnyOf = nil
+	new.ValueValidation.AnyOf = nil
 	errorList = append(errorList, lcdForStringValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting)...)
 	errorList = append(errorList, lcdForIntegerValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting)...)
+	existing.ValueValidation.AnyOf = existingAnyOf
+	lcd.ValueValidation.AnyOf = existingAnyOf
+	new.ValueValidation.AnyOf = newAnyOf
 
 	return
 }

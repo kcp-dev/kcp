@@ -39,7 +39,7 @@ func (c *Controller) process(key queueElement) error {
 	ctx := request.WithCluster(context.TODO(), request.Cluster{Name: key.clusterName})
 
 	switch key.theType {
-	case CustomResourceDefinitionType:
+	case customResourceDefinitionType:
 		crd, err := c.crdLister.Get(key.theKey)
 		if err != nil {
 			var deletedObjectExists bool
@@ -49,7 +49,7 @@ func (c *Controller) process(key queueElement) error {
 			}
 		}
 		switch key.theAction {
-		case Created, SpecChangedAction:
+		case createdAction, specChangedAction:
 			// - if no NegotiatedAPIResource owner
 			// => Set the Enforced status condition, and then the schema of the Negotiated API Resource of each CRD version
 			if c.isManuallyCreatedCRD(ctx, crd) {
@@ -58,7 +58,7 @@ func (c *Controller) process(key queueElement) error {
 				}
 			}
 			fallthrough
-		case StatusOnlyChangedAction:
+		case statusOnlyChangedAction:
 			// Set the Enforced status on the related Negotiation resources
 			// - if CRD is owned by a NegotiatedAPIResource
 			// => Set the status (Published / Refused) on the Negotiated API Resource of each CRD version
@@ -66,7 +66,7 @@ func (c *Controller) process(key queueElement) error {
 			if err := c.updatePublishingStatusOnNegotiatedAPIResources(ctx, crd.ClusterName, key.gvr, crd); err != nil {
 				return err
 			}
-		case Deleted:
+		case deletedAction:
 			// - if no NegotiatedAPIResource owner
 			// => Delete the Negotiated API Resource of each CRD version
 			//    (they will be recreated from the related APIResourceImport ojects, and if requested a CRD will be created again)
@@ -78,7 +78,7 @@ func (c *Controller) process(key queueElement) error {
 			}
 		}
 
-	case APIResourceImportType:
+	case apiResourceImportType:
 		apiResourceImport, err := c.apiResourceImportLister.Get(key.theKey)
 		if err != nil {
 			var deletedObjectExists bool
@@ -88,7 +88,7 @@ func (c *Controller) process(key queueElement) error {
 			}
 		}
 		switch key.theAction {
-		case Created, SpecChangedAction:
+		case createdAction, specChangedAction:
 			// - if strategy allows schema update of the negotiated API resource (and current negotiated API resource is not enforced)
 			// => Calculate the LCD of this APIResourceImport schema against the schema of the corresponding NegotiatedAPIResource. If not errors occur
 			//    update the NegotiatedAPIResource schema. Update the current APIResourceImport status accordingly (possibly reporting errors).
@@ -96,7 +96,7 @@ func (c *Controller) process(key queueElement) error {
 			// => Just check the compatibility of this APIResourceImport schema against the schema of the corresponding NegotiatedAPIResource.
 			//    Update the current APIResourceImport status accordingly (possibly reporting errors).
 			return c.ensureAPIResourceCompatibility(ctx, apiResourceImport.ClusterName, key.gvr, apiResourceImport, "")
-		case StatusOnlyChangedAction:
+		case statusOnlyChangedAction:
 			compatible := apiResourceImport.FindCondition(apiresourcev1alpha1.Compatible)
 			available := apiResourceImport.FindCondition(apiresourcev1alpha1.Available)
 
@@ -105,7 +105,7 @@ func (c *Controller) process(key queueElement) error {
 			if compatible == nil && available == nil {
 				return c.ensureAPIResourceCompatibility(ctx, apiResourceImport.ClusterName, key.gvr, apiResourceImport, "")
 			}
-		case Deleted:
+		case deletedAction:
 			// - If there is no other APIResourceImport for this GVR and the current negotiated API resource is not enforced
 			// => Delete the corresponding NegotiatedAPIResource
 			isOrphan, err := c.negotiatedAPIResourceIsOrphan(ctx, apiResourceImport.ClusterName, key.gvr)
@@ -120,7 +120,7 @@ func (c *Controller) process(key queueElement) error {
 			// => Calculate the LCD of all other APIResourceImports for this GVR and update the schema of the corresponding NegotiatedAPIResource.
 			return c.ensureAPIResourceCompatibility(ctx, apiResourceImport.ClusterName, key.gvr, nil, apiresourcev1alpha1.UpdatePublished)
 		}
-	case NegotiatedAPIResourceType:
+	case negotiatedAPIResourceType:
 		negotiatedApiResource, err := c.negotiatedApiResourceLister.Get(key.theKey)
 		if err != nil {
 			var deletedObjectExists bool
@@ -130,7 +130,7 @@ func (c *Controller) process(key queueElement) error {
 			}
 		}
 		switch key.theAction {
-		case Created, SpecChangedAction:
+		case createdAction, specChangedAction:
 			// if status.Enforced
 			// => Check the schema of all APIResourceImports for this GVR against the schema of the NegotiatedAPIResource, and update the
 			//    status of each one with the right Compatible condition.
@@ -156,12 +156,12 @@ func (c *Controller) process(key queueElement) error {
 			}
 			fallthrough
 
-		case StatusOnlyChangedAction:
+		case statusOnlyChangedAction:
 			// if status == Published
 			// => Udate the status of related compatible APIResourceImports, to set the `Available` condition to `true`
 			return c.updateStatusOnRelatedAPIResourceImports(ctx, negotiatedApiResource.ClusterName, key.gvr, negotiatedApiResource)
 
-		case Deleted:
+		case deletedAction:
 			// if a CRD with the same GV has a version == to the current NegotiatedAPIResource version *and* has the current object as owner:
 			// => if this CRD version is the only one, then delete the CRD
 			//    else remove this CRD version from the CRD, as well as the corresponding owner
@@ -200,7 +200,7 @@ func (c *Controller) isManuallyCreatedCRD(ctx context.Context, crd *apiextension
 // and then updates the schema of the Negotiated API Resource of each CRD version
 func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clusterName string, gvr metav1.GroupVersionResource, crd *apiextensionsv1.CustomResourceDefinition) error {
 	for _, version := range crd.Spec.Versions {
-		objects, err := c.negotiatedApiResourceIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(
+		objects, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(
 			clusterName,
 			metav1.GroupVersionResource{
 				Group:    gvr.Group,
@@ -267,7 +267,7 @@ func (c *Controller) setPublishingStatusOnNegotiatedAPIResource(ctx context.Cont
 // updatePublishingStatusOnNegotiatedAPIResources sets the status (Published / Refused) on the Negotiated API Resource of each CRD version
 func (c *Controller) updatePublishingStatusOnNegotiatedAPIResources(ctx context.Context, clusterName string, gvr metav1.GroupVersionResource, crd *apiextensionsv1.CustomResourceDefinition) error {
 	for _, version := range crd.Spec.Versions {
-		objects, err := c.negotiatedApiResourceIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(
+		objects, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(
 			clusterName,
 			metav1.GroupVersionResource{
 				Group:    gvr.Group,
@@ -312,7 +312,7 @@ func (c *Controller) deleteNegotiatedAPIResource(ctx context.Context, clusterNam
 		}
 	}
 	for _, gvrToDelete := range gvrsToDelete {
-		objs, err := c.negotiatedApiResourceIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvrToDelete))
+		objs, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvrToDelete))
 		if err != nil {
 			klog.Warningf("NegotiatedAPIResource for GVR %s could not be searched in index, and could not be deleted: %v", gvr.String(), err)
 		}
@@ -343,7 +343,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	//    Update the current APIResourceImport status accordingly (possibly reporting errors).
 
 	var negotiatedAPIResource *apiresourcev1alpha1.NegotiatedAPIResource
-	objs, err := c.negotiatedApiResourceIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
+	objs, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
 		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 		return err
@@ -356,7 +356,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	if apiResourceImport != nil {
 		apiResourcesImports = append(apiResourcesImports, apiResourceImport)
 	} else {
-		objs, err := c.apiResourceImportIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
+		objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 		if err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
@@ -584,7 +584,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 
 // negotiatedAPIResourceIsOrphan detects if there is no other APIResourceImport for this GVR and the current negotiated API resource is not enforced.
 func (c *Controller) negotiatedAPIResourceIsOrphan(ctx context.Context, clusterName string, gvr metav1.GroupVersionResource) (bool, error) {
-	objs, err := c.apiResourceImportIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
+	objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
 		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 		return false, err
@@ -594,7 +594,7 @@ func (c *Controller) negotiatedAPIResourceIsOrphan(ctx context.Context, clusterN
 		return false, nil
 	}
 
-	objs, err = c.negotiatedApiResourceIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
+	objs, err = c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
 		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 		return false, err
@@ -710,7 +710,10 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		// But to please this Kubernetes approval requirement, let's add the required annotation in imported CRDs
 		// with one of the KCP PRs that hacked Kubernetes CRD support for KCP.
 		if apihelpers.IsProtectedCommunityGroup(gvr.Group) {
-			crd.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
+			if cr.ObjectMeta.Annotations == nil {
+				cr.ObjectMeta.Annotations = map[string]string{}
+			}
+			cr.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
 		}
 
 		if _, err := c.crdClient.CustomResourceDefinitions().Create(ctx, cr, metav1.CreateOptions{}); err != nil {
@@ -788,7 +791,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 func (c *Controller) updateStatusOnRelatedAPIResourceImports(ctx context.Context, clusterName string, gvr metav1.GroupVersionResource, negotiatedApiResource *apiresourcev1alpha1.NegotiatedAPIResource) error {
 	publishedCondition := negotiatedApiResource.FindCondition(apiresourcev1alpha1.Published)
 	if publishedCondition != nil {
-		objs, err := c.apiResourceImportIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
+		objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 		if err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
@@ -812,7 +815,7 @@ func (c *Controller) updateStatusOnRelatedAPIResourceImports(ctx context.Context
 func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterName string, gvr metav1.GroupVersionResource, negotiatedApiResource *apiresourcev1alpha1.NegotiatedAPIResource) error {
 	// In any case change the status on every APIResourceImport with the same GVR, to remove Compatible and Available conditions.
 
-	objs, err := c.apiResourceImportIndexer.ByIndex(ClusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
+	objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
 		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 		return err

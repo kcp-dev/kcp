@@ -46,7 +46,7 @@ func main() {
 					return err
 				}
 
-				ioutil.WriteFile(name+".yaml", []byte(yamlBytes), os.ModePerm)
+				ioutil.WriteFile(name.String()+".yaml", []byte(yamlBytes), os.ModePerm)
 			}
 			return nil
 		},

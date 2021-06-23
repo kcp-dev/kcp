@@ -75,29 +75,3 @@ pe "kubectl get apiresourceimports -o wide"
 pe "kubectl get negotiatedapiresources -o wide"
 
 wait
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-kubectl get clusters -o wide
-
-kubectl delete clusters us-east1

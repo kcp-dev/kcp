@@ -180,7 +180,7 @@ func main() {
 							if err != nil {
 								return err
 							}
-							cluster.RegisterClusterCRD(logicalClusterConfig)
+							cluster.RegisterCRDs(logicalClusterConfig)
 						}
 						adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 						if err != nil {

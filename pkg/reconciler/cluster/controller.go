@@ -85,33 +85,12 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 	})
 	c.clusterIndexer = sif.Cluster().V1alpha1().Clusters().Informer().GetIndexer()
 
-	enqueueRelatedCluster := func(obj interface{}) {
-		var apiResourceImport *apiresourcev1alpha1.APIResourceImport
-		switch typedObj := obj.(type) {
-		case *apiresourcev1alpha1.APIResourceImport:
-			apiResourceImport = typedObj
-		case cache.DeletedFinalStateUnknown:
-			deletedImport, ok := typedObj.Obj.(*apiresourcev1alpha1.APIResourceImport)
-			if ok {
-				apiResourceImport = deletedImport
-			}
-		}
-		if apiResourceImport != nil {
-			c.enqueue(&metav1.PartialObjectMetadata{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        apiResourceImport.Name,
-					ClusterName: apiResourceImport.ClusterName,
-				},
-			})
-		}
-	}
-
 	sif.Apiresource().V1alpha1().APIResourceImports().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(_, obj interface{}) {
-			enqueueRelatedCluster(obj)
+			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			enqueueRelatedCluster(obj)
+			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
 	})
 	c.apiresourceImportIndexer = sif.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
@@ -159,6 +138,27 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	c.queue.AddRateLimited(key)
+}
+
+func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
+	var apiResourceImport *apiresourcev1alpha1.APIResourceImport
+	switch typedObj := obj.(type) {
+	case *apiresourcev1alpha1.APIResourceImport:
+		apiResourceImport = typedObj
+	case cache.DeletedFinalStateUnknown:
+		deletedImport, ok := typedObj.Obj.(*apiresourcev1alpha1.APIResourceImport)
+		if ok {
+			apiResourceImport = deletedImport
+		}
+	}
+	if apiResourceImport != nil {
+		c.enqueue(&metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        apiResourceImport.Spec.Location,
+				ClusterName: apiResourceImport.ClusterName,
+			},
+		})
+	}
 }
 
 func (c *Controller) Start(numThreads int) {
@@ -269,7 +269,11 @@ func (c *Controller) deletedCluster(obj interface{}) {
 	c.cleanup(ctx, castObj)
 }
 
-func RegisterClusterCRD(cfg *rest.Config) error {
+// RegisterCRDs registers the CRDs that are in the KCP `config/` directory
+// and are required for the Cluster controller to work correctly.
+// It is useful in all-in-one commands like the kcp, to avoid having to
+// apply them manually
+func RegisterCRDs(cfg *rest.Config) error {
 	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
 
 	files, err := ioutil.ReadDir("config/")
@@ -306,12 +310,11 @@ func RegisterClusterCRD(cfg *rest.Config) error {
 var clusterKind string = reflect.TypeOf(clusterv1alpha1.Cluster{}).Name()
 
 func ClusterAsOwnerReference(obj *clusterv1alpha1.Cluster, controller bool) metav1.OwnerReference {
-	isController := controller
 	return metav1.OwnerReference{
 		APIVersion: apiresourcev1alpha1.SchemeGroupVersion.String(),
 		Kind:       clusterKind,
 		Name:       obj.Name,
 		UID:        obj.UID,
-		Controller: &isController,
+		Controller: &controller,
 	}
 }

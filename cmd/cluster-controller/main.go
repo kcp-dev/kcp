@@ -20,7 +20,7 @@ var (
 	syncerImage     = flag.String("syncer_image", "", "Syncer image to install on clusters")
 	pullMode        = flag.Bool("pull_mode", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	pushMode        = flag.Bool("push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
-	autoPublishApis = flag.Bool("auto_publish_apis", false, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
+	autoPublishAPIs = flag.Bool("auto_publish_apis", false, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
 )
 
 func main() {
@@ -64,7 +64,7 @@ func main() {
 
 	apiresourceController := apiresource.NewController(
 		r,
-		*autoPublishApis,
+		*autoPublishAPIs,
 	)
 	apiresourceController.Start(2)
 
