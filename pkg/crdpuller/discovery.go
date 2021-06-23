@@ -37,7 +37,7 @@ import (
 type SchemaPuller interface {
 	// PullCRDs allows pulling the resources named by their plural names
 	// and make them available as CRDs in the output map.
-	PullCRDs(context context.Context, resourceNames ...string) (map[string]*apiextensionsv1.CustomResourceDefinition, error)
+	PullCRDs(context context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
 type schemaPuller struct {
@@ -85,8 +85,8 @@ func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
 // PullCRDs allows pulling the resources named by their plural names
 // and make them available as CRDs in the output map.
 // If the list of resources is empty, it will try pulling all the resources it finds.
-func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...string) (map[string]*apiextensionsv1.CustomResourceDefinition, error) {
-	crds := map[string]*apiextensionsv1.CustomResourceDefinition{}
+func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
+	crds := map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition{}
 	_, apiResourcesLists, err := sp.discoveryClient.ServerGroupsAndResources()
 	if err != nil {
 		return nil, err
@@ -121,7 +121,11 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 		}
 
 		for _, apiResource := range apiResourcesList.APIResources {
-			if !pullAllResources && !resourcesToPull.Has(apiResource.Name) {
+			groupResource := schema.GroupResource{
+				Group: gv.Group,
+				Resource: apiResource.Name,
+			}
+			if !pullAllResources && !resourcesToPull.Has(groupResource.String()) && !resourcesToPull.Has(apiResource.Name) {
 				continue
 			}
 
@@ -279,7 +283,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 			if apihelpers.IsProtectedCommunityGroup(gv.Group) {
 				crd.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
 			}
-			crds[apiResource.Name] = crd
+			crds[groupResource] = crd
 		}
 	}
 	return crds, nil

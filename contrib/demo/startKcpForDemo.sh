@@ -23,7 +23,7 @@ sleep 10
 
 echo ""
 echo "Starting Cluster Controller..."
-${KCP_ROOT}/bin/cluster-controller -push_mode=true -pull_mode=false -kubeconfig=${KUBECONFIG} deployments &> cluster-controller.log &
+${KCP_ROOT}/bin/cluster-controller -push_mode=true -pull_mode=false -auto_publish_apis=true -kubeconfig=${KUBECONFIG} deployments.apps &> cluster-controller.log &
 CC_PID=$!
 echo "Cluster Controller started: $CC_PID" 
 

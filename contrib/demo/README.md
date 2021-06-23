@@ -1,6 +1,6 @@
-# Demo components and description
+# KubeCon Demo components and description
 
-This demo shows a prototype using `kcp` to run an simple application across multiple clusters.
+The `kubecon` demo shows a prototype using `kcp` to run a simple application across multiple clusters.
 
 ## `kcp`
 

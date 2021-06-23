@@ -10,13 +10,28 @@ metadata:
 spec:
   group: cluster.example.dev
   names:
+    categories:
+    - kcp
     kind: Cluster
     listKind: ClusterList
     plural: clusters
     singular: cluster
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.name
+      name: Location
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      priority: 2
+      type: string
+    - jsonPath: .status.syncedResources
+      name: Synced API resources
+      priority: 3
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -63,6 +78,10 @@ spec:
                   - status
                   - type
                   type: object
+                type: array
+              syncedResources:
+                items:
+                  type: string
                 type: array
             type: object
         type: object

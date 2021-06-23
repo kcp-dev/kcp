@@ -21,7 +21,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -52,8 +53,14 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=cluster.example.dev, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("clusters"):
+	// Group=apiresource.kcp.dev, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().APIResourceImports().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()}, nil
+
+		// Group=cluster.example.dev, Version=v1alpha1
+	case clusterv1alpha1.SchemeGroupVersion.WithResource("clusters"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cluster().V1alpha1().Clusters().Informer()}, nil
 
 	}

@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-GOPATH=$(go env GOPATH)
+export GOPATH=$(go env GOPATH)
 if [[ -x "${GOPATH}/bin/controller-gen" ]]
 then
     version=$(${GOPATH}/bin/controller-gen --version | sed -e 's/Version: v0\.\(5\)\../\1/')
@@ -24,8 +24,8 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
-  "cluster:v1alpha1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt
+  "cluster:v1alpha1 apiresource:v1alpha1" \
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt --output-base ${GOPATH}/src
 
 # Update generated CRD YAML
-${GOPATH}/bin/controller-gen crd:trivialVersions=true,preserveUnknownFields=false rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/
+${GOPATH}/bin/controller-gen crd:preserveUnknownFields=false rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/

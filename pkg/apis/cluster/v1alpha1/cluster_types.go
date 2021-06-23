@@ -28,7 +28,10 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,categories=kcp
+// +kubebuilder:printcolumn:name="Location",type="string",JSONPath=`.metadata.name`,priority=1
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`,priority=2
+// +kubebuilder:printcolumn:name="Synced API resources",type="string",JSONPath=`.status.syncedResources`,priority=3
 
 type Cluster struct {
 	metav1.TypeMeta `json:",inline"`
@@ -52,6 +55,9 @@ type ClusterSpec struct {
 // ClusterStatus communicates the observed state of the Cluster (from the controller).
 type ClusterStatus struct {
 	Conditions Conditions `json:"conditions,omitempty"`
+
+	// +optional
+	SyncedResources []string `json:"syncedResources,omitempty"`
 }
 
 func (cs *ClusterStatus) SetConditionReady(status corev1.ConditionStatus, reason, message string) {
