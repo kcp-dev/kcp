@@ -500,17 +500,14 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 			}
 
 			apiResourceImport = apiResourceImport.DeepCopy()
-			lcd, errs := schemacompat.EnsureStructuralSchemaCompatibility(field.NewPath(newNegotiatedAPIResource.Spec.Kind), negotiatedSchema, importSchema, allowUpdateNegotiatedSchema)
-			if errs != nil {
-				var message string
-				for _, err := range errs.Errors() {
-					message = message + err.Error() + "\n"
-				}
+			lcd, err := schemacompat.EnsureStructuralSchemaCompatibility(field.NewPath(newNegotiatedAPIResource.Spec.Kind), negotiatedSchema, importSchema, allowUpdateNegotiatedSchema)
+			if err != nil {
 				apiResourceImport.SetCondition(apiresourcev1alpha1.APIResourceImportCondition{
-					Type:    apiresourcev1alpha1.Compatible,
-					Status:  metav1.ConditionFalse,
-					Reason:  "IncompatibleSchema",
-					Message: message,
+					Type:   apiresourcev1alpha1.Compatible,
+					Status: metav1.ConditionFalse,
+					Reason: "IncompatibleSchema",
+					// TODO: improve error message.
+					Message: err.Error(),
 				})
 			} else {
 				apiResourceImport.SetCondition(apiresourcev1alpha1.APIResourceImportCondition{

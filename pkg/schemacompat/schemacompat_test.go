@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -14,7 +14,7 @@ func TestCompatibility(t *testing.T) {
 		desc                   string
 		existing, new, wantLCD *apiextensionsv1.JSONSchemaProps
 		narrowExisting         bool
-		wantErr                utilerrors.Aggregate
+		wantErr                error
 	}{{
 		desc: "new has more properties",
 		existing: &apiextensionsv1.JSONSchemaProps{
@@ -52,10 +52,10 @@ func TestCompatibility(t *testing.T) {
 				"existing": {Type: "string"},
 			},
 		},
-		wantErr: utilerrors.NewAggregate([]error{field.Invalid(
+		wantErr: field.Invalid(
 			field.NewPath("schema", "openAPISchema").Child("properties"),
 			[]string{"new"},
-			"properties have been removed in an incompatible way")}),
+			"properties have been removed in an incompatible way"),
 	}, {
 		desc: "new has fewer properties, narrow existing",
 		existing: &apiextensionsv1.JSONSchemaProps{
@@ -161,10 +161,10 @@ func TestCompatibility(t *testing.T) {
 				},
 			},
 		},
-		wantErr: utilerrors.NewAggregate([]error{field.Invalid(
+		wantErr: field.Invalid(
 			field.NewPath("schema", "openAPISchema").Child("properties").Key("prop2").Child("properties"),
 			[]string{"subProp2"},
-			"properties have been removed in an incompatible way")}),
+			"properties have been removed in an incompatible way"),
 	}, {
 		desc: "new allows any property of a schema",
 		existing: &apiextensionsv1.JSONSchemaProps{
