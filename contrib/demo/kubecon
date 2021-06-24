@@ -22,12 +22,13 @@ function pause() {
   fi
 }
 
-export KUBECONFIG=${ROOT_DIR}/.kcp/data/admin.kubeconfig
+export KUBECONFIG=${KUBECONFIG:-${ROOT_DIR}/.kcp/data/admin.kubeconfig}
 if ! kubectl get namespaces &>/dev/null; then
   echo "kcp server not started, run 'bin/kcp start'"
+  exit 1
 fi
 
-kubectl config use-context admin
+kubectl config use-context admin  &>/dev/null
 
 clear
 
@@ -53,16 +54,19 @@ clear
 
 pe "kubectl config use-context admin"
 
-pe "kubectl apply -f ${ROOT_DIR}/config/cluster.example.dev_clusters.yaml"
+pe "kubectl apply -f ${ROOT_DIR}/config"
+
+kubectl wait crd/clusters.cluster.example.dev --for condition=established &>/dev/null
+kubectl wait crd/negotiatedapiresources.apiresource.kcp.dev --for condition=established &>/dev/null
+kubectl wait crd/apiresourceimports.apiresource.kcp.dev --for condition=established &>/dev/null
 
 pe "head -n 15 ${CLUSTERS_DIR}/us-west1.yaml"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"
 pe "head -n 15 ${CLUSTERS_DIR}/us-east1.yaml"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-east1.yaml"
 
-kubectl wait crd/deployments.apps --for condition=established &>/dev/null
-kubectl wait apiservices/v1.apps --for condition=available &>/dev/null
-pause 5
+pe "kubectl wait cluster/us-west1 --for condition=Ready --timeout=60s"
+pe "kubectl wait cluster/us-east1 --for condition=Ready --timeout=60s"
 
 pe "kubectl api-resources"
 
@@ -71,23 +75,15 @@ pe "cat ${DEMO_DIR}/deployment.yaml"
 
 pe "kubectl apply -f ${DEMO_DIR}/deployment.yaml -n demo"
 
-pe "kubectl get deployments -n demo"
+until [[ "$(kubectl get deployments/my-deployment -n demo -o=jsonpath='{.status.updatedReplicas}')" == "10" ]]; do sleep 3; done
 
 pe "kubectl get deployments -n demo"
-# Expected result:
-# NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
-# my-deployment            8/15    8            8           10s
-# my-deployment--us-east1  1/6     1            1           3s
-# my-deployment--us-west1  7/9     7            7           3s
+
+pe "kubectl wait deployments --all -n demo --for=condition=Available --timeout=180s"
+sleep 10
 
 pe "kubectl get deployments -n demo"
-# Expected result:
-# NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
-# my-deployment            15/15   15           15          14s
-# my-deployment--us-east1  6/6     6            6           7s
-# my-deployment--us-west1  9/9     9            9           7s
-# EOF
 
 pe "kubectl get pods"
 
-wait
+pause

@@ -23,18 +23,20 @@ PROMPT_TIMEOUT=0
 # don't show command number unless user specifies it
 SHOW_CMD_NUMS=false
 
-
-# handy color vars for pretty prompts
-BLACK="\033[0;30m"
-BLUE="\033[0;34m"
-GREEN="\033[0;32m"
-GREY="\033[0;90m"
-CYAN="\033[0;36m"
-RED="\033[0;31m"
-PURPLE="\033[0;35m"
-BROWN="\033[0;33m"
-WHITE="\033[1;37m"
-COLOR_RESET="\033[0m"
+if [[ "${NO_COLORS}" != "true" ]]
+then
+  # handy color vars for pretty prompts
+  BLACK="\033[0;30m"
+  BLUE="\033[0;34m"
+  GREEN="\033[0;32m"
+  GREY="\033[0;90m"
+  CYAN="\033[0;36m"
+  RED="\033[0;31m"
+  PURPLE="\033[0;35m"
+  BROWN="\033[0;33m"
+  WHITE="\033[1;37m"
+  COLOR_RESET="\033[0m"
+fi
 
 C_NUM=0
 
@@ -163,7 +165,7 @@ function pei {
 function cmd() {
   # render the prompt
   x=$(PS1="$DEMO_PROMPT" "$BASH" --norc -i </dev/null 2>&1 | sed -n '${s/^\(.*\)exit$/\1/p;}')
-  printf "$x\033[0m"
+  printf "$x$COLOR_RESET"
   read command
   run_cmd "${command}"
 }
@@ -174,9 +176,9 @@ function run_cmd() {
   }
 
   trap handle_cancel SIGINT
-  stty -echoctl
+  if [[ "$NO_COLORS" == "" ]]; then stty -echoctl ; fi
   eval "$@"
-  stty echoctl
+  if [[ "$NO_COLORS" == "" ]]; then stty echoctl ; fi
   trap - SIGINT
 }
 

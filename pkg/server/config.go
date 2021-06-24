@@ -33,7 +33,7 @@ func DefaultConfig() *Config {
 		Listen:                   ":6443",
 		PullMode:                 false,
 		PushMode:                 false,
-		ResourcesToSync:          []string{"pods", "deployments.apps"},
+		ResourcesToSync:          []string{"deployments.apps"},
 		RootDirectory:            ".kcp",
 		SyncerImage:              "quay.io/kcp-dev/kcp-syncer",
 	}
@@ -93,7 +93,7 @@ func ConfigFromFlags(flags *pflag.FlagSet) *Config {
 func AddConfigFlags(flags *pflag.FlagSet) {
 	flags.AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
 	flags.String("syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
-	flags.StringArray("resources_to_sync", []string{"pods", "deployments.apps"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	flags.StringArray("resources_to_sync", []string{"deployments.apps"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	flags.Bool("install_cluster_controller", false, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
 	flags.Bool("pull_mode", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	flags.Bool("push_mode", false, "If true, run syncer for each cluster from inside cluster controller")

@@ -1,0 +1,26 @@
+wait_command() {
+  local command="$1"; shift
+  local wait_seconds="${1:-40}"; shift # 40 seconds as default timeout
+
+  until [[ $((wait_seconds--)) -eq 0 ]] || eval "$command &> /dev/null" ; do sleep 1; done
+
+  ((++wait_seconds))
+}
+
+cleanup() {
+    echo "Cleaning processes started by $1" 
+    # kill all processes whose parent is this process
+    pkill -P $$
+    eval "$2"
+}
+
+setupTraps() {
+  for sig in INT QUIT HUP TERM; do
+    trap "
+      cleanup $1
+      trap - $sig EXIT
+      kill -s $sig "'"$$"' "$sig"
+  done
+  trap "cleanup $1" EXIT
+}
+

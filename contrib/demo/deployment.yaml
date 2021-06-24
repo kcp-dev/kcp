@@ -3,7 +3,11 @@ kind: Deployment
 metadata:
   name: my-deployment
 spec:
-  replicas: 15
+  replicas: 14
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: app
