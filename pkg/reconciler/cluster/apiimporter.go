@@ -33,7 +33,7 @@ func (c *Controller) StartAPIImporter(config *rest.Config, location string, logi
 		context:            request.WithCluster(context.Background(), request.Cluster{Name: logicalClusterName}),
 	}
 
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(pollInterval)
 	apiImporter.done = make(chan bool)
 
 	var err error
@@ -140,7 +140,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("error creating APIResourceImport %s: the object retrieved from the cluster index for location %s in logical cluster %s should be a cluster object, but is of type: %T", apiResourceImportName, i.location, i.logicalClusterName, clusterObj)
 				continue
 			}
-			groupVersion :=  apiresourcev1alpha1.GroupVersion{
+			groupVersion := apiresourcev1alpha1.GroupVersion{
 				Group:   gvr.Group,
 				Version: gvr.Version,
 			}
