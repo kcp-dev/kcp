@@ -47,6 +47,7 @@ func main() {
 	if len(resourcesToSync) == 0 {
 		resourcesToSync = []string{"pods", "deployments.apps"}
 	}
+	klog.Infof("Syncing resources: %v", resourcesToSync)
 
 	if *pullMode && *pushMode {
 		klog.Fatal("can't set --push_mode and --pull_mode")

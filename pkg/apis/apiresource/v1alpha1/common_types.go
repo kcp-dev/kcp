@@ -25,6 +25,7 @@ import (
 )
 
 const APIVersionAnnotation = "apiresource.kcp.dev/apiVersion"
+
 type ColumnDefinition struct {
 	metav1.TableColumnDefinition `json:",inline"`
 
@@ -100,6 +101,7 @@ func (sr *SubResources) ImportFromCRDVersion(crdVersion *apiextensionsv1.CustomR
 }
 
 type GroupVersion struct {
+	// +optional
 	Group   string `json:"group"`
 	Version string `json:"version"`
 }
