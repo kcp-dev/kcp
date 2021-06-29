@@ -155,8 +155,8 @@ const (
 	specChangedAction             queueElementAction = "SpecChanged"
 	statusOnlyChangedAction       queueElementAction = "StatusOnlyChanged"
 	annotationOrLabelsOnlyChanged queueElementAction = "AnnotationOrLabelsOnlyChanged"
-	deletedAction                       queueElementAction = "Deleted"
-	createdAction                       queueElementAction = "Created"
+	deletedAction                 queueElementAction = "Deleted"
+	createdAction                 queueElementAction = "Created"
 )
 
 type resourceHandlerAction string

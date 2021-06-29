@@ -1,14 +1,14 @@
-name: Build
+name: CI
 
 on:
   push:
-    branches: [ 'main' ]
+    branches: ['main']
   pull_request:
-    branches: [ 'main' ]
+    branches: ['main']
 
 jobs:
-  test:
-    name: Build
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -16,5 +16,17 @@ jobs:
       with:
         go-version: v1.16
 
+    # Check gofmt, but proceed if gofmt failed (fail later).
+    - name: Check gofmt
+      continue-on-error: true
+      run: |
+        gofmt -s -d \
+          $(find . \
+            -path './vendor' -prune \
+            -o -type f -name '*.go' -print)
+
     - run: make build
 
+    # If gofmt check failed but build didn't, fail the job.
+    - if: ${{ failure() }}
+      run: echo "A previous step failed"; exit 1

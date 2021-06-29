@@ -25,6 +25,7 @@ import (
 )
 
 const APIVersionAnnotation = "apiresource.kcp.dev/apiVersion"
+
 type ColumnDefinition struct {
 	metav1.TableColumnDefinition `json:",inline"`
 

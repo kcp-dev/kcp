@@ -122,7 +122,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 
 		for _, apiResource := range apiResourcesList.APIResources {
 			groupResource := schema.GroupResource{
-				Group: gv.Group,
+				Group:    gv.Group,
 				Resource: apiResource.Name,
 			}
 			if !pullAllResources && !resourcesToPull.Has(groupResource.String()) && !resourcesToPull.Has(apiResource.Name) {

@@ -75,7 +75,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 		if apiResourceImport.IsConditionTrue(apiresourcev1alpha1.Compatible) && apiResourceImport.IsConditionTrue(apiresourcev1alpha1.Available) {
 			apiGroups.Insert(apiResourceImport.Spec.GroupVersion.APIGroup())
 			groupResources.Insert(schema.GroupResource{
-				Group: apiResourceImport.Spec.GroupVersion.APIGroup(),
+				Group:    apiResourceImport.Spec.GroupVersion.APIGroup(),
 				Resource: apiResourceImport.Spec.Plural,
 			}.String())
 		}

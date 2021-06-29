@@ -168,7 +168,7 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error
 		for _, ai := range r.APIResources {
 			var willBeSynced string
 			groupResource := schema.GroupResource{
-				Group: groupVersion.Group,
+				Group:    groupVersion.Group,
 				Resource: ai.Name,
 			}
 
