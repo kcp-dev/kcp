@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"time"
 
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -11,10 +10,7 @@ import (
 	"k8s.io/klog"
 )
 
-const (
-	resyncPeriod = time.Hour
-	numThreads   = 2
-)
+const numThreads = 2
 
 var (
 	fromKubeconfig = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster")

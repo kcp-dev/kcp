@@ -312,8 +312,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 
 	if !exists {
 		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, name)
-		c.deleteFn(c, ctx, gvr, namespace, name)
-		return nil
+		return c.deleteFn(c, ctx, gvr, namespace, name)
 	}
 
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)

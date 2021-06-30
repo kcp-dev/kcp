@@ -60,13 +60,19 @@ func main() {
 		syncerMode = cluster.SyncerModePush
 	}
 
-	clusterController := cluster.NewController(r, *syncerImage, kubeconfig, resourcesToSync, syncerMode)
+	clusterController, err := cluster.NewController(r, *syncerImage, kubeconfig, resourcesToSync, syncerMode)
+	if err != nil {
+		klog.Fatal(err)
+	}
 	clusterController.Start(numThreads)
 
-	apiresourceController := apiresource.NewController(
+	apiresourceController, err := apiresource.NewController(
 		r,
 		*autoPublishAPIs,
 	)
+	if err != nil {
+		klog.Fatal(err)
+	}
 	apiresourceController.Start(2)
 
 	go func() {

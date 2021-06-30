@@ -173,14 +173,16 @@ func main() {
 				}
 
 				if installClusterController {
-					server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+					if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
 						// Register the `clusters` CRD in both the admin and user logical clusters
 						for contextName := range clientConfig.Contexts {
 							logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 							if err != nil {
 								return err
 							}
-							cluster.RegisterCRDs(logicalClusterConfig)
+							if err := cluster.RegisterCRDs(logicalClusterConfig); err != nil {
+								return err
+							}
 						}
 						adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 						if err != nil {
@@ -209,23 +211,31 @@ func main() {
 						}
 
 						clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
-						clusterController := cluster.NewController(
+						clusterController, err := cluster.NewController(
 							adminConfig,
 							syncerImage,
 							*kubeconfig,
 							resourcesToSync,
 							syncerMode,
 						)
+						if err != nil {
+							return err
+						}
 						clusterController.Start(2)
 
-						apiresourceController := apiresource.NewController(
+						apiresourceController, err := apiresource.NewController(
 							adminConfig,
 							autoPublishAPIs,
 						)
+						if err != nil {
+							return err
+						}
 						apiresourceController.Start(2)
 
 						return nil
-					})
+					}); err != nil {
+						return err
+					}
 				}
 
 				prepared := server.PrepareRun()

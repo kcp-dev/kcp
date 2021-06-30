@@ -100,13 +100,13 @@ func (i *APIImporter) ImportAPIs() {
 		if len(objs) == 1 {
 			apiResourceImport := objs[0].(*apiresourcev1alpha1.APIResourceImport)
 			apiResourceImport.ClusterName = i.logicalClusterName
-			apiResourceImport.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema)
-			_, err := i.c.apiResourceClient.APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{})
-			if err != nil {
-				if err != nil {
-					klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
-					continue
-				}
+			if err := apiResourceImport.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema); err != nil {
+				klog.Errorf("Error setting schema: %v", err)
+				continue
+			}
+			if _, err := i.c.apiResourceClient.APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
+				continue
 			}
 		} else {
 			apiResourceImportName := gvr.Resource + "." + i.location + "." + gvr.Version + "."
@@ -170,7 +170,10 @@ func (i *APIImporter) ImportAPIs() {
 					},
 				},
 			}
-			apiResourceImport.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema)
+			if err := apiResourceImport.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema); err != nil {
+				klog.Errorf("Error setting schema: %v", err)
+				continue
+			}
 			if _, err := i.c.apiResourceClient.APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue

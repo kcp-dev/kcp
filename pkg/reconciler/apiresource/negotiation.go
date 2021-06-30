@@ -217,16 +217,16 @@ func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clus
 				Type:   apiresourcev1alpha1.Enforced,
 				Status: metav1.ConditionTrue,
 			})
-			negotiatedAPIResource, err = c.apiresourceClient.NegotiatedAPIResources().UpdateStatus(ctx, negotiatedAPIResource, metav1.UpdateOptions{})
-			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			if _, err := c.apiresourceClient.NegotiatedAPIResources().UpdateStatus(ctx, negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
+				klog.Errorf("Error updating NegotiatedAPIResource status: %v", err)
 				return err
 			}
 			// TODO: manage the case when the manually applied CRD has no schema or an invalid schema...
-			negotiatedAPIResource.Spec.CommonAPIResourceSpec.SetSchema(version.Schema.OpenAPIV3Schema)
-			negotiatedAPIResource, err = c.apiresourceClient.NegotiatedAPIResources().Update(ctx, negotiatedAPIResource, metav1.UpdateOptions{})
-			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			if err := negotiatedAPIResource.Spec.CommonAPIResourceSpec.SetSchema(version.Schema.OpenAPIV3Schema); err != nil {
+				return err
+			}
+			if _, err := c.apiresourceClient.NegotiatedAPIResources().Update(ctx, negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
+				klog.Errorf("Error updating NegotiatedAPIResource: %v", err)
 				return err
 			}
 		}
@@ -370,11 +370,11 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		return nil
 	}
 
-	negociatedAPIResourceName := gvr.Resource + "." + gvr.Version + "."
+	negotiatedAPIResourceName := gvr.Resource + "." + gvr.Version + "."
 	if gvr.Group == "" {
-		negociatedAPIResourceName = negociatedAPIResourceName + "core"
+		negotiatedAPIResourceName = negotiatedAPIResourceName + "core"
 	} else {
-		negociatedAPIResourceName = negociatedAPIResourceName + gvr.Group
+		negotiatedAPIResourceName = negotiatedAPIResourceName + gvr.Group
 	}
 
 	var newNegotiatedAPIResource *apiresourcev1alpha1.NegotiatedAPIResource
@@ -423,7 +423,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 			}
 			newNegotiatedAPIResource = &apiresourcev1alpha1.NegotiatedAPIResource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        negociatedAPIResourceName,
+					Name:        negotiatedAPIResourceName,
 					ClusterName: clusterName,
 					Annotations: map[string]string{
 						apiresourcev1alpha1.APIVersionAnnotation: groupVersion.APIVersion(),
@@ -440,7 +440,9 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 					Publish: true,
 				},
 			}
-			newNegotiatedAPIResource.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema)
+			if err := newNegotiatedAPIResource.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema); err != nil {
+				return err
+			}
 			newNegotiatedAPIResource.SetCondition(apiresourcev1alpha1.NegotiatedAPIResourceCondition{
 				Type:   apiresourcev1alpha1.Published,
 				Status: metav1.ConditionTrue,
@@ -458,7 +460,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		if newNegotiatedAPIResource == nil {
 			newNegotiatedAPIResource = &apiresourcev1alpha1.NegotiatedAPIResource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        negociatedAPIResourceName,
+					Name:        negotiatedAPIResourceName,
 					ClusterName: clusterName,
 					Annotations: map[string]string{
 						apiresourcev1alpha1.APIVersionAnnotation: apiResourceImport.Spec.CommonAPIResourceSpec.GroupVersion.APIVersion(),
@@ -526,7 +528,9 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 					})
 				}
 				if allowUpdateNegotiatedSchema {
-					newNegotiatedAPIResource.Spec.SetSchema(lcd)
+					if err := newNegotiatedAPIResource.Spec.SetSchema(lcd); err != nil {
+						return err
+					}
 					updatedNegotiatedSchema = true
 				}
 			}

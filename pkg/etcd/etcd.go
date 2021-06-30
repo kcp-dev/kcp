@@ -90,7 +90,7 @@ func (s *Server) Run(fn func(ClientInfo) error) error {
 	case <-time.After(60 * time.Second):
 		e.Server.Stop() // trigger a shutdown
 		return fmt.Errorf("server took too long to start")
-	case e, _ := <-e.Err():
+	case e := <-e.Err():
 		return e
 	}
 }

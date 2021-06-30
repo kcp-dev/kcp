@@ -22,10 +22,6 @@ const (
 	numSyncerThreads = 2
 )
 
-func clusterOriginLabel(clusterID string) string {
-	return "imported-from/" + clusterID
-}
-
 func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Cluster) error {
 	klog.Infof("reconciling cluster %q", cluster.Name)
 
