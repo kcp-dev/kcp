@@ -16,7 +16,7 @@ jobs:
       with:
         go-version: v1.16
 
-    # Check gofmt, but proceed if gofmt failed (fail later).
+    # Check gofmt and lint, but proceed if they fail (we'll fail later).
     - name: Check gofmt
       continue-on-error: true
       run: |
@@ -24,9 +24,13 @@ jobs:
           $(find . \
             -path './vendor' -prune \
             -o -type f -name '*.go' -print)
+    - uses: golangci/golangci-lint-action@v2
+      continue-on-error: true
 
+    # Build and test.
     - run: make build
+    - run: go test -race ./...
 
-    # If gofmt check failed but build didn't, fail the job.
+    # If gofmt or lint checks failed, fail the job.
     - if: ${{ failure() }}
       run: echo "A previous step failed"; exit 1
