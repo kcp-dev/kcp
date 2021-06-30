@@ -100,7 +100,7 @@ type NegotiatedAPIResourceCondition struct {
 
 // NegotiatedAPIResourceStatus communicates the observed state of the NegotiatedAPIResource (from the controller).
 type NegotiatedAPIResourceStatus struct {
-	Conditions  []NegotiatedAPIResourceCondition `json:"conditions,omitempty"`
+	Conditions []NegotiatedAPIResourceCondition `json:"conditions,omitempty"`
 }
 
 // NegotiatedAPIResourceList is a list of NegotiatedAPIResource resources

@@ -139,7 +139,7 @@ type APIResourceImportCondition struct {
 
 // APIResourceImportStatus communicates the observed state of the APIResourceImport (from the controller).
 type APIResourceImportStatus struct {
-	Conditions  []APIResourceImportCondition `json:"conditions,omitempty"`
+	Conditions []APIResourceImportCondition `json:"conditions,omitempty"`
 }
 
 // APIResourceImportList is a list of APIResourceImport resources

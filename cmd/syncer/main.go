@@ -70,7 +70,7 @@ func main() {
 		klog.Fatal(err)
 	}
 	klog.Infoln("Starting workers")
-	
+
 	syncer.WaitUntilDone()
 	klog.Infoln("Stopping workers")
 }

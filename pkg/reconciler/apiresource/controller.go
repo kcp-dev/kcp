@@ -155,8 +155,8 @@ const (
 	specChangedAction             queueElementAction = "SpecChanged"
 	statusOnlyChangedAction       queueElementAction = "StatusOnlyChanged"
 	annotationOrLabelsOnlyChanged queueElementAction = "AnnotationOrLabelsOnlyChanged"
-	deletedAction                       queueElementAction = "Deleted"
-	createdAction                       queueElementAction = "Created"
+	deletedAction                 queueElementAction = "Deleted"
+	createdAction                 queueElementAction = "Created"
 )
 
 type resourceHandlerAction string
@@ -338,7 +338,7 @@ func (c *Controller) handleErr(err error, key queueElement) {
 	// Re-enqueue up to 5 times.
 	num := c.queue.NumRequeues(key)
 	if errors.IsRetryable(err) || num < 5 {
-		klog.Info("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
+		klog.Infof("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
 		c.queue.AddRateLimited(key)
 		return
 	}

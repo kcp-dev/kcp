@@ -431,7 +431,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 				},
 				Spec: apiresourcev1alpha1.NegotiatedAPIResourceSpec{
 					CommonAPIResourceSpec: apiresourcev1alpha1.CommonAPIResourceSpec{
-						GroupVersion: groupVersion,
+						GroupVersion:                  groupVersion,
 						Scope:                         crd.Spec.Scope,
 						CustomResourceDefinitionNames: crd.Spec.Names,
 						SubResources:                  *(&apiresourcev1alpha1.SubResources{}).ImportFromCRDVersion(crdVersion),
@@ -640,12 +640,12 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 			continue
 		}
 		crColumnDefinitions = append(crColumnDefinitions, apiextensionsv1.CustomResourceColumnDefinition{
-			Name: columDefinition.Name,
-			Type: columDefinition.Type,
-			Format: columDefinition.Format,			
-			Description: columDefinition.Description,			
-			Priority: columDefinition.Priority,
-			JSONPath: *columDefinition.JSONPath,			
+			Name:        columDefinition.Name,
+			Type:        columDefinition.Type,
+			Format:      columDefinition.Format,
+			Description: columDefinition.Description,
+			Priority:    columDefinition.Priority,
+			JSONPath:    *columDefinition.JSONPath,
 		})
 	}
 
@@ -656,7 +656,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		Schema: &apiextensionsv1.CustomResourceValidation{
 			OpenAPIV3Schema: negotiatedSchema,
 		},
-		Subresources: &subResources,
+		Subresources:             &subResources,
 		AdditionalPrinterColumns: crColumnDefinitions,
 	}
 
@@ -697,7 +697,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 				},
 			},
 		}
-		
+
 		apiextensionsv1.SetDefaults_CustomResourceDefinition(cr)
 
 		// In Kubernetes, to make it clear to the API consumer that APIs in *.k8s.io or *.kubernetes.io domains

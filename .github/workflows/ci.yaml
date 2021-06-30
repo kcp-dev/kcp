@@ -1,14 +1,49 @@
-name: Build
+name: CI
 
 on:
   push:
-    branches: [ 'main' ]
+    branches: ['main']
   pull_request:
-    branches: [ 'main' ]
+    branches: ['main']
 
 jobs:
-  test:
-    name: Build
+  gofmt:
+    name: gofmt
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: v1.16
+    - name: Check gofmt
+      continue-on-error: true
+      run: |
+        gofmt -s -d \
+          $(find . \
+            -path './vendor' -prune \
+            -o -type f -name '*.go' -print)
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: v1.16
+    - uses: golangci/golangci-lint-action@v2
+      continue-on-error: true
+
+  misspell:
+    name: misspell
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: reviewdog/action-misspell@v1
+
+
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -17,4 +52,4 @@ jobs:
         go-version: v1.16
 
     - run: make build
-
+    - run: go test -race ./...
