@@ -109,7 +109,7 @@ func upsertIntoDownstream(c *Controller, ctx context.Context, gvr schema.GroupVe
 
 	if _, err := client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			klog.Error("Creating resource %s/%s: %v", namespace, unstrob.GetName(), err)
+			klog.Errorf("Creating resource %s/%s: %v", namespace, unstrob.GetName(), err)
 			return err
 		}
 

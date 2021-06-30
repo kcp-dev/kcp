@@ -140,7 +140,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				return nil // Don't retry.
 			}
 			if err := installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, groupResources.List()); err != nil {
-				klog.Error("error installing syncer: %v", err)
+				klog.Errorf("error installing syncer: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
 					"ErrorInstallingSyncer",
 					fmt.Sprintf("Error installing syncer: %v", err))

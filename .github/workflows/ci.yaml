@@ -7,16 +7,14 @@ on:
     branches: ['main']
 
 jobs:
-  ci:
-    name: CI
+  gofmt:
+    name: gofmt
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
         go-version: v1.16
-
-    # Check gofmt and lint, but proceed if they fail (we'll fail later).
     - name: Check gofmt
       continue-on-error: true
       run: |
@@ -24,13 +22,34 @@ jobs:
           $(find . \
             -path './vendor' -prune \
             -o -type f -name '*.go' -print)
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: v1.16
     - uses: golangci/golangci-lint-action@v2
       continue-on-error: true
 
-    # Build and test.
+  misspell:
+    name: misspell
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: reviewdog/action-misspell@v1
+
+
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: v1.16
+
     - run: make build
     - run: go test -race ./...
-
-    # If gofmt or lint checks failed, fail the job.
-    - if: ${{ failure() }}
-      run: echo "A previous step failed"; exit 1
