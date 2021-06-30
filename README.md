@@ -116,3 +116,4 @@ You can reach us here, in this repository via [issues](https://github.com/kcp-de
 - [KubeCon EU 2021: Kubernetes as the Hybrid Cloud Control Plane Keynote - Clayton Coleman (video)](https://www.youtube.com/watch?v=oaPBYUfdFE8)
 - [OpenShift Commons: Kubernetes as the Control Plane for the Hybrid Cloud - Clayton Coleman (video)](https://www.youtube.com/watch?v=Y3Y11Aj_01I)
 - [TGI Kubernetes 157: Exploring kcp: apiserver without Kubernetes](https://youtu.be/FD_kY3Ey2pI)
+- [K8s SIG Architecture meeting discussing kcp, June 29 2021](https://www.youtube.com/watch?v=YrdAYoo-UQQ)
