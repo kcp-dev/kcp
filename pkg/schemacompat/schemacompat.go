@@ -32,8 +32,12 @@ import (
 // is a sub-schema of the new schema.
 func EnsureStructuralSchemaCompatibility(fldPath *field.Path, existing, new *apiextensionsv1.JSONSchemaProps, narrowExisting bool) (*apiextensionsv1.JSONSchemaProps, error) {
 	var newInternal, existingInternal apiextensions.JSONSchemaProps
-	apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(existing, &existingInternal, nil)
-	apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(new, &newInternal, nil)
+	if err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(existing, &existingInternal, nil); err != nil {
+		return nil, err
+	}
+	if err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(new, &newInternal, nil); err != nil {
+		return nil, err
+	}
 	newStrucural, err := schema.NewStructural(&newInternal)
 	if err != nil {
 		return nil, err
@@ -61,14 +65,14 @@ func EnsureStructuralSchemaCompatibility(fldPath *field.Path, existing, new *api
 
 func checkTypesAreTheSame(fldPath *field.Path, existing, new *schema.Structural) error {
 	if new.Type != existing.Type {
-		return field.Invalid(fldPath.Child("type"), new.Type, "The type of the should not be changed")
+		return field.Invalid(fldPath.Child("type"), new.Type, fmt.Sprintf("The type changed (was %q, now %q)", existing.Type, new.Type))
 	}
 	return nil
 }
 
 func checkUnsupportedValidation(fldPath *field.Path, existing, new interface{}, validationName, typeName string) error {
 	if !reflect.ValueOf(existing).IsZero() || !reflect.ValueOf(new).IsZero() {
-		return field.Forbidden(fldPath, fmt.Sprintf("The '%s' JSON Schema construct is not supported by the Schema negotiation for type '%s'", validationName, typeName))
+		return field.Forbidden(fldPath, fmt.Sprintf("The %q JSON Schema construct is not supported by the Schema negotiation for type %q", validationName, typeName))
 	}
 	return nil
 }
@@ -131,8 +135,8 @@ func lcdForStructural(fldPath *field.Path, existing, new *schema.Structural, lcd
 	if new == nil {
 		return field.Invalid(fldPath, nil, "new schema doesn't allow anything")
 	}
-	if existing.XPreserveUnknownFields != new.XPreserveUnknownFields {
-		return field.Invalid(fldPath.Child("x-preserve-unknown-fields"), new.XPreserveUnknownFields, "x-preserve-unknown-fields value has been changed in an incompatible way")
+	if was, now := existing.XPreserveUnknownFields, new.XPreserveUnknownFields; was != now {
+		return field.Invalid(fldPath.Child("x-kubernetes-preserve-unknown-fields"), new.XPreserveUnknownFields, fmt.Sprintf("x-kubernetes-preserve-unknown-fields value changed (was %t, now %t)", was, now))
 	}
 
 	switch existing.Type {
