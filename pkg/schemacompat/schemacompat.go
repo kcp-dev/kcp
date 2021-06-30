@@ -118,7 +118,8 @@ func checkUnsupportedValidationForNumerics(fldPath *field.Path, existing, new *s
 		!floatPointersEqual(new.Minimum, existing.Minimum) ||
 		new.ExclusiveMaximum != existing.ExclusiveMaximum ||
 		new.ExclusiveMinimum != existing.ExclusiveMinimum {
-		err = multierr.Combine(err,
+		err = multierr.Combine(
+			err,
 			checkUnsupportedValidation(fldPath, existing.Maximum, new.Maximum, "maximum", typeName),
 			checkUnsupportedValidation(fldPath, existing.Minimum, new.Minimum, "minimum", typeName))
 	}
@@ -207,7 +208,8 @@ func lcdForStringValidation(fldPath *field.Path, existing, new, lcd *schema.Valu
 		checkUnsupportedValidation(fldPath, existing.AllOf, new.AllOf, "oneOf", "string"))
 	if !intPointersEqual(new.MaxLength, existing.MaxLength) ||
 		!intPointersEqual(new.MinLength, existing.MinLength) {
-		err = multierr.Combine(err,
+		err = multierr.Combine(
+			err,
 			checkUnsupportedValidation(fldPath, existing.MaxLength, new.MaxLength, "maxLength", "string"),
 			checkUnsupportedValidation(fldPath, existing.MinLength, new.MinLength, "minLength", "string"))
 	}
@@ -237,8 +239,6 @@ func lcdForStringValidation(fldPath *field.Path, existing, new, lcd *schema.Valu
 		for _, val := range lcdEnumValues {
 			lcd.Enum = append(lcd.Enum, schema.JSON{Object: val})
 		}
-	} else {
-		// new enum values is a superset of existing enum values, so let the LCD keep the existing enum values
 	}
 
 	if existing.Format != new.Format {
@@ -275,7 +275,8 @@ func lcdForArrayValidation(fldPath *field.Path, existing, new, lcd *schema.Value
 		checkUnsupportedValidation(fldPath, existing.Enum, new.Enum, "enum", "array"))
 	if !intPointersEqual(new.MaxItems, existing.MaxItems) ||
 		!intPointersEqual(new.MinItems, existing.MinItems) {
-		err = multierr.Combine(err,
+		err = multierr.Combine(
+			err,
 			checkUnsupportedValidation(fldPath, existing.MaxLength, new.MaxLength, "maxItems", "array"),
 			checkUnsupportedValidation(fldPath, existing.MinLength, new.MinLength, "minItems", "array"))
 	}
@@ -375,9 +376,10 @@ func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *sc
 				lcd.AdditionalProperties.Structural = new.AdditionalProperties.Structural
 			}
 		}
-	} else {
-		// Existing schema doesn't allow anything => new will always be a superset of existing
 	}
+
+	multierr.AppendInto(&err, lcdForObjectValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting))
+
 	return err
 }
 
@@ -400,7 +402,7 @@ func lcdForIntOrString(fldPath *field.Path, existing, new *schema.Structural, lc
 	}
 	existing.ValueValidation.AnyOf = nil
 	new.ValueValidation.AnyOf = nil
-	multierr.Combine(
+	err = multierr.Combine(
 		err,
 		lcdForStringValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting),
 		lcdForIntegerValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting))
