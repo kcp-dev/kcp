@@ -1,5 +1,8 @@
 name: Build Syncer Image
 
+permissions:
+  packages: write
+
 on:
   push:
     branches: ['main']
