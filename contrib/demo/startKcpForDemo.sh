@@ -7,6 +7,8 @@ cleanup() {
   kill $KCP_PID $CC_PID $SPLIT_PID $TAIL_PID
 }
 
+make build
+
 CURRENT_DIR="$(pwd)"
 DEMO_ROOT="$(dirname "${BASH_SOURCE}")"
 KCP_ROOT="$(cd ${DEMO_ROOT}/../.. && pwd)"
@@ -20,6 +22,9 @@ echo "KCP server started: $KCP_PID"
 
 echo "Waiting for KCP server to be up and running..." 
 sleep 10
+
+echo "Applying CRDs..."
+kubectl apply -f config/
 
 echo ""
 echo "Starting Cluster Controller..."
