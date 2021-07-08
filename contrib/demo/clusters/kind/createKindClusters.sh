@@ -3,6 +3,7 @@
 set -euxo pipefail
 
 DEMO_ROOT="$(dirname "${BASH_SOURCE}")/../.."
+TMPDIR=$(mktemp -d)
 
 clusters="$@"
 if [[ $# -eq 0 ]]; then
@@ -10,18 +11,16 @@ if [[ $# -eq 0 ]]; then
 fi
 
 for name in ${clusters}; do
-  if [[ ! -f ${DEMO_ROOT}/clusters/kind/${name}.config ]]; then
-    cat > ${DEMO_ROOT}/clusters/kind/${name}.config << EOF
+  cat > ${TMPDIR}/${name}.config << EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ${name}
 networking:
   apiServerAddress: "127.0.0.1"
 EOF
-  fi
 
   kind delete cluster --name=${name} || true
-  kind create cluster --config ${DEMO_ROOT}/clusters/kind/${name}.config --kubeconfig ${DEMO_ROOT}/clusters/kind/${name}.kubeconfig
+  kind create cluster --config ${TMPDIR}/${name}.config --kubeconfig ${TMPDIR}/${name}.kubeconfig
 
   cat > ${DEMO_ROOT}/clusters/${name}.yaml << EOF
 apiVersion: cluster.example.dev/v1alpha1
@@ -31,5 +30,5 @@ metadata:
 spec:
   kubeconfig: |
 EOF
-  sed -e 's/^/    /' ${DEMO_ROOT}/clusters/kind/${name}.kubeconfig >> ${DEMO_ROOT}/clusters/${name}.yaml
+  sed -e 's/^/    /' ${TMPDIR}/${name}.kubeconfig >> ${DEMO_ROOT}/clusters/${name}.yaml
 done
