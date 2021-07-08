@@ -1,5 +1,6 @@
 .kcp
-contrib/demo/clusters/kind/*.yaml
+contrib/demo/clusters/*.yaml
 contrib/demo/clusters/kind/*.kubeconfig
+contrib/demo/clusters/kind/*.config
 *.log
 coverage.*
