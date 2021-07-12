@@ -4,7 +4,7 @@ DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
 . ${DEMO_DIR}/demo-magic
 
 ROOT_DIR="$( cd ${DEMO_DIR}/../.. && pwd)"
-CLUSTERS_DIR=${CLUSTERS_DIR:-${DEMO_DIR}/clusters/kind}
+CLUSTERS_DIR=${CLUSTERS_DIR:-${DEMO_DIR}/clusters}
 
 TYPE_SPEED=30
 #PROMPT_AFTER=1
