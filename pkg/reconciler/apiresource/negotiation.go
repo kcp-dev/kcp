@@ -482,7 +482,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 			})
 		} else {
 			allowUpdateNegotiatedSchema := !newNegotiatedAPIResource.IsConditionTrue(apiresourcev1alpha1.Enforced) &&
-				apiResourceImport.Spec.SchemaUpdateStrategy.CanUdpate(newNegotiatedAPIResource.IsConditionTrue(apiresourcev1alpha1.Published))
+				apiResourceImport.Spec.SchemaUpdateStrategy.CanUpdate(newNegotiatedAPIResource.IsConditionTrue(apiresourcev1alpha1.Published))
 
 			// TODO Also check compatibility of non-schema things like group, names, short names, category, resourcescope, subresources, colums etc...
 
