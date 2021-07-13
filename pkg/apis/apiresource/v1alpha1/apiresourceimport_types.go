@@ -80,7 +80,7 @@ const (
 	UpdatePublished SchemaUpdateStrategyType = "UpdatePublished"
 )
 
-func (strategy SchemaUpdateStrategyType) CanUdpate(negotiatedAPIResourceIsPublished bool) bool {
+func (strategy SchemaUpdateStrategyType) CanUpdate(negotiatedAPIResourceIsPublished bool) bool {
 	switch strategy {
 	case UpdateNever:
 		return false
