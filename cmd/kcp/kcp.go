@@ -25,9 +25,9 @@ import (
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/kubernetes/pkg/controlplane"
-	"k8s.io/kubernetes/pkg/controlplane/clientutils"
-	"k8s.io/kubernetes/pkg/controlplane/options"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 )
 
 var (
@@ -135,12 +135,12 @@ func main() {
 					KeyFile:       cfg.KeyFile,
 					TrustedCAFile: cfg.TrustedCAFile,
 				}
-				cpOptions, err := controlplane.Complete(serverOptions)
+				cpOptions, err := genericcontrolplane.Complete(serverOptions)
 				if err != nil {
 					return err
 				}
 
-				server, err := controlplane.CreateServerChain(cpOptions, ctx.Done())
+				server, err := genericcontrolplane.CreateServerChain(cpOptions, ctx.Done())
 				if err != nil {
 					return err
 				}

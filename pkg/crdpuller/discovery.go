@@ -25,11 +25,11 @@ import (
 	//
 	// We don't want to import, from physical clusters; resources
 	// that are already part of the control plane scheme
-	"k8s.io/kubernetes/pkg/api/controlplanescheme"
+	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 
 	// The following import is to required to install all the required resources
 	// in the control plane scheme
-	_ "k8s.io/kubernetes/pkg/controlplane/apis/install"
+	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
 )
 
 // SchemaPuller allows pulling the API resources as CRDs
@@ -129,13 +129,13 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				continue
 			}
 
-			if controlplanescheme.Scheme.IsGroupRegistered(gv.Group) && !controlplanescheme.Scheme.IsVersionRegistered(gv) {
+			if genericcontrolplanescheme.Scheme.IsGroupRegistered(gv.Group) && !genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
 				klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
 				continue
 			}
 
 			gvk := gv.WithKind(apiResource.Kind)
-			if controlplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
+			if genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
 				klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
 				continue
 			}
