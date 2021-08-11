@@ -17,6 +17,7 @@ limitations under the License.
 package apiresource
 
 import (
+	"fmt"
 	"time"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -36,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 )
@@ -48,7 +48,7 @@ func GetClusterNameAndGVRIndexKey(clusterName string, gvr metav1.GroupVersionRes
 	return clusterName + "$" + gvr.String()
 }
 
-func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Controller {
+func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) (*Controller, error) {
 	apiresourceClient := typedapiresource.NewForConfigOrDie(cfg)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
@@ -70,14 +70,16 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Con
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
 	c.negotiatedApiResourceIndexer = apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Informer().GetIndexer()
-	c.negotiatedApiResourceIndexer.AddIndexers(map[string]cache.IndexFunc{
+	if err := c.negotiatedApiResourceIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if negotiatedApiResource, ok := obj.(*apiresourcev1alpha1.NegotiatedAPIResource); ok {
 				return []string{GetClusterNameAndGVRIndexKey(negotiatedApiResource.ClusterName, negotiatedApiResource.GVR())}, nil
 			}
 			return []string{}, nil
 		},
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("Failed to add indexer for NegotiatedAPIResource: %v", err)
+	}
 	c.negotiatedApiResourceLister = apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Lister()
 	apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
@@ -85,14 +87,16 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Con
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
 	c.apiResourceImportIndexer = apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
-	c.apiResourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
+	if err := c.apiResourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
 				return []string{GetClusterNameAndGVRIndexKey(apiResourceImport.ClusterName, apiResourceImport.GVR())}, nil
 			}
 			return []string{}, nil
 		},
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %v", err)
+	}
 	c.apiResourceImportLister = apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Lister()
 
 	apiresourceSif.WaitForCacheSync(stopCh)
@@ -105,7 +109,7 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Con
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
 	c.crdIndexer = crdSif.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer()
-	c.crdIndexer.AddIndexers(map[string]cache.IndexFunc{
+	if err := c.crdIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition); ok {
 				return []string{GetClusterNameAndGVRIndexKey(crd.ClusterName, metav1.GroupVersionResource{
@@ -115,12 +119,14 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) *Con
 			}
 			return []string{}, nil
 		},
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("Failed to add indexer for CustomResourceDefinition: %v", err)
+	}
 	c.crdLister = crdSif.Apiextensions().V1().CustomResourceDefinitions().Lister()
 	crdSif.WaitForCacheSync(stopCh)
 	crdSif.Start(stopCh)
 
-	return c
+	return c, nil
 }
 
 type Controller struct {
@@ -136,7 +142,6 @@ type Controller struct {
 	crdIndexer cache.Indexer
 	crdLister  crdlister.CustomResourceDefinitionLister
 
-	kubeconfig                       clientcmdapi.Config
 	stopCh                           chan struct{}
 	AutoPublishNegotiatedAPIResource bool
 }

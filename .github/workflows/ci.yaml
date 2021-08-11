@@ -32,7 +32,9 @@ jobs:
       with:
         go-version: v1.16
     - uses: golangci/golangci-lint-action@v2
-      continue-on-error: true
+      with:
+        only-new-issues: true
+        args: --timeout=5m
 
   misspell:
     name: misspell

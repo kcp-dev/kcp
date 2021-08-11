@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -57,7 +58,7 @@ func GetLocationInLogicalClusterIndexKey(location, clusterName string) string {
 // server it reaches using the REST client.
 //
 // When new Clusters are found, the syncer will be run there using the given image.
-func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config, resourcesToSync []string, syncerMode SyncerMode) *Controller {
+func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config, resourcesToSync []string, syncerMode SyncerMode) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
 
@@ -94,7 +95,7 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		},
 	})
 	c.apiresourceImportIndexer = sif.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
-	c.apiresourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
+	if err := c.apiresourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
 		GVRForLocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
 				return []string{GetGVRForLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, apiResourceImport.ClusterName, apiResourceImport.GVR())}, nil
@@ -107,12 +108,14 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 			}
 			return []string{}, nil
 		},
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %v", err)
+	}
 
 	sif.WaitForCacheSync(stopCh)
 	sif.Start(stopCh)
 
-	return c
+	return c, nil
 }
 
 type Controller struct {
@@ -285,6 +288,9 @@ func RegisterCRDs(cfg *rest.Config) error {
 			continue
 		}
 		bytes, err := ioutil.ReadFile("config/" + file.Name())
+		if err != nil {
+			return err
+		}
 		crd := &apiextensionsv1.CustomResourceDefinition{}
 		err = yaml.Unmarshal(bytes, crd)
 		if err != nil {
@@ -298,7 +304,9 @@ func RegisterCRDs(cfg *rest.Config) error {
 				return err
 			}
 			crd.ResourceVersion = existingCRD.ResourceVersion
-			crdClient.CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{})
+			if _, err := crdClient.CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
 		} else if err != nil {
 			return err
 		}

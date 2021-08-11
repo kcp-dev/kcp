@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +16,6 @@ import (
 const (
 	clusterLabel = "kcp.dev/cluster"
 	ownedByLabel = "kcp.dev/owned-by"
-	pollInterval = time.Minute
 )
 
 func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deployment) error {
