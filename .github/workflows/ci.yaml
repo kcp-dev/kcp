@@ -16,7 +16,6 @@ jobs:
       with:
         go-version: v1.16
     - name: Check gofmt
-      continue-on-error: true
       run: |
         gofmt -s -d \
           $(find . \
