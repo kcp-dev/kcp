@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
+	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/muesli/reflow v0.1.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
