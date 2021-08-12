@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: my-deployment
 spec:
-  replicas: 14
+  replicas: 10
   strategy:
     type: RollingUpdate
     rollingUpdate:

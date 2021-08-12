@@ -1,28 +1,30 @@
 [3J[H[2J☸️ $ kubectl get pods
 error: the server doesn't have a resource type "pods"
 ☸️ $ kubectl api-resources
-NAME                         SHORTNAMES   APIVERSION                     NAMESPACED   KIND
-configmaps                   cm           v1                             true         ConfigMap
-events                       ev           v1                             true         Event
-limitranges                  limits       v1                             true         LimitRange
-namespaces                   ns           v1                             false        Namespace
-resourcequotas               quota        v1                             true         ResourceQuota
-secrets                                   v1                             true         Secret
-serviceaccounts              sa           v1                             true         ServiceAccount
-customresourcedefinitions    crd,crds     apiextensions.k8s.io/v1        false        CustomResourceDefinition
-apiservices                               apiregistration.k8s.io/v1      false        APIService
-tokenreviews                              authentication.k8s.io/v1       false        TokenReview
-localsubjectaccessreviews                 authorization.k8s.io/v1        true         LocalSubjectAccessReview
-selfsubjectaccessreviews                  authorization.k8s.io/v1        false        SelfSubjectAccessReview
-selfsubjectrulesreviews                   authorization.k8s.io/v1        false        SelfSubjectRulesReview
-subjectaccessreviews                      authorization.k8s.io/v1        false        SubjectAccessReview
-certificatesigningrequests   csr          certificates.k8s.io/v1beta1    false        CertificateSigningRequest
-leases                                    coordination.k8s.io/v1         true         Lease
-events                       ev           events.k8s.io/v1beta1          true         Event
-clusterrolebindings                       rbac.authorization.k8s.io/v1   false        ClusterRoleBinding
-clusterroles                              rbac.authorization.k8s.io/v1   false        ClusterRole
-rolebindings                              rbac.authorization.k8s.io/v1   true         RoleBinding
-roles                                     rbac.authorization.k8s.io/v1   true         Role
+NAME                          SHORTNAMES   APIVERSION                             NAMESPACED   KIND
+configmaps                    cm           v1                                     true         ConfigMap
+events                        ev           v1                                     true         Event
+limitranges                   limits       v1                                     true         LimitRange
+namespaces                    ns           v1                                     false        Namespace
+resourcequotas                quota        v1                                     true         ResourceQuota
+secrets                                    v1                                     true         Secret
+serviceaccounts               sa           v1                                     true         ServiceAccount
+customresourcedefinitions     crd,crds     apiextensions.k8s.io/v1                false        CustomResourceDefinition
+apiservices                                apiregistration.k8s.io/v1              false        APIService
+tokenreviews                               authentication.k8s.io/v1               false        TokenReview
+localsubjectaccessreviews                  authorization.k8s.io/v1                true         LocalSubjectAccessReview
+selfsubjectaccessreviews                   authorization.k8s.io/v1                false        SelfSubjectAccessReview
+selfsubjectrulesreviews                    authorization.k8s.io/v1                false        SelfSubjectRulesReview
+subjectaccessreviews                       authorization.k8s.io/v1                false        SubjectAccessReview
+certificatesigningrequests    csr          certificates.k8s.io/v1                 false        CertificateSigningRequest
+leases                                     coordination.k8s.io/v1                 true         Lease
+events                        ev           events.k8s.io/v1                       true         Event
+flowschemas                                flowcontrol.apiserver.k8s.io/v1beta1   false        FlowSchema
+prioritylevelconfigurations                flowcontrol.apiserver.k8s.io/v1beta1   false        PriorityLevelConfiguration
+clusterrolebindings                        rbac.authorization.k8s.io/v1           false        ClusterRoleBinding
+clusterroles                               rbac.authorization.k8s.io/v1           false        ClusterRole
+rolebindings                               rbac.authorization.k8s.io/v1           true         RoleBinding
+roles                                      rbac.authorization.k8s.io/v1           true         Role
 ☸️ $ kubectl apply -Rf ../contrib/demo/external-integrations/
 customresourcedefinition.apiextensions.k8s.io/databases.postgresql.sql.crossplane.io created
 customresourcedefinition.apiextensions.k8s.io/databases.postgresql.crossplane.io created
@@ -36,7 +38,6 @@ customresourcedefinition.apiextensions.k8s.io/domainnames.discountdomainnames.bi
 customresourcedefinition.apiextensions.k8s.io/topics.sns.aws created
 customresourcedefinition.apiextensions.k8s.io/channels.slack.com created
 customresourcedefinition.apiextensions.k8s.io/loadbalancers.multicloud.media created
-customresourcedefinition.apiextensions.k8s.io/sqldatabases.sql.gcp created
 ☸️ $ kubectl explain database
 KIND:     Database
 VERSION:  postgresql.crossplane.io/v1alpha1
@@ -124,45 +125,46 @@ cluster.cluster.example.dev/us-west1 condition met
 ☸️ $ kubectl wait cluster/us-east1 --for condition=Ready --timeout=60s
 cluster.cluster.example.dev/us-east1 condition met
 ☸️ $ kubectl api-resources
-NAME                         SHORTNAMES   APIVERSION                              NAMESPACED   KIND
-configmaps                   cm           v1                                      true         ConfigMap
-events                       ev           v1                                      true         Event
-limitranges                  limits       v1                                      true         LimitRange
-namespaces                   ns           v1                                      false        Namespace
-resourcequotas               quota        v1                                      true         ResourceQuota
-secrets                                   v1                                      true         Secret
-serviceaccounts              sa           v1                                      true         ServiceAccount
-customresourcedefinitions    crd,crds     apiextensions.k8s.io/v1                 false        CustomResourceDefinition
-apiservices                               apiregistration.k8s.io/v1               false        APIService
-apiresourceimports                        apiresource.kcp.dev/v1alpha1            false        APIResourceImport
-negotiatedapiresources                    apiresource.kcp.dev/v1alpha1            false        NegotiatedAPIResource
-deployments                  deploy       apps/v1                                 true         Deployment
-tokenreviews                              authentication.k8s.io/v1                false        TokenReview
-localsubjectaccessreviews                 authorization.k8s.io/v1                 true         LocalSubjectAccessReview
-selfsubjectaccessreviews                  authorization.k8s.io/v1                 false        SelfSubjectAccessReview
-selfsubjectrulesreviews                   authorization.k8s.io/v1                 false        SelfSubjectRulesReview
-subjectaccessreviews                      authorization.k8s.io/v1                 false        SubjectAccessReview
-certificatesigningrequests   csr          certificates.k8s.io/v1beta1             false        CertificateSigningRequest
-clusters                                  cluster.example.dev/v1alpha1            false        Cluster
-leases                                    coordination.k8s.io/v1                  true         Lease
-domainnames                               discountdomainnames.biz/v1alpha1        false        DomainName
-events                       ev           events.k8s.io/v1beta1                   true         Event
-repos                                     github.com/v1alpha1                     false        Repo
-functions                                 lambda.aws/v1alpha1                     false        LambdaFunction
-loadbalancers                             multicloud.media/v1alpha1               false        LoadBalancer
-website                                   netlify.com/v1alpha1                    false        Website
-databases                                 postgresql.crossplane.io/v1alpha1       false        Database
-databases                                 postgresql.sql.crossplane.io/v1alpha1   false        Database
-topics                                    pubsub.gcp/v1alpha1                     false        PubSubTopic
-clusterrolebindings                       rbac.authorization.k8s.io/v1            false        ClusterRoleBinding
-clusterroles                              rbac.authorization.k8s.io/v1            false        ClusterRole
-rolebindings                              rbac.authorization.k8s.io/v1            true         RoleBinding
-roles                                     rbac.authorization.k8s.io/v1            true         Role
-buckets                                   s3.aws/v1alpha1                         false        Bucket
-channels                                  slack.com/v1alpha1                      false        Channel
-topics                                    sns.aws/v1alpha1                        false        Topic
-databases                                 spanner.gcp/v1alpha1                    false        Database
-sqldatabases                              sql.gcp/v1beta1                         true         SQLDatabase
+NAME                          SHORTNAMES   APIVERSION                              NAMESPACED   KIND
+configmaps                    cm           v1                                      true         ConfigMap
+events                        ev           v1                                      true         Event
+limitranges                   limits       v1                                      true         LimitRange
+namespaces                    ns           v1                                      false        Namespace
+resourcequotas                quota        v1                                      true         ResourceQuota
+secrets                                    v1                                      true         Secret
+serviceaccounts               sa           v1                                      true         ServiceAccount
+customresourcedefinitions     crd,crds     apiextensions.k8s.io/v1                 false        CustomResourceDefinition
+apiservices                                apiregistration.k8s.io/v1               false        APIService
+apiresourceimports                         apiresource.kcp.dev/v1alpha1            false        APIResourceImport
+negotiatedapiresources                     apiresource.kcp.dev/v1alpha1            false        NegotiatedAPIResource
+deployments                   deploy       apps/v1                                 true         Deployment
+tokenreviews                               authentication.k8s.io/v1                false        TokenReview
+localsubjectaccessreviews                  authorization.k8s.io/v1                 true         LocalSubjectAccessReview
+selfsubjectaccessreviews                   authorization.k8s.io/v1                 false        SelfSubjectAccessReview
+selfsubjectrulesreviews                    authorization.k8s.io/v1                 false        SelfSubjectRulesReview
+subjectaccessreviews                       authorization.k8s.io/v1                 false        SubjectAccessReview
+certificatesigningrequests    csr          certificates.k8s.io/v1                  false        CertificateSigningRequest
+clusters                                   cluster.example.dev/v1alpha1            false        Cluster
+leases                                     coordination.k8s.io/v1                  true         Lease
+domainnames                                discountdomainnames.biz/v1alpha1        false        DomainName
+events                        ev           events.k8s.io/v1                        true         Event
+flowschemas                                flowcontrol.apiserver.k8s.io/v1beta1    false        FlowSchema
+prioritylevelconfigurations                flowcontrol.apiserver.k8s.io/v1beta1    false        PriorityLevelConfiguration
+repos                                      github.com/v1alpha1                     false        Repo
+functions                                  lambda.aws/v1alpha1                     false        LambdaFunction
+loadbalancers                              multicloud.media/v1alpha1               false        LoadBalancer
+website                                    netlify.com/v1alpha1                    false        Website
+databases                                  postgresql.crossplane.io/v1alpha1       false        Database
+databases                                  postgresql.sql.crossplane.io/v1alpha1   false        Database
+topics                                     pubsub.gcp/v1alpha1                     false        PubSubTopic
+clusterrolebindings                        rbac.authorization.k8s.io/v1            false        ClusterRoleBinding
+clusterroles                               rbac.authorization.k8s.io/v1            false        ClusterRole
+rolebindings                               rbac.authorization.k8s.io/v1            true         RoleBinding
+roles                                      rbac.authorization.k8s.io/v1            true         Role
+buckets                                    s3.aws/v1alpha1                         false        Bucket
+channels                                   slack.com/v1alpha1                      false        Channel
+topics                                     sns.aws/v1alpha1                        false        Topic
+databases                                  spanner.gcp/v1alpha1                    false        Database
 ☸️ $ kubectl create namespace demo
 namespace/demo created
 ☸️ $ cat ../contrib/demo/deployment.yaml
@@ -171,7 +173,7 @@ kind: Deployment
 metadata:
   name: my-deployment
 spec:
-  replicas: 14
+  replicas: 10
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -201,8 +203,8 @@ deployment.apps/my-deployment--us-east1 condition met
 deployment.apps/my-deployment--us-west1 condition met
 ☸️ $ kubectl get deployments -n demo
 NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
-my-deployment             14/14   14           14          35s
-my-deployment--us-east1   7/7     7            7           22s
-my-deployment--us-west1   7/7     7            7           22s
+my-deployment             10/10   10           10          35s
+my-deployment--us-east1   5/5     5            5           22s
+my-deployment--us-west1   5/5     5            5           22s
 ☸️ $ kubectl get pods
 error: the server doesn't have a resource type "pods"
