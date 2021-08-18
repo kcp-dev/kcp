@@ -67,6 +67,14 @@ Representing feedback from a number of multi-cluster users with a diverse set of
 
 In the early prototype stage `kcp` uses the `syncer` and the `deployment-splitter` as stand-ins for more complex scheduling and transformation. This section should see more updates in the near term as we move beyond areas 1-2 (use cases and ecosystem research)
 
+An extended form of the [Multi Cluster Services API]() could resolve the necessary DNS discovery mechanisms to allow
+workloads to be deployed transparently. The advantage of using the MCS API is that there seems to be
+a growing ecosystem of implementations around this API (GKE, submariner, istio, )
+
+This possible extension is [being defined](https://github.com/submariner-io/enhancements/pull/33/files)
+in the Submariner project to function as a test bed to help us 
+
+
 
 ### Possible design simplifications
 
