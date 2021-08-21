@@ -122,18 +122,7 @@ func (c *Controller) createLeafs(ctx context.Context, root *appsv1.Deployment) e
 		return nil
 	}
 
-	if len(cls) == 1 {
-		// nothing to split, just label Deployment for the only cluster.
-		if root.Labels == nil {
-			root.Labels = map[string]string{}
-		}
-
-		// TODO: munge cluster name
-		root.Labels[clusterLabel] = cls[0].Name
-		return nil
-	}
-
-	// If there are >1 Clusters, create a virtual Deployment labeled/named for each Cluster with a subset of replicas requested.
+	// If there are Cluster(s), create a virtual Deployment labeled/named for each Cluster with a subset of replicas requested.
 	// TODO: assign replicas unevenly based on load/scheduling.
 	replicasEach := *root.Spec.Replicas / int32(len(cls))
 	rest := *root.Spec.Replicas % int32(len(cls))
