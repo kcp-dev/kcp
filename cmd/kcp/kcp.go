@@ -20,7 +20,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
@@ -128,7 +128,6 @@ func main() {
 				}
 
 				serverOptions.SecureServing.ServerCert.CertDirectory = s.Dir
-				serverOptions.InsecureServing = nil
 				serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
 					ServerList:    cfg.Endpoints,
 					CertFile:      cfg.CertFile,
