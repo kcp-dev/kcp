@@ -333,7 +333,7 @@ func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *sc
 				}
 				lcdProperties = existingProperties.Intersection(newProperties)
 			}
-			for _, key := range lcdProperties.UnsortedList() {
+			for _, key := range lcdProperties.List() {
 				existingPropertySchema := existing.Properties[key]
 				newPropertySchema := new.Properties[key]
 				lcdPropertySchema := lcd.Properties[key]
@@ -345,7 +345,8 @@ func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *sc
 			}
 
 		} else if new.AdditionalProperties.Structural != nil {
-			for key, existingPropertySchema := range existing.Properties {
+			for _, key := range sets.StringKeySet(existing.Properties).List() {
+				existingPropertySchema := existing.Properties[key]
 				lcdPropertySchema := lcd.Properties[key]
 				multierr.AppendInto(&err, lcdForStructural(fldPath.Child("properties").Key(key), &existingPropertySchema, new.AdditionalProperties.Structural, &lcdPropertySchema, narrowExisting))
 				lcd.Properties[key] = lcdPropertySchema
@@ -384,10 +385,7 @@ func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *sc
 }
 
 func lcdForIntOrString(fldPath *field.Path, existing, new *schema.Structural, lcd *schema.Structural, narrowExisting bool) error {
-	err := multierr.Combine(
-		checkTypesAreTheSame(fldPath, existing, new),
-		lcdForStringValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting),
-		lcdForIntegerValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting))
+	err := checkTypesAreTheSame(fldPath, existing, new)
 	if !new.XIntOrString {
 		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-int-or-string"), new.XIntOrString, "x-kubernetes-int-or-string value has been changed in an incompatible way"))
 	}
