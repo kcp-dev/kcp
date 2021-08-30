@@ -52,7 +52,7 @@ func EnsureStructuralSchemaCompatibility(fldPath *field.Path, existing, new *api
 	if err := lcdForStructural(fldPath, existingStructural, newStrucural, lcdStructural, narrowExisting); err != nil {
 		return nil, err
 	}
-	serialized, err := json.Marshal(lcdStructural.ToGoOpenAPI())
+	serialized, err := json.Marshal(lcdStructural.ToKubeOpenAPI())
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/controlplane/clientutils"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 )
 
 const numThreads = 2

@@ -20,14 +20,14 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/kubernetes/pkg/controlplane"
-	"k8s.io/kubernetes/pkg/controlplane/clientutils"
-	"k8s.io/kubernetes/pkg/controlplane/options"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 )
 
 var (
@@ -128,19 +128,18 @@ func main() {
 				}
 
 				serverOptions.SecureServing.ServerCert.CertDirectory = s.Dir
-				serverOptions.InsecureServing = nil
 				serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
 					ServerList:    cfg.Endpoints,
 					CertFile:      cfg.CertFile,
 					KeyFile:       cfg.KeyFile,
 					TrustedCAFile: cfg.TrustedCAFile,
 				}
-				cpOptions, err := controlplane.Complete(serverOptions)
+				cpOptions, err := genericcontrolplane.Complete(serverOptions)
 				if err != nil {
 					return err
 				}
 
-				server, err := controlplane.CreateServerChain(cpOptions, ctx.Done())
+				server, err := genericcontrolplane.CreateServerChain(cpOptions, ctx.Done())
 				if err != nil {
 					return err
 				}
