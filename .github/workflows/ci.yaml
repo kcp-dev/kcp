@@ -41,7 +41,8 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: reviewdog/action-misspell@v1
-
+      with:
+        exclude: ./.github/workflows/*  
 
   build-and-test:
     name: Build and Test

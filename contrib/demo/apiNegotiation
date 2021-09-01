@@ -22,14 +22,21 @@ function pause() {
   fi
 }
 
-export KUBECONFIG=${ROOT_DIR}/.kcp/data/admin.kubeconfig
+export KUBECONFIG=${KUBECONFIG:-${ROOT_DIR}/.kcp/data/admin.kubeconfig}
 if ! kubectl get namespaces &>/dev/null; then
   echo "kcp server not started, run 'bin/kcp start'"
+  exit 1
 fi
 
-kubectl config use-context admin
+kubectl config use-context admin  &>/dev/null
 
 clear
+
+pe "kubectl apply -f ${ROOT_DIR}/config"
+
+kubectl wait crd/clusters.cluster.example.dev --for condition=established &>/dev/null
+kubectl wait crd/negotiatedapiresources.apiresource.kcp.dev --for condition=established &>/dev/null
+kubectl wait crd/apiresourceimports.apiresource.kcp.dev --for condition=established &>/dev/null
 
 pe "kubectl api-resources | grep deployments"
 
@@ -39,7 +46,10 @@ pe "kubectl get apiresourceimports -o wide"
 pe "kubectl get negotiatedapiresources -o wide"
 pe "kubectl patch negotiatedapiresources deployments.v1.apps --type=\"merge\" -p '{\"spec\":{\"publish\":true}}'"
 pe "kubectl get negotiatedapiresources -o wide"
-pe "kubectl get crds -o wide  | grep deployments"
+pe "kubectl get crds -o custom-columns=NAME:.metadata.name | grep deployments"
+
+kubectl wait crd/deployments.apps --for condition=established &>/dev/null
+
 pe "kubectl api-resources | grep deployments"
 pe "kubectl get negotiatedapiresources -o wide"
 pe "kubectl get crds deployments.apps -o yaml | grep ephemeralContainers"
@@ -47,6 +57,7 @@ pe "kubectl get apiresourceimports -o wide"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"
 pe "kubectl get apiresourceimports -o wide"
 pe "kubectl get apiresourceimports deployments.us-west1.v1.apps -o=go-template='{{ range .status.conditions }}{{ if eq .type \"Compatible\" }}{{ .message }}{{ end }}{{ end }}'"
+echo ""
 pe "kubectl patch apiresourceimports deployments.us-west1.v1.apps --type=\"merge\" -p '{\"spec\":{\"schemaUpdateStrategy\":\"UpdatePublished\"}}'"
 pe "kubectl get apiresourceimports -o wide"
 pe "kubectl get negotiatedapiresource deployments.v1.apps -o yaml | grep ephemeralContainers"
@@ -64,6 +75,8 @@ pause
 clear
 
 pe "kubectl apply -f ${ROOT_DIR}/contrib/crds/apps/apps_deployments.yaml"
+kubectl wait crd/deployments.apps --for condition=established &>/dev/null
+
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"
 pe "kubectl get apiresourceimports -o wide"
 pe "kubectl get negotiatedapiresources -o wide"
@@ -74,4 +87,4 @@ pe "kubectl apply -f ${CLUSTERS_DIR}/us-east1.yaml"
 pe "kubectl get apiresourceimports -o wide"
 pe "kubectl get negotiatedapiresources -o wide"
 
-wait
+pause

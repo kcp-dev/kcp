@@ -24,7 +24,7 @@ func main() {
 	flag.Parse()
 	syncedResourceTypes := flag.Args()
 	if len(syncedResourceTypes) == 0 {
-		syncedResourceTypes = []string{"pods", "deployments.apps"}
+		syncedResourceTypes = []string{"deployments.apps"}
 	}
 
 	// Create a client to dynamically watch "from".
