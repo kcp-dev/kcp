@@ -43,6 +43,38 @@ For example, in order to register the default cluster of your default kubeconfig
 sed -e 's/^/    /' ${HOME}/.kube/config | cat contrib/examples/cluster.yaml - | kubectl apply -f -
 ```
 
+# Using `kcp` as a library
+Instead of running the kcp as a binary using `go run`, you can include the kcp api-server in your own projects. To create and start the api-server with the default options (including an embedded etcd server):
+
+```go
+if err := server.NewServer(server.DefaultConfig()).Run(ctx); err != nil {
+    panic(err)
+}
+```
+
+You may also configure post-start hooks which are useful if you need to start a some process that depends on a connection to the newly created api-server such as a controller manager.
+
+```go
+// Create a new api-server with default options
+srv := server.NewServer(server.DefaultConfig())
+
+// Register a post-start hook that connects to the api-server
+srv.AddPostStartHook("connect-to-api", func(context genericapiserver.PostStartHookContext) error {
+    // Create a new client using the client config from our newly created api-server
+    client := clientset.NewForConfigOrDie(context.LoopbackClientConfig)
+    _, err := client.Discovery().ServerGroups()
+    if err != nil {
+        return err
+    }
+    return nil
+})
+
+// Start the api-server
+if err := srv.Run(ctx); err != nil {
+	panic(err)
+}
+```
+
 # Using vscode
 
 ## Workspace
