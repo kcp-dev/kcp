@@ -6,11 +6,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
+
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
 const numThreads = 2

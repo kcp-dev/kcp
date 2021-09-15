@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 
-	"github.com/kcp-dev/kcp/pkg/reconciler/deployment"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+
+	"github.com/kcp-dev/kcp/pkg/reconciler/deployment"
 )
 
 const numThreads = 2

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/kcp/pkg/util/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -20,6 +19,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+
+	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
 
 const resyncPeriod = 10 * time.Hour

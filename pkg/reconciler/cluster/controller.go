@@ -8,15 +8,6 @@ import (
 	"strings"
 	"time"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
-	versionedclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
-	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/syncer"
-	"github.com/kcp-dev/kcp/pkg/util/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -30,6 +21,16 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	"sigs.k8s.io/yaml"
+
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	versionedclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
+	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
 
 const resyncPeriod = 10 * time.Hour

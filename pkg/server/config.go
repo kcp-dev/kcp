@@ -2,9 +2,11 @@ package server
 
 import (
 	"flag"
-	"github.com/kcp-dev/kcp/pkg/etcd"
-	"github.com/spf13/pflag"
 	"path/filepath"
+
+	"github.com/spf13/pflag"
+
+	"github.com/kcp-dev/kcp/pkg/etcd"
 )
 
 // Config determines the behavior of the KCP server.

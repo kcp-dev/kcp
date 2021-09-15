@@ -9,10 +9,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/kcp-dev/kcp/pkg/schemacompat"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
+
+	"github.com/kcp-dev/kcp/pkg/schemacompat"
 )
 
 func main() {

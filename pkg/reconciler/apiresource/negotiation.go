@@ -20,8 +20,6 @@ import (
 	"context"
 	"reflect"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/schemacompat"
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -33,6 +31,9 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
+
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/schemacompat"
 )
 
 func (c *Controller) process(key queueElement) error {

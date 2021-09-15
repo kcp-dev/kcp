@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
+	github.com/coreydaley/openshift-goimports v0.0.0-20201126152347-b92214262c6c // indirect
 	github.com/google/go-cmp v0.5.6
 	github.com/muesli/reflow v0.1.0
 	github.com/spf13/cobra v1.1.3

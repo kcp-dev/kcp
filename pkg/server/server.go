@@ -6,11 +6,15 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/kcp-dev/kcp/pkg/etcd"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"io/ioutil"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/tools/clientcmd"
@@ -18,11 +22,10 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
-	"net"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strconv"
+
+	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
 // Server manages the configuration and kcp api-server. It allows callers to easily use kcp

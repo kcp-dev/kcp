@@ -4,9 +4,6 @@ import (
 	"context"
 	"time"
 
-	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	clusterlisters "github.com/kcp-dev/kcp/pkg/client/listers/cluster/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +17,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+
+	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	clusterlisters "github.com/kcp-dev/kcp/pkg/client/listers/cluster/v1alpha1"
 )
 
 const resyncPeriod = 10 * time.Hour
