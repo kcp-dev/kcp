@@ -17,10 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/kcp/pkg/apis/cluster"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/kcp-dev/kcp/pkg/apis/cluster"
 )
 
 // SchemeGroupVersion is group version used to register these objects

@@ -13,3 +13,7 @@ vendor:
 codegen:
 	./hack/update-codegen.sh
 .PHONY: codegen
+
+.PHONY: imports
+imports:
+	go run github.com/coreydaley/openshift-goimports/ -m github.com/kcp-dev/kcp

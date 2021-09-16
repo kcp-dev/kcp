@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 
-	"github.com/kcp-dev/kcp/pkg/syncer"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+
+	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 const numThreads = 2

@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/kcp-dev/kcp/pkg/cmd/help"
-	"github.com/kcp-dev/kcp/pkg/server"
-	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
+
+	"github.com/spf13/cobra"
+
+	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	"github.com/kcp-dev/kcp/pkg/server"
 )
 
 func main() {

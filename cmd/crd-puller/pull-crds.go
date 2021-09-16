@@ -6,11 +6,13 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/kcp-dev/kcp/pkg/cmd/help"
-	crdpuller "github.com/kcp-dev/kcp/pkg/crdpuller"
 	"github.com/spf13/cobra"
+
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
+
+	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	crdpuller "github.com/kcp-dev/kcp/pkg/crdpuller"
 )
 
 func main() {

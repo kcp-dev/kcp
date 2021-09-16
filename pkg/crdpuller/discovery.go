@@ -1,5 +1,11 @@
 package crdpuller
 
+// We import the generic control plane scheme to provide access to the KCP control plane scheme,
+// that gathers a minimal set of Kubernetes APIs without any workload-related APIs.
+//
+// We don't want to import, from physical clusters; resources that are already part of the control
+// plane scheme. The side-effect import of the generic control plane install is to required to
+// install all the required resources in the control plane scheme.
 import (
 	"context"
 	"fmt"
@@ -19,16 +25,7 @@ import (
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/sets"
-
-	// The following import is to provide access to the KCP control plane scheme,
-	// that gathers a minimal set of Kubernetes APIs without any workload-related APIs.
-	//
-	// We don't want to import, from physical clusters; resources
-	// that are already part of the control plane scheme
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
-
-	// The following import is to required to install all the required resources
-	// in the control plane scheme
 	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
 )
 

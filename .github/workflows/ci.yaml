@@ -21,6 +21,13 @@ jobs:
           $(find . \
             -path './vendor' -prune \
             -o -type f -name '*.go' -print)
+    - name: Check imports
+      run: |
+        make imports
+        if  ! git diff --exit-code; then
+          echo "imports are out of date, run make imports"
+          exit 1
+        fi
 
   lint:
     name: lint
