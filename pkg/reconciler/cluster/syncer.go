@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+
+	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 const (
@@ -183,6 +185,14 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 							ReadOnly:  true,
 						}},
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Env: []corev1.EnvVar{{
+							Name: syncer.SyncerNamespaceKey,
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "metadata.namespace",
+								},
+							},
+						}},
 					}},
 					Volumes: []corev1.Volume{{
 						Name: "kubeconfig",

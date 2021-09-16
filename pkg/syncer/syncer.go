@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 )
 
 const resyncPeriod = 10 * time.Hour
+const SyncerNamespaceKey = "SYNCER_NAMESPACE"
 
 type Syncer struct {
 	specSyncer   *Controller
@@ -52,6 +54,7 @@ func StartSyncer(upstream, downstream *rest.Config, resources sets.String, clust
 	}
 	specSyncer.Start(numSyncerThreads)
 	statusSyncer.Start(numSyncerThreads)
+
 	return &Syncer{
 		specSyncer:   specSyncer,
 		statusSyncer: statusSyncer,
@@ -76,6 +79,8 @@ type Controller struct {
 
 	upsertFn UpsertFunc
 	deleteFn DeleteFunc
+
+	namespace string
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
@@ -91,8 +96,9 @@ func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handle
 
 		stopCh: stopCh,
 
-		upsertFn: upsertFn,
-		deleteFn: deleteFn,
+		upsertFn:  upsertFn,
+		deleteFn:  deleteFn,
+		namespace: os.Getenv(SyncerNamespaceKey),
 	}
 
 	fromClient := dynamic.NewForConfigOrDie(from)
@@ -301,6 +307,10 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 		}
 	}
 	namespace, name := meta.GetNamespace(), meta.GetName()
+	if c.inSyncerNamespace(namespace) {
+		klog.V(2).Infof("Skipping object of type: %T : %v in syncer namespace", obj, obj)
+		return nil
+	}
 
 	ctx := context.TODO()
 
@@ -336,4 +346,17 @@ func (c *Controller) getClient(gvr schema.GroupVersionResource, namespace string
 		return nri.Namespace(namespace)
 	}
 	return nri
+}
+
+func (c *Controller) inSyncerNamespace(objectNamespace string) bool {
+	// If there is no value for the syncer namespace then always process the object
+	// This will also handle the cluster scoped objects case for
+	// objectNamespace when this is not set
+	if c.namespace == "" {
+		return false
+	}
+	if c.namespace == objectNamespace {
+		return true
+	}
+	return false
 }
