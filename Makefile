@@ -5,8 +5,8 @@ build:
 	go build -o bin ./cmd/...
 .PHONY: build
 
-e2e: #build
-	@ ./tests/utils/run_e2e.sh
+kuttl: #build
+	@ ./tests/kuttl/run_kuttl.sh
 .PHONY: e2e
 
 vendor:
