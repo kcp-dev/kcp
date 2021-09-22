@@ -64,18 +64,31 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 		return err
 	}
 
-	apiGroups := sets.NewString()
 	groupResources := sets.NewString()
 
 	for _, obj := range objs {
 		apiResourceImport := obj.(*apiresourcev1alpha1.APIResourceImport)
 		if apiResourceImport.IsConditionTrue(apiresourcev1alpha1.Compatible) && apiResourceImport.IsConditionTrue(apiresourcev1alpha1.Available) {
-			apiGroups.Insert(apiResourceImport.Spec.GroupVersion.APIGroup())
 			groupResources.Insert(schema.GroupResource{
 				Group:    apiResourceImport.Spec.GroupVersion.APIGroup(),
 				Resource: apiResourceImport.Spec.Plural,
 			}.String())
 		}
+	}
+
+	resourcesToPull := sets.NewString(c.resourcesToSync...)
+	for _, kcpResource := range c.genericControlPlaneResources {
+		if !resourcesToPull.Has(kcpResource.GroupResource().String()) && !resourcesToPull.Has(kcpResource.Resource) {
+			continue
+		}
+		groupVersion := apiresourcev1alpha1.GroupVersion{
+			Group:   kcpResource.Group,
+			Version: kcpResource.Version,
+		}
+		groupResources.Insert(schema.GroupResource{
+			Group:    groupVersion.APIGroup(),
+			Resource: kcpResource.Resource,
+		}.String())
 	}
 
 	if !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources) {
@@ -90,9 +103,6 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 
 		switch c.syncerMode {
 		case SyncerModePush:
-			if syncer := c.syncers[cluster.Name]; syncer != nil {
-				syncer.Stop()
-			}
 			kubeConfig.CurrentContext = logicalCluster
 			upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 			if err != nil {
@@ -112,7 +122,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				return nil // Don't retry.
 			}
 
-			syncer, err := syncer.StartSyncer(upstream, downstream, groupResources, cluster.Name, numSyncerThreads)
+			newSyncer, err := syncer.StartSyncer(upstream, downstream, groupResources, cluster.Name, numSyncerThreads)
 			if err != nil {
 				klog.Errorf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
@@ -120,7 +130,12 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 					fmt.Sprintf("Error starting syncer: %v", err))
 				return err
 			}
-			c.syncers[cluster.Name] = syncer
+
+			oldSyncer := c.syncers[cluster.Name]
+			c.syncers[cluster.Name] = newSyncer
+			if oldSyncer != nil {
+				oldSyncer.Stop()
+			}
 
 			klog.Info("syncer ready!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
