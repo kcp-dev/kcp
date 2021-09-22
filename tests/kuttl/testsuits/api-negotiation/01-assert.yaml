@@ -1,0 +1,6 @@
+apiVersion: apiresource.kcp.dev/v1alpha1
+kind: NegotiatedAPIResource
+metadata:
+  annotations:
+    apiresource.kcp.dev/apiVersion: apps/v1
+  name: deployments.v1.apps
