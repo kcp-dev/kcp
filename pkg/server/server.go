@@ -12,13 +12,20 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/kubernetes/pkg/controller/namespace"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
@@ -27,6 +34,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
+
+const resyncPeriod = 10 * time.Hour
 
 // Server manages the configuration and kcp api-server. It allows callers to easily use kcp
 // as a library rather than as a single binary. Using its constructor function, you can easily
@@ -135,6 +144,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 
+		//Create Client and Shared
 		var clientConfig clientcmdapi.Config
 		clientConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
 			"loopback": {Token: server.LoopbackClientConfig.BearerToken},
@@ -300,5 +310,34 @@ func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdo
 
 // NewServer creates a new instance of Server which manages the KCP api-server.
 func NewServer(cfg *Config) *Server {
-	return &Server{cfg: cfg}
+	s := &Server{cfg: cfg}
+	//During the creation of the server, we know that we want to add the namespace controller.
+	s.postStartHooks = append(s.postStartHooks, postStartHookEntry{
+		name: "start-namespace-controller",
+		hook: s.startNamespaceController,
+	})
+	return s
+}
+
+func (s *Server) startNamespaceController(hookContext genericapiserver.PostStartHookContext) error {
+	kubeClient, err := kubernetes.NewForConfig(hookContext.LoopbackClientConfig)
+	if err != nil {
+		return err
+	}
+	metadata, err := metadata.NewForConfig(hookContext.LoopbackClientConfig)
+	if err != nil {
+		return err
+	}
+	versionedInformer := informers.NewSharedInformerFactory(kubeClient, resyncPeriod)
+
+	go namespace.NewNamespaceController(
+		kubeClient,
+		metadata,
+		kubeClient.Discovery().ServerPreferredNamespacedResources,
+		versionedInformer.Core().V1().Namespaces(),
+		time.Duration(30)*time.Second,
+		v1.FinalizerKubernetes,
+	).Run(2, wait.NeverStop)
+	versionedInformer.Start(wait.NeverStop)
+	return nil
 }
