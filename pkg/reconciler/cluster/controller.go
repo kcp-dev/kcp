@@ -13,13 +13,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -65,18 +68,49 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 
 	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
 
+	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(cfg)
+
+	var genericControlPlaneResources []schema.GroupVersionResource
+	serverGroups, err := discoveryClient.ServerGroups()
+	if err != nil {
+		return nil, err
+	}
+	for _, apiGroup := range serverGroups.Groups {
+		if genericcontrolplanescheme.Scheme.IsGroupRegistered(apiGroup.Name) {
+			for _, version := range apiGroup.Versions {
+				gv := schema.GroupVersion{
+					Group:   apiGroup.Name,
+					Version: version.Version,
+				}
+				if genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
+					apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(gv.String())
+					if err != nil {
+						return nil, err
+					}
+					for _, apiResource := range apiResourceList.APIResources {
+						gvk := gv.WithKind(apiResource.Kind)
+						if !strings.Contains(apiResource.Name, "/") && genericcontrolplanescheme.Scheme.Recognizes(gvk) {
+							genericControlPlaneResources = append(genericControlPlaneResources, gv.WithResource(apiResource.Name))
+						}
+					}
+				}
+			}
+		}
+	}
+
 	c := &Controller{
-		queue:             queue,
-		clusterClient:     typedcluster.NewForConfigOrDie(cfg),
-		apiResourceClient: typedapiresource.NewForConfigOrDie(cfg),
-		crdClient:         crdClient,
-		syncerImage:       syncerImage,
-		kubeconfig:        kubeconfig,
-		stopCh:            stopCh,
-		resourcesToSync:   resourcesToSync,
-		syncerMode:        syncerMode,
-		syncers:           map[string]*syncer.Syncer{},
-		apiImporters:      map[string]*APIImporter{},
+		queue:                        queue,
+		clusterClient:                typedcluster.NewForConfigOrDie(cfg),
+		apiResourceClient:            typedapiresource.NewForConfigOrDie(cfg),
+		crdClient:                    crdClient,
+		syncerImage:                  syncerImage,
+		kubeconfig:                   kubeconfig,
+		stopCh:                       stopCh,
+		resourcesToSync:              resourcesToSync,
+		syncerMode:                   syncerMode,
+		syncers:                      map[string]*syncer.Syncer{},
+		apiImporters:                 map[string]*APIImporter{},
+		genericControlPlaneResources: genericControlPlaneResources,
 	}
 
 	sif := externalversions.NewSharedInformerFactoryWithOptions(versionedclient.NewForConfigOrDie(cfg), resyncPeriod)
@@ -120,19 +154,20 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 }
 
 type Controller struct {
-	queue                    workqueue.RateLimitingInterface
-	clusterClient            typedcluster.ClusterV1alpha1Interface
-	apiResourceClient        typedapiresource.ApiresourceV1alpha1Interface
-	clusterIndexer           cache.Indexer
-	apiresourceImportIndexer cache.Indexer
-	crdClient                apiextensionsv1client.ApiextensionsV1Interface
-	syncerImage              string
-	kubeconfig               clientcmdapi.Config
-	stopCh                   chan struct{}
-	resourcesToSync          []string
-	syncerMode               SyncerMode
-	syncers                  map[string]*syncer.Syncer
-	apiImporters             map[string]*APIImporter
+	queue                        workqueue.RateLimitingInterface
+	clusterClient                typedcluster.ClusterV1alpha1Interface
+	apiResourceClient            typedapiresource.ApiresourceV1alpha1Interface
+	clusterIndexer               cache.Indexer
+	apiresourceImportIndexer     cache.Indexer
+	crdClient                    apiextensionsv1client.ApiextensionsV1Interface
+	syncerImage                  string
+	kubeconfig                   clientcmdapi.Config
+	stopCh                       chan struct{}
+	resourcesToSync              []string
+	syncerMode                   SyncerMode
+	syncers                      map[string]*syncer.Syncer
+	apiImporters                 map[string]*APIImporter
+	genericControlPlaneResources []schema.GroupVersionResource
 }
 
 func (c *Controller) enqueue(obj interface{}) {
