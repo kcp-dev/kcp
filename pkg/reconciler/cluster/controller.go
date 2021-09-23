@@ -3,7 +3,7 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -25,6 +25,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	"sigs.k8s.io/yaml"
 
+	kcp "github.com/kcp-dev/kcp"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	versionedclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -315,39 +316,36 @@ func (c *Controller) deletedCluster(obj interface{}) {
 func RegisterCRDs(cfg *rest.Config) error {
 	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
 
-	files, err := ioutil.ReadDir("config/")
-	if err != nil {
+	if files, err := kcp.ConfigDir.ReadDir("config"); err != nil {
 		return err
-	}
-	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), "yaml") {
-			continue
-		}
-		bytes, err := ioutil.ReadFile("config/" + file.Name())
-		if err != nil {
-			return err
-		}
-		crd := &apiextensionsv1.CustomResourceDefinition{}
-		err = yaml.Unmarshal(bytes, crd)
-		if err != nil {
-			return err
-		}
-
-		_, err = crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-		if k8serorrs.IsAlreadyExists(err) {
-			existingCRD, err := crdClient.CustomResourceDefinitions().Get(context.TODO(), crd.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
+	} else {
+		for _, file := range files {
+			if !strings.HasSuffix(file.Name(), "yaml") {
+				continue
 			}
-			crd.ResourceVersion = existingCRD.ResourceVersion
-			if _, err := crdClient.CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{}); err != nil {
+			if bytes, err := kcp.ConfigDir.ReadFile(path.Join("config", file.Name())); err != nil {
 				return err
+			} else {
+				crd := &apiextensionsv1.CustomResourceDefinition{}
+				if err := yaml.Unmarshal(bytes, crd); err != nil {
+					return err
+				}
+				if _, err := crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); err != nil {
+					if !k8serorrs.IsAlreadyExists(err) {
+						return err
+					}
+					existingCRD, err := crdClient.CustomResourceDefinitions().Get(context.TODO(), crd.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					crd.ResourceVersion = existingCRD.ResourceVersion
+					if _, err := crdClient.CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{}); err != nil {
+						return err
+					}
+				}
 			}
-		} else if err != nil {
-			return err
 		}
 	}
-
 	return nil
 }
 
