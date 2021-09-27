@@ -17,12 +17,15 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/controller/namespace"
@@ -330,10 +333,20 @@ func (s *Server) startNamespaceController(hookContext genericapiserver.PostStart
 	}
 	versionedInformer := informers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 
+	discoverResourcesFn := func(clusterName string) ([]*metav1.APIResourceList, error) {
+		logicalClusterConfig := rest.CopyConfig(hookContext.LoopbackClientConfig)
+		logicalClusterConfig.Host += "/clusters/" + clusterName
+		discoveryClient, err := discovery.NewDiscoveryClientForConfig(logicalClusterConfig)
+		if err != nil {
+			return nil, err
+		}
+		return discoveryClient.ServerPreferredNamespacedResources()
+	}
+
 	go namespace.NewNamespaceController(
 		kubeClient,
 		metadata,
-		kubeClient.Discovery().ServerPreferredNamespacedResources,
+		discoverResourcesFn,
 		versionedInformer.Core().V1().Namespaces(),
 		time.Duration(30)*time.Second,
 		v1.FinalizerKubernetes,
