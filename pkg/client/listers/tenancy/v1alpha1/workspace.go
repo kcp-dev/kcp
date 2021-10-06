@@ -23,47 +23,47 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
-	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-// ClusterLister helps list Clusters.
+// WorkspaceLister helps list Workspaces.
 // All objects returned here must be treated as read-only.
-type ClusterLister interface {
-	// List lists all Clusters in the indexer.
+type WorkspaceLister interface {
+	// List lists all Workspaces in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.Cluster, err error)
-	// Get retrieves the Cluster from the index for a given name.
+	List(selector labels.Selector) (ret []*v1alpha1.Workspace, err error)
+	// Get retrieves the Workspace from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.Cluster, error)
-	ClusterListerExpansion
+	Get(name string) (*v1alpha1.Workspace, error)
+	WorkspaceListerExpansion
 }
 
-// clusterLister implements the ClusterLister interface.
-type clusterLister struct {
+// workspaceLister implements the WorkspaceLister interface.
+type workspaceLister struct {
 	indexer cache.Indexer
 }
 
-// NewClusterLister returns a new ClusterLister.
-func NewClusterLister(indexer cache.Indexer) ClusterLister {
-	return &clusterLister{indexer: indexer}
+// NewWorkspaceLister returns a new WorkspaceLister.
+func NewWorkspaceLister(indexer cache.Indexer) WorkspaceLister {
+	return &workspaceLister{indexer: indexer}
 }
 
-// List lists all Clusters in the indexer.
-func (s *clusterLister) List(selector labels.Selector) (ret []*v1alpha1.Cluster, err error) {
+// List lists all Workspaces in the indexer.
+func (s *workspaceLister) List(selector labels.Selector) (ret []*v1alpha1.Workspace, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.Cluster))
+		ret = append(ret, m.(*v1alpha1.Workspace))
 	})
 	return ret, err
 }
 
-// Get retrieves the Cluster from the index for a given name.
-func (s *clusterLister) Get(name string) (*v1alpha1.Cluster, error) {
+// Get retrieves the Workspace from the index for a given name.
+func (s *workspaceLister) Get(name string) (*v1alpha1.Workspace, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("cluster"), name)
+		return nil, errors.NewNotFound(v1alpha1.Resource("workspace"), name)
 	}
-	return obj.(*v1alpha1.Cluster), nil
+	return obj.(*v1alpha1.Workspace), nil
 }

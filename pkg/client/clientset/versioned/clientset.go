@@ -27,12 +27,14 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface
 	ClusterV1alpha1() clusterv1alpha1.ClusterV1alpha1Interface
+	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -41,6 +43,7 @@ type Clientset struct {
 	*discovery.DiscoveryClient
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1Client
 	clusterV1alpha1     *clusterv1alpha1.ClusterV1alpha1Client
+	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1Client
 }
 
 // ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client
@@ -51,6 +54,11 @@ func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha
 // ClusterV1alpha1 retrieves the ClusterV1alpha1Client
 func (c *Clientset) ClusterV1alpha1() clusterv1alpha1.ClusterV1alpha1Interface {
 	return c.clusterV1alpha1
+}
+
+// TenancyV1alpha1 retrieves the TenancyV1alpha1Client
+func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
+	return c.tenancyV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -82,6 +90,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -96,6 +108,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.apiresourceV1alpha1 = apiresourcev1alpha1.NewForConfigOrDie(c)
 	cs.clusterV1alpha1 = clusterv1alpha1.NewForConfigOrDie(c)
+	cs.tenancyV1alpha1 = tenancyv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -106,6 +119,7 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.apiresourceV1alpha1 = apiresourcev1alpha1.New(c)
 	cs.clusterV1alpha1 = clusterv1alpha1.New(c)
+	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
