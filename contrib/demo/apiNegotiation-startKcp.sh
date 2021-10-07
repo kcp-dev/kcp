@@ -9,6 +9,7 @@ source ${DEMO_ROOT}/.startUtils
 setupTraps $0
 
 KUBECONFIG=${KCP_DATA_ROOT}/.kcp/data/admin.kubeconfig
+export KCP_LISTEN_ADDR="127.0.0.1:6443"
 
 ${DEMO_ROOT}/startKcpAndClusterController.sh -auto_publish_apis=false deployments.apps &
 
