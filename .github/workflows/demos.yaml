@@ -1,10 +1,11 @@
 name: Demos
-
 on:
   workflow_dispatch:
-
+  pull_request:
+    types: [ labeled ]
 jobs:
   build-and-run-demos:
+    if: ${{ github.event.label.name == 'check-demos' }}
     name: Build and Run Demos
     runs-on: ubuntu-latest
     steps:
@@ -12,25 +13,21 @@ jobs:
     - uses: actions/setup-go@v2
       with:
         go-version: v1.16
-
     - run: make build
-    
-    - uses: engineerd/setup-kind@v0.5.0
-      name: Install Kind
-      with:
-        skipClusterCreation: true
-        version: v0.10.0
 
-    - name: Prepare Demo tests
-      run:
-        sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 &&
-        sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 &&
-        sudo sysctl -w net.ipv6.conf.lo.disable_ipv6=1 &&
+    - name: Install latest version of Kind
+      run: |
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+        chmod +x ./kind
+        sudo cp kind /usr/local/bin
+    - name: Install dependencies before running demos
+      run: |
         sudo apt-get install pv
-
     - name: Test Demos
-      run: mkdir tests && cd tests && ../contrib/demo/runDemos.sh -t
-      
+      run: |
+        mkdir tests
+        cd tests
+        ../contrib/demo/runDemos.sh -t
     - name: Archive Demo test results
       uses: actions/upload-artifact@v2
       if: failure()

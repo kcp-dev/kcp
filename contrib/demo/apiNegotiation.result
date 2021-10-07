@@ -36,9 +36,9 @@ cluster.cluster.example.dev/us-west1 created
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
-deployments.us-west1.v1.apps   us-west1   UpdateUnpublished        apps/v1       deployments    False        
+deployments.us-west1.v1.apps   us-west1   UpdateUnpublished        apps/v1       deployments    True         True
 ☸️ $ kubectl get apiresourceimports deployments.us-west1.v1.apps -o=go-template='{{ range .status.conditions }}{{ if eq .type "Compatible" }}{{ .message }}{{ end }}{{ end }}'
-Deployment.properties[spec].properties[template].properties[spec].properties: Invalid value: []string{"ephemeralContainers", "overhead", "setHostnameAsFQDN", "topologySpreadConstraints"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[containers].Items.properties: Invalid value: []string{"startupProbe"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[containers].Items.properties[securityContext].properties: Invalid value: []string{"seccompProfile"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[containers].Items.properties[securityContext].properties[windowsOptions].properties: Invalid value: []string{"runAsUserName"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[initContainers].Items.properties: Invalid value: []string{"startupProbe"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[initContainers].Items.properties[securityContext].properties: Invalid value: []string{"seccompProfile"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[initContainers].Items.properties[securityContext].properties[windowsOptions].properties: Invalid value: []string{"runAsUserName"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[securityContext].properties: Invalid value: []string{"fsGroupChangePolicy", "seccompProfile"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[securityContext].properties[windowsOptions].properties: Invalid value: []string{"runAsUserName"}: properties have been removed in an incompatible way; Deployment.properties[spec].properties[template].properties[spec].properties[volumes].Items.properties: Invalid value: []string{"ephemeral"}: properties have been removed in an incompatible way
+<no value>
 ☸️ $ kubectl patch apiresourceimports deployments.us-west1.v1.apps --type="merge" -p '{"spec":{"schemaUpdateStrategy":"UpdatePublished"}}'
 apiresourceimport.apiresource.kcp.dev/deployments.us-west1.v1.apps patched
 ☸️ $ kubectl get apiresourceimports -o wide
@@ -46,7 +46,9 @@ NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION  
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
 deployments.us-west1.v1.apps   us-west1   UpdatePublished          apps/v1       deployments    True         True
 ☸️ $ kubectl get negotiatedapiresource deployments.v1.apps -o yaml | grep ephemeralContainers
+                  ephemeralContainers:
 ☸️ $ kubectl get crds deployments.apps -o yaml | grep ephemeralContainers
+                      ephemeralContainers:
 ☸️ $ kubectl delete clusters us-west1
 cluster.cluster.example.dev "us-west1" deleted
 ☸️ $ kubectl get apiresourceimports -o wide
