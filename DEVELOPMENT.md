@@ -43,6 +43,41 @@ For example, in order to register the default cluster of your default kubeconfig
 sed -e 's/^/    /' ${HOME}/.kube/config | cat contrib/examples/cluster.yaml - | kubectl apply -f -
 ```
 
+# Adding deployments API resource
+
+Cluster controller will then discover the deployments.v1.apps API ressource on the local cluster. 
+To enable it on the KCP cluster:
+
+```
+kubectl patch negotiatedapiresources deployments.v1.apps --type="merge" -p '{"spec":{"publish":true}}'
+```
+
+It triggers the installation of the syncer on the local cluster. A syncer pod is expected to be running on the local cluster.
+Check the status of the syncer on the KCP side  with:
+
+```
+kubectl get clusters -o wide
+```
+
+The syncer needs to reach KCP apiserver. This URL can be updated with:
+
+```
+kubectl -n syncer-system edit cm kubeconfig-for-admin
+```
+
+On macOS, when running the local cluster with `kind` in Docker Desktop, be sure to use `host.docker.internal` as the 
+hostname of the KCP apiserver.
+
+# Running a deployment
+
+Now, KCP knows about deployment. Create a deployment and run assign it to the local cluster with:
+
+```
+kubectl create namespace default
+kubectl create deployment nginx --image=nginx
+kubectl label deployment nginx kcp.dev/cluster=local
+```
+
 # Using `kcp` as a library
 Instead of running the kcp as a binary using `go run`, you can include the kcp api-server in your own projects. To create and start the api-server with the default options (including an embedded etcd server):
 
