@@ -234,7 +234,7 @@ func uninstallSyncer(ctx context.Context, client kubernetes.Interface) {
 }
 
 func healthcheckSyncer(ctx context.Context, client kubernetes.Interface, logicalCluster string) error {
-	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: "app=" + syncerConfigMapName(logicalCluster)})
+	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: "app=" + syncerWorkloadName(logicalCluster)})
 	if err != nil {
 		return err
 	}
