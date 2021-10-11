@@ -9,10 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func boolPtr(b bool) *bool {
-	return &b
-}
-
 func TestCompatibility(t *testing.T) {
 	for _, c := range []struct {
 		desc                   string
@@ -439,4 +435,8 @@ func TestCompatibility(t *testing.T) {
 			}
 		})
 	}
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
