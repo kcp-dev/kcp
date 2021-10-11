@@ -364,7 +364,6 @@ func TestCompatibility(t *testing.T) {
 				},
 			},
 		},
-		// LCD is the same as existing.
 		wantLCD: &apiextensionsv1.JSONSchemaProps{
 			Type: "object",
 			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
@@ -378,7 +377,7 @@ func TestCompatibility(t *testing.T) {
 			},
 		},
 	}, {
-		desc: "new has more properties, existing contains additional properties boolean",
+		desc: "new has additional properties boolean, existing contains additional properties",
 		existing: &apiextensionsv1.JSONSchemaProps{
 			Type: "object",
 			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
@@ -401,7 +400,7 @@ func TestCompatibility(t *testing.T) {
 			},
 		},
 	}, {
-		desc: "new has more properties, existing contains additional properties boolean",
+		desc: "new has additional properties, existing contains additional properties boolean",
 		existing: &apiextensionsv1.JSONSchemaProps{
 			Type: "object",
 			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
@@ -416,7 +415,6 @@ func TestCompatibility(t *testing.T) {
 				Allows: true,
 			},
 		},
-		// LCD is the same as existing.
 		wantLCD: &apiextensionsv1.JSONSchemaProps{
 			Type: "object",
 			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
