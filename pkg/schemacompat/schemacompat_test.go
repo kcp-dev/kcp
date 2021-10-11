@@ -9,6 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 func TestCompatibility(t *testing.T) {
 	for _, c := range []struct {
 		desc                   string
@@ -184,6 +188,244 @@ func TestCompatibility(t *testing.T) {
 			Type: "object",
 			Properties: map[string]apiextensionsv1.JSONSchemaProps{
 				"existing": {Type: "string"},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains number",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "number"},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "number"},
+				"new":      {Type: "integer"},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "number"},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains integer",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+				"new":      {Type: "number"},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains XIntOrString",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type:         "",
+			XIntOrString: true,
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type:         "",
+			XIntOrString: true,
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type:         "",
+			XIntOrString: true,
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains XPreserveUnknownFields",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type:                   "",
+			XPreserveUnknownFields: boolPtr(true),
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type:                   "",
+			XPreserveUnknownFields: boolPtr(true),
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type:                   "",
+			XPreserveUnknownFields: boolPtr(true),
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "integer"},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains boolean",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "boolean"},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "boolean"},
+				"new":      {Type: "number"},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "boolean"},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains array",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "array",
+			Items: &apiextensionsv1.JSONSchemaPropsOrArray{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "object",
+					Properties: map[string]apiextensionsv1.JSONSchemaProps{
+						"existing": {Type: "integer"},
+					},
+				},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "array",
+			Items: &apiextensionsv1.JSONSchemaPropsOrArray{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "object",
+					Properties: map[string]apiextensionsv1.JSONSchemaProps{
+						"existing": {Type: "integer"},
+						"new":      {Type: "number"},
+					},
+				},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type: "array",
+			Items: &apiextensionsv1.JSONSchemaPropsOrArray{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "object",
+					Properties: map[string]apiextensionsv1.JSONSchemaProps{
+						"existing": {Type: "integer"},
+					},
+				},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains additional properties",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "object",
+					Properties: map[string]apiextensionsv1.JSONSchemaProps{
+						"subProp1": {Type: "string"},
+					},
+				},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "object",
+					Properties: map[string]apiextensionsv1.JSONSchemaProps{
+						"subProp1": {Type: "string"},
+						"subProp2": {Type: "string"},
+					},
+				},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Allows: true,
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "object",
+					Properties: map[string]apiextensionsv1.JSONSchemaProps{
+						"subProp1": {Type: "string"},
+					},
+				},
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains additional properties boolean",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Allows: true,
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "boolean",
+				},
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Allows: true,
+			},
+		},
+	}, {
+		desc: "new has more properties, existing contains additional properties boolean",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "boolean",
+				},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Allows: true,
+			},
+		},
+		// LCD is the same as existing.
+		wantLCD: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
+				Allows: true,
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "boolean",
+				},
 			},
 		},
 	}} {
