@@ -38,10 +38,14 @@ spec:
             description: WorkspaceShardStatus communicates the observed state of the WorkspaceShard.
             properties:
               capacity:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
                 description: Set of integer resources that workspaces can be scheduled into
-                items:
-                  type: integer
-                type: array
+                type: object
             type: object
         type: object
     served: true

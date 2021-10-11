@@ -37,6 +37,7 @@ spec:
               readOnly:
                 type: boolean
               shard:
+                minLength: 1
                 type: string
               targetShard:
                 type: string
@@ -59,6 +60,7 @@ spec:
                       type: string
                     name:
                       description: Name of an active shard.
+                      minLength: 1
                       type: string
                   required:
                   - name

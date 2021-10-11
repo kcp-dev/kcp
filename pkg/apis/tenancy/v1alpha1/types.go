@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,15 +47,18 @@ type WorkspaceSpec struct {
 	// +optional
 	ReadOnly bool `json:"readOnly,omitempty"`
 
+	// +kubebuilder:validation:MinLength=1
 	Shard string `json:"shard"`
 
 	// +optional
 	TargetShard string `json:"targetShard,omitempty"`
 }
 
-// SharedStatus contains details for the current status of a workspace shard.
+// ShardStatus contains details for the current status of a workspace shard.
 type ShardStatus struct {
 	// Name of an active shard.
+	//
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// Resource version at which writes to this version should not be accepted.
@@ -82,8 +86,6 @@ type WorkspaceStatus struct {
 	// The first shard in this list with LiveAfterResourceVersion is set is the active shard
 	//
 	// +optional
-	// +patchMergeKey=name
-	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=name
 	Shards []ShardStatus `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
@@ -128,7 +130,7 @@ type WorkspaceShardSpec struct {
 type WorkspaceShardStatus struct {
 	// Set of integer resources that workspaces can be scheduled into
 	// +optional
-	Capacity []int `json:"capacity,omitempty"`
+	Capacity corev1.ResourceList `json:"capacity,omitempty"`
 }
 
 // WorkspaceShardList is a list of Workspace shards
