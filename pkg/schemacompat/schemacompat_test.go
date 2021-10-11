@@ -244,6 +244,7 @@ func TestCompatibility(t *testing.T) {
 			XIntOrString: true,
 			Properties: map[string]apiextensionsv1.JSONSchemaProps{
 				"existing": {Type: "integer"},
+				"new":      {Type: "number"},
 			},
 		},
 		// LCD is the same as existing.
@@ -268,6 +269,7 @@ func TestCompatibility(t *testing.T) {
 			XPreserveUnknownFields: boolPtr(true),
 			Properties: map[string]apiextensionsv1.JSONSchemaProps{
 				"existing": {Type: "integer"},
+				"new":      {Type: "number"},
 			},
 		},
 		// LCD is the same as existing.
