@@ -36,7 +36,7 @@ type ClientInfo struct {
 	TrustedCAFile string
 }
 
-func (s *Server) Run(ctx context.Context) (ClientInfo, error) {
+func (s *Server) Run(ctx context.Context, peerPort, clientPort string) (ClientInfo, error) {
 	klog.Info("Creating embedded etcd server")
 	cfg := embed.NewConfig()
 
@@ -46,10 +46,10 @@ func (s *Server) Run(ctx context.Context) (ClientInfo, error) {
 	cfg.Dir = s.Dir
 	cfg.AuthToken = ""
 
-	cfg.LPUrls = []url.URL{{Scheme: "https", Host: "localhost:2380"}}
-	cfg.APUrls = []url.URL{{Scheme: "https", Host: "localhost:2380"}}
-	cfg.LCUrls = []url.URL{{Scheme: "https", Host: "localhost:2379"}}
-	cfg.ACUrls = []url.URL{{Scheme: "https", Host: "localhost:2379"}}
+	cfg.LPUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
+	cfg.APUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
+	cfg.LCUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
+	cfg.ACUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 
 	if err := os.MkdirAll(cfg.Dir, 0700); err != nil {

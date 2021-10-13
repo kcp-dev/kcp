@@ -14,6 +14,8 @@ type Config struct {
 	AutoPublishAPIs          bool
 	EtcdClientInfo           etcd.ClientInfo
 	EtcdDirectory            string
+	EtcdPeerPort             string
+	EtcdClientPort           string
 	InstallClusterController bool
 	KubeConfigPath           string
 	Listen                   string
@@ -23,6 +25,8 @@ type Config struct {
 	RootDirectory            string
 	SyncerImage              string
 	ProfilerAddress          string
+	ShardKubeconfigFile      string
+	EnableSharding           bool
 }
 
 // DefaultConfig returns a configuration with default values.
@@ -31,6 +35,8 @@ func DefaultConfig() *Config {
 		AutoPublishAPIs:          false,
 		EtcdClientInfo:           etcd.ClientInfo{},
 		EtcdDirectory:            "data",
+		EtcdPeerPort:             "2380",
+		EtcdClientPort:           "2379",
 		InstallClusterController: false,
 		KubeConfigPath:           filepath.Join("data", "admin.kubeconfig"),
 		Listen:                   ":6443",
@@ -92,6 +98,26 @@ func ConfigFromFlags(flags *pflag.FlagSet) *Config {
 	if profilerAddress, err := flags.GetString("profiler-address"); err == nil {
 		cfg.ProfilerAddress = profilerAddress
 	}
+	shardKubeconfigFile, err := flags.GetString("shard-kubeconfig-file")
+	if err == nil {
+		cfg.ShardKubeconfigFile = shardKubeconfigFile
+	}
+	enableSharding, err := flags.GetBool("enable-sharding")
+	if err == nil {
+		cfg.EnableSharding = enableSharding
+	}
+	rootDirectory, err := flags.GetString("root_directory")
+	if err == nil {
+		cfg.RootDirectory = rootDirectory
+	}
+	etcdPeerPort, err := flags.GetString("etcd_peer_port")
+	if err == nil {
+		cfg.EtcdPeerPort = etcdPeerPort
+	}
+	etcdClientPort, err := flags.GetString("etcd_client_port")
+	if err == nil {
+		cfg.EtcdClientPort = etcdClientPort
+	}
 	return cfg
 }
 
@@ -114,4 +140,12 @@ func AddConfigFlags(flags *pflag.FlagSet) {
 	flags.String("etcd-cafile", "",
 		"TLS Certificate Authority file used to secure etcd communication.")
 	flags.String("profiler-address", "", "[Address]:port to bind the profiler to.")
+	flags.String("shard-kubeconfig-file", "",
+		"Kubeconfig holding admin(!) credentials to peer kcp shards.")
+	flags.Bool("enable-sharding", false,
+		"Enable delegating to peer kcp shards.")
+	flags.String("root_directory", ".kcp",
+		"Root directory.")
+	flags.String("etcd_peer_port", "2380", "Port for etcd peer communication.")
+	flags.String("etcd_client_port", "2379", "Port for etcd client communication.")
 }
