@@ -77,10 +77,15 @@ func (c *Controller) ensureNamespaceExists(namespace string) error {
 }
 
 func deleteFromDownstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
-	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
-	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
+	client := c.getClient(gvr, namespace)
+	existing, err := client.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
 
-	return c.getClient(gvr, namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	uid := string(existing.GetUID())
+	klog.Infof("Deleting resource %s/%s uid: %s", namespace, name, uid)
+	return client.Delete(ctx, name, *metav1.NewPreconditionDeleteOptions(uid))
 }
 
 func upsertIntoDownstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
