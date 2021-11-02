@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-At noon Eastern, 9am Pacific, 4pm UTC; [find your time](https://www.timeanddate.com/worldclock/converter.html?iso=20210518T160000&p1=1440&p2=4826&p3=234&p4=195)
+At 11am Eastern, 8am Pacific, 3pm UTC; [find your time](https://www.timeanddate.com/worldclock/converter.html?iso=20210518T150000&p1=1440&p2=4826&p3=234&p4=195)
 
 Video call link: https://meet.google.com/ohf-kwvd-mrp
 Or dial: ‪(US) +1 617-675-4444‬ PIN: ‪936 182 087 7398‬#
