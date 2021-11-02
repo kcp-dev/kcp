@@ -20,4 +20,8 @@ limitations under the License.
 package tools
 
 // This package imports things required by this repository, to force `go mod` to see them as dependencies
-import _ "k8s.io/code-generator"
+import (
+	_ "github.com/coreydaley/openshift-goimports"
+
+	_ "k8s.io/code-generator"
+)
