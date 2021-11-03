@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	rest "k8s.io/client-go/rest"
-
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	rest "k8s.io/client-go/rest"
 )
 
 type ClusterV1alpha1Interface interface {

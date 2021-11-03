@@ -47,16 +47,20 @@ type WorkspaceSpec struct {
 	// +optional
 	ReadOnly bool `json:"readOnly,omitempty"`
 
+	// Name of the WorkspaceShard this Workspace lives on.
+	//
 	// +kubebuilder:validation:MinLength=1
 	Shard string `json:"shard"`
 
+	// Name of the WorkspaceShard this Workspace should move to.
+	//
 	// +optional
 	TargetShard string `json:"targetShard,omitempty"`
 }
 
 // ShardStatus contains details for the current status of a workspace shard.
 type ShardStatus struct {
-	// Name of an active shard.
+	// Name of an active WorkspaceShard.
 	//
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
@@ -82,13 +86,20 @@ type WorkspaceStatus struct {
 	// Phase of the workspace  (Initializing / Active / Terminating)
 	Phase WorkspacePhaseType `json:"phase,omitempty"`
 
+	// Base URL where this Workspace can be targeted.
+	// This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>.
+	// But a workspace could also be targetable by a unique hostname in the future.
+	//
+	// +kubebuilder:validation:Pattern:https://[^/].*
+	BaseURL string `json:"baseURL"`
+
 	// List of shards related to this workspace.
 	// The first shard in this list with LiveAfterResourceVersion is set is the active shard
 	//
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	Shards []ShardStatus `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	Shards []ShardStatus `json:"shards,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
 // WorkspaceList is a list of Workspace resources
