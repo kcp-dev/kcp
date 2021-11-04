@@ -65,7 +65,7 @@ type ShardStatus struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
-	// Resource version at which writes to this version should not be accepted.
+	// Resource version at which writes to this shard should not be accepted.
 	LiveBeforeResourceVersion string `json:"liveBeforeResourceVersion,omitempty"`
 
 	// Resource version after which writes can be accepted on this shard.

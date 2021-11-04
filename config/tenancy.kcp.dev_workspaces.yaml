@@ -64,7 +64,7 @@ spec:
                       description: Resource version after which writes can be accepted on this shard.
                       type: string
                     liveBeforeResourceVersion:
-                      description: Resource version at which writes to this version should not be accepted.
+                      description: Resource version at which writes to this shard should not be accepted.
                       type: string
                     name:
                       description: Name of an active WorkspaceShard.
