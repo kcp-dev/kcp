@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -77,6 +79,11 @@ type preShutdownHookEntry struct {
 
 // Run starts the KCP api-server. This function blocks until the api-server stops or an error.
 func (s *Server) Run(ctx context.Context) error {
+	if s.cfg.ProfilerAddress != "" {
+		// nolint:errcheck
+		go http.ListenAndServe(s.cfg.ProfilerAddress, nil)
+	}
+
 	dir := filepath.Join(".", s.cfg.RootDirectory)
 	if len(s.cfg.RootDirectory) != 0 {
 		if fi, err := os.Stat(dir); err != nil {
