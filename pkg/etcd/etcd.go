@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/server/v3/embed"
+	"k8s.io/klog"
 )
 
 type Server struct {
@@ -33,7 +35,8 @@ type ClientInfo struct {
 	TrustedCAFile string
 }
 
-func (s *Server) Run(fn func(ClientInfo) error) error {
+func (s *Server) Run(ctx context.Context) (ClientInfo, error) {
+	klog.Info("Creating embedded etcd server")
 	cfg := embed.NewConfig()
 
 	cfg.Logger = "zap"
@@ -49,11 +52,11 @@ func (s *Server) Run(fn func(ClientInfo) error) error {
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 
 	if err := os.MkdirAll(cfg.Dir, 0700); err != nil {
-		return err
+		return ClientInfo{}, err
 	}
 
 	if err := generateClientAndServerCerts([]string{"localhost"}, filepath.Join(cfg.Dir, "secrets")); err != nil {
-		return err
+		return ClientInfo{}, err
 	}
 	cfg.PeerTLSInfo.ServerName = "localhost"
 	cfg.PeerTLSInfo.CertFile = filepath.Join(cfg.Dir, "secrets", "peer", "cert.pem")
@@ -69,29 +72,33 @@ func (s *Server) Run(fn func(ClientInfo) error) error {
 
 	e, err := embed.StartEtcd(cfg)
 	if err != nil {
-		return err
+		return ClientInfo{}, err
 	}
-	defer e.Close()
+	// Shutdown when context is closed
+	go func() {
+		<-ctx.Done()
+		e.Close()
+	}()
 
 	clientConfig, err := cfg.ClientTLSInfo.ClientConfig()
 	if err != nil {
-		return err
+		return ClientInfo{}, err
 	}
 
 	select {
 	case <-e.Server.ReadyNotify():
-		return fn(ClientInfo{
+		return ClientInfo{
 			Endpoints:     []string{cfg.ACUrls[0].String()},
 			TLS:           clientConfig,
 			CertFile:      cfg.ClientTLSInfo.CertFile,
 			KeyFile:       cfg.ClientTLSInfo.KeyFile,
 			TrustedCAFile: cfg.ClientTLSInfo.TrustedCAFile,
-		})
+		}, nil
 	case <-time.After(60 * time.Second):
 		e.Server.Stop() // trigger a shutdown
-		return fmt.Errorf("server took too long to start")
+		return ClientInfo{}, fmt.Errorf("server took too long to start")
 	case e := <-e.Err():
-		return e
+		return ClientInfo{}, e
 	}
 }
 

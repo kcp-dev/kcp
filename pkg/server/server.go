@@ -269,29 +269,34 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if len(s.cfg.EtcdClientInfo.Endpoints) == 0 {
 		// No etcd servers specified so create one in-process:
-		return es.Run(runFunc)
-	}
-
-	s.cfg.EtcdClientInfo.TLS = &tls.Config{
-		InsecureSkipVerify: true,
-	}
-
-	if len(s.cfg.EtcdClientInfo.CertFile) > 0 && len(s.cfg.EtcdClientInfo.KeyFile) > 0 {
-		cert, err := tls.LoadX509KeyPair(s.cfg.EtcdClientInfo.CertFile, s.cfg.EtcdClientInfo.KeyFile)
+		embeddedClientInfo, err := es.Run(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to load x509 keypair: %s", err)
+			return err
 		}
-		s.cfg.EtcdClientInfo.TLS.Certificates = []tls.Certificate{cert}
-	}
+		s.cfg.EtcdClientInfo = embeddedClientInfo
+	} else {
+		// Set up for connection to an external etcd cluster
+		s.cfg.EtcdClientInfo.TLS = &tls.Config{
+			InsecureSkipVerify: true,
+		}
 
-	if len(s.cfg.EtcdClientInfo.TrustedCAFile) > 0 {
-		if caCert, err := ioutil.ReadFile(s.cfg.EtcdClientInfo.TrustedCAFile); err != nil {
-			return fmt.Errorf("failed to read ca file: %s", err)
-		} else {
-			caPool := x509.NewCertPool()
-			caPool.AppendCertsFromPEM(caCert)
-			s.cfg.EtcdClientInfo.TLS.RootCAs = caPool
-			s.cfg.EtcdClientInfo.TLS.InsecureSkipVerify = false
+		if len(s.cfg.EtcdClientInfo.CertFile) > 0 && len(s.cfg.EtcdClientInfo.KeyFile) > 0 {
+			cert, err := tls.LoadX509KeyPair(s.cfg.EtcdClientInfo.CertFile, s.cfg.EtcdClientInfo.KeyFile)
+			if err != nil {
+				return fmt.Errorf("failed to load x509 keypair: %s", err)
+			}
+			s.cfg.EtcdClientInfo.TLS.Certificates = []tls.Certificate{cert}
+		}
+
+		if len(s.cfg.EtcdClientInfo.TrustedCAFile) > 0 {
+			if caCert, err := ioutil.ReadFile(s.cfg.EtcdClientInfo.TrustedCAFile); err != nil {
+				return fmt.Errorf("failed to read ca file: %s", err)
+			} else {
+				caPool := x509.NewCertPool()
+				caPool.AppendCertsFromPEM(caCert)
+				s.cfg.EtcdClientInfo.TLS.RootCAs = caPool
+				s.cfg.EtcdClientInfo.TLS.InsecureSkipVerify = false
+			}
 		}
 	}
 
