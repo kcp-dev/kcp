@@ -99,176 +99,14 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 		}
 	}
-	es := &etcd.Server{
-		Dir: filepath.Join(dir, s.cfg.EtcdDirectory),
-	}
 
-	runFunc := func(cfg etcd.ClientInfo) error {
-		c, err := clientv3.New(clientv3.Config{
-			Endpoints: cfg.Endpoints,
-			TLS:       cfg.TLS,
-		})
-		if err != nil {
-			return err
-		}
-		defer c.Close()
-		r, err := c.Cluster.MemberList(context.Background())
-		if err != nil {
-			return err
-		}
-		for _, member := range r.Members {
-			fmt.Fprintf(os.Stderr, "Connected to etcd %d %s\n", member.GetID(), member.GetName())
-		}
-
-		serverOptions := options.NewServerRunOptions()
-		host, port, err := net.SplitHostPort(s.cfg.Listen)
-		if err != nil {
-			return fmt.Errorf("--listen must be of format host:port: %w", err)
-		}
-
-		if host != "" {
-			serverOptions.SecureServing.BindAddress = net.ParseIP(host)
-		}
-		if port != "" {
-			p, err := strconv.Atoi(port)
-			if err != nil {
-				return err
-			}
-			serverOptions.SecureServing.BindPort = p
-		}
-
-		serverOptions.SecureServing.ServerCert.CertDirectory = es.Dir
-		serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
-			ServerList:    cfg.Endpoints,
-			CertFile:      cfg.CertFile,
-			KeyFile:       cfg.KeyFile,
-			TrustedCAFile: cfg.TrustedCAFile,
-		}
-		cpOptions, err := genericcontrolplane.Complete(serverOptions)
-		if err != nil {
-			return err
-		}
-
-		server, err := genericcontrolplane.CreateServerChain(cpOptions, ctx.Done())
-		if err != nil {
-			return err
-		}
-
-		//Create Client and Shared
-		var clientConfig clientcmdapi.Config
-		clientConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-			"loopback": {Token: server.LoopbackClientConfig.BearerToken},
-		}
-		clientConfig.Clusters = map[string]*clientcmdapi.Cluster{
-			// admin is the virtual cluster running by default
-			"admin": {
-				Server:                   server.LoopbackClientConfig.Host,
-				CertificateAuthorityData: server.LoopbackClientConfig.CAData,
-				TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
-			},
-			// user is a virtual cluster that is lazily instantiated
-			"user": {
-				Server:                   server.LoopbackClientConfig.Host + "/clusters/user",
-				CertificateAuthorityData: server.LoopbackClientConfig.CAData,
-				TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
-			},
-		}
-		clientConfig.Contexts = map[string]*clientcmdapi.Context{
-			"admin": {Cluster: "admin", AuthInfo: "loopback"},
-			"user":  {Cluster: "user", AuthInfo: "loopback"},
-		}
-		clientConfig.CurrentContext = "admin"
-		if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.cfg.RootDirectory, s.cfg.KubeConfigPath)); err != nil {
-			return err
-		}
-
-		// Add our custom hooks to the underlying api server
-		for _, entry := range s.postStartHooks {
-			err := server.AddPostStartHook(entry.name, entry.hook)
-			if err != nil {
-				return err
-			}
-		}
-		for _, entry := range s.preShutdownHooks {
-			err := server.AddPreShutdownHook(entry.name, entry.hook)
-			if err != nil {
-				return err
-			}
-		}
-
-		if s.cfg.InstallClusterController {
-			if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
-				// Register the `clusters` CRD in both the admin and user logical clusters
-				for contextName := range clientConfig.Contexts {
-					logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-					if err != nil {
-						return err
-					}
-					if err := cluster.RegisterCRDs(logicalClusterConfig); err != nil {
-						return err
-					}
-				}
-				adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-				if err != nil {
-					return err
-				}
-
-				kubeconfig := clientConfig.DeepCopy()
-				for _, cluster := range kubeconfig.Clusters {
-					hostURL, err := url.Parse(cluster.Server)
-					if err != nil {
-						return err
-					}
-					hostURL.Host = server.ExternalAddress
-					cluster.Server = hostURL.String()
-				}
-
-				if s.cfg.PullMode && s.cfg.PushMode {
-					return errors.New("can't set --push_mode and --pull_mode")
-				}
-				syncerMode := cluster.SyncerModeNone
-				if s.cfg.PullMode {
-					syncerMode = cluster.SyncerModePull
-				}
-				if s.cfg.PushMode {
-					syncerMode = cluster.SyncerModePush
-				}
-
-				clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
-				clusterController, err := cluster.NewController(
-					adminConfig,
-					s.cfg.SyncerImage,
-					*kubeconfig,
-					s.cfg.ResourcesToSync,
-					syncerMode,
-				)
-				if err != nil {
-					return err
-				}
-				clusterController.Start(2)
-
-				apiresourceController, err := apiresource.NewController(
-					adminConfig,
-					s.cfg.AutoPublishAPIs,
-				)
-				if err != nil {
-					return err
-				}
-				apiresourceController.Start(2)
-
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-
-		prepared := server.PrepareRun()
-
-		return prepared.Run(ctx.Done())
-	}
+	etcdDir := filepath.Join(dir, s.cfg.EtcdDirectory)
 
 	if len(s.cfg.EtcdClientInfo.Endpoints) == 0 {
 		// No etcd servers specified so create one in-process:
+		es := &etcd.Server{
+			Dir: etcdDir,
+		}
 		embeddedClientInfo, err := es.Run(ctx)
 		if err != nil {
 			return err
@@ -300,7 +138,167 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	return runFunc(s.cfg.EtcdClientInfo)
+	c, err := clientv3.New(clientv3.Config{
+		Endpoints: s.cfg.EtcdClientInfo.Endpoints,
+		TLS:       s.cfg.EtcdClientInfo.TLS,
+	})
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	r, err := c.Cluster.MemberList(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, member := range r.Members {
+		fmt.Fprintf(os.Stderr, "Connected to etcd %d %s\n", member.GetID(), member.GetName())
+	}
+
+	serverOptions := options.NewServerRunOptions()
+	host, port, err := net.SplitHostPort(s.cfg.Listen)
+	if err != nil {
+		return fmt.Errorf("--listen must be of format host:port: %w", err)
+	}
+
+	if host != "" {
+		serverOptions.SecureServing.BindAddress = net.ParseIP(host)
+	}
+	if port != "" {
+		p, err := strconv.Atoi(port)
+		if err != nil {
+			return err
+		}
+		serverOptions.SecureServing.BindPort = p
+	}
+
+	serverOptions.SecureServing.ServerCert.CertDirectory = etcdDir
+	serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
+		ServerList:    s.cfg.EtcdClientInfo.Endpoints,
+		CertFile:      s.cfg.EtcdClientInfo.CertFile,
+		KeyFile:       s.cfg.EtcdClientInfo.KeyFile,
+		TrustedCAFile: s.cfg.EtcdClientInfo.TrustedCAFile,
+	}
+	cpOptions, err := genericcontrolplane.Complete(serverOptions)
+	if err != nil {
+		return err
+	}
+
+	server, err := genericcontrolplane.CreateServerChain(cpOptions, ctx.Done())
+	if err != nil {
+		return err
+	}
+
+	//Create Client and Shared
+	var clientConfig clientcmdapi.Config
+	clientConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
+		"loopback": {Token: server.LoopbackClientConfig.BearerToken},
+	}
+	clientConfig.Clusters = map[string]*clientcmdapi.Cluster{
+		// admin is the virtual cluster running by default
+		"admin": {
+			Server:                   server.LoopbackClientConfig.Host,
+			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
+		},
+		// user is a virtual cluster that is lazily instantiated
+		"user": {
+			Server:                   server.LoopbackClientConfig.Host + "/clusters/user",
+			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
+		},
+	}
+	clientConfig.Contexts = map[string]*clientcmdapi.Context{
+		"admin": {Cluster: "admin", AuthInfo: "loopback"},
+		"user":  {Cluster: "user", AuthInfo: "loopback"},
+	}
+	clientConfig.CurrentContext = "admin"
+	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.cfg.RootDirectory, s.cfg.KubeConfigPath)); err != nil {
+		return err
+	}
+
+	// Add our custom hooks to the underlying api server
+	for _, entry := range s.postStartHooks {
+		err := server.AddPostStartHook(entry.name, entry.hook)
+		if err != nil {
+			return err
+		}
+	}
+	for _, entry := range s.preShutdownHooks {
+		err := server.AddPreShutdownHook(entry.name, entry.hook)
+		if err != nil {
+			return err
+		}
+	}
+
+	if s.cfg.InstallClusterController {
+		if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+			// Register the `clusters` CRD in both the admin and user logical clusters
+			for contextName := range clientConfig.Contexts {
+				logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+				if err != nil {
+					return err
+				}
+				if err := cluster.RegisterCRDs(logicalClusterConfig); err != nil {
+					return err
+				}
+			}
+			adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+			if err != nil {
+				return err
+			}
+
+			kubeconfig := clientConfig.DeepCopy()
+			for _, cluster := range kubeconfig.Clusters {
+				hostURL, err := url.Parse(cluster.Server)
+				if err != nil {
+					return err
+				}
+				hostURL.Host = server.ExternalAddress
+				cluster.Server = hostURL.String()
+			}
+
+			if s.cfg.PullMode && s.cfg.PushMode {
+				return errors.New("can't set --push_mode and --pull_mode")
+			}
+			syncerMode := cluster.SyncerModeNone
+			if s.cfg.PullMode {
+				syncerMode = cluster.SyncerModePull
+			}
+			if s.cfg.PushMode {
+				syncerMode = cluster.SyncerModePush
+			}
+
+			clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
+			clusterController, err := cluster.NewController(
+				adminConfig,
+				s.cfg.SyncerImage,
+				*kubeconfig,
+				s.cfg.ResourcesToSync,
+				syncerMode,
+			)
+			if err != nil {
+				return err
+			}
+			clusterController.Start(2)
+
+			apiresourceController, err := apiresource.NewController(
+				adminConfig,
+				s.cfg.AutoPublishAPIs,
+			)
+			if err != nil {
+				return err
+			}
+			apiresourceController.Start(2)
+
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
+	prepared := server.PrepareRun()
+
+	return prepared.Run(ctx.Done())
 }
 
 // AddPostStartHook allows you to add a PostStartHook that gets passed to the underlying genericapiserver implementation.
