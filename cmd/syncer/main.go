@@ -2,6 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
+	"path"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
@@ -14,19 +17,25 @@ import (
 const numThreads = 2
 
 var (
-	fromKubeconfig = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster")
-	fromContext    = flag.String("from_context", "", "Context to use in the Kubeconfig file for -from cluster, instead of the current context")
-	toKubeconfig   = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used")
-	toContext      = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context")
-	clusterID      = flag.String("cluster", "", "ID of this cluster")
+	fromKubeconfig = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster.")
+	fromContext    = flag.String("from_context", "", "Context to use in the Kubeconfig file for -from cluster, instead of the current context.")
+	toKubeconfig   = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
+	toContext      = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
+	clusterID      = flag.String("cluster", "", "ID of the -to cluster. Resources with this ID set in the 'kcp.dev/cluster' label will be synced.")
 )
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s [resourceTypes...]:\n", path.Base(os.Args[0]))
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 	syncedResourceTypes := flag.Args()
 	if len(syncedResourceTypes) == 0 {
 		syncedResourceTypes = []string{"deployments.apps"}
+		klog.Infoln("No resource types provided; using defaults.")
 	}
+	klog.Infof("Syncing the following resource types: %s", syncedResourceTypes)
 
 	// Create a client to dynamically watch "from".
 
