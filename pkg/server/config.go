@@ -22,6 +22,7 @@ type Config struct {
 	ResourcesToSync          []string
 	RootDirectory            string
 	SyncerImage              string
+	ProfilerAddress          string
 }
 
 // DefaultConfig returns a configuration with default values.
@@ -88,6 +89,9 @@ func ConfigFromFlags(flags *pflag.FlagSet) *Config {
 	if err == nil {
 		cfg.EtcdClientInfo.TrustedCAFile = etcdTrustedCAFile
 	}
+	if profilerAddress, err := flags.GetString("profiler-address"); err == nil {
+		cfg.ProfilerAddress = profilerAddress
+	}
 	return cfg
 }
 
@@ -109,4 +113,5 @@ func AddConfigFlags(flags *pflag.FlagSet) {
 		"TLS certification file used to secure etcd communication.")
 	flags.String("etcd-cafile", "",
 		"TLS Certificate Authority file used to secure etcd communication.")
+	flags.String("profiler-address", "", "[Address]:port to bind the profiler to.")
 }
