@@ -19,11 +19,10 @@ func deepEqualStatus(oldObj, newObj interface{}) bool {
 		return false
 	}
 
-	if newStatus, statusExists := newUnstrob.UnstructuredContent()["status"]; statusExists {
-		oldStatus := oldUnstrob.UnstructuredContent()["status"]
-		return equality.Semantic.DeepEqual(oldStatus, newStatus)
-	}
-	return false
+	newStatus := newUnstrob.UnstructuredContent()["status"]
+	oldStatus := oldUnstrob.UnstructuredContent()["status"]
+
+	return equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
 func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error) {
