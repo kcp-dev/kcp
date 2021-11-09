@@ -1,20 +1,26 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"os/signal"
-	"syscall"
+	"time"
 
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
 const numThreads = 2
+const resyncPeriod = 10 * time.Hour
 
 var (
 	kubeconfigPath  = flag.String("kubeconfig", "", "Path to kubeconfig")
@@ -25,8 +31,9 @@ var (
 )
 
 func main() {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	// Setup signal handler for a cleaner shutdown
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
+	defer cancel()
 
 	flag.Parse()
 
@@ -61,27 +68,46 @@ func main() {
 		syncerMode = cluster.SyncerModePush
 	}
 
-	clusterController, err := cluster.NewController(r, *syncerImage, kubeconfig, resourcesToSync, syncerMode)
-	if err != nil {
-		klog.Fatal(err)
-	}
-	clusterController.Start(numThreads)
+	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(r), resyncPeriod)
+	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(r), resyncPeriod)
 
-	apiresourceController, err := apiresource.NewController(
-		r,
-		*autoPublishAPIs,
+	apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(r)
+	kcpClient := kcpclient.NewForConfigOrDie(r)
+
+	clusterController, err := cluster.NewController(
+		apiExtensionsClient,
+		kcpClient,
+		kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
+		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		*syncerImage,
+		kubeconfig,
+		resourcesToSync,
+		syncerMode,
 	)
 	if err != nil {
 		klog.Fatal(err)
 	}
-	apiresourceController.Start(2)
 
-	go func() {
-		<-sigs
-		clusterController.Stop()
-		apiresourceController.Stop()
-	}()
+	apiresourceController, err := apiresource.NewController(
+		apiExtensionsClient,
+		kcpClient,
+		*autoPublishAPIs,
+		kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+	)
+	if err != nil {
+		klog.Fatal(err)
+	}
 
-	<-clusterController.Done()
-	<-apiresourceController.Done()
+	kcpSharedInformerFactory.Start(ctx.Done())
+	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+
+	crdSharedInformerFactory.Start(ctx.Done())
+	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
+
+	clusterController.Start(ctx, numThreads)
+	apiresourceController.Start(ctx, 2)
+
+	<-ctx.Done()
 }

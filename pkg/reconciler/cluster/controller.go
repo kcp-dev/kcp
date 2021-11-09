@@ -9,6 +9,7 @@ import (
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -28,16 +28,13 @@ import (
 	kcp "github.com/kcp-dev/kcp"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
-	versionedclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
-	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
+	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
-
-const resyncPeriod = 10 * time.Hour
 
 type SyncerMode int
 
@@ -63,15 +60,22 @@ func GetLocationInLogicalClusterIndexKey(location, clusterName string) string {
 // server it reaches using the REST client.
 //
 // When new Clusters are found, the syncer will be run there using the given image.
-func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config, resourcesToSync []string, syncerMode SyncerMode) (*Controller, error) {
+func NewController(
+	apiExtensionsClient apiextensionsclient.Interface,
+	kcpClient kcpclient.Interface,
+	clusterInformer clusterinformer.ClusterInformer,
+	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	syncerImage string,
+	kubeconfig clientcmdapi.Config,
+	resourcesToSync []string,
+	syncerMode SyncerMode,
+) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
-
-	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
-
-	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(cfg)
 
 	var genericControlPlaneResources []schema.GroupVersionResource
+
+	//TODO(ncdc): does this need a per-cluster client?
+	discoveryClient := apiExtensionsClient.Discovery()
 	serverGroups, err := discoveryClient.ServerGroups()
 	if err != nil {
 		return nil, err
@@ -101,12 +105,12 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 
 	c := &Controller{
 		queue:                        queue,
-		clusterClient:                typedcluster.NewForConfigOrDie(cfg),
-		apiResourceClient:            typedapiresource.NewForConfigOrDie(cfg),
-		crdClient:                    crdClient,
+		apiExtensionsClient:          apiExtensionsClient,
+		kcpClient:                    kcpClient,
+		clusterIndexer:               clusterInformer.Informer().GetIndexer(),
+		apiresourceImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
 		syncerImage:                  syncerImage,
 		kubeconfig:                   kubeconfig,
-		stopCh:                       stopCh,
 		resourcesToSync:              resourcesToSync,
 		syncerMode:                   syncerMode,
 		syncers:                      map[string]*syncer.Syncer{},
@@ -114,15 +118,13 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		genericControlPlaneResources: genericControlPlaneResources,
 	}
 
-	sif := externalversions.NewSharedInformerFactoryWithOptions(versionedclient.NewForConfigOrDie(cfg), resyncPeriod)
-	sif.Cluster().V1alpha1().Clusters().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.deletedCluster(obj) },
 	})
-	c.clusterIndexer = sif.Cluster().V1alpha1().Clusters().Informer().GetIndexer()
 
-	sif.Apiresource().V1alpha1().APIResourceImports().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
@@ -130,7 +132,6 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
 	})
-	c.apiresourceImportIndexer = sif.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
 	if err := c.apiresourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
 		GVRForLocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
@@ -148,22 +149,17 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %v", err)
 	}
 
-	sif.WaitForCacheSync(stopCh)
-	sif.Start(stopCh)
-
 	return c, nil
 }
 
 type Controller struct {
 	queue                        workqueue.RateLimitingInterface
-	clusterClient                typedcluster.ClusterV1alpha1Interface
-	apiResourceClient            typedapiresource.ApiresourceV1alpha1Interface
+	apiExtensionsClient          apiextensionsclient.Interface
+	kcpClient                    kcpclient.Interface
 	clusterIndexer               cache.Indexer
 	apiresourceImportIndexer     cache.Indexer
-	crdClient                    apiextensionsv1client.ApiextensionsV1Interface
 	syncerImage                  string
 	kubeconfig                   clientcmdapi.Config
-	stopCh                       chan struct{}
 	resourcesToSync              []string
 	syncerMode                   SyncerMode
 	syncers                      map[string]*syncer.Syncer
@@ -201,29 +197,26 @@ func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
 	}
 }
 
-func (c *Controller) Start(numThreads int) {
+func (c *Controller) Start(ctx context.Context, numThreads int) {
+	defer runtime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	klog.Info("Starting Cluster controller")
+	defer klog.Info("Shutting down Cluster controller")
+
 	for i := 0; i < numThreads; i++ {
-		go wait.Until(c.startWorker, time.Second, c.stopCh)
+		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 	}
-	klog.Info("Starting workers")
+
+	<-ctx.Done()
 }
 
-// Stop stops the controller.
-func (c *Controller) Stop() {
-	klog.Info("Stopping workers")
-	c.queue.ShutDown()
-	close(c.stopCh)
-}
-
-// Done returns a channel that's closed when the controller is stopped.
-func (c *Controller) Done() <-chan struct{} { return c.stopCh }
-
-func (c *Controller) startWorker() {
-	for c.processNextWorkItem() {
+func (c *Controller) startWorker(ctx context.Context) {
+	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *Controller) processNextWorkItem() bool {
+func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	k, quit := c.queue.Get()
 	if quit {
@@ -235,7 +228,7 @@ func (c *Controller) processNextWorkItem() bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	err := c.process(key)
+	err := c.process(ctx, key)
 	c.handleErr(err, key)
 	return true
 }
@@ -262,7 +255,7 @@ func (c *Controller) handleErr(err error, key string) {
 	klog.Errorf("Dropping key %q after failed retries: %v", key, err)
 }
 
-func (c *Controller) process(key string) error {
+func (c *Controller) process(ctx context.Context, key string) error {
 	obj, exists, err := c.clusterIndexer.GetByKey(key)
 	if err != nil {
 		return err
@@ -275,15 +268,13 @@ func (c *Controller) process(key string) error {
 	current := obj.(*clusterv1alpha1.Cluster)
 	previous := current.DeepCopy()
 
-	ctx := context.TODO()
-
 	if err := c.reconcile(ctx, current); err != nil {
 		return err
 	}
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.clusterClient.Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClient.ClusterV1alpha1().Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 
