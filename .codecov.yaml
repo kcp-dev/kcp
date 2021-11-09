@@ -1,9 +1,0 @@
-ignore:
-- "**/zz_*_generated.go" # Ignore generated files.
-- "hack"
-- "pkg/client" # Ignore generated files.
-
-coverage:
-  status:
-    patch:
-      informational: true
