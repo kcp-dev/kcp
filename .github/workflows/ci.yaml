@@ -62,4 +62,3 @@ jobs:
 
     - run: make build
     - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
-    - uses: codecov/codecov-action@v1
