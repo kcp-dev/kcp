@@ -26,6 +26,7 @@ import (
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -63,6 +64,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=cluster.example.dev, Version=v1alpha1
 	case clusterv1alpha1.SchemeGroupVersion.WithResource("clusters"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cluster().V1alpha1().Clusters().Informer()}, nil
+
+		// Group=tenancy.kcp.dev, Version=v1alpha1
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().Workspaces().Informer()}, nil
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaceshards"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().WorkspaceShards().Informer()}, nil
 
 	}
 

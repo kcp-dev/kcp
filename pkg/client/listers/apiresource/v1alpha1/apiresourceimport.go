@@ -27,10 +27,13 @@ import (
 )
 
 // APIResourceImportLister helps list APIResourceImports.
+// All objects returned here must be treated as read-only.
 type APIResourceImportLister interface {
 	// List lists all APIResourceImports in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.APIResourceImport, err error)
 	// Get retrieves the APIResourceImport from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.APIResourceImport, error)
 	APIResourceImportListerExpansion
 }
