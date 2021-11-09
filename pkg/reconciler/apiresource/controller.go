@@ -17,6 +17,7 @@ limitations under the License.
 package apiresource
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -287,7 +288,7 @@ func (c *Controller) enqueue(action resourceHandlerAction, oldObj, obj interface
 	})
 }
 
-func (c *Controller) Start(numThreads int, stopCh <-chan struct{}) {
+func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -295,18 +296,18 @@ func (c *Controller) Start(numThreads int, stopCh <-chan struct{}) {
 	defer klog.Info("Shutting down APIResource controller")
 
 	for i := 0; i < numThreads; i++ {
-		go wait.Until(c.startWorker, time.Second, stopCh)
+		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 	}
 
-	<-stopCh
+	<-ctx.Done()
 }
 
-func (c *Controller) startWorker() {
-	for c.processNextWorkItem() {
+func (c *Controller) startWorker(ctx context.Context) {
+	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *Controller) processNextWorkItem() bool {
+func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	k, quit := c.queue.Get()
 	if quit {
@@ -318,7 +319,7 @@ func (c *Controller) processNextWorkItem() bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	err := c.process(key)
+	err := c.process(ctx, key)
 	c.handleErr(err, key)
 	return true
 }

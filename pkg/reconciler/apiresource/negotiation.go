@@ -36,8 +36,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/schemacompat"
 )
 
-func (c *Controller) process(key queueElement) error {
-	ctx := request.WithCluster(context.TODO(), request.Cluster{Name: key.clusterName})
+func (c *Controller) process(ctx context.Context, key queueElement) error {
+	ctx = request.WithCluster(ctx, request.Cluster{Name: key.clusterName})
 
 	switch key.theType {
 	case customResourceDefinitionType:

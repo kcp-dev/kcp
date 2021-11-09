@@ -324,8 +324,8 @@ func (s *Server) Run(ctx context.Context) error {
 			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
 			crdSharedInformerFactory.WaitForCacheSync(context.StopCh)
 
-			clusterController.Start(2, context.StopCh)
-			apiresourceController.Start(2, context.StopCh)
+			clusterController.Start(ctx, 2)
+			apiresourceController.Start(ctx, 2)
 
 			return nil
 		}); err != nil {
