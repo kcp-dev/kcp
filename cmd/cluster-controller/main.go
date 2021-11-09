@@ -8,16 +8,12 @@ import (
 	"time"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	typedapiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
-	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
@@ -75,17 +71,13 @@ func main() {
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(r), resyncPeriod)
 	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(r), resyncPeriod)
 
-	apiResourceClient := typedapiresource.NewForConfigOrDie(r)
-	crdClient := typedapiextensions.NewForConfigOrDie(r)
-	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(r)
-	clusterClient := typedcluster.NewForConfigOrDie(r)
+	apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(r)
+	kcpClient := kcpclient.NewForConfigOrDie(r)
 
 	clusterController, err := cluster.NewController(
-		crdClient,
-		discoveryClient,
-		clusterClient,
+		apiExtensionsClient,
+		kcpClient,
 		kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
-		apiResourceClient,
 		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		*syncerImage,
 		kubeconfig,
@@ -97,8 +89,8 @@ func main() {
 	}
 
 	apiresourceController, err := apiresource.NewController(
-		apiResourceClient,
-		crdClient,
+		apiExtensionsClient,
+		kcpClient,
 		*autoPublishAPIs,
 		kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),

@@ -67,7 +67,7 @@ func (i *APIImporter) Stop() {
 	}
 	for _, obj := range objs {
 		apiResourceImportToDelete := obj.(*apiresourcev1alpha1.APIResourceImport)
-		err := i.c.apiResourceClient.APIResourceImports().Delete(request.WithCluster(context.Background(), request.Cluster{Name: i.logicalClusterName}), apiResourceImportToDelete.Name, metav1.DeleteOptions{})
+		err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(request.WithCluster(context.Background(), request.Cluster{Name: i.logicalClusterName}), apiResourceImportToDelete.Name, metav1.DeleteOptions{})
 		if err != nil {
 			klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToDelete.Name, err)
 		}
@@ -105,7 +105,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.c.apiResourceClient.APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+			if _, err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -175,7 +175,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.c.apiResourceClient.APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
+			if _, err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -197,7 +197,7 @@ func (i *APIImporter) ImportAPIs() {
 		}
 		if len(objs) == 1 {
 			apiResourceImportToRemove := objs[0].(*apiresourcev1alpha1.APIResourceImport)
-			err := i.c.apiResourceClient.APIResourceImports().Delete(i.context, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
+			err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(i.context, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToRemove.Name, err)
 				continue

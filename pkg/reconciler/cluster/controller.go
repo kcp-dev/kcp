@@ -9,15 +9,14 @@ import (
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -29,16 +28,13 @@ import (
 	kcp "github.com/kcp-dev/kcp"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
-	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
-	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
-
-const resyncPeriod = 10 * time.Hour
 
 type SyncerMode int
 
@@ -65,11 +61,9 @@ func GetLocationInLogicalClusterIndexKey(location, clusterName string) string {
 //
 // When new Clusters are found, the syncer will be run there using the given image.
 func NewController(
-	crdClient apiextensionsv1client.ApiextensionsV1Interface,
-	discoveryClient discovery.DiscoveryInterface,
-	clusterClient typedcluster.ClusterV1alpha1Interface,
+	apiExtensionsClient apiextensionsclient.Interface,
+	kcpClient kcpclient.Interface,
 	clusterInformer clusterinformer.ClusterInformer,
-	apiResourceClient typedapiresource.ApiresourceV1alpha1Interface,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	syncerImage string,
 	kubeconfig clientcmdapi.Config,
@@ -79,6 +73,9 @@ func NewController(
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	var genericControlPlaneResources []schema.GroupVersionResource
+
+	//TODO(ncdc): does this need a per-cluster client?
+	discoveryClient := apiExtensionsClient.Discovery()
 	serverGroups, err := discoveryClient.ServerGroups()
 	if err != nil {
 		return nil, err
@@ -108,11 +105,10 @@ func NewController(
 
 	c := &Controller{
 		queue:                        queue,
-		clusterClient:                clusterClient,
+		apiExtensionsClient:          apiExtensionsClient,
+		kcpClient:                    kcpClient,
 		clusterIndexer:               clusterInformer.Informer().GetIndexer(),
-		apiResourceClient:            apiResourceClient,
 		apiresourceImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
-		crdClient:                    crdClient,
 		syncerImage:                  syncerImage,
 		kubeconfig:                   kubeconfig,
 		resourcesToSync:              resourcesToSync,
@@ -158,11 +154,10 @@ func NewController(
 
 type Controller struct {
 	queue                        workqueue.RateLimitingInterface
-	clusterClient                typedcluster.ClusterV1alpha1Interface
-	apiResourceClient            typedapiresource.ApiresourceV1alpha1Interface
+	apiExtensionsClient          apiextensionsclient.Interface
+	kcpClient                    kcpclient.Interface
 	clusterIndexer               cache.Indexer
 	apiresourceImportIndexer     cache.Indexer
-	crdClient                    apiextensionsv1client.ApiextensionsV1Interface
 	syncerImage                  string
 	kubeconfig                   clientcmdapi.Config
 	resourcesToSync              []string
@@ -203,7 +198,7 @@ func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
-	defer utilruntime.HandleCrash()
+	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Info("Starting Cluster controller")
@@ -279,7 +274,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.clusterClient.Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClient.ClusterV1alpha1().Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 

@@ -20,7 +20,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	typedapiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -38,8 +37,6 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
-	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
@@ -288,17 +285,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 			clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 
-			apiresourceClient := typedapiresource.NewForConfigOrDie(adminConfig)
-			crdClient := typedapiextensions.NewForConfigOrDie(adminConfig)
-			discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
-			clusterClient := typedcluster.NewForConfigOrDie(adminConfig)
+			apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
+			kcpClient := kcpclient.NewForConfigOrDie(adminConfig)
 
 			clusterController, err := cluster.NewController(
-				crdClient,
-				discoveryClient,
-				clusterClient,
+				apiExtensionsClient,
+				kcpClient,
 				kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
-				apiresourceClient,
 				kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 				s.cfg.SyncerImage,
 				*kubeconfig,
@@ -310,8 +303,8 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 
 			apiresourceController, err := apiresource.NewController(
-				apiresourceClient,
-				crdClient,
+				apiExtensionsClient,
+				kcpClient,
 				s.cfg.AutoPublishAPIs,
 				kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 				kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
