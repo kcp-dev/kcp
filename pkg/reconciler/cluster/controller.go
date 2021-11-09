@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -28,10 +29,10 @@ import (
 	kcp "github.com/kcp-dev/kcp"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
-	versionedclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
 	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
+	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/util/errors"
@@ -63,13 +64,19 @@ func GetLocationInLogicalClusterIndexKey(location, clusterName string) string {
 // server it reaches using the REST client.
 //
 // When new Clusters are found, the syncer will be run there using the given image.
-func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi.Config, resourcesToSync []string, syncerMode SyncerMode) (*Controller, error) {
+func NewController(
+	crdClient apiextensionsv1client.ApiextensionsV1Interface,
+	discoveryClient discovery.DiscoveryInterface,
+	clusterClient typedcluster.ClusterV1alpha1Interface,
+	clusterInformer clusterinformer.ClusterInformer,
+	apiResourceClient typedapiresource.ApiresourceV1alpha1Interface,
+	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	syncerImage string,
+	kubeconfig clientcmdapi.Config,
+	resourcesToSync []string,
+	syncerMode SyncerMode,
+) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
-
-	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
-
-	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(cfg)
 
 	var genericControlPlaneResources []schema.GroupVersionResource
 	serverGroups, err := discoveryClient.ServerGroups()
@@ -101,12 +108,13 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 
 	c := &Controller{
 		queue:                        queue,
-		clusterClient:                typedcluster.NewForConfigOrDie(cfg),
-		apiResourceClient:            typedapiresource.NewForConfigOrDie(cfg),
+		clusterClient:                clusterClient,
+		clusterIndexer:               clusterInformer.Informer().GetIndexer(),
+		apiResourceClient:            apiResourceClient,
+		apiresourceImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
 		crdClient:                    crdClient,
 		syncerImage:                  syncerImage,
 		kubeconfig:                   kubeconfig,
-		stopCh:                       stopCh,
 		resourcesToSync:              resourcesToSync,
 		syncerMode:                   syncerMode,
 		syncers:                      map[string]*syncer.Syncer{},
@@ -114,15 +122,13 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		genericControlPlaneResources: genericControlPlaneResources,
 	}
 
-	sif := externalversions.NewSharedInformerFactoryWithOptions(versionedclient.NewForConfigOrDie(cfg), resyncPeriod)
-	sif.Cluster().V1alpha1().Clusters().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.deletedCluster(obj) },
 	})
-	c.clusterIndexer = sif.Cluster().V1alpha1().Clusters().Informer().GetIndexer()
 
-	sif.Apiresource().V1alpha1().APIResourceImports().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
@@ -130,7 +136,6 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
 	})
-	c.apiresourceImportIndexer = sif.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
 	if err := c.apiresourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
 		GVRForLocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
@@ -148,9 +153,6 @@ func NewController(cfg *rest.Config, syncerImage string, kubeconfig clientcmdapi
 		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %v", err)
 	}
 
-	sif.WaitForCacheSync(stopCh)
-	sif.Start(stopCh)
-
 	return c, nil
 }
 
@@ -163,7 +165,6 @@ type Controller struct {
 	crdClient                    apiextensionsv1client.ApiextensionsV1Interface
 	syncerImage                  string
 	kubeconfig                   clientcmdapi.Config
-	stopCh                       chan struct{}
 	resourcesToSync              []string
 	syncerMode                   SyncerMode
 	syncers                      map[string]*syncer.Syncer
@@ -201,22 +202,19 @@ func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
 	}
 }
 
-func (c *Controller) Start(numThreads int) {
+func (c *Controller) Start(numThreads int, stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	klog.Info("Starting Cluster controller")
+	defer klog.Info("Shutting down Cluster controller")
+
 	for i := 0; i < numThreads; i++ {
-		go wait.Until(c.startWorker, time.Second, c.stopCh)
+		go wait.Until(c.startWorker, time.Second, stopCh)
 	}
-	klog.Info("Starting workers")
-}
 
-// Stop stops the controller.
-func (c *Controller) Stop() {
-	klog.Info("Stopping workers")
-	c.queue.ShutDown()
-	close(c.stopCh)
+	<-stopCh
 }
-
-// Done returns a channel that's closed when the controller is stopped.
-func (c *Controller) Done() <-chan struct{} { return c.stopCh }
 
 func (c *Controller) startWorker() {
 	for c.processNextWorkItem() {

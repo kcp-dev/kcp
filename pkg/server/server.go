@@ -19,8 +19,10 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	v1 "k8s.io/api/core/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	typedapiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/discovery"
@@ -35,6 +37,10 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
+	typedcluster "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
+	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
@@ -231,6 +237,22 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.cfg.InstallClusterController {
+		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+		if err != nil {
+			return err
+		}
+
+		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(adminConfig), resyncPeriod)
+		crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(adminConfig), resyncPeriod)
+
+		if err := server.AddPostStartHook("Start shared informers", func(context genericapiserver.PostStartHookContext) error {
+			kcpSharedInformerFactory.Start(context.StopCh)
+			crdSharedInformerFactory.Start(context.StopCh)
+			return nil
+		}); err != nil {
+			return err
+		}
+
 		if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
 			// Register the `clusters` CRD in both the admin and user logical clusters
 			for contextName := range clientConfig.Contexts {
@@ -241,10 +263,6 @@ func (s *Server) Run(ctx context.Context) error {
 				if err := cluster.RegisterCRDs(logicalClusterConfig); err != nil {
 					return err
 				}
-			}
-			adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-			if err != nil {
-				return err
 			}
 
 			kubeconfig := clientConfig.DeepCopy()
@@ -269,8 +287,19 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 
 			clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
+
+			apiresourceClient := typedapiresource.NewForConfigOrDie(adminConfig)
+			crdClient := typedapiextensions.NewForConfigOrDie(adminConfig)
+			discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
+			clusterClient := typedcluster.NewForConfigOrDie(adminConfig)
+
 			clusterController, err := cluster.NewController(
-				adminConfig,
+				crdClient,
+				discoveryClient,
+				clusterClient,
+				kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
+				apiresourceClient,
+				kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 				s.cfg.SyncerImage,
 				*kubeconfig,
 				s.cfg.ResourcesToSync,
@@ -279,16 +308,24 @@ func (s *Server) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			clusterController.Start(2)
 
 			apiresourceController, err := apiresource.NewController(
-				adminConfig,
+				apiresourceClient,
+				crdClient,
 				s.cfg.AutoPublishAPIs,
+				kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+				kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+				crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 			)
 			if err != nil {
 				return err
 			}
-			apiresourceController.Start(2)
+
+			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
+			crdSharedInformerFactory.WaitForCacheSync(context.StopCh)
+
+			clusterController.Start(2, context.StopCh)
+			apiresourceController.Start(2, context.StopCh)
 
 			return nil
 		}); err != nil {
@@ -360,7 +397,9 @@ func (s *Server) startNamespaceController(hookContext genericapiserver.PostStart
 		versionedInformer.Core().V1().Namespaces(),
 		time.Duration(30)*time.Second,
 		v1.FinalizerKubernetes,
-	).Run(2, wait.NeverStop)
-	versionedInformer.Start(wait.NeverStop)
+	).Run(2, hookContext.StopCh)
+
+	versionedInformer.Start(hookContext.StopCh)
+
 	return nil
 }

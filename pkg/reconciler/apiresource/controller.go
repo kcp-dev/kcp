@@ -21,56 +21,59 @@ import (
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	typedapiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	crdinfomer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	crdlister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	typedapiresource "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apiresourcelister "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
 
-const resyncPeriod = 10 * time.Hour
 const clusterNameAndGVRIndexName = "clusterNameAndGVR"
 
 func GetClusterNameAndGVRIndexKey(clusterName string, gvr metav1.GroupVersionResource) string {
 	return clusterName + "$" + gvr.String()
 }
 
-func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) (*Controller, error) {
-	apiresourceClient := typedapiresource.NewForConfigOrDie(cfg)
+func NewController(
+	apiResourceClient typedapiresource.ApiresourceV1alpha1Interface,
+	crdClient typedapiextensions.ApiextensionsV1Interface,
+	autoPublishNegotiatedAPIResource bool,
+	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
+	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	crdInformer crdinfomer.CustomResourceDefinitionInformer,
+) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
-
-	crdClient := typedapiextensions.NewForConfigOrDie(cfg)
 
 	c := &Controller{
 		queue:                            queue,
-		apiresourceClient:                apiresourceClient,
+		apiresourceClient:                apiResourceClient,
 		crdClient:                        crdClient,
-		stopCh:                           stopCh,
 		AutoPublishNegotiatedAPIResource: autoPublishNegotiatedAPIResource,
+		negotiatedApiResourceIndexer:     negotiatedAPIResourceInformer.Informer().GetIndexer(),
+		negotiatedApiResourceLister:      negotiatedAPIResourceInformer.Lister(),
+		apiResourceImportIndexer:         apiResourceImportInformer.Informer().GetIndexer(),
+		apiResourceImportLister:          apiResourceImportInformer.Lister(),
+		crdIndexer:                       crdInformer.Informer().GetIndexer(),
+		crdLister:                        crdInformer.Lister(),
 	}
 
-	apiresourceSif := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(cfg), resyncPeriod)
-	apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
-	c.negotiatedApiResourceIndexer = apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Informer().GetIndexer()
 	if err := c.negotiatedApiResourceIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if negotiatedApiResource, ok := obj.(*apiresourcev1alpha1.NegotiatedAPIResource); ok {
@@ -79,15 +82,14 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) (*Co
 			return []string{}, nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("Failed to add indexer for NegotiatedAPIResource: %v", err)
+		return nil, fmt.Errorf("failed to add indexer for NegotiatedAPIResource: %w", err)
 	}
-	c.negotiatedApiResourceLister = apiresourceSif.Apiresource().V1alpha1().NegotiatedAPIResources().Lister()
-	apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+
+	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
-	c.apiResourceImportIndexer = apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
 	if err := c.apiResourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
@@ -96,20 +98,14 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) (*Co
 			return []string{}, nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %v", err)
+		return nil, fmt.Errorf("failed to add indexer for APIResourceImport: %w", err)
 	}
-	c.apiResourceImportLister = apiresourceSif.Apiresource().V1alpha1().APIResourceImports().Lister()
 
-	apiresourceSif.WaitForCacheSync(stopCh)
-	apiresourceSif.Start(stopCh)
-
-	crdSif := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(cfg), resyncPeriod)
-	crdSif.Apiextensions().V1().CustomResourceDefinitions().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
 	})
-	c.crdIndexer = crdSif.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer()
 	if err := c.crdIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition); ok {
@@ -121,11 +117,8 @@ func NewController(cfg *rest.Config, autoPublishNegotiatedAPIResource bool) (*Co
 			return []string{}, nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("Failed to add indexer for CustomResourceDefinition: %v", err)
+		return nil, fmt.Errorf("failed to add indexer for CustomResourceDefinition: %w", err)
 	}
-	c.crdLister = crdSif.Apiextensions().V1().CustomResourceDefinitions().Lister()
-	crdSif.WaitForCacheSync(stopCh)
-	crdSif.Start(stopCh)
 
 	return c, nil
 }
@@ -136,14 +129,14 @@ type Controller struct {
 	apiresourceClient            typedapiresource.ApiresourceV1alpha1Interface
 	negotiatedApiResourceIndexer cache.Indexer
 	negotiatedApiResourceLister  apiresourcelister.NegotiatedAPIResourceLister
-	apiResourceImportIndexer     cache.Indexer
-	apiResourceImportLister      apiresourcelister.APIResourceImportLister
+
+	apiResourceImportIndexer cache.Indexer
+	apiResourceImportLister  apiresourcelister.APIResourceImportLister
 
 	crdClient  typedapiextensions.ApiextensionsV1Interface
 	crdIndexer cache.Indexer
 	crdLister  crdlister.CustomResourceDefinitionLister
 
-	stopCh                           chan struct{}
 	AutoPublishNegotiatedAPIResource bool
 }
 
@@ -294,22 +287,19 @@ func (c *Controller) enqueue(action resourceHandlerAction, oldObj, obj interface
 	})
 }
 
-func (c *Controller) Start(numThreads int) {
+func (c *Controller) Start(numThreads int, stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	klog.Info("Starting APIResource controller")
+	defer klog.Info("Shutting down APIResource controller")
+
 	for i := 0; i < numThreads; i++ {
-		go wait.Until(c.startWorker, time.Second, c.stopCh)
+		go wait.Until(c.startWorker, time.Second, stopCh)
 	}
-	klog.Info("Starting workers")
-}
 
-// Stop stops the controller.
-func (c *Controller) Stop() {
-	klog.Info("Stopping workers")
-	c.queue.ShutDown()
-	close(c.stopCh)
+	<-stopCh
 }
-
-// Done returns a channel that's closed when the controller is stopped.
-func (c *Controller) Done() <-chan struct{} { return c.stopCh }
 
 func (c *Controller) startWorker() {
 	for c.processNextWorkItem() {
