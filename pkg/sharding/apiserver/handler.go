@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -221,13 +222,13 @@ func (h *ShardedHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		cloned.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
 	}
 
-	klog.Info("v=== INCOMING ===v")
+	klog.V(10).Info("v=== INCOMING ===v")
 	v, e := httputil.DumpRequest(cloned, true)
-	klog.Info(string(v))
+	klog.V(10).Info(string(v))
 	if e != nil {
 		klog.Error(e)
 	}
-	klog.Info("^=== INCOMING ===^")
+	klog.V(10).Info("^=== INCOMING ===^")
 
 	s := NewMux(storageBase{
 		TableConvertor:                 tableConverter,
@@ -345,7 +346,15 @@ var _ runtime.GroupVersioner = nopGroupVersioner{}
 type nopConverter struct{}
 
 func (u nopConverter) Convert(in, out, context interface{}) error {
-	out = in
+	sv, err := conversion.EnforcePtr(in)
+	if err != nil {
+		return err
+	}
+	dv, err := conversion.EnforcePtr(out)
+	if err != nil {
+		return err
+	}
+	dv.Set(sv)
 	return nil
 }
 
@@ -407,9 +416,7 @@ var _ handlers.ScopeNamer = nopScopeNamer{}
 
 type nopDefaulter struct{}
 
-func (n nopDefaulter) Default(in runtime.Object) {
-	return
-}
+func (n nopDefaulter) Default(in runtime.Object) {}
 
 var _ runtime.ObjectDefaulter = nopDefaulter{}
 

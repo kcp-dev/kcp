@@ -26,11 +26,7 @@ func ServeHTTP(apiHandler http.Handler, loader *ClientLoader) func(w http.Respon
 			apiHandler.ServeHTTP(w, req)
 			return
 		}
-		loader.RLock()
-		clients := loader.Clients
-		loader.RUnlock()
-		handler := apiserver.NewShardedHandler(clients, 0, 10*time.Minute)
+		handler := apiserver.NewShardedHandler(loader.Clients(), 0, 10*time.Minute)
 		handler.ServeHTTP(w, req)
-		return
 	}
 }

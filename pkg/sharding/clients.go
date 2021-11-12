@@ -16,12 +16,12 @@ type IdentifiedConfig struct {
 
 type ClientLoader struct {
 	*sync.RWMutex
-	Clients map[string]*rest.Config
+	clients map[string]*rest.Config
 }
 
 func New(delegates string, injector <-chan IdentifiedConfig) (*ClientLoader, error) {
 	l := &ClientLoader{
-		Clients: map[string]*rest.Config{},
+		clients: map[string]*rest.Config{},
 		RWMutex: &sync.RWMutex{},
 	}
 
@@ -37,7 +37,7 @@ func New(delegates string, injector <-chan IdentifiedConfig) (*ClientLoader, err
 		}
 		contextCfg.ContentType = "application/json"
 		l.Lock()
-		l.Clients[genericcontrolplane.SanitizeClusterId(context)] = contextCfg
+		l.clients[genericcontrolplane.SanitizeClusterId(context)] = contextCfg
 		l.Unlock()
 	}
 
@@ -46,8 +46,18 @@ func New(delegates string, injector <-chan IdentifiedConfig) (*ClientLoader, err
 		defer l.Unlock()
 		local := <-injector
 		local.Config.ContentType = "application/json"
-		l.Clients[genericcontrolplane.SanitizeClusterId(local.Identifier)] = local.Config
+		l.clients[genericcontrolplane.SanitizeClusterId(local.Identifier)] = local.Config
 	}()
 
 	return l, nil
+}
+
+func (c *ClientLoader) Clients() map[string]*rest.Config {
+	c.Lock()
+	out := map[string]*rest.Config{}
+	for key, value := range c.clients {
+		out[key] = rest.CopyConfig(value)
+	}
+	c.Unlock()
+	return out
 }

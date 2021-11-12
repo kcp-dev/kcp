@@ -139,6 +139,9 @@ func mutateInputResourceVersion(identifier string) func(runtime.Object) error {
 			if r.GetKind() == "DeleteOptions" {
 				o := r.UnstructuredContent()
 				complexRv, found, err := unstructured.NestedString(o, "preconditions", "resourceVersion")
+				if err != nil {
+					return fmt.Errorf("could not extract resourceVersion: %w", err)
+				}
 				if !found {
 					complexRv = ""
 				}
