@@ -56,9 +56,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/checkout@v2
+      with:
+        repository: kcp-dev/kubernetes
+        ref: feature-logical-clusters-1.22
+        path: kubernetes
+        fetch-depth: 1
     - uses: actions/setup-go@v2
       with:
         go-version: v1.16
 
     - run: make build
+    - run: make WHAT=test/e2e/e2e.test
+      working-directory: ./kubernetes
     - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+    - run: WORKDIR=/tmp/e2e hack/run-sharded-kcp.sh

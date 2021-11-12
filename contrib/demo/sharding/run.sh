@@ -70,5 +70,5 @@ echo "Starting Cluster Controller on kcp2..."
 "${KCP_ROOT}"/bin/cluster-controller -push_mode=true -pull_mode=false -kubeconfig=".kcp1/data/admin.kubeconfig" -auto_publish_apis=true .configmaps &> .kcp1.cluster-controller.log 2>&1 &
 
 "${KCP_ROOT}"/contrib/demo/sharding/add-cluster.py ".kcp1/data/admin.kubeconfig" ".kcp2/data/admin.kubeconfig"
-
+touch .ready
 wait
