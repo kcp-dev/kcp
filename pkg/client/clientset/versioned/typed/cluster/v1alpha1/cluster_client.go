@@ -33,6 +33,7 @@ type ClusterV1alpha1Interface interface {
 // ClusterV1alpha1Client is used to interact with features provided by the cluster.example.dev group.
 type ClusterV1alpha1Client struct {
 	restClient rest.Interface
+	cluster    string
 }
 
 func (c *ClusterV1alpha1Client) Clusters() ClusterInterface {
@@ -49,7 +50,7 @@ func NewForConfig(c *rest.Config) (*ClusterV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ClusterV1alpha1Client{client}, nil
+	return &ClusterV1alpha1Client{restClient: client}, nil
 }
 
 // NewForConfigOrDie creates a new ClusterV1alpha1Client for the given config and
@@ -64,7 +65,12 @@ func NewForConfigOrDie(c *rest.Config) *ClusterV1alpha1Client {
 
 // New creates a new ClusterV1alpha1Client for the given RESTClient.
 func New(c rest.Interface) *ClusterV1alpha1Client {
-	return &ClusterV1alpha1Client{c}
+	return &ClusterV1alpha1Client{restClient: c}
+}
+
+// NewWithCluster creates a new ClusterV1alpha1Client for the given RESTClient and cluster.
+func NewWithCluster(c rest.Interface, cluster string) *ClusterV1alpha1Client {
+	return &ClusterV1alpha1Client{restClient: c, cluster: cluster}
 }
 
 func setConfigDefaults(config *rest.Config) error {

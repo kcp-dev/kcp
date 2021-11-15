@@ -53,13 +53,15 @@ type WorkspaceShardInterface interface {
 
 // workspaceShards implements WorkspaceShardInterface
 type workspaceShards struct {
-	client rest.Interface
+	client  rest.Interface
+	cluster string
 }
 
 // newWorkspaceShards returns a WorkspaceShards
 func newWorkspaceShards(c *TenancyV1alpha1Client) *workspaceShards {
 	return &workspaceShards{
-		client: c.RESTClient(),
+		client:  c.RESTClient(),
+		cluster: c.cluster,
 	}
 }
 
@@ -67,6 +69,7 @@ func newWorkspaceShards(c *TenancyV1alpha1Client) *workspaceShards {
 func (c *workspaceShards) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.WorkspaceShard, err error) {
 	result = &v1alpha1.WorkspaceShard{}
 	err = c.client.Get().
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -83,6 +86,7 @@ func (c *workspaceShards) List(ctx context.Context, opts v1.ListOptions) (result
 	}
 	result = &v1alpha1.WorkspaceShardList{}
 	err = c.client.Get().
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -109,6 +113,7 @@ func (c *workspaceShards) Watch(ctx context.Context, opts v1.ListOptions) (watch
 func (c *workspaceShards) Create(ctx context.Context, workspaceShard *v1alpha1.WorkspaceShard, opts v1.CreateOptions) (result *v1alpha1.WorkspaceShard, err error) {
 	result = &v1alpha1.WorkspaceShard{}
 	err = c.client.Post().
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(workspaceShard).
@@ -121,6 +126,7 @@ func (c *workspaceShards) Create(ctx context.Context, workspaceShard *v1alpha1.W
 func (c *workspaceShards) Update(ctx context.Context, workspaceShard *v1alpha1.WorkspaceShard, opts v1.UpdateOptions) (result *v1alpha1.WorkspaceShard, err error) {
 	result = &v1alpha1.WorkspaceShard{}
 	err = c.client.Put().
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		Name(workspaceShard.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -135,6 +141,7 @@ func (c *workspaceShards) Update(ctx context.Context, workspaceShard *v1alpha1.W
 func (c *workspaceShards) UpdateStatus(ctx context.Context, workspaceShard *v1alpha1.WorkspaceShard, opts v1.UpdateOptions) (result *v1alpha1.WorkspaceShard, err error) {
 	result = &v1alpha1.WorkspaceShard{}
 	err = c.client.Put().
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		Name(workspaceShard.Name).
 		SubResource("status").
@@ -148,6 +155,7 @@ func (c *workspaceShards) UpdateStatus(ctx context.Context, workspaceShard *v1al
 // Delete takes name of the workspaceShard and deletes it. Returns an error if one occurs.
 func (c *workspaceShards) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		Name(name).
 		Body(&opts).
@@ -162,6 +170,7 @@ func (c *workspaceShards) DeleteCollection(ctx context.Context, opts v1.DeleteOp
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -174,6 +183,7 @@ func (c *workspaceShards) DeleteCollection(ctx context.Context, opts v1.DeleteOp
 func (c *workspaceShards) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.WorkspaceShard, err error) {
 	result = &v1alpha1.WorkspaceShard{}
 	err = c.client.Patch(pt).
+		Cluster(c.cluster).
 		Resource("workspaceshards").
 		Name(name).
 		SubResource(subresources...).
