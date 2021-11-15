@@ -34,6 +34,7 @@ type TenancyV1alpha1Interface interface {
 // TenancyV1alpha1Client is used to interact with features provided by the tenancy.kcp.dev group.
 type TenancyV1alpha1Client struct {
 	restClient rest.Interface
+	cluster    string
 }
 
 func (c *TenancyV1alpha1Client) Workspaces() WorkspaceInterface {
@@ -54,7 +55,7 @@ func NewForConfig(c *rest.Config) (*TenancyV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TenancyV1alpha1Client{client}, nil
+	return &TenancyV1alpha1Client{restClient: client}, nil
 }
 
 // NewForConfigOrDie creates a new TenancyV1alpha1Client for the given config and
@@ -69,7 +70,12 @@ func NewForConfigOrDie(c *rest.Config) *TenancyV1alpha1Client {
 
 // New creates a new TenancyV1alpha1Client for the given RESTClient.
 func New(c rest.Interface) *TenancyV1alpha1Client {
-	return &TenancyV1alpha1Client{c}
+	return &TenancyV1alpha1Client{restClient: c}
+}
+
+// NewWithCluster creates a new TenancyV1alpha1Client for the given RESTClient and cluster.
+func NewWithCluster(c rest.Interface, cluster string) *TenancyV1alpha1Client {
+	return &TenancyV1alpha1Client{restClient: c, cluster: cluster}
 }
 
 func setConfigDefaults(config *rest.Config) error {

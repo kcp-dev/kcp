@@ -34,6 +34,7 @@ type ApiresourceV1alpha1Interface interface {
 // ApiresourceV1alpha1Client is used to interact with features provided by the apiresource.kcp.dev group.
 type ApiresourceV1alpha1Client struct {
 	restClient rest.Interface
+	cluster    string
 }
 
 func (c *ApiresourceV1alpha1Client) APIResourceImports() APIResourceImportInterface {
@@ -54,7 +55,7 @@ func NewForConfig(c *rest.Config) (*ApiresourceV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ApiresourceV1alpha1Client{client}, nil
+	return &ApiresourceV1alpha1Client{restClient: client}, nil
 }
 
 // NewForConfigOrDie creates a new ApiresourceV1alpha1Client for the given config and
@@ -69,7 +70,12 @@ func NewForConfigOrDie(c *rest.Config) *ApiresourceV1alpha1Client {
 
 // New creates a new ApiresourceV1alpha1Client for the given RESTClient.
 func New(c rest.Interface) *ApiresourceV1alpha1Client {
-	return &ApiresourceV1alpha1Client{c}
+	return &ApiresourceV1alpha1Client{restClient: c}
+}
+
+// NewWithCluster creates a new ApiresourceV1alpha1Client for the given RESTClient and cluster.
+func NewWithCluster(c rest.Interface, cluster string) *ApiresourceV1alpha1Client {
+	return &ApiresourceV1alpha1Client{restClient: c, cluster: cluster}
 }
 
 func setConfigDefaults(config *rest.Config) error {
