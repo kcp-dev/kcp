@@ -41,6 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -110,7 +111,7 @@ func (s *Server) Run(ctx context.Context) error {
 		es := &etcd.Server{
 			Dir: etcdDir,
 		}
-		embeddedClientInfo, err := es.Run(ctx)
+		embeddedClientInfo, err := es.Run(ctx, s.cfg.EtcdPeerPort, s.cfg.EtcdClientPort)
 		if err != nil {
 			return err
 		}
@@ -174,6 +175,25 @@ func (s *Server) Run(ctx context.Context) error {
 		serverOptions.SecureServing.BindPort = p
 	}
 
+	injector := make(chan sharding.IdentifiedConfig)
+	clientLoader, err := sharding.New(s.cfg.ShardKubeconfigFile, injector)
+	if err != nil {
+		return err
+	}
+	serverOptions.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
+		// we want a request to hit the chain like:
+		// - lcluster handler (this package's ServeHTTP)
+		// - shard proxy (sharding.ServeHTTP)
+		// - original handler chain
+		// the lcluster handler is a pass-through, not a delegate, so the wrapping looks weird
+		if s.cfg.EnableSharding {
+			apiHandler = http.HandlerFunc(sharding.ServeHTTP(apiHandler, clientLoader))
+		}
+		apiHandler = http.HandlerFunc(ServeHTTP(genericapiserver.DefaultBuildHandlerChain(apiHandler, c), c))
+
+		return apiHandler
+	}
+
 	serverOptions.SecureServing.ServerCert.CertDirectory = etcdDir
 	serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
 		ServerList:    s.cfg.EtcdClientInfo.Endpoints,
@@ -197,6 +217,12 @@ func (s *Server) Run(ctx context.Context) error {
 		"loopback": {Token: server.LoopbackClientConfig.BearerToken},
 	}
 	clientConfig.Clusters = map[string]*clientcmdapi.Cluster{
+		// cross-cluster is the virtual cluster running by default
+		"cross-cluster": {
+			Server:                   server.LoopbackClientConfig.Host + "/clusters/*",
+			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
+		},
 		// admin is the virtual cluster running by default
 		"admin": {
 			Server:                   server.LoopbackClientConfig.Host,
@@ -205,16 +231,51 @@ func (s *Server) Run(ctx context.Context) error {
 		},
 		// user is a virtual cluster that is lazily instantiated
 		"user": {
-			Server:                   server.LoopbackClientConfig.Host + "/clusters/user",
+			Server:                   server.LoopbackClientConfig.Host + "/clusters/" + genericcontrolplane.SanitizedClusterName(server.ExternalAddress, "user"),
 			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
 			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
 		},
 	}
 	clientConfig.Contexts = map[string]*clientcmdapi.Context{
-		"admin": {Cluster: "admin", AuthInfo: "loopback"},
-		"user":  {Cluster: "user", AuthInfo: "loopback"},
+		"cross-cluster": {Cluster: "cross-cluster", AuthInfo: "loopback"},
+		"admin":         {Cluster: "admin", AuthInfo: "loopback"},
+		"user":          {Cluster: "user", AuthInfo: "loopback"},
 	}
 	clientConfig.CurrentContext = "admin"
+
+	if s.cfg.EnableSharding {
+		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+		if err != nil {
+			return err
+		}
+		injector <- sharding.IdentifiedConfig{
+			Identifier: server.ExternalAddress,
+			Config:     adminConfig,
+		}
+
+		// we need to broadcast our name to others, and today we're doing that with context names becase we have no good way to
+		// know which of these resolved names ends up being portable ... some are ipv6 loopback addresses. some are v4 ... in general
+		// we may need to take our name as input or use DNS?
+		id := genericcontrolplane.SanitizeClusterId(server.ExternalAddress)
+		if err := clientcmd.WriteToFile(clientcmdapi.Config{
+			AuthInfos: map[string]*clientcmdapi.AuthInfo{
+				"loopback": {Token: server.LoopbackClientConfig.BearerToken},
+			},
+			Clusters: map[string]*clientcmdapi.Cluster{
+				id: {
+					Server:                   server.LoopbackClientConfig.Host,
+					CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+					TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
+				},
+			},
+			Contexts: map[string]*clientcmdapi.Context{
+				id: {Cluster: id, AuthInfo: "loopback"},
+			},
+			CurrentContext: id,
+		}, filepath.Join(s.cfg.RootDirectory, "data", "shard.kubeconfig")); err != nil {
+			return err
+		}
+	}
 	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.cfg.RootDirectory, s.cfg.KubeConfigPath)); err != nil {
 		return err
 	}
@@ -283,7 +344,7 @@ func (s *Server) Run(ctx context.Context) error {
 				syncerMode = cluster.SyncerModePush
 			}
 
-			clientutils.EnableMultiCluster(adminConfig, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
+			clientutils.EnableMultiCluster(adminConfig, nil, true, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 
 			apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
 			kcpClient := kcpclient.NewForConfigOrDie(adminConfig)

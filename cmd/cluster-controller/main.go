@@ -45,7 +45,7 @@ func main() {
 	if err != nil {
 		klog.Fatal(err)
 	}
-	clientutils.EnableMultiCluster(r, nil, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
+	clientutils.EnableMultiCluster(r, nil, true, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 	kubeconfig, err := configLoader.RawConfig()
 	if err != nil {
 		klog.Fatal(err)
