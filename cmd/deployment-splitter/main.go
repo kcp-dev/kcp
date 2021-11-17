@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/deployment"
 )
