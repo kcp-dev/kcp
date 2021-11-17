@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/storage/etcd3"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // ShardedChunkedStates stores values we use to keep track of what shards we're

@@ -20,7 +20,7 @@ import (
 
 	"go.etcd.io/etcd/server/v3/embed"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type Server struct {
