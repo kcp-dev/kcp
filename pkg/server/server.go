@@ -150,7 +150,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	defer c.Close()
-	r, err := c.Cluster.MemberList(context.Background())
+	r, err := c.Cluster.MemberList(ctx)
 	if err != nil {
 		return err
 	}
