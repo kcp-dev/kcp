@@ -15,4 +15,4 @@ set -o pipefail
 
 OS_ROOT="$(dirname "${BASH_SOURCE}")/../.."
 
-sed -i -e 's:=>  *github\.com/kcp-dev/\(kubernetes[^ ]*\) ..*:=> /home/stevekuznetsov/code/kcp-dev/kubernetes/src/github.com/kcp-dev/\1:' "${OS_ROOT}/go.mod"
+sed -i -e 's:=>  *github\.com/kcp-dev/\(kubernetes[^ ]*\) ..*:=> ../../../k8s.io/\1:' "${OS_ROOT}/go.mod"
