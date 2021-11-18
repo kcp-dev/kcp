@@ -45,7 +45,7 @@ for demo in ${DEMOS} ; do
 
   echo "Starting demo ${demo} in directory ${TEST_DIR}"
   export KCP_DATA_ROOT="${TEST_DIR}"
-  export KUBECONFIG=${KCP_DATA_ROOT}/.kcp/data/admin.kubeconfig
+  export KUBECONFIG=${KCP_DATA_ROOT}/.kcp/admin.kubeconfig
   
   echo "Starting KCP for demo..."
   ${DEMO_ROOT}/${demo}-startKcp.sh &> /dev/null &

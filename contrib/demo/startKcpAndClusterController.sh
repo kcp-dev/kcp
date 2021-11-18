@@ -6,7 +6,7 @@ KCP_ROOT="$(cd ${DEMO_ROOT}/../.. && pwd)"
 KCP_DATA_ROOT=${KCP_DATA_ROOT:-$KCP_ROOT}
 
 
-KUBECONFIG=${KCP_DATA_ROOT}/.kcp/data/admin.kubeconfig
+KUBECONFIG=${KCP_DATA_ROOT}/.kcp/admin.kubeconfig
 
 source ${DEMO_ROOT}/.startUtils
 setupTraps $0 "rm -Rf ${CURRENT_DIR}/.kcp.running"

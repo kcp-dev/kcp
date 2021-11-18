@@ -28,7 +28,7 @@ echo
 
 echo "Running end-to-end tests..."
 kubernetes_path="${KUBERNETES_PATH:-"${GITHUB_WORKSPACE}/kubernetes"}"
-kubeconfig="${WORKDIR}/.kcp2/data/admin.kubeconfig"
+kubeconfig="${WORKDIR}/.kcp2/admin.kubeconfig"
 
 ## each of the single-cluster contexts passes normal e2e
 for context in "admin" "user" "other"; do

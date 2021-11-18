@@ -2,7 +2,6 @@ package server
 
 import (
 	"flag"
-	"path/filepath"
 
 	"github.com/spf13/pflag"
 
@@ -11,22 +10,23 @@ import (
 
 // Config determines the behavior of the KCP server.
 type Config struct {
-	AutoPublishAPIs          bool
-	EtcdClientInfo           etcd.ClientInfo
-	EtcdDirectory            string
-	EtcdPeerPort             string
-	EtcdClientPort           string
-	InstallClusterController bool
-	KubeConfigPath           string
-	Listen                   string
-	PullMode                 bool
-	PushMode                 bool
-	ResourcesToSync          []string
-	RootDirectory            string
-	SyncerImage              string
-	ProfilerAddress          string
-	ShardKubeconfigFile      string
-	EnableSharding           bool
+	AutoPublishAPIs            bool
+	EtcdClientInfo             etcd.ClientInfo
+	EtcdDirectory              string
+	EtcdPeerPort               string
+	EtcdClientPort             string
+	InstallClusterController   bool
+	InstallWorkspaceController bool
+	KubeConfigPath             string
+	Listen                     string
+	PullMode                   bool
+	PushMode                   bool
+	ResourcesToSync            []string
+	RootDirectory              string
+	SyncerImage                string
+	ProfilerAddress            string
+	ShardKubeconfigFile        string
+	EnableSharding             bool
 }
 
 // DefaultConfig returns a configuration with default values.
@@ -38,7 +38,7 @@ func DefaultConfig() *Config {
 		EtcdPeerPort:             "2380",
 		EtcdClientPort:           "2379",
 		InstallClusterController: false,
-		KubeConfigPath:           filepath.Join("data", "admin.kubeconfig"),
+		KubeConfigPath:           "admin.kubeconfig",
 		Listen:                   ":6443",
 		PullMode:                 false,
 		PushMode:                 false,
@@ -66,6 +66,10 @@ func ConfigFromFlags(flags *pflag.FlagSet) *Config {
 	installClusterController, err := flags.GetBool("install_cluster_controller")
 	if err == nil {
 		cfg.InstallClusterController = installClusterController
+	}
+	installWorkspaceController, err := flags.GetBool("install_workspace_controller")
+	if err == nil {
+		cfg.InstallWorkspaceController = installWorkspaceController
 	}
 	pullMode, err := flags.GetBool("pull_mode")
 	if err == nil {
@@ -118,6 +122,10 @@ func ConfigFromFlags(flags *pflag.FlagSet) *Config {
 	if err == nil {
 		cfg.EtcdClientPort = etcdClientPort
 	}
+	kubeConfigPath, err := flags.GetString("kubeconfig_path")
+	if err == nil {
+		cfg.KubeConfigPath = kubeConfigPath
+	}
 	return cfg
 }
 
@@ -127,6 +135,7 @@ func AddConfigFlags(flags *pflag.FlagSet) {
 	flags.String("syncer_image", "quay.io/kcp-dev/kcp-syncer", "References a container image that contains syncer and will be used by the syncer POD in registered physical clusters.")
 	flags.StringSlice("resources_to_sync", []string{"deployments.apps"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	flags.Bool("install_cluster_controller", false, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
+	flags.Bool("install_workspace_controller", false, "Registers the workspace custom resource, and the related controller to allow scheduling workspaces to shards")
 	flags.Bool("pull_mode", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	flags.Bool("push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
 	flags.String("listen", ":6443", "Address:port to bind to")
@@ -148,4 +157,5 @@ func AddConfigFlags(flags *pflag.FlagSet) {
 		"Root directory.")
 	flags.String("etcd_peer_port", "2380", "Port for etcd peer communication.")
 	flags.String("etcd_client_port", "2379", "Port for etcd client communication.")
+	flags.String("kubeconfig_path", "admin.kubeconfig", "Path to which the administrative kubeconfig should be written at startup.")
 }

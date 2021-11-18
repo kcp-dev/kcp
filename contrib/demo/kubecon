@@ -22,7 +22,7 @@ function pause() {
   fi
 }
 
-export KUBECONFIG=${KUBECONFIG:-${ROOT_DIR}/.kcp/data/admin.kubeconfig}
+export KUBECONFIG=${KUBECONFIG:-${ROOT_DIR}/.kcp/admin.kubeconfig}
 if ! kubectl get namespaces &>/dev/null; then
   echo "kcp server not started, run 'bin/kcp start'"
   exit 1
