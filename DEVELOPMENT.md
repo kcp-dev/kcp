@@ -4,10 +4,10 @@
 go run ./cmd/kcp start
 ```
 
-This will build and run your kcp server, and generate a kubeconfig in `.kcp/data/admin.kubeconfig` you can use to connect to it:
+This will build and run your kcp server, and generate a kubeconfig in `.kcp/admin.kubeconfig` you can use to connect to it:
 
 ```
-export KUBECONFIG=.kcp/data/admin.kubeconfig
+export KUBECONFIG=.kcp/admin.kubeconfig
 kubectl api-resources
 ```
 
@@ -28,7 +28,7 @@ To build this image and pass it to the Cluster Controller, you can use [`ko`](ht
 ```
 go run ./cmd/cluster-controller \
     --syncer_image=$(ko publish ./cmd/syncer) \
-    --kubeconfig=.kcp/data/admin.kubeconfig
+    --kubeconfig=.kcp/admin.kubeconfig
 ```
 
 `ko publish` requires the `KO_DOCKER_REPO` env var to be set to the container image registry to push the image to (e.g., `KO_DOCKER_REPO=quay.io/my-user`).

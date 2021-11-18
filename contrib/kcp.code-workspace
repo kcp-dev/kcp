@@ -55,7 +55,7 @@
 				"program": "${workspaceFolder:kubernetes}/cmd/kubectl",
 				"env": { "GOMOD": "${workspaceFolder:kubernetes}/go.mod"},
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--cluster=admin", "apply", "-f", "contrib/examples/pod.yaml", "-n" , "test-admin"]				
+				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig", "--cluster=admin", "apply", "-f", "contrib/examples/pod.yaml", "-n" , "test-admin"]				
 			},
 			{
 				"name": "Launch Kubectl explain pod",
@@ -65,7 +65,7 @@
 				"program": "${workspaceFolder:kubernetes}/cmd/kubectl",
 				"env": { "GOMOD": "${workspaceFolder:kubernetes}/go.mod"},
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--cluster=admin", "explain", "pods"]				
+				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig", "--cluster=admin", "explain", "pods"]				
 			},
 			{
 				"name": "Launch crd-puller on default cluster",
@@ -85,7 +85,7 @@
 				"program": "${workspaceFolder:kcp}/cmd/cluster-controller",
 				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["-push_mode=true", "-pull_mode=false", "-kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig"],
+				"args": ["-push_mode=true", "-pull_mode=false", "-kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig"],
 			},
 			{
 				"name": "Launch cluster controller",
@@ -95,7 +95,7 @@
 				"program": "${workspaceFolder:kcp}/cmd/cluster-controller",
 				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "--syncer_image=${env:SYNCER_IMAGE}"],
+				"args": ["--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig", "--syncer_image=${env:SYNCER_IMAGE}"],
 				"envFile": "${workspaceFolder:kcp}/.kcp/syncer.env",
 				"preLaunchTask": "ko syncer to local kind"
 			},
@@ -107,7 +107,7 @@
 				"program": "${workspaceFolder:kcp}/cmd/syncer",
 				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["-cluster", "local", "-from_kubeconfig", "${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "-from_context", "admin", "-to_kubeconfig", "${env:HOME}/.kube/config", "pods", "deployments.apps" ],
+				"args": ["-cluster", "local", "-from_kubeconfig", "${workspaceFolder:kcp}/.kcp/admin.kubeconfig", "-from_context", "admin", "-to_kubeconfig", "${env:HOME}/.kube/config", "pods", "deployments.apps" ],
 			},
 			{
 				"name": "Launch Deployment Splitter",
@@ -117,7 +117,7 @@
 				"program": "${workspaceFolder:kcp}/cmd/deployment-splitter",
 				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["-kubeconfig", "${workspaceFolder:kcp}/.kcp/data/admin.kubeconfig", "-context", "admin"],
+				"args": ["-kubeconfig", "${workspaceFolder:kcp}/.kcp/admin.kubeconfig", "-context", "admin"],
 			}
 		]
 	}

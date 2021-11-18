@@ -11,7 +11,7 @@ Run `kcp`
 ```
 make
 bin/kcp start
-export KUBECONFIG=.kcp/data/admin.kubeconfig
+export KUBECONFIG=.kcp/admin.kubeconfig
 kubectl config use-context admin
 ```
 
@@ -19,14 +19,14 @@ Run Cluster Controller
 
 ```
 kubectl apply -f config/cluster.example.dev_clusters.yaml
-bin/cluster-controller --kubeconfig=.kcp/data/admin.kubeconfig
+bin/cluster-controller --kubeconfig=.kcp/admin.kubeconfig
 ```
 
 Run Deployment Splitter
 
 ```
 kubectl apply -f contrib/crds/apps/apps_deployments.yaml
-bin/deployment-splitter --kubeconfig=.kcp/data/admin.kubeconfig
+bin/deployment-splitter --kubeconfig=.kcp/admin.kubeconfig
 ```
 
 ## TODO
