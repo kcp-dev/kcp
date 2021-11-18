@@ -318,7 +318,7 @@ func (s *Server) Run(ctx context.Context) error {
 			cluster.Server = hostURL.String()
 		}
 
-		if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+		if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
 			adaptedCtx := adaptContext(context)
 			return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory).Start(adaptedCtx)
 		}); err != nil {
