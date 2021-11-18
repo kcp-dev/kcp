@@ -20,8 +20,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-
-	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -118,7 +116,7 @@ func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handle
 
 		if _, err := fromDSIF.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
 			klog.Infof("Failed to list all %q: %v", gvrstr, err)
-			return nil, errors.NewRetryableError(err)
+			return nil, err
 		}
 
 		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(handlers(&c, *gvr))
@@ -156,7 +154,7 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error
 			// In fact this might be related to a bug in the changes made on the feature-logical-cluster
 			// Kubernetes branch to support legacy schema resources added as CRDs.
 			// If this is confirmed, this test will be removed when the CRD bug is fixed.
-			return nil, errors.NewRetryableError(err)
+			return nil, err
 		} else {
 			return nil, err
 		}
@@ -209,7 +207,7 @@ func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error
 		// Some of the API resources expected to be there are still not published by KCP.
 		// We should just retry without a limit on the number of retries in such a case,
 		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
-		return nil, errors.NewRetryableError(fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List()))
+		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
 	}
 	return gvrstrs, nil
 }
