@@ -43,19 +43,84 @@ type Workspace struct {
 
 // WorkspaceSpec holds the desired state of the Workspace.
 type WorkspaceSpec struct {
-
 	// +optional
 	ReadOnly bool `json:"readOnly,omitempty"`
+}
 
-	// Name of the WorkspaceShard this Workspace lives on.
+// WorkspacePhaseType is the type of the current phase of the workspace
+type WorkspacePhaseType string
+
+const (
+	WorkspacePhaseInitializing WorkspacePhaseType = "Initializing"
+	WorkspacePhaseActive       WorkspacePhaseType = "Active"
+	WorkspacePhaseTerminating  WorkspacePhaseType = "Terminating"
+)
+
+// WorkspaceStatus communicates the observed state of the Workspace.
+type WorkspaceStatus struct {
+	// Phase of the workspace  (Initializing / Active / Terminating)
+	Phase WorkspacePhaseType `json:"phase,omitempty"`
+	// +optional
+	Conditions []WorkspaceCondition `json:"conditions,omitempty"`
+
+	// Base URL where this Workspace can be targeted.
+	// This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>.
+	// But a workspace could also be targetable by a unique hostname in the future.
 	//
-	// +kubebuilder:validation:MinLength=1
-	Shard string `json:"shard"`
+	// +kubebuilder:validation:Pattern:https://[^/].*
+	BaseURL string `json:"baseURL"`
 
-	// Name of the WorkspaceShard this Workspace should move to.
+	// Contains workspace placement information.
 	//
 	// +optional
-	TargetShard string `json:"targetShard,omitempty"`
+	Location WorkspaceLocation `json:"location,omitempty"`
+}
+
+// WorkspaceConditionType defines the condition of the workspace
+type WorkspaceConditionType string
+
+// These are valid conditions of workspace.
+const (
+	// WorkspaceScheduled represents status of the scheduling process for this workspace.
+	WorkspaceScheduled WorkspaceConditionType = "WorkspaceScheduled"
+	// WorkspaceReasonUnschedulable reason in WorkspaceScheduled WorkspaceCondition means that the scheduler
+	// can't schedule the workspace right now, for example due to insufficient resources in the cluster.
+	WorkspaceReasonUnschedulable = "Unschedulable"
+)
+
+// WorkspaceCondition represents workspace's condition
+type WorkspaceCondition struct {
+	Type   WorkspaceConditionType `json:"type,omitempty"`
+	Status metav1.ConditionStatus `json:"status,omitempty"`
+	// +optional
+	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
+// WorkspaceLocation specifies workspace placement information, including current, desired (target), and
+// historical information.
+type WorkspaceLocation struct {
+	// Current workspace placement (shard).
+	//
+	// +optional
+	Current string `json:"current,omitempty"`
+
+	// Target workspace placement (shard).
+	//
+	// +optional
+	Target string `json:"target,omitempty"`
+
+	// Historical placement details (including current and target).
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	History []ShardStatus `json:"history,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
 // ShardStatus contains details for the current status of a workspace shard.
@@ -70,36 +135,6 @@ type ShardStatus struct {
 
 	// Resource version after which writes can be accepted on this shard.
 	LiveAfterResourceVersion string `json:"liveAfterResourceVersion,omitempty"`
-}
-
-// WorkspacePhaseType is the type of the current phase of the workspace
-type WorkspacePhaseType string
-
-const (
-	WorkspacePhaseInitializing WorkspacePhaseType = "Initializing"
-	WorkspacePhaseAtive        WorkspacePhaseType = "Active"
-	WorkspacePhaseTerminating  WorkspacePhaseType = "Terminating"
-)
-
-// WorkspaceStatus communicates the observed state of the Workspace.
-type WorkspaceStatus struct {
-	// Phase of the workspace  (Initializing / Active / Terminating)
-	Phase WorkspacePhaseType `json:"phase,omitempty"`
-
-	// Base URL where this Workspace can be targeted.
-	// This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>.
-	// But a workspace could also be targetable by a unique hostname in the future.
-	//
-	// +kubebuilder:validation:Pattern:https://[^/].*
-	BaseURL string `json:"baseURL"`
-
-	// List of shards related to this workspace.
-	// The first shard in this list with LiveAfterResourceVersion is set is the active shard
-	//
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Shards []ShardStatus `json:"shards,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
 // WorkspaceList is a list of Workspace resources
