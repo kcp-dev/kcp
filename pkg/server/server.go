@@ -88,13 +88,18 @@ func (s *Server) Run(ctx context.Context) error {
 		go http.ListenAndServe(s.cfg.ProfilerAddress, nil)
 	}
 
-	dir := filepath.Join(".", s.cfg.RootDirectory)
-	if len(s.cfg.RootDirectory) != 0 {
+	var dir string
+	if filepath.IsAbs(s.cfg.RootDirectory) {
+		dir = s.cfg.RootDirectory
+	} else {
+		dir = filepath.Join(".", s.cfg.RootDirectory)
+	}
+	if len(dir) != 0 {
 		if fi, err := os.Stat(dir); err != nil {
 			if !os.IsNotExist(err) {
 				return err
 			}
-			if err := os.Mkdir(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0755); err != nil {
 				return err
 			}
 		} else {
