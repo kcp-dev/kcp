@@ -12,6 +12,7 @@ vendor:
 
 codegen:
 	./hack/update-codegen.sh
+	./hack/update-codegen-clients.sh
 .PHONY: codegen
 
 .PHONY: imports
