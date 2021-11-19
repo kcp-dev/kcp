@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -36,6 +37,9 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
+	"github.com/kcp-dev/kcp/config"
+	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
@@ -317,13 +321,19 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 
 		if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
-			// Register the `clusters` CRD in both the admin and user logical clusters
+			// Register CRDs in both the admin and user logical clusters
+			requiredCrds := []metav1.GroupKind{
+				{Group: apiresourceapi.GroupName, Kind: "apiresourceimports"},
+				{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
+				{Group: clusterapi.GroupName, Kind: "clusters"},
+			}
 			for contextName := range clientConfig.Contexts {
 				logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 				if err != nil {
 					return err
 				}
-				if err := cluster.RegisterCRDs(logicalClusterConfig); err != nil {
+				crdClient := apiextensionsv1client.NewForConfigOrDie(logicalClusterConfig).CustomResourceDefinitions()
+				if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
 					return err
 				}
 			}

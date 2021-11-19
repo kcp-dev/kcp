@@ -3,29 +3,22 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"path"
 	"reflect"
 	"strings"
 	"time"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	k8serorrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
-	"sigs.k8s.io/yaml"
 
-	kcp "github.com/kcp-dev/kcp"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -298,46 +291,6 @@ func (c *Controller) deletedCluster(obj interface{}) {
 	klog.V(4).Infof("Deleting cluster %q", castObj.Name)
 	ctx := context.TODO()
 	c.cleanup(ctx, castObj)
-}
-
-// RegisterCRDs registers the CRDs that are in the KCP `config/` directory
-// and are required for the Cluster controller to work correctly.
-// It is useful in all-in-one commands like the kcp, to avoid having to
-// apply them manually
-func RegisterCRDs(cfg *rest.Config) error {
-	crdClient := apiextensionsv1client.NewForConfigOrDie(cfg)
-
-	if files, err := kcp.ConfigDir.ReadDir("config"); err != nil {
-		return err
-	} else {
-		for _, file := range files {
-			if !strings.HasSuffix(file.Name(), "yaml") {
-				continue
-			}
-			if bytes, err := kcp.ConfigDir.ReadFile(path.Join("config", file.Name())); err != nil {
-				return err
-			} else {
-				crd := &apiextensionsv1.CustomResourceDefinition{}
-				if err := yaml.Unmarshal(bytes, crd); err != nil {
-					return err
-				}
-				if _, err := crdClient.CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); err != nil {
-					if !k8serorrs.IsAlreadyExists(err) {
-						return err
-					}
-					existingCRD, err := crdClient.CustomResourceDefinitions().Get(context.TODO(), crd.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					crd.ResourceVersion = existingCRD.ResourceVersion
-					if _, err := crdClient.CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{}); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	return nil
 }
 
 var clusterKind string = reflect.TypeOf(clusterv1alpha1.Cluster{}).Name()
