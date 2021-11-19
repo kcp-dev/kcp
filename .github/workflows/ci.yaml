@@ -68,8 +68,8 @@ jobs:
         go-version: v1.16
     - name: Download modules
       run: go mod download
-    - name: Check generated clients
-      run: hack/verify-codegen-clients.sh
+    - name: Check codegen
+      run: make verify-codegen
     - run: make build
     - run: make WHAT=test/e2e/e2e.test
       working-directory: ./kubernetes
