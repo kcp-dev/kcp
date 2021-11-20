@@ -312,14 +312,6 @@ func (s *Server) Run(ctx context.Context) error {
 		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(adminConfig), resyncPeriod)
 		crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(adminConfig), resyncPeriod)
 
-		if err := server.AddPostStartHook("Start shared informers", func(context genericapiserver.PostStartHookContext) error {
-			kcpSharedInformerFactory.Start(context.StopCh)
-			crdSharedInformerFactory.Start(context.StopCh)
-			return nil
-		}); err != nil {
-			return err
-		}
-
 		if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
 			// Register CRDs in both the admin and user logical clusters
 			requiredCrds := []metav1.GroupKind{
@@ -327,7 +319,7 @@ func (s *Server) Run(ctx context.Context) error {
 				{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
 				{Group: clusterapi.GroupName, Kind: "clusters"},
 			}
-			for contextName := range clientConfig.Contexts {
+			for _, contextName := range []string{"admin", "user"} {
 				logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 				if err != nil {
 					return err
@@ -390,6 +382,8 @@ func (s *Server) Run(ctx context.Context) error {
 				return err
 			}
 
+			kcpSharedInformerFactory.Start(context.StopCh)
+			crdSharedInformerFactory.Start(context.StopCh)
 			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
 			crdSharedInformerFactory.WaitForCacheSync(context.StopCh)
 
