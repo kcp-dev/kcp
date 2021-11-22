@@ -133,6 +133,7 @@ spec:
                 type: string
               openAPIV3Schema:
                 type: object
+                x-kubernetes-map-type: atomic
                 x-kubernetes-preserve-unknown-fields: true
               plural:
                 description: plural is the plural name of the resource to serve. The
