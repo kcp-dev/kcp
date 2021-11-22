@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -20,7 +19,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -34,17 +32,11 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
-	"github.com/kcp-dev/kcp/config"
-	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
@@ -304,6 +296,10 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.cfg.InstallClusterController {
+		if err := s.cfg.ClusterControllerOptions.Validate(); err != nil {
+			return err
+		}
+
 		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 		if err != nil {
 			return err
@@ -312,85 +308,19 @@ func (s *Server) Run(ctx context.Context) error {
 		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(adminConfig), resyncPeriod)
 		crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(adminConfig), resyncPeriod)
 
+		kubeconfig := clientConfig.DeepCopy()
+		for _, cluster := range kubeconfig.Clusters {
+			hostURL, err := url.Parse(cluster.Server)
+			if err != nil {
+				return err
+			}
+			hostURL.Host = server.ExternalAddress
+			cluster.Server = hostURL.String()
+		}
+
 		if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
-			// Register CRDs in both the admin and user logical clusters
-			requiredCrds := []metav1.GroupKind{
-				{Group: apiresourceapi.GroupName, Kind: "apiresourceimports"},
-				{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
-				{Group: clusterapi.GroupName, Kind: "clusters"},
-			}
-			for _, contextName := range []string{"admin", "user"} {
-				logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-				if err != nil {
-					return err
-				}
-				crdClient := apiextensionsv1client.NewForConfigOrDie(logicalClusterConfig).CustomResourceDefinitions()
-				if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
-					return err
-				}
-			}
-
-			kubeconfig := clientConfig.DeepCopy()
-			for _, cluster := range kubeconfig.Clusters {
-				hostURL, err := url.Parse(cluster.Server)
-				if err != nil {
-					return err
-				}
-				hostURL.Host = server.ExternalAddress
-				cluster.Server = hostURL.String()
-			}
-
-			if s.cfg.PullMode && s.cfg.PushMode {
-				return errors.New("can't set --push_mode and --pull_mode")
-			}
-			syncerMode := cluster.SyncerModeNone
-			if s.cfg.PullMode {
-				syncerMode = cluster.SyncerModePull
-			}
-			if s.cfg.PushMode {
-				syncerMode = cluster.SyncerModePush
-			}
-
-			clientutils.EnableMultiCluster(adminConfig, nil, true, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
-
-			apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
-			kcpClient := kcpclient.NewForConfigOrDie(adminConfig)
-
-			clusterController, err := cluster.NewController(
-				apiExtensionsClient,
-				kcpClient,
-				kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
-				kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-				s.cfg.SyncerImage,
-				*kubeconfig,
-				s.cfg.ResourcesToSync,
-				syncerMode,
-			)
-			if err != nil {
-				return err
-			}
-
-			apiresourceController, err := apiresource.NewController(
-				apiExtensionsClient,
-				kcpClient,
-				s.cfg.AutoPublishAPIs,
-				kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
-				kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-				crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
-			)
-			if err != nil {
-				return err
-			}
-
-			kcpSharedInformerFactory.Start(context.StopCh)
-			crdSharedInformerFactory.Start(context.StopCh)
-			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
-			crdSharedInformerFactory.WaitForCacheSync(context.StopCh)
-
-			go clusterController.Start(ctx, 2)
-			go apiresourceController.Start(ctx, 2)
-
-			return nil
+			adaptedCtx := adaptContext(context)
+			return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory).Start(adaptedCtx)
 		}); err != nil {
 			return err
 		}
@@ -465,4 +395,16 @@ func (s *Server) startNamespaceController(hookContext genericapiserver.PostStart
 	versionedInformer.Start(hookContext.StopCh)
 
 	return nil
+}
+
+// adaptContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
+// run inside of a post-start-hook. The k8s APIServer wrote the post-start-hook context code before contexts
+// were part of the Go stdlib.
+func adaptContext(parent genericapiserver.PostStartHookContext) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func(done <-chan struct{}) {
+		<-done
+		cancel()
+	}(parent.StopCh)
+	return ctx
 }

@@ -98,11 +98,15 @@ func NewController(
 	}
 
 	c := &Controller{
-		queue:                        queue,
-		apiExtensionsClient:          apiExtensionsClient,
-		kcpClient:                    kcpClient,
-		clusterIndexer:               clusterInformer.Informer().GetIndexer(),
-		apiresourceImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
+		queue:                    queue,
+		apiExtensionsClient:      apiExtensionsClient,
+		kcpClient:                kcpClient,
+		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
+		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
+		syncChecks: []cache.InformerSynced{
+			clusterInformer.Informer().HasSynced,
+			apiResourceImportInformer.Informer().HasSynced,
+		},
 		syncerImage:                  syncerImage,
 		kubeconfig:                   kubeconfig,
 		resourcesToSync:              resourcesToSync,
@@ -152,6 +156,7 @@ type Controller struct {
 	kcpClient                    kcpclient.Interface
 	clusterIndexer               cache.Indexer
 	apiresourceImportIndexer     cache.Indexer
+	syncChecks                   []cache.InformerSynced
 	syncerImage                  string
 	kubeconfig                   clientcmdapi.Config
 	resourcesToSync              []string
@@ -197,6 +202,11 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting Cluster controller")
 	defer klog.Info("Shutting down Cluster controller")
+
+	if !cache.WaitForNamedCacheSync("cluster", ctx.Done(), c.syncChecks...) {
+		klog.Warning("Failed to wait for caches to sync")
+		return
+	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -276,7 +286,7 @@ func (c *Controller) deletedCluster(obj interface{}) {
 	c.cleanup(ctx, castObj)
 }
 
-var clusterKind string = reflect.TypeOf(clusterv1alpha1.Cluster{}).Name()
+var clusterKind = reflect.TypeOf(clusterv1alpha1.Cluster{}).Name()
 
 func ClusterAsOwnerReference(obj *clusterv1alpha1.Cluster, controller bool) metav1.OwnerReference {
 	return metav1.OwnerReference{
