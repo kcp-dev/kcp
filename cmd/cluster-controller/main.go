@@ -106,8 +106,8 @@ func main() {
 	crdSharedInformerFactory.Start(ctx.Done())
 	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
-	clusterController.Start(ctx, numThreads)
-	apiresourceController.Start(ctx, 2)
+	go clusterController.Start(ctx, numThreads)
+	go apiresourceController.Start(ctx, numThreads)
 
 	<-ctx.Done()
 }
