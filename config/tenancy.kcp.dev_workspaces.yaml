@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
   name: workspaces.tenancy.kcp.dev
 spec:
@@ -24,10 +24,14 @@ spec:
         description: Workspace describes how clients access (kubelike) APIs
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -41,7 +45,8 @@ spec:
                 minLength: 1
                 type: string
               targetShard:
-                description: Name of the WorkspaceShard this Workspace should move to.
+                description: Name of the WorkspaceShard this Workspace should move
+                  to.
                 type: string
             required:
             - shard
@@ -50,21 +55,29 @@ spec:
             description: WorkspaceStatus communicates the observed state of the Workspace.
             properties:
               baseURL:
-                description: 'Base URL where this Workspace can be targeted. This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>. But a workspace could also be targetable by a unique hostname in the future.'
+                description: 'Base URL where this Workspace can be targeted. This
+                  will generally be of the form: https://<workspace shard server>/cluster/<workspace
+                  name>. But a workspace could also be targetable by a unique hostname
+                  in the future.'
                 type: string
               phase:
                 description: Phase of the workspace  (Initializing / Active / Terminating)
                 type: string
               shards:
-                description: List of shards related to this workspace. The first shard in this list with LiveAfterResourceVersion is set is the active shard
+                description: List of shards related to this workspace. The first shard
+                  in this list with LiveAfterResourceVersion is set is the active
+                  shard
                 items:
-                  description: ShardStatus contains details for the current status of a workspace shard.
+                  description: ShardStatus contains details for the current status
+                    of a workspace shard.
                   properties:
                     liveAfterResourceVersion:
-                      description: Resource version after which writes can be accepted on this shard.
+                      description: Resource version after which writes can be accepted
+                        on this shard.
                       type: string
                     liveBeforeResourceVersion:
-                      description: Resource version at which writes to this shard should not be accepted.
+                      description: Resource version at which writes to this shard
+                        should not be accepted.
                       type: string
                     name:
                       description: Name of an active WorkspaceShard.
