@@ -37,10 +37,10 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apiresourcelister "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
 
 const clusterNameAndGVRIndexName = "clusterNameAndGVR"
+const controllerName = "apiresource"
 
 func GetClusterNameAndGVRIndexKey(clusterName string, gvr metav1.GroupVersionResource) string {
 	return clusterName + "$" + gvr.String()
@@ -277,7 +277,7 @@ func (c *Controller) enqueue(action resourceHandlerAction, oldObj, obj interface
 		deletedObject = obj
 	}
 
-	c.queue.AddRateLimited(queueElement{
+	c.queue.Add(queueElement{
 		theAction:     theAction,
 		theType:       theType,
 		theKey:        key,
@@ -318,29 +318,11 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	err := c.process(ctx, key)
-	c.handleErr(err, key)
-	return true
-}
-
-func (c *Controller) handleErr(err error, key queueElement) {
-	// Reconcile worked, nothing else to do for this workqueue item.
-	if err == nil {
-		klog.Info("Successfully reconciled", key)
-		c.queue.Forget(key)
-		return
-	}
-
-	// Re-enqueue up to 5 times.
-	num := c.queue.NumRequeues(key)
-	if errors.IsRetryable(err) || num < 5 {
-		klog.Infof("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
+	if err := c.process(ctx, key); err != nil {
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
-		return
+		return true
 	}
-
-	// Give up and report error elsewhere.
 	c.queue.Forget(key)
-	runtime.HandleError(err)
-	klog.Infof("Dropping key %q after failed retries: %v", key, err)
+	return true
 }

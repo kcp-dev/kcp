@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -24,6 +25,7 @@ import (
 )
 
 const resyncPeriod = 10 * time.Hour
+const controllerName = "deployment"
 
 // NewController returns a new Controller which splits new Deployment objects
 // into N virtual Deployments labeled for each Cluster that exists at the time
@@ -76,7 +78,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.queue.AddRateLimited(key)
+	c.queue.Add(key)
 }
 
 func (c *Controller) Start(numThreads int) {
@@ -106,30 +108,13 @@ func (c *Controller) processNextWorkItem() bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	err := c.process(key)
-	c.handleErr(err, key)
-	return true
-}
-
-func (c *Controller) handleErr(err error, key string) {
-	// Reconcile worked, nothing else to do for this workqueue item.
-	if err == nil {
-		c.queue.Forget(key)
-		return
-	}
-
-	// Re-enqueue up to 5 times.
-	num := c.queue.NumRequeues(key)
-	if num < 5 {
-		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
+	if err := c.process(key); err != nil {
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
-		return
+		return true
 	}
-
-	// Give up and report error elsewhere.
 	c.queue.Forget(key)
-	runtime.HandleError(err)
-	klog.Infof("Dropping key %q after failed retries: %v", key, err)
+	return true
 }
 
 func (c *Controller) process(key string) error {
@@ -142,7 +127,7 @@ func (c *Controller) process(key string) error {
 		klog.Infof("Object with key %q was deleted", key)
 		return nil
 	}
-	current := obj.(*appsv1.Deployment)
+	current := obj.(*appsv1.Deployment).DeepCopy()
 	previous := current.DeepCopy()
 
 	ctx := context.TODO()

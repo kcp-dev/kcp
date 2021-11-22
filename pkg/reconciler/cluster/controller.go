@@ -26,7 +26,6 @@ import (
 	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/syncer"
-	"github.com/kcp-dev/kcp/pkg/util/errors"
 )
 
 type SyncerMode int
@@ -35,6 +34,8 @@ const (
 	SyncerModePull SyncerMode = iota
 	SyncerModePush
 	SyncerModeNone
+
+	controllerName = "cluster"
 )
 
 const GVRForLocationInLogicalClusterIndexName = "GVRForLocationInLogicalCluster"
@@ -166,7 +167,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.queue.AddRateLimited(key)
+	c.queue.Add(key)
 }
 
 func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
@@ -221,31 +222,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	err := c.process(ctx, key)
-	c.handleErr(err, key)
-	return true
-}
-
-func (c *Controller) handleErr(err error, key string) {
-	// Reconcile worked, nothing else to do for this workqueue item.
-	if err == nil {
-		klog.Infof("Successfully reconciled %q", key)
-		c.queue.Forget(key)
-		return
-	}
-
-	// Re-enqueue up to 5 times.
-	num := c.queue.NumRequeues(key)
-	if errors.IsRetryable(err) || num < 5 {
-		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", key, num, err)
+	if err := c.process(ctx, key); err != nil {
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
-		return
+		return true
 	}
-
-	// Give up and report error elsewhere.
 	c.queue.Forget(key)
-	runtime.HandleError(err)
-	klog.Errorf("Dropping key %q after failed retries: %v", key, err)
+	return true
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
@@ -258,7 +241,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		klog.Errorf("Object with key %q was deleted", key)
 		return nil
 	}
-	current := obj.(*clusterv1alpha1.Cluster)
+	current := obj.(*clusterv1alpha1.Cluster).DeepCopy()
 	previous := current.DeepCopy()
 
 	if err := c.reconcile(ctx, current); err != nil {
