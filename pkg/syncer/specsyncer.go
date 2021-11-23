@@ -9,6 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -40,8 +42,19 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 	return true
 }
 
-func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error) {
-	return New(from, to, upsertIntoDownstream, deleteFromDownstream, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs {
+func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID, logicalClusterID string) (*Controller, error) {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(from)
+	if err != nil {
+		return nil, err
+	}
+	fromDiscovery := discoveryClient.WithCluster(logicalClusterID)
+	fromClients, err := dynamic.NewClusterForConfig(from)
+	if err != nil {
+		return nil, err
+	}
+	fromClient := fromClients.Cluster(logicalClusterID)
+	toClient := dynamic.NewForConfigOrDie(to)
+	return New(fromDiscovery, fromClient, toClient, upsertIntoDownstream, deleteFromDownstream, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs {
 		return cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.AddToQueue(gvr, obj) },
 			UpdateFunc: func(oldObj, newObj interface{}) {

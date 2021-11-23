@@ -100,7 +100,7 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	if c == nil {
 		return nil
 	}
-	return c.DiscoveryClient
+	return c.DiscoveryClient.WithCluster(c.cluster)
 }
 
 // NewForConfig creates a new Clientset for the given config.

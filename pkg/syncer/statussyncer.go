@@ -7,6 +7,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -25,8 +27,18 @@ func deepEqualStatus(oldObj, newObj interface{}) bool {
 	return equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
-func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID string) (*Controller, error) {
-	return New(from, to, updateStatusInUpstream, nil, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs {
+func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID, logicalClusterID string) (*Controller, error) {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(from)
+	if err != nil {
+		return nil, err
+	}
+	fromClient := dynamic.NewForConfigOrDie(from)
+	toClients, err := dynamic.NewClusterForConfig(to)
+	if err != nil {
+		return nil, err
+	}
+	toClient := toClients.Cluster(logicalClusterID)
+	return New(discoveryClient, fromClient, toClient, updateStatusInUpstream, nil, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs {
 		return cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if !deepEqualStatus(oldObj, newObj) {
