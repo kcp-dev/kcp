@@ -79,3 +79,4 @@ jobs:
       working-directory: ./kubernetes
     - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
     - run: WORKDIR=/tmp/e2e hack/run-sharded-kcp.sh
+    - run: WORKDIR=/tmp/cluster hack/run-cluster-kcp.sh
