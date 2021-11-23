@@ -42,7 +42,14 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 	return true
 }
 
+const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
+
 func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID, logicalClusterID string) (*Controller, error) {
+	from = rest.CopyConfig(from)
+	from.UserAgent = specSyncerAgent
+	to = rest.CopyConfig(to)
+	to.UserAgent = specSyncerAgent
+
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(from)
 	if err != nil {
 		return nil, err

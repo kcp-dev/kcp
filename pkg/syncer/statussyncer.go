@@ -27,7 +27,14 @@ func deepEqualStatus(oldObj, newObj interface{}) bool {
 	return equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
+const statusSyncerAgent = "kcp#status-syncer/v0.0.0"
+
 func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID, logicalClusterID string) (*Controller, error) {
+	from = rest.CopyConfig(from)
+	from.UserAgent = statusSyncerAgent
+	to = rest.CopyConfig(to)
+	to.UserAgent = statusSyncerAgent
+
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(from)
 	if err != nil {
 		return nil, err
