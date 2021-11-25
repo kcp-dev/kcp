@@ -77,7 +77,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 				Resources: []string{"namespaces"},
 			},
 			{
-				Verbs:     []string{"list", "watch", "create", "update", "get"},
+				Verbs:     []string{"list", "watch", "create", "update", "get", "delete"},
 				Resources: resourcesWithStatus.List(),
 				APIGroups: apiGroups.List(),
 			},
