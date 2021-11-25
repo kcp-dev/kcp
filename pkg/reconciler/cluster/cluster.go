@@ -93,18 +93,10 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 
 	if !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources) {
 		kubeConfig := c.kubeconfig.DeepCopy()
-		if _, exists := kubeConfig.Contexts[logicalCluster]; !exists {
-			klog.Errorf("error installing syncer: no context with the name of the expected cluster: %s", logicalCluster)
-			cluster.Status.SetConditionReady(corev1.ConditionFalse,
-				"ErrorInstallingSyncer",
-				fmt.Sprintf("Error installing syncer: no context with the name of the expected cluster: %s", logicalCluster))
-			return nil // Don't retry.
-		}
 
 		switch c.syncerMode {
 		case SyncerModePush:
-			kubeConfig.CurrentContext = logicalCluster
-			upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, logicalCluster, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+			upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 			if err != nil {
 				klog.Errorf("error getting kcp kubeconfig: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
@@ -122,7 +114,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				return nil // Don't retry.
 			}
 
-			newSyncer, err := syncer.StartSyncer(upstream, downstream, groupResources, cluster.Name, numSyncerThreads)
+			newSyncer, err := syncer.StartSyncer(upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads)
 			if err != nil {
 				klog.Errorf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,
@@ -142,7 +134,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				"SyncerReady",
 				"Syncer ready")
 		case SyncerModePull:
-			kubeConfig.CurrentContext = logicalCluster
+			kubeConfig.CurrentContext = "admin"
 			bytes, err := clientcmd.Write(*kubeConfig)
 			if err != nil {
 				klog.Errorf("error writing kubeconfig for syncer: %v", err)

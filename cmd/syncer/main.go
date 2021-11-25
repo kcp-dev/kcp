@@ -18,7 +18,7 @@ const numThreads = 2
 
 var (
 	fromKubeconfig = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster.")
-	fromContext    = flag.String("from_context", "", "Context to use in the Kubeconfig file for -from cluster, instead of the current context.")
+	fromCluster    = flag.String("from_cluster", "", "Name of the -from logical cluster.")
 	toKubeconfig   = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
 	toContext      = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
 	clusterID      = flag.String("cluster", "", "ID of the -to cluster. Resources with this ID set in the 'kcp.dev/cluster' label will be synced.")
@@ -38,15 +38,12 @@ func main() {
 	klog.Infof("Syncing the following resource types: %s", syncedResourceTypes)
 
 	// Create a client to dynamically watch "from".
-
-	var fromOverrides clientcmd.ConfigOverrides
-	if *fromContext != "" {
-		fromOverrides.CurrentContext = *fromContext
+	if *fromCluster == "" {
+		klog.Fatal("--from_cluster is required")
 	}
 
 	fromConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *fromKubeconfig},
-		&fromOverrides).ClientConfig()
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *fromKubeconfig}, nil).ClientConfig()
 	if err != nil {
 		klog.Fatal(err)
 	}
@@ -71,7 +68,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	syncer, err := syncer.StartSyncer(fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, numThreads)
+	syncer, err := syncer.StartSyncer(fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads)
 	if err != nil {
 		klog.Fatal(err)
 	}

@@ -41,12 +41,12 @@ func (s *Syncer) WaitUntilDone() {
 	<-s.statusSyncer.Done()
 }
 
-func StartSyncer(upstream, downstream *rest.Config, resources sets.String, cluster string, numSyncerThreads int) (*Syncer, error) {
-	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), cluster)
+func StartSyncer(upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) (*Syncer, error) {
+	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), cluster, logicalCluster)
 	if err != nil {
 		return nil, err
 	}
-	statusSyncer, err := NewStatusSyncer(downstream, upstream, resources.List(), cluster)
+	statusSyncer, err := NewStatusSyncer(downstream, upstream, resources.List(), cluster, logicalCluster)
 	if err != nil {
 		specSyncer.Stop()
 		return nil, err
@@ -83,7 +83,7 @@ type Controller struct {
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handlers HandlersProvider, syncedResourceTypes []string, clusterID string) (*Controller, error) {
+func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, upsertFn UpsertFunc, deleteFn DeleteFunc, handlers HandlersProvider, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{})
 
@@ -91,7 +91,7 @@ func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handle
 		// TODO: should we have separate upstream and downstream sync workqueues?
 		queue: queue,
 
-		toClient: dynamic.NewForConfigOrDie(to),
+		toClient: toClient,
 
 		stopCh: stopCh,
 
@@ -100,14 +100,13 @@ func New(from, to *rest.Config, upsertFn UpsertFunc, deleteFn DeleteFunc, handle
 		namespace: os.Getenv(SyncerNamespaceKey),
 	}
 
-	fromClient := dynamic.NewForConfigOrDie(from)
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", clusterID)
 	})
 
 	// Get all types the upstream API server knows about.
 	// TODO: watch this and learn about new types, or forget about old ones.
-	gvrstrs, err := getAllGVRs(from, syncedResourceTypes...)
+	gvrstrs, err := getAllGVRs(fromDiscovery, syncedResourceTypes...)
 	if err != nil {
 		return nil, err
 	}
@@ -138,14 +137,10 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-func getAllGVRs(config *rest.Config, resourcesToSync ...string) ([]string, error) {
+func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]string, error) {
 	toSyncSet := sets.NewString(resourcesToSync...)
 	willBeSyncedSet := sets.NewString()
-	dc, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	rs, err := dc.ServerPreferredResources()
+	rs, err := discoveryClient.ServerPreferredResources()
 	if err != nil {
 		if strings.Contains(err.Error(), "unable to retrieve the complete list of server APIs") {
 			// This error may occur when some API resources added from CRDs are not completely ready.

@@ -107,7 +107,7 @@
 				"program": "${workspaceFolder:kcp}/cmd/syncer",
 				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["-cluster", "local", "-from_kubeconfig", "${workspaceFolder:kcp}/.kcp/admin.kubeconfig", "-from_context", "admin", "-to_kubeconfig", "${env:HOME}/.kube/config", "pods", "deployments.apps" ],
+				"args": ["-cluster", "local", "-from_kubeconfig", "${workspaceFolder:kcp}/.kcp/admin.kubeconfig", "-from_cluster", "admin", "-to_kubeconfig", "${env:HOME}/.kube/config", "pods", "deployments.apps" ],
 			},
 			{
 				"name": "Launch Deployment Splitter",
