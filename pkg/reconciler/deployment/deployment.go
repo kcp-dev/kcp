@@ -38,7 +38,7 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 			}
 		}
 
-	} else {
+	} else if deployment.Labels[ownedByLabel] != "" {
 		rootDeploymentName := deployment.Labels[ownedByLabel]
 		// A leaf deployment was updated; get others and aggregate status.
 		sel, err := labels.Parse(fmt.Sprintf("%s=%s", ownedByLabel, rootDeploymentName))
