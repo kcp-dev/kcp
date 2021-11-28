@@ -27,6 +27,7 @@ type Config struct {
 	ProfilerAddress            string
 	ShardKubeconfigFile        string
 	EnableSharding             bool
+	ClientCAFile               string
 }
 
 // DefaultConfig returns a configuration with default values.
@@ -126,6 +127,10 @@ func ConfigFromFlags(flags *pflag.FlagSet) *Config {
 	if err == nil {
 		cfg.KubeConfigPath = kubeConfigPath
 	}
+	clientCAFile, err := flags.GetString("client-ca-file")
+	if err == nil {
+		cfg.ClientCAFile = clientCAFile
+	}
 	return cfg
 }
 
@@ -158,4 +163,6 @@ func AddConfigFlags(flags *pflag.FlagSet) {
 	flags.String("etcd_peer_port", "2380", "Port for etcd peer communication.")
 	flags.String("etcd_client_port", "2379", "Port for etcd client communication.")
 	flags.String("kubeconfig_path", "admin.kubeconfig", "Path to which the administrative kubeconfig should be written at startup.")
+	flags.String("client-ca-file", "", "If set, any request presenting a client certificate signed by one of "+
+		"the authorities in the client-ca-file is authenticated with an identity corresponding to the CommonName of the client certificate.")
 }

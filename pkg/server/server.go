@@ -210,6 +210,7 @@ func (s *Server) Run(ctx context.Context) error {
 		KeyFile:       s.cfg.EtcdClientInfo.KeyFile,
 		TrustedCAFile: s.cfg.EtcdClientInfo.TrustedCAFile,
 	}
+	serverOptions.Authentication.ClientCert.ClientCA = s.cfg.ClientCAFile
 	cpOptions, err := genericcontrolplane.Complete(serverOptions)
 	if err != nil {
 		return err
