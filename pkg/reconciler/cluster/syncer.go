@@ -145,6 +145,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 	args := []string{
 		"-cluster", clusterID,
 		"-from_kubeconfig", "/kcp/kubeconfig",
+		"-from_cluster", logicalCluster,
 	}
 	args = append(args, groupResourcesToSync...)
 
