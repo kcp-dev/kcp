@@ -23,6 +23,8 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 )
 
 // DefaultConfig is the default behavior of the KCP server.
@@ -41,6 +43,8 @@ func DefaultConfig() *Config {
 		ProfilerAddress:            "",
 		ShardKubeconfigFile:        "",
 		EnableSharding:             false,
+		// Currently only adding OIDC flags.
+		Authentication: kubeoptions.NewBuiltInAuthenticationOptions().WithOIDC(),
 	}
 }
 
@@ -59,6 +63,7 @@ type Config struct {
 	ProfilerAddress            string
 	ShardKubeconfigFile        string
 	EnableSharding             bool
+	Authentication             *kubeoptions.BuiltInAuthenticationOptions
 }
 
 func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
@@ -80,5 +85,6 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 
 	c.ClusterControllerOptions = cluster.BindOptions(c.ClusterControllerOptions, fs)
 
+	c.Authentication.AddFlags(fs)
 	return c
 }
