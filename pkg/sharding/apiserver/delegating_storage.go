@@ -2,11 +2,12 @@ package apiserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -83,7 +84,8 @@ func (s *delegatingStorage) routedResponse(ctx context.Context, resourceVersion 
 		return nil, err
 	}
 	r, e := request.Do(ctx).Get()
-	if statusError, ok := e.(*errors.StatusError); ok {
+	var statusError *k8serrors.StatusError
+	if errors.As(e, &statusError) {
 		// prefer to respond with the error the server gave us
 		return &statusError.ErrStatus, nil
 	}
@@ -254,7 +256,7 @@ func mutatingWatcherFor(source watch.Interface, mutator func(runtime.Object) err
 			if err := mutator(event.Object); err != nil {
 				output <- watch.Event{
 					Type:   watch.Error,
-					Object: &errors.NewInternalError(fmt.Errorf("failed to mutate object in watch event: %v", err)).ErrStatus,
+					Object: &k8serrors.NewInternalError(fmt.Errorf("failed to mutate object in watch event: %w", err)).ErrStatus,
 				}
 			} else {
 				output <- event

@@ -134,14 +134,14 @@ func (s *Server) Run(ctx context.Context) error {
 		if len(s.cfg.EtcdClientInfo.CertFile) > 0 && len(s.cfg.EtcdClientInfo.KeyFile) > 0 {
 			cert, err := tls.LoadX509KeyPair(s.cfg.EtcdClientInfo.CertFile, s.cfg.EtcdClientInfo.KeyFile)
 			if err != nil {
-				return fmt.Errorf("failed to load x509 keypair: %s", err)
+				return fmt.Errorf("failed to load x509 keypair: %w", err)
 			}
 			s.cfg.EtcdClientInfo.TLS.Certificates = []tls.Certificate{cert}
 		}
 
 		if len(s.cfg.EtcdClientInfo.TrustedCAFile) > 0 {
 			if caCert, err := ioutil.ReadFile(s.cfg.EtcdClientInfo.TrustedCAFile); err != nil {
-				return fmt.Errorf("failed to read ca file: %s", err)
+				return fmt.Errorf("failed to read ca file: %w", err)
 			} else {
 				caPool := x509.NewCertPool()
 				caPool.AppendCertsFromPEM(caCert)

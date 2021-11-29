@@ -140,7 +140,7 @@ func NewController(
 			return []string{}, nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %v", err)
+		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %w", err)
 	}
 
 	return c, nil

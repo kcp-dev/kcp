@@ -232,7 +232,7 @@ func resourceVersionFor(identifier string, resp metav1.Common) (ShardedResourceV
 	}
 	version, err := strconv.ParseInt(resourceVersion, 10, 64)
 	if err != nil {
-		return ShardedResourceVersion{}, fmt.Errorf("object had invalid resource version: %s: %v", resourceVersion, err)
+		return ShardedResourceVersion{}, fmt.Errorf("object had invalid resource version: %s: %w", resourceVersion, err)
 	}
 	return ShardedResourceVersion{
 		Identifier:      identifier,
