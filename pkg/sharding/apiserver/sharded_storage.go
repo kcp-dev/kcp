@@ -98,7 +98,7 @@ func (a *aggregateWatcher) process(identifier string, event watch.Event) {
 	if err != nil {
 		a.events <- watch.Event{
 			Type:   watch.Error,
-			Object: &errors.NewInternalError(fmt.Errorf("failed to update resource version vector clock: %v", err)).ErrStatus,
+			Object: &errors.NewInternalError(fmt.Errorf("failed to update resource version vector clock: %w", err)).ErrStatus,
 		}
 		return
 	}
@@ -106,7 +106,7 @@ func (a *aggregateWatcher) process(identifier string, event watch.Event) {
 	if err != nil {
 		a.events <- watch.Event{
 			Type:   watch.Error,
-			Object: &errors.NewInternalError(fmt.Errorf("failed to encode resource version vector clock: %v", err)).ErrStatus,
+			Object: &errors.NewInternalError(fmt.Errorf("failed to encode resource version vector clock: %w", err)).ErrStatus,
 		}
 		return
 	}
