@@ -23,16 +23,27 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 )
 
+// DefaultOptions are the default options for the cluster controller.
+func DefaultOptions() *Options {
+	return &Options{
+		SyncerImage:     "",
+		PullMode:        false,
+		PushMode:        false,
+		AutoPublishAPIs: false,
+		NumThreads:      runtime.NumCPU(),
+		ResourcesToSync: []string{"deployments.apps"},
+	}
+}
+
 // BindOptions binds the cluster controller options to the flag set.
-func BindOptions(fs *pflag.FlagSet) *Options {
-	o := Options{}
-	fs.StringVar(&o.SyncerImage, "syncer_image", "", "Syncer image to install on clusters")
-	fs.BoolVar(&o.PullMode, "pull_mode", false, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
-	fs.BoolVar(&o.PushMode, "push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
-	fs.BoolVar(&o.AutoPublishAPIs, "auto_publish_apis", false, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
-	fs.IntVar(&o.NumThreads, "cluster_controller_threads", runtime.NumCPU(), "Number of threads to use for the cluster controller.")
-	fs.StringSliceVar(&o.ResourcesToSync, "resources_to_sync", []string{"deployments.apps"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
-	return &o
+func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
+	fs.StringVar(&o.SyncerImage, "syncer_image", o.SyncerImage, "Syncer image to install on clusters")
+	fs.BoolVar(&o.PullMode, "pull_mode", o.PullMode, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	fs.BoolVar(&o.PushMode, "push_mode", o.PushMode, "If true, run syncer for each cluster from inside cluster controller")
+	fs.BoolVar(&o.AutoPublishAPIs, "auto_publish_apis", o.AutoPublishAPIs, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
+	fs.IntVar(&o.NumThreads, "cluster_controller_threads", o.NumThreads, "Number of threads to use for the cluster controller.")
+	fs.StringSliceVar(&o.ResourcesToSync, "resources_to_sync", o.ResourcesToSync, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	return o
 }
 
 // Options are the options for the cluster controller

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"time"
@@ -12,7 +13,6 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -23,7 +23,7 @@ const resyncPeriod = 10 * time.Hour
 
 func bindOptions(fs *pflag.FlagSet) *options {
 	o := options{
-		Options: cluster.BindOptions(fs),
+		Options: cluster.BindOptions(cluster.DefaultOptions(), fs),
 	}
 	fs.StringVar(&o.kubeconfigPath, "kubeconfig", "", "Path to kubeconfig")
 	return &o
@@ -50,11 +50,13 @@ func main() {
 
 	fs := pflag.NewFlagSet("cluster-controller", pflag.ExitOnError)
 	options := bindOptions(fs)
-	if err := fs.Parse(fs.Args()[1:]); err != nil {
-		klog.Fatal(err)
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 	if err := options.Validate(); err != nil {
-		klog.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
@@ -63,16 +65,19 @@ func main() {
 
 	r, err := configLoader.ClientConfig()
 	if err != nil {
-		klog.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 	kubeconfig, err := configLoader.RawConfig()
 	if err != nil {
-		klog.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(r), resyncPeriod)
 	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(r), resyncPeriod)
 	if err := options.Options.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory).Start(ctx); err != nil {
-		klog.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	<-ctx.Done()

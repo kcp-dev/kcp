@@ -53,7 +53,7 @@ func main() {
 			return srv.Run(ctx)
 		},
 	}
-	cfg = server.BindOptions(startCmd.Flags())
+	cfg = server.BindOptions(server.DefaultConfig(), startCmd.Flags())
 	cmd.AddCommand(startCmd)
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
