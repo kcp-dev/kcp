@@ -4,9 +4,10 @@ go 1.16
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
-	github.com/coreydaley/openshift-goimports v0.0.0-20201126152347-b92214262c6c
 	github.com/google/go-cmp v0.5.6
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/muesli/reflow v0.1.0
+	github.com/spf13/afero v1.4.1 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0

@@ -8,6 +8,12 @@ CONTROLLER_GEN_BIN := controller-gen
 CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
 export CONTROLLER_GEN # so hack scripts can use it
 
+OPENSHIFT_GOIMPORTS_VER := b92214262c6ce8598aefdee87aae6b8cf1a9fc86
+OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
+OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
+export OPENSHIFT_GOIMPORTS # so hack scripts can use it
+
+
 all: build
 .PHONY: all
 
@@ -37,6 +43,10 @@ verify-codegen: codegen
 		echo "You need to run 'make codegen' to update generated files and commit them"; exit 1; \
 	fi
 
+
+$(OPENSHIFT_GOIMPORTS):
+	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/coreydaley/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
+
 .PHONY: imports
-imports:
-	go run github.com/coreydaley/openshift-goimports/ -m github.com/kcp-dev/kcp
+imports: $(OPENSHIFT_GOIMPORTS)
+	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
