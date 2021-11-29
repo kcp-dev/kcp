@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"flag"
 	"os"
 	"os/signal"
 	"time"
 
+	flag "github.com/spf13/pflag"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/tools/clientcmd"
@@ -28,6 +28,7 @@ var (
 	pullMode        = flag.Bool("pull_mode", true, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	pushMode        = flag.Bool("push_mode", false, "If true, run syncer for each cluster from inside cluster controller")
 	autoPublishAPIs = flag.Bool("auto_publish_apis", false, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
+	resourcesToSync = flag.StringSlice("resources_to_sync", []string{"deployments.apps"}, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 )
 
 func main() {
@@ -36,7 +37,6 @@ func main() {
 	defer cancel()
 
 	flag.Parse()
-
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *kubeconfigPath},
 		&clientcmd.ConfigOverrides{})
@@ -51,9 +51,8 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	resourcesToSync := flag.Args()
-	if len(resourcesToSync) == 0 {
-		resourcesToSync = []string{"deployments.apps"}
+	if len(*resourcesToSync) == 0 {
+		resourcesToSync = &[]string{"deployments.apps"}
 	}
 	klog.Infof("Syncing resources: %v", resourcesToSync)
 
@@ -81,7 +80,7 @@ func main() {
 		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		*syncerImage,
 		kubeconfig,
-		resourcesToSync,
+		*resourcesToSync,
 		syncerMode,
 	)
 	if err != nil {
