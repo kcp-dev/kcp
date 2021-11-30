@@ -3,3 +3,6 @@ linters-settings:
     errorf: true
     asserts: true
     comparison: true
+linters:
+  enable:
+  - errorlint
