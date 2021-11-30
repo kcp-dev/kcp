@@ -33,6 +33,7 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	var cfg *server.Config
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the control plane process",
@@ -46,16 +47,13 @@ func main() {
 			used to access the control plane.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			//flag.CommandLine.Lookup("v").Value.Set("9")
-
-			// Setup signal handler for a cleaner shutdown
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 			defer cancel()
-			srv := server.NewServer(server.ConfigFromFlags(cmd.Flags()))
+			srv := server.NewServer(cfg)
 			return srv.Run(ctx)
 		},
 	}
-	server.AddConfigFlags(startCmd.Flags())
+	cfg = server.BindOptions(server.DefaultConfig(), startCmd.Flags())
 	cmd.AddCommand(startCmd)
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

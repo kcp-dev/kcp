@@ -67,6 +67,11 @@ func NewController(
 		apiResourceImportLister:          apiResourceImportInformer.Lister(),
 		crdIndexer:                       crdInformer.Informer().GetIndexer(),
 		crdLister:                        crdInformer.Lister(),
+		syncChecks: []cache.InformerSynced{
+			negotiatedAPIResourceInformer.Informer().HasSynced,
+			apiResourceImportInformer.Informer().HasSynced,
+			crdInformer.Informer().HasSynced,
+		},
 	}
 
 	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -136,6 +141,8 @@ type Controller struct {
 	apiExtensionsClient apiextensionsclient.Interface
 	crdIndexer          cache.Indexer
 	crdLister           crdlister.CustomResourceDefinitionLister
+
+	syncChecks []cache.InformerSynced
 
 	AutoPublishNegotiatedAPIResource bool
 }
@@ -293,6 +300,11 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting APIResource controller")
 	defer klog.Info("Shutting down APIResource controller")
+
+	if !cache.WaitForNamedCacheSync("apiresource", ctx.Done(), c.syncChecks...) {
+		klog.Warning("Failed to wait for caches to sync")
+		return
+	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
