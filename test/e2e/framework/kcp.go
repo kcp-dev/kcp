@@ -55,7 +55,7 @@ func (c *kcpServer) ArtifactDir() string {
 	return c.artifactDir
 }
 
-func newKcpServer(t *T, args ...string) (*kcpServer, error) {
+func newKcpServer(t *T, cfg KcpConfig) (*kcpServer, error) {
 	t.Helper()
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {
@@ -78,7 +78,7 @@ func newKcpServer(t *T, args ...string) (*kcpServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifactDir, err := ArtifactDir(t, kcpListenPort)
+	artifactDir, err := ArtifactDir(t, "kcp", cfg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func newKcpServer(t *T, args ...string) (*kcpServer, error) {
 			"--etcd_client_port=" + etcdClientPort,
 			"--etcd_peer_port=" + etcdPeerPort,
 			"--kubeconfig_path=admin.kubeconfig"},
-			args...),
+			cfg.Args...),
 		artifactDir: artifactDir,
 		ctx:         ctx,
 		t:           t,

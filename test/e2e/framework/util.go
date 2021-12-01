@@ -38,6 +38,11 @@ func ArtifactDir(t TestingTInterface, segments ...string) (string, error) {
 		baseDir, strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(t.Name()),
 	}, segments...)
 	artifactDir := filepath.Join(segments...)
+	if info, err := os.Stat(artifactDir); err == nil {
+		if info.IsDir() {
+			return "", fmt.Errorf("artifact dir %s already exists, ensure clean output directory", artifactDir)
+		}
+	}
 	if err := os.MkdirAll(artifactDir, 0755); err != nil {
 		return "", fmt.Errorf("could not create artifact dir: %w", err)
 	}

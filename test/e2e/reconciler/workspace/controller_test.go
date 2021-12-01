@@ -223,7 +223,10 @@ func TestWorkspaceController(t *testing.T) {
 				return
 			}
 			testCase.work(ctx, t, client, watcher)
-		}, []string{"--install_workspace_controller"})
+		}, framework.KcpConfig{
+			Name: "main",
+			Args: []string{"--install_workspace_controller"},
+		})
 	}
 }
 
