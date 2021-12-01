@@ -56,7 +56,7 @@ var rawCustomResourceDefinitions embed.FS
 const testNamespace = "cluster-controller-test"
 const clusterName = "us-east1"
 
-func TestWorkspaceController(t *testing.T) {
+func TestClusterController(t *testing.T) {
 	var testCases = []struct {
 		name string
 		work func(ctx context.Context, t framework.TestingTInterface, sourceClient, sinkClient wildwestclient.CowboyInterface, sourceWatcher, sinkWatcher watch.Interface)

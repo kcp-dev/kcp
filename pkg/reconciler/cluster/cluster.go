@@ -172,7 +172,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				"SyncerInstalling",
 				"Installing syncer on cluster")
 		case SyncerModeNone:
-			klog.Info("started none more syncer!")
+			klog.Info("started none mode syncer!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
