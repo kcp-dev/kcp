@@ -35,6 +35,10 @@ build:
 	go build -o bin ./cmd/...
 .PHONY: build
 
+install:
+	go install ./cmd/...
+.PHONY: install
+
 vendor:
 	go mod tidy
 	go mod vendor
@@ -64,3 +68,7 @@ $(OPENSHIFT_GOIMPORTS):
 .PHONY: imports
 imports: $(OPENSHIFT_GOIMPORTS)
 	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
+
+.PHONY: test-e2e
+test-e2e: install
+	go test -race ./test/e2e... $(WHAT)
