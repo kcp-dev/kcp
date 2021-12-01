@@ -12,17 +12,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        path: kcp
+    - uses: actions/checkout@v2
+      with:
+        repository: kubernetes/repo-infra
+        ref: master
+        path: repo-infra
+        fetch-depth: 1
+    - run: |
+        cd kcp
+        ./../repo-infra/hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate
     - uses: actions/setup-go@v2
       with:
         go-version: v1.16
     - name: Check gofmt
       run: |
+        cd kcp
         gofmt -s -d \
           $(find . \
             -path './vendor' -prune \
             -o -type f -name '*.go' -print)
     - name: Check imports
       run: |
+        cd kcp
         make imports
         if  ! git diff --exit-code; then
           echo "imports are out of date, run make imports"
