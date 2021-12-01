@@ -30,5 +30,12 @@ ${CONTROLLER_GEN} \
     crd \
     rbac:roleName=manager-role \
     webhook \
-    paths="./..." \
+    paths="./pkg/..." \
     output:crd:artifacts:config=config/
+
+${CONTROLLER_GEN} \
+    crd \
+    rbac:roleName=manager-role \
+    webhook \
+    paths="./test/e2e/reconciler/cluster/..." \
+    output:crd:artifacts:config=test/e2e/reconciler/cluster/
