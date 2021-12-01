@@ -145,7 +145,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				oldSyncer.Stop()
 			}
 
-			klog.Info("syncer ready!")
+			klog.Infof("started push mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
@@ -172,7 +172,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				"SyncerInstalling",
 				"Installing syncer on cluster")
 		case SyncerModeNone:
-			klog.Info("syncer ready!")
+			klog.Info("started none more syncer!")
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
@@ -188,13 +188,13 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 					"SyncerNotReady",
 					err.Error())
 			} else {
-				klog.Info("syncer ready!")
+				klog.Infof("started pull mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
 				cluster.Status.SetConditionReady(corev1.ConditionTrue,
 					"SyncerReady",
 					"Syncer ready")
 			}
 		} else {
-			klog.Info("syncer ready!")
+			klog.Infof("healthy push mode syncer running for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
 			cluster.Status.SetConditionReady(corev1.ConditionTrue,
 				"SyncerReady",
 				"Syncer ready")
