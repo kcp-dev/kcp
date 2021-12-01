@@ -3,9 +3,15 @@ linters-settings:
     errorf: true
     asserts: true
     comparison: true
+  misspell:
+    ignore-words:
+    - creater
+
 linters:
   enable:
   - errorlint
   - exportloopref
+  - gofmt
   - importas
+  - misspell
   - nilerr

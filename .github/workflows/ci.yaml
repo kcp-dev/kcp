@@ -74,16 +74,6 @@ jobs:
           only-new-issues: true
           args: --timeout=5m
 
-  misspell:
-    name: misspell
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: reviewdog/action-misspell@v1
-        with:
-          exclude: ./.github/workflows/*
-          ignore: creater,importas
-
   codegen:
     name: codegen
     runs-on: ubuntu-latest
