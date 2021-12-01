@@ -85,7 +85,7 @@
 				"program": "${workspaceFolder:kcp}/cmd/cluster-controller",
 				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
 				"cwd": "${workspaceFolder:kcp}",
-				"args": ["-push_mode=true", "-pull_mode=false", "-kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig"],
+				"args": ["--push_mode=true", "--pull_mode=false", "--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig"],
 			},
 			{
 				"name": "Launch cluster controller",
