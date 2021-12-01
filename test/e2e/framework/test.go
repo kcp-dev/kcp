@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"k8s.io/client-go/rest"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // we want to ensure that everything runs in parallel and that users of this framework
@@ -33,7 +34,8 @@ import (
 var seen = sync.Map{}
 
 type RunningServer interface {
-	Config() *rest.Config
+	RawConfig() (clientcmdapi.Config, error)
+	Config() (*rest.Config, error)
 }
 
 type TestFunc func(t TestingTInterface, servers ...RunningServer)

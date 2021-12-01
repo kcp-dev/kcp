@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // kcpServer exposes a kcp invocation to a test and
@@ -47,7 +49,7 @@ type kcpServer struct {
 	artifactDir string
 
 	lock *sync.Mutex
-	cfg  *rest.Config
+	cfg  clientcmd.ClientConfig
 
 	t TestingTInterface
 }
@@ -181,13 +183,23 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 }
 
 // Config exposes a copy of the client config for this server.
-func (c *kcpServer) Config() *rest.Config {
+func (c *kcpServer) Config() (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
-		return nil
+		return nil, errors.New("kcpServer.Config() before load succeeded")
 	}
-	return rest.CopyConfig(c.cfg)
+	return c.cfg.ClientConfig()
+}
+
+// RawConfig exposes a copy of the client config for this server.
+func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.cfg == nil {
+		return clientcmdapi.Config{}, errors.New("kcpServer.Config() before load succeeded")
+	}
+	return c.cfg.RawConfig()
 }
 
 // Ready blocks until the server is healthy and ready. Before returning,
@@ -202,7 +214,10 @@ func (c *kcpServer) Ready() error {
 		// main Ready() body, so we check before continuing that we are live
 		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
 	}
-	cfg := c.Config()
+	cfg, err := c.Config()
+	if err != nil {
+		return err
+	}
 	if cfg.NegotiatedSerializer == nil {
 		cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	}
@@ -245,11 +260,7 @@ func (c *kcpServer) loadCfg() error {
 			loadError = fmt.Errorf("failed to load admin kubeconfig: %w", err)
 			return
 		}
-		config, err := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil).ClientConfig()
-		if err != nil {
-			loadError = fmt.Errorf("failed to load cluster-less client config: %w", err)
-			return
-		}
+		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil)
 		c.lock.Lock()
 		c.cfg = config
 		c.lock.Unlock()

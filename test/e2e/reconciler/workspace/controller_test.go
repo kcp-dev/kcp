@@ -202,9 +202,9 @@ func TestWorkspaceController(t *testing.T) {
 				return
 			}
 			server := servers[0]
-			cfg := server.Config()
-			if cfg == nil {
-				t.Error("got nil config for server")
+			cfg, err := server.Config()
+			if err != nil {
+				t.Error(err)
 				return
 			}
 			clusterName, err := detectClusterName(cfg, ctx)
