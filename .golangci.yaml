@@ -6,3 +6,6 @@ linters-settings:
 linters:
   enable:
   - errorlint
+  - exportloopref
+  - importas
+  - nilerr
