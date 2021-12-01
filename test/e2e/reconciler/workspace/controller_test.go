@@ -188,7 +188,8 @@ func TestWorkspaceController(t *testing.T) {
 			},
 		},
 	}
-	for _, testCase := range testCases {
+	for i := range testCases {
+		testCase := testCases[i]
 		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers ...framework.RunningServer) {
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
