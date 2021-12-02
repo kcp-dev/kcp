@@ -289,18 +289,17 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 		// TODO: something sensible when we have some use for this field
 		workspace.Status.BaseURL = fmt.Sprintf("%s.workspaces.kcp.dev", workspace.Name)
 	}
-	var shouldReSchedule bool
 	if currentShard := workspace.Status.Location.Current; currentShard != "" {
 		// make sure current shard still exists
 		_, err := c.workspaceShardLister.Get(clusters.ToClusterAwareKey(workspace.ClusterName, currentShard))
 		if errors.IsNotFound(err) {
 			klog.Infof("de-scheduling workspace %q from nonexistent shard %q", workspace.Name, currentShard)
-			shouldReSchedule = true
+			workspace.Status.Location.Current = ""
 		} else if err != nil {
 			return err
 		}
 	}
-	if workspace.Status.Location.Current == "" || shouldReSchedule {
+	if workspace.Status.Location.Current == "" {
 		// find a shard for this workspace
 		shards, err := c.workspaceShardLister.List(labels.Everything())
 		if err != nil {
@@ -313,7 +312,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 		}
 	}
 	if workspace.Status.Location.Target != "" && workspace.Status.Location.Current != workspace.Status.Location.Target {
-		klog.Infof("moving workspace %q from %q to %q", workspace.Name, workspace.Status.Location.Current, workspace.Status.Location.Target)
+		klog.Infof("moving workspace %q from to %q", workspace.Name, workspace.Status.Location.Target)
 		workspace.Status.Location.Current = workspace.Status.Location.Target
 		workspace.Status.Location.Target = ""
 	}
