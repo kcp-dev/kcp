@@ -43,8 +43,7 @@ func DefaultConfig() *Config {
 		ProfilerAddress:            "",
 		ShardKubeconfigFile:        "",
 		EnableSharding:             false,
-		// Currently only adding OIDC flags.
-		Authentication: kubeoptions.NewBuiltInAuthenticationOptions().WithOIDC(),
+		Authentication:             kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
 	}
 }
 
