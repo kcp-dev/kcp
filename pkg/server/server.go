@@ -35,6 +35,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -50,9 +51,12 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
+	"github.com/kcp-dev/kcp/config"
+	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
@@ -334,9 +338,57 @@ func (s *Server) Run(ctx context.Context) error {
 			cluster.Server = hostURL.String()
 		}
 
-		if err := server.AddPostStartHook("Install Cluster Controller", func(context genericapiserver.PostStartHookContext) error {
+		if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
 			adaptedCtx := adaptContext(context)
 			return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory).Start(adaptedCtx)
+		}); err != nil {
+			return err
+		}
+	}
+
+	if s.cfg.InstallWorkspaceController {
+		kubeconfig := clientConfig.DeepCopy()
+		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+		if err != nil {
+			return err
+		}
+
+		kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
+		if err != nil {
+			return err
+		}
+
+		const clusterAll = "*" // TODO: find the correct place for this constant?
+		crossClusterClient := kcpClient.Cluster(clusterAll)
+
+		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(crossClusterClient, resyncPeriod)
+
+		workspaceController, err := workspace.NewController(
+			kcpClient,
+			kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+			kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := server.AddPostStartHook("install-workspace-controller", func(context genericapiserver.PostStartHookContext) error {
+			// Register CRDs in both the admin and user logical clusters
+			requiredCrds := []metav1.GroupKind{
+				{Group: tenancyapi.GroupName, Kind: "workspaces"},
+				{Group: tenancyapi.GroupName, Kind: "workspaceshards"},
+			}
+			crdClient := apiextensionsv1client.NewForConfigOrDie(adminConfig).CustomResourceDefinitions()
+			if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
+				return err
+			}
+
+			kcpSharedInformerFactory.Start(context.StopCh)
+			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
+
+			go workspaceController.Start(ctx, 2)
+
+			return nil
 		}); err != nil {
 			return err
 		}
