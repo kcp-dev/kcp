@@ -139,7 +139,7 @@ func TestWorkspaceController(t *testing.T) {
 				}
 				var otherShard string
 				for _, name := range []string{bostonShard.Name, atlantaShard.Name} {
-					if name != otherShard {
+					if name != workspace.Status.Location.Current {
 						otherShard = name
 						break
 					}
