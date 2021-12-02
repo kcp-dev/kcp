@@ -69,7 +69,9 @@ func BootstrapCustomResourceDefinitions(ctx context.Context, client apiextension
 func BootstrapCustomResourceDefinition(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gk metav1.GroupKind) error {
 	start := time.Now()
 	klog.Infof("bootstrapping %v", gk.String())
-	defer klog.Infof("bootstrapped %v after %s", gk.String(), time.Since(start).String())
+	defer func() {
+		klog.Infof("bootstrapped %v after %s", gk.String(), time.Since(start).String())
+	}()
 	raw, err := rawCustomResourceDefinitions.ReadFile(fmt.Sprintf("%s_%s.yaml", gk.Group, gk.Kind))
 	if err != nil {
 		return fmt.Errorf("could not read CRD %s: %w", gk.String(), err)
