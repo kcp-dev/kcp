@@ -312,7 +312,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 			klog.Infof("scheduling workspace %q to %q", workspace.Name, target)
 		}
 	}
-	if workspace.Status.Location.Current != workspace.Status.Location.Target {
+	if workspace.Status.Location.Target != "" && workspace.Status.Location.Current != workspace.Status.Location.Target {
 		klog.Infof("moving workspace %q from %q to %q", workspace.Name, workspace.Status.Location.Current, workspace.Status.Location.Target)
 		workspace.Status.Location.Current = workspace.Status.Location.Target
 		workspace.Status.Location.Target = ""
