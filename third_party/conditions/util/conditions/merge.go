@@ -20,13 +20,14 @@ import (
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // localizedCondition defines a condition with the information of the object the conditions
 // was originated from.
 type localizedCondition struct {
-	*clusterv1.Condition
+	*conditionsapi.Condition
 	Getter
 }
 
@@ -49,7 +50,7 @@ type localizedCondition struct {
 // condition; in order to complete such task some trade-off should be made, because there is no a golden rule
 // for summarizing many Reason/Message into single Reason/Message.
 // mergeOptions allows the user to adapt this process to the specific needs by exposing a set of merge strategies.
-func merge(conditions []localizedCondition, targetCondition clusterv1.ConditionType, options *mergeOptions) *clusterv1.Condition {
+func merge(conditions []localizedCondition, targetCondition conditionsapi.ConditionType, options *mergeOptions) *conditionsapi.Condition {
 	g := getConditionGroups(conditions)
 	if len(g) == 0 {
 		return nil
@@ -140,20 +141,20 @@ func (g conditionGroups) TopGroup() *conditionGroup {
 
 // TrueGroup returns the the condition group with status True, if any.
 func (g conditionGroups) TrueGroup() *conditionGroup {
-	return g.getByStatusAndSeverity(corev1.ConditionTrue, clusterv1.ConditionSeverityNone)
+	return g.getByStatusAndSeverity(corev1.ConditionTrue, conditionsapi.ConditionSeverityNone)
 }
 
 // ErrorGroup returns the the condition group with status False and severity Error, if any.
 func (g conditionGroups) ErrorGroup() *conditionGroup {
-	return g.getByStatusAndSeverity(corev1.ConditionFalse, clusterv1.ConditionSeverityError)
+	return g.getByStatusAndSeverity(corev1.ConditionFalse, conditionsapi.ConditionSeverityError)
 }
 
 // WarningGroup returns the the condition group with status False and severity Warning, if any.
 func (g conditionGroups) WarningGroup() *conditionGroup {
-	return g.getByStatusAndSeverity(corev1.ConditionFalse, clusterv1.ConditionSeverityWarning)
+	return g.getByStatusAndSeverity(corev1.ConditionFalse, conditionsapi.ConditionSeverityWarning)
 }
 
-func (g conditionGroups) getByStatusAndSeverity(status corev1.ConditionStatus, severity clusterv1.ConditionSeverity) *conditionGroup {
+func (g conditionGroups) getByStatusAndSeverity(status corev1.ConditionStatus, severity conditionsapi.ConditionSeverity) *conditionGroup {
 	if len(g) == 0 {
 		return nil
 	}
@@ -169,7 +170,7 @@ func (g conditionGroups) getByStatusAndSeverity(status corev1.ConditionStatus, s
 // and thus with the same priority when merging into a Ready condition.
 type conditionGroup struct {
 	status     corev1.ConditionStatus
-	severity   clusterv1.ConditionSeverity
+	severity   conditionsapi.ConditionSeverity
 	conditions []localizedCondition
 }
 
@@ -179,11 +180,11 @@ func (g conditionGroup) mergePriority() int {
 	switch g.status {
 	case corev1.ConditionFalse:
 		switch g.severity {
-		case clusterv1.ConditionSeverityError:
+		case conditionsapi.ConditionSeverityError:
 			return 0
-		case clusterv1.ConditionSeverityWarning:
+		case conditionsapi.ConditionSeverityWarning:
 			return 1
-		case clusterv1.ConditionSeverityInfo:
+		case conditionsapi.ConditionSeverityInfo:
 			return 2
 		}
 	case corev1.ConditionTrue:

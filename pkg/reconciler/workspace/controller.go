@@ -37,11 +37,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/helpers/conditions"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const (
@@ -83,7 +84,7 @@ func NewController(
 		},
 		unschedulableIndex: func(obj interface{}) ([]string, error) {
 			if workspace, ok := obj.(*tenancyv1alpha1.Workspace); ok {
-				if conditions.IsWorkspaceUnschedulable(workspace) {
+				if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable {
 					return []string{"true"}, nil
 				}
 			}
@@ -316,33 +317,12 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 		workspace.Status.Location.Current = workspace.Status.Location.Target
 		workspace.Status.Location.Target = ""
 	}
-	now := time.Now()
 	if workspace.Status.Location.Current == "" {
 		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
-		if !conditions.IsWorkspaceUnschedulable(workspace) {
-			klog.Infof("marking workspace %q unschedulable", workspace.Name)
-			conditions.SetWorkspaceCondition(workspace, tenancyv1alpha1.WorkspaceCondition{
-				Type:               tenancyv1alpha1.WorkspaceScheduled,
-				Status:             metav1.ConditionFalse,
-				LastProbeTime:      metav1.Time{Time: now},
-				LastTransitionTime: metav1.Time{Time: now},
-				Reason:             tenancyv1alpha1.WorkspaceReasonUnschedulable,
-				Message:            "No shards are available to schedule Workspaces to.",
-			})
-		}
+		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No shards are available to schedule Workspaces to.")
 	} else {
 		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseActive
-		if conditions.IsWorkspaceUnschedulable(workspace) {
-			klog.Infof("marking workspace %q scheduled", workspace.Name)
-			conditions.SetWorkspaceCondition(workspace, tenancyv1alpha1.WorkspaceCondition{
-				Type:               tenancyv1alpha1.WorkspaceScheduled,
-				Status:             metav1.ConditionTrue,
-				LastProbeTime:      metav1.Time{Time: now},
-				LastTransitionTime: metav1.Time{Time: now},
-				Reason:             "Scheduled",
-				Message:            "Workspace scheduled to a shard.",
-			})
-		}
+		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 	}
 	return nil
 }

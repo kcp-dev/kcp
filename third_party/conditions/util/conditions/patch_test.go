@@ -21,14 +21,17 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 func TestNewPatch(t *testing.T) {
 	fooTrue := TrueCondition("foo")
-	fooFalse := FalseCondition("foo", "reason foo", clusterv1.ConditionSeverityInfo, "message foo")
+	fooFalse := FalseCondition("foo", "reason foo", conditionsapi.ConditionSeverityInfo, "message foo")
 
 	tests := []struct {
 		name   string
@@ -99,8 +102,8 @@ func TestNewPatch(t *testing.T) {
 
 func TestApply(t *testing.T) {
 	fooTrue := TrueCondition("foo")
-	fooFalse := FalseCondition("foo", "reason foo", clusterv1.ConditionSeverityInfo, "message foo")
-	fooWarning := FalseCondition("foo", "reason foo", clusterv1.ConditionSeverityWarning, "message foo")
+	fooFalse := FalseCondition("foo", "reason foo", conditionsapi.ConditionSeverityInfo, "message foo")
+	fooWarning := FalseCondition("foo", "reason foo", conditionsapi.ConditionSeverityWarning, "message foo")
 
 	tests := []struct {
 		name    string
@@ -108,7 +111,7 @@ func TestApply(t *testing.T) {
 		after   Getter
 		latest  Setter
 		options []ApplyOption
-		want    clusterv1.Conditions
+		want    conditionsapi.Conditions
 		wantErr bool
 	}{
 		{
@@ -258,19 +261,23 @@ func TestApply(t *testing.T) {
 func TestApplyDoesNotAlterLastTransitionTime(t *testing.T) {
 	g := NewWithT(t)
 
-	before := &clusterv1.Cluster{}
-	after := &clusterv1.Cluster{
-		Status: clusterv1.ClusterStatus{
-			Conditions: clusterv1.Conditions{
-				clusterv1.Condition{
-					Type:               "foo",
-					Status:             corev1.ConditionTrue,
-					LastTransitionTime: metav1.NewTime(time.Now().UTC().Truncate(time.Second)),
+	before := newConditioned("test")
+	after := &conditioned{
+		Unstructured: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": conditionsapi.Conditions{
+						conditionsapi.Condition{
+							Type:               "foo",
+							Status:             corev1.ConditionTrue,
+							LastTransitionTime: metav1.NewTime(time.Now().UTC().Truncate(time.Second)),
+						},
+					},
 				},
 			},
 		},
 	}
-	latest := &clusterv1.Cluster{}
+	latest := newConditioned("test")
 
 	// latest has no conditions, so we are actually adding the condition but in this case we should not set the LastTransition Time
 	// but we should preserve the LastTransition set in after

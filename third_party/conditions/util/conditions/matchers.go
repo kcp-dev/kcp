@@ -21,22 +21,23 @@ import (
 
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // HaveSameStateOf matches a condition to have the same state of another.
-func HaveSameStateOf(expected *clusterv1.Condition) types.GomegaMatcher {
+func HaveSameStateOf(expected *conditionsapi.Condition) types.GomegaMatcher {
 	return &conditionMatcher{
 		Expected: expected,
 	}
 }
 
 type conditionMatcher struct {
-	Expected *clusterv1.Condition
+	Expected *conditionsapi.Condition
 }
 
 func (matcher *conditionMatcher) Match(actual interface{}) (success bool, err error) {
-	actualCondition, ok := actual.(*clusterv1.Condition)
+	actualCondition, ok := actual.(*conditionsapi.Condition)
 	if !ok {
 		return false, errors.New("value should be a condition")
 	}

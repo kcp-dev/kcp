@@ -20,16 +20,16 @@ import (
 	"fmt"
 	"strings"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // mergeOptions allows to set strategies for merging a set of conditions into a single condition,
 // and more specifically for computing the target Reason and the target Message.
 type mergeOptions struct {
-	conditionTypes                     []clusterv1.ConditionType
+	conditionTypes                     []conditionsapi.ConditionType
 	addSourceRef                       bool
 	addStepCounter                     bool
-	addStepCounterIfOnlyConditionTypes []clusterv1.ConditionType
+	addStepCounterIfOnlyConditionTypes []conditionsapi.ConditionType
 	stepCounter                        int
 }
 
@@ -44,7 +44,7 @@ type MergeOption func(*mergeOptions)
 // NOTE: The order of conditions types defines the priority for determining the Reason and Message for the
 // target condition.
 // IMPORTANT: This options works only while generating the Summary condition.
-func WithConditions(t ...clusterv1.ConditionType) MergeOption {
+func WithConditions(t ...conditionsapi.ConditionType) MergeOption {
 	return func(c *mergeOptions) {
 		c.conditionTypes = t
 	}
@@ -75,7 +75,7 @@ func WithStepCounterIf(value bool) MergeOption {
 //
 // IMPORTANT: This options requires WithStepCounter or WithStepCounterIf to be set.
 // IMPORTANT: This options works only while generating the Summary condition.
-func WithStepCounterIfOnly(t ...clusterv1.ConditionType) MergeOption {
+func WithStepCounterIfOnly(t ...conditionsapi.ConditionType) MergeOption {
 	return func(c *mergeOptions) {
 		c.addStepCounterIfOnlyConditionTypes = t
 	}
@@ -96,7 +96,7 @@ func getReason(groups conditionGroups, options *mergeOptions) string {
 
 // getFirstReason returns the first reason from the ordered list of conditions in the top group.
 // If required, the reason gets localized with the source object reference.
-func getFirstReason(g conditionGroups, order []clusterv1.ConditionType, addSourceRef bool) string {
+func getFirstReason(g conditionGroups, order []conditionsapi.ConditionType, addSourceRef bool) string {
 	if condition := getFirstCondition(g, order); condition != nil {
 		reason := condition.Reason
 		if addSourceRef {
@@ -137,7 +137,7 @@ func getStepCounterMessage(groups conditionGroups, to int) string {
 }
 
 // getFirstMessage returns the message from the ordered list of conditions in the top group.
-func getFirstMessage(groups conditionGroups, order []clusterv1.ConditionType) string {
+func getFirstMessage(groups conditionGroups, order []conditionsapi.ConditionType) string {
 	if condition := getFirstCondition(groups, order); condition != nil {
 		return condition.Message
 	}
@@ -145,7 +145,7 @@ func getFirstMessage(groups conditionGroups, order []clusterv1.ConditionType) st
 }
 
 // getFirstCondition returns a first condition from the ordered list of conditions in the top group.
-func getFirstCondition(g conditionGroups, priority []clusterv1.ConditionType) *localizedCondition {
+func getFirstCondition(g conditionGroups, priority []conditionsapi.ConditionType) *localizedCondition {
 	topGroup := g.TopGroup()
 	if topGroup == nil {
 		return nil

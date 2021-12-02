@@ -14,17 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1alpha1
 
 // ANCHOR: CommonConditions
 
-// Common ConditionTypes used by Cluster API objects.
+// Common ConditionTypes used by objects.
 const (
-	// ReadyCondition defines the Ready condition type that summarizes the operational state of a Cluster API object.
+	// ReadyCondition defines the Ready condition type that summarizes the operational state of an object.
 	ReadyCondition ConditionType = "Ready"
 )
 
-// Common ConditionReason used by Cluster API objects.
+// Common ConditionReason used by objects.
 const (
 	// DeletingReason (Severity=Info) documents an condition not in Status=True because the underlying object it is currently being deleted.
 	DeletingReason = "Deleting"
@@ -36,7 +36,7 @@ const (
 	// DeletedReason (Severity=Info) documents an condition not in Status=True because the underlying object was deleted.
 	DeletedReason = "Deleted"
 
-	// IncorrectExternalRefReason (Severity=Error) documents a CAPI object with an incorrect external object reference.
+	// IncorrectExternalRefReason (Severity=Error) documents an object with an incorrect external object reference.
 	IncorrectExternalRefReason = "IncorrectExternalRef"
 )
 
@@ -83,7 +83,7 @@ const (
 	// NOTE: This reason is used only as a fallback when the control plane object is not reporting its own ready condition.
 	WaitingForControlPlaneFallbackReason = "WaitingForControlPlane"
 
-	// WaitingForControlPlaneAvailableReason (Severity=Info) documents a Cluster API object
+	// WaitingForControlPlaneAvailableReason (Severity=Info) documents an object
 	// waiting for the control plane machine to be available.
 	//
 	// NOTE: Having the control plane machine available is a pre-condition for joining additional control planes

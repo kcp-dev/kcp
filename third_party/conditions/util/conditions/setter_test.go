@@ -17,16 +17,18 @@ limitations under the License.
 package conditions
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
-	"github.com/pkg/errors"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 func TestHasSameState(t *testing.T) {
@@ -51,7 +53,7 @@ func TestHasSameState(t *testing.T) {
 	g.Expect(hasSameState(falseInfo1, falseInfo2)).To(BeFalse())
 
 	falseInfo2 = falseInfo1.DeepCopy()
-	falseInfo2.Severity = clusterv1.ConditionSeverityWarning
+	falseInfo2.Severity = conditionsapi.ConditionSeverityWarning
 	g.Expect(hasSameState(falseInfo1, falseInfo2)).To(BeFalse())
 
 	falseInfo2 = falseInfo1.DeepCopy()
@@ -76,25 +78,25 @@ func TestLexicographicLess(t *testing.T) {
 	g.Expect(lexicographicLess(a, b)).To(BeFalse())
 
 	// Ready condition is treated as an exception and always goes first
-	a = TrueCondition(clusterv1.ReadyCondition)
+	a = TrueCondition(conditionsapi.ReadyCondition)
 	b = TrueCondition("A")
 	g.Expect(lexicographicLess(a, b)).To(BeTrue())
 
 	a = TrueCondition("A")
-	b = TrueCondition(clusterv1.ReadyCondition)
+	b = TrueCondition(conditionsapi.ReadyCondition)
 	g.Expect(lexicographicLess(a, b)).To(BeFalse())
 }
 
 func TestSet(t *testing.T) {
 	a := TrueCondition("a")
 	b := TrueCondition("b")
-	ready := TrueCondition(clusterv1.ReadyCondition)
+	ready := TrueCondition(conditionsapi.ReadyCondition)
 
 	tests := []struct {
 		name      string
 		to        Setter
-		condition *clusterv1.Condition
-		want      clusterv1.Conditions
+		condition *conditionsapi.Condition
+		want      conditionsapi.Conditions
 	}{
 		{
 			name:      "Set adds a condition",
@@ -136,15 +138,15 @@ func TestSet(t *testing.T) {
 func TestSetLastTransitionTime(t *testing.T) {
 	x := metav1.Date(2012, time.January, 1, 12, 15, 30, 5e8, time.UTC)
 
-	foo := FalseCondition("foo", "reason foo", clusterv1.ConditionSeverityInfo, "message foo")
-	fooWithLastTransitionTime := FalseCondition("foo", "reason foo", clusterv1.ConditionSeverityInfo, "message foo")
+	foo := FalseCondition("foo", "reason foo", conditionsapi.ConditionSeverityInfo, "message foo")
+	fooWithLastTransitionTime := FalseCondition("foo", "reason foo", conditionsapi.ConditionSeverityInfo, "message foo")
 	fooWithLastTransitionTime.LastTransitionTime = x
 	fooWithAnotherState := TrueCondition("foo")
 
 	tests := []struct {
 		name                    string
 		to                      Setter
-		new                     *clusterv1.Condition
+		new                     *conditionsapi.Condition
 		LastTransitionTimeCheck func(*WithT, metav1.Time)
 	}{
 		{
@@ -195,28 +197,28 @@ func TestSetLastTransitionTime(t *testing.T) {
 func TestMarkMethods(t *testing.T) {
 	g := NewWithT(t)
 
-	cluster := &clusterv1.Cluster{}
+	cluster := newConditioned("test")
 
 	// test MarkTrue
 	MarkTrue(cluster, "conditionFoo")
-	g.Expect(Get(cluster, "conditionFoo")).To(HaveSameStateOf(&clusterv1.Condition{
+	g.Expect(Get(cluster, "conditionFoo")).To(HaveSameStateOf(&conditionsapi.Condition{
 		Type:   "conditionFoo",
 		Status: corev1.ConditionTrue,
 	}))
 
 	// test MarkFalse
-	MarkFalse(cluster, "conditionBar", "reasonBar", clusterv1.ConditionSeverityError, "messageBar")
-	g.Expect(Get(cluster, "conditionBar")).To(HaveSameStateOf(&clusterv1.Condition{
+	MarkFalse(cluster, "conditionBar", "reasonBar", conditionsapi.ConditionSeverityError, "messageBar")
+	g.Expect(Get(cluster, "conditionBar")).To(HaveSameStateOf(&conditionsapi.Condition{
 		Type:     "conditionBar",
 		Status:   corev1.ConditionFalse,
-		Severity: clusterv1.ConditionSeverityError,
+		Severity: conditionsapi.ConditionSeverityError,
 		Reason:   "reasonBar",
 		Message:  "messageBar",
 	}))
 
 	// test MarkUnknown
 	MarkUnknown(cluster, "conditionBaz", "reasonBaz", "messageBaz")
-	g.Expect(Get(cluster, "conditionBaz")).To(HaveSameStateOf(&clusterv1.Condition{
+	g.Expect(Get(cluster, "conditionBaz")).To(HaveSameStateOf(&conditionsapi.Condition{
 		Type:    "conditionBaz",
 		Status:  corev1.ConditionUnknown,
 		Reason:  "reasonBaz",
@@ -230,12 +232,12 @@ func TestSetSummary(t *testing.T) {
 
 	SetSummary(target)
 
-	g.Expect(Has(target, clusterv1.ReadyCondition)).To(BeTrue())
+	g.Expect(Has(target, conditionsapi.ReadyCondition)).To(BeTrue())
 }
 
 func TestSetMirror(t *testing.T) {
 	g := NewWithT(t)
-	source := getterWithConditions(TrueCondition(clusterv1.ReadyCondition))
+	source := getterWithConditions(TrueCondition(conditionsapi.ReadyCondition))
 	target := setterWithConditions()
 
 	SetMirror(target, "foo", source)
@@ -245,8 +247,8 @@ func TestSetMirror(t *testing.T) {
 
 func TestSetAggregate(t *testing.T) {
 	g := NewWithT(t)
-	source1 := getterWithConditions(TrueCondition(clusterv1.ReadyCondition))
-	source2 := getterWithConditions(TrueCondition(clusterv1.ReadyCondition))
+	source1 := getterWithConditions(TrueCondition(conditionsapi.ReadyCondition))
+	source2 := getterWithConditions(TrueCondition(conditionsapi.ReadyCondition))
 	target := setterWithConditions()
 
 	SetAggregate(target, "foo", []Getter{source1, source2})
@@ -254,26 +256,26 @@ func TestSetAggregate(t *testing.T) {
 	g.Expect(Has(target, "foo")).To(BeTrue())
 }
 
-func setterWithConditions(conditions ...*clusterv1.Condition) Setter {
-	obj := &clusterv1.Cluster{}
+func setterWithConditions(conditions ...*conditionsapi.Condition) Setter {
+	obj := newConditioned("test")
 	obj.SetConditions(conditionList(conditions...))
 	return obj
 }
 
-func haveSameConditionsOf(expected clusterv1.Conditions) types.GomegaMatcher {
+func haveSameConditionsOf(expected conditionsapi.Conditions) types.GomegaMatcher {
 	return &ConditionsMatcher{
 		Expected: expected,
 	}
 }
 
 type ConditionsMatcher struct {
-	Expected clusterv1.Conditions
+	Expected conditionsapi.Conditions
 }
 
 func (matcher *ConditionsMatcher) Match(actual interface{}) (success bool, err error) {
-	actualConditions, ok := actual.(clusterv1.Conditions)
+	actualConditions, ok := actual.(conditionsapi.Conditions)
 	if !ok {
-		return false, errors.New("Value should be a conditions list")
+		return false, errors.New("value should be a conditions list")
 	}
 
 	if len(actualConditions) != len(matcher.Expected) {

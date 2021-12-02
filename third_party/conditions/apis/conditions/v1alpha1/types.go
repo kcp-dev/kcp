@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -51,7 +51,7 @@ type ConditionType string
 
 // ANCHOR: Condition
 
-// Condition defines an observation of a Cluster API resource operational state.
+// Condition defines an observation of a object operational state.
 type Condition struct {
 	// Type of condition in CamelCase or in foo.example.com/CamelCase.
 	// Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
@@ -88,7 +88,7 @@ type Condition struct {
 
 // ANCHOR: Conditions
 
-// Conditions provide observations of the operational state of a Cluster API resource.
+// Conditions provide observations of the operational state of a object.
 type Conditions []Condition
 
 // ANCHOR_END: Conditions

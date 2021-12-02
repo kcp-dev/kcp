@@ -20,14 +20,16 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 func TestGetStepCounterMessage(t *testing.T) {
 	g := NewWithT(t)
 
-	groups := getConditionGroups(conditionsWithSource(&clusterv1.Cluster{},
+	groups := getConditionGroups(conditionsWithSource(&conditioned{},
 		nil1,
 		true1, true1,
 		falseInfo1,
@@ -45,18 +47,20 @@ func TestGetStepCounterMessage(t *testing.T) {
 func TestLocalizeReason(t *testing.T) {
 	g := NewWithT(t)
 
-	getter := &clusterv1.Cluster{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Cluster",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-cluster",
+	getter := &conditioned{
+		Unstructured: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"kind": "Foo",
+				"metadata": map[string]interface{}{
+					"name": "test-cluster",
+				},
+			},
 		},
 	}
 
 	// localize should reason location
 	got := localizeReason("foo", getter)
-	g.Expect(got).To(Equal("foo @ Cluster/test-cluster"))
+	g.Expect(got).To(Equal("foo @ Foo/test-cluster"))
 
 	// localize should not alter existing location
 	got = localizeReason("foo @ SomeKind/some-name", getter)
@@ -66,15 +70,17 @@ func TestLocalizeReason(t *testing.T) {
 func TestGetFirstReasonAndMessage(t *testing.T) {
 	g := NewWithT(t)
 
-	foo := FalseCondition("foo", "falseFoo", clusterv1.ConditionSeverityInfo, "message falseFoo")
-	bar := FalseCondition("bar", "falseBar", clusterv1.ConditionSeverityInfo, "message falseBar")
+	foo := FalseCondition("foo", "falseFoo", conditionsapi.ConditionSeverityInfo, "message falseFoo")
+	bar := FalseCondition("bar", "falseBar", conditionsapi.ConditionSeverityInfo, "message falseBar")
 
-	getter := &clusterv1.Cluster{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Cluster",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-cluster",
+	getter := &conditioned{
+		Unstructured: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"kind": "Foo",
+				"metadata": map[string]interface{}{
+					"name": "test-cluster",
+				},
+			},
 		},
 	}
 
@@ -87,24 +93,24 @@ func TestGetFirstReasonAndMessage(t *testing.T) {
 	g.Expect(gotMessage).To(Equal("message falseBar"))
 
 	// getFirst should report should respect order
-	gotReason = getFirstReason(groups, []clusterv1.ConditionType{"foo", "bar"}, false)
+	gotReason = getFirstReason(groups, []conditionsapi.ConditionType{"foo", "bar"}, false)
 	g.Expect(gotReason).To(Equal("falseFoo"))
-	gotMessage = getFirstMessage(groups, []clusterv1.ConditionType{"foo", "bar"})
+	gotMessage = getFirstMessage(groups, []conditionsapi.ConditionType{"foo", "bar"})
 	g.Expect(gotMessage).To(Equal("message falseFoo"))
 
 	// getFirst should report should respect order in case of missing conditions
-	gotReason = getFirstReason(groups, []clusterv1.ConditionType{"missingBaz", "foo", "bar"}, false)
+	gotReason = getFirstReason(groups, []conditionsapi.ConditionType{"missingBaz", "foo", "bar"}, false)
 	g.Expect(gotReason).To(Equal("falseFoo"))
-	gotMessage = getFirstMessage(groups, []clusterv1.ConditionType{"missingBaz", "foo", "bar"})
+	gotMessage = getFirstMessage(groups, []conditionsapi.ConditionType{"missingBaz", "foo", "bar"})
 	g.Expect(gotMessage).To(Equal("message falseFoo"))
 
 	// getFirst should fallback to first condition if none of the conditions in the list exists
-	gotReason = getFirstReason(groups, []clusterv1.ConditionType{"missingBaz"}, false)
+	gotReason = getFirstReason(groups, []conditionsapi.ConditionType{"missingBaz"}, false)
 	g.Expect(gotReason).To(Equal("falseBar"))
-	gotMessage = getFirstMessage(groups, []clusterv1.ConditionType{"missingBaz"})
+	gotMessage = getFirstMessage(groups, []conditionsapi.ConditionType{"missingBaz"})
 	g.Expect(gotMessage).To(Equal("message falseBar"))
 
 	// getFirstReason should localize reason if required
 	gotReason = getFirstReason(groups, nil, true)
-	g.Expect(gotReason).To(Equal("falseBar @ Cluster/test-cluster"))
+	g.Expect(gotReason).To(Equal("falseBar @ Foo/test-cluster"))
 }

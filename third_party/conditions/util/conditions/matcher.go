@@ -21,18 +21,19 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// MatchConditions returns a custom matcher to check equality of clusterv1.Conditions.
-func MatchConditions(expected clusterv1.Conditions) types.GomegaMatcher {
+// MatchConditions returns a custom matcher to check equality of conditionsapi.Conditions.
+func MatchConditions(expected conditionsapi.Conditions) types.GomegaMatcher {
 	return &matchConditions{
 		expected: expected,
 	}
 }
 
 type matchConditions struct {
-	expected clusterv1.Conditions
+	expected conditionsapi.Conditions
 }
 
 func (m matchConditions) Match(actual interface{}) (success bool, err error) {
@@ -52,19 +53,19 @@ func (m matchConditions) NegatedFailureMessage(actual interface{}) (message stri
 	return fmt.Sprintf("expected\n\t%#v\nto not match\n\t%#v\n", actual, m.expected)
 }
 
-// MatchCondition returns a custom matcher to check equality of clusterv1.Condition.
-func MatchCondition(expected clusterv1.Condition) types.GomegaMatcher {
+// MatchCondition returns a custom matcher to check equality of conditionsapi.Condition.
+func MatchCondition(expected conditionsapi.Condition) types.GomegaMatcher {
 	return &matchCondition{
 		expected: expected,
 	}
 }
 
 type matchCondition struct {
-	expected clusterv1.Condition
+	expected conditionsapi.Condition
 }
 
 func (m matchCondition) Match(actual interface{}) (success bool, err error) {
-	actualCondition, ok := actual.(clusterv1.Condition)
+	actualCondition, ok := actual.(conditionsapi.Condition)
 	if !ok {
 		return false, fmt.Errorf("actual should be of type Condition")
 	}
