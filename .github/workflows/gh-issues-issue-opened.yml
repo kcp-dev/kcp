@@ -4,12 +4,15 @@ on:
     types: [opened]
 jobs:
   move-new-issues-to-new:
+    permissions:
+      issues: write
+      repository-projects: write
     environment: projects
     runs-on: ubuntu-latest
     steps:
       - name: Get project data
         env:
-          GITHUB_TOKEN: ${{ secrets.GHPROJECT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACCOUNT: sttts
           PROJECT_NUMBER: 1
         run: |
@@ -36,7 +39,7 @@ jobs:
 
       - name: Add Issue to project
         env:
-          GITHUB_TOKEN: ${{ secrets.GHPROJECT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_ID: ${{ github.event.issue.node_id }}
         run: |
           item_id="$( gh api graphql --header 'GraphQL-Features: projects_next_graphql' -f query='
