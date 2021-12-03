@@ -78,7 +78,7 @@ jobs:
     - name: Check codegen
       run: make verify-codegen
     - run: make build
-    - run: PATH="${PATH}:$(pwd)/bin/" go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+    - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" go test -race -coverprofile=coverage.txt -covermode=atomic -count 5 ./...
     # Because verify-codegen updates imports under the covers, and it affects
     # everything in the working directory, we have to check out kubernetes
     # after verifying codegen; otherwise, kubernetes code will get modified,
@@ -93,3 +93,8 @@ jobs:
       working-directory: ./kubernetes
     - run: WORKDIR=/tmp/e2e hack/run-sharded-kcp.sh
     - run: WORKDIR=/tmp/cluster hack/run-cluster-kcp.sh
+    - uses: actions/upload-artifact@v2
+      if: ${{ always() }}
+      with:
+        name: e2e-artifacts
+        path: /tmp/e2e/**/artifacts/*

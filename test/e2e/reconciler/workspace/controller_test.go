@@ -188,7 +188,8 @@ func TestWorkspaceController(t *testing.T) {
 			},
 		},
 	}
-	for _, testCase := range testCases {
+	for i := range testCases {
+		testCase := testCases[i]
 		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers ...framework.RunningServer) {
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -223,7 +224,10 @@ func TestWorkspaceController(t *testing.T) {
 				return
 			}
 			testCase.work(ctx, t, client, watcher)
-		}, []string{"--install_workspace_controller"})
+		}, framework.KcpConfig{
+			Name: "main",
+			Args: []string{"--install_workspace_controller"},
+		})
 	}
 }
 

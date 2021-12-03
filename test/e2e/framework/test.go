@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"k8s.io/client-go/rest"
 )
@@ -36,6 +37,12 @@ type RunningServer interface {
 }
 
 type TestFunc func(t TestingTInterface, servers ...RunningServer)
+
+// KcpConfig qualify a kcp server to start
+type KcpConfig struct {
+	Name string
+	Args []string
+}
 
 // Run mimics the testing.T.Run function while providing a nice set of concurrency
 // guarantees for the processes that we create and manage for test cases. We ensure:
@@ -58,7 +65,7 @@ type TestFunc func(t TestingTInterface, servers ...RunningServer)
 // other than the main testing goroutine. Therefore, when more than one routine needs
 // to be able to influence the execution flow (e.g. preempt other routines) we must
 // have the central routine watch for incoming errors from delegate routines.
-func Run(top *testing.T, name string, f TestFunc, args ...[]string) {
+func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 	if _, previouslyCalled := seen.LoadOrStore(fmt.Sprintf("%p", top), nil); !previouslyCalled {
 		top.Parallel()
 	}
@@ -66,10 +73,16 @@ func Run(top *testing.T, name string, f TestFunc, args ...[]string) {
 		mid.Parallel()
 		ctx, cancel := context.WithCancel(context.Background())
 		bottom := NewT(ctx, mid)
+		artifactDir, dataDir, err := ScratchDirs(bottom)
+		if err != nil {
+			bottom.Errorf("failed to create scratch dirs: %v", err)
+			cancel()
+			return
+		}
 		var servers []*kcpServer
 		var runningServers []RunningServer
-		for _, arg := range args {
-			server, err := newKcpServer(bottom, arg...)
+		for _, cfg := range cfgs {
+			server, err := newKcpServer(bottom, cfg, artifactDir, dataDir)
 			if err != nil {
 				mid.Fatal(err)
 			}
@@ -82,6 +95,8 @@ func Run(top *testing.T, name string, f TestFunc, args ...[]string) {
 		go func(t TestingTInterface) {
 			defer func() { cancel() }() // stop waiting for errors
 
+			start := time.Now()
+			t.Log("Starting kcp servers...")
 			// launch kcp servers and ensure they are ready before starting the test
 			wg := sync.WaitGroup{}
 			wg.Add(len(servers))
@@ -101,6 +116,7 @@ func Run(top *testing.T, name string, f TestFunc, args ...[]string) {
 				}
 			}
 			wg.Wait()
+			t.Logf("Started kcp servers after %s", time.Since(start))
 
 			// if we've failed during startup, don't bother running the test
 			if t.Failed() {
