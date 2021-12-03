@@ -30,11 +30,10 @@ OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
 OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
 export OPENSHIFT_GOIMPORTS # so hack scripts can use it
 
-
 all: build
 .PHONY: all
 
-build:
+build: ## Build the project
 	go build -o bin ./cmd/...
 .PHONY: build
 
@@ -42,7 +41,7 @@ install:
 	go install ./cmd/...
 .PHONY: install
 
-vendor:
+vendor: ## Vendor the dependencies
 	go mod tidy
 	go mod vendor
 .PHONY: vendor
@@ -50,7 +49,7 @@ vendor:
 $(CONTROLLER_GEN):
 	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
 
-codegen: $(CONTROLLER_GEN)
+codegen: $(CONTROLLER_GEN) ## Run the codegenerator
 	./hack/update-codegen.sh
 	$(MAKE) imports
 .PHONY: codegen
@@ -72,7 +71,6 @@ verify-codegen:
 		exit 1; \
 	fi
 
-
 $(OPENSHIFT_GOIMPORTS):
 	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/coreydaley/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
 
@@ -89,3 +87,23 @@ test-e2e: install
 .PHONY: test
 test:
 	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic ./... $(WHAT)
+
+.PHONY: demos
+demos: build ## Runs all the default demos (kubecon and apiNegotiation).
+	cd contrib/demo && ./runDemos.sh 
+
+.PHONY: demo-apinegotiation
+demo-apinegotiation: build ## Run the API Negotiation demo.
+	cd contrib/demo && ./runDemos.sh apiNegotiation
+
+.PHONY: demo-kubecon
+demo-kubecon: build ## Run the KubeCon demo.
+	cd contrib/demo && ./runDemos.sh kubecon
+
+.PHONY: demo-ingress
+demo-ingress: build ## Run the Ingress demo.
+	cd contrib/demo && ./runDemos.sh ingress
+
+.PHONY: help
+help: ## Show this help.
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
