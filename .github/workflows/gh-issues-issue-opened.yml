@@ -7,13 +7,12 @@ jobs:
     permissions:
       issues: write
       repository-projects: write
-    environment: projects
     runs-on: ubuntu-latest
     steps:
       - name: Get project data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACCOUNT: sttts
+          ACCOUNT: kcp-dev
           PROJECT_NUMBER: 1
         run: |
           gh api graphql --header 'GraphQL-Features: projects_next_graphql' -f query='
