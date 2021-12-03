@@ -43,6 +43,7 @@ import (
 type kcpServer struct {
 	args        []string
 	ctx         context.Context
+	dataDir     string
 	artifactDir string
 
 	lock *sync.Mutex
@@ -51,11 +52,7 @@ type kcpServer struct {
 	t TestingTInterface
 }
 
-func (c *kcpServer) ArtifactDir() string {
-	return c.artifactDir
-}
-
-func newKcpServer(t *T, cfg KcpConfig) (*kcpServer, error) {
+func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
 	t.Helper()
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {
@@ -78,18 +75,23 @@ func newKcpServer(t *T, cfg KcpConfig) (*kcpServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifactDir, err := ArtifactDir(t, "kcp", cfg.Name)
-	if err != nil {
-		return nil, err
+	artifactDir = filepath.Join(artifactDir, "kcp", cfg.Name)
+	if err := os.MkdirAll(artifactDir, 0755); err != nil {
+		return nil, fmt.Errorf("could not create artifact dir: %w", err)
+	}
+	dataDir = filepath.Join(dataDir, "kcp", cfg.Name)
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		return nil, fmt.Errorf("could not create data dir: %w", err)
 	}
 	return &kcpServer{
 		args: append([]string{
-			"--root_directory=" + artifactDir,
+			"--root_directory=" + dataDir,
 			"--listen=:" + kcpListenPort,
 			"--etcd_client_port=" + etcdClientPort,
 			"--etcd_peer_port=" + etcdPeerPort,
 			"--kubeconfig_path=admin.kubeconfig"},
 			cfg.Args...),
+		dataDir:     dataDir,
 		artifactDir: artifactDir,
 		ctx:         ctx,
 		t:           t,
@@ -231,7 +233,7 @@ func (c *kcpServer) loadCfg() error {
 	var loadError error
 	loadCtx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
-		kubeconfigPath := filepath.Join(c.artifactDir, "admin.kubeconfig")
+		kubeconfigPath := filepath.Join(c.dataDir, "admin.kubeconfig")
 		if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
 			return // try again
 		} else if err != nil {

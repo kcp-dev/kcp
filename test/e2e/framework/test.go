@@ -73,10 +73,16 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 		mid.Parallel()
 		ctx, cancel := context.WithCancel(context.Background())
 		bottom := NewT(ctx, mid)
+		artifactDir, dataDir, err := ScratchDirs(bottom)
+		if err != nil {
+			bottom.Errorf("failed to create scratch dirs: %v", err)
+			cancel()
+			return
+		}
 		var servers []*kcpServer
 		var runningServers []RunningServer
 		for _, cfg := range cfgs {
-			server, err := newKcpServer(bottom, cfg)
+			server, err := newKcpServer(bottom, cfg, artifactDir, dataDir)
 			if err != nil {
 				mid.Fatal(err)
 			}

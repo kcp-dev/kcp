@@ -26,28 +26,32 @@ import (
 	"strings"
 )
 
-// ArtifactDir determines where artifacts should live for a test case.
-func ArtifactDir(t TestingTInterface, segments ...string) (string, error) {
+// ScratchDirs determines where artifacts and data should live for a test case.
+func ScratchDirs(t TestingTInterface) (string, string, error) {
 	var baseDir string
 	if dir, set := os.LookupEnv("ARTIFACT_DIR"); set {
 		baseDir = dir
 	} else {
 		baseDir = t.TempDir()
 	}
-	segments = append([]string{
-		baseDir, strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(t.Name()),
-	}, segments...)
-	artifactDir := filepath.Join(segments...)
-	if info, err := os.Stat(artifactDir); err == nil {
-		if info.IsDir() {
-			return "", fmt.Errorf("artifact dir %s already exists, ensure clean output directory", artifactDir)
+	baseDir = filepath.Join(baseDir, strings.NewReplacer("\\", "_", ":", "_").Replace(t.Name()))
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return "", "", fmt.Errorf("could not create base dir: %w", err)
+	}
+	baseTempDir, err := os.MkdirTemp(baseDir, "")
+	if err != nil {
+		return "", "", fmt.Errorf("could not create base temp dir: %w", err)
+	}
+	var directories []string
+	for _, prefix := range []string{"artifacts", "data"} {
+		dir := filepath.Join(baseTempDir, prefix)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return "", "", fmt.Errorf("could not create subdir: %w", err)
 		}
+		directories = append(directories, dir)
 	}
-	if err := os.MkdirAll(artifactDir, 0755); err != nil {
-		return "", fmt.Errorf("could not create artifact dir: %w", err)
-	}
-	t.Logf("Saving artifacts to %s.", artifactDir)
-	return artifactDir, nil
+	t.Logf("Saving test artifacts and data under %s.", baseTempDir)
+	return directories[0], directories[1], nil
 }
 
 // GetFreePort asks the kernel for a free open port that is ready to use.
