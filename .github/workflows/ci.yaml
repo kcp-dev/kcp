@@ -11,90 +11,124 @@ jobs:
     name: gofmt
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        path: kcp
-    - uses: actions/checkout@v2
-      with:
-        repository: kubernetes/repo-infra
-        ref: master
-        path: repo-infra
-        fetch-depth: 1
-    - run: |
-        cd kcp
-        ./../repo-infra/hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate
-    - uses: actions/setup-go@v2
-      with:
-        go-version: v1.16
-    - name: Check gofmt
-      run: |
-        cd kcp
-        gofmt -s -d \
-          $(find . \
-            -path './vendor' -prune \
-            -o -type f -name '*.go' -print)
-    - name: Check imports
-      run: |
-        cd kcp
-        make imports
-        if  ! git diff --exit-code; then
-          echo "imports are out of date, run make imports"
-          exit 1
-        fi
+      - uses: actions/checkout@v2
+        with:
+          path: kcp
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.16
+      - name: Check gofmt
+        run: |
+          cd kcp
+          gofmt -s -d \
+            $(find . \
+              -path './vendor' -prune \
+              -o -type f -name '*.go' -print)
+
+  boilerplate:
+    name: boilerplate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: kcp
+      - uses: actions/checkout@v2
+        with:
+          repository: kubernetes/repo-infra
+          ref: master
+          path: repo-infra
+          fetch-depth: 1
+      - run: |
+          cd kcp
+          ./../repo-infra/hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate
+
+  imports:
+    name: imports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: kcp
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.16
+      - name: Check imports
+        run: |
+          cd kcp
+          make imports
+          if  ! git diff --exit-code; then
+            echo "imports are out of date, run make imports"
+            exit 1
+          fi
 
   lint:
     name: lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-go@v2
-      with:
-        go-version: v1.16
-    - uses: golangci/golangci-lint-action@v2
-      with:
-        only-new-issues: true
-        args: --timeout=5m
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.16
+      - uses: golangci/golangci-lint-action@v2
+        with:
+          only-new-issues: true
+          args: --timeout=5m
 
   misspell:
     name: misspell
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - uses: reviewdog/action-misspell@v1
-      with:
-        exclude: ./.github/workflows/*
-        ignore: creater,importas
+      - uses: actions/checkout@v1
+      - uses: reviewdog/action-misspell@v1
+        with:
+          exclude: ./.github/workflows/*
+          ignore: creater,importas
 
-  build-and-test:
-    name: Build and Test
+  codegen:
+    name: codegen
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-go@v2
-      with:
-        go-version: v1.16
-    - name: Download modules
-      run: go mod download
-    - name: Check codegen
-      run: make verify-codegen
-    - run: make build
-    - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" go test -race -coverprofile=coverage.txt -covermode=atomic -count 5 ./...
-    - uses: actions/upload-artifact@v2
-      if: ${{ always() }}
-      with:
-        name: e2e-artifacts
-        path: /tmp/e2e/**/artifacts/
-    # Because verify-codegen updates imports under the covers, and it affects
-    # everything in the working directory, we have to check out kubernetes
-    # after verifying codegen; otherwise, kubernetes code will get modified,
-    # and we'll get compiler errors trying to compile e2e.test.
-    - uses: actions/checkout@v2
-      with:
-        repository: kcp-dev/kubernetes
-        ref: feature-logical-clusters-1.22
-        path: kubernetes
-        fetch-depth: 1
-    - run: make WHAT=test/e2e/e2e.test
-      working-directory: ./kubernetes
-    - run: WORKDIR=/tmp/e2e hack/run-sharded-kcp.sh
-    - run: WORKDIR=/tmp/cluster hack/run-cluster-kcp.sh
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.16
+      - name: Download modules
+        run: go mod download
+      - name: Check codegen
+        run: make verify-codegen
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.16
+      - run: make build
+      - run: WORKDIR=/tmp/cluster hack/run-cluster-kcp.sh
+      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" go test -race -coverprofile=coverage.txt -covermode=atomic -count 5 ./...
+      - uses: actions/upload-artifact@v2
+        if: ${{ always() }}
+        with:
+          name: e2e-artifacts
+          path: /tmp/e2e/**/artifacts/
+
+  k8s-e2e:
+    name: k8s-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.16
+      - run: make build
+      - uses: actions/checkout@v2
+        with:
+          repository: kcp-dev/kubernetes
+          ref: feature-logical-clusters-1.22
+          path: kubernetes
+          fetch-depth: 1
+      - run: make WHAT=test/e2e/e2e.test
+        working-directory: ./kubernetes
+      - run: WORKDIR=/tmp/e2e hack/run-sharded-kcp.sh
