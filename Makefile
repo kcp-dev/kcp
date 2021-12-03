@@ -71,4 +71,4 @@ imports: $(OPENSHIFT_GOIMPORTS)
 
 .PHONY: test-e2e
 test-e2e: install
-	go test -race ./test/e2e... $(WHAT)
+	go test -race -count 5 ./test/e2e... $(WHAT)
