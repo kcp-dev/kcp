@@ -14,4 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-kind delete clusters us-west1 us-west1 us-east1 > /dev/null || true
+kind delete clusters us-west1 us-east1 > /dev/null || true
