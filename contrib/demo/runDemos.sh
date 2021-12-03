@@ -41,7 +41,7 @@ source ${DEMO_ROOT}/.startUtils
 setupTraps $0
 
 cleanupDemoOutput() {
-  sed -E --posix -e 's/\x1b\[(3J|H|2J)//g' -e '/^☸️ \$ /d' -e '/^ +certificate-authority-data: /d' -e '/^ +server: https:\/\/127\.0\.0\.1:[0-9]{5}$/d' -e 's/^(.*)( +[0-9]+s|[0-9]+m([0-9]+s)?)$/\1/' $1
+  sed -E --posix -e 's/\x1b\[(3J|H|2J)//g' -e '/^☸️ \$ /d' -e '/^ +certificate-authority-data: /d' -e '/^ +server: https:\/\/127\.0\.0\.1:[0-9]{5}$/d' -e 's/[0-9]+(s|m)/10s/g' -e 's/^(.*)( +[0-9]+s|[0-9]+m([0-9]+s)?)$/\1/' $1
 }
 
 export TERM=xterm-256color
