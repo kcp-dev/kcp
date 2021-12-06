@@ -77,7 +77,7 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to create cowboy: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(sourceWatcher, watch.Added, exactMatcher(cowboy), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(sourceWatcher, watch.Added, exactMatcher(cowboy), 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy created: %v", err)
 					return
 				}
@@ -92,7 +92,7 @@ func TestClusterController(t *testing.T) {
 						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
 					}
 					return nil
-				}, 5*time.Second); err != nil {
+				}, 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy spec updated on sink cluster: %v", err)
 					data, err := sinkClient.List(ctx, metav1.ListOptions{})
 					t.Errorf("%#v", data)
@@ -118,11 +118,11 @@ func TestClusterController(t *testing.T) {
 					return
 				}
 				// the sync happens and we don't care to validate it in this test case
-				if err := ignoreNextEvent(sourceWatcher, 5*time.Second); err != nil {
+				if err := ignoreNextEvent(sourceWatcher, 30*time.Second); err != nil {
 					t.Errorf("error ignoring source event when watching cowboys: %v", err)
 					return
 				}
-				if err := ignoreNextEvent(sinkWatcher, 5*time.Second); err != nil {
+				if err := ignoreNextEvent(sinkWatcher, 30*time.Second); err != nil {
 					t.Errorf("error ignoring sink event when watching cowboys: %v", err)
 					return
 				}
@@ -131,7 +131,7 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to patch cowboy: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(sinkWatcher, watch.Modified, exactMatcher(updated), 15*time.Second); err != nil {
+				if _, err := expectNextEvent(sinkWatcher, watch.Modified, exactMatcher(updated), 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy patched: %v", err)
 					return
 				}
@@ -146,7 +146,7 @@ func TestClusterController(t *testing.T) {
 						return fmt.Errorf("saw incorrect status on source cluster: %s", diff)
 					}
 					return nil
-				}, 5*time.Second); err != nil {
+				}, 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy status updated on source cluster: %v", err)
 					return
 				}
@@ -321,7 +321,7 @@ func installCluster(ctx context.Context, source, sink framework.RunningServer) e
 	if err != nil {
 		return fmt.Errorf("failed to create cluster on source kcp: %w", err)
 	}
-	waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer func() {
 		cancel()
 	}()

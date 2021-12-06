@@ -246,7 +246,7 @@ func (c *kcpServer) Ready() error {
 
 func (c *kcpServer) loadCfg() error {
 	var loadError error
-	loadCtx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
+	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
 		kubeconfigPath := filepath.Join(c.dataDir, "admin.kubeconfig")
 		if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
@@ -277,7 +277,7 @@ func (c *kcpServer) loadCfg() error {
 func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
 	var lastMsg string
 	var succeeded bool
-	loadCtx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
+	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
 		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
 		if err == nil {
