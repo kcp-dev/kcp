@@ -15,18 +15,8 @@
 # limitations under the License.
 
 DEMO_ROOT="$(dirname "${BASH_SOURCE}")"
-
 ${DEMO_ROOT}/clusters/kind/createKindClusters.sh
-
-TEMP_DIR=$(mktemp -d)
-NGINX_DEPLOYMENT_YAML="${TEMP_DIR}/nginx-deployment.yaml"
-
-# Pinned version of nginx-ingress-controller
-VERSION="controller-v1.0.3"
-# Get the nginx deployment yaml.
-curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/"${VERSION}"/deploy/static/provider/kind/deploy.yaml > "${NGINX_DEPLOYMENT_YAML}"
-# We need the ingress controller to report back the internal ip address of the node instead of localhost.
-sed -i'' -e "s/--publish-status-address=localhost/--report-node-internal-ip-address/g" "${NGINX_DEPLOYMENT_YAML}"
+NGINX_DEPLOYMENT_YAML="${DEMO_ROOT}/nginx-ingress.yaml"
 
 # Get all the created clusters kubeconfigs, and deploy the Ingress controller.
 for kubeconfig in "${DEMO_ROOT}/clusters/kind"/*.kubeconfig;
@@ -34,4 +24,3 @@ do
  [ -f "$kubeconfig" ] || break
  KUBECONFIG=${kubeconfig} kubectl apply -f "${NGINX_DEPLOYMENT_YAML}"
 done
-

@@ -38,7 +38,7 @@ crds=(
 )
 kubectl wait --for condition=established "${crds[@]}" &> /dev/null
 
-pe "kubectl get ingresses --all-namespaces" 
+pe "kubectl get ingresses --all-namespaces"
 
 pe "kubectl get cluster -o wide"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"

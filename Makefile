@@ -19,6 +19,7 @@ GO_INSTALL = ./hack/go-install.sh
 
 TOOLS_DIR=hack/tools
 GOBIN_DIR := $(abspath $(TOOLS_DIR))
+TMPDIR := $(shell mktemp -d)
 
 CONTROLLER_GEN_VER := v0.7.0
 CONTROLLER_GEN_BIN := controller-gen
@@ -37,9 +38,14 @@ build: ## Build the project
 	go build -o bin ./cmd/...
 .PHONY: build
 
-install:
+install: install-ingress-controller
 	go install ./cmd/...
 .PHONY: install
+
+install-ingress-controller:
+	git clone https://github.com/jmprusi/kcp-ingress ${TMPDIR}/kcp-ingress \
+	&& cd ${TMPDIR}/kcp-ingress && go install ./cmd/...
+.PHONY: install-ingress-controller
 
 vendor: ## Vendor the dependencies
 	go mod tidy
@@ -85,7 +91,7 @@ test-e2e: install
 	go test -race -count $(COUNT) ./test/e2e... $(WHAT)
 
 .PHONY: test
-test:
+test: install
 	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic ./... $(WHAT)
 
 .PHONY: demos
