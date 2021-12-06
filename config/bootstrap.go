@@ -67,12 +67,18 @@ func BootstrapCustomResourceDefinitions(ctx context.Context, client apiextension
 // BootstrapCustomResourceDefinition creates the CRD using the target client and waits
 // for it to become established. This call is blocking.
 func BootstrapCustomResourceDefinition(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gk metav1.GroupKind) error {
+	return BootstrapCustomResourceDefinitionFromFS(ctx, client, gk, rawCustomResourceDefinitions)
+}
+
+// BootstrapCustomResourceDefinitionFromFS creates the CRD using the target client from the
+// provided filesystem handle and waits for it to become established. This call is blocking.
+func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gk metav1.GroupKind, fs embed.FS) error {
 	start := time.Now()
 	klog.Infof("bootstrapping %v", gk.String())
 	defer func() {
 		klog.Infof("bootstrapped %v after %s", gk.String(), time.Since(start).String())
 	}()
-	raw, err := rawCustomResourceDefinitions.ReadFile(fmt.Sprintf("%s_%s.yaml", gk.Group, gk.Kind))
+	raw, err := fs.ReadFile(fmt.Sprintf("%s_%s.yaml", gk.Group, gk.Kind))
 	if err != nil {
 		return fmt.Errorf("could not read CRD %s: %w", gk.String(), err)
 	}

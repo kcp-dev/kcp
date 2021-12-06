@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // kcpServer exposes a kcp invocation to a test and
@@ -47,7 +49,7 @@ type kcpServer struct {
 	artifactDir string
 
 	lock *sync.Mutex
-	cfg  *rest.Config
+	cfg  clientcmd.ClientConfig
 
 	t TestingTInterface
 }
@@ -181,13 +183,23 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 }
 
 // Config exposes a copy of the client config for this server.
-func (c *kcpServer) Config() *rest.Config {
+func (c *kcpServer) Config() (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
-		return nil
+		return nil, fmt.Errorf("programmer error: kcpServer.Config() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
-	return rest.CopyConfig(c.cfg)
+	return c.cfg.ClientConfig()
+}
+
+// RawConfig exposes a copy of the client config for this server.
+func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.cfg == nil {
+		return clientcmdapi.Config{}, fmt.Errorf("programmer error: kcpServer.RawConfig() called before load succeeded. Stack: %s", string(debug.Stack()))
+	}
+	return c.cfg.RawConfig()
 }
 
 // Ready blocks until the server is healthy and ready. Before returning,
@@ -202,7 +214,10 @@ func (c *kcpServer) Ready() error {
 		// main Ready() body, so we check before continuing that we are live
 		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
 	}
-	cfg := c.Config()
+	cfg, err := c.Config()
+	if err != nil {
+		return err
+	}
 	if cfg.NegotiatedSerializer == nil {
 		cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	}
@@ -231,7 +246,7 @@ func (c *kcpServer) Ready() error {
 
 func (c *kcpServer) loadCfg() error {
 	var loadError error
-	loadCtx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
+	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
 		kubeconfigPath := filepath.Join(c.dataDir, "admin.kubeconfig")
 		if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
@@ -245,23 +260,24 @@ func (c *kcpServer) loadCfg() error {
 			loadError = fmt.Errorf("failed to load admin kubeconfig: %w", err)
 			return
 		}
-		config, err := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil).ClientConfig()
-		if err != nil {
-			loadError = fmt.Errorf("failed to load cluster-less client config: %w", err)
-			return
-		}
+		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil)
 		c.lock.Lock()
 		c.cfg = config
 		c.lock.Unlock()
 		cancel()
 	}, 100*time.Millisecond)
+	c.lock.Lock()
+	if c.cfg == nil && loadError == nil {
+		loadError = fmt.Errorf("failed to load admin kubeconfig: %w", loadCtx.Err())
+	}
+	c.lock.Unlock()
 	return loadError
 }
 
 func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
 	var lastMsg string
 	var succeeded bool
-	loadCtx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
+	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
 		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
 		if err == nil {

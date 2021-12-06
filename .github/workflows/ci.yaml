@@ -106,7 +106,6 @@ jobs:
         with:
           go-version: v1.16
       - run: make build
-      - run: WORKDIR=/tmp/cluster hack/run-cluster-kcp.sh
       - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" go test -race -coverprofile=coverage.txt -covermode=atomic -count 5 ./...
       - uses: actions/upload-artifact@v2
         if: ${{ always() }}

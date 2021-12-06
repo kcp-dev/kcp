@@ -50,11 +50,11 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -68,11 +68,11 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -81,7 +81,7 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -100,11 +100,11 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -128,11 +128,11 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				workspace, err = expectNextEvent(watcher, watch.Modified, scheduledAnywhereMatcher(), 5*time.Second)
+				workspace, err = expectNextEvent(watcher, watch.Modified, scheduledAnywhereMatcher(), 30*time.Second)
 				if err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
@@ -149,7 +149,7 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to delete workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(otherShard), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(otherShard), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -168,11 +168,11 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -181,7 +181,7 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to delete workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 5*time.Second); err != nil {
+				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -202,9 +202,9 @@ func TestWorkspaceController(t *testing.T) {
 				return
 			}
 			server := servers[0]
-			cfg := server.Config()
-			if cfg == nil {
-				t.Error("got nil config for server")
+			cfg, err := server.Config()
+			if err != nil {
+				t.Error(err)
 				return
 			}
 			clusterName, err := detectClusterName(cfg, ctx)
