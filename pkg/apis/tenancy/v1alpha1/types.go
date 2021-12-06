@@ -82,7 +82,8 @@ type WorkspaceStatus struct {
 	// But a workspace could also be targetable by a unique hostname in the future.
 	//
 	// +kubebuilder:validation:Pattern:https://[^/].*
-	BaseURL string `json:"baseURL"`
+	// +optional
+	BaseURL string `json:"baseURL,omitempty"`
 
 	// Contains workspace placement information.
 	//

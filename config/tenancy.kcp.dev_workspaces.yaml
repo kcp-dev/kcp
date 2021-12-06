@@ -135,8 +135,6 @@ spec:
               phase:
                 description: Phase of the workspace  (Initializing / Active / Terminating)
                 type: string
-            required:
-            - baseURL
             type: object
         type: object
     served: true
