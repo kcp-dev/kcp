@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
+	github.com/emicklei/go-restful v2.9.5+incompatible
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
