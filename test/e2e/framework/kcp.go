@@ -266,6 +266,11 @@ func (c *kcpServer) loadCfg() error {
 		c.lock.Unlock()
 		cancel()
 	}, 100*time.Millisecond)
+	c.lock.Lock()
+	if c.cfg == nil && loadError == nil {
+		loadError = fmt.Errorf("failed to load admin kubeconfig: %w", loadCtx.Err())
+	}
+	c.lock.Unlock()
 	return loadError
 }
 
