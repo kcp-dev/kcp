@@ -20,12 +20,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -187,7 +187,7 @@ func (c *kcpServer) Config() (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
-		return nil, errors.New("kcpServer.Config() before load succeeded")
+		return nil, fmt.Errorf("programmer error: kcpServer.Config() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
 	return c.cfg.ClientConfig()
 }
@@ -197,7 +197,7 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
-		return clientcmdapi.Config{}, errors.New("kcpServer.Config() before load succeeded")
+		return clientcmdapi.Config{}, fmt.Errorf("programmer error: kcpServer.RawConfig() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
 	return c.cfg.RawConfig()
 }
