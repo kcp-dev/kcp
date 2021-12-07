@@ -69,6 +69,12 @@ $(OPENSHIFT_GOIMPORTS):
 imports: $(OPENSHIFT_GOIMPORTS)
 	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
 
+COUNT ?= 5
+
 .PHONY: test-e2e
 test-e2e: install
-	go test -race -count 5 ./test/e2e... $(WHAT)
+	go test -race -count $(COUNT) ./test/e2e... $(WHAT)
+
+.PHONY: test
+test:
+	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic ./... $(WHAT)
