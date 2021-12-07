@@ -21,6 +21,8 @@ import (
 
 	"github.com/spf13/pflag"
 
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
+
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
@@ -41,6 +43,7 @@ func DefaultConfig() *Config {
 		ProfilerAddress:            "",
 		ShardKubeconfigFile:        "",
 		EnableSharding:             false,
+		Authentication:             kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
 	}
 }
 
@@ -59,6 +62,7 @@ type Config struct {
 	ProfilerAddress            string
 	ShardKubeconfigFile        string
 	EnableSharding             bool
+	Authentication             *kubeoptions.BuiltInAuthenticationOptions
 }
 
 func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
@@ -80,5 +84,6 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 
 	c.ClusterControllerOptions = cluster.BindOptions(c.ClusterControllerOptions, fs)
 
+	c.Authentication.AddFlags(fs)
 	return c
 }

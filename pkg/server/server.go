@@ -180,6 +180,9 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	serverOptions := options.NewServerRunOptions()
+
+	serverOptions.Authentication = s.cfg.Authentication
+
 	host, port, err := net.SplitHostPort(s.cfg.Listen)
 	if err != nil {
 		return fmt.Errorf("--listen must be of format host:port: %w", err)
