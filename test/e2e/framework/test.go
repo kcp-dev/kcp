@@ -112,18 +112,18 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 					go func(s *kcpServer) {
 						defer wg.Done()
 						if err := s.Ready(); err != nil {
-							t.Error(err)
+							t.Errorf("kcp server never became ready: %v", err)
 						}
 					}(srv)
 				}
 			}
 			wg.Wait()
-			t.Logf("Started kcp servers after %s", time.Since(start))
 
 			// if we've failed during startup, don't bother running the test
 			if t.Failed() {
 				return
 			}
+			t.Logf("Started kcp servers after %s", time.Since(start))
 
 			// run the test
 			f(t, runningServers...)
