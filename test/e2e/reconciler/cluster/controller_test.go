@@ -33,10 +33,13 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -50,6 +53,10 @@ import (
 	wildwestclient "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
 
+func init() {
+	utilruntime.Must(wildwestv1alpha1.AddToScheme(scheme.Scheme))
+}
+
 //go:embed *.yaml
 var rawCustomResourceDefinitions embed.FS
 
@@ -60,7 +67,7 @@ const sourceClusterName, sinkClusterName = "source", "sink"
 func TestClusterController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client wildwestclient.CowboyInterface
+		client  wildwestclient.CowboyInterface
 		watcher watch.Interface
 	}
 	var testCases = []struct {
@@ -82,6 +89,11 @@ func TestClusterController(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to create cowboy: %v", err)
 					return
+				}
+				for _, name := range []string{sourceClusterName, sinkClusterName} {
+					defer servers[name].Artifact(t, func() (runtime.Object, error) {
+						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
+					})
 				}
 				if _, err := expectNextEvent(servers[sourceClusterName].watcher, watch.Added, exactMatcher(cowboy), 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy created: %v", err)
@@ -119,6 +131,11 @@ func TestClusterController(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to create cowboy: %v", err)
 					return
+				}
+				for _, name := range []string{sourceClusterName, sinkClusterName} {
+					defer servers[name].Artifact(t, func() (runtime.Object, error) {
+						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
+					})
 				}
 				// the sync happens and we don't care to validate it in this test case
 				if err := ignoreNextEvent(servers[sourceClusterName].watcher, 30*time.Second); err != nil {
@@ -179,7 +196,7 @@ func TestClusterController(t *testing.T) {
 			start = time.Now()
 			source, sink := servers[sourceClusterName], servers[sinkClusterName]
 			t.Log("Installing sink cluster...")
-			if err := installCluster(ctx, source, sink); err != nil {
+			if err := installCluster(t, ctx, source, sink); err != nil {
 				t.Error(err)
 				return
 			}
@@ -297,7 +314,7 @@ func installCrd(ctx context.Context, servers map[string]framework.RunningServer)
 	return nil
 }
 
-func installCluster(ctx context.Context, source, sink framework.RunningServer) error {
+func installCluster(t framework.TestingTInterface, ctx context.Context, source, sink framework.RunningServer) error {
 	sourceCfg, err := source.Config()
 	if err != nil {
 		return fmt.Errorf("failed to get source config: %w", err)
@@ -326,6 +343,9 @@ func installCluster(ctx context.Context, source, sink framework.RunningServer) e
 	if err != nil {
 		return fmt.Errorf("failed to create cluster on source kcp: %w", err)
 	}
+	defer source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+	})
 	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer func() {
 		cancel()

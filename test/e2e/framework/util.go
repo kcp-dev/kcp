@@ -17,13 +17,29 @@ limitations under the License.
 package framework
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
+	cacheddiscovery "k8s.io/client-go/discovery/cached"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/restmapper"
+
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 // ScratchDirs determines where artifacts and data should live for a test case.
@@ -52,6 +68,86 @@ func ScratchDirs(t TestingTInterface) (string, string, error) {
 	}
 	t.Logf("Saving test artifacts and data under %s.", baseTempDir)
 	return directories[0], directories[1], nil
+}
+
+var localSchemeBuilder = runtime.SchemeBuilder{
+	apiresourcev1alpha1.AddToScheme,
+	tenancyv1alpha1.AddToScheme,
+	clusterv1alpha1.AddToScheme,
+}
+
+func init() {
+	utilruntime.Must(localSchemeBuilder.AddToScheme(scheme.Scheme))
+}
+
+// Artifact runs the data-producing function and dumps the YAML-formatted output
+// to the artifact directory for the test. Normal usage looks like:
+// defer framework.Artifact(t, kcp, client.Get(ctx, name, metav1.GetOptions{}))
+func (c *kcpServer) Artifact(tinterface TestingTInterface, producer func() (runtime.Object, error)) {
+	t, ok := tinterface.(*T)
+	if !ok {
+		tinterface.Logf("Artifact() called with %#v, not a framework.T", tinterface)
+		return
+	}
+	data, err := producer()
+	if err != nil {
+		t.Logf("error fetching artifact: %v", err)
+		return
+	}
+	accessor, ok := data.(metav1.Object)
+	if !ok {
+		t.Logf("artifact has no object meta: %#v", data)
+		return
+	}
+	dir := path.Join(c.artifactDir, "kcp", c.Name(), accessor.GetClusterName())
+	if accessor.GetNamespace() != "" {
+		dir = path.Join(dir, accessor.GetNamespace())
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Logf("could not create dir: %v", err)
+		return
+	}
+	gvks, _, err := scheme.Scheme.ObjectKinds(data)
+	if err != nil {
+		t.Logf("error finding gvk for artifact: %v", err)
+		return
+	}
+	if len(gvks) == 0 {
+		t.Logf("found no gvk for artifact: %T", data)
+		return
+	}
+	gvk := gvks[0]
+	data.GetObjectKind().SetGroupVersionKind(gvk)
+
+	cfg, err := c.Config()
+	if err != nil {
+		t.Logf("could not get config for server: %v", err)
+		return
+	}
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		t.Logf("could not get discovery client for server: %v", err)
+		return
+	}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(discoveryClient))
+	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		t.Logf("could not get REST mapping for artifact's GVK: %v", err)
+		return
+	}
+	file := path.Join(dir, fmt.Sprintf("%s_%s.yaml", mapping.Resource.GroupResource().String(), accessor.GetName()))
+	t.Logf("saving artifact to %s", file)
+
+	serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
+	raw := bytes.Buffer{}
+	if err := serializer.Encode(data, &raw); err != nil {
+		t.Logf("error marshalling artifact: %v", err)
+		return
+	}
+	if err := ioutil.WriteFile(file, raw.Bytes(), 0644); err != nil {
+		t.Logf("error writing artifact: %v", err)
+		return
+	}
 }
 
 // GetFreePort asks the kernel for a free open port that is ready to use.

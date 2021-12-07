@@ -28,6 +28,7 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 
@@ -55,6 +56,9 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				})
 				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
@@ -73,6 +77,9 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				})
 				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
@@ -86,6 +93,9 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
+				})
 				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
@@ -100,11 +110,17 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create first workspace shard: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
+				})
 				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				})
 				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
@@ -123,16 +139,25 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create first workspace shard: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
+				})
 				atlantaShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create second workspace shard: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, atlantaShard.Name, metav1.GetOptions{})
+				})
 				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				})
 				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
@@ -173,6 +198,9 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				})
 				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return

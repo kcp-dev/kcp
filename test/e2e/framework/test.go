@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -37,6 +38,7 @@ type RunningServer interface {
 	Name() string
 	RawConfig() (clientcmdapi.Config, error)
 	Config() (*rest.Config, error)
+	Artifact(t TestingTInterface, producer func() (runtime.Object, error))
 }
 
 type TestFunc func(t TestingTInterface, servers map[string]RunningServer)
