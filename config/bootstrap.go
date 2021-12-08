@@ -94,36 +94,35 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gk.String(), rawCrd, &apiextensionsv1.CustomResourceDefinition{})
 	}
 
-	crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
-	}
-
-	if crd != nil && crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
-		return nil
-	}
-
-	crd, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
+	crdResource, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("could not create CRD %s: %w", gk.String(), err)
+		if apierrors.IsNotFound(err) {
+			crdResource, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("Error creating CRD %s: %w", gk.String(), err)
+			}
+		} else {
+			return fmt.Errorf("Error fetching CRD 1 %s: %w", gk.String(), err)
+		}
+	} else {
+		rawCrd.ResourceVersion = crdResource.ResourceVersion
+		crdResource, err = client.Update(ctx, rawCrd, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("Error updating CRD %s: %w", gk.String(), err)
+		}
 	}
 
-	done := make(chan struct{})
-	wait.Until(func() {
+	wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
 		crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				err = fmt.Errorf("CRD %s was deleted before being established", gk.String())
-			} else {
-				err = fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
+				return false, fmt.Errorf("CRD %s was deleted before being established", gk.String())
 			}
-			close(done)
+			return false, fmt.Errorf("Error fetching CRD 2 %s: %w", gk.String(), err)
 		}
 
-		if crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
-			close(done)
-		}
-	}, 100*time.Millisecond, done)
+		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
+	})
 
 	return err
 }
