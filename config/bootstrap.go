@@ -96,8 +96,21 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 	}
 
 	crd, err := client.Create(ctx, rawCrd, metav1.CreateOptions{})
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("could not create CRD %s: %w", gk.String(), err)
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			crd, err = client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
+
+			if err != nil {
+				return fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
+			}
+
+			if crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
+				return nil
+			}
+
+		} else {
+			return fmt.Errorf("could not create CRD %s: %w", gk.String(), err)
+		}
 	}
 
 	watcher, err := client.Watch(ctx, metav1.ListOptions{
