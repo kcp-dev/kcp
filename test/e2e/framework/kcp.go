@@ -43,6 +43,7 @@ import (
 //  - all ports and data directories are unique to support
 //    concurrent execution within a test case and across tests
 type kcpServer struct {
+	name        string
 	args        []string
 	ctx         context.Context
 	dataDir     string
@@ -86,6 +87,7 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 		return nil, fmt.Errorf("could not create data dir: %w", err)
 	}
 	return &kcpServer{
+		name: cfg.Name,
 		args: append([]string{
 			"--root_directory=" + dataDir,
 			"--listen=:" + kcpListenPort,
@@ -180,6 +182,11 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 		}
 	}
 	return output.String()
+}
+
+// Name exposes the name of this kcp server
+func (c *kcpServer) Name() string {
+	return c.name
 }
 
 // Config exposes a copy of the client config for this server.

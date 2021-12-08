@@ -38,23 +38,28 @@ import (
 )
 
 func TestWorkspaceController(t *testing.T) {
+	type runningServer struct {
+		framework.RunningServer
+		client  clientset.Interface
+		watcher watch.Interface
+	}
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t framework.TestingTInterface, client clientset.Interface, watcher watch.Interface)
+		work func(ctx context.Context, t framework.TestingTInterface, server runningServer)
 	}{
 		{
 			name: "create a workspace without shards, expect it to be unschedulable",
-			work: func(ctx context.Context, t framework.TestingTInterface, client clientset.Interface, watcher watch.Interface) {
-				workspace, err := client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}, Status: tenancyv1alpha1.WorkspaceStatus{}}, metav1.CreateOptions{})
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}, Status: tenancyv1alpha1.WorkspaceStatus{}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -62,26 +67,26 @@ func TestWorkspaceController(t *testing.T) {
 		},
 		{
 			name: "add a shard after a workspace is unschedulable, expect it to be scheduled",
-			work: func(ctx context.Context, t framework.TestingTInterface, client clientset.Interface, watcher watch.Interface) {
-				workspace, err := client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
-				bostonShard, err := client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
+				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -89,22 +94,22 @@ func TestWorkspaceController(t *testing.T) {
 		},
 		{
 			name: "create a workspace with a shard, expect it to be scheduled",
-			work: func(ctx context.Context, t framework.TestingTInterface, client clientset.Interface, watcher watch.Interface) {
-				bostonShard, err := client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create first workspace shard: %v", err)
 					return
 				}
-				workspace, err := client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -112,27 +117,27 @@ func TestWorkspaceController(t *testing.T) {
 		},
 		{
 			name: "delete a shard that a workspace is scheduled to, expect it to move to another shard",
-			work: func(ctx context.Context, t framework.TestingTInterface, client clientset.Interface, watcher watch.Interface) {
-				bostonShard, err := client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create first workspace shard: %v", err)
 					return
 				}
-				atlantaShard, err := client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
+				atlantaShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create second workspace shard: %v", err)
 					return
 				}
-				workspace, err := client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				workspace, err = expectNextEvent(watcher, watch.Modified, scheduledAnywhereMatcher(), 30*time.Second)
+				workspace, err = expectNextEvent(server.watcher, watch.Modified, scheduledAnywhereMatcher(), 30*time.Second)
 				if err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
@@ -144,12 +149,12 @@ func TestWorkspaceController(t *testing.T) {
 						break
 					}
 				}
-				err = client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, workspace.Status.Location.Current, metav1.DeleteOptions{})
+				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, workspace.Status.Location.Current, metav1.DeleteOptions{})
 				if err != nil {
 					t.Errorf("failed to delete workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(otherShard), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(otherShard), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
@@ -157,40 +162,41 @@ func TestWorkspaceController(t *testing.T) {
 		},
 		{
 			name: "delete all shards, expect workspace to be unschedulable",
-			work: func(ctx context.Context, t framework.TestingTInterface, client clientset.Interface, watcher watch.Interface) {
-				bostonShard, err := client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create first workspace shard: %v", err)
 					return
 				}
-				workspace, err := client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
-				err = client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, bostonShard.Name, metav1.DeleteOptions{})
+				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, bostonShard.Name, metav1.DeleteOptions{})
 				if err != nil {
 					t.Errorf("failed to delete workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(server.watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
 					t.Errorf("did not see workspace updated: %v", err)
 					return
 				}
 			},
 		},
 	}
+	const serverName = "main"
 	for i := range testCases {
 		testCase := testCases[i]
-		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers ...framework.RunningServer) {
+		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer) {
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)
@@ -201,7 +207,7 @@ func TestWorkspaceController(t *testing.T) {
 				t.Errorf("incorrect number of servers: %d", len(servers))
 				return
 			}
-			server := servers[0]
+			server := servers[serverName]
 			cfg, err := server.Config()
 			if err != nil {
 				t.Error(err)
@@ -223,9 +229,13 @@ func TestWorkspaceController(t *testing.T) {
 				t.Errorf("failed to watch workspaces: %v", err)
 				return
 			}
-			testCase.work(ctx, t, client, watcher)
+			testCase.work(ctx, t, runningServer{
+				RunningServer: server,
+				client:        client,
+				watcher:       watcher,
+			})
 		}, framework.KcpConfig{
-			Name: "main",
+			Name: serverName,
 			Args: []string{"--install_workspace_controller"},
 		})
 	}
