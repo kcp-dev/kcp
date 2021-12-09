@@ -30,10 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
 
@@ -95,39 +94,33 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gk.String(), rawCrd, &apiextensionsv1.CustomResourceDefinition{})
 	}
 
-	crd, err := client.Create(ctx, rawCrd, metav1.CreateOptions{})
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("could not create CRD %s: %w", gk.String(), err)
-	}
-
-	watcher, err := client.Watch(ctx, metav1.ListOptions{
-		FieldSelector:   fields.OneTermEqualSelector("metadata.name", crd.Name).String(),
-		ResourceVersion: crd.ResourceVersion,
-	})
+	crdResource, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("could not watch CRD %s: %w", gk.String(), err)
-	}
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("failed to wait for CRD %s to be established: %w", gk.String(), ctx.Err())
-		case event := <-watcher.ResultChan():
-			switch event.Type {
-			case watch.Added, watch.Bookmark:
-				continue
-			case watch.Modified:
-				updated, ok := event.Object.(*apiextensionsv1.CustomResourceDefinition)
-				if !ok {
-					continue
-				}
-				if crdhelpers.IsCRDConditionTrue(updated, apiextensionsv1.Established) {
-					return nil
-				}
-			case watch.Deleted:
-				return fmt.Errorf("CRD %s was deleted before being established", gk.String())
-			case watch.Error:
-				return fmt.Errorf("encountered error while watching CRD %s: %#v", gk.String(), event.Object)
+		if apierrors.IsNotFound(err) {
+			_, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("Error creating CRD %s: %w", gk.String(), err)
 			}
+		} else {
+			return fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
+		}
+	} else {
+		rawCrd.ResourceVersion = crdResource.ResourceVersion
+		_, err = client.Update(ctx, rawCrd, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("Error updating CRD %s: %w", gk.String(), err)
 		}
 	}
+
+	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
+		crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, fmt.Errorf("CRD %s was deleted before being established", gk.String())
+			}
+			return false, fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
+		}
+
+		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
+	})
 }
