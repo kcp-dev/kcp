@@ -97,7 +97,7 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 	crdResource, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			crdResource, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
+			_, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("Error creating CRD %s: %w", gk.String(), err)
 			}
@@ -106,13 +106,13 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 		}
 	} else {
 		rawCrd.ResourceVersion = crdResource.ResourceVersion
-		crdResource, err = client.Update(ctx, rawCrd, metav1.UpdateOptions{})
+		_, err = client.Update(ctx, rawCrd, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("Error updating CRD %s: %w", gk.String(), err)
 		}
 	}
 
-	wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
+	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
 		crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -123,6 +123,4 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
 	})
-
-	return err
 }
