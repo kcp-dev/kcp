@@ -102,7 +102,7 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 				return fmt.Errorf("Error creating CRD %s: %w", gk.String(), err)
 			}
 		} else {
-			return fmt.Errorf("Error fetching CRD 1 %s: %w", gk.String(), err)
+			return fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
 		}
 	} else {
 		rawCrd.ResourceVersion = crdResource.ResourceVersion
@@ -118,7 +118,7 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 			if apierrors.IsNotFound(err) {
 				return false, fmt.Errorf("CRD %s was deleted before being established", gk.String())
 			}
-			return false, fmt.Errorf("Error fetching CRD 2 %s: %w", gk.String(), err)
+			return false, fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
 		}
 
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
