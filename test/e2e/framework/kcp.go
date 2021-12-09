@@ -223,7 +223,7 @@ func (c *kcpServer) Ready() error {
 	}
 	cfg, err := c.Config()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read client configuration: %w", err)
 	}
 	if cfg.NegotiatedSerializer == nil {
 		cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
