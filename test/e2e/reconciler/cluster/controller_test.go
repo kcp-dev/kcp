@@ -33,10 +33,13 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -50,21 +53,31 @@ import (
 	wildwestclient "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
 
+func init() {
+	utilruntime.Must(wildwestv1alpha1.AddToScheme(scheme.Scheme))
+}
+
 //go:embed *.yaml
 var rawCustomResourceDefinitions embed.FS
 
 const testNamespace = "cluster-controller-test"
 const clusterName = "us-east1"
+const sourceClusterName, sinkClusterName = "source", "sink"
 
 func TestClusterController(t *testing.T) {
+	type runningServer struct {
+		framework.RunningServer
+		client  wildwestclient.CowboyInterface
+		watcher watch.Interface
+	}
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t framework.TestingTInterface, sourceClient, sinkClient wildwestclient.CowboyInterface, sourceWatcher, sinkWatcher watch.Interface)
+		work func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer)
 	}{
 		{
 			name: "create an object, expect spec to sync to sink",
-			work: func(ctx context.Context, t framework.TestingTInterface, sourceClient, sinkClient wildwestclient.CowboyInterface, sourceWatcher, sinkWatcher watch.Interface) {
-				cowboy, err := sourceClient.Create(ctx, &wildwestv1alpha1.Cowboy{
+			work: func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer) {
+				cowboy, err := servers[sourceClusterName].client.Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
@@ -77,11 +90,16 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to create cowboy: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(sourceWatcher, watch.Added, exactMatcher(cowboy), 30*time.Second); err != nil {
+				for _, name := range []string{sourceClusterName, sinkClusterName} {
+					defer servers[name].Artifact(t, func() (runtime.Object, error) {
+						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
+					})
+				}
+				if _, err := expectNextEvent(servers[sourceClusterName].watcher, watch.Added, exactMatcher(cowboy), 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy created: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(sinkWatcher, watch.Added, func(object *wildwestv1alpha1.Cowboy) error {
+				if _, err := expectNextEvent(servers[sinkClusterName].watcher, watch.Added, func(object *wildwestv1alpha1.Cowboy) error {
 					if expected, actual := cowboy.ObjectMeta.Namespace, object.ObjectMeta.Namespace; expected != actual {
 						return fmt.Errorf("saw incorrect namespace, expected %s, saw %s", expected, actual)
 					}
@@ -94,17 +112,14 @@ func TestClusterController(t *testing.T) {
 					return nil
 				}, 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy spec updated on sink cluster: %v", err)
-					data, err := sinkClient.List(ctx, metav1.ListOptions{})
-					t.Errorf("%#v", data)
-					t.Errorf("%#v", err)
 					return
 				}
 			},
 		},
 		{
 			name: "update a synced object, expect status to sync to source",
-			work: func(ctx context.Context, t framework.TestingTInterface, sourceClient, sinkClient wildwestclient.CowboyInterface, sourceWatcher, sinkWatcher watch.Interface) {
-				cowboy, err := sourceClient.Create(ctx, &wildwestv1alpha1.Cowboy{
+			work: func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer) {
+				cowboy, err := servers[sourceClusterName].client.Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
@@ -117,25 +132,30 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to create cowboy: %v", err)
 					return
 				}
+				for _, name := range []string{sourceClusterName, sinkClusterName} {
+					defer servers[name].Artifact(t, func() (runtime.Object, error) {
+						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
+					})
+				}
 				// the sync happens and we don't care to validate it in this test case
-				if err := ignoreNextEvent(sourceWatcher, 30*time.Second); err != nil {
+				if err := ignoreNextEvent(servers[sourceClusterName].watcher, 30*time.Second); err != nil {
 					t.Errorf("error ignoring source event when watching cowboys: %v", err)
 					return
 				}
-				if err := ignoreNextEvent(sinkWatcher, 30*time.Second); err != nil {
+				if err := ignoreNextEvent(servers[sinkClusterName].watcher, 30*time.Second); err != nil {
 					t.Errorf("error ignoring sink event when watching cowboys: %v", err)
 					return
 				}
-				updated, err := sinkClient.Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
+				updated, err := servers[sinkClusterName].client.Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
 				if err != nil {
 					t.Errorf("failed to patch cowboy: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(sinkWatcher, watch.Modified, exactMatcher(updated), 30*time.Second); err != nil {
+				if _, err := expectNextEvent(servers[sinkClusterName].watcher, watch.Modified, exactMatcher(updated), 30*time.Second); err != nil {
 					t.Errorf("did not see cowboy patched: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(sourceWatcher, watch.Modified, func(object *wildwestv1alpha1.Cowboy) error {
+				if _, err := expectNextEvent(servers[sourceClusterName].watcher, watch.Modified, func(object *wildwestv1alpha1.Cowboy) error {
 					if expected, actual := cowboy.ObjectMeta.Namespace, object.ObjectMeta.Namespace; expected != actual {
 						return fmt.Errorf("saw incorrect namespace, expected %s, saw %s", expected, actual)
 					}
@@ -155,7 +175,7 @@ func TestClusterController(t *testing.T) {
 	}
 	for i := range testCases {
 		testCase := testCases[i]
-		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers ...framework.RunningServer) {
+		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer) {
 			start := time.Now()
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -168,15 +188,15 @@ func TestClusterController(t *testing.T) {
 				return
 			}
 			t.Log("Installing test CRDs...")
-			if err := installCrd(ctx, servers...); err != nil {
+			if err := installCrd(ctx, servers); err != nil {
 				t.Error(err)
 				return
 			}
 			t.Logf("Installed test CRDs after %s", time.Since(start))
 			start = time.Now()
-			source, sink := servers[0], servers[1]
+			source, sink := servers[sourceClusterName], servers[sinkClusterName]
 			t.Log("Installing sink cluster...")
-			if err := installCluster(ctx, source, sink); err != nil {
+			if err := installCluster(t, ctx, source, sink); err != nil {
 				t.Error(err)
 				return
 			}
@@ -187,10 +207,9 @@ func TestClusterController(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			var clients []wildwestclient.CowboyInterface
-			var watchers []watch.Interface
-			for _, server := range servers {
-				cfg, err := server.Config()
+			runningServers := map[string]runningServer{}
+			for _, name := range []string{sourceClusterName, sinkClusterName} {
+				cfg, err := servers[name].Config()
 				if err != nil {
 					t.Error(err)
 					return
@@ -211,16 +230,19 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to start watching cowboys: %v", err)
 					return
 				}
-				clients = append(clients, wildwestClient.WildwestV1alpha1().Cowboys(testNamespace))
-				watchers = append(watchers, watcher)
+				runningServers[name] = runningServer{
+					RunningServer: servers[name],
+					client:        wildwestClient.WildwestV1alpha1().Cowboys(testNamespace),
+					watcher:       watcher,
+				}
 			}
 			t.Logf("Set up clients for test after %s", time.Since(start))
 			t.Log("Starting test...")
-			testCase.work(ctx, t, clients[0], clients[1], watchers[0], watchers[1])
+			testCase.work(ctx, t, runningServers)
 		},
 			// this is the host kcp cluster from which we sync spec
 			framework.KcpConfig{
-				Name: "source",
+				Name: sourceClusterName,
 				Args: []string{
 					"--push_mode",
 					"--install_cluster_controller",
@@ -230,7 +252,7 @@ func TestClusterController(t *testing.T) {
 			},
 			// this is a kcp acting as a target cluster to sync status from
 			framework.KcpConfig{
-				Name: "sink",
+				Name: sinkClusterName,
 				Args: []string{},
 			},
 		)
@@ -257,7 +279,7 @@ func installNamespace(ctx context.Context, server framework.RunningServer) error
 	return err
 }
 
-func installCrd(ctx context.Context, servers ...framework.RunningServer) error {
+func installCrd(ctx context.Context, servers map[string]framework.RunningServer) error {
 	wg := sync.WaitGroup{}
 	bootstrapErrChan := make(chan error, len(servers))
 	for _, server := range servers {
@@ -292,7 +314,7 @@ func installCrd(ctx context.Context, servers ...framework.RunningServer) error {
 	return nil
 }
 
-func installCluster(ctx context.Context, source, sink framework.RunningServer) error {
+func installCluster(t framework.TestingTInterface, ctx context.Context, source, sink framework.RunningServer) error {
 	sourceCfg, err := source.Config()
 	if err != nil {
 		return fmt.Errorf("failed to get source config: %w", err)
@@ -321,6 +343,9 @@ func installCluster(ctx context.Context, source, sink framework.RunningServer) e
 	if err != nil {
 		return fmt.Errorf("failed to create cluster on source kcp: %w", err)
 	}
+	defer source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+	})
 	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer func() {
 		cancel()

@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -34,11 +35,13 @@ import (
 var seen = sync.Map{}
 
 type RunningServer interface {
+	Name() string
 	RawConfig() (clientcmdapi.Config, error)
 	Config() (*rest.Config, error)
+	Artifact(t TestingTInterface, producer func() (runtime.Object, error))
 }
 
-type TestFunc func(t TestingTInterface, servers ...RunningServer)
+type TestFunc func(t TestingTInterface, servers map[string]RunningServer)
 
 // KcpConfig qualify a kcp server to start
 type KcpConfig struct {
@@ -82,14 +85,14 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 			return
 		}
 		var servers []*kcpServer
-		var runningServers []RunningServer
+		runningServers := map[string]RunningServer{}
 		for _, cfg := range cfgs {
 			server, err := newKcpServer(bottom, cfg, artifactDir, dataDir)
 			if err != nil {
 				mid.Fatal(err)
 			}
 			servers = append(servers, server)
-			runningServers = append(runningServers, server)
+			runningServers[server.name] = server
 		}
 
 		// start all test routines separately, so the main routine can begin
@@ -126,7 +129,7 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 			t.Logf("Started kcp servers after %s", time.Since(start))
 
 			// run the test
-			f(t, runningServers...)
+			f(t, runningServers)
 		}(bottom)
 
 		bottom.Wait()
