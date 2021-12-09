@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -52,6 +53,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/apimachinery/pkg/util/wait"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -102,6 +104,8 @@ type Server struct {
 	cfg              *Config
 	postStartHooks   []postStartHookEntry
 	preShutdownHooks []preShutdownHookEntry
+
+	crdServerReady chan struct{}
 }
 
 // postStartHookEntry groups a PostStartHookFunc with a name. We're not storing these hooks
@@ -286,6 +290,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 	s.AddPostStartHook("FIXME-start-informers-for-crd-getter", func(context genericapiserver.PostStartHookContext) error {
+		if err := s.waitForCRDServer(context.StopCh); err != nil {
+			return err
+		}
 		kcpSharedInformerFactory.Start(context.StopCh)
 		return nil
 	})
@@ -311,6 +318,16 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	server := serverChain.MiniAggregator.GenericAPIServer
+
+	s.AddPostStartHook("wait-for-crd-server", func(ctx genericapiserver.PostStartHookContext) error {
+		return wait.PollImmediateInfiniteWithContext(adaptContext(ctx), 100*time.Millisecond, func(c context.Context) (done bool, err error) {
+			if serverChain.CustomResourceDefinitions.Informers.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() {
+				close(s.crdServerReady)
+				return true, nil
+			}
+			return false, nil
+		})
+	})
 
 	serverChain.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.Filter(func(req *restful.Request, res *restful.Response, chain *restful.FilterChain) {
 		ctx := req.Request.Context()
@@ -540,6 +557,10 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 
 		if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
+			if err := s.waitForCRDServer(context.StopCh); err != nil {
+				return err
+			}
+
 			adaptedCtx := adaptContext(context)
 			return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory).Start(adaptedCtx)
 		}); err != nil {
@@ -574,6 +595,10 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 
 		if err := server.AddPostStartHook("install-workspace-controller", func(context genericapiserver.PostStartHookContext) error {
+			if err := s.waitForCRDServer(context.StopCh); err != nil {
+				return err
+			}
+
 			// Register CRDs in both the admin and user logical clusters
 			requiredCrds := []metav1.GroupKind{
 				{Group: tenancyapi.GroupName, Kind: "workspaces"},
@@ -620,9 +645,24 @@ func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdo
 	})
 }
 
+func (s *Server) waitForCRDServer(stop <-chan struct{}) error {
+	// Wait for the CRD server to be ready before doing things such as starting the shared informer
+	// factory. Otherwise, informer list calls may go into backoff (before the CRDs are ready) and
+	// take ~10 seconds to succeed.
+	select {
+	case <-stop:
+		return errors.New("timed out waiting for CRD server to be ready")
+	case <-s.crdServerReady:
+		return nil
+	}
+}
+
 // NewServer creates a new instance of Server which manages the KCP api-server.
 func NewServer(cfg *Config) *Server {
-	s := &Server{cfg: cfg}
+	s := &Server{
+		cfg:            cfg,
+		crdServerReady: make(chan struct{}),
+	}
 	//During the creation of the server, we know that we want to add the namespace controller.
 	s.postStartHooks = append(s.postStartHooks, postStartHookEntry{
 		name: "start-namespace-controller",
