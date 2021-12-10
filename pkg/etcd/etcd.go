@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/server/v3/embed"
+	"go.etcd.io/etcd/server/v3/wal"
 
 	"k8s.io/klog/v2"
 )
@@ -52,8 +53,11 @@ type ClientInfo struct {
 	TrustedCAFile string
 }
 
-func (s *Server) Run(ctx context.Context, peerPort, clientPort string) (ClientInfo, error) {
+func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBytes int64) (ClientInfo, error) {
 	klog.Info("Creating embedded etcd server")
+	if walSizeBytes != 0 {
+		wal.SegmentSizeBytes = walSizeBytes
+	}
 	cfg := embed.NewConfig()
 
 	cfg.Logger = "zap"

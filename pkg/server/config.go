@@ -53,6 +53,7 @@ type Config struct {
 	EtcdDirectory              string
 	EtcdPeerPort               string
 	EtcdClientPort             string
+	EtcdWalSizeBytes           int64
 	InstallClusterController   bool
 	ClusterControllerOptions   *cluster.Options
 	InstallWorkspaceController bool
@@ -80,6 +81,7 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.StringVar(&c.RootDirectory, "root_directory", c.RootDirectory, "Root directory.")
 	fs.StringVar(&c.EtcdPeerPort, "etcd_peer_port", c.EtcdPeerPort, "Port for etcd peer communication.")
 	fs.StringVar(&c.EtcdClientPort, "etcd_client_port", c.EtcdClientPort, "Port for etcd client communication.")
+	fs.Int64Var(&c.EtcdWalSizeBytes, "etcd_wal_size_bytes", c.EtcdWalSizeBytes, "Size in bytes for the etcd WAL. Leave unset to use the default.")
 	fs.StringVar(&c.KubeConfigPath, "kubeconfig_path", c.KubeConfigPath, "Path to which the administrative kubeconfig should be written at startup.")
 
 	c.ClusterControllerOptions = cluster.BindOptions(c.ClusterControllerOptions, fs)
