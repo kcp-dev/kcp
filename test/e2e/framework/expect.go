@@ -143,7 +143,11 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 	}()
 
 	// evaluate once to get the current state once we're registered to see future events
-	go producer()
+	go func() {
+		c.lock.RLock()
+		c.expectations[id]()
+		c.lock.RUnlock()
+	}()
 
 	var expectationErrors []error
 	var processed int
