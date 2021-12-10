@@ -51,6 +51,8 @@ type kcpServer struct {
 
 	lock *sync.Mutex
 	cfg  clientcmd.ClientConfig
+	// TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
+	rawCfg *clientcmdapi.Config
 
 	t TestingTInterface
 }
@@ -196,7 +198,12 @@ func (c *kcpServer) Config() (*rest.Config, error) {
 	if c.cfg == nil {
 		return nil, fmt.Errorf("programmer error: kcpServer.Config() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
-	return c.cfg.ClientConfig()
+	// TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
+	r, e := c.cfg.ClientConfig()
+	if e != nil {
+		c.t.Logf("%#v", c.rawCfg)
+	}
+	return r, e
 }
 
 // RawConfig exposes a copy of the client config for this server.
@@ -270,6 +277,7 @@ func (c *kcpServer) loadCfg() error {
 		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil)
 		c.lock.Lock()
 		c.cfg = config
+		c.rawCfg = rawConfig // TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
 		c.lock.Unlock()
 		cancel()
 	}, 100*time.Millisecond)
