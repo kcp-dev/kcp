@@ -103,6 +103,7 @@ func (c *workspaces) Watch(ctx context.Context, opts v1.ListOptions) (watch.Inte
 	}
 	opts.Watch = true
 	return c.client.Get().
+		Cluster(c.cluster).
 		Resource("workspaces").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).

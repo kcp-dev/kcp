@@ -103,6 +103,7 @@ func (c *negotiatedAPIResources) Watch(ctx context.Context, opts v1.ListOptions)
 	}
 	opts.Watch = true
 	return c.client.Get().
+		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
