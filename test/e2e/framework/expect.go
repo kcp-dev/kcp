@@ -146,3 +146,36 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 		}
 	}
 }
+
+// The following are statically-typed helpers for common types to allow us to express expectations about objects.
+
+// RegisterWorkspaceExpectation registers an expectation about the future state of the seed.
+type RegisterWorkspaceExpectation func(seed *tenancyv1alpha1.Workspace, expectation WorkspaceExpectation) error
+
+// WorkspaceExpectation evaluates an expectation about the object.
+type WorkspaceExpectation func(*tenancyv1alpha1.Workspace) error
+
+// ExpectWorkspaces sets up an Expecter in order to allow registering expectations in tests with minimal setup.
+func ExpectWorkspaces(ctx context.Context, t TestingTInterface, client kcpclientset.Interface) (RegisterWorkspaceExpectation, error) {
+	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
+	workspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces()
+	expecter := NewExpecter(workspaceInformer.Informer())
+	kcpSharedInformerFactory.Start(ctx.Done())
+	if !cache.WaitForNamedCacheSync(t.Name(), ctx.Done(), workspaceInformer.Informer().HasSynced) {
+		return nil, errors.New("failed to wait for caches to sync")
+	}
+	return func(seed *tenancyv1alpha1.Workspace, expectation WorkspaceExpectation) error {
+		key, err := cache.MetaNamespaceKeyFunc(seed)
+		if err != nil {
+			return err
+		}
+		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
+			current, err := workspaceInformer.Lister().Get(key)
+			if err != nil {
+				return !apierrors.IsNotFound(err), err
+			}
+			expectErr := expectation(current.DeepCopy())
+			return expectErr == nil, expectErr
+		}, 30*time.Second)
+	}, nil
+}
