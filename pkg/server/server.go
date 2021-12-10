@@ -41,7 +41,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/informers"
+	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
@@ -57,6 +57,7 @@ import (
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
@@ -356,19 +357,36 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 
-		kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
+		kubeClient, err := kubernetes.NewClusterForConfig(adminConfig)
 		if err != nil {
 			return err
 		}
 
 		const clusterAll = "*" // TODO: find the correct place for this constant?
-		crossClusterClient := kcpClient.Cluster(clusterAll)
+		crossClusterKubeClient := kubeClient.Cluster(clusterAll)
+		kubeSharedInformerFactory := coreexternalversions.NewSharedInformerFactoryWithOptions(crossClusterKubeClient, resyncPeriod)
 
-		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(crossClusterClient, resyncPeriod)
+		kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
+		if err != nil {
+			return err
+		}
+
+		crossClusterKcpClient := kcpClient.Cluster(clusterAll)
+
+		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(crossClusterKcpClient, resyncPeriod)
 
 		workspaceController, err := workspace.NewController(
 			kcpClient,
 			kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+			kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		)
+		if err != nil {
+			return err
+		}
+
+		workspaceShardController, err := workspaceshard.NewController(
+			kcpClient,
+			kubeSharedInformerFactory.Core().V1().Secrets(),
 			kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 		)
 		if err != nil {
@@ -386,10 +404,14 @@ func (s *Server) Run(ctx context.Context) error {
 				return err
 			}
 
-			kcpSharedInformerFactory.Start(context.StopCh)
-			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
-
+			ctx := adaptContext(context)
 			go workspaceController.Start(ctx, 2)
+			go workspaceShardController.Start(ctx, 2)
+
+			kcpSharedInformerFactory.Start(context.StopCh)
+			kubeSharedInformerFactory.Start(context.StopCh)
+			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
+			kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
 
 			return nil
 		}); err != nil {
@@ -442,7 +464,7 @@ func (s *Server) startNamespaceController(hookContext genericapiserver.PostStart
 	if err != nil {
 		return err
 	}
-	versionedInformer := informers.NewSharedInformerFactory(kubeClient, resyncPeriod)
+	versionedInformer := coreexternalversions.NewSharedInformerFactory(kubeClient, resyncPeriod)
 
 	discoverResourcesFn := func(clusterName string) ([]*metav1.APIResourceList, error) {
 		logicalClusterConfig := rest.CopyConfig(hookContext.LoopbackClientConfig)

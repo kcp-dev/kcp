@@ -38,6 +38,22 @@ spec:
             type: object
           spec:
             description: WorkspaceShardSpec holds the desired state of the WorkspaceShard.
+            properties:
+              credentials:
+                description: Credentials is a reference to the administrative credentials
+                  for this shard.
+                properties:
+                  name:
+                    description: Name is unique within a namespace to reference a
+                      secret resource.
+                    type: string
+                  namespace:
+                    description: Namespace defines the space within which the secret
+                      name must be unique.
+                    type: string
+                type: object
+            required:
+            - credentials
             type: object
           status:
             description: WorkspaceShardStatus communicates the observed state of the
@@ -52,6 +68,70 @@ spec:
                   x-kubernetes-int-or-string: true
                 description: Set of integer resources that workspaces can be scheduled
                   into
+                type: object
+              conditions:
+                description: Current processing state of the WorkspaceShard.
+                items:
+                  description: Condition defines an observation of a object operational
+                    state.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              connectionInfo:
+                description: Connection information for the WorkspaceShard.
+                properties:
+                  api_path:
+                    description: APIPath is a sub-path that points to an API root.
+                    type: string
+                  host:
+                    description: Host must be a host string, a host:port pair, or
+                      a URL to the base of the apiserver. If a URL is given then the
+                      (optional) Path of that URL represents a prefix that must be
+                      appended to all request URIs used to access the apiserver. This
+                      allows a frontend proxy to easily relocate all of the apiserver
+                      endpoints.
+                    format: uri
+                    type: string
+                required:
+                - api_path
+                - host
                 type: object
             type: object
         type: object

@@ -71,9 +71,8 @@ const sourceClusterName, sinkClusterName = "source", "sink"
 func TestClusterController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client  wildwestclient.CowboyInterface
-		watcher watch.Interface
-		expect  RegisterCowboyExpectation
+		client wildwestclient.CowboyInterface
+		expect RegisterCowboyExpectation
 	}
 	var testCases = []struct {
 		name string
