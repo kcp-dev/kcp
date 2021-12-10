@@ -21,15 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
-
-	"github.com/google/go-cmp/cmp"
 
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -41,8 +36,8 @@ import (
 func TestWorkspaceController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client  clientset.Interface
-		watcher watch.Interface
+		client clientset.Interface
+		expect framework.RegisterWorkspaceExpectation
 	}
 	var testCases = []struct {
 		name string
@@ -59,12 +54,8 @@ func TestWorkspaceController(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
-				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(server.watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
+				if err := server.expect(workspace, unschedulable); err != nil {
+					t.Errorf("did not see workspace marked unschedulable: %v", err)
 					return
 				}
 			},
@@ -80,12 +71,8 @@ func TestWorkspaceController(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
-				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(server.watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
+				if err := server.expect(workspace, unschedulable); err != nil {
+					t.Errorf("did not see workspace marked unschedulable: %v", err)
 					return
 				}
 				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
@@ -96,8 +83,8 @@ func TestWorkspaceController(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
 				})
-				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
+				if err := server.expect(workspace, scheduled(bostonShard.Name)); err != nil {
+					t.Errorf("did not see workspace scheduled: %v", err)
 					return
 				}
 			},
@@ -121,12 +108,8 @@ func TestWorkspaceController(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
-				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
+				if err := server.expect(workspace, scheduled(bostonShard.Name)); err != nil {
+					t.Errorf("did not see workspace scheduled: %v", err)
 					return
 				}
 			},
@@ -158,29 +141,31 @@ func TestWorkspaceController(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
-				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace created: %v", err)
-					return
-				}
-				workspace, err = expectNextEvent(server.watcher, watch.Modified, scheduledAnywhereMatcher(), 30*time.Second)
-				if err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
-					return
-				}
-				var otherShard string
-				for _, name := range []string{bostonShard.Name, atlantaShard.Name} {
-					if name != workspace.Status.Location.Current {
-						otherShard = name
-						break
+				var currentShard, otherShard string
+				if err := server.expect(workspace, func(current *tenancyv1alpha1.Workspace) error {
+					expectationErr := scheduledAnywhere(current)
+					if expectationErr == nil {
+						currentShard = current.Status.Location.Current
+						for _, name := range []string{bostonShard.Name, atlantaShard.Name} {
+							if name != currentShard {
+								otherShard = name
+								break
+							}
+						}
 					}
+					return expectationErr
+				}); err != nil {
+					t.Errorf("did not see workspace scheduled: %v", err)
+					return
 				}
-				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, workspace.Status.Location.Current, metav1.DeleteOptions{})
+
+				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
 				if err != nil {
 					t.Errorf("failed to delete workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(otherShard), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
+				if err := server.expect(workspace, scheduled(otherShard)); err != nil {
+					t.Errorf("did not see workspace rescheduled: %v", err)
 					return
 				}
 			},
@@ -201,12 +186,8 @@ func TestWorkspaceController(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
-				if _, err := expectNextEvent(server.watcher, watch.Added, exactMatcher(workspace), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(server.watcher, watch.Modified, scheduledMatcher(bostonShard.Name), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
+				if err := server.expect(workspace, scheduled(bostonShard.Name)); err != nil {
+					t.Errorf("did not see workspace scheduled: %v", err)
 					return
 				}
 				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, bostonShard.Name, metav1.DeleteOptions{})
@@ -214,8 +195,8 @@ func TestWorkspaceController(t *testing.T) {
 					t.Errorf("failed to delete workspace shard: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(server.watcher, watch.Modified, unschedulableMatcher(), 30*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
+				if err := server.expect(workspace, unschedulable); err != nil {
+					t.Errorf("did not see workspace marked unschedulable: %v", err)
 					return
 				}
 			},
@@ -252,15 +233,15 @@ func TestWorkspaceController(t *testing.T) {
 				return
 			}
 			client := clients.Cluster(clusterName)
-			watcher, err := client.TenancyV1alpha1().Workspaces().Watch(ctx, metav1.ListOptions{})
+			expect, err := framework.ExpectWorkspaces(ctx, t, client)
 			if err != nil {
-				t.Errorf("failed to watch workspaces: %v", err)
+				t.Errorf("failed to start expecter: %v", err)
 				return
 			}
 			testCase.work(ctx, t, runningServer{
 				RunningServer: server,
 				client:        client,
-				watcher:       watcher,
+				expect:        expect,
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
@@ -290,31 +271,20 @@ func detectClusterName(cfg *rest.Config, ctx context.Context) (string, error) {
 	return "", errors.New("detected no admin cluster")
 }
 
-func exactMatcher(expected *tenancyv1alpha1.Workspace) matcher {
-	return func(object *tenancyv1alpha1.Workspace) error {
-		if !apiequality.Semantic.DeepEqual(expected, object) {
-			return fmt.Errorf("incorrect object: %v", cmp.Diff(expected, object))
-		}
-		return nil
-	}
-}
-
-func unschedulable(workspace *tenancyv1alpha1.Workspace) bool {
+func isUnschedulable(workspace *tenancyv1alpha1.Workspace) bool {
 	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
 }
 
-func unschedulableMatcher() matcher {
-	return func(object *tenancyv1alpha1.Workspace) error {
-		if !unschedulable(object) {
-			return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
-		}
-		return nil
+func unschedulable(object *tenancyv1alpha1.Workspace) error {
+	if !isUnschedulable(object) {
+		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
+	return nil
 }
 
-func scheduledMatcher(target string) matcher {
+func scheduled(target string) func(workspace *tenancyv1alpha1.Workspace) error {
 	return func(object *tenancyv1alpha1.Workspace) error {
-		if unschedulable(object) {
+		if isUnschedulable(object) {
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		if object.Status.Location.Current != target {
@@ -324,45 +294,12 @@ func scheduledMatcher(target string) matcher {
 	}
 }
 
-func scheduledAnywhereMatcher() matcher {
-	return func(object *tenancyv1alpha1.Workspace) error {
-		if unschedulable(object) {
-			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
-		}
-		return nil
+func scheduledAnywhere(object *tenancyv1alpha1.Workspace) error {
+	if isUnschedulable(object) {
+		return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
-}
-
-type matcher func(object *tenancyv1alpha1.Workspace) error
-
-func expectNextEvent(w watch.Interface, expectType watch.EventType, matcher matcher, duration time.Duration) (*tenancyv1alpha1.Workspace, error) {
-	event, err := nextEvent(w, duration)
-	if err != nil {
-		return nil, err
+	if object.Status.Location.Current == "" {
+		return fmt.Errorf("expected workspace.status.location.current to be anything, got %q", object.Status.Location.Current)
 	}
-	if expectType != event.Type {
-		return nil, fmt.Errorf("got incorrect watch event type: %v != %v\n", expectType, event.Type)
-	}
-	workspace, ok := event.Object.(*tenancyv1alpha1.Workspace)
-	if !ok {
-		return nil, fmt.Errorf("got %T, not a Workspace", event.Object)
-	}
-	if err := matcher(workspace); err != nil {
-		return workspace, err
-	}
-	return workspace, nil
-}
-
-func nextEvent(w watch.Interface, duration time.Duration) (watch.Event, error) {
-	stopTimer := time.NewTimer(duration)
-	defer stopTimer.Stop()
-	select {
-	case event, ok := <-w.ResultChan():
-		if !ok {
-			return watch.Event{}, errors.New("watch closed unexpectedly")
-		}
-		return event, nil
-	case <-stopTimer.C:
-		return watch.Event{}, errors.New("timed out waiting for event")
-	}
+	return nil
 }

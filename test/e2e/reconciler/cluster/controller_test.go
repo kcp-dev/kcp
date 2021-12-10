@@ -30,10 +30,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -41,6 +43,7 @@ import (
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/config"
@@ -51,6 +54,7 @@ import (
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned"
 	wildwestclient "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/typed/wildwest/v1alpha1"
+	wildwestexternalversions "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/informers/externalversions"
 )
 
 func init() {
@@ -69,6 +73,7 @@ func TestClusterController(t *testing.T) {
 		framework.RunningServer
 		client  wildwestclient.CowboyInterface
 		watcher watch.Interface
+		expect  RegisterCowboyExpectation
 	}
 	var testCases = []struct {
 		name string
@@ -95,22 +100,12 @@ func TestClusterController(t *testing.T) {
 						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
 					})
 				}
-				if _, err := expectNextEvent(servers[sourceClusterName].watcher, watch.Added, exactMatcher(cowboy), 30*time.Second); err != nil {
-					t.Errorf("did not see cowboy created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(servers[sinkClusterName].watcher, watch.Added, func(object *wildwestv1alpha1.Cowboy) error {
-					if expected, actual := cowboy.ObjectMeta.Namespace, object.ObjectMeta.Namespace; expected != actual {
-						return fmt.Errorf("saw incorrect namespace, expected %s, saw %s", expected, actual)
-					}
-					if expected, actual := cowboy.ObjectMeta.Name, object.ObjectMeta.Name; expected != actual {
-						return fmt.Errorf("saw incorrect name, expected %s, saw %s", expected, actual)
-					}
+				if err := servers[sinkClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					if diff := cmp.Diff(cowboy.Spec, object.Spec); diff != "" {
 						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
 					}
 					return nil
-				}, 30*time.Second); err != nil {
+				}); err != nil {
 					t.Errorf("did not see cowboy spec updated on sink cluster: %v", err)
 					return
 				}
@@ -137,13 +132,14 @@ func TestClusterController(t *testing.T) {
 						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
 					})
 				}
-				// the sync happens and we don't care to validate it in this test case
-				if err := ignoreNextEvent(servers[sourceClusterName].watcher, 30*time.Second); err != nil {
-					t.Errorf("error ignoring source event when watching cowboys: %v", err)
-					return
-				}
-				if err := ignoreNextEvent(servers[sinkClusterName].watcher, 30*time.Second); err != nil {
-					t.Errorf("error ignoring sink event when watching cowboys: %v", err)
+				if err := servers[sinkClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
+					// just wait for the sink the catch up
+					if diff := cmp.Diff(cowboy.Spec, object.Spec); diff != "" {
+						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
+					}
+					return nil
+				}); err != nil {
+					t.Errorf("did not see cowboy status updated on source cluster: %v", err)
 					return
 				}
 				updated, err := servers[sinkClusterName].client.Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
@@ -151,22 +147,12 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to patch cowboy: %v", err)
 					return
 				}
-				if _, err := expectNextEvent(servers[sinkClusterName].watcher, watch.Modified, exactMatcher(updated), 30*time.Second); err != nil {
-					t.Errorf("did not see cowboy patched: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(servers[sourceClusterName].watcher, watch.Modified, func(object *wildwestv1alpha1.Cowboy) error {
-					if expected, actual := cowboy.ObjectMeta.Namespace, object.ObjectMeta.Namespace; expected != actual {
-						return fmt.Errorf("saw incorrect namespace, expected %s, saw %s", expected, actual)
-					}
-					if expected, actual := cowboy.ObjectMeta.Name, object.ObjectMeta.Name; expected != actual {
-						return fmt.Errorf("saw incorrect name, expected %s, saw %s", expected, actual)
-					}
+				if err := servers[sourceClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					if diff := cmp.Diff(updated.Status, object.Status); diff != "" {
 						return fmt.Errorf("saw incorrect status on source cluster: %s", diff)
 					}
 					return nil
-				}, 30*time.Second); err != nil {
+				}); err != nil {
 					t.Errorf("did not see cowboy status updated on source cluster: %v", err)
 					return
 				}
@@ -225,15 +211,15 @@ func TestClusterController(t *testing.T) {
 					return
 				}
 				wildwestClient := wildwestClients.Cluster(clusterName)
-				watcher, err := wildwestClient.WildwestV1alpha1().Cowboys(corev1.NamespaceAll).Watch(ctx, metav1.ListOptions{})
+				expect, err := ExpectCowboys(ctx, t, wildwestClient)
 				if err != nil {
-					t.Errorf("failed to start watching cowboys: %v", err)
+					t.Errorf("failed to start expecter: %v", err)
 					return
 				}
 				runningServers[name] = runningServer{
 					RunningServer: servers[name],
 					client:        wildwestClient.WildwestV1alpha1().Cowboys(testNamespace),
-					watcher:       watcher,
+					expect:        expect,
 				}
 			}
 			t.Logf("Set up clients for test after %s", time.Since(start))
@@ -409,50 +395,44 @@ func detectClusterName(cfg *rest.Config, ctx context.Context, crdName string) (s
 	return "", errors.New("detected no admin cluster")
 }
 
-func exactMatcher(expected *wildwestv1alpha1.Cowboy) matcher {
-	return func(object *wildwestv1alpha1.Cowboy) error {
-		if !apiequality.Semantic.DeepEqual(expected, object) {
-			return fmt.Errorf("incorrect object: %v", cmp.Diff(expected, object))
-		}
-		return nil
-	}
-}
+// RegisterCowboyExpectation registers an expectation about the future state of the seed.
+type RegisterCowboyExpectation func(seed *wildwestv1alpha1.Cowboy, expectation CowboyExpectation) error
 
-func ignoreNextEvent(w watch.Interface, duration time.Duration) error {
-	_, err := nextEvent(w, duration)
-	return err
-}
+// CowboyExpectation evaluates an expectation about the object.
+type CowboyExpectation func(*wildwestv1alpha1.Cowboy) error
 
-type matcher func(object *wildwestv1alpha1.Cowboy) error
-
-func expectNextEvent(w watch.Interface, expectType watch.EventType, matcher matcher, duration time.Duration) (*wildwestv1alpha1.Cowboy, error) {
-	event, err := nextEvent(w, duration)
-	if err != nil {
-		return nil, err
+// ExpectCowboys sets up an Expecter in order to allow registering expectations in tests with minimal setup.
+func ExpectCowboys(ctx context.Context, t framework.TestingTInterface, client wildwestclientset.Interface) (RegisterCowboyExpectation, error) {
+	sharedInformerFactory := wildwestexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
+	informer := sharedInformerFactory.Wildwest().V1alpha1().Cowboys()
+	expecter := framework.NewExpecter(informer.Informer())
+	sharedInformerFactory.Start(ctx.Done())
+	if !cache.WaitForNamedCacheSync(t.Name(), ctx.Done(), informer.Informer().HasSynced) {
+		return nil, errors.New("failed to wait for caches to sync")
 	}
-	if expectType != event.Type {
-		return nil, fmt.Errorf("got incorrect watch event type: %v != %v\n", expectType, event.Type)
-	}
-	cowboy, ok := event.Object.(*wildwestv1alpha1.Cowboy)
-	if !ok {
-		return nil, fmt.Errorf("got %T, not a Workspace", event.Object)
-	}
-	if err := matcher(cowboy); err != nil {
-		return cowboy, err
-	}
-	return cowboy, nil
-}
-
-func nextEvent(w watch.Interface, duration time.Duration) (watch.Event, error) {
-	stopTimer := time.NewTimer(duration)
-	defer stopTimer.Stop()
-	select {
-	case event, ok := <-w.ResultChan():
-		if !ok {
-			return watch.Event{}, errors.New("watch closed unexpectedly")
-		}
-		return event, nil
-	case <-stopTimer.C:
-		return watch.Event{}, errors.New("timed out waiting for event")
-	}
+	return func(seed *wildwestv1alpha1.Cowboy, expectation CowboyExpectation) error {
+		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
+			// we are using a seed from one kcp to expect something about an object in
+			// another kcp, so the cluster names will not match - this is fine, just do
+			// client-side filtering for what we know
+			all, err := informer.Lister().Cowboys(seed.Namespace).List(labels.Everything())
+			if err != nil {
+				return !apierrors.IsNotFound(err), err
+			}
+			var current *wildwestv1alpha1.Cowboy
+			for i := range all {
+				if all[i].Namespace == seed.Namespace && all[i].Name == seed.Name {
+					current = all[i]
+				}
+			}
+			if current == nil {
+				return false, apierrors.NewNotFound(schema.GroupResource{
+					Group:    wildwest.GroupName,
+					Resource: "cowboys",
+				}, seed.Name)
+			}
+			expectErr := expectation(current.DeepCopy())
+			return expectErr == nil, expectErr
+		}, 30*time.Second)
+	}, nil
 }

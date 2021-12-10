@@ -115,7 +115,7 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 					go func(s *kcpServer) {
 						defer wg.Done()
 						if err := s.Ready(); err != nil {
-							t.Errorf("kcp server never became ready: %v", err)
+							t.Errorf("kcp server %s never became ready: %v", s.name, err)
 						}
 					}(srv)
 				}
