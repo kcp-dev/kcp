@@ -99,7 +99,6 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 	// producer wraps the expectation and allows the informer-driven flow to trigger
 	// it while the side effects of the call feed the channel we listen to here.
 	expectationCtx, expectationCancel := context.WithCancel(ctx)
-	defer expectationCancel()
 	producer := func() {
 		done, err := expectation(expectationCtx)
 		if expectationCtx.Err() == nil {
@@ -116,7 +115,29 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 	c.lock.Unlock()
 
 	defer func() {
+		// We use an unbuffered channel for expectation results, so we need to make sure that
+		// no producer of results is stuck writing to the channel once we're done reading it,
+		// whether that be because the expectation is done or the deadline has passed.
+
+		// First, signal to all future executions of the expectation to not send any new
+		// results to the channel.
+		expectationCancel()
+
+		// Then, drain the channel of all results.
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range results {
+			} // we can throw away these results
+		}()
+
+		// Finally, acquire the lock to close the results channel and deregister the expectation.
+		// Acquiring the lock requires that triggerExpectations() is not active with the read lock,
+		// so we know that no new expectations will be triggered after we acquire this.
 		c.lock.Lock()
+		close(results)
+		wg.Wait()
 		delete(c.expectations, id)
 		c.lock.Unlock()
 	}()
@@ -129,8 +150,6 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 	for {
 		select {
 		case <-ctx.Done():
-			expectationCancel()
-			close(results)
 			return fmt.Errorf("expected state not found: %w, %d errors encountered while processing %d events: %v", ctx.Err(), len(expectationErrors), processed, kerrors.NewAggregate(expectationErrors))
 		case result := <-results:
 			processed += 1
