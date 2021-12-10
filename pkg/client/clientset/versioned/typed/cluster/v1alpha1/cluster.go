@@ -103,6 +103,7 @@ func (c *clusters) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interf
 	}
 	opts.Watch = true
 	return c.client.Get().
+		Cluster(c.cluster).
 		Resource("clusters").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# We need bash for some conditional logic below.
+SHELL := /usr/bin/env bash
+
 GO_INSTALL = ./hack/go-install.sh
 
 TOOLS_DIR=hack/tools
@@ -55,10 +58,18 @@ codegen: $(CONTROLLER_GEN)
 # Note, running this locally if you have any modified files, even those that are not generated,
 # will result in an error. This target is mostly for CI jobs.
 .PHONY: verify-codegen
-verify-codegen: codegen
-	@if !(git diff --quiet HEAD); then \
+verify-codegen:
+	if [[ -n "${GITHUB_WORKSPACE}" ]]; then \
+		mkdir -p $$(go env GOPATH)/src/github.com/kcp-dev; \
+		ln -s ${GITHUB_WORKSPACE} $$(go env GOPATH)/src/github.com/kcp-dev/kcp; \
+	fi
+
+	$(MAKE) codegen
+
+	if ! git diff --quiet HEAD; then \
 		git diff; \
-		echo "You need to run 'make codegen' to update generated files and commit them"; exit 1; \
+		echo "You need to run 'make codegen' to update generated files and commit them"; \
+		exit 1; \
 	fi
 
 

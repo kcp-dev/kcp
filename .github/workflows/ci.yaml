@@ -2,12 +2,11 @@ name: CI
 
 on:
   push:
-    branches: ['main']
+    branches: ["main"]
   pull_request:
-    branches: ['main']
+    branches: ["main"]
 
 jobs:
-
   boilerplate:
     name: boilerplate
     runs-on: ubuntu-latest
@@ -34,7 +33,7 @@ jobs:
           path: kcp
       - uses: actions/setup-go@v2
         with:
-          go-version: v1.16
+          go-version: v1.17
       - name: Check imports
         run: |
           cd kcp
@@ -51,7 +50,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: v1.16
+          go-version: v1.17
       - uses: golangci/golangci-lint-action@v2
         with:
           only-new-issues: true
@@ -64,7 +63,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: v1.16
+          go-version: v1.17
       - name: Download modules
         run: go mod download
       - name: Check codegen
@@ -77,7 +76,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: v1.16
+          go-version: v1.17
       - run: make build
       - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" make test
       - uses: actions/upload-artifact@v2
@@ -93,7 +92,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: v1.16
+          go-version: v1.17
       - run: make build
       - uses: actions/checkout@v2
         with:

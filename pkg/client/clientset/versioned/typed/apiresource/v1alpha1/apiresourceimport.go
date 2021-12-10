@@ -103,6 +103,7 @@ func (c *aPIResourceImports) Watch(ctx context.Context, opts v1.ListOptions) (wa
 	}
 	opts.Watch = true
 	return c.client.Get().
+		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
