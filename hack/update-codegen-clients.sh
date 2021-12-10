@@ -29,6 +29,11 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   "cluster:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.go.txt --output-base ${GOPATH}/src
 
+bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
+  github.com/kcp-dev/kcp/third_party/conditions/client github.com/kcp-dev/kcp/third_party/conditions/apis \
+  "conditions:v1alpha1" \
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.capi.go.txt --output-base ${GOPATH}/src
+
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
   github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis \
   "wildwest:v1alpha1" \

@@ -32,10 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/helpers/conditions"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	utilconditions "github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 func TestWorkspaceController(t *testing.T) {
@@ -299,9 +299,13 @@ func exactMatcher(expected *tenancyv1alpha1.Workspace) matcher {
 	}
 }
 
+func unschedulable(workspace *tenancyv1alpha1.Workspace) bool {
+	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
+}
+
 func unschedulableMatcher() matcher {
 	return func(object *tenancyv1alpha1.Workspace) error {
-		if !conditions.IsWorkspaceUnschedulable(object) {
+		if !unschedulable(object) {
 			return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		return nil
@@ -310,7 +314,7 @@ func unschedulableMatcher() matcher {
 
 func scheduledMatcher(target string) matcher {
 	return func(object *tenancyv1alpha1.Workspace) error {
-		if conditions.IsWorkspaceUnschedulable(object) {
+		if unschedulable(object) {
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		if object.Status.Location.Current != target {
@@ -322,7 +326,7 @@ func scheduledMatcher(target string) matcher {
 
 func scheduledAnywhereMatcher() matcher {
 	return func(object *tenancyv1alpha1.Workspace) error {
-		if conditions.IsWorkspaceUnschedulable(object) {
+		if unschedulable(object) {
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		return nil

@@ -19,6 +19,9 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 // Workspace describes how clients access (kubelike) APIs
@@ -41,6 +44,17 @@ type Workspace struct {
 	Status WorkspaceStatus `json:"status,omitempty"`
 }
 
+func (in *Workspace) SetConditions(c conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = c
+}
+
+func (in *Workspace) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+var _ conditions.Getter = &Workspace{}
+var _ conditions.Setter = &Workspace{}
+
 // WorkspaceSpec holds the desired state of the Workspace.
 type WorkspaceSpec struct {
 	// +optional
@@ -61,7 +75,7 @@ type WorkspaceStatus struct {
 	// Phase of the workspace  (Initializing / Active / Terminating)
 	Phase WorkspacePhaseType `json:"phase,omitempty"`
 	// +optional
-	Conditions []WorkspaceCondition `json:"conditions,omitempty"`
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// Base URL where this Workspace can be targeted.
 	// This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>.
@@ -76,31 +90,14 @@ type WorkspaceStatus struct {
 	Location WorkspaceLocation `json:"location,omitempty"`
 }
 
-// WorkspaceConditionType defines the condition of the workspace
-type WorkspaceConditionType string
-
 // These are valid conditions of workspace.
 const (
 	// WorkspaceScheduled represents status of the scheduling process for this workspace.
-	WorkspaceScheduled WorkspaceConditionType = "WorkspaceScheduled"
+	WorkspaceScheduled conditionsv1alpha1.ConditionType = "WorkspaceScheduled"
 	// WorkspaceReasonUnschedulable reason in WorkspaceScheduled WorkspaceCondition means that the scheduler
 	// can't schedule the workspace right now, for example due to insufficient resources in the cluster.
 	WorkspaceReasonUnschedulable = "Unschedulable"
 )
-
-// WorkspaceCondition represents workspace's condition
-type WorkspaceCondition struct {
-	Type   WorkspaceConditionType `json:"type,omitempty"`
-	Status metav1.ConditionStatus `json:"status,omitempty"`
-	// +optional
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
-	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-	// +optional
-	Reason string `json:"reason,omitempty"`
-	// +optional
-	Message string `json:"message,omitempty"`
-}
 
 // WorkspaceLocation specifies workspace placement information, including current, desired (target), and
 // historical information.
