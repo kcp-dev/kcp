@@ -74,6 +74,8 @@ const (
 type WorkspaceStatus struct {
 	// Phase of the workspace  (Initializing / Active / Terminating)
 	Phase WorkspacePhaseType `json:"phase,omitempty"`
+
+	// Current processing state of the Workspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 

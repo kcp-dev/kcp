@@ -51,8 +51,7 @@ spec:
                   in the future.'
                 type: string
               conditions:
-                description: Conditions provide observations of the operational state
-                  of a object.
+                description: Current processing state of the Workspace.
                 items:
                   description: Condition defines an observation of a object operational
                     state.

@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"path"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -286,19 +288,17 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) error {
-	if workspace.Status.BaseURL == "" {
-		// TODO: something sensible when we have some use for this field
-		workspace.Status.BaseURL = fmt.Sprintf("%s.workspaces.kcp.dev", workspace.Name)
-	}
-	if currentShard := workspace.Status.Location.Current; currentShard != "" {
+	var shard *tenancyv1alpha1.WorkspaceShard
+	if currentShardName := workspace.Status.Location.Current; currentShardName != "" {
 		// make sure current shard still exists
-		_, err := c.workspaceShardLister.Get(clusters.ToClusterAwareKey(workspace.ClusterName, currentShard))
+		currentShard, err := c.workspaceShardLister.Get(clusters.ToClusterAwareKey(workspace.ClusterName, currentShardName))
 		if errors.IsNotFound(err) {
-			klog.Infof("de-scheduling workspace %q from nonexistent shard %q", workspace.Name, currentShard)
+			klog.Infof("de-scheduling workspace %q from nonexistent shard %q", workspace.Name, currentShardName)
 			workspace.Status.Location.Current = ""
 		} else if err != nil {
 			return err
 		}
+		shard = currentShard
 	}
 	if workspace.Status.Location.Current == "" {
 		// find a shard for this workspace
@@ -307,9 +307,10 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 			return err
 		}
 		if len(shards) != 0 {
-			target := shards[rand.Intn(len(shards))].Name
-			workspace.Status.Location.Target = target
-			klog.Infof("scheduling workspace %q to %q", workspace.Name, target)
+			targetShard := shards[rand.Intn(len(shards))]
+			workspace.Status.Location.Target = targetShard.Name
+			shard = targetShard
+			klog.Infof("scheduling workspace %q to %q", workspace.Name, targetShard.Name)
 		}
 	}
 	if workspace.Status.Location.Target != "" && workspace.Status.Location.Current != workspace.Status.Location.Target {
@@ -323,6 +324,19 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 	} else {
 		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseActive
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+	}
+	// expose the correct base URL given our current shard
+	if shard == nil || !conditions.IsTrue(shard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
+		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonMissing, conditionsv1alpha1.ConditionSeverityError, "No connection information on target WorkspaceShard.")
+	} else {
+		u, err := url.Parse(shard.Status.ConnectionInfo.Host)
+		if err != nil {
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonInvalid, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target WorkspaceShard: %v.", err)
+			return nil
+		}
+		u.Path = path.Join(u.Path, shard.Status.ConnectionInfo.APIPath, "clusters", workspace.Name)
+		workspace.Status.BaseURL = u.String()
+		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceURLValid)
 	}
 	return nil
 }
