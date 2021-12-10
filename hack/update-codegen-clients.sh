@@ -34,7 +34,7 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   "conditions:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.capi.go.txt --output-base ${GOPATH}/src
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
+bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis \
   "wildwest:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.go.txt --output-base ${GOPATH}/src
