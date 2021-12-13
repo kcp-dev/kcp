@@ -132,7 +132,7 @@ func (s *Server) Run(ctx context.Context) error {
 		es := &etcd.Server{
 			Dir: etcdDir,
 		}
-		embeddedClientInfo, err := es.Run(ctx, s.cfg.EtcdPeerPort, s.cfg.EtcdClientPort)
+		embeddedClientInfo, err := es.Run(ctx, s.cfg.EtcdPeerPort, s.cfg.EtcdClientPort, s.cfg.EtcdWalSizeBytes)
 		if err != nil {
 			return err
 		}
