@@ -28,6 +28,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 
 	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
+	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workspacelisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
@@ -118,7 +120,8 @@ func TestSyncWorkspace(t *testing.T) {
 			},
 		},
 	}
-	mockKubeClient := fake.NewSimpleClientset(&workspaceList)
+	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList)
+	mockKubeClient := fake.NewSimpleClientset()
 
 	reviewer := &mockReviewer{
 		expectedResults: map[string]*mockReview{
@@ -137,15 +140,16 @@ func TestSyncWorkspace(t *testing.T) {
 		},
 	}
 
-	informers := informers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
+	kubeInformers := informers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
+	kcpInformers := tenancyInformers.NewSharedInformerFactory(mockKCPClient, controller.NoResyncPeriodFunc())
 	wsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	wsLister := workspacelisters.NewWorkspaceLister(wsIndexer)
 
 	authorizationCache := NewAuthorizationCache(
 		wsLister,
-		informers.Core().V1().Namespaces().Informer(),
+		kcpInformers.Tenancy().V1alpha1().Workspaces().Informer(),
 		reviewer,
-		informers.Rbac().V1(),
+		kubeInformers.Rbac().V1(),
 	)
 	// we prime the data we need here since we are not running reflectors
 	for i := range workspaceList.Items {

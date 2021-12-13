@@ -48,22 +48,40 @@ func (r *defaultReview) EvaluationError() string {
 	return r.evaluationError
 }
 
+type ReviewerProvider interface {
+	ForVerb(checkedVerb string) Reviewer
+}
+
+type authorizerReviewerProvider struct {
+	policyChecker rbac.SubjectLocator
+}
+
+func (arp *authorizerReviewerProvider) ForVerb(checkedVerb string) Reviewer {
+	return &authorizerReviewer{
+		checkedVerb:   checkedVerb,
+		policyChecker: arp.policyChecker,
+	}
+}
+
 // Reviewer performs access reviews for a workspace by name
 type Reviewer interface {
 	Review(name string) (Review, error)
 }
 
 type authorizerReviewer struct {
+	checkedVerb   string
 	policyChecker rbac.SubjectLocator
 }
 
-func NewAuthorizerReviewer(policyChecker rbac.SubjectLocator) Reviewer {
-	return &authorizerReviewer{policyChecker: policyChecker}
+func NewAuthorizerReviewerProvider(policyChecker rbac.SubjectLocator) ReviewerProvider {
+	return &authorizerReviewerProvider{
+		policyChecker: policyChecker,
+	}
 }
 
 func (r *authorizerReviewer) Review(workspaceName string) (Review, error) {
 	attributes := kauthorizer.AttributesRecord{
-		Verb:            "get",
+		Verb:            r.checkedVerb,
 		Namespace:       "",
 		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
 		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,

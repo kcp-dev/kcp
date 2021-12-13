@@ -18,11 +18,12 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -38,18 +39,25 @@ import (
 const WorkspacesVirtualWorkspaceName string = "workspaces"
 const DefaultRootPathPrefix string = "/services/applications"
 
-var scopeSets sets.String = sets.NewString("personal", "organization", "global")
-
-type WorkspacesScopeKeyType string
-
-const WorkspacesScopeKey WorkspacesScopeKeyType = "VirtualWorkspaceWorkspacesScope"
-
-type additionExtraConfig struct {
-	authCache      *workspaceauth.AuthorizationCache
-	workspaceCache *workspacecache.WorkspaceCache
-}
-
 func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, workspaceClient workspaceclient.WorkspaceInterface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) builders.VirtualWorkspaceBuilder {
+	crbInformer := rbacInformers.ClusterRoleBindings()
+	_ = crbInformer.Informer().AddIndexers(map[string]cache.IndexFunc{
+		virtualworkspacesregistry.PrettyNameIndex: func(obj interface{}) ([]string, error) {
+			if crb, isCRB := obj.(*rbacv1.ClusterRoleBinding); isCRB {
+				return []string{crb.Labels[virtualworkspacesregistry.PrettyNameLabel]}, nil
+			}
+
+			return []string{}, nil
+		},
+		virtualworkspacesregistry.InternalNameIndex: func(obj interface{}) ([]string, error) {
+			if crb, isCRB := obj.(*rbacv1.ClusterRoleBinding); isCRB {
+				return []string{crb.Labels[virtualworkspacesregistry.InternalNameLabel]}, nil
+			}
+
+			return []string{}, nil
+		},
+	})
+
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
@@ -64,11 +72,11 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 					return
 				}
 				workspacesScope := path[:i]
-				if !scopeSets.Has(workspacesScope) {
+				if !virtualworkspacesregistry.ScopeSets.Has(workspacesScope) {
 					return
 				}
 
-				return true, rootPathPrefix + workspacesScope, context.WithValue(requestContext, WorkspacesScopeKey, workspacesScope)
+				return true, rootPathPrefix + workspacesScope, context.WithValue(requestContext, virtualworkspacesregistry.WorkspacesScopeKey, workspacesScope)
 			}
 			return
 		},
@@ -76,10 +84,11 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 			{
 				GroupVersion: tenancyv1alpha1.SchemeGroupVersion,
 				Initialize: func(mainConfig genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuidler, error) {
+					reviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(subjectLocator)
 					workspaceAuthorizationCache := workspaceauth.NewAuthorizationCache(
 						workspaces.Lister(),
 						workspaces.Informer(),
-						workspaceauth.NewAuthorizerReviewer(subjectLocator),
+						reviewerProvider.ForVerb("get"),
 						rbacInformers,
 					)
 
@@ -104,7 +113,7 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 
 					return map[string]builders.RestStorageBuidler{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
-							return virtualworkspacesregistry.NewREST(workspaceClient, kubeClient.RbacV1(), workspaceAuthorizationCache, workspaceCache), nil
+							return virtualworkspacesregistry.NewREST(workspaceClient, kubeClient.RbacV1(), crbInformer, reviewerProvider, workspaceAuthorizationCache, workspaceCache), nil
 						},
 					}, nil
 				},
