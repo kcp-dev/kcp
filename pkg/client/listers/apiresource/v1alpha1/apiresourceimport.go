@@ -19,6 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -32,9 +34,15 @@ type APIResourceImportLister interface {
 	// List lists all APIResourceImports in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.APIResourceImport, err error)
+	// ListWithContext lists all APIResourceImports in the indexer.
+	// Objects returned here must be treated as read-only.
+	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.APIResourceImport, err error)
 	// Get retrieves the APIResourceImport from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.APIResourceImport, error)
+	// GetWithContext retrieves the APIResourceImport from the index for a given name.
+	// Objects returned here must be treated as read-only.
+	GetWithContext(ctx context.Context, name string) (*v1alpha1.APIResourceImport, error)
 	APIResourceImportListerExpansion
 }
 
@@ -50,6 +58,11 @@ func NewAPIResourceImportLister(indexer cache.Indexer) APIResourceImportLister {
 
 // List lists all APIResourceImports in the indexer.
 func (s *aPIResourceImportLister) List(selector labels.Selector) (ret []*v1alpha1.APIResourceImport, err error) {
+	return s.ListWithContext(context.Background(), selector)
+}
+
+// ListWithContext lists all APIResourceImports in the indexer.
+func (s *aPIResourceImportLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.APIResourceImport, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.APIResourceImport))
 	})
@@ -58,6 +71,11 @@ func (s *aPIResourceImportLister) List(selector labels.Selector) (ret []*v1alpha
 
 // Get retrieves the APIResourceImport from the index for a given name.
 func (s *aPIResourceImportLister) Get(name string) (*v1alpha1.APIResourceImport, error) {
+	return s.GetWithContext(context.Background(), name)
+}
+
+// GetWithContext retrieves the APIResourceImport from the index for a given name.
+func (s *aPIResourceImportLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.APIResourceImport, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

@@ -59,6 +59,9 @@ var _ conditions.Setter = &Workspace{}
 type WorkspaceSpec struct {
 	// +optional
 	ReadOnly bool `json:"readOnly,omitempty"`
+
+	// +optional
+	InheritFrom string `json:"inheritFrom,omitempty"`
 }
 
 // WorkspacePhaseType is the type of the current phase of the workspace

@@ -19,6 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -32,9 +34,15 @@ type WorkspaceShardLister interface {
 	// List lists all WorkspaceShards in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.WorkspaceShard, err error)
+	// ListWithContext lists all WorkspaceShards in the indexer.
+	// Objects returned here must be treated as read-only.
+	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.WorkspaceShard, err error)
 	// Get retrieves the WorkspaceShard from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.WorkspaceShard, error)
+	// GetWithContext retrieves the WorkspaceShard from the index for a given name.
+	// Objects returned here must be treated as read-only.
+	GetWithContext(ctx context.Context, name string) (*v1alpha1.WorkspaceShard, error)
 	WorkspaceShardListerExpansion
 }
 
@@ -50,6 +58,11 @@ func NewWorkspaceShardLister(indexer cache.Indexer) WorkspaceShardLister {
 
 // List lists all WorkspaceShards in the indexer.
 func (s *workspaceShardLister) List(selector labels.Selector) (ret []*v1alpha1.WorkspaceShard, err error) {
+	return s.ListWithContext(context.Background(), selector)
+}
+
+// ListWithContext lists all WorkspaceShards in the indexer.
+func (s *workspaceShardLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.WorkspaceShard, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.WorkspaceShard))
 	})
@@ -58,6 +71,11 @@ func (s *workspaceShardLister) List(selector labels.Selector) (ret []*v1alpha1.W
 
 // Get retrieves the WorkspaceShard from the index for a given name.
 func (s *workspaceShardLister) Get(name string) (*v1alpha1.WorkspaceShard, error) {
+	return s.GetWithContext(context.Background(), name)
+}
+
+// GetWithContext retrieves the WorkspaceShard from the index for a given name.
+func (s *workspaceShardLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.WorkspaceShard, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

@@ -38,6 +38,8 @@ spec:
           spec:
             description: WorkspaceSpec holds the desired state of the Workspace.
             properties:
+              inheritFrom:
+                type: string
               readOnly:
                 type: boolean
             type: object
