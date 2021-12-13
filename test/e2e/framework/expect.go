@@ -145,7 +145,12 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 	// evaluate once to get the current state once we're registered to see future events
 	go func() {
 		c.lock.RLock()
-		c.expectations[id]()
+		// It's possible that this first evaluation races with us getting called from the
+		// controller, so we need to make sure that there's still an expectation registered
+		// here before running it!
+		if f, ok := c.expectations[id]; ok {
+			f()
+		}
 		c.lock.RUnlock()
 	}()
 
