@@ -99,7 +99,7 @@ func (c *kcpServer) Artifact(tinterface TestingTInterface, producer func() (runt
 		t.Logf("artifact has no object meta: %#v", data)
 		return
 	}
-	dir := path.Join(c.artifactDir, "kcp", c.Name(), accessor.GetClusterName())
+	dir := path.Join(c.artifactDir, accessor.GetClusterName())
 	if accessor.GetNamespace() != "" {
 		dir = path.Join(dir, accessor.GetNamespace())
 	}
