@@ -77,6 +77,8 @@ const (
 type WorkspaceStatus struct {
 	// Phase of the workspace  (Initializing / Active / Terminating)
 	Phase WorkspacePhaseType `json:"phase,omitempty"`
+
+	// Current processing state of the Workspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
@@ -85,7 +87,8 @@ type WorkspaceStatus struct {
 	// But a workspace could also be targetable by a unique hostname in the future.
 	//
 	// +kubebuilder:validation:Pattern:https://[^/].*
-	BaseURL string `json:"baseURL"`
+	// +optional
+	BaseURL string `json:"baseURL,omitempty"`
 
 	// Contains workspace placement information.
 	//
@@ -100,6 +103,15 @@ const (
 	// WorkspaceReasonUnschedulable reason in WorkspaceScheduled WorkspaceCondition means that the scheduler
 	// can't schedule the workspace right now, for example due to insufficient resources in the cluster.
 	WorkspaceReasonUnschedulable = "Unschedulable"
+
+	// WorkspaceURLValid represents status of the connection process for this workspace.
+	WorkspaceURLValid conditionsv1alpha1.ConditionType = "WorkspaceURLValid"
+	// WorkspaceURLReasonMissing reason in WorkspaceURLValid condition means that the
+	// connection information in the referenced WorkspaceShard could not be found.
+	WorkspaceURLReasonMissing = "Missing"
+	// WorkspaceURLReasonInvalid reason in WorkspaceURLValid condition means that the
+	// connection information in the referenced WorkspaceShard were invalid.
+	WorkspaceURLReasonInvalid = "Invalid"
 )
 
 // WorkspaceLocation specifies workspace placement information, including current, desired (target), and
@@ -168,8 +180,21 @@ type WorkspaceShard struct {
 	Status WorkspaceShardStatus `json:"status,omitempty"`
 }
 
+func (in *WorkspaceShard) SetConditions(c conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = c
+}
+
+func (in *WorkspaceShard) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+var _ conditions.Getter = &WorkspaceShard{}
+var _ conditions.Setter = &WorkspaceShard{}
+
 // WorkspaceShardSpec holds the desired state of the WorkspaceShard.
 type WorkspaceShardSpec struct {
+	// Credentials is a reference to the administrative credentials for this shard.
+	Credentials corev1.SecretReference `json:"credentials"`
 }
 
 // WorkspaceShardStatus communicates the observed state of the WorkspaceShard.
@@ -177,7 +202,41 @@ type WorkspaceShardStatus struct {
 	// Set of integer resources that workspaces can be scheduled into
 	// +optional
 	Capacity corev1.ResourceList `json:"capacity,omitempty"`
+
+	// Current processing state of the WorkspaceShard.
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// Connection information for the WorkspaceShard.
+	// +optional
+	ConnectionInfo *ConnectionInfo `json:"connectionInfo,omitempty"`
 }
+
+// ConnectionInfo holds the information necessary to connect to a shard.
+type ConnectionInfo struct {
+	// Host must be a host string, a host:port pair, or a URL to the base of the apiserver.
+	// If a URL is given then the (optional) Path of that URL represents a prefix that must
+	// be appended to all request URIs used to access the apiserver. This allows a frontend
+	// proxy to easily relocate all of the apiserver endpoints.
+	// +kubebuilder:validation:Format=uri
+	Host string `json:"host"`
+	// APIPath is a sub-path that points to an API root.
+	APIPath string `json:"api_path"`
+}
+
+const (
+	// WorkspaceShardCredentialsKey is the key in the referenced credentials secret where kubeconfig data lives.
+	WorkspaceShardCredentialsKey = "kubeconfig"
+
+	// WorkspaceShardCredentialsValid represents status of the credentialing process for this workspace shard.
+	WorkspaceShardCredentialsValid conditionsv1alpha1.ConditionType = "WorkspaceShardCredentialsValid"
+	// WorkspaceShardCredentialsReasonMissing reason in WorkspaceShardCredentialsValid condition means that the
+	// credentials referenced in the WorkspaceShard could not be found.
+	WorkspaceShardCredentialsReasonMissing = "Missing"
+	// WorkspaceShardCredentialsReasonInvalid reason in WorkspaceShardCredentialsValid condition means that the
+	// credentials referenced in the WorkspaceShard did not contain valid data in the correct key.
+	WorkspaceShardCredentialsReasonInvalid = "Invalid"
+)
 
 // WorkspaceShardList is a list of Workspace shards
 //

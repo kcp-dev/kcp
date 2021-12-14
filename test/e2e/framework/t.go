@@ -66,11 +66,13 @@ type T struct {
 
 // the testing.T logger is not threadsafe...
 func (t *T) Log(args ...interface{}) {
+	t.T.Helper()
 	t.T.Log(args...)
 }
 
 // the testing.T logger is not threadsafe...
 func (t *T) Logf(format string, args ...interface{}) {
+	t.T.Helper()
 	t.T.Logf(format, args...)
 }
 
@@ -87,6 +89,7 @@ func (t *T) Wait() {
 		case <-t.ctx.Done():
 			return
 		case err := <-t.errors:
+			t.T.Helper()
 			t.T.Error(err)
 		}
 	}

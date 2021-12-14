@@ -22,13 +22,20 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	utilconditions "github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -36,8 +43,10 @@ import (
 func TestWorkspaceController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client clientset.Interface
-		expect framework.RegisterWorkspaceExpectation
+		client      clientset.Interface
+		kubeClient  kubernetesclientset.Interface
+		expect      framework.RegisterWorkspaceExpectation
+		expectShard framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
 		name string
@@ -201,6 +210,75 @@ func TestWorkspaceController(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "create a workspace with a shard that has credentials, expect workspace to have base URL",
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				if _, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{}); err != nil {
+					t.Errorf("failed to create credentials namespace: %v", err)
+					return
+				}
+				rawCfg := clientcmdapi.Config{
+					Clusters:       map[string]*clientcmdapi.Cluster{"cluster": {Server: "https://kcp.dev/apiprefix"}},
+					Contexts:       map[string]*clientcmdapi.Context{"context": {Cluster: "cluster", AuthInfo: "user"}},
+					CurrentContext: "context",
+					AuthInfos:      map[string]*clientcmdapi.AuthInfo{"user": {Username: "user", Password: "password"}},
+				}
+				rawBytes, err := clientcmd.Write(rawCfg)
+				if err != nil {
+					t.Errorf("could not serialize raw config: %v", err)
+					return
+				}
+				if _, err := server.kubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
+					Data: map[string][]byte{
+						"kubeconfig": rawBytes,
+					},
+				}, metav1.CreateOptions{}); err != nil {
+					t.Errorf("failed to create credentials secret: %v", err)
+					return
+				}
+				workspaceShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
+						Name:      "kubeconfig",
+						Namespace: "credentials",
+					}},
+				}, metav1.CreateOptions{})
+				if err != nil {
+					t.Errorf("failed to create workspace shard: %v", err)
+					return
+				}
+				if err := server.expectShard(workspaceShard, func(shard *tenancyv1alpha1.WorkspaceShard) error {
+					if !utilconditions.IsTrue(shard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
+						return fmt.Errorf("workspace shard %s does not have valid credentials, conditions: %#v", shard.Name, shard.GetConditions())
+					}
+					return nil
+				}); err != nil {
+					t.Errorf("did not see workspace shard get valid credentials: %v", err)
+					return
+				}
+				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				if err != nil {
+					t.Errorf("failed to create workspace: %v", err)
+					return
+				}
+				if err := server.expect(workspace, func(workspace *tenancyv1alpha1.Workspace) error {
+					if err := scheduled(workspaceShard.Name)(workspace); err != nil {
+						return err
+					}
+					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
+						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceURLValid))
+					}
+					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix/clusters/steve"); diff != "" {
+						return fmt.Errorf("got incorrect base URL on workspace: %v", diff)
+					}
+					return nil
+				}); err != nil {
+					t.Errorf("did not see workspace updated: %v", err)
+					return
+				}
+			},
+		},
 	}
 	const serverName = "main"
 	for i := range testCases {
@@ -227,7 +305,7 @@ func TestWorkspaceController(t *testing.T) {
 				t.Errorf("failed to detect cluster name: %v", err)
 				return
 			}
-			clients, err := clientset.NewClusterForConfig(cfg)
+			clients, err := kcpclientset.NewClusterForConfig(cfg)
 			if err != nil {
 				t.Errorf("failed to construct client for server: %v", err)
 				return
@@ -238,10 +316,23 @@ func TestWorkspaceController(t *testing.T) {
 				t.Errorf("failed to start expecter: %v", err)
 				return
 			}
+			expectShard, err := framework.ExpectWorkspaceShards(ctx, t, client)
+			if err != nil {
+				t.Errorf("failed to start expecter: %v", err)
+				return
+			}
+			kubeClients, err := kubernetesclientset.NewClusterForConfig(cfg)
+			if err != nil {
+				t.Errorf("failed to construct kube client for server: %v", err)
+				return
+			}
+			kubeClient := kubeClients.Cluster(clusterName)
 			testCase.work(ctx, t, runningServer{
 				RunningServer: server,
 				client:        client,
+				kubeClient:    kubeClient,
 				expect:        expect,
+				expectShard:   expectShard,
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
