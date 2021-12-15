@@ -17,10 +17,9 @@ limitations under the License.
 package server
 
 import (
-	"flag"
-
 	"github.com/spf13/pflag"
 
+	"k8s.io/component-base/logs"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	"github.com/kcp-dev/kcp/pkg/etcd"
@@ -45,6 +44,7 @@ func DefaultConfig() *Config {
 		ShardKubeconfigFile:        "",
 		EnableSharding:             false,
 		Authentication:             kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
+		Logs:                       logs.NewOptions(),
 	}
 }
 
@@ -66,10 +66,10 @@ type Config struct {
 	ShardKubeconfigFile        string
 	EnableSharding             bool
 	Authentication             *kubeoptions.BuiltInAuthenticationOptions
+	Logs                       *logs.Options
 }
 
 func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
-	fs.AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
 	fs.BoolVar(&c.InstallClusterController, "install-cluster-controller", c.InstallClusterController, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
 	fs.BoolVar(&c.InstallWorkspaceController, "install-workspace-controller", c.InstallWorkspaceController, "Registers the workspace custom resource, and the related controller to allow scheduling workspaces to shards")
 	fs.BoolVar(&c.InstallNamespaceScheduler, "install-namespace-scheduler", c.InstallNamespaceScheduler, "Registers the namespace scheduler to allow scheduling namespaces and resource to physical clusters")
@@ -90,5 +90,6 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	c.ClusterControllerOptions = cluster.BindOptions(c.ClusterControllerOptions, fs)
 
 	c.Authentication.AddFlags(fs)
+	c.Logs.AddFlags(fs)
 	return c
 }

@@ -18,13 +18,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 
 	"github.com/spf13/cobra"
 
 	"k8s.io/client-go/rest"
+	"k8s.io/component-base/cli"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/server"
@@ -32,7 +32,8 @@ import (
 
 func main() {
 	help.FitTerminal()
-	cmd := &cobra.Command{
+
+	kcpCmd := &cobra.Command{
 		Use:   "kcp",
 		Short: "Kube for Control Plane (KCP)",
 		Long: help.Doc(`
@@ -51,6 +52,7 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+
 	var cfg *server.Config
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -78,8 +80,8 @@ func main() {
 		},
 	}
 	cfg = server.BindOptions(server.DefaultConfig(), startCmd.Flags())
-	cmd.AddCommand(startCmd)
-	if err := cmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-	}
+
+	kcpCmd.AddCommand(startCmd)
+	code := cli.Run(kcpCmd)
+	os.Exit(code)
 }

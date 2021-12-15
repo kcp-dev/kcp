@@ -216,6 +216,7 @@ func (s *Server) Run(ctx context.Context) error {
 	serverOptions := options.NewServerRunOptions()
 
 	serverOptions.Authentication = s.cfg.Authentication
+	serverOptions.Logs = s.cfg.Logs
 
 	host, port, err := net.SplitHostPort(s.cfg.Listen)
 	if err != nil {
