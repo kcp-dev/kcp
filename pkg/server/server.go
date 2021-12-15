@@ -61,6 +61,8 @@ import (
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
@@ -80,11 +82,14 @@ import (
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/gvk"
+	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
+const clusterAll = "*" // TODO: find the correct place for this constant?
 const resyncPeriod = 10 * time.Hour
 
 // Server manages the configuration and kcp api-server. It allows callers to easily use kcp
@@ -635,6 +640,53 @@ func (s *Server) Run(ctx context.Context) error {
 			kubeSharedInformerFactory.Start(context.StopCh)
 			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
 			kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
+
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
+	if s.cfg.InstallNamespaceScheduler {
+		kubeconfig := clientConfig.DeepCopy()
+		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+		if err != nil {
+			return err
+		}
+
+		kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
+		if err != nil {
+			return err
+		}
+		crossClusterClient := kcpClient.Cluster(clusterAll)
+
+		kubeClient := kubernetes.NewForConfigOrDie(adminConfig)
+		disco := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
+		dynClient := dynamic.NewForConfigOrDie(adminConfig)
+
+		csif := kcpexternalversions.NewSharedInformerFactory(crossClusterClient, resyncPeriod)
+		nsif := informers.NewSharedInformerFactory(kubeClient, resyncPeriod)
+
+		gvkTrans := gvk.NewGVKTranslator(adminConfig)
+
+		namespaceScheduler := kcpnamespace.NewController(
+			dynClient,
+			disco,
+			csif.Cluster().V1alpha1().Clusters(),
+			csif.Cluster().V1alpha1().Clusters().Lister(),
+			nsif.Core().V1().Namespaces(),
+			nsif.Core().V1().Namespaces().Lister(),
+			kubeClient.CoreV1().Namespaces(),
+			gvkTrans,
+		)
+
+		if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {
+			csif.Start(context.StopCh)
+			csif.WaitForCacheSync(context.StopCh)
+			nsif.Start(context.StopCh)
+			nsif.WaitForCacheSync(context.StopCh)
+
+			go namespaceScheduler.Start(ctx, 2)
 
 			return nil
 		}); err != nil {

@@ -37,6 +37,7 @@ func DefaultConfig() *Config {
 		InstallClusterController:   false,
 		ClusterControllerOptions:   cluster.DefaultOptions(),
 		InstallWorkspaceController: false,
+		InstallNamespaceScheduler:  false,
 		KubeConfigPath:             "admin.kubeconfig",
 		Listen:                     ":6443",
 		RootDirectory:              ".kcp",
@@ -57,6 +58,7 @@ type Config struct {
 	InstallClusterController   bool
 	ClusterControllerOptions   *cluster.Options
 	InstallWorkspaceController bool
+	InstallNamespaceScheduler  bool
 	KubeConfigPath             string
 	Listen                     string
 	RootDirectory              string
@@ -70,6 +72,7 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
 	fs.BoolVar(&c.InstallClusterController, "install_cluster_controller", c.InstallClusterController, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
 	fs.BoolVar(&c.InstallWorkspaceController, "install_workspace_controller", c.InstallWorkspaceController, "Registers the workspace custom resource, and the related controller to allow scheduling workspaces to shards")
+	fs.BoolVar(&c.InstallNamespaceScheduler, "install_namespace_scheduler", c.InstallNamespaceScheduler, "Registers the namespace scheduler to allow scheduling namespaces and resource to physical clusters")
 	fs.StringVar(&c.Listen, "listen", c.Listen, "Address:port to bind to")
 	fs.StringSliceVar(&c.EtcdClientInfo.Endpoints, "etcd-servers", c.EtcdClientInfo.Endpoints, "List of external etcd servers to connect with (scheme://ip:port), comma separated. If absent an in-process etcd will be created.")
 	fs.StringVar(&c.EtcdClientInfo.KeyFile, "etcd-keyfile", c.EtcdClientInfo.KeyFile, "TLS key file used to secure etcd communication.")
