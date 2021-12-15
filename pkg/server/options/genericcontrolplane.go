@@ -107,7 +107,6 @@ func (s *ServerRunOptions) Validate() []error {
 	errs = append(errs, s.Admission.Validate()...)
 	//errs = append(errs, s.APIEnablement.Validate(legacyscheme.Scheme, apiextensionsapiserver.Scheme, aggregatorscheme.Scheme)...)
 	errs = append(errs, s.Metrics.Validate()...)
-	errs = append(errs, s.Logs.Validate()...)
 	errs = append(errs, validateAPIServerIdentity(s)...)
 
 	return errs
