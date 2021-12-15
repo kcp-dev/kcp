@@ -330,7 +330,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 		return err
 	}
 
-	if !exists {
+	if !exists && c.deleteFn != nil {
 		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, name)
 		return c.deleteFn(c, ctx, gvr, namespace, name)
 	}
