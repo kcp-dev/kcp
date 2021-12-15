@@ -64,7 +64,7 @@ func (workspaceStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
 
-// Canonicalize normalizes the object after validation.
+// Canonicalize normalizes the object after validation.projectapi
 func (workspaceStrategy) Canonicalize(obj runtime.Object) {
 }
 

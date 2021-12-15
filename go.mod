@@ -14,6 +14,7 @@ require (
 	github.com/spf13/afero v1.4.1 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.7.0
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.etcd.io/etcd/server/v3 v3.5.0

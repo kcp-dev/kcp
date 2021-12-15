@@ -18,12 +18,10 @@ import (
 	"strings"
 	"time"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -41,22 +39,7 @@ const DefaultRootPathPrefix string = "/services/applications"
 
 func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, workspaceClient workspaceclient.WorkspaceInterface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) builders.VirtualWorkspaceBuilder {
 	crbInformer := rbacInformers.ClusterRoleBindings()
-	_ = crbInformer.Informer().AddIndexers(map[string]cache.IndexFunc{
-		virtualworkspacesregistry.PrettyNameIndex: func(obj interface{}) ([]string, error) {
-			if crb, isCRB := obj.(*rbacv1.ClusterRoleBinding); isCRB {
-				return []string{crb.Labels[virtualworkspacesregistry.PrettyNameLabel]}, nil
-			}
-
-			return []string{}, nil
-		},
-		virtualworkspacesregistry.InternalNameIndex: func(obj interface{}) ([]string, error) {
-			if crb, isCRB := obj.(*rbacv1.ClusterRoleBinding); isCRB {
-				return []string{crb.Labels[virtualworkspacesregistry.InternalNameLabel]}, nil
-			}
-
-			return []string{}, nil
-		},
-	})
+	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -113,7 +96,7 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 
 					return map[string]builders.RestStorageBuidler{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
-							return virtualworkspacesregistry.NewREST(workspaceClient, kubeClient.RbacV1(), crbInformer, reviewerProvider, workspaceAuthorizationCache, workspaceCache), nil
+							return virtualworkspacesregistry.NewREST(workspaceClient, kubeClient.RbacV1(), crbInformer, reviewerProvider, workspaceAuthorizationCache), nil
 						},
 					}, nil
 				},
