@@ -265,22 +265,31 @@ func (c *kcpServer) loadCfg() error {
 	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
 		kubeconfigPath := filepath.Join(c.dataDir, "admin.kubeconfig")
-		if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
+		if fs, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
 			return // try again
 		} else if err != nil {
 			loadError = fmt.Errorf("failed to read admin kubeconfig after kcp start: %w", err)
 			return
+		} else if fs.Size() == 0 {
+			return // try again
 		}
+
 		rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
 		if err != nil {
 			loadError = fmt.Errorf("failed to load admin kubeconfig: %w", err)
 			return
 		}
+
 		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil)
+
 		c.lock.Lock()
 		c.cfg = config
 		c.rawCfg = rawConfig // TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
 		c.lock.Unlock()
+
+		// If we were able to load, clear loadError so we eventually return nil
+		loadError = nil
+
 		cancel()
 	}, 100*time.Millisecond)
 	c.lock.Lock()
