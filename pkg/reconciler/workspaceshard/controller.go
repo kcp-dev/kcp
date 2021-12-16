@@ -18,6 +18,8 @@ package workspaceshard
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -289,6 +291,14 @@ func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alp
 		return nil
 	}
 
+	hash := sha256.New()
+	if _, err := hash.Write(data); err != nil {
+		// TODO: our hash cannot ever return an error on Write, but the interface makes it possible, do we care to do something better?
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, "Referenced credentials could not be hashed: %v.", err.Error())
+		return nil
+	}
+
+	workspaceShard.Status.CredentialsHash = base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(hash.Sum(nil))
 	workspaceShard.Status.ConnectionInfo = &tenancyv1alpha1.ConnectionInfo{
 		Host:    cfg.Host,
 		APIPath: cfg.APIPath,

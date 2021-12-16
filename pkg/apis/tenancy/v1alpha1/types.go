@@ -210,6 +210,10 @@ type WorkspaceShardStatus struct {
 	// Connection information for the WorkspaceShard.
 	// +optional
 	ConnectionInfo *ConnectionInfo `json:"connectionInfo,omitempty"`
+
+	// Version of credentials last successfully loaded.
+	// +optional
+	CredentialsHash string `json:"credentialsHash,omitempty"`
 }
 
 // ConnectionInfo holds the information necessary to connect to a shard.
