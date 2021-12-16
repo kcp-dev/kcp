@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
@@ -70,6 +71,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clusters"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
@@ -986,6 +988,8 @@ func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (
 			crd = aCRD
 		} else {
 			if !equality.Semantic.DeepEqual(crd.Spec, aCRD.Spec) {
+				//TODO(jmprusi): Review the logging level (https://github.com/kcp-dev/kcp/pull/328#discussion_r770683200)
+				klog.Infof("Found multiple CRDs with the same name %q, but different specs: %v", crdName, cmp.Diff(crd.Spec, aCRD.Spec))
 				return crd, false
 			}
 		}
