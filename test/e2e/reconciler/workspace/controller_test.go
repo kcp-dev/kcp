@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -150,10 +151,12 @@ func TestWorkspaceController(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
+				var lock sync.Mutex
 				var currentShard, otherShard string
 				if err := server.expect(workspace, func(current *tenancyv1alpha1.Workspace) error {
 					expectationErr := scheduledAnywhere(current)
 					if expectationErr == nil {
+						lock.Lock()
 						currentShard = current.Status.Location.Current
 						for _, name := range []string{bostonShard.Name, atlantaShard.Name} {
 							if name != currentShard {
@@ -161,6 +164,7 @@ func TestWorkspaceController(t *testing.T) {
 								break
 							}
 						}
+						lock.Unlock()
 					}
 					return expectationErr
 				}); err != nil {
