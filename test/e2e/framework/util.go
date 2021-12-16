@@ -129,7 +129,8 @@ func (c *kcpServer) Artifact(tinterface TestingTInterface, producer func() (runt
 		t.Logf("could not get discovery client for server: %v", err)
 		return
 	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(discoveryClient))
+	scopedDiscoveryClient := discoveryClient.WithCluster(accessor.GetClusterName())
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(scopedDiscoveryClient))
 	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
 		t.Logf("could not get REST mapping for artifact's GVK: %v", err)
