@@ -51,7 +51,7 @@ type Expecter interface {
 func NewExpecter(informer cache.SharedIndexInformer) *expectationController {
 	controller := expectationController{
 		informer:     informer,
-		expectations: map[uuid.UUID]func(){},
+		expectations: map[uuid.UUID]expectationRecord{},
 		lock:         sync.RWMutex{},
 	}
 
@@ -70,11 +70,21 @@ func NewExpecter(informer cache.SharedIndexInformer) *expectationController {
 	return &controller
 }
 
+type expectationRecord struct {
+	evaluate func()
+	// calls to evaluate this expectation from the informer's event handlers
+	// will be concurrent with the call we make during expectation registration,
+	// so we need to synchronize them to ensure that downstream consumers of this
+	// library do not need to worry about synchronization if their functions have
+	// mutating side-effects
+	*sync.Mutex
+}
+
 // expectationController triggers the registered expectations on informer events
 type expectationController struct {
 	informer cache.SharedIndexInformer
 	// expectations are recorded by UUID so they may be removed after they complete
-	expectations map[uuid.UUID]func()
+	expectations map[uuid.UUID]expectationRecord
 	lock         sync.RWMutex
 }
 
@@ -82,8 +92,10 @@ func (c *expectationController) triggerExpectations() {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	for _, expectation := range c.expectations {
-		expectation()
+	for id := range c.expectations {
+		c.expectations[id].Lock()
+		c.expectations[id].evaluate()
+		c.expectations[id].Unlock()
 	}
 }
 
@@ -111,7 +123,10 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 
 	id := uuid.New()
 	c.lock.Lock()
-	c.expectations[id] = producer
+	c.expectations[id] = expectationRecord{
+		evaluate: producer,
+		Mutex:    &sync.Mutex{},
+	}
 	c.lock.Unlock()
 
 	defer func() {
@@ -148,8 +163,10 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 		// It's possible that this first evaluation races with us getting called from the
 		// controller, so we need to make sure that there's still an expectation registered
 		// here before running it!
-		if f, ok := c.expectations[id]; ok {
-			f()
+		if e, ok := c.expectations[id]; ok {
+			e.Lock()
+			e.evaluate()
+			e.Unlock()
 		}
 		c.lock.RUnlock()
 	}()
