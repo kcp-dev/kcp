@@ -36,6 +36,7 @@ var seen = sync.Map{}
 
 type RunningServer interface {
 	Name() string
+	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
 	Config() (*rest.Config, error)
 	Artifact(t TestingTInterface, producer func() (runtime.Object, error))

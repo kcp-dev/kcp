@@ -50,8 +50,9 @@ type kcpServer struct {
 	dataDir     string
 	artifactDir string
 
-	lock *sync.Mutex
-	cfg  clientcmd.ClientConfig
+	lock           *sync.Mutex
+	cfg            clientcmd.ClientConfig
+	kubeconfigPath string
 	// TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
 	rawCfg *clientcmdapi.Config
 
@@ -188,6 +189,11 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 // Name exposes the name of this kcp server
 func (c *kcpServer) Name() string {
 	return c.name
+}
+
+// Name exposes the path of the kubeconfig file of this kcp server
+func (c *kcpServer) KubeconfigPath() string {
+	return c.kubeconfigPath
 }
 
 // Config exposes a copy of the client config for this server.
