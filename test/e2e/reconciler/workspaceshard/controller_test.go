@@ -258,6 +258,101 @@ func TestWorkspaceShardController(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "update credentials for shard, see credential version change",
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				if _, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{}); err != nil {
+					t.Errorf("failed to create credentials namespace: %v", err)
+					return
+				}
+				rawCfg := clientcmdapi.Config{
+					Clusters:       map[string]*clientcmdapi.Cluster{"cluster": {Server: "https://kcp.dev/apiprefix"}},
+					Contexts:       map[string]*clientcmdapi.Context{"context": {Cluster: "cluster", AuthInfo: "user"}},
+					CurrentContext: "context",
+					AuthInfos:      map[string]*clientcmdapi.AuthInfo{"user": {Username: "user", Password: "password"}},
+				}
+				rawBytes, err := clientcmd.Write(rawCfg)
+				if err != nil {
+					t.Errorf("could not serialize raw config: %v", err)
+					return
+				}
+				cfg, err := clientcmd.NewNonInteractiveClientConfig(rawCfg, "context", nil, nil).ClientConfig()
+				if err != nil {
+					t.Errorf("failed to create client config: %v", err)
+					return
+				}
+				secret, err := server.kubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
+					Data: map[string][]byte{
+						"kubeconfig": rawBytes,
+					},
+				}, metav1.CreateOptions{})
+				if err != nil {
+					t.Errorf("failed to create credentials secret: %v", err)
+					return
+				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
+				})
+				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
+						Name:      "kubeconfig",
+						Namespace: "credentials",
+					}},
+				}, metav1.CreateOptions{})
+				if err != nil {
+					t.Errorf("failed to create workspace shard: %v", err)
+					return
+				}
+				defer server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
+				})
+				var version string
+				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
+					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
+						return fmt.Errorf("expected to see valid credentials, got: %#v", workspaceShard.Status.Conditions)
+					}
+					if diff := cmp.Diff(workspaceShard.Status.ConnectionInfo, &tenancyv1alpha1.ConnectionInfo{
+						Host:    cfg.Host,
+						APIPath: cfg.APIPath,
+					}); diff != "" {
+						return fmt.Errorf("got incorrect connection info: %v", diff)
+					}
+					if workspaceShard.Status.CredentialsHash == "" {
+						return errors.New("no credential version encoded")
+					}
+					version = workspaceShard.Status.CredentialsHash
+					return nil
+				}); err != nil {
+					t.Errorf("did not see workspace shard updated: %v", err)
+					return
+				}
+				rawCfg.AuthInfos["user"].Password = "rotated"
+				rawBytes, err = clientcmd.Write(rawCfg)
+				if err != nil {
+					t.Errorf("could not serialize raw config: %v", err)
+					return
+				}
+				secret.Data["kubeconfig"] = rawBytes
+				if _, err := server.kubeClient.CoreV1().Secrets("credentials").Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+					t.Errorf("failed to create credentials secret: %v", err)
+					return
+				}
+				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
+					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
+						return fmt.Errorf("expected to see valid credentials, got: %#v", workspaceShard.Status.Conditions)
+					}
+					if workspaceShard.Status.CredentialsHash == version {
+						return errors.New("did not see credential version change")
+					}
+					return nil
+				}); err != nil {
+					t.Errorf("did not see workspace shard updated: %v", err)
+					return
+				}
+			},
+		},
 	}
 	const serverName = "main"
 	for i := range testCases {

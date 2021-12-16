@@ -133,6 +133,9 @@ spec:
                 - api_path
                 - host
                 type: object
+              credentialsHash:
+                description: Version of credentials last successfully loaded.
+                type: string
             type: object
         type: object
     served: true
