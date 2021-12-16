@@ -166,9 +166,6 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 		line := scanner.Bytes()
 		ignored := false
 		for _, ignore := range [][]byte{
-			// TODO: a rebase of our k8s fork on something newer will remove the following messages
-			[]byte(`flowcontrol.apiserver.k8s.io/v1beta1 FlowSchema is deprecated in v1.23+, unavailable in v1.26+`),
-			[]byte(`flowcontrol.apiserver.k8s.io/v1beta1 PriorityLevelConfiguration is deprecated in v1.23+, unavailable in v1.26+`),
 			// TODO: some careful thought on context cancellation might fix the following error
 			[]byte(`clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to`),
 		} {

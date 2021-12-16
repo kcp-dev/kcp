@@ -24,6 +24,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/server"
 )
@@ -62,6 +64,12 @@ func main() {
 			kubeconfig file will be generated at initialization time that may be
 			used to access the control plane.
 		`),
+		PersistentPreRunE: func(*cobra.Command, []string) error {
+			// silence client-go warnings.
+			// apiserver loopback clients should not log self-issued warnings.
+			rest.SetDefaultWarningHandler(rest.NoWarnings{})
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 			defer cancel()
