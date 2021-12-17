@@ -53,12 +53,12 @@ func DefaultOptions() *Options {
 
 // BindOptions binds the cluster controller options to the flag set.
 func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
-	fs.StringVar(&o.SyncerImage, "syncer_image", o.SyncerImage, "Syncer image to install on clusters")
-	fs.BoolVar(&o.PullMode, "pull_mode", o.PullMode, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
-	fs.BoolVar(&o.PushMode, "push_mode", o.PushMode, "If true, run syncer for each cluster from inside cluster controller")
-	fs.BoolVar(&o.AutoPublishAPIs, "auto_publish_apis", o.AutoPublishAPIs, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
-	fs.IntVar(&o.NumThreads, "cluster_controller_threads", o.NumThreads, "Number of threads to use for the cluster controller.")
-	fs.StringSliceVar(&o.ResourcesToSync, "resources_to_sync", o.ResourcesToSync, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	fs.StringVar(&o.SyncerImage, "syncer-image", o.SyncerImage, "Syncer image to install on clusters")
+	fs.BoolVar(&o.PullMode, "pull-mode", o.PullMode, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
+	fs.BoolVar(&o.PushMode, "push-mode", o.PushMode, "If true, run syncer for each cluster from inside cluster controller")
+	fs.BoolVar(&o.AutoPublishAPIs, "auto-publish-apis", o.AutoPublishAPIs, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
+	fs.IntVar(&o.NumThreads, "cluster-controller-threads", o.NumThreads, "Number of threads to use for the cluster controller.")
+	fs.StringSliceVar(&o.ResourcesToSync, "resources-to-sync", o.ResourcesToSync, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	return o
 }
 
@@ -74,7 +74,7 @@ type Options struct {
 
 func (o *Options) Validate() error {
 	if o.PullMode && o.PushMode {
-		return errors.New("can't set both --push_mode and --pull_mode")
+		return errors.New("can't set both --push-mode and --pull-mode")
 	}
 	return nil
 }

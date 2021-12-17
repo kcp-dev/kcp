@@ -25,7 +25,7 @@ setupTraps $0
 KUBECONFIG=${KCP_DATA_ROOT}/.kcp/admin.kubeconfig
 export KCP_LISTEN_ADDR="127.0.0.1:6443"
 
-${DEMO_ROOT}/startKcpAndClusterController.sh --auto_publish_apis=true --resources_to_sync deployments.apps &
+${DEMO_ROOT}/startKcpAndClusterController.sh --auto-publish-apis=true --resources-to-sync deployments.apps &
 KCP_PID=$!
 
 wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"

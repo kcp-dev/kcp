@@ -70,9 +70,9 @@ type Config struct {
 
 func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
-	fs.BoolVar(&c.InstallClusterController, "install_cluster_controller", c.InstallClusterController, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
-	fs.BoolVar(&c.InstallWorkspaceController, "install_workspace_controller", c.InstallWorkspaceController, "Registers the workspace custom resource, and the related controller to allow scheduling workspaces to shards")
-	fs.BoolVar(&c.InstallNamespaceScheduler, "install_namespace_scheduler", c.InstallNamespaceScheduler, "Registers the namespace scheduler to allow scheduling namespaces and resource to physical clusters")
+	fs.BoolVar(&c.InstallClusterController, "install-cluster-controller", c.InstallClusterController, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
+	fs.BoolVar(&c.InstallWorkspaceController, "install-workspace-controller", c.InstallWorkspaceController, "Registers the workspace custom resource, and the related controller to allow scheduling workspaces to shards")
+	fs.BoolVar(&c.InstallNamespaceScheduler, "install-namespace-scheduler", c.InstallNamespaceScheduler, "Registers the namespace scheduler to allow scheduling namespaces and resource to physical clusters")
 	fs.StringVar(&c.Listen, "listen", c.Listen, "Address:port to bind to")
 	fs.StringSliceVar(&c.EtcdClientInfo.Endpoints, "etcd-servers", c.EtcdClientInfo.Endpoints, "List of external etcd servers to connect with (scheme://ip:port), comma separated. If absent an in-process etcd will be created.")
 	fs.StringVar(&c.EtcdClientInfo.KeyFile, "etcd-keyfile", c.EtcdClientInfo.KeyFile, "TLS key file used to secure etcd communication.")
@@ -81,11 +81,11 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.StringVar(&c.ProfilerAddress, "profiler-address", c.ProfilerAddress, "[Address]:port to bind the profiler to.")
 	fs.StringVar(&c.ShardKubeconfigFile, "shard-kubeconfig-file", c.ShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to peer kcp shards.")
 	fs.BoolVar(&c.EnableSharding, "enable-sharding", c.EnableSharding, "Enable delegating to peer kcp shards.")
-	fs.StringVar(&c.RootDirectory, "root_directory", c.RootDirectory, "Root directory.")
-	fs.StringVar(&c.EtcdPeerPort, "etcd_peer_port", c.EtcdPeerPort, "Port for etcd peer communication.")
-	fs.StringVar(&c.EtcdClientPort, "etcd_client_port", c.EtcdClientPort, "Port for etcd client communication.")
-	fs.Int64Var(&c.EtcdWalSizeBytes, "etcd_wal_size_bytes", c.EtcdWalSizeBytes, "Size in bytes for the etcd WAL. Leave unset to use the default.")
-	fs.StringVar(&c.KubeConfigPath, "kubeconfig_path", c.KubeConfigPath, "Path to which the administrative kubeconfig should be written at startup.")
+	fs.StringVar(&c.RootDirectory, "root-directory", c.RootDirectory, "Root directory.")
+	fs.StringVar(&c.EtcdPeerPort, "etcd-peer-port", c.EtcdPeerPort, "Port for etcd peer communication.")
+	fs.StringVar(&c.EtcdClientPort, "etcd-client-port", c.EtcdClientPort, "Port for etcd client communication.")
+	fs.Int64Var(&c.EtcdWalSizeBytes, "etcd-wal-size-bytes", c.EtcdWalSizeBytes, "Size in bytes for the etcd WAL. Leave unset to use the default.")
+	fs.StringVar(&c.KubeConfigPath, "kubeconfig-path", c.KubeConfigPath, "Path to which the administrative kubeconfig should be written at startup.")
 
 	c.ClusterControllerOptions = cluster.BindOptions(c.ClusterControllerOptions, fs)
 
