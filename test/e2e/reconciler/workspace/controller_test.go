@@ -336,7 +336,7 @@ func TestWorkspaceController(t *testing.T) {
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
-			Args: []string{"--install_workspace_controller"},
+			Args: []string{"--install-workspace-controller"},
 		})
 	}
 }

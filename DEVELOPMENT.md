@@ -22,12 +22,12 @@ First, be sure to install the CRD types needed by the controller. These are:
 kubectl apply -f config/
 ```
 
-The Cluster Controller requires a `--syncer_image` to install on new clusters.
+The Cluster Controller requires a `--syncer-image` to install on new clusters.
 To build this image and pass it to the Cluster Controller, you can use [`ko`](https://github.com/google/ko):
 
 ```
 go run ./cmd/cluster-controller \
-    --syncer_image=$(ko publish ./cmd/syncer) \
+    --syncer-image=$(ko publish ./cmd/syncer) \
     --kubeconfig=.kcp/admin.kubeconfig
 ```
 

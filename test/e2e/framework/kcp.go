@@ -92,12 +92,12 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 	return &kcpServer{
 		name: cfg.Name,
 		args: append([]string{
-			"--root_directory=" + dataDir,
+			"--root-directory=" + dataDir,
 			"--listen=:" + kcpListenPort,
-			"--etcd_client_port=" + etcdClientPort,
-			"--etcd_peer_port=" + etcdPeerPort,
-			"--etcd_wal_size_bytes=" + strconv.Itoa(5*1000), // 5KB
-			"--kubeconfig_path=admin.kubeconfig"},
+			"--etcd-client-port=" + etcdClientPort,
+			"--etcd-peer-port=" + etcdPeerPort,
+			"--etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
+			"--kubeconfig-path=admin.kubeconfig"},
 			cfg.Args...),
 		dataDir:     dataDir,
 		artifactDir: artifactDir,

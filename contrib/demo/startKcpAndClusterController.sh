@@ -44,7 +44,7 @@ kubectl --kubeconfig $KUBECONFIG apply -f config/
 
 echo ""
 echo "Starting Cluster Controller..."
-${KCP_ROOT}/bin/cluster-controller --push_mode=true --pull_mode=false --kubeconfig=${KUBECONFIG} "$@" &> cluster-controller.log &
+${KCP_ROOT}/bin/cluster-controller --push-mode=true --pull-mode=false --kubeconfig=${KUBECONFIG} "$@" &> cluster-controller.log &
 CC_PID=$!
 echo "Cluster Controller started: $CC_PID" 
 
