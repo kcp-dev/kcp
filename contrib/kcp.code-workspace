@@ -187,6 +187,27 @@
 					"-context",
 					"admin"
 				],
+			},
+			{
+				"name": "Launch virtual workspaces Workspaces API Server",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/virtual-workspaces",
+				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
+				"cwd": "${workspaceFolder:kcp}",
+				"args": [
+					"workspaces",
+					"--workspaces:kubeconfig",
+					"${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
+					"--authentication-kubeconfig",
+					"${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
+					"--secure-port",
+					"6444",
+					"--authentication-skip-lookup",
+					"--cert-dir",
+					"${workspaceFolder:kcp}/.kcp/data"
+				],
 			}
 		]
 	}
