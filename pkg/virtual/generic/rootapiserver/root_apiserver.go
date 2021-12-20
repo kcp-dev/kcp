@@ -224,7 +224,7 @@ func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOption
 	//EnableAPIResponseCompression: utilfeature.DefaultFeatureGate.Enabled(features.APIResponseCompression),
 	//LongRunningFunc: genericfilters.BasicLongRunningRequestCheck(sets.NewString("watch"), sets.NewString()),
 
-	genericapiserveroptions.NewCoreAPIOptions().ApplyTo(genericConfig)
+	_ = genericapiserveroptions.NewCoreAPIOptions().ApplyTo(genericConfig)
 
 	// these are set via options
 	//SecureServing *SecureServingInfo

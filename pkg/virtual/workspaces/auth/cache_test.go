@@ -156,7 +156,7 @@ func TestSyncWorkspace(t *testing.T) {
 	)
 	// we prime the data we need here since we are not running reflectors
 	for i := range workspaceList.Items {
-		wsIndexer.Add(&workspaceList.Items[i])
+		_ = wsIndexer.Add(&workspaceList.Items[i])
 	}
 
 	// synchronize the cache
@@ -184,7 +184,7 @@ func TestSyncWorkspace(t *testing.T) {
 		}
 		newVersion := strconv.Itoa(oldVersion + 1)
 		workspace.ResourceVersion = newVersion
-		wsIndexer.Add(&workspace)
+		_ = wsIndexer.Add(&workspace)
 	}
 
 	// now refresh the cache (which is resource version aware)

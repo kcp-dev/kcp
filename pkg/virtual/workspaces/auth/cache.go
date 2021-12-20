@@ -249,7 +249,7 @@ func (ac *AuthorizationCache) synchronizeWorkspaces(userSubjectRecordStore cache
 			workspaceResourceVersion: workspace.ResourceVersion,
 		}
 		if err := ac.syncHandler(reviewRequest, userSubjectRecordStore, groupSubjectRecordStore, reviewRecordStore); err != nil {
-			utilruntime.HandleError(fmt.Errorf("error synchronizing: %v", err))
+			utilruntime.HandleError(fmt.Errorf("error synchronizing: %w", err))
 		}
 	}
 	return workspaceSet
@@ -263,7 +263,7 @@ func (ac *AuthorizationCache) purgeDeletedWorkspaces(oldWorkspaces, newWorkspace
 		if !newWorkspaces.Has(reviewRecord.workspace) {
 			deleteWorkspaceFromSubjects(userSubjectRecordStore, reviewRecord.users, reviewRecord.workspace)
 			deleteWorkspaceFromSubjects(groupSubjectRecordStore, reviewRecord.groups, reviewRecord.workspace)
-			reviewRecordStore.Delete(reviewRecord)
+			_ = reviewRecordStore.Delete(reviewRecord)
 		}
 	}
 }
@@ -358,7 +358,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	_, workspaceName := clusters.SplitClusterAwareKey(workspace)
 	review, err := ac.reviewer.Review(workspaceName)
 	if err != nil {
-		return fmt.Errorf("review for workspace %s failed: %v", workspace, err)
+		return fmt.Errorf("review for workspace %s failed: %w", workspace, err)
 	}
 
 	usersToRemove := sets.NewString()
@@ -473,7 +473,7 @@ func deleteWorkspaceFromSubjects(subjectRecordStore cache.Store, subjects []stri
 			subjectRecord := obj.(*subjectRecord)
 			delete(subjectRecord.workspaces, workspace)
 			if len(subjectRecord.workspaces) == 0 {
-				subjectRecordStore.Delete(subjectRecord)
+				_ = subjectRecordStore.Delete(subjectRecord)
 			}
 		}
 	}
@@ -488,7 +488,7 @@ func addSubjectsToWorkspace(subjectRecordStore cache.Store, subjects []string, w
 			item = obj.(*subjectRecord)
 		} else {
 			item = &subjectRecord{subject: subject, workspaces: sets.NewString()}
-			subjectRecordStore.Add(item)
+			_ = subjectRecordStore.Add(item)
 		}
 		item.workspaces.Insert(workspace)
 	}
@@ -523,7 +523,7 @@ func cacheReviewRecord(request *reviewRequest, lastKnownValue *reviewRecord, rev
 		reviewRecord.roleBindingUIDToResourceVersion[k] = v
 	}
 	// update the cache record
-	reviewRecordStore.Add(reviewRecord)
+	_ = reviewRecordStore.Add(reviewRecord)
 }
 
 func lastKnown(reviewRecordStore cache.Store, workspace string) (*reviewRecord, error) {

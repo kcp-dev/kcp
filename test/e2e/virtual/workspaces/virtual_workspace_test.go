@@ -22,11 +22,7 @@ import (
 	"fmt"
 	"testing"
 
-	//	"os"
-
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-
-	//	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -35,8 +31,6 @@ import (
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	utilconditions "github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
-	//	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
-	//	workspacescmd "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cmd"
 )
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {

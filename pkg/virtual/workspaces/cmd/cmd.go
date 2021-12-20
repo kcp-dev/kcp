@@ -92,6 +92,9 @@ func (o *WorkspacesSubCommandOptions) Validate() []error {
 
 func (o *WorkspacesSubCommandOptions) InitializeBuilders() ([]virtualrootapiserver.InformerStart, []builders.VirtualWorkspaceBuilder, error) {
 	kubeConfig, err := virtualgenericcmd.ReadKubeConfig(o.KubeconfigFile)
+	if err != nil {
+		return nil, nil, err
+	}
 	kubeClientConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
 		return nil, nil, err
