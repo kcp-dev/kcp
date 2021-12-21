@@ -157,7 +157,7 @@ func (o *APIServerOptions) RunAPIServer(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	klog.Infof("Starting master on %s (%s)", rootAPIServerConfig.GenericConfig.ExternalAddress, version.Get().String())
+	klog.Infof("Starting virtual workspace apiserver on %s (%s)", rootAPIServerConfig.GenericConfig.ExternalAddress, version.Get().String())
 
 	return preparedRootAPIServer.Run(stopCh)
 }
