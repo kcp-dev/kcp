@@ -42,15 +42,3 @@ type VirtualWorkspaceBuilder struct {
 	RootPathResolver       RootPathResolverFunc
 	Ready                  ReadyFunc
 }
-
-type VirtualWorkspaceBuilderProvider interface {
-	VirtualWorkspaceBuilder() VirtualWorkspaceBuilder
-}
-
-var _ VirtualWorkspaceBuilderProvider = VirtualWorkspaceBuilderProviderFunc(nil)
-
-type VirtualWorkspaceBuilderProviderFunc func() VirtualWorkspaceBuilder
-
-func (f VirtualWorkspaceBuilderProviderFunc) VirtualWorkspaceBuilder() VirtualWorkspaceBuilder {
-	return f()
-}
