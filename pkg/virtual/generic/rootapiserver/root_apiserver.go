@@ -237,50 +237,8 @@ func (c completedConfig) NewRequestInfo(req *http.Request) (*genericapirequest.R
 
 func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptionsWithLoopback, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, rootAPIServerBuilders ...builders.VirtualWorkspaceBuilder) (*RootAPIConfig, error) {
 	genericConfig := genericapiserver.NewRecommendedConfig(legacyscheme.Codecs)
-	// Current default values
-	//Serializer:                   codecs,
-	//ReadWritePort:                443,
-	//BuildHandlerChainFunc:        DefaultBuildHandlerChain,
-	//HandlerChainWaitGroup:        new(utilwaitgroup.SafeWaitGroup),
-	//LegacyAPIGroupPrefixes:       sets.NewString(DefaultLegacyAPIPrefix),
-	//DisabledPostStartHooks:       sets.NewString(),
-	//HealthzChecks:                []healthz.HealthzChecker{healthz.PingHealthz, healthz.LogHealthz},
-	//EnableIndex:                  true,
-	//EnableDiscovery:              true,
-	//EnableProfiling:              true,
-	//EnableMetrics:                true,
-	//MaxRequestsInFlight:          400,
-	//MaxMutatingRequestsInFlight:  200,
-	//RequestTimeout:               time.Duration(60) * time.Second,
-	//MinRequestTimeout:            1800,
-	//EnableAPIResponseCompression: utilfeature.DefaultFeatureGate.Enabled(features.APIResponseCompression),
-	//LongRunningFunc: genericfilters.BasicLongRunningRequestCheck(sets.NewString("watch"), sets.NewString()),
-
-	_ = genericapiserveroptions.NewCoreAPIOptions().ApplyTo(genericConfig)
-
-	// these are set via options
-	//SecureServing *SecureServingInfo
-	//Authentication AuthenticationInfo
-	//Authorization AuthorizationInfo
-	//LoopbackClientConfig *restclient.Config
-	// this is set after the options are overlayed to get the authorizer we need.
-	//AdmissionControl      admission.Interface
-	//ReadWritePort int
-	//PublicAddress net.IP
-
-	// these are defaulted sanely during complete
-	//DiscoveryAddresses discovery.Addresses
 
 	// TODO: genericConfig.ExternalAddress = ... allow a command line flag or it to be overridden by a top-level multiroot apiServer
-
-	/*
-		// previously overwritten.  I don't know why
-		genericConfig.RequestTimeout = time.Duration(60) * time.Second
-		genericConfig.MinRequestTimeout = int((time.Duration(60) * time.Minute).Seconds())
-		genericConfig.MaxRequestsInFlight = -1 // TODO: allow configuring
-		genericConfig.MaxMutatingRequestsInFlight = -1 // TODO configuring
-		genericConfig.LongRunningFunc = apiserverconfig.IsLongRunningRequest
-	*/
 
 	if err := secureServing.ApplyTo(&genericConfig.Config.SecureServing, &genericConfig.Config.LoopbackClientConfig); err != nil {
 		return nil, err
