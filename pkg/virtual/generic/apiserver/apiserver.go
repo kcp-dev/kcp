@@ -38,7 +38,7 @@ const VirtualNamespaceNameKey virtualNamespaceNameKeyType = "VirtualWorkspaceNam
 type ExtraConfig struct {
 	GroupVersion    schema.GroupVersion
 	AddToScheme     func(*runtime.Scheme) error
-	StorageBuilders map[string]builders.RestStorageBuidler
+	StorageBuilders map[string]builders.RestStorageBuilder
 }
 
 type GroupAPIServerConfig struct {

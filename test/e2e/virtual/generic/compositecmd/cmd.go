@@ -77,7 +77,7 @@ func (o *CompositeSubCommandOptions) InitializeBuilders() ([]virtualrootapiserve
 		}
 
 		for gv, storages := range vw {
-			storageBuilders := make(map[string]builders.RestStorageBuidler)
+			storageBuilders := make(map[string]builders.RestStorageBuilder)
 			var addStoragesToScheme []func(*runtime.Scheme) error
 			for name, storage := range storages {
 				storage := storage
@@ -112,7 +112,7 @@ func (o *CompositeSubCommandOptions) InitializeBuilders() ([]virtualrootapiserve
 					}
 					return nil
 				},
-				Initialize: func(genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuidler, error) {
+				Initialize: func(genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuilder, error) {
 					return storageBuilders, nil
 				},
 			}
