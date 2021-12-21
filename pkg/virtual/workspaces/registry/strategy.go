@@ -22,8 +22,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/storage/names"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
+
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
+
+var typerSchema = runtime.NewScheme()
+
+func init() {
+	tenancyv1alpha1.AddToScheme(typerSchema)
+}
 
 // workspaceStrategy implements behavior for workspaces
 type workspaceStrategy struct {
@@ -33,7 +40,7 @@ type workspaceStrategy struct {
 
 // Strategy is the default logic that applies when creating and updating Project
 // objects via the REST API.
-var Strategy = workspaceStrategy{legacyscheme.Scheme, names.SimpleNameGenerator}
+var Strategy = workspaceStrategy{typerSchema, names.SimpleNameGenerator}
 
 // NamespaceScoped is false for workspaces.
 func (workspaceStrategy) NamespaceScoped() bool {
