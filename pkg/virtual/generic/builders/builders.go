@@ -32,11 +32,13 @@ type APIGroupAPIServerBuilder struct {
 }
 
 type RootPathResolverFunc func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
+type ReadyFunc func() bool
 
 type VirtualWorkspaceBuilder struct {
 	Name                   string
 	GroupAPIServerBuilders []APIGroupAPIServerBuilder
 	RootPathResolver       RootPathResolverFunc
+	Ready                  ReadyFunc
 }
 
 type VirtualWorkspaceBuilderProvider interface {

@@ -47,8 +47,12 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
+	var workspaceAuthorizationCache *workspaceauth.AuthorizationCache
 	return builders.VirtualWorkspaceBuilder{
 		Name: WorkspacesVirtualWorkspaceName,
+		Ready: func() bool {
+			return workspaceAuthorizationCache != nil && workspaceAuthorizationCache.ReadyForAccess()
+		},
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			completedContext = requestContext
 			if path := urlPath; strings.HasPrefix(path, rootPathPrefix) {
@@ -71,7 +75,7 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 				GroupVersion: tenancyv1alpha1.SchemeGroupVersion,
 				Initialize: func(mainConfig genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuidler, error) {
 					reviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(subjectLocator)
-					workspaceAuthorizationCache := workspaceauth.NewAuthorizationCache(
+					workspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
 						workspaces.Lister(),
 						workspaces.Informer(),
 						reviewerProvider.ForVerb("get"),

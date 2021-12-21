@@ -120,6 +120,7 @@ type apiServerAppenderFunc func(delegateAPIServer genericapiserver.DelegationTar
 func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget) (*RootAPIServer, error) {
 	delegateAPIServer := delegationTarget
 
+	var readys []builders.ReadyFunc
 	vwNames := sets.NewString()
 	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
 		name := virtualWorkspace.Name
@@ -134,9 +135,12 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 				return nil, err
 			}
 		}
+		readys = append(readys, virtualWorkspace.Ready)
 	}
 
-	c.GenericConfig.BuildHandlerChainFunc = c.getRootHandlerChain(delegateAPIServer)
+	defaultHandler := http.NewServeMux()
+	defaultHandler.Handle("/healthz/ready", getReadinessHandler(readys))
+	c.GenericConfig.BuildHandlerChainFunc = c.getRootHandlerChain(delegateAPIServer, defaultHandler)
 	c.GenericConfig.RequestInfoResolver = c
 
 	genericServer, err := c.GenericConfig.New("virtual-workspaces-root-apiserver", delegateAPIServer)
@@ -157,6 +161,26 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	return s, nil
 }
 
+func getReadinessHandler(readys []builders.ReadyFunc) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		readyFunc := func() bool {
+			for _, ready := range readys {
+				if !ready() {
+					return false
+				}
+			}
+			return true
+		}
+		if readyFunc() {
+			rw.WriteHeader(http.StatusOK)
+			_, _ = rw.Write([]byte("ok"))
+
+		} else {
+			rw.WriteHeader(http.StatusServiceUnavailable)
+		}
+	})
+}
+
 func (c completedConfig) resolveRootPaths(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 	completedContext = requestContext
 	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
@@ -167,7 +191,7 @@ func (c completedConfig) resolveRootPaths(urlPath string, requestContext context
 	return
 }
 
-func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
+func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget, defaultHandler http.Handler) func(http.Handler, *genericapiserver.Config) http.Handler {
 	return func(apiHandler http.Handler, genericConfig *genericapiserver.Config) http.Handler {
 		return genericapiserver.DefaultBuildHandlerChain(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			if accepted, prefixToStrip, context := c.resolveRootPaths(req.URL.Path, req.Context()); accepted {
@@ -180,7 +204,7 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 				}
 				return
 			}
-			http.NotFoundHandler().ServeHTTP(w, req)
+			defaultHandler.ServeHTTP(w, req)
 		}), c.GenericConfig.Config)
 	}
 }
