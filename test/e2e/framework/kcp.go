@@ -93,7 +93,8 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 	return &kcpServer{
 		name: cfg.Name,
 		args: append([]string{
-			"--root-directory=" + dataDir,
+			"--root-directory",
+			dataDir,
 			"--listen=:" + kcpListenPort,
 			"--etcd-client-port=" + etcdClientPort,
 			"--etcd-peer-port=" + etcdPeerPort,
@@ -267,8 +268,8 @@ func (c *kcpServer) loadCfg() error {
 	var loadError error
 	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
-		kubeconfigPath := filepath.Join(c.dataDir, "admin.kubeconfig")
-		if fs, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
+		c.kubeconfigPath = filepath.Join(c.dataDir, "admin.kubeconfig")
+		if fs, err := os.Stat(c.kubeconfigPath); os.IsNotExist(err) {
 			return // try again
 		} else if err != nil {
 			loadError = fmt.Errorf("failed to read admin kubeconfig after kcp start: %w", err)
@@ -277,7 +278,7 @@ func (c *kcpServer) loadCfg() error {
 			return // try again
 		}
 
-		rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
+		rawConfig, err := clientcmd.LoadFromFile(c.kubeconfigPath)
 		if err != nil {
 			loadError = fmt.Errorf("failed to load admin kubeconfig: %w", err)
 			return
