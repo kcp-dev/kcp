@@ -14,13 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workspace
+package workspaces
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,235 +32,215 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
+	workspacescmd "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cmd"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	utilconditions "github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/test/e2e/virtual/helpers"
 )
+
+type testDataType struct {
+	user1, user2, user3                                                      framework.User
+	workspace1, workspace1Disambiguited, workspace2, workspace2Disambiguited *tenancyv1alpha1.Workspace
+}
+
+var testData testDataType = testDataType{
+	user1: framework.User{
+		Name:   "user-1",
+		UID:    "1111-1111-1111-1111",
+		Token:  "user-1-token",
+		Groups: []string{"team-1"},
+	},
+	user2: framework.User{
+		Name:   "user-2",
+		UID:    "2222-2222-2222-2222",
+		Token:  "user-2-token",
+		Groups: []string{"team-2"},
+	},
+	user3: framework.User{
+		Name:   "user-3",
+		UID:    "3333-3333-3333-3333",
+		Token:  "user-3-token",
+		Groups: []string{"team-3"},
+	},
+	workspace1:              &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1"}},
+	workspace1Disambiguited: &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1--1"}},
+	workspace2:              &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2"}},
+	workspace2Disambiguited: &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2--1"}},
+}
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client clientset.Interface
-		expect framework.RegisterWorkspaceExpectation
+		kcpClient                      clientset.Interface
+		kcpExpect                      framework.RegisterWorkspaceExpectation
+		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
+		virtualWorkspaceClients        []clientset.Interface
 	}
 	var testCases = []struct {
-		name string
-		work func(ctx context.Context, t framework.TestingTInterface, server runningServer)
+		name                           string
+		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
+		work                           func(ctx context.Context, t framework.TestingTInterface, server runningServer)
 	}{
 		{
-			name: "create a workspace without shards, expect it to be unschedulable",
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}, Status: tenancyv1alpha1.WorkspaceStatus{}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace: %v", err)
-					return
-				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				})
-				if err := server.expect(workspace, unschedulable); err != nil {
-					t.Errorf("did not see workspace marked unschedulable: %v", err)
-					return
-				}
+			name: "create a workspace in personal virtual workspace and have only its owner list it",
+			virtualWorkspaceClientContexts: []helpers.VirtualWorkspaceClientContext{
+				{
+					User:   testData.user1,
+					Prefix: "/personal",
+				},
+				{
+					User:   testData.user2,
+					Prefix: "/personal",
+				},
 			},
-		},
-		{
-			name: "add a shard after a workspace is unschedulable, expect it to be scheduled",
 			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				vwUser1Client := server.virtualWorkspaceClients[0]
+				vwUser2Client := server.virtualWorkspaceClients[1]
+				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
+				assert.Equal(t, testData.workspace1.Name, workspace1.Name)
 				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
-				if err := server.expect(workspace, unschedulable); err != nil {
-					t.Errorf("did not see workspace marked unschedulable: %v", err)
-					return
-				}
-				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace shard: %v", err)
-					return
-				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
-				})
-				if err := server.expect(workspace, scheduled(bostonShard.Name)); err != nil {
-					t.Errorf("did not see workspace scheduled: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "create a workspace with a shard, expect it to be scheduled",
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
-				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create first workspace shard: %v", err)
-					return
-				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
-				})
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace2, err := vwUser2Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace2, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
 				}
+				assert.Equal(t, testData.workspace2.Name, workspace2.Name)
 				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
 				})
-				if err := server.expect(workspace, scheduled(bostonShard.Name)); err != nil {
-					t.Errorf("did not see workspace scheduled: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "delete a shard that a workspace is scheduled to, expect it to move to another shard",
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
-				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create first workspace shard: %v", err)
-					return
-				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
-				})
-				atlantaShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create second workspace shard: %v", err)
-					return
-				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, atlantaShard.Name, metav1.GetOptions{})
-				})
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace: %v", err)
-					return
-				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				})
-				var currentShard, otherShard string
-				if err := server.expect(workspace, func(current *tenancyv1alpha1.Workspace) error {
-					expectationErr := scheduledAnywhere(current)
-					if expectationErr == nil {
-						currentShard = current.Status.Location.Current
-						for _, name := range []string{bostonShard.Name, atlantaShard.Name} {
-							if name != currentShard {
-								otherShard = name
-								break
-							}
-						}
-					}
-					return expectationErr
+				if err := server.kcpExpect(workspace1, func(w *tenancyv1alpha1.Workspace) error {
+					return nil
 				}); err != nil {
-					t.Errorf("did not see workspace scheduled: %v", err)
+					t.Errorf("did not see the workspace created in KCP: %v", err)
 					return
 				}
-
-				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
-				if err != nil {
-					t.Errorf("failed to delete workspace shard: %v", err)
+				if err := server.kcpExpect(workspace2, func(w *tenancyv1alpha1.Workspace) error {
+					return nil
+				}); err != nil {
+					t.Errorf("did not see the workspace created in KCP: %v", err)
 					return
 				}
-				if err := server.expect(workspace, scheduled(otherShard)); err != nil {
-					t.Errorf("did not see workspace rescheduled: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "delete all shards, expect workspace to be unschedulable",
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
-				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create first workspace shard: %v", err)
-					return
-				}
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				if err != nil {
+				if _, err := framework.WaitForCondition(t, ctx, 10*time.Second, func(c context.Context, t framework.TestingTInterface) (bool, error) {
+					workspaceList, err := vwUser1Client.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+					if err != nil {
+						return false, err
+					}
+					if assert.Len(t, workspaceList.Items, 1) {
+						return assert.Equal(t, workspace1.Name, workspaceList.Items[0].Name, "failed to create workspace"), nil
+					}
+					return false, nil
+				}); err != nil {
 					t.Errorf("failed to create workspace: %v", err)
-					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				})
-				if err := server.expect(workspace, scheduled(bostonShard.Name)); err != nil {
-					t.Errorf("did not see workspace scheduled: %v", err)
-					return
-				}
-				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, bostonShard.Name, metav1.DeleteOptions{})
-				if err != nil {
-					t.Errorf("failed to delete workspace shard: %v", err)
-					return
-				}
-				if err := server.expect(workspace, unschedulable); err != nil {
-					t.Errorf("did not see workspace marked unschedulable: %v", err)
-					return
+				if _, err := framework.WaitForCondition(t, ctx, 10*time.Second, func(c context.Context, t framework.TestingTInterface) (bool, error) {
+					workspaceList, err := vwUser2Client.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+					if err != nil {
+						return false, err
+					}
+					if assert.Len(t, workspaceList.Items, 1) {
+						return assert.Equal(t, workspace2.Name, workspaceList.Items[0].Name, "failed to create workspace"), nil
+					}
+					return false, nil
+				}); err != nil {
+					t.Errorf("failed to create workspace: %v", err)
 				}
 			},
 		},
 	}
+
 	const serverName = "main"
+
 	for i := range testCases {
 		testCase := testCases[i]
+
+		var users []framework.User
+		for _, vwClientContexts := range testCase.virtualWorkspaceClientContexts {
+			users = append(users, vwClientContexts.User)
+		}
+		usersKCPArgs, err := framework.Users(users).ArgsForKCP(t)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
 		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer) {
-			ctx := context.Background()
-			/*
-				secureOptions := kubeoptions.NewSecureServingOptions().WithLoopback()
-				secureOptions.BindPort, _ =  framework.GetFreePort(t)
-				vwOptions := virtualcmd.APIServerOptions{
-					Output: os.Stdout,
-					SecureServing: options.SecureServingOptionsWithLoopback,
-					SubCommandOptions: &workspacescmd.WorkspacesSubCommandOptions{
-						KubeconfigFile: servers[serverName].KubeconfigPath(),
-					},
-				}
-				go func() { _ = workspacesCmd.Run(ctx) }()
-			*/
-			if deadline, ok := t.Deadline(); ok {
-				withDeadline, cancel := context.WithDeadline(ctx, deadline)
-				t.Cleanup(cancel)
-				ctx = withDeadline
-			}
 			if len(servers) != 1 {
 				t.Errorf("incorrect number of servers: %d", len(servers))
 				return
 			}
 			server := servers[serverName]
-			cfg, err := server.Config()
+
+			ctx := context.Background()
+			if deadline, ok := t.Deadline(); ok {
+				withDeadline, cancel := context.WithDeadline(ctx, deadline)
+				t.Cleanup(cancel)
+				ctx = withDeadline
+			}
+
+			vw := helpers.VirtualWorkspace{
+				BuildSubCommandOtions: func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions {
+					return &workspacescmd.WorkspacesSubCommandOptions{
+						KubeconfigFile: kcpServer.KubeconfigPath(),
+						RootPathPrefix: "/",
+					}
+				},
+				ClientContexts: testCase.virtualWorkspaceClientContexts,
+			}
+
+			vwConfigs, err := vw.Setup(t, ctx, server)
+			if err != nil {
+				t.Error(err.Error())
+				return
+			}
+
+			virtualWorkspaceClients := []clientset.Interface{}
+			for _, vwConfig := range vwConfigs {
+				vwClients, err := clientset.NewForConfig(vwConfig)
+				if err != nil {
+					t.Errorf("failed to construct client for server: %v", err)
+					return
+				}
+				virtualWorkspaceClients = append(virtualWorkspaceClients, vwClients)
+			}
+
+			kcpCfg, err := server.Config()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			clusterName, err := detectClusterName(cfg, ctx)
+			clusterName, err := detectClusterName(kcpCfg, ctx)
 			if err != nil {
 				t.Errorf("failed to detect cluster name: %v", err)
 				return
 			}
-			clients, err := clientset.NewClusterForConfig(cfg)
+			kcpClients, err := clientset.NewClusterForConfig(kcpCfg)
 			if err != nil {
 				t.Errorf("failed to construct client for server: %v", err)
 				return
 			}
-			client := clients.Cluster(clusterName)
-			expect, err := framework.ExpectWorkspaces(ctx, t, client)
+			kcpClient := kcpClients.Cluster(clusterName)
+			kcpExpect, err := framework.ExpectWorkspaces(ctx, t, kcpClient)
 			if err != nil {
 				t.Errorf("failed to start expecter: %v", err)
 				return
 			}
+
 			testCase.work(ctx, t, runningServer{
-				RunningServer: server,
-				client:        client,
-				expect:        expect,
+				RunningServer:                  server,
+				kcpClient:                      kcpClient,
+				kcpExpect:                      kcpExpect,
+				virtualWorkspaceClientContexts: testCase.virtualWorkspaceClientContexts,
+				virtualWorkspaceClients:        virtualWorkspaceClients,
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
-			Args: []string{"--install_workspace_controller"},
+			Args: append([]string{"--install-workspace-controller"}, usersKCPArgs...),
 		})
 	}
 }
@@ -281,37 +264,4 @@ func detectClusterName(cfg *rest.Config, ctx context.Context) (string, error) {
 		}
 	}
 	return "", errors.New("detected no admin cluster")
-}
-
-func isUnschedulable(workspace *tenancyv1alpha1.Workspace) bool {
-	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
-}
-
-func unschedulable(object *tenancyv1alpha1.Workspace) error {
-	if !isUnschedulable(object) {
-		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
-	}
-	return nil
-}
-
-func scheduled(target string) func(workspace *tenancyv1alpha1.Workspace) error {
-	return func(object *tenancyv1alpha1.Workspace) error {
-		if isUnschedulable(object) {
-			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
-		}
-		if object.Status.Location.Current != target {
-			return fmt.Errorf("expected workspace.status.location.current to be %q, got %q", target, object.Status.Location.Current)
-		}
-		return nil
-	}
-}
-
-func scheduledAnywhere(object *tenancyv1alpha1.Workspace) error {
-	if isUnschedulable(object) {
-		return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
-	}
-	if object.Status.Location.Current == "" {
-		return fmt.Errorf("expected workspace.status.location.current to be anything, got %q", object.Status.Location.Current)
-	}
-	return nil
 }
