@@ -26,6 +26,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
+	"k8s.io/apiserver/pkg/endpoints/discovery"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
@@ -84,8 +85,8 @@ func (c *RootAPIConfig) Complete() completedConfig {
 	return cfg
 }
 
-func (c *completedConfig) withAPIServerForAPIGroup(virtualWorkspaceName string, groupAPIServerBuilder builders.APIGroupAPIServerBuilder) apiServerAppenderFunc {
-	return func(delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
+func (c *completedConfig) withAPIServerForAPIGroup(virtualWorkspaceName string, delegateDiscovery discovery.GroupManager, groupAPIServerBuilder builders.APIGroupAPIServerBuilder) apiServerAppenderFunc {
+	return func(delegateAPIServer genericapiserver.DelegationTarget) (*genericapiserver.GenericAPIServer, error) {
 		restStorageBuilders, err := groupAPIServerBuilder.Initialize(c.GenericConfig)
 		cfg := &virtualapiserver.GroupAPIServerConfig{
 			GenericConfig: &genericapiserver.RecommendedConfig{Config: *c.GenericConfig.Config, SharedInformerFactory: c.GenericConfig.SharedInformerFactory},
@@ -102,11 +103,13 @@ func (c *completedConfig) withAPIServerForAPIGroup(virtualWorkspaceName string, 
 			return nil, err
 		}
 
-		server, err := config.New(virtualWorkspaceName, delegateAPIServer)
+		if delegateDiscovery != nil {
+			config.GenericConfig.EnableDiscovery = false
+		}
+		server, err := config.New(virtualWorkspaceName, delegateDiscovery, delegateAPIServer)
 		if err != nil {
 			return nil, err
 		}
-
 		return server.GenericAPIServer, nil
 	}
 }
@@ -115,7 +118,7 @@ func (c *completedConfig) WithOpenAPIAggregationController(delegatedAPIServer *g
 	return nil
 }
 
-type apiServerAppenderFunc func(delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
+type apiServerAppenderFunc func(delegateAPIServer genericapiserver.DelegationTarget) (*genericapiserver.GenericAPIServer, error)
 
 func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget) (*RootAPIServer, error) {
 	delegateAPIServer := delegationTarget
@@ -128,12 +131,18 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 			return nil, errors.New("Several virtual workspaces with the same name: " + name)
 		}
 		vwNames.Insert(name)
+
+		var vwGroupManager discovery.GroupManager
 		for _, groupAPIServerBuilder := range virtualWorkspace.GroupAPIServerBuilders {
 			var err error
-			delegateAPIServer, err = c.withAPIServerForAPIGroup(name, groupAPIServerBuilder)(delegateAPIServer)
+			groupAPIServer, err := c.withAPIServerForAPIGroup(name, vwGroupManager, groupAPIServerBuilder)(delegateAPIServer)
 			if err != nil {
 				return nil, err
 			}
+			if vwGroupManager == nil {
+				vwGroupManager = groupAPIServer.DiscoveryGroupManager
+			}
+			delegateAPIServer = groupAPIServer
 		}
 		readys = append(readys, virtualWorkspace.Ready)
 	}

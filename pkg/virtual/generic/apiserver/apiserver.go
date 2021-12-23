@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
@@ -78,12 +79,15 @@ func (c *GroupAPIServerConfig) Complete() completedConfig {
 }
 
 // New returns a new instance of VirtualWorkspaceAPIServer from the given config.
-func (c completedConfig) New(virtualWorkspaceName string, delegationTarget genericapiserver.DelegationTarget) (*GroupAPIServer, error) {
+func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery.GroupManager, delegationTarget genericapiserver.DelegationTarget) (*GroupAPIServer, error) {
 	genericServer, err := c.GenericConfig.New(virtualWorkspaceName+"-"+c.ExtraConfig.GroupVersion.Group+"-virtual-workspace-apiserver", delegationTarget)
 	if err != nil {
 		return nil, err
 	}
 
+	if groupManager != nil {
+		genericServer.DiscoveryGroupManager = groupManager
+	}
 	director := genericServer.Handler.Director
 	genericServer.Handler.Director = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if vwName := r.Context().Value(VirtualNamespaceNameKey); vwName != nil {
@@ -95,6 +99,8 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 		delegatedHandler := delegationTarget.UnprotectedHandler()
 		if delegatedHandler != nil {
 			delegatedHandler.ServeHTTP(rw, r)
+		} else {
+			http.NotFoundHandler().ServeHTTP(rw, r)
 		}
 	})
 
@@ -108,6 +114,9 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 	}
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(c.ExtraConfig.GroupVersion.Group, c.ExtraConfig.Scheme, metav1.ParameterCodec, c.ExtraConfig.Codecs)
+	if len(apiGroupInfo.PrioritizedVersions) == 0 {
+		apiGroupInfo.PrioritizedVersions = append(apiGroupInfo.PrioritizedVersions, c.ExtraConfig.GroupVersion)
+	}
 	apiGroupInfo.VersionedResourcesStorageMap[c.ExtraConfig.GroupVersion.Version] = storage
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err
