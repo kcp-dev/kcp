@@ -19,6 +19,7 @@ package builders
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -28,6 +29,7 @@ type RestStorageBuidler func(apiGroupAPIServerConfig genericapiserver.CompletedC
 
 type APIGroupAPIServerBuilder struct {
 	GroupVersion schema.GroupVersion
+	AddToScheme  func(*runtime.Scheme) error
 	Initialize   func(genericapiserver.CompletedConfig) (map[string]RestStorageBuidler, error)
 }
 

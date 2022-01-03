@@ -22,10 +22,10 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
 	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
@@ -78,21 +78,25 @@ func (o *CompositeSubCommandOptions) InitializeBuilders() ([]virtualrootapiserve
 
 		for gv, storages := range vw {
 			storageBuilders := make(map[string]builders.RestStorageBuidler)
+			var addStoragesToScheme []func(*runtime.Scheme) error
 			for name, storage := range storages {
 				storage := storage
-				obj := storage.New()
-				gvk := obj.GetObjectKind().GroupVersionKind()
-				legacyscheme.Scheme.AddKnownTypeWithName(
-					gvk,
-					obj,
-				)
-				objList := storage.(rest.Lister).NewList()
-				gvkList := objList.GetObjectKind().GroupVersionKind()
-				legacyscheme.Scheme.AddKnownTypeWithName(
-					gvkList,
-					objList,
-				)
-
+				addStorageToscheme := func(scheme *runtime.Scheme) error {
+					obj := storage.New()
+					gvk := obj.GetObjectKind().GroupVersionKind()
+					scheme.AddKnownTypeWithName(
+						gvk,
+						obj,
+					)
+					objList := storage.(rest.Lister).NewList()
+					gvkList := objList.GetObjectKind().GroupVersionKind()
+					scheme.AddKnownTypeWithName(
+						gvkList,
+						objList,
+					)
+					return nil
+				}
+				addStoragesToScheme = append(addStoragesToScheme, addStorageToscheme)
 				storageBuilders[name] = func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 					return storage, nil
 				}
@@ -100,6 +104,14 @@ func (o *CompositeSubCommandOptions) InitializeBuilders() ([]virtualrootapiserve
 
 			apiGroupBuilder := builders.APIGroupAPIServerBuilder{
 				GroupVersion: gv,
+				AddToScheme: func(scheme *runtime.Scheme) error {
+					for _, addToScheme := range addStoragesToScheme {
+						if err := addToScheme(scheme); err != nil {
+							return err
+						}
+					}
+					return nil
+				},
 				Initialize: func(genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuidler, error) {
 					return storageBuilders, nil
 				},

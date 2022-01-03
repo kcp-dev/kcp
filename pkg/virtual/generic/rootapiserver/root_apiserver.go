@@ -88,20 +88,19 @@ func (c *RootAPIConfig) Complete() completedConfig {
 func (c *completedConfig) withAPIServerForAPIGroup(virtualWorkspaceName string, delegateDiscovery discovery.GroupManager, groupAPIServerBuilder builders.APIGroupAPIServerBuilder) apiServerAppenderFunc {
 	return func(delegateAPIServer genericapiserver.DelegationTarget) (*genericapiserver.GenericAPIServer, error) {
 		restStorageBuilders, err := groupAPIServerBuilder.Initialize(c.GenericConfig)
+		if err != nil {
+			return nil, err
+		}
 		cfg := &virtualapiserver.GroupAPIServerConfig{
 			GenericConfig: &genericapiserver.RecommendedConfig{Config: *c.GenericConfig.Config, SharedInformerFactory: c.GenericConfig.SharedInformerFactory},
 			ExtraConfig: virtualapiserver.ExtraConfig{
-				Codecs:          legacyscheme.Codecs,
-				Scheme:          legacyscheme.Scheme,
 				GroupVersion:    groupAPIServerBuilder.GroupVersion,
+				AddToScheme:     groupAPIServerBuilder.AddToScheme,
 				StorageBuilders: restStorageBuilders,
 			},
 		}
 		cfg.GenericConfig.PostStartHooks = map[string]genericapiserver.PostStartHookConfigEntry{}
 		config := cfg.Complete()
-		if err != nil {
-			return nil, err
-		}
 
 		if delegateDiscovery != nil {
 			config.GenericConfig.EnableDiscovery = false

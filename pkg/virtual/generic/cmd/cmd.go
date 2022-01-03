@@ -28,7 +28,6 @@ import (
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/client-go/pkg/version"
@@ -37,10 +36,8 @@ import (
 	"k8s.io/klog/v2"
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/templates"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	virtualbuilders "github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/generic/rootapiserver"
 )
@@ -138,12 +135,6 @@ func ReadKubeConfig(kubeConfigFile string) (clientcmd.ClientConfig, error) {
 
 // RunAPIServer takes the options, starts the API server and waits until stopCh is closed or initial listening fails.
 func (o *APIServerOptions) RunAPIServer(stopCh <-chan struct{}) error {
-
-	utilruntime.Must(tenancyv1alpha1.AddToScheme(legacyscheme.Scheme))
-	if err := legacyscheme.Scheme.SetVersionPriority(tenancyv1alpha1.SchemeGroupVersion); err != nil {
-		return err
-	}
-
 	informerStarts, virtualWorkspaceBuilders, err := o.SubCommandOptions.InitializeBuilders()
 	if err != nil {
 		return err
