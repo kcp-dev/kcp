@@ -16,6 +16,6 @@ limitations under the License.
 
 package context
 
-type virtualNamespaceNameKeyType string
+type virtualWorkspaceNameKeyType string
 
-const VirtualNamespaceNameKey virtualNamespaceNameKeyType = "VirtualWorkspaceName"
+const VirtualWorkspaceNameKey virtualWorkspaceNameKeyType = "VirtualWorkspaceName"

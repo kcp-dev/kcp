@@ -80,7 +80,7 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 	}
 	director := genericServer.Handler.Director
 	genericServer.Handler.Director = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		if vwName := r.Context().Value(virtualcontext.VirtualNamespaceNameKey); vwName != nil {
+		if vwName := r.Context().Value(virtualcontext.VirtualWorkspaceNameKey); vwName != nil {
 			if vwNameString, isString := vwName.(string); isString && vwNameString == virtualWorkspaceName {
 				director.ServeHTTP(rw, r)
 				return
