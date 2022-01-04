@@ -29,7 +29,7 @@ import (
 var typerSchema = runtime.NewScheme()
 
 func init() {
-	tenancyv1alpha1.AddToScheme(typerSchema)
+	_ = tenancyv1alpha1.AddToScheme(typerSchema)
 }
 
 // workspaceStrategy implements behavior for workspaces
