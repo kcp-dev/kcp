@@ -25,11 +25,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -374,7 +372,7 @@ func TestWorkspaceShardController(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			clusterName, err := detectClusterName(cfg, ctx)
+			clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
 			if err != nil {
 				t.Errorf("failed to detect cluster name: %v", err)
 				return
@@ -407,25 +405,4 @@ func TestWorkspaceShardController(t *testing.T) {
 			Args: []string{"--install-workspace-controller"},
 		})
 	}
-}
-
-// TODO: we need to undo the prefixing and get normal sharding behavior in soon ... ?
-func detectClusterName(cfg *rest.Config, ctx context.Context) (string, error) {
-	crdClient, err := apiextensionsclientset.NewClusterForConfig(cfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	crds, err := crdClient.Cluster("*").ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to list crds: %w", err)
-	}
-	if len(crds.Items) == 0 {
-		return "", errors.New("found no crds, cannot detect cluster name")
-	}
-	for _, crd := range crds.Items {
-		if crd.ObjectMeta.Name == "workspaces.tenancy.kcp.dev" {
-			return crd.ObjectMeta.ClusterName, nil
-		}
-	}
-	return "", errors.New("detected no admin cluster")
 }

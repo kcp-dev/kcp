@@ -26,12 +26,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -212,7 +210,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			clusterName, err := detectClusterName(cfg, ctx)
+			clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
 			if err != nil {
 				t.Errorf("failed to detect cluster name: %v", err)
 				return
@@ -242,27 +240,6 @@ func TestNamespaceScheduler(t *testing.T) {
 			Args: []string{"--install-cluster-controller", "--install-workspace-controller", "--install-namespace-scheduler"},
 		})
 	}
-}
-
-// TODO: we need to undo the prefixing and get normal sharding behavior in soon ... ?
-func detectClusterName(cfg *rest.Config, ctx context.Context) (string, error) {
-	crdClient, err := apiextensionsclientset.NewClusterForConfig(cfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	crds, err := crdClient.Cluster("*").ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to list crds: %w", err)
-	}
-	if len(crds.Items) == 0 {
-		return "", errors.New("found no crds, cannot detect cluster name")
-	}
-	for _, crd := range crds.Items {
-		if crd.ObjectMeta.Name == "workspaces.tenancy.kcp.dev" {
-			return crd.ObjectMeta.ClusterName, nil
-		}
-	}
-	return "", errors.New("detected no admin cluster")
 }
 
 func exactMatcher(expected *corev1.Namespace) matcher {
