@@ -28,7 +28,7 @@ import (
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
+	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	virtualworkspacescmd "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cmd"
 )
 

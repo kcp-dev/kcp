@@ -27,9 +27,10 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
-	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
-	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/generic/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
+	builders "github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
+	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 var _ virtualgenericcmd.SubCommandOptions = (*CompositeSubCommandOptions)(nil)
@@ -61,11 +62,11 @@ func (o *CompositeSubCommandOptions) Validate() []error {
 	return errs
 }
 
-func (o *CompositeSubCommandOptions) InitializeBuilders() ([]virtualrootapiserver.InformerStart, []builders.VirtualWorkspaceBuilder, error) {
-	var vwBuilders []builders.VirtualWorkspaceBuilder
+func (o *CompositeSubCommandOptions) PrepareVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error) {
+	var virtualWorkspaces []framework.VirtualWorkspace
 	for prefix, vw := range o.StoragesPerPrefix {
 		prefixWithSlash := "/" + prefix
-		vwBuilder := builders.VirtualWorkspaceBuilder{
+		virtualWorkspace := &builders.FixedGroupVersionsVirtualWorkspace{
 			Name: prefix,
 			RootPathResolver: func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 				if strings.HasPrefix(urlPath, prefixWithSlash) {
@@ -102,7 +103,7 @@ func (o *CompositeSubCommandOptions) InitializeBuilders() ([]virtualrootapiserve
 				}
 			}
 
-			apiGroupBuilder := builders.APIGroupAPIServerBuilder{
+			groupVersionAPISet := builders.GroupVersionAPISet{
 				GroupVersion: gv,
 				AddToScheme: func(scheme *runtime.Scheme) error {
 					for _, addToScheme := range addStoragesToScheme {
@@ -112,15 +113,15 @@ func (o *CompositeSubCommandOptions) InitializeBuilders() ([]virtualrootapiserve
 					}
 					return nil
 				},
-				Initialize: func(genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuilder, error) {
+				BootstrapRestResources: func(genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuilder, error) {
 					return storageBuilders, nil
 				},
 			}
-			vwBuilder.GroupAPIServerBuilders = append(vwBuilder.GroupAPIServerBuilders, apiGroupBuilder)
+			virtualWorkspace.GroupVersionAPISets = append(virtualWorkspace.GroupVersionAPISets, groupVersionAPISet)
 		}
-		vwBuilders = append(vwBuilders, vwBuilder)
+		virtualWorkspaces = append(virtualWorkspaces, virtualWorkspace)
 	}
 	return []virtualrootapiserver.InformerStart{},
-		vwBuilders,
+		virtualWorkspaces,
 		nil
 }

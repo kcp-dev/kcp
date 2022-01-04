@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package generic
+package framework
 
 import (
 	"context"
@@ -28,9 +28,9 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/kubernetes"
 
-	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
+	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	"github.com/kcp-dev/kcp/test/e2e/virtual/generic/compositecmd"
+	"github.com/kcp-dev/kcp/test/e2e/virtual/framework/compositecmd"
 	"github.com/kcp-dev/kcp/test/e2e/virtual/helpers"
 )
 

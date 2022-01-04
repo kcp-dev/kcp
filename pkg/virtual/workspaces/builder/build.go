@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package builders
+package builder
 
 import (
 	"context"
@@ -31,7 +31,8 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workspaceclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	builders "github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	virtualworkspacesregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
@@ -40,7 +41,7 @@ import (
 const WorkspacesVirtualWorkspaceName string = "workspaces"
 const DefaultRootPathPrefix string = "/services/applications"
 
-func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, workspaceClient workspaceclient.WorkspaceInterface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) builders.VirtualWorkspaceBuilder {
+func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, workspaceClient workspaceclient.WorkspaceInterface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
 	crbInformer := rbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
@@ -48,7 +49,7 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 		rootPathPrefix += "/"
 	}
 	var workspaceAuthorizationCache *workspaceauth.AuthorizationCache
-	return builders.VirtualWorkspaceBuilder{
+	return &fixedgvs.FixedGroupVersionsVirtualWorkspace{
 		Name: WorkspacesVirtualWorkspaceName,
 		Ready: func() bool {
 			return workspaceAuthorizationCache != nil && workspaceAuthorizationCache.ReadyForAccess()
@@ -70,11 +71,11 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 			}
 			return
 		},
-		GroupAPIServerBuilders: []builders.APIGroupAPIServerBuilder{
+		GroupVersionAPISets: []fixedgvs.GroupVersionAPISet{
 			{
 				GroupVersion: tenancyv1alpha1.SchemeGroupVersion,
 				AddToScheme:  tenancyv1alpha1.AddToScheme,
-				Initialize: func(mainConfig genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuilder, error) {
+				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
 					reviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(subjectLocator)
 					workspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
 						workspaces.Lister(),
@@ -102,7 +103,7 @@ func WorkspacesVirtualWorkspaceBuilder(rootPathPrefix string, workspaces workspa
 						return nil, err
 					}
 
-					return map[string]builders.RestStorageBuilder{
+					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 							return virtualworkspacesregistry.NewREST(workspaceClient, kubeClient.RbacV1(), crbInformer, reviewerProvider, workspaceAuthorizationCache), nil
 						},

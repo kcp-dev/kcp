@@ -38,8 +38,8 @@ import (
 	"k8s.io/kubectl/pkg/util/templates"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
-	virtualbuilders "github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
-	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/generic/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 type APIServerOptions struct {
@@ -61,7 +61,7 @@ type SubCommandOptions interface {
 	Description() SubCommandDescription
 	AddFlags(flags *pflag.FlagSet)
 	Validate() []error
-	InitializeBuilders() ([]virtualrootapiserver.InformerStart, []virtualbuilders.VirtualWorkspaceBuilder, error)
+	PrepareVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error)
 }
 
 func APIServerCommand(out, errout io.Writer, stopCh <-chan struct{}, subCommandOptions SubCommandOptions) *cobra.Command {
@@ -135,12 +135,12 @@ func ReadKubeConfig(kubeConfigFile string) (clientcmd.ClientConfig, error) {
 
 // RunAPIServer takes the options, starts the API server and waits until stopCh is closed or initial listening fails.
 func (o *APIServerOptions) RunAPIServer(stopCh <-chan struct{}) error {
-	informerStarts, virtualWorkspaceBuilders, err := o.SubCommandOptions.InitializeBuilders()
+	informerStarts, virtualWorkspaces, err := o.SubCommandOptions.PrepareVirtualWorkspaces()
 	if err != nil {
 		return err
 	}
 
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(o.SecureServing, o.Authentication, informerStarts, virtualWorkspaceBuilders...)
+	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(o.SecureServing, o.Authentication, informerStarts, virtualWorkspaces...)
 	if err != nil {
 		return err
 	}

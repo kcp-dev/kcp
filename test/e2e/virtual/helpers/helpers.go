@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
-	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
+	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/scheme"
 )

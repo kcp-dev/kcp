@@ -32,7 +32,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
+	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	workspacescmd "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cmd"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/test/e2e/virtual/helpers"

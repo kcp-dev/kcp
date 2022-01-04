@@ -25,29 +25,26 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/registry/rest"
+	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
+	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
-
-type virtualNamespaceNameKeyType string
-
-const VirtualNamespaceNameKey virtualNamespaceNameKeyType = "VirtualWorkspaceName"
 
 type ExtraConfig struct {
 	GroupVersion    schema.GroupVersion
 	AddToScheme     func(*runtime.Scheme) error
-	StorageBuilders map[string]builders.RestStorageBuilder
+	StorageBuilders map[string]func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (restStorage.Storage, error)
 }
 
-type GroupAPIServerConfig struct {
+type GroupVersionAPIServerConfig struct {
 	GenericConfig *genericapiserver.RecommendedConfig
 	ExtraConfig   ExtraConfig
 }
 
-// GroupAPIServer contains state for a Kubernetes cluster master/api server.
-type GroupAPIServer struct {
+// GroupVersionAPIServer contains state for a Kubernetes cluster master/api server.
+type GroupVersionAPIServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 }
 
@@ -62,7 +59,7 @@ type CompletedConfig struct {
 }
 
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
-func (c *GroupAPIServerConfig) Complete() completedConfig {
+func (c *GroupVersionAPIServerConfig) Complete() completedConfig {
 	cfg := completedConfig{
 		c.GenericConfig.Complete(),
 		&c.ExtraConfig,
@@ -72,7 +69,7 @@ func (c *GroupAPIServerConfig) Complete() completedConfig {
 }
 
 // New returns a new instance of VirtualWorkspaceAPIServer from the given config.
-func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery.GroupManager, delegationTarget genericapiserver.DelegationTarget) (*GroupAPIServer, error) {
+func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery.GroupManager, delegationTarget genericapiserver.DelegationTarget) (*GroupVersionAPIServer, error) {
 	genericServer, err := c.GenericConfig.New(virtualWorkspaceName+"-"+c.ExtraConfig.GroupVersion.Group+"-virtual-workspace-apiserver", delegationTarget)
 	if err != nil {
 		return nil, err
@@ -83,7 +80,7 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 	}
 	director := genericServer.Handler.Director
 	genericServer.Handler.Director = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		if vwName := r.Context().Value(VirtualNamespaceNameKey); vwName != nil {
+		if vwName := r.Context().Value(virtualcontext.VirtualNamespaceNameKey); vwName != nil {
 			if vwNameString, isString := vwName.(string); isString && vwNameString == virtualWorkspaceName {
 				director.ServeHTTP(rw, r)
 				return
@@ -97,7 +94,7 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 		}
 	})
 
-	s := &GroupAPIServer{
+	s := &GroupVersionAPIServer{
 		GenericAPIServer: genericServer,
 	}
 

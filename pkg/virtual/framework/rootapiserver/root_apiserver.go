@@ -26,14 +26,13 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
-	"k8s.io/apiserver/pkg/endpoints/discovery"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 
-	virtualapiserver "github.com/kcp-dev/kcp/pkg/virtual/generic/apiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
 
 type InformerStart func(stopCh <-chan struct{})
@@ -43,7 +42,7 @@ type RootAPIExtraConfig struct {
 	// we phrase it like this so we can build the post-start-hook, but no one can take more indirect dependencies on informers
 	informerStart func(stopCh <-chan struct{})
 
-	VirtualWorkspaces []builders.VirtualWorkspaceBuilder
+	VirtualWorkspaces []framework.VirtualWorkspace
 }
 
 // Validate helps ensure that we build this config correctly, because there are lots of bits to remember for now
@@ -85,65 +84,28 @@ func (c *RootAPIConfig) Complete() completedConfig {
 	return cfg
 }
 
-func (c *completedConfig) withAPIServerForAPIGroup(virtualWorkspaceName string, delegateDiscovery discovery.GroupManager, groupAPIServerBuilder builders.APIGroupAPIServerBuilder) apiServerAppenderFunc {
-	return func(delegateAPIServer genericapiserver.DelegationTarget) (*genericapiserver.GenericAPIServer, error) {
-		restStorageBuilders, err := groupAPIServerBuilder.Initialize(c.GenericConfig)
-		if err != nil {
-			return nil, err
-		}
-		cfg := &virtualapiserver.GroupAPIServerConfig{
-			GenericConfig: &genericapiserver.RecommendedConfig{Config: *c.GenericConfig.Config, SharedInformerFactory: c.GenericConfig.SharedInformerFactory},
-			ExtraConfig: virtualapiserver.ExtraConfig{
-				GroupVersion:    groupAPIServerBuilder.GroupVersion,
-				AddToScheme:     groupAPIServerBuilder.AddToScheme,
-				StorageBuilders: restStorageBuilders,
-			},
-		}
-		cfg.GenericConfig.PostStartHooks = map[string]genericapiserver.PostStartHookConfigEntry{}
-		config := cfg.Complete()
-
-		if delegateDiscovery != nil {
-			config.GenericConfig.EnableDiscovery = false
-		}
-		server, err := config.New(virtualWorkspaceName, delegateDiscovery, delegateAPIServer)
-		if err != nil {
-			return nil, err
-		}
-		return server.GenericAPIServer, nil
-	}
-}
-
 func (c *completedConfig) WithOpenAPIAggregationController(delegatedAPIServer *genericapiserver.GenericAPIServer) error {
 	return nil
 }
 
-type apiServerAppenderFunc func(delegateAPIServer genericapiserver.DelegationTarget) (*genericapiserver.GenericAPIServer, error)
-
 func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget) (*RootAPIServer, error) {
 	delegateAPIServer := delegationTarget
 
-	var readys []builders.ReadyFunc
+	var readys []framework.ReadyFunc
 	vwNames := sets.NewString()
 	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
-		name := virtualWorkspace.Name
+		name := virtualWorkspace.GetName()
 		if vwNames.Has(name) {
 			return nil, errors.New("Several virtual workspaces with the same name: " + name)
 		}
 		vwNames.Insert(name)
 
-		var vwGroupManager discovery.GroupManager
-		for _, groupAPIServerBuilder := range virtualWorkspace.GroupAPIServerBuilders {
-			var err error
-			groupAPIServer, err := c.withAPIServerForAPIGroup(name, vwGroupManager, groupAPIServerBuilder)(delegateAPIServer)
-			if err != nil {
-				return nil, err
-			}
-			if vwGroupManager == nil {
-				vwGroupManager = groupAPIServer.DiscoveryGroupManager
-			}
-			delegateAPIServer = groupAPIServer
+		var err error
+		delegateAPIServer, err = virtualWorkspace.Register(c.GenericConfig, delegateAPIServer)
+		if err != nil {
+			return nil, err
 		}
-		readys = append(readys, virtualWorkspace.Ready)
+		readys = append(readys, virtualWorkspace.IsReady)
 	}
 
 	defaultHandler := http.NewServeMux()
@@ -169,7 +131,7 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	return s, nil
 }
 
-func getReadinessHandler(readys []builders.ReadyFunc) http.Handler {
+func getReadinessHandler(readys []framework.ReadyFunc) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		readyFunc := func() bool {
 			for _, ready := range readys {
@@ -192,8 +154,8 @@ func getReadinessHandler(readys []builders.ReadyFunc) http.Handler {
 func (c completedConfig) resolveRootPaths(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 	completedContext = requestContext
 	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
-		if accepted, prefixToStrip, completedContext := virtualWorkspace.RootPathResolver(urlPath, requestContext); accepted {
-			return accepted, prefixToStrip, context.WithValue(completedContext, virtualapiserver.VirtualNamespaceNameKey, virtualWorkspace.Name)
+		if accepted, prefixToStrip, completedContext := virtualWorkspace.ResolveRootPath(urlPath, requestContext); accepted {
+			return accepted, prefixToStrip, context.WithValue(completedContext, virtualcontext.VirtualNamespaceNameKey, virtualWorkspace.GetName())
 		}
 	}
 	return
@@ -235,7 +197,7 @@ func (c completedConfig) NewRequestInfo(req *http.Request) (*genericapirequest.R
 	return defaultResolver.NewRequestInfo(req)
 }
 
-func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptionsWithLoopback, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, rootAPIServerBuilders ...builders.VirtualWorkspaceBuilder) (*RootAPIConfig, error) {
+func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptionsWithLoopback, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
 	genericConfig := genericapiserver.NewRecommendedConfig(legacyscheme.Codecs)
 
 	// TODO: genericConfig.ExternalAddress = ... allow a command line flag or it to be overridden by a top-level multiroot apiServer
@@ -260,7 +222,7 @@ func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOption
 					informerStart(stopCh)
 				}
 			},
-			VirtualWorkspaces: rootAPIServerBuilders,
+			VirtualWorkspaces: virtualWorkspaces,
 		},
 	}
 

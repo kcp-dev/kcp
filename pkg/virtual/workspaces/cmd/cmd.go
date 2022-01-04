@@ -35,22 +35,22 @@ import (
 	tenancyAPI "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/virtual/generic/builders"
-	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/generic/cmd"
-	virtualgenericrbac "github.com/kcp-dev/kcp/pkg/virtual/generic/rbac"
-	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/generic/rootapiserver"
-	virtualworkspacesbuilders "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builders"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	virtualframeworkcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
+	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
+	rootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
 
-var _ virtualgenericcmd.SubCommandOptions = (*WorkspacesSubCommandOptions)(nil)
+var _ virtualframeworkcmd.SubCommandOptions = (*WorkspacesSubCommandOptions)(nil)
 
 type WorkspacesSubCommandOptions struct {
 	RootPathPrefix string
 	KubeconfigFile string
 }
 
-func (o *WorkspacesSubCommandOptions) Description() virtualgenericcmd.SubCommandDescription {
-	return virtualgenericcmd.SubCommandDescription{
+func (o *WorkspacesSubCommandOptions) Description() virtualframeworkcmd.SubCommandDescription {
+	return virtualframeworkcmd.SubCommandDescription{
 		Name:  "workspaces",
 		Use:   "workspaces",
 		Short: "Launch workspaces virtual workspace apiserver",
@@ -68,7 +68,7 @@ func (o *WorkspacesSubCommandOptions) AddFlags(flags *pflag.FlagSet) {
 
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 
-	flags.StringVar(&o.RootPathPrefix, "workspaces:root-path-prefix", virtualworkspacesbuilders.DefaultRootPathPrefix, ""+
+	flags.StringVar(&o.RootPathPrefix, "workspaces:root-path-prefix", builder.DefaultRootPathPrefix, ""+
 		"The prefix of the workspaces API server root path.\n"+
 		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/personal|organization|global")
 }
@@ -90,8 +90,8 @@ func (o *WorkspacesSubCommandOptions) Validate() []error {
 	return errs
 }
 
-func (o *WorkspacesSubCommandOptions) InitializeBuilders() ([]virtualrootapiserver.InformerStart, []builders.VirtualWorkspaceBuilder, error) {
-	kubeConfig, err := virtualgenericcmd.ReadKubeConfig(o.KubeconfigFile)
+func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserver.InformerStart, []framework.VirtualWorkspace, error) {
+	kubeConfig, err := virtualframeworkcmd.ReadKubeConfig(o.KubeconfigFile)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -134,17 +134,17 @@ func (o *WorkspacesSubCommandOptions) InitializeBuilders() ([]virtualrootapiserv
 	//	discoveryClient := cacheddiscovery.NewMemCacheClient(kubeClient.Discovery())
 	//	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
 
-	singleClusterRBACV1 := virtualgenericrbac.FilterPerCluster(adminLogicalClusterName, kubeInformers.Rbac().V1())
+	singleClusterRBACV1 := frameworkrbac.FilterPerCluster(adminLogicalClusterName, kubeInformers.Rbac().V1())
 
-	subjectLocator := virtualgenericrbac.NewSubjectLocator(singleClusterRBACV1)
-	ruleResolver := virtualgenericrbac.NewRuleResolver(singleClusterRBACV1)
+	subjectLocator := frameworkrbac.NewSubjectLocator(singleClusterRBACV1)
+	ruleResolver := frameworkrbac.NewRuleResolver(singleClusterRBACV1)
 
-	builders := []builders.VirtualWorkspaceBuilder{
-		virtualworkspacesbuilders.WorkspacesVirtualWorkspaceBuilder(o.RootPathPrefix, kcpInformer.Tenancy().V1alpha1().Workspaces(), kcpClient.TenancyV1alpha1().Workspaces(), kubeClient, singleClusterRBACV1, subjectLocator, ruleResolver),
+	virtualWorkspaces := []framework.VirtualWorkspace{
+		builder.BuildVirtualWorkspace(o.RootPathPrefix, kcpInformer.Tenancy().V1alpha1().Workspaces(), kcpClient.TenancyV1alpha1().Workspaces(), kubeClient, singleClusterRBACV1, subjectLocator, ruleResolver),
 	}
-	informerStarts := []virtualrootapiserver.InformerStart{
+	informerStarts := []rootapiserver.InformerStart{
 		kubeInformers.Start,
 		kcpInformer.Start,
 	}
-	return informerStarts, builders, nil
+	return informerStarts, virtualWorkspaces, nil
 }

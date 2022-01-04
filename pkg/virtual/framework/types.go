@@ -14,31 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package builders
+package framework
 
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 )
-
-type RestStorageBuilder func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (restStorage.Storage, error)
-
-type APIGroupAPIServerBuilder struct {
-	GroupVersion schema.GroupVersion
-	AddToScheme  func(*runtime.Scheme) error
-	Initialize   func(genericapiserver.CompletedConfig) (map[string]RestStorageBuilder, error)
-}
 
 type RootPathResolverFunc func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
 type ReadyFunc func() bool
 
-type VirtualWorkspaceBuilder struct {
-	Name                   string
-	GroupAPIServerBuilders []APIGroupAPIServerBuilder
-	RootPathResolver       RootPathResolverFunc
-	Ready                  ReadyFunc
+type VirtualWorkspace interface {
+	GetName() string
+	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
+	IsReady() bool
+	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
 }
