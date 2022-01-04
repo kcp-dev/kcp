@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
@@ -167,6 +168,18 @@ func (s *REST) getInternalNameFromPrettyName(user kuser.Info, prettyName string)
 	return "", kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces").GroupResource(), prettyName)
 }
 
+func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
+	if scope == personalScope {
+		return &kuser.DefaultInfo{
+			Name:   user.GetName(),
+			UID:    user.GetUID(),
+			Groups: []string{},
+			Extra:  user.GetExtra(),
+		}
+	}
+	return user
+}
+
 // List retrieves a list of Workspaces that match label.
 func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (runtime.Object, error) {
 	user, ok := apirequest.UserFrom(ctx)
@@ -174,22 +187,15 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspace"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
 
-	if scope := ctx.Value(WorkspacesScopeKey); scope == personalScope {
-		user = &kuser.DefaultInfo{
-			Name:   user.GetName(),
-			UID:    user.GetUID(),
-			Groups: []string{},
-			Extra:  user.GetExtra(),
-		}
-	}
+	scope := ctx.Value(WorkspacesScopeKey).(string)
 
 	labelSelector, _ := InternalListOptionsToSelectors(options)
-	workspaceList, err := s.workspaceLister.List(user, labelSelector)
+	workspaceList, err := s.workspaceLister.List(withoutGroupsWhenPersonal(user, scope), labelSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	if scope := ctx.Value(WorkspacesScopeKey); scope == personalScope {
+	if scope == personalScope {
 		for i, workspace := range workspaceList.Items {
 			var err error
 			workspaceList.Items[i].Name, err = s.getPrettyNameFromInternalName(user, workspace.Name)
@@ -216,7 +222,8 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspace"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
 
-	if scope := ctx.Value(WorkspacesScopeKey); scope == personalScope {
+	scope := ctx.Value(WorkspacesScopeKey).(string)
+	if scope == personalScope {
 		internalName, err := s.getInternalNameFromPrettyName(user, name)
 		if err != nil {
 			return nil, err
@@ -229,29 +236,33 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 		return nil, err
 	}
 
-	if scope := ctx.Value(WorkspacesScopeKey); scope == personalScope {
-		workspace.Name, err = s.getPrettyNameFromInternalName(user, workspace.Name)
+	// TODO:
+	// Filtering by applying the lister operation might not be necessary anymore
+	// when using a semi-delegated authorizer in the workspaces virtual workspace that would
+	// delegate this authorization to the main KCP instance hosting the workspaces and RBAC rules
+	obj, err := s.workspaceLister.List(withoutGroupsWhenPersonal(user, scope), labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	var existingWorkspace *tenancyv1alpha1.Workspace
+	for _, ws := range obj.Items {
+		if ws.Name == workspace.Name && ws.ClusterName == workspace.ClusterName {
+			existingWorkspace = workspace
+			break
+		}
+	}
+
+	if existingWorkspace == nil {
+		return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces").GroupResource(), name)
+	}
+
+	if scope == personalScope {
+		existingWorkspace.Name, err = s.getPrettyNameFromInternalName(user, existingWorkspace.Name)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	// TODO Filtering by applying the List operation would probably not be necessary anymore
-	// when using a semi-delegated authorizer in the workspaces virtual workspace that would
-	// delegate this authorization to the main KCP instance hosting the workspaces and RBAC rules
-	obj, err := s.List(ctx, &metainternal.ListOptions{
-		ResourceVersion: opts.ResourceVersion,
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, ws := range obj.(*tenancyv1alpha1.WorkspaceList).Items {
-		if ws.Name == workspace.Name && ws.ClusterName == workspace.ClusterName {
-			return workspace, nil
-		}
-	}
-
-	return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces").GroupResource(), name)
+	return existingWorkspace, nil
 }
 
 type RoleType string
