@@ -66,7 +66,7 @@ verify-codegen:
 
 	$(MAKE) codegen
 
-	if ! git diff --quiet HEAD; then \
+	if ! git diff -I '^Copyright.*' --quiet HEAD; then \
 		git diff; \
 		echo "You need to run 'make codegen' to update generated files and commit them"; \
 		exit 1; \
