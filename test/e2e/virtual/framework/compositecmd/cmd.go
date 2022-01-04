@@ -74,7 +74,7 @@ func (o *CompositeSubCommandOptions) PrepareVirtualWorkspaces() ([]virtualrootap
 				}
 				return false, "", context
 			},
-			Ready: func() bool { return true },
+			Ready: func() error { return nil },
 		}
 
 		for gv, storages := range vw {

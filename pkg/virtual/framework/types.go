@@ -23,11 +23,11 @@ import (
 )
 
 type RootPathResolverFunc func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
-type ReadyFunc func() bool
+type ReadyFunc func() error
 
 type VirtualWorkspace interface {
 	GetName() string
 	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
-	IsReady() bool
+	IsReady() error
 	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
 }

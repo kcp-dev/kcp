@@ -108,10 +108,9 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		readys = append(readys, virtualWorkspace.IsReady)
 	}
 
-	defaultHandler := http.NewServeMux()
-	defaultHandler.Handle("/healthz/ready", getReadinessHandler(readys))
-	c.GenericConfig.BuildHandlerChainFunc = c.getRootHandlerChain(delegateAPIServer, defaultHandler)
+	c.GenericConfig.BuildHandlerChainFunc = c.getRootHandlerChain(delegateAPIServer)
 	c.GenericConfig.RequestInfoResolver = c
+	c.GenericConfig.ReadyzChecks = append(c.GenericConfig.ReadyzChecks, asHealthCheck(readys))
 
 	genericServer, err := c.GenericConfig.New("virtual-workspaces-root-apiserver", delegateAPIServer)
 	if err != nil {
@@ -131,24 +130,19 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	return s, nil
 }
 
-func getReadinessHandler(readys []framework.ReadyFunc) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		readyFunc := func() bool {
-			for _, ready := range readys {
-				if !ready() {
-					return false
-				}
-			}
-			return true
-		}
-		if readyFunc() {
-			rw.WriteHeader(http.StatusOK)
-			_, _ = rw.Write([]byte("ok"))
+type asHealthCheck []framework.ReadyFunc
 
-		} else {
-			rw.WriteHeader(http.StatusServiceUnavailable)
+func (readys asHealthCheck) Name() string {
+	return "VirtualWotrkspaceAdditionalReadinessChecks"
+}
+
+func (readys asHealthCheck) Check(req *http.Request) error {
+	for _, ready := range readys {
+		if err := ready(); err != nil {
+			return err
 		}
-	})
+	}
+	return nil
 }
 
 func (c completedConfig) resolveRootPaths(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
@@ -161,7 +155,7 @@ func (c completedConfig) resolveRootPaths(urlPath string, requestContext context
 	return
 }
 
-func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget, defaultHandler http.Handler) func(http.Handler, *genericapiserver.Config) http.Handler {
+func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
 	return func(apiHandler http.Handler, genericConfig *genericapiserver.Config) http.Handler {
 		return genericapiserver.DefaultBuildHandlerChain(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			if accepted, prefixToStrip, context := c.resolveRootPaths(req.URL.Path, req.Context()); accepted {
@@ -174,7 +168,7 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 				}
 				return
 			}
-			defaultHandler.ServeHTTP(w, req)
+			apiHandler.ServeHTTP(w, req)
 		}), c.GenericConfig.Config)
 	}
 }

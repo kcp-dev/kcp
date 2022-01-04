@@ -18,6 +18,7 @@ package builder
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -51,8 +52,11 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 	var workspaceAuthorizationCache *workspaceauth.AuthorizationCache
 	return &fixedgvs.FixedGroupVersionsVirtualWorkspace{
 		Name: WorkspacesVirtualWorkspaceName,
-		Ready: func() bool {
-			return workspaceAuthorizationCache != nil && workspaceAuthorizationCache.ReadyForAccess()
+		Ready: func() error {
+			if workspaceAuthorizationCache == nil || !workspaceAuthorizationCache.ReadyForAccess() {
+				return errors.New("WorkspaceAuthorizationcache is not ready for access")
+			}
+			return nil
 		},
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			completedContext = requestContext

@@ -46,7 +46,7 @@ func (vw *FixedGroupVersionsVirtualWorkspace) GetName() string {
 	return vw.Name
 }
 
-func (vw *FixedGroupVersionsVirtualWorkspace) IsReady() bool {
+func (vw *FixedGroupVersionsVirtualWorkspace) IsReady() error {
 	return vw.Ready()
 }
 

@@ -103,7 +103,7 @@ func (vw VirtualWorkspace) Setup(t framework.TestingTInterface, ctx context.Cont
 	var message string
 	loadCtx, cancel := context.WithTimeout(virtualWorkspaceContext, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
-		endpoint := "/healthz/ready"
+		endpoint := "/readyz"
 		_, err := rest.NewRequest(vwReadinessClient).RequestURI(endpoint).Do(ctx).Raw()
 		if err == nil {
 			t.Logf("success contacting %s", endpoint)
