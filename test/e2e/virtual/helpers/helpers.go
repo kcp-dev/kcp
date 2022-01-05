@@ -50,7 +50,12 @@ func (vw VirtualWorkspace) Setup(t framework.TestingTInterface, ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
-	secureOptions.BindPort, err = strconv.Atoi(portStr)
+	bindPort, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, err
+	}
+	secureOptions.BindPort = bindPort
+	externalAddress, err := secureOptions.DefaultExternalAddress()
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +89,7 @@ func (vw VirtualWorkspace) Setup(t framework.TestingTInterface, ctx context.Cont
 	}()
 
 	mainRestConfig := &rest.Config{
-		Host:    fmt.Sprintf("%s:%d", secureOptions.SecureServingOptions.BindAddress.String(), secureOptions.BindPort),
+		Host:    fmt.Sprintf("%s:%d", externalAddress, bindPort),
 		APIPath: "/apis",
 		TLSClientConfig: rest.TLSClientConfig{
 			Insecure: true,
