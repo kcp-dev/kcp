@@ -169,7 +169,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			continue
 		}
 
-		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer) {
+		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
 			if len(servers) != 1 {
 				t.Errorf("incorrect number of servers: %d", len(servers))
 				return
