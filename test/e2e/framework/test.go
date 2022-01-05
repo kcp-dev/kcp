@@ -41,7 +41,7 @@ type RunningServer interface {
 	Artifact(t TestingTInterface, producer func() (runtime.Object, error))
 }
 
-type TestFunc func(t TestingTInterface, servers map[string]RunningServer)
+type TestFunc func(t TestingTInterface, servers map[string]RunningServer, artifactDir, dataDir string)
 
 // KcpConfig qualify a kcp server to start
 type KcpConfig struct {
@@ -129,7 +129,7 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 			t.Logf("Started kcp servers after %s", time.Since(start))
 
 			// run the test
-			f(t, runningServers)
+			f(t, runningServers, artifactDir, dataDir)
 		}(bottom)
 
 		bottom.Wait()

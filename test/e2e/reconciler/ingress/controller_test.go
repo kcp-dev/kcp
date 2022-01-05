@@ -167,7 +167,7 @@ func TestIngressController(t *testing.T) {
 	}
 	for i := range testCases {
 		testCase := testCases[i]
-		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer) {
+		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
 			start := time.Now()
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -267,7 +267,7 @@ func TestIngressController(t *testing.T) {
 			ingressController := ingressControllerConfig{
 				t:               t,
 				kubeconfigPath:  cfg.Clusters[cfg.CurrentContext].LocationOfOrigin,
-				artifactDir:     t.TempDir(),
+				artifactDir:     artifactDir,
 				xdsListenPort:   xdsListenerPort,
 				envoyListenPort: envoyListenerPort,
 			}
