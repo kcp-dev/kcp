@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: valid-ingress
+spec:
+  rules:
+    - host: valid-ingress.kcp-apps.127.0.0.1.nip.io
+      http:
+        paths:
+          - backend:
+              service:
+                name: existing-service
+                port:
+                  number: 80
+            path: /
+status:
+  loadBalancer: {}

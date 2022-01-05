@@ -22,4 +22,4 @@ kubectl --kubeconfig=${CLUSTERS_DIR}/us-west1.kubeconfig get pods -o wide -n dem
 kubectl --kubeconfig=${CLUSTERS_DIR}/us-east1.kubeconfig get deployment my-deployment--us-east1 -o yaml -n demo >>us-east1.log 2>&1
 kubectl --kubeconfig=${CLUSTERS_DIR}/us-east1.kubeconfig get pods -o wide -n demo >>us-east1.log 2>&1
 
-kind delete clusters us-west1 us-west1 us-east1 > /dev/null || true
+kind delete clusters us-west1 us-east1 > /dev/null || true
