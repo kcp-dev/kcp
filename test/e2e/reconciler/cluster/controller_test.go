@@ -83,7 +83,7 @@ func TestClusterController(t *testing.T) {
 					return
 				}
 				for _, name := range []string{sourceClusterName, sinkClusterName} {
-					defer servers[name].Artifact(t, func() (runtime.Object, error) {
+					servers[name].Artifact(t, func() (runtime.Object, error) {
 						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
 					})
 				}
@@ -115,7 +115,7 @@ func TestClusterController(t *testing.T) {
 					return
 				}
 				for _, name := range []string{sourceClusterName, sinkClusterName} {
-					defer servers[name].Artifact(t, func() (runtime.Object, error) {
+					servers[name].Artifact(t, func() (runtime.Object, error) {
 						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
 					})
 				}

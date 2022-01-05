@@ -50,8 +50,11 @@ type kcpServer struct {
 	dataDir     string
 	artifactDir string
 
-	lock           *sync.Mutex
-	cfg            clientcmd.ClientConfig
+	artifactsLock *sync.RWMutex
+	artifacts []func()
+
+	lock *sync.Mutex
+	cfg  clientcmd.ClientConfig
 	kubeconfigPath string
 	// TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
 	rawCfg *clientcmdapi.Config
@@ -103,6 +106,7 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 			cfg.Args...),
 		dataDir:     dataDir,
 		artifactDir: artifactDir,
+		artifactsLock: &sync.RWMutex{},
 		ctx:         ctx,
 		t:           t,
 		lock:        &sync.Mutex{},

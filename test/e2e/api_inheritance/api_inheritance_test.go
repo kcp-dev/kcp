@@ -94,7 +94,7 @@ func TestAPIInheritance(t *testing.T) {
 			t.Errorf("error creating source workspace: %v", err)
 			return
 		}
-		defer server.Artifact(t, func() (runtime.Object, error) {
+		server.Artifact(t, func() (runtime.Object, error) {
 			return kcpAdminClient.TenancyV1alpha1().Workspaces().Get(ctx, "source", metav1.GetOptions{})
 		})
 
@@ -108,7 +108,7 @@ func TestAPIInheritance(t *testing.T) {
 			t.Errorf("error creating target workspace: %v", err)
 			return
 		}
-		defer server.Artifact(t, func() (runtime.Object, error) {
+		server.Artifact(t, func() (runtime.Object, error) {
 			return kcpAdminClient.TenancyV1alpha1().Workspaces().Get(ctx, "target", metav1.GetOptions{})
 		})
 
@@ -164,7 +164,7 @@ func TestAPIInheritance(t *testing.T) {
 			t.Errorf("Error creating sourceWorkspaceCluster inside source: %v", err)
 			return
 		}
-		defer server.Artifact(t, func() (runtime.Object, error) {
+		server.Artifact(t, func() (runtime.Object, error) {
 			return sourceClusterClient.Get(ctx, "source-cluster", metav1.GetOptions{})
 		})
 
@@ -243,7 +243,7 @@ func TestAPIInheritance(t *testing.T) {
 			t.Errorf("error creating targetWorkspaceCluster inside target: %v", err)
 			return
 		}
-		defer server.Artifact(t, func() (runtime.Object, error) {
+		server.Artifact(t, func() (runtime.Object, error) {
 			return targetClusterClient.Get(ctx, "target-cluster", metav1.GetOptions{})
 		})
 
