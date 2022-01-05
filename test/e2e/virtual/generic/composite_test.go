@@ -18,6 +18,7 @@ package generic
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -211,7 +212,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 								},
 							},
 						},
-					}, vw1ServerResources)
+					}, sortAPIResourceList(vw1ServerResources))
 				}
 
 				vw2Client := server.virtualWorkspaceClients[1]
@@ -237,7 +238,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 								},
 							},
 						},
-					}, vw2ServerResources)
+					}, sortAPIResourceList(vw2ServerResources))
 				}
 			},
 		},
@@ -297,4 +298,24 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 			Args: []string{""},
 		})
 	}
+}
+
+type ByGroupVersion []*metav1.APIResourceList
+
+func (a ByGroupVersion) Len() int           { return len(a) }
+func (a ByGroupVersion) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByGroupVersion) Less(i, j int) bool { return a[i].GroupVersion < a[j].GroupVersion }
+
+type ByName []metav1.APIResource
+
+func (a ByName) Len() int           { return len(a) }
+func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
+
+func sortAPIResourceList(list []*metav1.APIResourceList) []*metav1.APIResourceList {
+	sort.Sort(ByGroupVersion(list))
+	for _, resource := range list {
+		sort.Sort(ByName(resource.APIResources))
+	}
+	return list
 }
