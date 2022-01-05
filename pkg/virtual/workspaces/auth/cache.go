@@ -19,6 +19,7 @@ package auth
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -178,6 +179,8 @@ type AuthorizationCache struct {
 	reviewer Reviewer
 
 	syncHandler func(request *reviewRequest, userSubjectRecordStore cache.Store, groupSubjectRecordStore cache.Store, reviewRecordStore cache.Store) error
+
+	rwMutex sync.RWMutex
 }
 
 // NewAuthorizationCache creates a new AuthorizationCache
@@ -215,6 +218,7 @@ func NewAuthorizationCache(
 	}
 	ac.lastSyncResourceVersioner = workspaceLastSyncResourceVersioner
 	ac.syncHandler = ac.syncRequest
+	ac.rwMutex = sync.RWMutex{}
 	return ac
 }
 
@@ -306,6 +310,9 @@ func (ac *AuthorizationCache) invalidateCache() bool {
 
 // synchronize runs a a full synchronization over the cache data.  it must be run in a single-writer model, it's not thread-safe by design.
 func (ac *AuthorizationCache) synchronize() {
+	ac.rwMutex.Lock()
+	defer ac.rwMutex.Unlock()
+
 	// if none of our internal reflectors changed, then we can skip reviewing the cache
 	skip, currentState := ac.skip.SkipSynchronize(ac.lastState, ac.lastSyncResourceVersioner, ac.roleLastSyncResourceVersioner)
 	if skip {
@@ -384,6 +391,9 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 
 // List returns the set of workspace names the user has access to view
 func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector) (*workspaceapi.WorkspaceList, error) {
+	ac.rwMutex.RLock()
+	defer ac.rwMutex.RUnlock()
+
 	keys := sets.String{}
 	user := userInfo.GetName()
 	groups := userInfo.GetGroups()
@@ -421,6 +431,9 @@ func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector)
 }
 
 func (ac *AuthorizationCache) ReadyForAccess() bool {
+	ac.rwMutex.RLock()
+	defer ac.rwMutex.RUnlock()
+
 	return len(ac.lastState) > 0
 }
 
