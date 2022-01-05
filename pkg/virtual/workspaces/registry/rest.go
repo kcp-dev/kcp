@@ -189,6 +189,11 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 
 	scope := ctx.Value(WorkspacesScopeKey).(string)
 
+	// TODO:
+	// The workspaceLister is informer driven, so it's important to note that the lister can be stale.
+	// It breaks the API guarantees of lists.
+	// To make it correct we have to know the latest RV of the org workspace shard,
+	// and then wait for freshness relative to that RV of the lister.
 	labelSelector, _ := InternalListOptionsToSelectors(options)
 	workspaceList, err := s.workspaceLister.List(withoutGroupsWhenPersonal(user, scope), labelSelector)
 	if err != nil {
@@ -301,7 +306,39 @@ func InternalListOptionsToSelectors(options *metainternal.ListOptions) (labels.S
 
 var _ = rest.Creater(&REST{})
 
-// Create creates a new version of a resource.
+// Create creates a new workspace
+// The workspace is created in the underlying KCP server, with an internal name
+// since the name ( == pretty name ) requested by the user might already exist at the organization level.
+// Internal names would be <pretty name>--<suffix>.
+//
+// However when the user manages his workspaces through the personal scope, the pretty names will always be used.
+//
+// Personal pretty names and the related internal names are stored on the ClusterRoleBinding that links the
+// Workspace-related ClusterRole with the user Subject.
+//
+// Typical actions done against the underlying KCP instance when
+//
+//   kubectl create workspace my-app
+//
+// is issued by User-A against the virtual workspace at the personal scope:
+//
+//   1. create ClusterRoleBinding admin-workspace-my-app-user-A
+//
+// If this fails, then my-app already exists for the user A => conflict error.
+//
+//   2. create ClusterRoleBinding admin-workspace-my-app-user-A
+//      create ClusterRole admin-workspace-my-app-user-A
+//      create ClusterRole lister-workspace-my-app-user-A  (in order to later allow sharing)
+//
+//   3. create Workspace my-app
+//
+// If this conflicts, create my-app--1, then my-app--2, …
+//
+//   4. update RoleBinding user-A-my-app to point to my-app-2 instead of my-app.
+//
+//   5. update ClusterRole admin-workspace-my-app-user-A to point to the internal workspace name
+//      update the internalName and pretty annotation on cluster roles and cluster role bindings.
+//
 func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
 	var zero int64
 	user, ok := apirequest.UserFrom(ctx)
@@ -319,6 +356,10 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	}
 	adminRoleBindingName := getRoleBindingName(AdminRoleType, workspace.Name, user)
 	listerRoleBindingName := getRoleBindingName(ListerRoleType, workspace.Name, user)
+
+	// First create the ClusterRoleBinding that will link the workspace cluster role with the user Subject
+	// This is created with a name unique inside the user personal scope (pretty name + userName),
+	// So this automatically check for pretty name uniqueness in the user personal scope.
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   adminRoleBindingName,
@@ -344,6 +385,9 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
+	// Then create the admin and lister roles related to the given workspace.
+	// Note that ResourceNames contains the workspace pretty name for now.
+	// It will be updated later on when the internal name of the workspace is known.
 	adminClusterRole := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   adminRoleBindingName,
@@ -381,6 +425,10 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
+	// Then try to create the workspace object itself, first with the pretty name,
+	// retrying with increasing suffixes until a workspace with the same name
+	// doesn't already exist.
+	// The suffixed name based on the pretty name will be the internal name
 	prettyName := workspace.Name
 	var createdWorkspace *tenancyv1alpha1.Workspace
 	var err error
@@ -401,6 +449,8 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		i++
 	}
 
+	// Update the cluster roles with the new workspace internal name, and also
+	// add the internal name as a label, to allow searching with it later on.
 	adminClusterRole.Rules[0].ResourceNames = []string{createdWorkspace.Name}
 	adminClusterRole.Labels[InternalNameLabel] = createdWorkspace.Name
 	if _, err := s.rbacClient.ClusterRoles().Update(ctx, &adminClusterRole, metav1.UpdateOptions{}); err != nil {
@@ -425,6 +475,8 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
+	// Update the cluster role bindings with the new workspace internal and pretty names,
+	// to allow searching with them later on.
 	clusterRoleBinding.Labels[InternalNameLabel] = createdWorkspace.Name
 	clusterRoleBinding.Labels[PrettyNameLabel] = prettyName
 	if _, err := s.rbacClient.ClusterRoleBindings().Update(ctx, &clusterRoleBinding, metav1.UpdateOptions{}); err != nil {
@@ -437,6 +489,8 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
+	// The workspace has been created with the internal name in KCP,
+	// but will be returned to the user (in personal scope) with the pretty name.
 	createdWorkspace.Name = prettyName
 	return createdWorkspace, nil
 }

@@ -44,11 +44,17 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(rootAPIServerConfig gener
 			cfg.ExtraConfig.StorageBuilders[resourceName] = builder
 		}
 
-		// TODO: Comment
+		// We don't want any poststart hooks at the level of a GroupVersionAPIServer.
+		// In the current design, PostStartHooks are only added at the top level RootAPIServer.
+		// So let's drop the PostStartHooks from the GroupVersionAPIServerConfig since they are simply copied
+		// from the RootAPIServerConfig
 		cfg.GenericConfig.PostStartHooks = map[string]genericapiserver.PostStartHookConfigEntry{}
 		config := cfg.Complete()
 
 		if vwGroupManager != nil {
+			// If this GroupVersionAPIServer is not the first one for
+			// a given virtual workspace, then disable discover and reuse
+			// the GroupManager of the first one.
 			config.GenericConfig.EnableDiscovery = false
 		}
 		server, err := config.New(vw.Name, vwGroupManager, delegateAPIServer)
@@ -56,6 +62,9 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(rootAPIServerConfig gener
 			return nil, err
 		}
 		if vwGroupManager == nil {
+			// If this GroupVersionAPIServer is the first one for
+			// a given virtual workspace, then grab its DiscoveryGroupManager
+			// to reuse it in the next GroupVersionAPIServers for the virtual workspace.
 			vwGroupManager = server.GenericAPIServer.DiscoveryGroupManager
 		}
 		delegateAPIServer = server.GenericAPIServer

@@ -175,6 +175,16 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 
 var _ genericapirequest.RequestInfoResolver = (*completedConfig)(nil)
 
+// NewRequestInfo method makes the `completedConfig` an implementation of a RequestInfoResolver.
+// And when creating the RootAPIServer (in the New method), the RequestInfoResolver of the
+// associated GenericConfig is replaced by the `completedConfig`.
+//
+// Since we reuse the DefaultBuildChainHandler in our customized getRootChainHandler method
+// (that checks the URL Path against virtual workspace root paths), that means that the RequestInfo
+// object will be created, as part of the DefaultBuildChainHandler.
+//
+// So we also override the RequestInfoResolver in order to use the same URL Path as the one
+// that will be forwarded to the virtual workspace deletegated APIServers.
 func (c completedConfig) NewRequestInfo(req *http.Request) (*genericapirequest.RequestInfo, error) {
 	defaultResolver := genericapiserver.NewRequestInfoResolver(c.GenericConfig.Config)
 	if accepted, prefixToStrip, _ := c.resolveRootPaths(req.URL.Path, req.Context()); accepted {

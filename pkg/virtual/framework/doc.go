@@ -14,7 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package auth provides mechanisms for enforcing authorization to Workspace resources in KCP
-// This package is largely insired from openshift/openshift-apiserver/pkg/project/auth
-// https://github.com/openshift/openshift-apiserver/blob/9271466bfd02a9eb02fb5a43c8b9ff1ced76aca9/pkg/project/auth
-package auth
+// Package framework provides a the required interfaces, structs and generic implementation
+// that allow creating KCP virtual workspaces with a minimal amount of work.
+//
+// To create virtual workspaces you have to:
+//
+// - define the implementation of the VirtualWorkspaces you want to expose (for example with utilities found in the `fixedgvs` package)
+//
+// - define the sub-command that will expose the related CLI arguments, Bootstrap and start those VirtualWorkspaces.
+package framework

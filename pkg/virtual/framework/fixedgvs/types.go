@@ -27,14 +27,29 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 )
 
+// RestStorageBuilder is a function that builds a REST Storage based on the config of the
+// dedicated delegated APIServer is will be created on.
 type RestStorageBuilder func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (restStorage.Storage, error)
 
+// GroupVersionAPISet describes the set of APIs that should be added in a given group/version.
+// This allows specifying the logic that should build related REST storages,
+// as well as the additional schemes required to register the REST storages.
 type GroupVersionAPISet struct {
-	GroupVersion           schema.GroupVersion
-	AddToScheme            func(*runtime.Scheme) error
+	GroupVersion schema.GroupVersion
+
+	// AddToScheme adds the additional schemes required to register the REST storages
+	AddToScheme func(*runtime.Scheme) error
+
+	// BootstrapRestResources bootstraps the various Rest storage builders (one for each REST resource name),
+	// that will be later registered in dedicated delegated APIServer by the framework.
+	// This bootstrapping may include creating active objects like controllers,
+	// adding poststart hooks into the rootAPIServerConfig, etc ...
 	BootstrapRestResources func(rootAPIServerConfig genericapiserver.CompletedConfig) (map[string]RestStorageBuilder, error)
 }
 
+// FixedGroupVersionsVirtualWorkspace is an implementation of
+// the VirtualWorkspace interface, which allows adding well-defined APIs
+// in a limited number of group/versions, implemented as Rest storages.
 type FixedGroupVersionsVirtualWorkspace struct {
 	Name                string
 	RootPathResolver    framework.RootPathResolverFunc

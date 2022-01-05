@@ -18,4 +18,6 @@ package context
 
 type virtualWorkspaceNameKeyType string
 
+// VirtualWorkspaceNameKey is a context key that contains the name of the
+// virtual workspace that should serve a given request according to its URL path.
 const VirtualWorkspaceNameKey virtualWorkspaceNameKeyType = "VirtualWorkspaceName"

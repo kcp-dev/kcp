@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package auth provides mechanisms for enforcing authorization to Workspace resources in KCP
-// This package is largely insired from openshift/openshift-apiserver/pkg/project/auth
-// https://github.com/openshift/openshift-apiserver/blob/9271466bfd02a9eb02fb5a43c8b9ff1ced76aca9/pkg/project/auth
-package auth
+// Package fixedgvs provides the types (and underlying implementation)
+// required to build virtual workspaces which allow adding well-defined APIs
+// in a limited number of group/versions, implemented as Rest storages.
+package fixedgvs
