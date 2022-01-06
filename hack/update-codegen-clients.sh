@@ -39,3 +39,12 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   "wildwest:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.go.txt --output-base ${GOPATH}/src
 
+go install "${CODEGEN_PKG}"/cmd/openapi-gen
+
+"$GOPATH"/bin/openapi-gen  --input-dirs github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1 \
+--input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
+--output-package github.com/kcp-dev/kcp/pkg/openapi -O zz_generated.openapi \
+--go-header-file ./hack/../hack/boilerplate/boilerplate.go.txt --output-base "$GOPATH"/src

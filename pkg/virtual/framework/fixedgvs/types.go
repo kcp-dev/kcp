@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	openapicommon "k8s.io/kube-openapi/pkg/common"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 )
@@ -39,6 +40,9 @@ type GroupVersionAPISet struct {
 
 	// AddToScheme adds the additional schemes required to register the REST storages
 	AddToScheme func(*runtime.Scheme) error
+
+	// OpenAPIDefinitions contains the OpenAPI v2 definitions of resources provided by the REST storages
+	OpenAPIDefinitions openapicommon.GetOpenAPIDefinitions
 
 	// BootstrapRestResources bootstraps the various Rest storage builders (one for each REST resource name),
 	// that will be later registered in dedicated delegated APIServer by the framework.

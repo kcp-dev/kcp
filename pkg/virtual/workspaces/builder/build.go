@@ -32,6 +32,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workspaceclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
@@ -77,8 +78,9 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 		},
 		GroupVersionAPISets: []fixedgvs.GroupVersionAPISet{
 			{
-				GroupVersion: tenancyv1alpha1.SchemeGroupVersion,
-				AddToScheme:  tenancyv1alpha1.AddToScheme,
+				GroupVersion:       tenancyv1alpha1.SchemeGroupVersion,
+				AddToScheme:        tenancyv1alpha1.AddToScheme,
+				OpenAPIDefinitions: kcpopenapi.GetOpenAPIDefinitions,
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
 					reviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(subjectLocator)
 					workspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(

@@ -27,14 +27,12 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
 
 type ExtraConfig struct {
 	GroupVersion    schema.GroupVersion
-	AddToScheme     func(*runtime.Scheme) error
 	StorageBuilders map[string]func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (restStorage.Storage, error)
 }
 
@@ -69,7 +67,7 @@ func (c *GroupVersionAPIServerConfig) Complete() completedConfig {
 }
 
 // New returns a new instance of VirtualWorkspaceAPIServer from the given config.
-func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery.GroupManager, delegationTarget genericapiserver.DelegationTarget) (*GroupVersionAPIServer, error) {
+func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery.GroupManager, scheme *runtime.Scheme, delegationTarget genericapiserver.DelegationTarget) (*GroupVersionAPIServer, error) {
 	genericServer, err := c.GenericConfig.New(virtualWorkspaceName+"-"+c.ExtraConfig.GroupVersion.Group+"-virtual-workspace-apiserver", delegationTarget)
 	if err != nil {
 		return nil, err
@@ -98,14 +96,7 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 		GenericAPIServer: genericServer,
 	}
 
-	scheme := runtime.NewScheme()
-	if err := kubernetesscheme.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
 	codecs := serializer.NewCodecFactory(scheme)
-	if err := c.ExtraConfig.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
 
 	storage := map[string]rest.Storage{}
 	for resource, storageBuilder := range c.ExtraConfig.StorageBuilders {

@@ -17,15 +17,25 @@ limitations under the License.
 package fixedgvs
 
 import (
+	openapibuilder "k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
+	"k8s.io/apiserver/pkg/endpoints/openapi"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/kube-openapi/pkg/builder"
+	"k8s.io/kube-openapi/pkg/handler"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs/apiserver"
 )
 
 func (vw *FixedGroupVersionsVirtualWorkspace) Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
 	var vwGroupManager discovery.GroupManager
+	var firstAPIServer *genericapiserver.GenericAPIServer
+	var openAPISpecs []*spec.Swagger
+
 	for _, groupVersionAPISet := range vw.GroupVersionAPISets {
 		restStorageBuilders, err := groupVersionAPISet.BootstrapRestResources(rootAPIServerConfig)
 		if err != nil {
@@ -36,12 +46,25 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(rootAPIServerConfig gener
 			GenericConfig: &genericapiserver.RecommendedConfig{Config: *rootAPIServerConfig.Config, SharedInformerFactory: rootAPIServerConfig.SharedInformerFactory},
 			ExtraConfig: apiserver.ExtraConfig{
 				GroupVersion:    groupVersionAPISet.GroupVersion,
-				AddToScheme:     groupVersionAPISet.AddToScheme,
 				StorageBuilders: make(map[string]func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (restStorage.Storage, error)),
 			},
 		}
 		for resourceName, builder := range restStorageBuilders {
 			cfg.ExtraConfig.StorageBuilders[resourceName] = builder
+		}
+
+		scheme := runtime.NewScheme()
+		if err := kubernetesscheme.AddToScheme(scheme); err != nil {
+			return nil, err
+		}
+		if err := groupVersionAPISet.AddToScheme(scheme); err != nil {
+			return nil, err
+		}
+
+		if groupVersionAPISet.OpenAPIDefinitions != nil {
+			cfg.GenericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(groupVersionAPISet.OpenAPIDefinitions, openapi.NewDefinitionNamer(scheme))
+			cfg.GenericConfig.OpenAPIConfig.Info.Title = "KCP Virtual Workspace for " + vw.Name
+			cfg.GenericConfig.SkipOpenAPIInstallation = true
 		}
 
 		// We don't want any poststart hooks at the level of a GroupVersionAPIServer.
@@ -57,17 +80,54 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(rootAPIServerConfig gener
 			// the GroupManager of the first one.
 			config.GenericConfig.EnableDiscovery = false
 		}
-		server, err := config.New(vw.Name, vwGroupManager, delegateAPIServer)
+
+		server, err := config.New(vw.Name, vwGroupManager, scheme, delegateAPIServer)
 		if err != nil {
 			return nil, err
 		}
-		if vwGroupManager == nil {
+
+		if groupVersionAPISet.OpenAPIDefinitions != nil {
+			spec, err := builder.BuildOpenAPISpec(server.GenericAPIServer.Handler.GoRestfulContainer.RegisteredWebServices(), config.GenericConfig.OpenAPIConfig)
+			if err != nil {
+				return nil, err
+			}
+			spec.Definitions = handler.PruneDefaults(spec.Definitions)
+			openAPISpecs = append(openAPISpecs, spec)
+		}
+
+		if vwGroupManager == nil && server.GenericAPIServer.DiscoveryGroupManager != nil {
 			// If this GroupVersionAPIServer is the first one for
 			// a given virtual workspace, then grab its DiscoveryGroupManager
 			// to reuse it in the next GroupVersionAPIServers for the virtual workspace.
 			vwGroupManager = server.GenericAPIServer.DiscoveryGroupManager
+
+		}
+		if firstAPIServer == nil {
+			// If this GroupVersionAPIServer is the first one for
+			// a given virtual workspace, then store it in order to later on
+			// install on it the OpenAPIServiceProvider with the merge OpenAPI Specs
+			// of all the GV API Sets.
+			firstAPIServer = server.GenericAPIServer
 		}
 		delegateAPIServer = server.GenericAPIServer
+	}
+
+	if len(openAPISpecs) > 0 && firstAPIServer != nil {
+		mergedSpec := openAPISpecs[0]
+		if len(openAPISpecs) > 1 {
+			var err error
+			mergedSpec, err = openapibuilder.MergeSpecs(mergedSpec, openAPISpecs[1:]...)
+			if err != nil {
+				return nil, err
+			}
+		}
+		openAPIService, err := handler.NewOpenAPIService(mergedSpec)
+		if err != nil {
+			return nil, err
+		}
+		if err := openAPIService.RegisterOpenAPIVersionedService("/openapi/v2", firstAPIServer.Handler.NonGoRestfulMux); err != nil {
+			return nil, err
+		}
 	}
 
 	return delegateAPIServer, nil
