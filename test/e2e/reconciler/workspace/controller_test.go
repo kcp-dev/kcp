@@ -269,7 +269,7 @@ func TestWorkspaceController(t *testing.T) {
 					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
 						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceURLValid))
 					}
-					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix/clusters/steve"); diff != "" {
+					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix/clusters/admin_steve"); diff != "" {
 						return fmt.Errorf("got incorrect base URL on workspace: %v", diff)
 					}
 					return nil

@@ -96,7 +96,6 @@ func init() {
 	utilruntime.Must(localSchemeBuilder.AddToScheme(scheme.Scheme))
 }
 
-
 func (c *kcpServer) GatherArtifacts() {
 	c.artifactsLock.RLock()
 	defer c.artifactsLock.RUnlock()
