@@ -449,6 +449,10 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		i++
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	// Update the cluster roles with the new workspace internal name, and also
 	// add the internal name as a label, to allow searching with it later on.
 	adminClusterRole.Rules[0].ResourceNames = []string{createdWorkspace.Name}
