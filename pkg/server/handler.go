@@ -17,12 +17,17 @@ limitations under the License.
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 )
 
@@ -35,7 +40,10 @@ func ServeHTTP(apiHandler http.Handler, c *genericapiserver.Config) func(w http.
 			path = strings.TrimPrefix(path, "/clusters/")
 			i := strings.Index(path, "/")
 			if i == -1 {
-				http.Error(w, "Unknown cluster", http.StatusNotFound)
+				responsewriters.ErrorNegotiated(
+					errors.NewBadRequest(fmt.Sprintf("unable to parse cluster: no `/` found in path %s", path)),
+					scheme.Codecs, schema.GroupVersion{},
+					w, req)
 				return
 			}
 			clusterName, path = path[:i], path[i:]
@@ -43,7 +51,10 @@ func ServeHTTP(apiHandler http.Handler, c *genericapiserver.Config) func(w http.
 			for i := 0; i < 2 && len(req.URL.RawPath) > 1; i++ {
 				slash := strings.Index(req.URL.RawPath[1:], "/")
 				if slash == -1 {
-					http.Error(w, "Unknown cluster", http.StatusNotFound)
+					responsewriters.ErrorNegotiated(
+						errors.NewInternalError(fmt.Errorf("unable to parse cluster when shortening raw path, have clusterName=%q, rawPath=%q", clusterName, req.URL.RawPath)),
+						scheme.Codecs, schema.GroupVersion{},
+						w, req)
 					return
 				}
 				req.URL.RawPath = req.URL.RawPath[slash:]
@@ -61,7 +72,10 @@ func ServeHTTP(apiHandler http.Handler, c *genericapiserver.Config) func(w http.
 			cluster.Name = genericcontrolplane.SanitizedClusterName(c.ExternalAddress, genericcontrolplane.RootClusterName)
 		default:
 			if !reClusterName.MatchString(clusterName) {
-				http.Error(w, "Unknown cluster", http.StatusNotFound)
+				responsewriters.ErrorNegotiated(
+					errors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", clusterName)),
+					scheme.Codecs, schema.GroupVersion{},
+					w, req)
 				return
 			}
 			cluster.Name = clusterName
