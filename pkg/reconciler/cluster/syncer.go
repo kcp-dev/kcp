@@ -26,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -251,7 +253,11 @@ func uninstallSyncer(ctx context.Context, client kubernetes.Interface) {
 }
 
 func healthcheckSyncer(ctx context.Context, client kubernetes.Interface, logicalCluster string) error {
-	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: "app=" + syncerWorkloadName(logicalCluster)})
+	selector, err := labels.NewRequirement("app", selection.Equals, []string{syncerWorkloadName(logicalCluster)})
+	if err != nil {
+		return err
+	}
+	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		return err
 	}
@@ -266,4 +272,22 @@ func healthcheckSyncer(ctx context.Context, client kubernetes.Interface, logical
 		return fmt.Errorf("Syncer pod not ready: %s", pod.Status.Phase)
 	}
 	return nil
+}
+
+func isSyncerInstalledAndUpToDate(ctx context.Context, client kubernetes.Interface, logicalCluster, syncerImage string) (bool, error) {
+	selector, err := labels.NewRequirement("app", selection.Equals, []string{syncerWorkloadName(logicalCluster)})
+	if err != nil {
+		return false, err
+	}
+	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return false, err
+	}
+	if len(pods.Items) == 0 {
+		return false, nil
+	}
+	if len(pods.Items) > 1 {
+		return true, fmt.Errorf("syncer pod not ready: there should be only 1 syncer pod")
+	}
+	return pods.Items[0].Spec.Containers[0].Image == syncerImage, nil
 }
