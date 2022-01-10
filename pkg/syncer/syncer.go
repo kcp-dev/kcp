@@ -23,41 +23,56 @@ import (
 	"strings"
 	"time"
 
+	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/clock"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/component-helpers/apimachinery/lease"
 	"k8s.io/klog/v2"
 )
 
 const resyncPeriod = 10 * time.Hour
 const SyncerNamespaceKey = "SYNCER_NAMESPACE"
 
+// leaseRenewIntervalFraction is the fraction of lease duration to renew the lease
+const leaseRenewIntervalFraction = 0.25
+
+// syncerNamespace is the syncer namespace where cluster leases are created
+const syncerNamespace = "syncer-system"
+
 type Syncer struct {
+	stopCh       chan struct{}
 	specSyncer   *Controller
 	statusSyncer *Controller
 	Resources    sets.String
 }
 
+func (s *Syncer) Done() <-chan struct{} { return s.stopCh }
+
 func (s *Syncer) Stop() {
 	s.specSyncer.Stop()
 	s.statusSyncer.Stop()
+	close(s.stopCh)
 }
 
 func (s *Syncer) WaitUntilDone() {
 	<-s.specSyncer.Done()
 	<-s.statusSyncer.Done()
+	<-s.Done()
 }
 
-func StartSyncer(upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) (*Syncer, error) {
+func StartSyncer(upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int, leaseDurationSeconds int32) (*Syncer, error) {
 	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), cluster, logicalCluster)
 	if err != nil {
 		return nil, err
@@ -67,10 +82,42 @@ func StartSyncer(upstream, downstream *rest.Config, resources sets.String, clust
 		specSyncer.Stop()
 		return nil, err
 	}
+	stopCh := make(chan struct{})
+	var heartbeat lease.Controller
+	if leaseDurationSeconds > 0 {
+		leaseClient, err := clientset.NewForConfig(upstream)
+		if err != nil {
+			specSyncer.Stop()
+			statusSyncer.Stop()
+			return nil, err
+		}
+		leaseDuration := time.Duration(leaseDurationSeconds) * time.Second
+		renewInterval := time.Duration(float64(leaseDuration) * leaseRenewIntervalFraction)
+		heartbeat = lease.NewController(
+			clock.RealClock{},
+			leaseClient,
+			fmt.Sprintf("cluster-%s", cluster),
+			leaseDurationSeconds,
+			func() {
+				// TODO(eddycharly): shall we close connections as kubelet does (https://github.com/kubernetes/kubernetes/blob/86ec240af8cbd1b60bcc4c03c20da9b98005b92e/cmd/kubelet/app/server.go#L616) ?
+				klog.Warning("Heartbeat failure: lease controller failed to update lease")
+			},
+			renewInterval,
+			syncerNamespace,
+			func(lease *coordinationv1.Lease) error {
+				// TODO(eddycharly): we should find a way to set cluster as the lease owner ?
+				klog.Infof("Creating/Updating cluster lease %s/%s", lease.Namespace, lease.Name)
+				return nil
+			},
+		)
+		go heartbeat.Run(stopCh)
+	}
+
 	specSyncer.Start(numSyncerThreads)
 	statusSyncer.Start(numSyncerThreads)
 
 	return &Syncer{
+		stopCh:       stopCh,
 		specSyncer:   specSyncer,
 		statusSyncer: statusSyncer,
 		Resources:    resources,

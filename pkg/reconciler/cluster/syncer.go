@@ -161,6 +161,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 	}
 
 	args := []string{
+		"-lease-duration-seconds", "40",
 		"-cluster", clusterID,
 		"-from_kubeconfig", "/kcp/kubeconfig",
 		"-from_cluster", logicalCluster,

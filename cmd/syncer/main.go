@@ -36,11 +36,12 @@ import (
 const numThreads = 2
 
 var (
-	fromKubeconfig = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster.")
-	fromCluster    = flag.String("from_cluster", "", "Name of the -from logical cluster.")
-	toKubeconfig   = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
-	toContext      = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
-	clusterID      = flag.String("cluster", "", "ID of the -to cluster. Resources with this ID set in the 'kcp.dev/cluster' label will be synced.")
+	fromKubeconfig       = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster.")
+	fromCluster          = flag.String("from_cluster", "", "Name of the -from logical cluster.")
+	toKubeconfig         = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
+	toContext            = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
+	clusterID            = flag.String("cluster", "", "ID of the -to cluster. Resources with this ID set in the 'kcp.dev/cluster' label will be synced.")
+	leaseDurationSeconds = flag.Int("lease-duration-seconds", 0, "Cluster lease duration seconds, set to 0 to disable lease controller (default).")
 )
 
 func main() {
@@ -91,7 +92,7 @@ func main() {
 	defer cancel()
 
 	klog.Infoln("Starting workers")
-	syncer, err := syncer.StartSyncer(fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads)
+	syncer, err := syncer.StartSyncer(fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads, int32(*leaseDurationSeconds))
 	if err != nil {
 		klog.Fatal(err)
 	}
