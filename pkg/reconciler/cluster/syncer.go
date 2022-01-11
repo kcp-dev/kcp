@@ -274,20 +274,34 @@ func healthcheckSyncer(ctx context.Context, client kubernetes.Interface, logical
 	return nil
 }
 
-func isSyncerInstalledAndUpToDate(ctx context.Context, client kubernetes.Interface, logicalCluster, syncerImage string) (bool, error) {
+func isSyncerInstalledAndUpToDate(ctx context.Context, client kubernetes.Interface, logicalCluster, syncerImage string) (bool, bool, error) {
+	rs, err := client.Discovery().ServerResourcesForGroupVersion("v1")
+	if err != nil {
+		return false, false, err
+	}
+	hasPods := false
+	for _, r := range rs.APIResources {
+		if r.Kind == "Pod" {
+			hasPods = true
+			break
+		}
+	}
+	if !hasPods {
+		return false, false, nil
+	}
 	selector, err := labels.NewRequirement("app", selection.Equals, []string{syncerWorkloadName(logicalCluster)})
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	pods, err := client.CoreV1().Pods(syncerNS).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	if len(pods.Items) == 0 {
-		return false, nil
+		return false, false, nil
 	}
 	if len(pods.Items) > 1 {
-		return true, fmt.Errorf("syncer pod not ready: there should be only 1 syncer pod")
+		return true, false, fmt.Errorf("syncer pod not ready: there should be only 1 syncer pod")
 	}
-	return pods.Items[0].Spec.Containers[0].Image == syncerImage, nil
+	return true, pods.Items[0].Spec.Containers[0].Image == syncerImage, nil
 }
