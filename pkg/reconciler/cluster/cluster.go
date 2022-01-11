@@ -107,7 +107,16 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 		}.String())
 	}
 
-	if !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources) {
+	var upToDate bool
+	if c.syncerMode == SyncerModePull {
+		upToDate, err = isSyncerInstalledAndUpToDate(ctx, client, logicalCluster, c.syncerImage)
+		if err != nil {
+			klog.Errorf("error checking if syncer needs to be installed: %v", err)
+			return err
+		}
+	}
+
+	if !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources) || (!upToDate && groupResources.Len() > 0) {
 		kubeConfig := c.kubeconfig.DeepCopy()
 
 		switch c.syncerMode {
