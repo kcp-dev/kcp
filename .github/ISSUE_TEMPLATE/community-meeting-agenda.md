@@ -14,4 +14,6 @@ Or dial: ‪(US) +1 617-675-4444‬ PIN: ‪936 182 087 7398‬#
 More phone numbers: https://tel.meet/ohf-kwvd-mrp?pin=9361820877398
 Or join via SIP: sip:9361820877398@gmeet.redhat.com
 
+Meeting recordings available on YouTube at https://www.youtube.com/channel/UCfP_yS5uYix0ppSbm2ltS5Q
+
 This issue will collect prospective agenda topics. Add topics you'd like to discuss below!
