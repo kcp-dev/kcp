@@ -18,15 +18,27 @@ package framework
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
+	openapi_v2 "github.com/googleapis/gnostic/openapiv2"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/util"
+	"k8s.io/kube-openapi/pkg/validation/spec"
+	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -44,6 +56,14 @@ func (d virtualWorkspacesDescription) ToRestStorages() map[string]map[schema.Gro
 	return storages
 }
 
+func (d virtualWorkspacesDescription) GetOpenAPIDefinitions() map[string]map[schema.GroupVersion]common.GetOpenAPIDefinitions {
+	openAPIDefinitions := make(map[string]map[schema.GroupVersion]common.GetOpenAPIDefinitions)
+	for _, vw := range d {
+		openAPIDefinitions[vw.prefix] = vw.GetOpenAPIDefinitions()
+	}
+	return openAPIDefinitions
+}
+
 type virtualWorkspaceDescription struct {
 	prefix string
 	groups []virtualWorkspaceAPIGroupDescription
@@ -52,39 +72,96 @@ type virtualWorkspaceDescription struct {
 func (d virtualWorkspaceDescription) ToRestStorages() map[schema.GroupVersion]map[string]rest.Storage {
 	storages := make(map[schema.GroupVersion]map[string]rest.Storage)
 	for _, group := range d.groups {
+		group := group
 		storages[group.gv] = group.ToRestStorages()
 	}
 	return storages
 }
 
+func (d virtualWorkspaceDescription) GetOpenAPIDefinitions() map[schema.GroupVersion]common.GetOpenAPIDefinitions {
+	openAPIDefinitions := make(map[schema.GroupVersion]common.GetOpenAPIDefinitions)
+	for _, group := range d.groups {
+		group := group
+		openAPIDefinitions[group.gv] = func(callback common.ReferenceCallback) map[string]common.OpenAPIDefinition {
+			gvDefs := group.GetOpenAPIDefinitions()
+			for key, def := range generatedopenapi.GetOpenAPIDefinitions(callback) {
+				gvDefs[key] = def
+			}
+			gvDefs[util.GetCanonicalTypeName(unstructured.UnstructuredList{})] = common.OpenAPIDefinition{}
+			return gvDefs
+		}
+	}
+	return openAPIDefinitions
+}
+
 type virtualWorkspaceAPIGroupDescription struct {
 	gv        schema.GroupVersion
-	resources []virtualWorkspaceResourceDescription
+	resources []func() virtualWorkspaceResourceDescription
 }
 type virtualWorkspaceResourceDescription struct {
-	resourceName         string
-	kind                 string
 	namespaceScoped      bool
 	allowCreateAndDelete bool
+	new                  func() runtime.Unstructured
+}
+
+func (d virtualWorkspaceResourceDescription) Kind() string {
+	return d.Type().Name()
+}
+
+func (d virtualWorkspaceResourceDescription) Type() reflect.Type {
+	return reflect.TypeOf(d.new()).Elem()
+}
+
+func (d virtualWorkspaceResourceDescription) ResourceName() string {
+	return strings.ToLower(d.Kind())
+}
+
+func (d virtualWorkspaceResourceDescription) OpenAPITypeName() string {
+	return util.GetCanonicalTypeName(d.new())
+}
+
+func (d virtualWorkspaceResourceDescription) OpenAPISchemaDescription() string {
+	return d.Kind() + " description"
 }
 
 func (d virtualWorkspaceAPIGroupDescription) ToRestStorages() map[string]rest.Storage {
 	storages := make(map[string]rest.Storage)
 	for _, resource := range d.resources {
+		resource := resource()
+		resourceName := resource.ResourceName()
+		basicStorage := &compositecmd.BasicStorage{GVK: d.gv.WithKind(resource.Kind()), IsNamespaceScoped: resource.namespaceScoped, Creator: resource.new}
 		if resource.allowCreateAndDelete {
 			type readWriteRest struct {
 				*compositecmd.BasicStorage
 				*compositecmd.Creater
 				*compositecmd.Deleter
 			}
-			storages[resource.resourceName] = &readWriteRest{
-				BasicStorage: &compositecmd.BasicStorage{GVK: d.gv.WithKind(resource.kind), IsNamespaceScoped: resource.namespaceScoped},
+			storages[resourceName] = &readWriteRest{
+				BasicStorage: basicStorage,
 			}
 		} else {
-			storages[resource.resourceName] = &compositecmd.BasicStorage{GVK: d.gv.WithKind(resource.kind), IsNamespaceScoped: resource.namespaceScoped}
+			storages[resourceName] = basicStorage
 		}
 	}
 	return storages
+}
+
+func (d virtualWorkspaceAPIGroupDescription) GetOpenAPIDefinitions() map[string]common.OpenAPIDefinition {
+	openAPIDefinitions := make(map[string]common.OpenAPIDefinition)
+	for _, resource := range d.resources {
+		resource := resource()
+		canonicalTypeName := resource.OpenAPITypeName()
+		openAPIDefinitions[canonicalTypeName] = common.OpenAPIDefinition{
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: resource.OpenAPISchemaDescription(),
+					Type:        []string{"object"},
+					Properties:  map[string]spec.Schema{},
+				},
+			},
+		}
+	}
+	return openAPIDefinitions
 }
 
 func TestCompositeVirtualWorkspace(t *testing.T) {
@@ -92,6 +169,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 		framework.RunningServer
 		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
 		virtualWorkspaceClients        []kubernetes.Interface
+		virtualWorkspaces              virtualWorkspacesDescription
 	}
 	var testCases = []struct {
 		name                           string
@@ -117,29 +195,35 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 					groups: []virtualWorkspaceAPIGroupDescription{
 						{
 							gv: schema.GroupVersion{Group: "vw1group1", Version: "v1"},
-							resources: []virtualWorkspaceResourceDescription{
-								{
-									resourceName:         "vw1group1resource1",
-									kind:                 "Resource1",
-									namespaceScoped:      false,
-									allowCreateAndDelete: false,
+							resources: []func() virtualWorkspaceResourceDescription{
+								func() virtualWorkspaceResourceDescription {
+									type Vw1Group1Resource1 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      false,
+										allowCreateAndDelete: false,
+										new:                  func() runtime.Unstructured { return &Vw1Group1Resource1{} },
+									}
 								},
-								{
-									resourceName:         "vw1group1resource2",
-									kind:                 "Resource2",
-									namespaceScoped:      true,
-									allowCreateAndDelete: true,
+								func() virtualWorkspaceResourceDescription {
+									type Vw1Group1Resource2 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      true,
+										allowCreateAndDelete: true,
+										new:                  func() runtime.Unstructured { return &Vw1Group1Resource2{} },
+									}
 								},
 							},
 						},
 						{
 							gv: schema.GroupVersion{Group: "vw1group2", Version: "v1"},
-							resources: []virtualWorkspaceResourceDescription{
-								{
-									resourceName:         "vw1group2resource1",
-									kind:                 "Resource1",
-									namespaceScoped:      false,
-									allowCreateAndDelete: false,
+							resources: []func() virtualWorkspaceResourceDescription{
+								func() virtualWorkspaceResourceDescription {
+									type Vw1Group2Resource1 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      false,
+										allowCreateAndDelete: false,
+										new:                  func() runtime.Unstructured { return &Vw1Group2Resource1{} },
+									}
 								},
 							},
 						},
@@ -150,12 +234,14 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 					groups: []virtualWorkspaceAPIGroupDescription{
 						{
 							gv: schema.GroupVersion{Group: "vw2group1", Version: "v1"},
-							resources: []virtualWorkspaceResourceDescription{
-								{
-									resourceName:         "vw2group1resource1",
-									kind:                 "Resource1",
-									namespaceScoped:      true,
-									allowCreateAndDelete: false,
+							resources: []func() virtualWorkspaceResourceDescription{
+								func() virtualWorkspaceResourceDescription {
+									type Vw2Group1Resource1 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      true,
+										allowCreateAndDelete: false,
+										new:                  func() runtime.Unstructured { return &Vw2Group1Resource1{} },
+									}
 								},
 							},
 						},
@@ -178,7 +264,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 							GroupVersion: "vw1group1/v1",
 							APIResources: []metav1.APIResource{
 								{
-									Kind:       "Resource1",
+									Kind:       "Vw1Group1Resource1",
 									Name:       "vw1group1resource1",
 									Namespaced: false,
 									Group:      "vw1group1",
@@ -186,7 +272,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 									Verbs:      metav1.Verbs{"get", "list"},
 								},
 								{
-									Kind:       "Resource2",
+									Kind:       "Vw1Group1Resource2",
 									Name:       "vw1group1resource2",
 									Namespaced: true,
 									Group:      "vw1group1",
@@ -203,7 +289,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 							GroupVersion: "vw1group2/v1",
 							APIResources: []metav1.APIResource{
 								{
-									Kind:       "Resource1",
+									Kind:       "Vw1Group2Resource1",
 									Name:       "vw1group2resource1",
 									Namespaced: false,
 									Group:      "vw1group2",
@@ -229,7 +315,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 							GroupVersion: "vw2group1/v1",
 							APIResources: []metav1.APIResource{
 								{
-									Kind:       "Resource1",
+									Kind:       "Vw2Group1Resource1",
 									Name:       "vw2group1resource1",
 									Namespaced: true,
 									Group:      "vw2group1",
@@ -239,6 +325,132 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 							},
 						},
 					}, sortAPIResourceList(vw2ServerResources))
+				}
+			},
+		},
+		{
+			name: "Test that OpenAPI/v2 is correctly published at the right subpaths for each APIGroup-based virtual workspace",
+			virtualWorkspaceClientContexts: []helpers.VirtualWorkspaceClientContext{
+				{
+					User:   framework.LoopbackUser,
+					Prefix: "/vw1",
+				},
+				{
+					User:   framework.LoopbackUser,
+					Prefix: "/vw2",
+				},
+			},
+			virtualWorkspaces: []virtualWorkspaceDescription{
+				{
+					prefix: "vw1",
+					groups: []virtualWorkspaceAPIGroupDescription{
+						{
+							gv: schema.GroupVersion{Group: "vw1group1", Version: "v1"},
+							resources: []func() virtualWorkspaceResourceDescription{
+								func() virtualWorkspaceResourceDescription {
+									type Vw1Group1Resource1 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      false,
+										allowCreateAndDelete: false,
+										new:                  func() runtime.Unstructured { return &Vw1Group1Resource1{} },
+									}
+								},
+								func() virtualWorkspaceResourceDescription {
+									type Vw1Group1Resource2 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      true,
+										allowCreateAndDelete: true,
+										new:                  func() runtime.Unstructured { return &Vw1Group1Resource2{} },
+									}
+								},
+							},
+						},
+						{
+							gv: schema.GroupVersion{Group: "vw1group2", Version: "v1"},
+							resources: []func() virtualWorkspaceResourceDescription{
+								func() virtualWorkspaceResourceDescription {
+									type Vw1Group2Resource1 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      false,
+										allowCreateAndDelete: false,
+										new:                  func() runtime.Unstructured { return &Vw1Group2Resource1{} },
+									}
+								},
+							},
+						},
+					},
+				},
+				{
+					prefix: "vw2",
+					groups: []virtualWorkspaceAPIGroupDescription{
+						{
+							gv: schema.GroupVersion{Group: "vw2group1", Version: "v1"},
+							resources: []func() virtualWorkspaceResourceDescription{
+								func() virtualWorkspaceResourceDescription {
+									type Vw2Group1Resource1 struct{ unstructured.Unstructured }
+									return virtualWorkspaceResourceDescription{
+										namespaceScoped:      true,
+										allowCreateAndDelete: false,
+										new:                  func() runtime.Unstructured { return &Vw2Group1Resource1{} },
+									}
+								},
+							},
+						},
+					},
+				},
+			},
+			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				testJson := func(expected, actual *yaml.Node) {
+					expectedJsonBytes, err1 := json.Marshal(expected)
+					actualJsonBytes, err2 := json.Marshal(actual)
+					if err1 != nil {
+						t.Error(err1)
+					} else if err2 != nil {
+						t.Error(err2)
+					} else {
+						assert.JSONEq(t, string(expectedJsonBytes), string(actualJsonBytes))
+					}
+
+				}
+				namer := openapinamer.NewDefinitionNamer()
+				for i := 0; i < 2; i++ {
+					vwClient := server.virtualWorkspaceClients[i]
+					vw := server.virtualWorkspaces[i]
+
+					vwOpenAPIDocument, err := vwClient.Discovery().OpenAPISchema()
+					if err != nil {
+						t.Error(err)
+					} else {
+						testJson((&openapi_v2.Info{
+							Title:   "KCP Virtual Workspace for " + vw.prefix,
+							Version: "unversioned",
+						}).ToRawInfo(), vwOpenAPIDocument.GetInfo().ToRawInfo())
+						paths := map[string]*openapi_v2.PathItem{}
+						for _, path := range vwOpenAPIDocument.GetPaths().Path {
+							paths[path.GetName()] = path.GetValue()
+						}
+						definitions := map[string]*openapi_v2.Schema{}
+						for _, def := range vwOpenAPIDocument.GetDefinitions().AdditionalProperties {
+							definitions[def.GetName()] = def.Value
+						}
+						for _, group := range vw.groups {
+							for _, resource := range group.resources {
+								resource := resource()
+								openAPITypeName := util.GetCanonicalTypeName(resource.new())
+								openAPIDefinitionName, _ := namer.GetDefinitionName(openAPITypeName)
+								if assert.Containsf(t, definitions, openAPIDefinitionName, "OpenAPI definitions should contain definition %s for type %s", openAPIDefinitionName, openAPITypeName) {
+									assert.Equalf(t, resource.OpenAPISchemaDescription(), definitions[openAPIDefinitionName].Description, "OpenAPI Schema description is not correct for %s", openAPIDefinitionName)
+								}
+								separatorPlaceholder := "/"
+								if resource.namespaceScoped {
+									separatorPlaceholder = "/namespaces/{namespace}/"
+								}
+								pathPrefix := "/apis/" + group.gv.Group + "/" + group.gv.Version + separatorPlaceholder + resource.ResourceName() + "/{name}"
+
+								assert.Containsf(t, paths, pathPrefix, "OpenAPI paths should contain path %s for resource %s", pathPrefix, resource.ResourceName())
+							}
+						}
+					}
 				}
 			},
 		},
@@ -266,7 +478,8 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 			vw := helpers.VirtualWorkspace{
 				BuildSubCommandOtions: func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions {
 					return &compositecmd.CompositeSubCommandOptions{
-						StoragesPerPrefix: testCase.virtualWorkspaces.ToRestStorages(),
+						StoragesPerPrefix:              testCase.virtualWorkspaces.ToRestStorages(),
+						GetOpenAPIDefinitionsPerPrefix: testCase.virtualWorkspaces.GetOpenAPIDefinitions(),
 					}
 				},
 				ClientContexts: testCase.virtualWorkspaceClientContexts,
@@ -292,6 +505,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 				RunningServer:                  server,
 				virtualWorkspaceClientContexts: testCase.virtualWorkspaceClientContexts,
 				virtualWorkspaceClients:        virtualWorkspaceClients,
+				virtualWorkspaces:              testCase.virtualWorkspaces,
 			})
 		}, framework.KcpConfig{
 			Name: serverName,

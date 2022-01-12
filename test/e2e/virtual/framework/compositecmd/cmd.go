@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/kube-openapi/pkg/common"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
@@ -36,7 +37,8 @@ import (
 var _ virtualgenericcmd.SubCommandOptions = (*CompositeSubCommandOptions)(nil)
 
 type CompositeSubCommandOptions struct {
-	StoragesPerPrefix map[string]map[schema.GroupVersion]map[string]rest.Storage
+	StoragesPerPrefix              map[string]map[schema.GroupVersion]map[string]rest.Storage
+	GetOpenAPIDefinitionsPerPrefix map[string]map[schema.GroupVersion]common.GetOpenAPIDefinitions
 }
 
 func (o *CompositeSubCommandOptions) Description() virtualgenericcmd.SubCommandDescription {
@@ -77,6 +79,8 @@ func (o *CompositeSubCommandOptions) PrepareVirtualWorkspaces() ([]virtualrootap
 			Ready: func() error { return nil },
 		}
 
+		getOpenAPIDefintionsForGV := o.GetOpenAPIDefinitionsPerPrefix[prefix]
+
 		for gv, storages := range vw {
 			storageBuilders := make(map[string]builders.RestStorageBuilder)
 			var addStoragesToScheme []func(*runtime.Scheme) error
@@ -103,6 +107,10 @@ func (o *CompositeSubCommandOptions) PrepareVirtualWorkspaces() ([]virtualrootap
 				}
 			}
 
+			var getOpenAPIDefintions common.GetOpenAPIDefinitions
+			if getOpenAPIDefintionsForGV != nil {
+				getOpenAPIDefintions = getOpenAPIDefintionsForGV[gv]
+			}
 			groupVersionAPISet := builders.GroupVersionAPISet{
 				GroupVersion: gv,
 				AddToScheme: func(scheme *runtime.Scheme) error {
@@ -116,6 +124,7 @@ func (o *CompositeSubCommandOptions) PrepareVirtualWorkspaces() ([]virtualrootap
 				BootstrapRestResources: func(genericapiserver.CompletedConfig) (map[string]builders.RestStorageBuilder, error) {
 					return storageBuilders, nil
 				},
+				OpenAPIDefinitions: getOpenAPIDefintions,
 			}
 			virtualWorkspace.GroupVersionAPISets = append(virtualWorkspace.GroupVersionAPISets, groupVersionAPISet)
 		}

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 )
 
+var _ rest.Storage = &BasicStorage{}
 var _ rest.Scoper = &BasicStorage{}
 var _ rest.GroupVersionKindProvider = &BasicStorage{}
 var _ rest.Lister = &BasicStorage{}
@@ -39,12 +40,13 @@ var _ rest.Watcher = &Watcher{}
 type BasicStorage struct {
 	GVK               schema.GroupVersionKind
 	IsNamespaceScoped bool
+	Creator           func() runtime.Unstructured
 	rest.TableConvertor
 }
 
 func (s *BasicStorage) New() runtime.Object {
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(s.GVK)
+	obj := s.Creator()
+	obj.GetObjectKind().SetGroupVersionKind(s.GVK)
 	return obj
 }
 func (s *BasicStorage) GroupVersionKind(containingGV schema.GroupVersion) schema.GroupVersionKind {
