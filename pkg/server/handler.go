@@ -26,14 +26,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 )
 
 var reClusterName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$`)
 
-func ServeHTTP(apiHandler http.Handler, c *genericapiserver.Config) func(w http.ResponseWriter, req *http.Request) {
+func ServeHTTP(apiHandler http.Handler) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var clusterName string
 		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {
@@ -69,7 +68,7 @@ func ServeHTTP(apiHandler http.Handler, c *genericapiserver.Config) func(w http.
 			cluster.Wildcard = true
 			fallthrough
 		case "":
-			cluster.Name = genericcontrolplane.SanitizedClusterName(c.ExternalAddress, genericcontrolplane.RootClusterName)
+			cluster.Name = genericcontrolplane.RootClusterName
 		default:
 			if !reClusterName.MatchString(clusterName) {
 				responsewriters.ErrorNegotiated(

@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
 )
 
 type IdentifiedConfig struct {
@@ -53,7 +52,7 @@ func New(delegates string, injector <-chan IdentifiedConfig) (*ClientLoader, err
 		}
 		contextCfg.ContentType = "application/json"
 		l.Lock()
-		l.clients[genericcontrolplane.SanitizeClusterId(context)] = contextCfg
+		l.clients[context] = contextCfg
 		l.Unlock()
 	}
 
@@ -62,7 +61,7 @@ func New(delegates string, injector <-chan IdentifiedConfig) (*ClientLoader, err
 		defer l.Unlock()
 		local := <-injector
 		local.Config.ContentType = "application/json"
-		l.clients[genericcontrolplane.SanitizeClusterId(local.Identifier)] = local.Config
+		l.clients[local.Identifier] = local.Config
 	}()
 
 	return l, nil

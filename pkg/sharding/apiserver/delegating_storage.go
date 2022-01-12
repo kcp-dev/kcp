@@ -32,7 +32,6 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	clientrest "k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
 )
 
 // delegatingStorage delegates requests off to individual shards based on the cluster
@@ -120,10 +119,7 @@ func (s *delegatingStorage) routedRequest(ctx context.Context, resourceVersion *
 	if err != nil {
 		return nil, nil, err
 	}
-	identifier, _, err := genericcontrolplane.ParseClusterName(clusterName)
-	if err != nil {
-		return nil, nil, err
-	}
+	identifier := "fake"
 
 	cfg, exists := s.shards[identifier]
 	if !exists {
