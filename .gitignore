@@ -4,3 +4,4 @@ contrib/demo/clusters/kind/*.kubeconfig
 *.log
 coverage.*
 tools
+build
