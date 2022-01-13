@@ -247,7 +247,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.cfg.EnableSharding {
 			apiHandler = http.HandlerFunc(sharding.ServeHTTP(apiHandler, clientLoader))
 		}
-		apiHandler = http.HandlerFunc(ServeHTTP(genericapiserver.DefaultBuildHandlerChain(apiHandler, c), c))
+		apiHandler = http.HandlerFunc(ServeHTTP(genericapiserver.DefaultBuildHandlerChain(apiHandler, c)))
 
 		return apiHandler
 	}
@@ -478,7 +478,7 @@ func (s *Server) Run(ctx context.Context) error {
 		},
 		// user is a virtual cluster that is lazily instantiated
 		"user": {
-			Server:                   server.LoopbackClientConfig.Host + "/clusters/" + genericcontrolplane.SanitizedClusterName(server.ExternalAddress, "user"),
+			Server:                   server.LoopbackClientConfig.Host + "/clusters/user",
 			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
 			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
 		},
@@ -498,29 +498,6 @@ func (s *Server) Run(ctx context.Context) error {
 		injector <- sharding.IdentifiedConfig{
 			Identifier: server.ExternalAddress,
 			Config:     adminConfig,
-		}
-
-		// we need to broadcast our name to others, and today we're doing that with context names becase we have no good way to
-		// know which of these resolved names ends up being portable ... some are ipv6 loopback addresses. some are v4 ... in general
-		// we may need to take our name as input or use DNS?
-		id := genericcontrolplane.SanitizeClusterId(server.ExternalAddress)
-		if err := clientcmd.WriteToFile(clientcmdapi.Config{
-			AuthInfos: map[string]*clientcmdapi.AuthInfo{
-				"loopback": {Token: server.LoopbackClientConfig.BearerToken},
-			},
-			Clusters: map[string]*clientcmdapi.Cluster{
-				id: {
-					Server:                   server.LoopbackClientConfig.Host,
-					CertificateAuthorityData: server.LoopbackClientConfig.CAData,
-					TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
-				},
-			},
-			Contexts: map[string]*clientcmdapi.Context{
-				id: {Cluster: id, AuthInfo: "loopback"},
-			},
-			CurrentContext: id,
-		}, filepath.Join(s.cfg.RootDirectory, "data", "shard.kubeconfig")); err != nil {
-			return err
 		}
 	}
 	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.cfg.RootDirectory, s.cfg.KubeConfigPath)); err != nil {
