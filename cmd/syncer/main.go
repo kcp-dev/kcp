@@ -17,10 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
+	"syscall"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
@@ -84,12 +87,18 @@ func main() {
 		klog.Fatal(err)
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGILL, syscall.SIGINT)
+	defer cancel()
+
+	klog.Infoln("Starting workers")
 	syncer, err := syncer.StartSyncer(fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads)
 	if err != nil {
 		klog.Fatal(err)
 	}
-	klog.Infoln("Starting workers")
 
-	syncer.WaitUntilDone()
+	<-ctx.Done()
+
 	klog.Infoln("Stopping workers")
+	syncer.Stop()
+	syncer.WaitUntilDone()
 }
