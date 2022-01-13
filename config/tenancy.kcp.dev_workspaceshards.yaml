@@ -117,7 +117,7 @@ spec:
               connectionInfo:
                 description: Connection information for the WorkspaceShard.
                 properties:
-                  api_path:
+                  apiPath:
                     description: APIPath is a sub-path that points to an API root.
                     type: string
                   host:
@@ -130,7 +130,7 @@ spec:
                     format: uri
                     type: string
                 required:
-                - api_path
+                - apiPath
                 - host
                 type: object
               credentialsHash:

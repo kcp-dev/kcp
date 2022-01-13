@@ -132,6 +132,8 @@ type WorkspaceLocation struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +patchStrategy=merge
+	// +patchMergeKey=name
 	History []ShardStatus `json:"history,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
@@ -225,7 +227,7 @@ type ConnectionInfo struct {
 	// +kubebuilder:validation:Format=uri
 	Host string `json:"host"`
 	// APIPath is a sub-path that points to an API root.
-	APIPath string `json:"api_path"`
+	APIPath string `json:"apiPath"`
 }
 
 const (

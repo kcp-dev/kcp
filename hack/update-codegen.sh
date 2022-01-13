@@ -30,7 +30,7 @@ ${CONTROLLER_GEN} \
     crd \
     rbac:roleName=manager-role \
     webhook \
-    paths="./pkg/..." \
+    paths="./pkg/apis/..." \
     output:crd:artifacts:config=config/
 
 ${CONTROLLER_GEN} \
