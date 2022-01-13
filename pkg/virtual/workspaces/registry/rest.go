@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,15 +30,21 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
+	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/printers"
@@ -46,6 +54,7 @@ import (
 	workspaceClient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 	workspaceprinters "github.com/kcp-dev/kcp/pkg/virtual/workspaces/printers"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const (
@@ -111,19 +120,25 @@ var _ rest.Creater = &REST{}
 var _ rest.GracefulDeleter = &REST{}
 
 // NewREST returns a RESTStorage object that will work against Workspace resources
-func NewREST(workspaceClient workspaceClient.WorkspaceInterface, rbacClient rbacv1client.RbacV1Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) *REST {
-	return &REST{
-		rbacClient:                rbacClient,
+func NewREST(tenancyClient workspaceClient.TenancyV1alpha1Interface, kubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
+	mainRest := &REST{
+		rbacClient:                kubeClient.RbacV1(),
 		crbInformer:               crbInformer,
 		crbLister:                 crbInformer.Lister(),
 		workspaceReviewerProvider: workspaceReviewerProvider,
-		workspaceClient:           workspaceClient,
+		workspaceClient:           tenancyClient.Workspaces(),
 		workspaceLister:           workspaceLister,
 		createStrategy:            Strategy,
 		updateStrategy:            Strategy,
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(workspaceprinters.AddWorkspacePrintHandlers)},
 	}
+	return mainRest,
+		&KubeconfigSubresourceREST{
+			mainRest:             mainRest,
+			coreClient:           kubeClient.CoreV1(),
+			workspaceShardClient: tenancyClient.WorkspaceShards(),
+		}
 }
 
 // New returns a new Workspace
@@ -548,4 +563,108 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	}
 
 	return nil, false, errorToReturn
+}
+
+type KubeconfigSubresourceREST struct {
+	mainRest *REST
+
+	// coreClient is useful to get secrets
+	coreClient corev1client.CoreV1Interface
+	// workspaceShardClient can get KCP workspace shards
+	workspaceShardClient workspaceClient.WorkspaceShardInterface
+}
+
+var _ rest.Getter = &KubeconfigSubresourceREST{}
+var _ rest.Scoper = &KubeconfigSubresourceREST{}
+
+// Get retrieves a Workspace KubeConfig by workspace name
+func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+	workspace, err := s.mainRest.Get(ctx, name, options)
+	if err != nil {
+		return nil, err
+	}
+	if workspace, isAWorkspace := workspace.(*tenancyv1alpha1.Workspace); isAWorkspace {
+		if conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
+			ctx := genericapirequest.WithCluster(context.TODO(), genericapirequest.Cluster{Name: workspace.ClusterName})
+			shard, err := s.workspaceShardClient.Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
+			if err != nil {
+				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+			}
+			secret, err := s.coreClient.Secrets(shard.Spec.Credentials.Namespace).Get(ctx, shard.Spec.Credentials.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+			}
+			data, ok := secret.Data[tenancyv1alpha1.WorkspaceShardCredentialsKey]
+			if !ok {
+				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+			}
+			shardKubeConfig, err := clientcmd.Load(data)
+			if err != nil {
+				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+			}
+
+			currentContext := shardKubeConfig.Contexts[shardKubeConfig.CurrentContext]
+			currentCluster := shardKubeConfig.Clusters[currentContext.Cluster]
+			currentCluster.Server = workspace.Status.BaseURL
+			workspaceConfig := &api.Config{
+				APIVersion:     "v1",
+				Clusters:       map[string]*api.Cluster{workspace.Name: currentCluster},
+				Contexts:       map[string]*api.Context{workspace.Name: {Cluster: workspace.Name}},
+				CurrentContext: workspace.Name,
+			}
+			dataToReturn, err := clientcmd.Write(*workspaceConfig)
+			if err != nil {
+				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+			}
+			return KubeConfig(string(dataToReturn)), nil
+		} else {
+			return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+		}
+	}
+	return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+}
+
+func (s *KubeconfigSubresourceREST) NamespaceScoped() bool {
+	return false
+}
+
+// New creates a new Workspace log options object
+func (r *KubeconfigSubresourceREST) New() runtime.Object {
+	// TODO - return a resource that represents a log
+	return &tenancyv1alpha1.Workspace{}
+}
+
+// ProducesMIMETypes returns a list of the MIME types the specified HTTP verb (GET, POST, DELETE,
+// PATCH) can respond with.
+func (r *KubeconfigSubresourceREST) ProducesMIMETypes(verb string) []string {
+	// Since the default list does not include "plain/text", we need to
+	// explicitly override ProducesMIMETypes, so that it gets added to
+	// the "produces" section for workspaces/{name}/kubeconfig
+	return []string{
+		"text/plain",
+	}
+}
+
+// ProducesObject returns an object the specified HTTP verb respond with. It will overwrite storage object if
+// it is not nil. Only the type of the return object matters, the value will be ignored.
+func (r *KubeconfigSubresourceREST) ProducesObject(verb string) interface{} {
+	return ""
+}
+
+type KubeConfig string
+
+// a LocationStreamer must implement a rest.ResourceStreamer
+var _ rest.ResourceStreamer = KubeConfig("")
+
+func (obj KubeConfig) GetObjectKind() schema.ObjectKind {
+	return schema.EmptyObjectKind
+}
+func (obj KubeConfig) DeepCopyObject() runtime.Object {
+	panic("rest.LocationStreamer does not implement DeepCopyObject")
+}
+
+// InputStream returns a stream with the contents of the URL location. If no location is provided,
+// a null stream is returned.
+func (s KubeConfig) InputStream(ctx context.Context, apiVersion, acceptHeader string) (stream io.ReadCloser, flush bool, contentType string, err error) {
+	return io.NopCloser(strings.NewReader(string(s))), true, "text/plain", nil
 }
