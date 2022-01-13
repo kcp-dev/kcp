@@ -180,6 +180,13 @@ func TestAPIInheritance(t *testing.T) {
 		}
 
 		// Update target workspace to inherit from source
+		targetWorkspace, err = kcpAdminClient.TenancyV1alpha1().Workspaces().Get(ctx, targetWorkspace.GetName(), metav1.GetOptions{})
+
+		if err != nil {
+			t.Errorf("error retrieving target workspace: %w", err)
+			return
+		}
+
 		targetWorkspace.Spec.InheritFrom = "source"
 		if _, err = kcpAdminClient.TenancyV1alpha1().Workspaces().Update(ctx, targetWorkspace, metav1.UpdateOptions{}); err != nil {
 			t.Errorf("error updating target workspace to inherit from source: %v", err)
@@ -269,6 +276,7 @@ func TestAPIInheritance(t *testing.T) {
 
 	}, framework.KcpConfig{
 		Name: "main",
+		Args: []string{"--install-workspace-controller"},
 	})
 }
 
