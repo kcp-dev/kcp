@@ -306,7 +306,10 @@ func (s *Server) Run(ctx context.Context) error {
 	})
 	// FIXME: (end) switch to a single set of shared informers
 
-	workspaceLister := kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
+	var workspaceLister tenancylisters.WorkspaceLister
+	if s.cfg.InstallWorkspaceController {
+		workspaceLister = kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
+	}
 
 	serverOptions.APIExtensionsNewSharedInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
@@ -829,7 +832,7 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 	// before we can try to get said Workspace, but if we fail listing because the Workspace doesn't
 	// exist, we'll never be able to create it. Only check if the target workspace exists for
 	// non-default keys.
-	if cluster.Name != adminClusterName {
+	if cluster.Name != adminClusterName && c.workspaceLister != nil {
 		targetWorkspaceKey := clusters.ToClusterAwareKey(adminClusterName, cluster.Name)
 		workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -932,6 +935,11 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	// If we found the CRD in ctx's logical cluster, that takes priority.
 	if crd != nil {
 		return crd, nil
+	}
+
+	// Workspace CRD is apparently not installed
+	if c.workspaceLister == nil {
+		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
 	// TODO(ncdc): for now, we are hard-coding "admin" as the logical cluster where all Workspace
