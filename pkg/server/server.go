@@ -302,6 +302,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 		kcpSharedInformerFactory.Start(context.StopCh)
+		kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
 		return nil
 	})
 	// FIXME: (end) switch to a single set of shared informers
