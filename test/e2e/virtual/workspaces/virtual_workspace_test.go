@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -43,7 +42,7 @@ type testDataType struct {
 	workspace1, workspace1Disambiguited, workspace2, workspace2Disambiguited *tenancyv1alpha1.Workspace
 }
 
-var testData testDataType = testDataType{
+var testData = testDataType{
 	user1: framework.User{
 		Name:   "user-1",
 		UID:    "1111-1111-1111-1111",
@@ -75,6 +74,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 		kcpExpect                      framework.RegisterWorkspaceExpectation
 		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
 		virtualWorkspaceClients        []clientset.Interface
+		virtualWorkspaceExpectations   []framework.RegisterWorkspaceListExpectation
 	}
 	var testCases = []struct {
 		name                           string
@@ -126,29 +126,23 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					t.Errorf("did not see the workspace created in KCP: %v", err)
 					return
 				}
-				if _, err := framework.WaitForCondition(t, ctx, 10*time.Second, func(c context.Context, t framework.TestingTInterface) (bool, error) {
-					workspaceList, err := vwUser1Client.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
-					if err != nil {
-						return false, err
+				if err := server.virtualWorkspaceExpectations[0](func(w *tenancyv1alpha1.WorkspaceList) error {
+					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
+						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
 					}
-					if assert.Len(t, workspaceList.Items, 1) {
-						return assert.Equal(t, workspace1.Name, workspaceList.Items[0].Name, "failed to create workspace"), nil
-					}
-					return false, nil
+					return nil
 				}); err != nil {
-					t.Errorf("failed to create workspace: %v", err)
+					t.Errorf("did not see the workspace created in personal virtual workspace: %v", err)
+					return
 				}
-				if _, err := framework.WaitForCondition(t, ctx, 10*time.Second, func(c context.Context, t framework.TestingTInterface) (bool, error) {
-					workspaceList, err := vwUser2Client.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
-					if err != nil {
-						return false, err
+				if err := server.virtualWorkspaceExpectations[1](func(w *tenancyv1alpha1.WorkspaceList) error {
+					if len(w.Items) != 1 || w.Items[0].Name != workspace2.Name {
+						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace2.Name, w)
 					}
-					if assert.Len(t, workspaceList.Items, 1) {
-						return assert.Equal(t, workspace2.Name, workspaceList.Items[0].Name, "failed to create workspace"), nil
-					}
-					return false, nil
+					return nil
 				}); err != nil {
-					t.Errorf("failed to create workspace: %v", err)
+					t.Errorf("did not see the workspace created in personal virtual workspace: %v", err)
+					return
 				}
 			},
 		},
@@ -200,6 +194,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			}
 
 			virtualWorkspaceClients := []clientset.Interface{}
+			virtualWorkspaceExpectations := []framework.RegisterWorkspaceListExpectation{}
 			for _, vwConfig := range vwConfigs {
 				vwClients, err := clientset.NewForConfig(vwConfig)
 				if err != nil {
@@ -207,6 +202,12 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					return
 				}
 				virtualWorkspaceClients = append(virtualWorkspaceClients, vwClients)
+				expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, vwClients)
+				if err != nil {
+					t.Errorf("failed to start expecter: %v", err)
+					return
+				}
+				virtualWorkspaceExpectations = append(virtualWorkspaceExpectations, expecter)
 			}
 
 			kcpCfg, err := server.Config()
@@ -237,6 +238,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				kcpExpect:                      kcpExpect,
 				virtualWorkspaceClientContexts: testCase.virtualWorkspaceClientContexts,
 				virtualWorkspaceClients:        virtualWorkspaceClients,
+				virtualWorkspaceExpectations:   virtualWorkspaceExpectations,
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
