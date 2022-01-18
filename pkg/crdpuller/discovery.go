@@ -37,6 +37,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
@@ -105,8 +106,13 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 		return nil, err
 	}
 
+	groupResources, err := restmapper.GetAPIGroupResources(sp.discoveryClient)
+	if err != nil {
+		return nil, err
+	}
+	mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
 	pullAllResources := len(resourceNames) == 0
-	resourcesToPull := sets.NewString(resourceNames...)
 
 	apiResourceNames := map[schema.GroupVersion]sets.String{}
 	for _, apiResourcesList := range apiResourcesLists {
@@ -126,177 +132,185 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 	if err != nil {
 		return nil, err
 	}
-	for _, apiResourcesList := range apiResourcesLists {
-		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
+	for _, resourceToPull := range resourceNames {
+		gr := schema.ParseGroupResource(resourceToPull)
+		gvr, err := mapper.ResourceFor(gr.WithVersion(""))
 		if err != nil {
-			klog.Errorf("skipping discovery due to error parsing GroupVersion %s: %v", apiResourcesList.GroupVersion, err)
+			klog.Errorf("error mapping resource %q: %v", resourceToPull, err)
 			continue
 		}
-
-		for _, apiResource := range apiResourcesList.APIResources {
-			groupResource := schema.GroupResource{
-				Group:    gv.Group,
-				Resource: apiResource.Name,
-			}
-			if !pullAllResources && !resourcesToPull.Has(groupResource.String()) && !resourcesToPull.Has(apiResource.Name) {
+		for _, apiResourcesList := range apiResourcesLists {
+			gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
+			if err != nil {
+				klog.Errorf("skipping discovery due to error parsing GroupVersion %s: %v", apiResourcesList.GroupVersion, err)
 				continue
 			}
 
-			if genericcontrolplanescheme.Scheme.IsGroupRegistered(gv.Group) && !genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
-				klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
-				continue
-			}
+			for _, apiResource := range apiResourcesList.APIResources {
+				groupResource := schema.GroupResource{
+					Group:    gv.Group,
+					Resource: apiResource.Name,
+				}
+				if !pullAllResources && groupResource != gvr.GroupResource() {
+					continue
+				}
 
-			gvk := gv.WithKind(apiResource.Kind)
-			if genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
-				klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
-				continue
-			}
+				if genericcontrolplanescheme.Scheme.IsGroupRegistered(gv.Group) && !genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
+					klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
+					continue
+				}
 
-			crdName := apiResource.Name
-			if gv.Group == "" {
-				crdName = crdName + ".core"
-			} else {
-				crdName = crdName + "." + gv.Group
-			}
+				gvk := gv.WithKind(apiResource.Kind)
+				if genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
+					klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
+					continue
+				}
 
-			var resourceScope apiextensionsv1.ResourceScope
-			if apiResource.Namespaced {
-				resourceScope = apiextensionsv1.NamespaceScoped
-			} else {
-				resourceScope = apiextensionsv1.ClusterScoped
-			}
-
-			klog.Infof("processing discovery for resource %s (%s)", apiResource.Name, crdName)
-			var schemaProps apiextensionsv1.JSONSchemaProps
-			var additionalPrinterColumns []apiextensionsv1.CustomResourceColumnDefinition
-			crd, err := sp.crdClient.CustomResourceDefinitions().Get(context, crdName, metav1.GetOptions{})
-			if err == nil {
-				if apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.NonStructuralSchema) {
-					klog.Warningf("non-structural schema for resource %s (%s): the resources will not be validated", apiResource.Name, gvk.String())
-					schemaProps = apiextensionsv1.JSONSchemaProps{
-						Type:                   "object",
-						XPreserveUnknownFields: boolPtr(true),
-					}
+				crdName := apiResource.Name
+				if gv.Group == "" {
+					crdName = crdName + ".core"
 				} else {
-					var versionFound bool
-					for _, version := range crd.Spec.Versions {
-						if version.Name == gv.Version {
-							schemaProps = *version.Schema.OpenAPIV3Schema
-							additionalPrinterColumns = version.AdditionalPrinterColumns
-							versionFound = true
-							break
-						}
-					}
-					if !versionFound {
-						klog.Errorf("expected version not found in CRD %s: %s", crdName, gv.Version)
+					crdName = crdName + "." + gv.Group
+				}
+
+				var resourceScope apiextensionsv1.ResourceScope
+				if apiResource.Namespaced {
+					resourceScope = apiextensionsv1.NamespaceScoped
+				} else {
+					resourceScope = apiextensionsv1.ClusterScoped
+				}
+
+				klog.Infof("processing discovery for resource %s (%s)", apiResource.Name, crdName)
+				var schemaProps apiextensionsv1.JSONSchemaProps
+				var additionalPrinterColumns []apiextensionsv1.CustomResourceColumnDefinition
+				crd, err := sp.crdClient.CustomResourceDefinitions().Get(context, crdName, metav1.GetOptions{})
+				if err == nil {
+					if apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.NonStructuralSchema) {
+						klog.Warningf("non-structural schema for resource %s (%s): the resources will not be validated", apiResource.Name, gvk.String())
 						schemaProps = apiextensionsv1.JSONSchemaProps{
 							Type:                   "object",
 							XPreserveUnknownFields: boolPtr(true),
 						}
+					} else {
+						var versionFound bool
+						for _, version := range crd.Spec.Versions {
+							if version.Name == gv.Version {
+								schemaProps = *version.Schema.OpenAPIV3Schema
+								additionalPrinterColumns = version.AdditionalPrinterColumns
+								versionFound = true
+								break
+							}
+						}
+						if !versionFound {
+							klog.Errorf("expected version not found in CRD %s: %s", crdName, gv.Version)
+							schemaProps = apiextensionsv1.JSONSchemaProps{
+								Type:                   "object",
+								XPreserveUnknownFields: boolPtr(true),
+							}
+						}
+					}
+				} else {
+					if !errors.IsNotFound(err) {
+						klog.Errorf("error looking up CRD for %s: %v", crdName, err)
+						return nil, err
+					}
+					protoSchema := sp.models[gvk]
+					if protoSchema == nil {
+						klog.Infof("ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
+						continue
+					}
+					swaggerSpecDefinitionName := protoSchema.GetPath().String()
+
+					var errors []error
+					converter := &SchemaConverter{
+						schemaProps: &schemaProps,
+						schemaName:  swaggerSpecDefinitionName,
+						visited:     sets.NewString(),
+						errors:      &errors,
+					}
+					protoSchema.Accept(converter)
+					if len(*converter.errors) > 0 {
+						klog.Errorf("error during the OpenAPI schema import of resource %s (%s) : %v", apiResource.Name, gvk.String(), *converter.errors)
+						continue
 					}
 				}
-			} else {
-				if !errors.IsNotFound(err) {
-					klog.Errorf("error looking up CRD for %s: %v", crdName, err)
-					return nil, err
-				}
-				protoSchema := sp.models[gvk]
-				if protoSchema == nil {
-					klog.Infof("ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
-					continue
-				}
-				swaggerSpecDefinitionName := protoSchema.GetPath().String()
 
-				var errors []error
-				converter := &SchemaConverter{
-					schemaProps: &schemaProps,
-					schemaName:  swaggerSpecDefinitionName,
-					visited:     sets.NewString(),
-					errors:      &errors,
+				hasSubResource := func(subResource string) bool {
+					groupResourceNames := apiResourceNames[gv]
+					if groupResourceNames != nil {
+						return groupResourceNames.Has(apiResource.Name + "/" + subResource)
+					}
+					return false
 				}
-				protoSchema.Accept(converter)
-				if len(*converter.errors) > 0 {
-					klog.Errorf("error during the OpenAPI schema import of resource %s (%s) : %v", apiResource.Name, gvk.String(), *converter.errors)
-					continue
+
+				statusSubResource := &apiextensionsv1.CustomResourceSubresourceStatus{}
+				if !hasSubResource("status") {
+					statusSubResource = nil
 				}
-			}
 
-			hasSubResource := func(subResource string) bool {
-				groupResourceNames := apiResourceNames[gv]
-				if groupResourceNames != nil {
-					return groupResourceNames.Has(apiResource.Name + "/" + subResource)
+				scaleSubResource := &apiextensionsv1.CustomResourceSubresourceScale{
+					SpecReplicasPath:   ".spec.replicas",
+					StatusReplicasPath: ".status.replicas",
 				}
-				return false
-			}
+				if !hasSubResource("scale") {
+					scaleSubResource = nil
+				}
 
-			statusSubResource := &apiextensionsv1.CustomResourceSubresourceStatus{}
-			if !hasSubResource("status") {
-				statusSubResource = nil
-			}
-
-			scaleSubResource := &apiextensionsv1.CustomResourceSubresourceScale{
-				SpecReplicasPath:   ".spec.replicas",
-				StatusReplicasPath: ".status.replicas",
-			}
-			if !hasSubResource("scale") {
-				scaleSubResource = nil
-			}
-
-			crd = &apiextensionsv1.CustomResourceDefinition{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CustomResourceDefinition",
-					APIVersion: "apiextensions.k8s.io/v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        crdName,
-					Labels:      map[string]string{},
-					Annotations: map[string]string{},
-				},
-				Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-					Group: gv.Group,
-					Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
-						{
-							Name: gv.Version,
-							Schema: &apiextensionsv1.CustomResourceValidation{
-								OpenAPIV3Schema: &schemaProps,
+				crd = &apiextensionsv1.CustomResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "CustomResourceDefinition",
+						APIVersion: "apiextensions.k8s.io/v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        crdName,
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+					},
+					Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+						Group: gv.Group,
+						Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+							{
+								Name: gv.Version,
+								Schema: &apiextensionsv1.CustomResourceValidation{
+									OpenAPIV3Schema: &schemaProps,
+								},
+								Subresources: &apiextensionsv1.CustomResourceSubresources{
+									Status: statusSubResource,
+									Scale:  scaleSubResource,
+								},
+								Served:  true,
+								Storage: true,
 							},
-							Subresources: &apiextensionsv1.CustomResourceSubresources{
-								Status: statusSubResource,
-								Scale:  scaleSubResource,
-							},
-							Served:  true,
-							Storage: true,
+						},
+						Scope: resourceScope,
+						Names: apiextensionsv1.CustomResourceDefinitionNames{
+							Plural:     apiResource.Name,
+							Kind:       apiResource.Kind,
+							Categories: apiResource.Categories,
+							ShortNames: apiResource.ShortNames,
+							Singular:   apiResource.SingularName,
 						},
 					},
-					Scope: resourceScope,
-					Names: apiextensionsv1.CustomResourceDefinitionNames{
-						Plural:     apiResource.Name,
-						Kind:       apiResource.Kind,
-						Categories: apiResource.Categories,
-						ShortNames: apiResource.ShortNames,
-						Singular:   apiResource.SingularName,
-					},
-				},
-			}
-			if len(additionalPrinterColumns) != 0 {
-				crd.Spec.Versions[0].AdditionalPrinterColumns = additionalPrinterColumns
-			}
-			apiextensionsv1.SetDefaults_CustomResourceDefinition(crd)
+				}
+				if len(additionalPrinterColumns) != 0 {
+					crd.Spec.Versions[0].AdditionalPrinterColumns = additionalPrinterColumns
+				}
+				apiextensionsv1.SetDefaults_CustomResourceDefinition(crd)
 
-			// In Kubernetes, to make it clear to the API consumer that APIs in *.k8s.io or *.kubernetes.io domains
-			// should be following all quality standards of core Kubernetes, CRDs under these domains
-			// are expected to go through the API Review process and so must link the API review approval PR
-			// in an `api-approved.kubernetes.io` annotation.
-			// Without this annotation, a CRD under the *.k8s.io or *.kubernetes.io domains is rejected by the API server
-			//
-			// Of course here we're simply adding already-known resources of existing physical clusters as CRDs in KCP.
-			// But to please this Kubernetes approval requirement, let's add the required annotation in imported CRDs
-			// with one of the KCP PRs that hacked Kubernetes CRD support for KCP.
-			if apihelpers.IsProtectedCommunityGroup(gv.Group) {
-				crd.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
+				// In Kubernetes, to make it clear to the API consumer that APIs in *.k8s.io or *.kubernetes.io domains
+				// should be following all quality standards of core Kubernetes, CRDs under these domains
+				// are expected to go through the API Review process and so must link the API review approval PR
+				// in an `api-approved.kubernetes.io` annotation.
+				// Without this annotation, a CRD under the *.k8s.io or *.kubernetes.io domains is rejected by the API server
+				//
+				// Of course here we're simply adding already-known resources of existing physical clusters as CRDs in KCP.
+				// But to please this Kubernetes approval requirement, let's add the required annotation in imported CRDs
+				// with one of the KCP PRs that hacked Kubernetes CRD support for KCP.
+				if apihelpers.IsProtectedCommunityGroup(gv.Group) {
+					crd.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
+				}
+				crds[groupResource] = crd
 			}
-			crds[groupResource] = crd
 		}
 	}
 	return crds, nil
