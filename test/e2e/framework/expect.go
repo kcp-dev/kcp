@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/cache"
 
@@ -43,14 +44,13 @@ type Expectation func(ctx context.Context) (done bool, err error)
 type Expecter interface {
 	// ExpectBefore will result in the Expectation being evaluated whenever
 	// state changes, up until the desired timeout is reached.
-	ExpectBefore(context.Context, Expectation, time.Duration)
+	ExpectBefore(context.Context, Expectation, time.Duration) error
 }
 
 // NewExpecter creates a informer-driven registry of expectations, which will
 // be triggered on every event that the informer ingests.
 func NewExpecter(informer cache.SharedIndexInformer) *expectationController {
 	controller := expectationController{
-		informer:     informer,
 		expectations: map[uuid.UUID]expectationRecord{},
 		lock:         sync.RWMutex{},
 	}
@@ -80,13 +80,14 @@ type expectationRecord struct {
 	*sync.Mutex
 }
 
-// expectationController triggers the registered expectations on informer events
+// expectationController knows how to register expectations and trigger them
 type expectationController struct {
-	informer cache.SharedIndexInformer
 	// expectations are recorded by UUID so they may be removed after they complete
 	expectations map[uuid.UUID]expectationRecord
 	lock         sync.RWMutex
 }
+
+var _ Expecter = &expectationController{}
 
 func (c *expectationController) triggerExpectations() {
 	c.lock.RLock()
@@ -192,6 +193,25 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 	}
 }
 
+// NewPollingExpecter creates a poll-driven registry of expectations, which will
+// be triggered on every tick that the controller experiences. This is useful for
+// resources which do not support WATCH and cannot use the expectationController
+func NewPollingExpecter(interval time.Duration) *expectationController {
+	controller := expectationController{
+		expectations: map[uuid.UUID]expectationRecord{},
+		lock:         sync.RWMutex{},
+	}
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		for range ticker.C {
+			controller.triggerExpectations()
+		}
+	}()
+
+	return &controller
+}
+
 // The following are statically-typed helpers for common types to allow us to express expectations about objects.
 
 // RegisterWorkspaceExpectation registers an expectation about the future state of the seed.
@@ -216,6 +236,27 @@ func ExpectWorkspaces(ctx context.Context, t TestingTInterface, client kcpclient
 		}
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
 			current, err := workspaceInformer.Lister().Get(key)
+			if err != nil {
+				return !apierrors.IsNotFound(err), err
+			}
+			expectErr := expectation(current.DeepCopy())
+			return expectErr == nil, expectErr
+		}, 30*time.Second)
+	}, nil
+}
+
+// RegisterWorkspaceListExpectation registers an expectation about the future state of the system.
+type RegisterWorkspaceListExpectation func(expectation WorkspaceListExpectation) error
+
+// WorkspaceListExpectation evaluates an expectation about the object.
+type WorkspaceListExpectation func(*tenancyv1alpha1.WorkspaceList) error
+
+// ExpectWorkspaceListPolling sets up an Expecter in order to allow registering expectations in tests with minimal setup.
+func ExpectWorkspaceListPolling(ctx context.Context, t TestingTInterface, client kcpclientset.Interface) (RegisterWorkspaceListExpectation, error) {
+	expecter := NewPollingExpecter(100 * time.Millisecond)
+	return func(expectation WorkspaceListExpectation) error {
+		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
+			current, err := client.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return !apierrors.IsNotFound(err), err
 			}
