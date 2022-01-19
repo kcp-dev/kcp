@@ -51,7 +51,7 @@ import (
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceClient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 	workspaceprinters "github.com/kcp-dev/kcp/pkg/virtual/workspaces/printers"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
@@ -80,7 +80,7 @@ type REST struct {
 	// crbLister allows listing RBAC cluster role bindings
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	// workspaceClient can modify KCP workspaces
-	workspaceClient workspaceClient.WorkspaceInterface
+	workspaceClient tenancyclient.WorkspaceInterface
 	// workspaceReviewerProvider allow getting a reviewer that checks
 	// permissions for a given verb to workspaces
 	workspaceReviewerProvider workspaceauth.ReviewerProvider
@@ -120,7 +120,7 @@ var _ rest.Creater = &REST{}
 var _ rest.GracefulDeleter = &REST{}
 
 // NewREST returns a RESTStorage object that will work against Workspace resources
-func NewREST(tenancyClient workspaceClient.TenancyV1alpha1Interface, kubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
+func NewREST(tenancyClient tenancyclient.TenancyV1alpha1Interface, kubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
 		rbacClient:                kubeClient.RbacV1(),
 		crbInformer:               crbInformer,
@@ -577,7 +577,7 @@ type KubeconfigSubresourceREST struct {
 	// coreClient is useful to get secrets
 	coreClient corev1client.CoreV1Interface
 	// workspaceShardClient can get KCP workspace shards
-	workspaceShardClient workspaceClient.WorkspaceShardInterface
+	workspaceShardClient tenancyclient.WorkspaceShardInterface
 }
 
 var _ rest.Getter = &KubeconfigSubresourceREST{}
