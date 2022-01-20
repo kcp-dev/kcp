@@ -36,7 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
@@ -54,8 +56,8 @@ type SchemaPuller interface {
 }
 
 type schemaPuller struct {
-	discoveryClient *discovery.DiscoveryClient
-	crdClient       *apiextensionsv1client.ApiextensionsV1Client
+	discoveryClient discovery.DiscoveryInterface
+	crdClient       apiextensionsv1client.ApiextensionsV1Interface
 	models          openapi.ModelsByGKV
 }
 
@@ -69,11 +71,14 @@ func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
+	return newPuller(discoveryClient, crdClient)
+}
+
+func newPuller(discoveryClient discovery.DiscoveryInterface, crdClient apiextensionsv1client.ApiextensionsV1Interface) (SchemaPuller, error) {
 	openapiSchema, err := discoveryClient.OpenAPISchema()
 	if err != nil {
 		return nil, err
@@ -82,12 +87,10 @@ func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	modelsByGKV, err := openapi.GetModelsByGKV(models)
 	if err != nil {
 		return nil, err
 	}
-
 	return &schemaPuller{
 		discoveryClient: discoveryClient,
 		crdClient:       crdClient,
@@ -99,15 +102,23 @@ func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
 // and make them available as CRDs in the output map.
 // If the list of resources is empty, it will try pulling all the resources it finds.
 func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
-	crds := map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition{}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sp.discoveryClient))
+	pullAllResources := len(resourceNames) == 0
+	resourcesToPull := sets.NewString()
+	for _, resourceToPull := range resourceNames {
+		gr := schema.ParseGroupResource(resourceToPull)
+		gvr, err := mapper.ResourceFor(gr.WithVersion(""))
+		if err != nil {
+			klog.Errorf("error mapping resource %q: %v", resourceToPull, err)
+			continue
+		}
+		resourcesToPull.Insert(gvr.GroupResource().String())
+	}
+
 	_, apiResourcesLists, err := sp.discoveryClient.ServerGroupsAndResources()
 	if err != nil {
 		return nil, err
 	}
-
-	pullAllResources := len(resourceNames) == 0
-	resourcesToPull := sets.NewString(resourceNames...)
-
 	apiResourceNames := map[schema.GroupVersion]sets.String{}
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
@@ -122,6 +133,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 
 	}
 
+	crds := map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition{}
 	apiResourcesLists, err = sp.discoveryClient.ServerPreferredResources()
 	if err != nil {
 		return nil, err
@@ -138,7 +150,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				Group:    gv.Group,
 				Resource: apiResource.Name,
 			}
-			if !pullAllResources && !resourcesToPull.Has(groupResource.String()) && !resourcesToPull.Has(apiResource.Name) {
+			if !pullAllResources && !resourcesToPull.Has(groupResource.String()) {
 				continue
 			}
 
