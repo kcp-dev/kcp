@@ -233,7 +233,7 @@ func TestListPersonalWorkspaces(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -292,7 +292,7 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -355,7 +355,7 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: organizationScope,
+			scope: OrganizationScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -410,7 +410,7 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: organizationScope,
+			scope: OrganizationScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -465,7 +465,7 @@ func TestGetPersonalWorkspace(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -523,7 +523,7 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -581,7 +581,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -647,7 +647,7 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: organizationScope,
+			scope: OrganizationScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -678,7 +678,7 @@ func TestCreateWorkspace(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -789,7 +789,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -974,7 +974,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -1084,7 +1084,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -1177,7 +1177,7 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -1270,7 +1270,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get": mockReviewer{
 					"foo": mockReview{
@@ -1373,7 +1373,7 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: personalScope,
+			scope: PersonalScope,
 			reviewerProvider: mockReviewerProvider{
 				"get": mockReviewer{
 					"foo--1": mockReview{
