@@ -48,7 +48,7 @@ INGRESS_CONTROLLER_DIR = ./build/kcp-ingress
 clone-ingress-controller:
 	test ! -d $(INGRESS_CONTROLLER_DIR) \
 	&& mkdir -p $(INGRESS_CONTROLLER_DIR) \
-	&& git clone https://github.com/jmprusi/kcp-ingress $(INGRESS_CONTROLLER_DIR) || true
+	&& git clone --branch update_kcp_envoy https://github.com/jmprusi/kcp-ingress $(INGRESS_CONTROLLER_DIR) || true
 
 install-ingress-controller: clone-ingress-controller
 	cd $(INGRESS_CONTROLLER_DIR) \
