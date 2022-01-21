@@ -29,11 +29,13 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
 	"github.com/kcp-dev/kcp/config"
@@ -44,6 +46,26 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 )
+
+func (s *Server) installClusterRoleAggregationController(config *rest.Config) error {
+	kubeClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+	adminScope := "admin"
+	versionedInformer := coreexternalversions.NewSharedInformerFactory(kubeClient.Cluster(adminScope), resyncPeriod)
+
+	c := clusterroleaggregation.NewClusterRoleAggregation(
+		versionedInformer.Rbac().V1().ClusterRoles(),
+		kubeClient.Cluster(adminScope).RbacV1())
+
+	s.AddPostStartHook("start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		go c.Run(5, hookContext.StopCh)
+		return nil
+	})
+
+	return nil
+}
 
 func (s *Server) installKubeNamespaceController(config *rest.Config) error {
 	kubeClient, err := kubernetes.NewForConfig(config)
