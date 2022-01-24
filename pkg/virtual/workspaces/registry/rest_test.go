@@ -18,12 +18,14 @@ package registry
 
 import (
 	"context"
+	"encoding/base64"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -41,6 +43,8 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // mockLister returns the workspaces in the list
@@ -98,6 +102,8 @@ type TestData struct {
 	clusterRoles        []rbacv1.ClusterRole
 	clusterRoleBindings []rbacv1.ClusterRoleBinding
 	workspaces          []tenancyv1alpha1.Workspace
+	workspaceShards     []tenancyv1alpha1.WorkspaceShard
+	secrets             []corev1.Secret
 	workspaceLister     *mockLister
 	user                kuser.Info
 	scope               string
@@ -106,7 +112,7 @@ type TestData struct {
 
 type TestDescription struct {
 	TestData
-	apply func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData)
+	apply func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData)
 }
 
 func applyTest(t *testing.T, test TestDescription) {
@@ -118,14 +124,20 @@ func applyTest(t *testing.T, test TestDescription) {
 	workspaceList := tenancyv1alpha1.WorkspaceList{
 		Items: test.workspaces,
 	}
+	workspaceShardList := tenancyv1alpha1.WorkspaceShardList{
+		Items: test.workspaceShards,
+	}
 	crbList := rbacv1.ClusterRoleBindingList{
 		Items: test.clusterRoleBindings,
 	}
 	crList := rbacv1.ClusterRoleList{
 		Items: test.clusterRoles,
 	}
-	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList)
-	mockKubeClient := fake.NewSimpleClientset(&crbList, &crList)
+	secretList := corev1.SecretList{
+		Items: test.secrets,
+	}
+	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList, &workspaceShardList)
+	mockKubeClient := fake.NewSimpleClientset(&crbList, &crList, &secretList)
 	mockKubeClient.PrependWatchReactor("*", func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
@@ -204,10 +216,15 @@ func applyTest(t *testing.T, test TestDescription) {
 		workspaceLister:           workspaceLister,
 		workspaceReviewerProvider: test.reviewerProvider,
 	}
+	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
+		mainRest:             &storage,
+		coreClient:           mockKubeClient.CoreV1(),
+		workspaceShardClient: mockKCPClient.TenancyV1alpha1().WorkspaceShards(),
+	}
 	ctx = apirequest.WithUser(ctx, test.user)
 	ctx = apirequest.WithValue(ctx, WorkspacesScopeKey, test.scope)
 
-	test.apply(t, storage, ctx, mockKubeClient, mockKCPClient, workspaceLister.CheckedUsers, test.TestData)
+	test.apply(t, &storage, &kubeconfigSubresourceStorage, ctx, mockKubeClient, mockKCPClient, workspaceLister.CheckedUsers, test.TestData)
 }
 
 func TestListPersonalWorkspaces(t *testing.T) {
@@ -247,7 +264,7 @@ func TestListPersonalWorkspaces(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
 			workspaces := response.(*tenancyv1alpha1.WorkspaceList)
@@ -306,7 +323,7 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
 			workspaces := response.(*tenancyv1alpha1.WorkspaceList)
@@ -369,7 +386,7 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
 			workspaces := response.(*tenancyv1alpha1.WorkspaceList)
@@ -424,7 +441,7 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
 			workspaces := response.(*tenancyv1alpha1.WorkspaceList)
@@ -479,7 +496,7 @@ func TestGetPersonalWorkspace(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
 			require.NoError(t, err)
 			require.IsType(t, &tenancyv1alpha1.Workspace{}, response)
@@ -537,7 +554,7 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
 			require.NoError(t, err)
 			require.IsType(t, &tenancyv1alpha1.Workspace{}, response)
@@ -605,7 +622,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
 			require.Error(t, err)
 			require.Nil(t, response)
@@ -639,7 +656,7 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 				"delete": mockReviewer{},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -670,7 +687,7 @@ func TestCreateWorkspace(t *testing.T) {
 				"delete": mockReviewer{},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -825,7 +842,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -986,7 +1003,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -1084,7 +1101,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo-with-does-not-exist", nil, &metav1.DeleteOptions{})
 			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo-with-does-not-exist\" not found")
 			assert.Nil(t, response)
@@ -1177,7 +1194,7 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
 			assert.EqualError(t, err, "workspace.tenancy.kcp.dev is forbidden: User test-user doesn't have the permission to delete workspace foo")
 			assert.Nil(t, response)
@@ -1280,7 +1297,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
 			assert.NoError(t, err)
 			assert.Nil(t, response)
@@ -1383,7 +1400,7 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
 			assert.NoError(t, err)
 			assert.Nil(t, response)
@@ -1400,6 +1417,855 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			require.NoError(t, err)
 			wsList := workspaceList.(*tenancyv1alpha1.WorkspaceList)
 			assert.Empty(t, wsList.Items)
+		},
+	}
+	applyTest(t, test)
+}
+
+var (
+	shardKubeConfigContent string = `
+kind: Config
+apiVersion: v1
+clusters:
+- name: admin
+  cluster:
+    certificate-authority-data: ` + base64.StdEncoding.EncodeToString([]byte("THE_RIGHT_CA_DATA")) + `
+    server: ADMIN_SERVER
+    tls-server-name: THE_RIGHT_TLS_SERVER_NAME
+users:
+- name: loopback
+  user:
+    token: loopback-token
+contexts:
+- name: admin
+  context:
+    cluster: admin
+    user: loopback
+current-context: admin
+`
+
+	shardKubeConfigContentInvalidCADataBase64 string = `
+kind: Config
+apiVersion: v1
+clusters:
+- name: admin
+  cluster:
+    certificate-authority-data: INVALID_VALUE
+    server: ADMIN_SERVER
+    tls-server-name: THE_RIGHT_TLS_SERVER_NAME
+users:
+- name: loopback
+  user:
+    token: loopback-token
+contexts:
+- name: admin
+  context:
+    cluster: admin
+    user: loopback
+current-context: admin
+`
+
+	shardKubeConfigContentWithoutContext string = `
+kind: Config
+apiVersion: v1
+clusters:
+- name: admin
+  cluster:
+    certificate-authority-data: ` + base64.StdEncoding.EncodeToString([]byte("THE_RIGHT_CA_DATA")) + `
+    server: ADMIN_SERVER
+    tls-server-name: THE_RIGHT_TLS_SERVER_NAME
+users:
+- name: loopback
+  user:
+    token: loopback-token
+contexts:
+- name: admin
+  context:
+    cluster: admin
+    user: loopback
+current-context: nonexistent
+`
+
+	shardKubeConfigContentInvalid string = `
+kind: Config
+invalid
+  text
+`
+)
+
+func expectedWorkspaceKubeconfigContent(workspaceScope string) string {
+	return `
+kind: Config
+apiVersion: v1
+clusters:
+- name: personal/foo
+  cluster:
+    certificate-authority-data: ` + base64.StdEncoding.EncodeToString([]byte("THE_RIGHT_CA_DATA")) + `
+    server: THE_RIGHT_SERVER_URL
+    tls-server-name: THE_RIGHT_TLS_SERVER_NAME
+contexts:
+- name: personal/foo
+  context:
+    cluster: personal/foo
+    user: ''
+current-context: personal/foo
+users:
+preferences: {}
+`
+}
+
+func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: personalScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kubeconfig",
+						Namespace: "kcp",
+					},
+					Data: map[string][]byte{
+						"kubeconfig": []byte(shardKubeConfigContent),
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo--1",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			response, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			require.NoError(t, err)
+			require.IsType(t, KubeConfig(""), response)
+			responseWorkspace := response.(KubeConfig)
+			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent(personalScope), string(responseWorkspace))
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigPersonalWorkspace(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: personalScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kubeconfig",
+						Namespace: "kcp",
+					},
+					Data: map[string][]byte{
+						"kubeconfig": []byte(shardKubeConfigContent),
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			response, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			require.NoError(t, err)
+			require.IsType(t, KubeConfig(""), response)
+			responseWorkspace := response.(KubeConfig)
+			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent(personalScope), string(responseWorkspace))
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigOrganizationWorkspace(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kubeconfig",
+						Namespace: "kcp",
+					},
+					Data: map[string][]byte{
+						"kubeconfig": []byte(shardKubeConfigContent),
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			response, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			require.NoError(t, err)
+			require.IsType(t, KubeConfig(""), response)
+			responseWorkspace := response.(KubeConfig)
+			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent(organizationScope), string(responseWorkspace))
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kubeconfig",
+						Namespace: "kcp",
+					},
+					Data: map[string][]byte{
+						"kubeconfig": []byte(shardKubeConfigContentInvalidCADataBase64),
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			assert.EqualError(t, err, "workspaces/kubeconfig.tenancy.kcp.dev \"foo\" not found")
+			var statusError *kerrors.StatusError
+			require.ErrorAs(t, err, &statusError)
+			require.Len(t, statusError.Status().Details.Causes, 1)
+			assert.Equal(t, statusError.Status().Details.Causes[0].Type, metav1.CauseTypeUnexpectedServerResponse)
+			assert.Regexp(t, "^Workspace shard Kubeconfig is invalid: .*", statusError.Status().Details.Causes[0].Message)
+			assert.Contains(t, statusError.Status().Details.Causes[0].Message, "CertificateAuthorityData: decode base64: illegal base64 data at input byte 7, error found in #10 byte of ...|LID_VALUE")
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kubeconfig",
+						Namespace: "kcp",
+					},
+					Data: map[string][]byte{
+						"kubeconfig": []byte(shardKubeConfigContentWithoutContext),
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			assert.EqualError(t, err, "workspaces/kubeconfig.tenancy.kcp.dev \"foo\" not found")
+			var statusError *kerrors.StatusError
+			require.ErrorAs(t, err, &statusError)
+			require.Len(t, statusError.Status().Details.Causes, 1)
+			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
+			assert.Equal(t, "Workspace shard Kubeconfig has no current context", statusError.Status().Details.Causes[0].Message)
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigFailBecauseInvalid(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kubeconfig",
+						Namespace: "kcp",
+					},
+					Data: map[string][]byte{
+						"kubeconfig": []byte(shardKubeConfigContentInvalid),
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			assert.EqualError(t, err, "workspaces/kubeconfig.tenancy.kcp.dev \"foo\" not found")
+			var statusError *kerrors.StatusError
+			require.ErrorAs(t, err, &statusError)
+			require.Len(t, statusError.Status().Details.Causes, 1)
+			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
+			assert.Equal(t, "Workspace shard Kubeconfig is invalid: yaml: line 5: could not find expected ':'", statusError.Status().Details.Causes[0].Message)
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kubeconfig",
+						Namespace: "kcp",
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			assert.EqualError(t, err, "workspaces/kubeconfig.tenancy.kcp.dev \"foo\" not found")
+			var statusError *kerrors.StatusError
+			require.ErrorAs(t, err, &statusError)
+			require.Len(t, statusError.Status().Details.Causes, 1)
+			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
+			assert.Equal(t, "Key 'kubeconfig' not found in workspace shard Kubeconfig secret", statusError.Status().Details.Causes[0].Message)
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "theOneAndOnlyShard",
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "kubeconfig",
+							Namespace: "kcp",
+						},
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			assert.EqualError(t, err, "workspaces/kubeconfig.tenancy.kcp.dev \"foo\" not found")
+			var statusError *kerrors.StatusError
+			require.ErrorAs(t, err, &statusError)
+			require.Len(t, statusError.Status().Details.Causes, 1)
+			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
+			assert.Equal(t, "secrets \"kubeconfig\" not found", statusError.Status().Details.Causes[0].Message)
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			workspaces: []tenancyv1alpha1.Workspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Status: tenancyv1alpha1.WorkspaceStatus{
+						BaseURL: "THE_RIGHT_SERVER_URL",
+						Location: tenancyv1alpha1.WorkspaceLocation{
+							Current: "theOneAndOnlyShard",
+						},
+						Conditions: conditionsv1alpha1.Conditions{
+							{
+								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			assert.EqualError(t, err, "workspaces/kubeconfig.tenancy.kcp.dev \"foo\" not found")
+			var statusError *kerrors.StatusError
+			require.ErrorAs(t, err, &statusError)
+			require.Len(t, statusError.Status().Details.Causes, 1)
+			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
+			assert.Equal(t, "workspaceshards.tenancy.kcp.dev \"theOneAndOnlyShard\" not found", statusError.Status().Details.Causes[0].Message)
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestKubeconfigFailBecauseWorkspaceNotFound(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:  user,
+			scope: organizationScope,
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := kubeconfigSubResourceStorage.Get(ctx, "foo", nil)
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" not found")
+			var statusError *kerrors.StatusError
+			require.ErrorAs(t, err, &statusError)
+			require.Len(t, statusError.Status().Details.Causes, 0)
 		},
 	}
 	applyTest(t, test)

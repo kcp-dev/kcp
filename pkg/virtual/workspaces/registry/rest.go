@@ -583,42 +583,59 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 	if err != nil {
 		return nil, err
 	}
+	wrapError := func(err error) error {
+		k8sErr := kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+		k8sErr.Status().Details.Causes = append(k8sErr.Status().Details.Causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeUnexpectedServerResponse,
+			Message: err.Error(),
+		})
+		return k8sErr
+	}
+	scope := ctx.Value(WorkspacesScopeKey).(string)
 	if workspace, isAWorkspace := workspace.(*tenancyv1alpha1.Workspace); isAWorkspace {
 		if conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
 			ctx := genericapirequest.WithCluster(context.TODO(), genericapirequest.Cluster{Name: workspace.ClusterName})
 			shard, err := s.workspaceShardClient.Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
 			if err != nil {
-				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+				return nil, wrapError(err)
 			}
 			secret, err := s.coreClient.Secrets(shard.Spec.Credentials.Namespace).Get(ctx, shard.Spec.Credentials.Name, metav1.GetOptions{})
 			if err != nil {
-				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+				return nil, wrapError(err)
 			}
 			data, ok := secret.Data[tenancyv1alpha1.WorkspaceShardCredentialsKey]
 			if !ok {
-				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+				return nil, wrapError(errors.New(fmt.Sprintf("Key '%s' not found in workspace shard Kubeconfig secret", tenancyv1alpha1.WorkspaceShardCredentialsKey)))
 			}
 			shardKubeConfig, err := clientcmd.Load(data)
 			if err != nil {
-				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+				return nil, wrapError(errors.New(fmt.Sprintf("Workspace shard Kubeconfig is invalid: %v", err)))
 			}
 
 			currentContext := shardKubeConfig.Contexts[shardKubeConfig.CurrentContext]
+			if currentContext == nil {
+				return nil, wrapError(errors.New("Workspace shard Kubeconfig has no current context"))
+			}
 			currentCluster := shardKubeConfig.Clusters[currentContext.Cluster]
+			if currentContext == nil {
+				return nil, wrapError(errors.New(fmt.Sprintf("Workspace shard Kubeconfig has no cluster corresponding to the current context cluster key: %s", currentContext.Cluster)))
+			}
 			currentCluster.Server = workspace.Status.BaseURL
+
+			workspaceContextName := scope + "/" + workspace.Name
 			workspaceConfig := &api.Config{
 				APIVersion:     "v1",
-				Clusters:       map[string]*api.Cluster{workspace.Name: currentCluster},
-				Contexts:       map[string]*api.Context{workspace.Name: {Cluster: workspace.Name}},
-				CurrentContext: workspace.Name,
+				Clusters:       map[string]*api.Cluster{workspaceContextName: currentCluster},
+				Contexts:       map[string]*api.Context{workspaceContextName: {Cluster: workspaceContextName}},
+				CurrentContext: workspaceContextName,
 			}
 			dataToReturn, err := clientcmd.Write(*workspaceConfig)
 			if err != nil {
-				return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+				return nil, wrapError(err)
 			}
 			return KubeConfig(string(dataToReturn)), nil
 		} else {
-			return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
+			return nil, wrapError(errors.New("Workspace URL is not valid"))
 		}
 	}
 	return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
