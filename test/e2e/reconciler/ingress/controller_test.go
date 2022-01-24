@@ -17,16 +17,10 @@ limitations under the License.
 package workspace
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -256,7 +250,6 @@ func TestIngressController(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 				return
-
 			}
 			xdsListenerPort, err := framework.GetFreePort(t)
 			if err != nil {
@@ -264,13 +257,13 @@ func TestIngressController(t *testing.T) {
 				return
 			}
 
-			ingressController := ingressControllerConfig{
-				t:               t,
-				kubeconfigPath:  cfg.Clusters[cfg.CurrentContext].LocationOfOrigin,
-				artifactDir:     artifactDir,
-				xdsListenPort:   xdsListenerPort,
-				envoyListenPort: envoyListenerPort,
-			}
+			ingressController := framework.NewAccessory(t, artifactDir,
+				"ingress-controller",
+				"-kubeconfig="+cfg.Clusters[cfg.CurrentContext].LocationOfOrigin,
+				"-envoyxds",
+				"-envoy-listener-port="+envoyListenerPort,
+				"-envoyxds-port="+xdsListenerPort,
+			)
 
 			err = ingressController.Run(ctx)
 			if err != nil {
@@ -295,63 +288,6 @@ func TestIngressController(t *testing.T) {
 			},
 		)
 	}
-}
-
-type ingressControllerConfig struct {
-	t               framework.TestingTInterface
-	kubeconfigPath  string
-	ctx             context.Context
-	artifactDir     string
-	xdsListenPort   string
-	envoyListenPort string
-}
-
-func (c *ingressControllerConfig) Run(parentCtx context.Context) error {
-	ctx, cancel := context.WithCancel(parentCtx)
-
-	if deadline, ok := c.t.Deadline(); ok {
-		deadlinedCtx, deadlinedCancel := context.WithDeadline(ctx, deadline.Add(-10*time.Second))
-		ctx = deadlinedCtx
-		c.t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
-	}
-	c.ctx = ctx
-	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
-	c.t.Cleanup(func() {
-		c.t.Log("cleanup: ending ingress controller")
-		cancel()
-		<-cleanupCtx.Done()
-	})
-
-	cmd := exec.CommandContext(c.ctx, "ingress-controller", []string{
-		"-kubeconfig=" + c.kubeconfigPath,
-		"-envoyxds",
-		"-envoy-listener-port=" + c.envoyListenPort,
-		"-envoyxds-port=" + c.xdsListenPort,
-	}...)
-
-	c.t.Logf("running: %v", strings.Join(cmd.Args, " "))
-	logFile, err := os.Create(filepath.Join(c.artifactDir, "ingress-controller.log"))
-	if err != nil {
-		cleanupCancel()
-		return fmt.Errorf("could not create log file: %w", err)
-	}
-	log := bytes.Buffer{}
-	writers := []io.Writer{&log, logFile}
-	mw := io.MultiWriter(writers...)
-	cmd.Stdout = mw
-	cmd.Stderr = mw
-	if err := cmd.Start(); err != nil {
-		cleanupCancel()
-		return err
-	}
-	go func() {
-		defer func() { cleanupCancel() }()
-		err := cmd.Wait()
-		if err != nil && ctx.Err() == nil {
-			c.t.Errorf("`ingress-controller` failed: %w output: %s", err, log)
-		}
-	}()
-	return nil
 }
 
 func installService(ctx context.Context, server framework.RunningServer) error {

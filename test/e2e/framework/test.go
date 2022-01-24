@@ -120,6 +120,7 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 						}
 					}(srv)
 				}
+				defer srv.GatherArtifacts()
 			}
 			wg.Wait()
 

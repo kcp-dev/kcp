@@ -96,75 +96,86 @@ func init() {
 	utilruntime.Must(localSchemeBuilder.AddToScheme(scheme.Scheme))
 }
 
-// Artifact runs the data-producing function and dumps the YAML-formatted output
-// to the artifact directory for the test. Normal usage looks like:
-// defer framework.Artifact(t, kcp, client.Get(ctx, name, metav1.GetOptions{}))
+func (c *kcpServer) GatherArtifacts() {
+	c.artifactsLock.RLock()
+	defer c.artifactsLock.RUnlock()
+	for _, artifact := range c.artifacts {
+		artifact()
+	}
+}
+
+// Artifact registers the data-producing function to run and dump the YAML-formatted output
+// to the artifact directory for the test before the kcp process is terminated.
 func (c *kcpServer) Artifact(tinterface TestingTInterface, producer func() (runtime.Object, error)) {
-	t, ok := tinterface.(*T)
-	if !ok {
-		tinterface.Logf("Artifact() called with %#v, not a framework.T", tinterface)
-		return
-	}
-	data, err := producer()
-	if err != nil {
-		t.Logf("error fetching artifact: %v", err)
-		return
-	}
-	accessor, ok := data.(metav1.Object)
-	if !ok {
-		t.Logf("artifact has no object meta: %#v", data)
-		return
-	}
-	dir := path.Join(c.artifactDir, accessor.GetClusterName())
-	if accessor.GetNamespace() != "" {
-		dir = path.Join(dir, accessor.GetNamespace())
-	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Logf("could not create dir: %v", err)
-		return
-	}
-	gvks, _, err := scheme.Scheme.ObjectKinds(data)
-	if err != nil {
-		t.Logf("error finding gvk for artifact: %v", err)
-		return
-	}
-	if len(gvks) == 0 {
-		t.Logf("found no gvk for artifact: %T", data)
-		return
-	}
-	gvk := gvks[0]
-	data.GetObjectKind().SetGroupVersionKind(gvk)
+	c.artifactsLock.Lock()
+	defer c.artifactsLock.Unlock()
+	c.artifacts = append(c.artifacts, func() {
+		t, ok := tinterface.(*T)
+		if !ok {
+			tinterface.Logf("Artifact() called with %#v, not a framework.T", tinterface)
+			return
+		}
+		data, err := producer()
+		if err != nil {
+			t.Logf("error fetching artifact: %v", err)
+			return
+		}
+		accessor, ok := data.(metav1.Object)
+		if !ok {
+			t.Logf("artifact has no object meta: %#v", data)
+			return
+		}
+		dir := path.Join(c.artifactDir, accessor.GetClusterName())
+		if accessor.GetNamespace() != "" {
+			dir = path.Join(dir, accessor.GetNamespace())
+		}
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Logf("could not create dir: %v", err)
+			return
+		}
+		gvks, _, err := scheme.Scheme.ObjectKinds(data)
+		if err != nil {
+			t.Logf("error finding gvk for artifact: %v", err)
+			return
+		}
+		if len(gvks) == 0 {
+			t.Logf("found no gvk for artifact: %T", data)
+			return
+		}
+		gvk := gvks[0]
+		data.GetObjectKind().SetGroupVersionKind(gvk)
 
-	cfg, err := c.Config()
-	if err != nil {
-		t.Logf("could not get config for server: %v", err)
-		return
-	}
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
-	if err != nil {
-		t.Logf("could not get discovery client for server: %v", err)
-		return
-	}
-	scopedDiscoveryClient := discoveryClient.WithCluster(accessor.GetClusterName())
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(scopedDiscoveryClient))
-	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		t.Logf("could not get REST mapping for artifact's GVK: %v", err)
-		return
-	}
-	file := path.Join(dir, fmt.Sprintf("%s_%s.yaml", mapping.Resource.GroupResource().String(), accessor.GetName()))
-	t.Logf("saving artifact to %s", file)
+		cfg, err := c.Config()
+		if err != nil {
+			t.Logf("could not get config for server: %v", err)
+			return
+		}
+		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
+		if err != nil {
+			t.Logf("could not get discovery client for server: %v", err)
+			return
+		}
+		scopedDiscoveryClient := discoveryClient.WithCluster(accessor.GetClusterName())
+		mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(scopedDiscoveryClient))
+		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			t.Logf("could not get REST mapping for artifact's GVK: %v", err)
+			return
+		}
+		file := path.Join(dir, fmt.Sprintf("%s_%s.yaml", mapping.Resource.GroupResource().String(), accessor.GetName()))
+		t.Logf("saving artifact to %s", file)
 
-	serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
-	raw := bytes.Buffer{}
-	if err := serializer.Encode(data, &raw); err != nil {
-		t.Logf("error marshalling artifact: %v", err)
-		return
-	}
-	if err := ioutil.WriteFile(file, raw.Bytes(), 0644); err != nil {
-		t.Logf("error writing artifact: %v", err)
-		return
-	}
+		serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
+		raw := bytes.Buffer{}
+		if err := serializer.Encode(data, &raw); err != nil {
+			t.Logf("error marshalling artifact: %v", err)
+			return
+		}
+		if err := ioutil.WriteFile(file, raw.Bytes(), 0644); err != nil {
+			t.Logf("error writing artifact: %v", err)
+			return
+		}
+	})
 }
 
 // GetFreePort asks the kernel for a free open port that is ready to use.
@@ -285,7 +296,7 @@ func InstallCluster(t TestingTInterface, ctx context.Context, source, server Run
 	if err != nil {
 		return fmt.Errorf("failed to create cluster on source kcp: %w", err)
 	}
-	defer source.Artifact(t, func() (runtime.Object, error) {
+	source.Artifact(t, func() (runtime.Object, error) {
 		return sourceKcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	})
 	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

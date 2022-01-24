@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strconv"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -293,7 +295,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 		// make sure current shard still exists
 		currentShard, err := c.workspaceShardLister.Get(clusters.ToClusterAwareKey(workspace.ClusterName, currentShardName))
 		if errors.IsNotFound(err) {
-			klog.Infof("de-scheduling workspace %q from nonexistent shard %q", workspace.Name, currentShardName)
+			klog.Infof("de-scheduling workspace %q|%q from nonexistent shard %q", workspace.ClusterName, workspace.Name, currentShardName)
 			workspace.Status.Location.Current = ""
 		} else if err != nil {
 			return err
@@ -306,17 +308,45 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 		if err != nil {
 			return err
 		}
-		if len(shards) != 0 {
-			targetShard := shards[rand.Intn(len(shards))]
+		// TODO: do we need to handle cross-cluster shard assignment? if so, we need shard name for the shard objects...
+		var filtered []*tenancyv1alpha1.WorkspaceShard
+		for i := range shards {
+			if shards[i].ClusterName == workspace.ClusterName {
+				filtered = append(filtered, shards[i])
+			}
+		}
+		if len(filtered) != 0 {
+			targetShard := filtered[rand.Intn(len(filtered))]
 			workspace.Status.Location.Target = targetShard.Name
 			shard = targetShard
-			klog.Infof("scheduling workspace %q to %q", workspace.Name, targetShard.Name)
+			klog.Infof("scheduling workspace %q|%q to %q|%q", workspace.ClusterName, workspace.Name, targetShard.ClusterName, targetShard.Name)
 		}
 	}
 	if workspace.Status.Location.Target != "" && workspace.Status.Location.Current != workspace.Status.Location.Target {
-		klog.Infof("moving workspace %q from to %q", workspace.Name, workspace.Status.Location.Target)
+		klog.Infof("moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
 		workspace.Status.Location.Current = workspace.Status.Location.Target
 		workspace.Status.Location.Target = ""
+		// TODO: actually handle the RV resolution and double-sided accept we need for movement
+		if len(workspace.Status.Location.History) == 0 {
+			workspace.Status.Location.History = []tenancyv1alpha1.ShardStatus{
+				{Name: workspace.Status.Location.Current, LiveAfterResourceVersion: "1"},
+			}
+		} else {
+			previous := workspace.Status.Location.History[len(workspace.Status.Location.History)-1]
+			startingRV, err := strconv.ParseInt(previous.LiveAfterResourceVersion, 10, 64)
+			if err != nil {
+				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "Invalid status.location.history[%d].liveAfterResourceVersion: %v.", len(workspace.Status.Location.History)-1, err)
+				return nil
+			}
+			endingRV := strconv.FormatInt(startingRV+10, 10)
+			previous.LiveBeforeResourceVersion = endingRV
+			current := tenancyv1alpha1.ShardStatus{
+				Name:                     workspace.Status.Location.Current,
+				LiveAfterResourceVersion: endingRV,
+			}
+			workspace.Status.Location.History[len(workspace.Status.Location.History)-1] = previous
+			workspace.Status.Location.History = append(workspace.Status.Location.History, current)
+		}
 	}
 	if workspace.Status.Location.Current == "" {
 		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
@@ -334,7 +364,12 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonInvalid, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target WorkspaceShard: %v.", err)
 			return nil
 		}
-		u.Path = path.Join(u.Path, shard.Status.ConnectionInfo.APIPath, "clusters", workspace.Name)
+		logicalCluster, err := tenancyhelper.EncodeLogicalClusterName(workspace)
+		if err != nil {
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonInvalid, conditionsv1alpha1.ConditionSeverityError, "Invalid Workspace location: %v.", err)
+			return nil
+		}
+		u.Path = path.Join(u.Path, shard.Status.ConnectionInfo.APIPath, "clusters", logicalCluster)
 		workspace.Status.BaseURL = u.String()
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceURLValid)
 	}

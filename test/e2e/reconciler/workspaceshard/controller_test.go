@@ -57,7 +57,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
@@ -85,7 +85,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
@@ -116,7 +116,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create credentials secret: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
 				})
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
@@ -130,7 +130,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
@@ -161,7 +161,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create credentials secret: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
 				})
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
@@ -175,7 +175,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
@@ -222,7 +222,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create credentials secret: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
 				})
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
@@ -236,7 +236,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
@@ -289,7 +289,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create credentials secret: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
 				})
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
@@ -303,7 +303,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 				var version string
