@@ -34,6 +34,12 @@ import (
 // call panic
 var seen = sync.Map{}
 
+type InitializedServer interface {
+	Name() string
+	Run(context.Context) error
+	Ready() error
+}
+
 type RunningServer interface {
 	Name() string
 	KubeconfigPath() string
@@ -85,15 +91,15 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 			cancel()
 			return
 		}
-		var servers []*kcpServer
+		var initializedServers []InitializedServer
 		runningServers := map[string]RunningServer{}
 		for _, cfg := range cfgs {
-			server, err := newKcpServer(bottom, cfg, artifactDir, dataDir)
+			initialized, running, err := NewKcpServer(bottom, cfg, artifactDir, dataDir)
 			if err != nil {
 				mid.Fatal(err)
 			}
-			servers = append(servers, server)
-			runningServers[server.name] = server
+			initializedServers = append(initializedServers, initialized)
+			runningServers[running.Name()] = running
 		}
 
 		// start all test routines separately, so the main routine can begin
@@ -105,18 +111,18 @@ func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 			t.Log("Starting kcp servers...")
 			// launch kcp servers and ensure they are ready before starting the test
 			wg := sync.WaitGroup{}
-			wg.Add(len(servers))
-			for _, srv := range servers {
+			wg.Add(len(initializedServers))
+			for _, srv := range initializedServers {
 				// binding the server to ctx ensures its lifetime is only
 				// as long as the test we are running in this specific case
 				if err := srv.Run(ctx); err != nil {
 					t.Error(err)
 					wg.Done()
 				} else {
-					go func(s *kcpServer) {
+					go func(s InitializedServer) {
 						defer wg.Done()
 						if err := s.Ready(); err != nil {
-							t.Errorf("kcp server %s never became ready: %v", s.name, err)
+							t.Errorf("kcp server %s never became ready: %v", s.Name(), err)
 						}
 					}(srv)
 				}

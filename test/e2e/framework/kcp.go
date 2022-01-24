@@ -59,12 +59,12 @@ type kcpServer struct {
 	t TestingTInterface
 }
 
-func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
+func NewKcpServer(t TestingTInterface, cfg KcpConfig, artifactDir, dataDir string) (InitializedServer, RunningServer, error) {
 	t.Helper()
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {
 		if remaining := time.Until(deadline); remaining < 30*time.Second {
-			return nil, fmt.Errorf("only have %v until deadline, need at least 30 seconds", remaining)
+			return nil, nil, fmt.Errorf("only have %v until deadline, need at least 30 seconds", remaining)
 		}
 		c, cancel := context.WithDeadline(ctx, deadline.Add(-10*time.Second))
 		ctx = c
@@ -72,25 +72,25 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 	}
 	kcpListenPort, err := GetFreePort(t)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	etcdClientPort, err := GetFreePort(t)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	etcdPeerPort, err := GetFreePort(t)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	artifactDir = filepath.Join(artifactDir, "kcp", cfg.Name)
 	if err := os.MkdirAll(artifactDir, 0755); err != nil {
-		return nil, fmt.Errorf("could not create artifact dir: %w", err)
+		return nil, nil, fmt.Errorf("could not create artifact dir: %w", err)
 	}
 	dataDir = filepath.Join(dataDir, "kcp", cfg.Name)
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return nil, fmt.Errorf("could not create data dir: %w", err)
+		return nil, nil, fmt.Errorf("could not create data dir: %w", err)
 	}
-	return &kcpServer{
+	server := &kcpServer{
 		name: cfg.Name,
 		args: append([]string{
 			"--root-directory",
@@ -106,7 +106,8 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 		ctx:         ctx,
 		t:           t,
 		lock:        &sync.Mutex{},
-	}, nil
+	}
+	return server, server, nil
 }
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
@@ -256,11 +257,11 @@ func (c *kcpServer) Ready() error {
 	}
 	wg.Wait()
 
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		go func(endpoint string) {
-			c.monitorEndpoint(client, endpoint)
-		}(endpoint)
-	}
+	//for _, endpoint := range []string{"/livez", "/readyz"} {
+	//	go func(endpoint string) {
+	//		c.monitorEndpoint(client, endpoint)
+	//	}(endpoint)
+	//}
 	return nil
 }
 
