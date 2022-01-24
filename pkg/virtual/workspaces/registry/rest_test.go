@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,7 +45,6 @@ import (
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // mockLister returns the workspaces in the list
@@ -249,7 +249,7 @@ func TestListPersonalWorkspaces(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -308,7 +308,7 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -371,7 +371,7 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -426,7 +426,7 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -481,7 +481,7 @@ func TestGetPersonalWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -539,7 +539,7 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -607,7 +607,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -705,7 +705,7 @@ func TestCreateWorkspace(t *testing.T) {
 			assert.ElementsMatch(t, crbs.Items, append(testData.clusterRoleBindings,
 				rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "admin-workspace-foo-test-user",
+						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -714,7 +714,7 @@ func TestCreateWorkspace(t *testing.T) {
 					RoleRef: rbacv1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
 						Kind:     "ClusterRole",
-						Name:     "admin-workspace-foo-test-user",
+						Name:     "owner-workspace-foo-test-user",
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -730,7 +730,29 @@ func TestCreateWorkspace(t *testing.T) {
 			assert.ElementsMatch(t, crs.Items, append(testData.clusterRoles,
 				rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "admin-workspace-foo-test-user",
+						Name: "lister-workspace-foo-test-user",
+						Labels: map[string]string{
+							InternalNameLabel: "foo",
+						},
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"get"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"workspaces"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+						{
+							Verbs:         []string{"view"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"workspaces/content"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+					},
+				},
+				rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -742,20 +764,10 @@ func TestCreateWorkspace(t *testing.T) {
 							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
-					},
-				},
-				rbacv1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "lister-workspace-foo-test-user",
-						Labels: map[string]string{
-							InternalNameLabel: "foo",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -793,7 +805,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", anotherUser),
+						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -810,7 +822,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", anotherUser),
+						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -820,6 +832,12 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"workspaces"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+						{
+							Verbs:         []string{"view", "edit"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -836,6 +854,12 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"workspaces"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+						{
+							Verbs:         []string{"view"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -860,7 +884,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			assert.ElementsMatch(t, crbs.Items, append(testData.clusterRoleBindings,
 				rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "admin-workspace-foo-test-user",
+						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -869,7 +893,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 					RoleRef: rbacv1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
 						Kind:     "ClusterRole",
-						Name:     "admin-workspace-foo-test-user",
+						Name:     "owner-workspace-foo-test-user",
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -885,7 +909,29 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			assert.ElementsMatch(t, crs.Items, append(testData.clusterRoles,
 				rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "admin-workspace-foo-test-user",
+						Name: "lister-workspace-foo-test-user",
+						Labels: map[string]string{
+							InternalNameLabel: "foo--1",
+						},
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"get"},
+							ResourceNames: []string{"foo--1"},
+							Resources:     []string{"workspaces"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+						{
+							Verbs:         []string{"view"},
+							ResourceNames: []string{"foo--1"},
+							Resources:     []string{"workspaces/content"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+					},
+				},
+				rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
 							InternalNameLabel: "foo--1",
 						},
@@ -897,20 +943,10 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
-					},
-				},
-				rbacv1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "lister-workspace-foo-test-user",
-						Labels: map[string]string{
-							InternalNameLabel: "foo--1",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo--1"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -954,7 +990,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -971,7 +1007,29 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(ListerRoleType, "foo", user),
+						Labels: map[string]string{
+							InternalNameLabel: "foo",
+						},
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"get"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"workspaces"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+						{
+							Verbs:         []string{"view"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"workspaces/content"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -983,20 +1041,10 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(ListerRoleType, "foo", user),
-						Labels: map[string]string{
-							InternalNameLabel: "foo",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1052,7 +1100,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1069,7 +1117,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1145,7 +1193,7 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1162,7 +1210,7 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1248,7 +1296,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1265,7 +1313,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1351,7 +1399,7 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -1368,7 +1416,7 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							InternalNameLabel: "foo--1",
 						},
@@ -1494,21 +1542,22 @@ invalid
 )
 
 func expectedWorkspaceKubeconfigContent(workspaceScope string) string {
+	contextName := workspaceScope + "/foo"
 	return `
 kind: Config
 apiVersion: v1
 clusters:
-- name: personal/foo
+- name: ` + contextName + `
   cluster:
     certificate-authority-data: ` + base64.StdEncoding.EncodeToString([]byte("THE_RIGHT_CA_DATA")) + `
     server: THE_RIGHT_SERVER_URL
     tls-server-name: THE_RIGHT_TLS_SERVER_NAME
 contexts:
-- name: personal/foo
+- name: ` + contextName + `
   context:
-    cluster: personal/foo
+    cluster: ` + contextName + `
     user: ''
-current-context: personal/foo
+current-context: ` + contextName + `
 users:
 preferences: {}
 `
@@ -1572,7 +1621,7 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -1656,7 +1705,7 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1740,7 +1789,7 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1824,7 +1873,7 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1911,7 +1960,7 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1997,7 +2046,7 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -2080,7 +2129,7 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -2155,7 +2204,7 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -2217,7 +2266,7 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(AdminRoleType, "foo", user),
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
