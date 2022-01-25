@@ -118,7 +118,7 @@ func (c *FakeCowboys) UpdateStatus(ctx context.Context, cowboy *v1alpha1.Cowboy,
 // Delete takes name of the cowboy and deletes it. Returns an error if one occurs.
 func (c *FakeCowboys) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(cowboysResource, c.ns, name), &v1alpha1.Cowboy{})
+		Invokes(testing.NewDeleteActionWithOptions(cowboysResource, c.ns, name, opts), &v1alpha1.Cowboy{})
 
 	return err
 }
