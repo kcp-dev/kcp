@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 
 	"k8s.io/apiserver/pkg/registry/rest"
@@ -111,20 +110,12 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 						return nil, err
 					}
 
-					var once sync.Once
-					var workspacesRest rest.Storage
-					var kubeconfigSubresourceRest rest.Storage
-					buildRestForWorkspaceResourceAndSubResources := func() {
-						workspacesRest, kubeconfigSubresourceRest = virtualworkspacesregistry.NewREST(kcpClient.TenancyV1alpha1(), kubeClient, crbInformer, reviewerProvider, workspaceAuthorizationCache)
-					}
-
+					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(kcpClient.TenancyV1alpha1(), kubeClient, crbInformer, reviewerProvider, workspaceAuthorizationCache)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
-							once.Do(buildRestForWorkspaceResourceAndSubResources)
 							return workspacesRest, nil
 						},
 						"workspaces/kubeconfig": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
-							once.Do(buildRestForWorkspaceResourceAndSubResources)
 							return kubeconfigSubresourceRest, nil
 						},
 					}, nil
