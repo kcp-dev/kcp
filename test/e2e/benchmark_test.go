@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -82,24 +84,34 @@ func BenchmarkMutation(b *testing.B) {
 	}
 	kubeClient := kubeClients.Cluster(clusterName).CoreV1().Namespaces()
 
-	namespace, err := kubeClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test", Labels: map[string]string{"a": "0"}}}, metav1.CreateOptions{})
-	if err != nil {
-		b.Fatalf("failed to create namespace: %v", err)
-	}
-
 	b.Log("Created first namespace, starting benchmark ...")
 	b.ResetTimer()
+	b.SetParallelism(10 * runtime.NumCPU())
 	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		namespace, err = kubeClient.Patch(ctx, namespace.Name, types.MergePatchType, []byte(fmt.Sprintf(`{
+	b.RunParallel(func(pb *testing.PB) {
+		name := strconv.Itoa(rand.Int())
+		for pb.Next() {
+			_, err := kubeClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"a": "0"}}}, metav1.CreateOptions{})
+			if err != nil {
+				b.Errorf("failed to create namespace: %v", err)
+				return
+			}
+			break
+		}
+		var i int
+		for pb.Next() {
+			_, err := kubeClient.Patch(ctx, name, types.MergePatchType, []byte(fmt.Sprintf(`{
   "metadata":{
     "labels":{
       "a": %q
     }
   }
 }`, strconv.Itoa(i+1))), metav1.PatchOptions{})
-		if err != nil {
-			b.Fatalf("failed to mutate namespace: %v", err)
+			if err != nil {
+				b.Errorf("failed to mutate namespace: %v", err)
+				return
+			}
+			i += 1
 		}
-	}
+	})
 }
