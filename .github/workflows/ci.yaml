@@ -54,7 +54,7 @@ jobs:
       - uses: golangci/golangci-lint-action@v2
         with:
           only-new-issues: true
-          args: --timeout=5m
+          args: --build-tags e2e --timeout=5m
 
   codegen:
     name: codegen

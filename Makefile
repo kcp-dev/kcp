@@ -42,6 +42,9 @@ install: install-ingress-controller
 	go install ./cmd/...
 .PHONY: install
 
+lint:
+	golangci-lint run --build-tags e2e ./...
+.PHONY: lint
 
 INGRESS_CONTROLLER_DIR = ./build/kcp-ingress
 
@@ -98,10 +101,10 @@ COUNT ?= 5
 
 .PHONY: test-e2e
 test-e2e: install
-	go test -race -count $(COUNT) ./test/e2e... $(WHAT)
+	go test -tags e2e -race -count $(COUNT) ./test/e2e... $(WHAT)
 
 .PHONY: test
-test: install
+test:
 	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic ./... $(WHAT)
 
 .PHONY: demos
