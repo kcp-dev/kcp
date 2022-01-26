@@ -142,7 +142,7 @@ func TestSpecSyncer(t *testing.T) {
 						}
 					}
 					return false, fmt.Errorf("No namespace in sink cluster: %v", names)
-				}, 10*time.Second); err != nil {
+				}, 30*time.Second); err != nil {
 					t.Errorf("did not see namespace spec updated on sink cluster: %v", err)
 					return
 				}
@@ -160,7 +160,7 @@ func TestSpecSyncer(t *testing.T) {
 					}
 
 					return true, nil
-				}, 120*time.Second); err != nil {
+				}, 30*time.Second); err != nil {
 					t.Errorf("did not see namespace spec updated on sink cluster: %v", err)
 					return
 				}
