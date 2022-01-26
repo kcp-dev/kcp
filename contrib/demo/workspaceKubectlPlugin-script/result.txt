@@ -1,0 +1,148 @@
+secret/kubeconfig created
+workspaceshard.tenancy.kcp.dev/boston created
+[3J[H[2J☸️ $ [1;37mkubectl kcp workspace --help[0m
+Manages KCP workspaces
+
+Usage:
+  workspace [command]
+
+Examples:
+
+	# Shows the workspace you are currently using
+	kubectl kcp workspace current
+
+	# use a given workspace (this will change the current-context of your current KUBECONFIG)
+	kubectl kcp workspace use
+
+	# list all your personal workspaces
+	kubectl kcp workspace list
+
+
+Available Commands:
+  completion  generate the autocompletion script for the specified shell
+  create      Creates a new personal workspace
+  current     Returns the name of the current workspace
+  delete      Deletes a personal workspace
+  help        Help about any command
+  list        Returns the list of the personal workspaces of the user
+  use         Uses the given workspace as the current workspace. Using - means previous workspace
+
+Flags:
+      --certificate-authority string                       Path to a cert file for the certificate authority
+      --context string                                     The name of the kubeconfig context to use
+  -h, --help                                               help for workspace
+      --insecure-skip-tls-verify                           If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
+      --password string                                    Password for basic authentication to the API server
+      --server string                                      The address and port of the Kubernetes API server
+      --tls-server-name string                             If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
+      --token string                                       Bearer token for authentication to the API server
+      --username string                                    Username for basic authentication to the API server
+      --workspace-directory-certificate-authority string   Path to a cert file for the certificate authority for workspace directory context
+      --workspace-directory-context string                 The name of the kubeconfig context to use for workspace directory context (default "workspace-directory")
+      --workspace-directory-insecure-skip-tls-verify       If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure for workspace directory context
+      --workspace-directory-password string                Password for basic authentication to the API server for workspace directory context
+      --workspace-directory-server string                  The address and port of the Kubernetes API server for workspace directory context (default "https://127.0.0.1:6444/services/applications/personal")
+      --workspace-directory-tls-server-name string         If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used. for workspace directory context
+      --workspace-directory-token string                   Bearer token for authentication to the API server for workspace directory context
+      --workspace-directory-username string                Username for basic authentication to the API server for workspace directory context
+
+Use "workspace [command] --help" for more information about a command.
+[3J[H[2J☸️ $ [1;37mecho ${KUBECONFIG}[0m
+/home/dfestal/go/src/github.com/kcp-dev/kcp/manual-tests/workspaceKubectlPlugin-test/myKubeConfig
+☸️ $ [1;37mmore /home/dfestal/go/src/github.com/kcp-dev/kcp/manual-tests/workspaceKubectlPlugin-test/myKubeConfig[0m
+apiVersion: v1
+clusters:
+- cluster:
+    insecure-skip-tls-verify: true
+    server: https://127.0.0.1:6444/services/applications/personal
+  name: workspace-directory
+contexts:
+- context:
+    cluster: workspace-directory
+    user: ""
+  name: workspace-directory
+current-context: ""
+kind: Config
+preferences: {}
+users: null
+☸️ $ [1;37m[0m
+[3J[H[2J☸️ $ [1;37mkubectl kcp workspace --token user-1-token create workspace11[0m
+Workspace "workspace11" created.
+☸️ $ [1;37mkubectl kcp workspace --token user-1-token create workspace12[0m
+Workspace "workspace12" created.
+☸️ $ [1;37mkubectl kcp workspace --token user-1-token list[0m
+NAME          PHASE    BASE URL
+workspace11   Active   https://127.0.0.1:6443/clusters/admin_workspace11
+workspace12   Active   https://127.0.0.1:6443/clusters/admin_workspace12
+☸️ $ [1;37mkubectl kcp workspace --token user-2-token list[0m
+☸️ $ [1;37mkubectl kcp workspace --token user-1-token use workspace11[0m
+Current personal workspace is "workspace11".
+☸️ $ [1;37mkubectl kcp workspace --token user-1-token current[0m
+Current personal workspace is "workspace11".
+☸️ $ [1;37mkubectl config current-context[0m
+workspace.kcp.dev/personal/workspace11
+☸️ $ [1;37mkubectl --token admin-token create secret generic workspace11[0m
+secret/workspace11 created
+☸️ $ [1;37mkubectl --token admin-token  get secrets[0m
+NAME          TYPE     DATA   AGE
+workspace11   Opaque   0      4s
+☸️ $ [1;37mkubectl --token user-2-token get secrets[0m
+Error from server (Forbidden): secrets is forbidden: User "user-2" cannot list resource "secrets" in API group "" in the namespace "default"
+☸️ $ [1;37mkubectl --token user-1-token get secrets[0m
+Error from server (Forbidden): secrets is forbidden: User "user-1" cannot list resource "secrets" in API group "" in the namespace "default"
+☸️ $ [1;37mmore myKubeConfig[0m
+apiVersion: v1
+clusters:
+- cluster:
+    insecure-skip-tls-verify: true
+    server: https://127.0.0.1:6444/services/applications/personal
+  name: workspace-directory
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURXRENDQWtDZ0F3SUJBZ0lCQWpBTkJna3Foa2lHOXcwQkFRc0ZBREF5TVRBd0xnWURWUVFERENkaGNHbHoKWlhKMlpYSXRiRzl2Y0dKaFkyc3RZMnhwWlc1MExXTmhRREUyTkRNeU1qTTJOamt3SGhjTk1qSXdNVEkyTVRndwpNVEE1V2hjTk1qTXdNVEkyTVRnd01UQTVXakF2TVMwd0t3WURWUVFERENSaGNHbHpaWEoyWlhJdGJHOXZjR0poClkyc3RZMnhwWlc1MFFERTJORE15TWpNMk5qa3dnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUsKQW9JQkFRQ2t5djVGcXVvSER1SzN6QXBZczVXa0pjYU9lbXZNL1pSTTdlK01TN3hDcUxkQ3g3WUx3a0w5cnhocgplMmppOXNrakJBZUMyaGJEU0hXeEcxZGZnbU8zNEJjcnNvZzBmOC9IeDg1TjlnQ1RJcXBFdzZTSGV5ckdGL1JOCjI1dlRYcU9zeTh6dVV2a0lVY1lYZXRUQTY5NC9KUGpTT3Nwc2tiN3NZcWRoblFtdmx0UFZoazNOSzczWVdTLzUKWlVLbTFLNE05ZDNJS044QkVFZTlZakV1UW5jYjBEdUhlbm5aV0hPRmhjSTdhaUpielVuUkhScGFsVVQyRGVzZAovSVVIWjUrWTVZaUI3QndoZVBKSEFNbXhYQWdGUWhhZ2JiTHRvTEJ2N3IydEZzY2wyWlYrQy95QXl0VXd1blR5CjhOZ3dVL2hWbWdGSFNvakx2MUdmZHVJbEFHUkxBZ01CQUFHamZEQjZNQTRHQTFVZER3RUIvd1FFQXdJRm9EQVQKQmdOVkhTVUVEREFLQmdnckJnRUZCUWNEQVRBTUJnTlZIUk1CQWY4RUFqQUFNQjhHQTFVZEl3UVlNQmFBRkQ3QwpKdSt2SkdZbyt3OCtFV28wSWdYZGFUZzRNQ1FHQTFVZEVRUWRNQnVDR1dGd2FYTmxjblpsY2kxc2IyOXdZbUZqCmF5MWpiR2xsYm5Rd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFBSWk1SFhzVFFEUzdpQnEwZGlkMDJzeC8yL2QKWHFhWFJnSHVEVEtJdTN2RUtSZGxmTlFuQ2xHYUZIQkVNdy9KMjB2aS9Tc1RXZVR1b2wxS0Z3QmtCUm5XWE91YwpQUHhINXFQdUdsaHc1cU4zd3JsaktDK3Z5RnQySWkwZFI0L0dZK0d4TjZxMzJlZGVmKzg4UDZ2UUMvNTlxNWNUCkNZaEFxd2tON0c4eGpnVkdnaFg3T2ZzalhRK3hzVkZlQjE0WHhDMmlwVEx1aThDZmlLejQxeHM2ajdiS3QxZC8KdVdqV2dUVDZZM2hDWWtMaVVqTmtPb3N1RExlVGZocGp2c0tlMVc3UngxS2t6c0FNKy95Y1QvYlJvWTBDOEFEcApCbjd1Z1hVZlQ1eUxvcHFBZFdBWi91RzUvOWFYZTRzbExzbno3UlVQYVBOY1dzTzc1a3AzNWNEMWJ0az0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQotLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KTUlJRElUQ0NBZ21nQXdJQkFnSUJBVEFOQmdrcWhraUc5dzBCQVFzRkFEQXlNVEF3TGdZRFZRUUREQ2RoY0dsegpaWEoyWlhJdGJHOXZjR0poWTJzdFkyeHBaVzUwTFdOaFFERTJORE15TWpNMk5qa3dIaGNOTWpJd01USTJNVGd3Ck1UQTVXaGNOTWpNd01USTJNVGd3TVRBNVdqQXlNVEF3TGdZRFZRUUREQ2RoY0dselpYSjJaWEl0Ykc5dmNHSmgKWTJzdFkyeHBaVzUwTFdOaFFERTJORE15TWpNMk5qa3dnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBdwpnZ0VLQW9JQkFRQ29sT1lJSmtkSWg4TjUxaWJtK2JDNHMwakUxTXJyWUdGWnFZYzM5SHRHcmg5TysxUzdNUHV2CjNwUktld2lodGVYZGxiNjl4Q0plaHJaN3FDRWdIZUcxc0FtQktSQlNBTHFNMm5RRDhwRTBoR1V2ckxPbW9pTmQKWFIxKzkybmNKTE9wOU1ocU9rMGI5TGdXWUkrZTUxQjZPWGRXdUdrUFdBVHFKUFQ4OTlLcHdqTzhEWE9YZmVDTAozWG9uN1Y2eVFuYlpsOTZxNDZ2YnJXcUpIaS81Nk5oTExnUThKS3A2dWlmaGJiZWZaL3MvcTA2K05zVkpyOWk1ClZTVzZPbUFyNHByT1ZnaU9xTklQeGlnSjBoeUpNS1MrVGxEaFRtd0NrbDV2YldVSkJEaVo4RGNuanJsOWVWRkcKWU5VQjI2dFdOSlp3aVlmZExUbnNvVWZpTXFJeTNnQXhBZ01CQUFHalFqQkFNQTRHQTFVZER3RUIvd1FFQXdJQwpwREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVdCQlErd2lidnJ5Um1LUHNQUGhGcU5DSUYzV2s0Ck9EQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFuOHA1K3NEbUk3ODlHalNKVUtRUkd5VVJnSHF3UWlPclRxUFIKNnljeTVlRmJhdEw1dVNENFJBanN4eGJBajFGQ1NmSWZqNUhCTzAzaFdKaklLWFdCQ2o4MWhxdU9tMVJpbjQ5RwpKeGcreHE2UmRZMU5uY0tmOWZKbld1WGMyanhKdVNLODFoUk1rWW4xaUlrRDRqeTdKclVJeGRpeGN2eXo4dGxFClZ3WXo3Y3I4Z2hUR28vSGRxMi81ZkNZcnk2NW51SjhLWDRwdVYyQmh3K2xVV0ozZERqV3RjdUo5aExHQkc5djcKdy93ZTFFYnpjbHlrb0lSTDhNYlVZMytkZmxNbWtmYnE0MDRTaEJmV0dHbHl0TW8zcFNKQUFmazBhQzE5OEZUOApaTGNMdEU3K3EyVlRDYTFhbzZTaUgrWkhVYXFmK0pPYXIvajQ0Vm9Xc3ptbFhVWFlqQT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    server: https://127.0.0.1:6443/clusters/admin_workspace11
+    tls-server-name: apiserver-loopback-client
+  name: workspace.kcp.dev/personal/workspace11
+contexts:
+- context:
+    cluster: workspace-directory
+    user: ""
+  name: workspace-directory
+- context:
+    cluster: workspace.kcp.dev/personal/workspace11
+    user: workspace.kcp.dev/personal/workspace11
+  name: workspace.kcp.dev/personal/workspace11
+current-context: workspace.kcp.dev/personal/workspace11
+kind: Config
+preferences: {}
+users:
+- name: workspace.kcp.dev/personal/workspace11
+  user:
+    token: user-1-token
+☸️ $ [1;37m[0m
+[3J[H[2J☸️ $ [1;37mkubectl kcp workspace use workspace12[0m
+Current personal workspace is "workspace12".
+☸️ $ [1;37mkubectl --token admin-token get secrets[0m
+No resources found in default namespace.
+☸️ $ [1;37mkubectl --token admin-token create secret generic workspace12[0m
+secret/workspace12 created
+☸️ $ [1;37mkubectl --token admin-token get secrets[0m
+NAME          TYPE     DATA   AGE
+workspace12   Opaque   0      3s
+☸️ $ [1;37mkubectl kcp workspace use -[0m
+Current personal workspace is "workspace11".
+☸️ $ [1;37mkubectl --token admin-token get secrets[0m
+NAME          TYPE     DATA   AGE
+workspace11   Opaque   0      38s
+☸️ $ [1;37m[0m
+[3J[H[2J☸️ $ [1;37mkubectl kcp workspace --token user-2-token create workspace2 --inheritFrom=user --use[0m
+Workspace "workspace2" created.
+Current personal workspace is "workspace2".
+☸️ $ [1;37mkubectl --token admin-token create secret generic workspace2[0m
+secret/workspace2 created
+☸️ $ [1;37mkubectl --token admin-token get secrets[0m
+NAME         TYPE     DATA   AGE
+workspace2   Opaque   0      3s
+☸️ $ [1;37mkubectl --token user-1-token get secrets[0m
+Error from server (Forbidden): secrets is forbidden: User "user-1" cannot list resource "secrets" in API group "" in the namespace "default"
+☸️ $ [1;37mkubectl kcp workspace --token user-1-token use workspace2[0m
+Error: the server could not find the requested resource (get workspaces.tenancy.kcp.dev workspace2)

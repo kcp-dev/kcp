@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+# Copyright 2022 The KCP Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+source "${DEMO_DIR}"/../.setupEnv
+
+. ${DEMOS_DIR}/demo-magic
+
+TYPE_SPEED=30
+#PROMPT_AFTER=1
+DEMO_PROMPT="☸️ $ "
+
+function pause() {
+  if [[ -n "${NO_WAIT}" ]]; then
+    sleep 2
+  else
+    if [[ -n "${1-}" ]]; then
+      sleep "$1"
+    else
+      wait
+    fi
+  fi
+}
+
+export KUBECONFIG=${KUBECONFIG:-${KCP_DIR}/.kcp/admin.kubeconfig}
+if ! kubectl get namespaces &>/dev/null; then
+  echo "kcp server not started, run 'bin/kcp start'"
+  exit 1
+fi
+
+kubectl create secret generic kubeconfig --from-file=kubeconfig=${KUBECONFIG}
+kubectl apply -f ${DEMO_DIR}/workspace-shard.yaml
+
+touch myKubeConfig
+export PATH=$PATH:${KCP_DIR}/bin
+export KUBECONFIG=$(pwd)/myKubeConfig
+
+kubectl kcp workspace --token user-1-token --workspace-directory-insecure-skip-tls-verify list
+
+clear
+
+pe "kubectl kcp workspace --help"
+
+pause
+clear
+
+pe "echo \${KUBECONFIG}"
+pe "more ${KUBECONFIG}"
+pe ""
+
+pause
+clear
+
+# creates the cluster roles + bindings at the workspace level + workspace content level.
+
+pe "kubectl kcp workspace --token user-1-token create workspace11"
+pe "kubectl kcp workspace --token user-1-token create workspace12"
+ 
+pe "kubectl kcp workspace --token user-1-token list"
+
+pe "kubectl kcp workspace --token user-2-token list"
+
+pe "kubectl kcp workspace --token user-1-token use workspace11"
+pe "kubectl kcp workspace --token user-1-token current"
+pe "kubectl config current-context"
+
+pe "kubectl --token admin-token create secret generic workspace11"
+pe "kubectl --token admin-token  get secrets"
+pe "kubectl --token user-2-token get secrets"
+pe "kubectl --token user-1-token get secrets"
+pe "more myKubeConfig"
+pe ""
+
+pause
+clear
+
+pe "kubectl kcp workspace use workspace12"
+pe "kubectl --token admin-token get secrets"
+pe "kubectl --token admin-token create secret generic workspace12"
+pe "kubectl --token admin-token get secrets"
+pe "kubectl kcp workspace use -"
+pe "kubectl --token admin-token get secrets"
+pe ""
+
+pause
+clear
+
+pe "kubectl kcp workspace --token user-2-token create workspace2 --inheritFrom=user --use"
+pe "kubectl --token admin-token create secret generic workspace2"
+pe "kubectl --token admin-token get secrets"
+pe "kubectl --token user-1-token get secrets"
+pe "kubectl kcp workspace --token user-1-token use workspace2"
