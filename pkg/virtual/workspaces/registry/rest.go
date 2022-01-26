@@ -34,6 +34,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
+	"k8s.io/client-go/kubernetes"
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -43,7 +44,7 @@ import (
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceClient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 	workspaceprinters "github.com/kcp-dev/kcp/pkg/virtual/workspaces/printers"
 )
@@ -71,7 +72,7 @@ type REST struct {
 	// crbLister allows listing RBAC cluster role bindings
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	// workspaceClient can modify KCP workspaces
-	workspaceClient workspaceClient.WorkspaceInterface
+	workspaceClient tenancyclient.WorkspaceInterface
 	// workspaceReviewerProvider allow getting a reviewer that checks
 	// permissions for a given verb to workspaces
 	workspaceReviewerProvider workspaceauth.ReviewerProvider
@@ -111,19 +112,25 @@ var _ rest.Creater = &REST{}
 var _ rest.GracefulDeleter = &REST{}
 
 // NewREST returns a RESTStorage object that will work against Workspace resources
-func NewREST(workspaceClient workspaceClient.WorkspaceInterface, rbacClient rbacv1client.RbacV1Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) *REST {
-	return &REST{
-		rbacClient:                rbacClient,
+func NewREST(tenancyClient tenancyclient.TenancyV1alpha1Interface, kubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
+	mainRest := &REST{
+		rbacClient:                kubeClient.RbacV1(),
 		crbInformer:               crbInformer,
 		crbLister:                 crbInformer.Lister(),
 		workspaceReviewerProvider: workspaceReviewerProvider,
-		workspaceClient:           workspaceClient,
+		workspaceClient:           tenancyClient.Workspaces(),
 		workspaceLister:           workspaceLister,
 		createStrategy:            Strategy,
 		updateStrategy:            Strategy,
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(workspaceprinters.AddWorkspacePrintHandlers)},
 	}
+	return mainRest,
+		&KubeconfigSubresourceREST{
+			mainRest:             mainRest,
+			coreClient:           kubeClient.CoreV1(),
+			workspaceShardClient: tenancyClient.WorkspaceShards(),
+		}
 }
 
 // New returns a new Workspace
@@ -274,18 +281,46 @@ type RoleType string
 
 const (
 	ListerRoleType RoleType = "lister"
-	AdminRoleType  RoleType = "admin"
+	OwnerRoleType  RoleType = "owner"
 )
 
-var roleRules map[RoleType]rbacv1.PolicyRule = map[RoleType]rbacv1.PolicyRule{
+var roleRules map[RoleType][]rbacv1.PolicyRule = map[RoleType][]rbacv1.PolicyRule{
 	ListerRoleType: {
-		Verbs:     []string{"get"},
-		Resources: []string{"workspaces"},
+		{
+			Verbs:     []string{"get"},
+			Resources: []string{"workspaces"},
+		},
+		{
+			Resources: []string{"workspaces/content"},
+			Verbs:     []string{"view"},
+		},
 	},
-	AdminRoleType: {
-		Verbs:     []string{"get", "delete"},
-		Resources: []string{"workspaces"},
+	OwnerRoleType: {
+		{
+			Verbs:     []string{"get", "delete"},
+			Resources: []string{"workspaces"},
+		},
+		{
+			Resources: []string{"workspaces/content"},
+			Verbs:     []string{"view", "edit"},
+		},
 	},
+}
+
+func createClusterRole(name, workspaceName string, roleType RoleType) *rbacv1.ClusterRole {
+	var rules []rbacv1.PolicyRule
+	for _, rule := range roleRules[roleType] {
+		rule.APIGroups = []string{tenancyv1alpha1.SchemeGroupVersion.Group}
+		rule.ResourceNames = []string{workspaceName}
+		rules = append(rules, rule)
+	}
+	return &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{},
+		},
+		Rules: rules,
+	}
 }
 
 func getRoleBindingName(roleType RoleType, workspacePrettyName string, user kuser.Info) string {
@@ -322,12 +357,12 @@ var _ = rest.Creater(&REST{})
 //
 // is issued by User-A against the virtual workspace at the personal scope:
 //
-//   1. create ClusterRoleBinding admin-workspace-my-app-user-A
+//   1. create ClusterRoleBinding owner-workspace-my-app-user-A
 //
 // If this fails, then my-app already exists for the user A => conflict error.
 //
-//   2. create ClusterRoleBinding admin-workspace-my-app-user-A
-//      create ClusterRole admin-workspace-my-app-user-A
+//   2. create ClusterRoleBinding owner-workspace-my-app-user-A
+//      create ClusterRole owner-workspace-my-app-user-A
 //      create ClusterRole lister-workspace-my-app-user-A  (in order to later allow sharing)
 //
 //   3. create Workspace my-app
@@ -336,7 +371,7 @@ var _ = rest.Creater(&REST{})
 //
 //   4. update RoleBinding user-A-my-app to point to my-app-2 instead of my-app.
 //
-//   5. update ClusterRole admin-workspace-my-app-user-A to point to the internal workspace name
+//   5. update ClusterRole owner-workspace-my-app-user-A to point to the internal workspace name
 //      update the internalName and pretty annotation on cluster roles and cluster role bindings.
 //
 func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
@@ -354,7 +389,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	if !isWorkspace {
 		return nil, kerrors.NewInvalid(tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
-	adminRoleBindingName := getRoleBindingName(AdminRoleType, workspace.Name, user)
+	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, user)
 	listerRoleBindingName := getRoleBindingName(ListerRoleType, workspace.Name, user)
 
 	// First create the ClusterRoleBinding that will link the workspace cluster role with the user Subject
@@ -362,13 +397,13 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// So this automatically check for pretty name uniqueness in the user personal scope.
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   adminRoleBindingName,
+			Name:   ownerRoleBindingName,
 			Labels: map[string]string{},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     adminRoleBindingName,
+			Name:     ownerRoleBindingName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -385,43 +420,17 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
-	// Then create the admin and lister roles related to the given workspace.
+	// Then create the owner and lister roles related to the given workspace.
 	// Note that ResourceNames contains the workspace pretty name for now.
 	// It will be updated later on when the internal name of the workspace is known.
-	adminClusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   adminRoleBindingName,
-			Labels: map[string]string{},
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:         roleRules[AdminRoleType].Verbs,
-				APIGroups:     []string{tenancyv1alpha1.SchemeGroupVersion.Group},
-				Resources:     roleRules[AdminRoleType].Resources,
-				ResourceNames: []string{workspace.Name},
-			},
-		},
-	}
-	if _, err := s.rbacClient.ClusterRoles().Create(ctx, &adminClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+	ownerClusterRole := createClusterRole(ownerRoleBindingName, workspace.Name, OwnerRoleType)
+	if _, err := s.rbacClient.ClusterRoles().Create(ctx, ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
-	listerClusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   listerRoleBindingName,
-			Labels: map[string]string{},
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:         roleRules[ListerRoleType].Verbs,
-				APIGroups:     []string{tenancyv1alpha1.SchemeGroupVersion.Group},
-				Resources:     roleRules[ListerRoleType].Resources,
-				ResourceNames: []string{workspace.Name},
-			},
-		},
-	}
-	if _, err := s.rbacClient.ClusterRoles().Create(ctx, &listerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
-		_ = s.rbacClient.ClusterRoles().Delete(ctx, adminClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+	listerClusterRole := createClusterRole(listerRoleBindingName, workspace.Name, ListerRoleType)
+	if _, err := s.rbacClient.ClusterRoles().Create(ctx, listerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+		_ = s.rbacClient.ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
@@ -455,10 +464,12 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 
 	// Update the cluster roles with the new workspace internal name, and also
 	// add the internal name as a label, to allow searching with it later on.
-	adminClusterRole.Rules[0].ResourceNames = []string{createdWorkspace.Name}
-	adminClusterRole.Labels[InternalNameLabel] = createdWorkspace.Name
-	if _, err := s.rbacClient.ClusterRoles().Update(ctx, &adminClusterRole, metav1.UpdateOptions{}); err != nil {
-		_ = s.rbacClient.ClusterRoles().Delete(ctx, adminClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+	for i := range ownerClusterRole.Rules {
+		ownerClusterRole.Rules[i].ResourceNames = []string{createdWorkspace.Name}
+	}
+	ownerClusterRole.Labels[InternalNameLabel] = createdWorkspace.Name
+	if _, err := s.rbacClient.ClusterRoles().Update(ctx, ownerClusterRole, metav1.UpdateOptions{}); err != nil {
+		_ = s.rbacClient.ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_ = s.rbacClient.ClusterRoles().Delete(ctx, listerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_, _, _ = s.Delete(ctx, createdWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		if kerrors.IsConflict(err) {
@@ -467,10 +478,12 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspaces"), workspace.Name, err)
 	}
 
-	listerClusterRole.Rules[0].ResourceNames = []string{createdWorkspace.Name}
+	for i := range listerClusterRole.Rules {
+		listerClusterRole.Rules[i].ResourceNames = []string{createdWorkspace.Name}
+	}
 	listerClusterRole.Labels[InternalNameLabel] = createdWorkspace.Name
-	if _, err := s.rbacClient.ClusterRoles().Update(ctx, &listerClusterRole, metav1.UpdateOptions{}); err != nil {
-		_ = s.rbacClient.ClusterRoles().Delete(ctx, adminClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+	if _, err := s.rbacClient.ClusterRoles().Update(ctx, listerClusterRole, metav1.UpdateOptions{}); err != nil {
+		_ = s.rbacClient.ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_ = s.rbacClient.ClusterRoles().Delete(ctx, listerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_, _, _ = s.Delete(ctx, createdWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		if kerrors.IsConflict(err) {

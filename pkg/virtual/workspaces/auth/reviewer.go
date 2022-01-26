@@ -19,7 +19,6 @@ package auth
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kauthorizer "k8s.io/apiserver/pkg/authorization/authorizer"
-	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -111,9 +110,9 @@ func RBACSubjectsToUsersAndGroups(subjects []rbacv1.Subject) (users []string, gr
 		case subject.APIGroup == rbacv1.GroupName && subject.Kind == rbacv1.UserKind:
 			users = append(users, subject.Name)
 		case subject.APIGroup == "" && subject.Kind == rbacv1.ServiceAccountKind:
-			klog.Warning("subjects are not allowed here")
+			// service account are not considered here
 		default:
-			klog.Warning("subjects are not allowed here")
+			// service account are not considered here
 		}
 	}
 

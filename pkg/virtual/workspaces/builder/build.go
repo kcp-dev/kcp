@@ -30,7 +30,7 @@ import (
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -43,7 +43,7 @@ import (
 const WorkspacesVirtualWorkspaceName string = "workspaces"
 const DefaultRootPathPrefix string = "/services/applications"
 
-func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, workspaceClient workspaceclient.WorkspaceInterface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, kcpClient kcpclient.Interface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
 	crbInformer := rbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
@@ -90,6 +90,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 						rbacInformers,
 					)
 
+					workspaceClient := kcpClient.TenancyV1alpha1().Workspaces()
 					workspaceCache := workspacecache.NewWorkspaceCache(
 						workspaces.Informer(),
 						workspaceClient,
@@ -109,9 +110,13 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 						return nil, err
 					}
 
+					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(kcpClient.TenancyV1alpha1(), kubeClient, crbInformer, reviewerProvider, workspaceAuthorizationCache)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
-							return virtualworkspacesregistry.NewREST(workspaceClient, kubeClient.RbacV1(), crbInformer, reviewerProvider, workspaceAuthorizationCache), nil
+							return workspacesRest, nil
+						},
+						"workspaces/kubeconfig": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
+							return kubeconfigSubresourceRest, nil
 						},
 					}, nil
 				},
