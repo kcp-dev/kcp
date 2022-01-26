@@ -35,8 +35,7 @@ import (
 )
 
 const (
-	resyncPeriod   = 10 * time.Hour
-	pollTypesEvery = time.Minute
+	resyncPeriod = 10 * time.Hour
 )
 
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
@@ -47,8 +46,9 @@ type DynamicDiscoverySharedInformerFactory struct {
 	handler    GVREventHandler
 	filterFunc func(interface{}) bool
 
-	mu   sync.Mutex // guards gvrs
-	gvrs sets.String
+	mu           sync.Mutex // guards gvrs
+	gvrs         sets.String
+	pollInterval time.Duration
 }
 
 // IndexerFor returns the indexer for the given type GVR.
@@ -88,14 +88,16 @@ func NewDynamicDiscoverySharedInformerFactory(
 	disco *discovery.DiscoveryClient,
 	dynClient dynamic.Interface,
 	filterFunc func(obj interface{}) bool,
-	handler GVREventHandler) DynamicDiscoverySharedInformerFactory {
+	handler GVREventHandler,
+	pollInterval time.Duration) DynamicDiscoverySharedInformerFactory {
 	dsif := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, resyncPeriod)
 	return DynamicDiscoverySharedInformerFactory{
-		disco:      disco,
-		dsif:       dsif,
-		handler:    handler,
-		filterFunc: filterFunc,
-		gvrs:       sets.NewString(),
+		disco:        disco,
+		dsif:         dsif,
+		handler:      handler,
+		filterFunc:   filterFunc,
+		gvrs:         sets.NewString(),
+		pollInterval: pollInterval,
 	}
 }
 
@@ -138,7 +140,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(ctx context.Context) {
 	}
 
 	// Poll for new types in the background.
-	ticker := time.NewTicker(pollTypesEvery)
+	ticker := time.NewTicker(d.pollInterval)
 	go func() {
 		for {
 			select {
