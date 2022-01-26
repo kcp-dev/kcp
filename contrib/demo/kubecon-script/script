@@ -14,11 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
-. ${DEMO_DIR}/demo-magic
+export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+source "${DEMO_DIR}"/../.setupEnv
 
-ROOT_DIR="$( cd ${DEMO_DIR}/../.. && pwd)"
-CLUSTERS_DIR=${CLUSTERS_DIR:-${DEMO_DIR}/clusters/kind}
+source ${DEMOS_DIR}/demo-magic
 
 TYPE_SPEED=30
 #PROMPT_AFTER=1
@@ -36,7 +35,7 @@ function pause() {
   fi
 }
 
-export KUBECONFIG=${KUBECONFIG:-${ROOT_DIR}/.kcp/admin.kubeconfig}
+export KUBECONFIG=${KUBECONFIG:-${KCP_DIR}/.kcp/admin.kubeconfig}
 if ! kubectl get namespaces &>/dev/null; then
   echo "kcp server not started, run 'bin/kcp start'"
   exit 1
@@ -68,7 +67,7 @@ clear
 
 pe "kubectl config use-context admin"
 
-pe "kubectl apply -f ${ROOT_DIR}/config"
+pe "kubectl apply -f ${KCP_DIR}/config"
 
 kubectl wait crd/clusters.cluster.example.dev --for condition=established &>/dev/null
 kubectl wait crd/negotiatedapiresources.apiresource.kcp.dev --for condition=established &>/dev/null
