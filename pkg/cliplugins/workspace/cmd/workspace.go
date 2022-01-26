@@ -362,7 +362,7 @@ func (o *WorkspaceOptions) RunUse(workspaceName string) error {
 		delete(o.startingConfig.Contexts, kcpPreviousWorkspaceContextKey)
 	}
 
-	currentWorkspaceScope, currentWorkspaceName, err := o.getCurrent(tenancyClient)
+	currentWorkspaceScope, currentWorkspaceName, err := o.getCurrentWorkspace()
 	if err == nil && currentWorkspaceName != "" {
 		o.startingConfig.Contexts[kcpPreviousWorkspaceContextKey] = &api.Context{
 			Cluster: currentWorkspaceScope + "/" + currentWorkspaceName,
@@ -380,6 +380,7 @@ func (o *WorkspaceOptions) RunUse(workspaceName string) error {
 	}
 
 	workspaceConfigCurrentContext := workspaceConfig.CurrentContext
+	scope, _ := getScopeAndName(workspaceConfigCurrentContext)
 	workspaceContextName := kcpWorkspaceContextNamePrefix + workspaceConfigCurrentContext
 
 	currentContextName := o.startingConfig.CurrentContext
@@ -403,13 +404,13 @@ func (o *WorkspaceOptions) RunUse(workspaceName string) error {
 
 	o.startingConfig.CurrentContext = workspaceContextName
 
-	if _, err := o.Out.Write([]byte(fmt.Sprintf("Current %s workspace is \"%s\".\n", registry.PersonalScope, workspaceName))); err != nil {
+	if _, err := o.Out.Write([]byte(fmt.Sprintf("Current %s workspace is \"%s\".\n", scope, workspaceName))); err != nil {
 		return err
 	}
 	return clientcmd.ModifyConfig(o.configAccess, *o.startingConfig, true)
 }
 
-func (o *WorkspaceOptions) getCurrent(tenancyClient *tenancyclient.TenancyV1alpha1Client) (scope string, name string, err error) {
+func (o *WorkspaceOptions) getCurrentWorkspace() (scope string, name string, err error) {
 	currentContextName := o.startingConfig.CurrentContext
 	if o.kubectlOverrides.CurrentContext != "" {
 		currentContextName = o.kubectlOverrides.CurrentContext
@@ -424,12 +425,15 @@ func (o *WorkspaceOptions) getCurrent(tenancyClient *tenancyclient.TenancyV1alph
 	}
 
 	scope, workspaceName := getScopeAndName(strings.TrimPrefix(currentContextName, kcpWorkspaceContextNamePrefix))
+	return scope, workspaceName, nil
+}
 
+func (o *WorkspaceOptions) checkCurrentWorkspace(workspaceName string, tenancyClient *tenancyclient.TenancyV1alpha1Client) (err error) {
 	if _, err := tenancyClient.Workspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{}); err != nil {
-		return scope, workspaceName, err
+		return err
 	}
 
-	return scope, workspaceName, nil
+	return nil
 }
 
 func (o *WorkspaceOptions) RunCurrent() error {
@@ -443,16 +447,32 @@ func (o *WorkspaceOptions) RunCurrent() error {
 		return err
 	}
 
-	scope, workspaceName, err := o.getCurrent(tenancyClient)
-	if err != nil {
+	scope, workspaceName, err := o.getCurrentWorkspace()
+	outputCurrentWorkspaceMessage := func() error {
 		if workspaceName != "" {
-			_, _ = o.Out.Write([]byte(fmt.Sprintf("Current %s workspace is \"%s\".\n", scope, workspaceName)))
+			_, err := o.Out.Write([]byte(fmt.Sprintf("Current %s workspace is \"%s\".\n", scope, workspaceName)))
+			return err
 		}
+		return nil
+	}
+
+	if err != nil {
 		return err
 	}
 
-	_, err = o.Out.Write([]byte(fmt.Sprintf("Current %s workspace is \"%s\".\n", scope, workspaceName)))
-	return err
+	// Check that the scope is consistent with the workspace-directory config
+	if !strings.HasSuffix(workspaceDirectoryRestConfig.Host, "/"+scope) {
+		_ = outputCurrentWorkspaceMessage()
+		return fmt.Errorf("Scope of the workspace-directory ('%s') doesn't match the scope of the workspace-directory server ('%s').\nCannot check the current workspace existence.", scope, workspaceDirectoryRestConfig.Host)
+	}
+
+	if err := o.checkCurrentWorkspace(workspaceName, tenancyClient); err != nil {
+		_ = outputCurrentWorkspaceMessage()
+		return err
+	}
+
+	return outputCurrentWorkspaceMessage()
+
 }
 
 func (o *WorkspaceOptions) RunList() error {
