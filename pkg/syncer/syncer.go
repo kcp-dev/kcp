@@ -41,6 +41,11 @@ import (
 const resyncPeriod = 10 * time.Hour
 const SyncerNamespaceKey = "SYNCER_NAMESPACE"
 
+type Direction string
+
+const KcpToPcluster Direction = "kcpToPcluster"
+const PclusterToKcp Direction = "pclusterToKcp"
+
 type Syncer struct {
 	specSyncer   *Controller
 	statusSyncer *Controller
@@ -84,36 +89,42 @@ type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	// Upstream
 	fromDSIF dynamicinformer.DynamicSharedInformerFactory
 
-	// Downstream
 	toClient dynamic.Interface
 
 	stopCh chan struct{}
 
-	upsertFn UpsertFunc
-	deleteFn DeleteFunc
+	upsertFn  UpsertFunc
+	deleteFn  DeleteFunc
+	direction Direction
 
 	namespace string
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, upsertFn UpsertFunc, deleteFn DeleteFunc, handlers HandlersProvider, syncedResourceTypes []string, clusterID string) (*Controller, error) {
+func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{})
 
+	var upsertFn UpsertFunc
+	var deleteFn DeleteFunc
+
+	if direction == KcpToPcluster {
+		upsertFn = upsertIntoDownstream
+		deleteFn = deleteFromDownstream
+	} else {
+		upsertFn = updateStatusInUpstream
+	}
+
 	c := Controller{
-		// TODO: should we have separate upstream and downstream sync workqueues?
-		queue: queue,
-
-		toClient: toClient,
-
-		stopCh: stopCh,
-
+		queue:     queue,
+		toClient:  toClient,
+		stopCh:    stopCh,
+		direction: direction,
+		namespace: os.Getenv(SyncerNamespaceKey),
 		upsertFn:  upsertFn,
 		deleteFn:  deleteFn,
-		namespace: os.Getenv(SyncerNamespaceKey),
 	}
 
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -134,7 +145,21 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 			return nil, err
 		}
 
-		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(handlers(&c, *gvr))
+		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if c.direction == KcpToPcluster {
+					if !deepEqualApartFromStatus(oldObj, newObj) {
+						c.AddToQueue(*gvr, newObj)
+					}
+				} else {
+					if !deepEqualStatus(oldObj, newObj) {
+						c.AddToQueue(*gvr, newObj)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+		})
 		klog.Infof("Set up informer for %v", gvr)
 	}
 	fromDSIF.WaitForCacheSync(stopCh)
@@ -170,7 +195,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 			return nil, err
 		}
 	}
-	var gvrstrs []string
+	gvrstrs := []string{"namespaces.v1."} // A syncer should always watch namespaces
 	for _, r := range rs {
 		// v1 -> v1.
 		// apps/v1 -> v1.apps
@@ -299,6 +324,35 @@ func (c *Controller) handleErr(err error, i interface{}) {
 	klog.Errorf("Dropping key %q after failed retries: %v", i, err)
 }
 
+const nsDelimiter = "--"
+const nsTemplate = "kcp" + nsDelimiter + "%s" + nsDelimiter + "%s"
+
+func transformForCluster(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
+	if gvr.Group == "" && gvr.Resource == "namespaces" {
+		return fmt.Sprintf(nsTemplate, meta.GetClusterName(), meta.GetName()), "", nil
+	}
+	return meta.GetName(), fmt.Sprintf(nsTemplate, meta.GetClusterName(), meta.GetNamespace()), nil
+}
+
+func transformForKcp(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
+	if gvr.Group == "" && gvr.Resource == "namespaces" {
+		segments := strings.Split(meta.GetName(), nsDelimiter)
+
+		if len(segments) != 3 {
+			return "", "", fmt.Errorf("Invalid namespace name: %s", meta.GetName())
+		}
+
+		return segments[2], "", nil
+	}
+	segments := strings.Split(meta.GetNamespace(), nsDelimiter)
+
+	if len(segments) != 3 {
+		return "", "", fmt.Errorf("Invalid namespace format: %s", meta.GetNamespace())
+	}
+
+	return meta.GetName(), segments[2], nil
+}
+
 func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
 	klog.V(2).Infof("Process object of type: %T : %v", obj, obj)
 	meta, isMeta := obj.(metav1.Object)
@@ -316,10 +370,26 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 			return err
 		}
 	}
-	namespace, name := meta.GetNamespace(), meta.GetName()
-	if c.inSyncerNamespace(namespace) {
+
+	namespace := meta.GetNamespace()
+
+	// This must be checked before the namespace is transformed
+	if c.inSyncerNamespace(meta) {
 		klog.V(2).Infof("Skipping object of type: %T : %v in syncer namespace", obj, obj)
 		return nil
+	}
+
+	var targetName, targetNamespace string
+	var err error
+	if c.direction == KcpToPcluster {
+		targetName, targetNamespace, err = transformForCluster(gvr, meta)
+	} else {
+		targetName, targetNamespace, err = transformForKcp(gvr, meta)
+	}
+
+	if err != nil {
+		klog.Error(err)
+		return err
 	}
 
 	ctx := context.TODO()
@@ -331,8 +401,8 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	}
 
 	if !exists && c.deleteFn != nil {
-		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, name)
-		return c.deleteFn(c, ctx, gvr, namespace, name)
+		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, meta.GetName())
+		return c.deleteFn(c, ctx, gvr, targetNamespace, targetName)
 	}
 
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
@@ -343,7 +413,12 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	}
 
 	if c.upsertFn != nil {
-		return c.upsertFn(c, ctx, gvr, namespace, unstrob)
+		unstrob = unstrob.DeepCopy()
+		unstrob.SetName(targetName)
+		if unstrob.GetNamespace() != "" {
+			unstrob.SetNamespace(targetNamespace)
+		}
+		return c.upsertFn(c, ctx, gvr, targetNamespace, unstrob)
 	}
 
 	return err
@@ -358,15 +433,19 @@ func (c *Controller) getClient(gvr schema.GroupVersionResource, namespace string
 	return nri
 }
 
-func (c *Controller) inSyncerNamespace(objectNamespace string) bool {
+func (c *Controller) inSyncerNamespace(meta metav1.Object) bool {
 	// If there is no value for the syncer namespace then always process the object
 	// This will also handle the cluster scoped objects case for
 	// objectNamespace when this is not set
 	if c.namespace == "" {
 		return false
 	}
-	if c.namespace == objectNamespace {
-		return true
+	var err error
+	objectNamespace := meta.GetNamespace()
+
+	if c.direction == KcpToPcluster {
+		_, objectNamespace, err = transformForCluster(schema.GroupVersionResource{}, meta)
 	}
-	return false
+
+	return err == nil && c.namespace == objectNamespace
 }

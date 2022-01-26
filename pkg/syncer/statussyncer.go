@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
@@ -61,21 +60,11 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, cluste
 		return nil, err
 	}
 	toClient := toClients.Cluster(logicalClusterID)
-	return New(discoveryClient, fromClient, toClient, updateStatusInUpstream, nil, func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs {
-		return cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				if !deepEqualStatus(oldObj, newObj) {
-					c.AddToQueue(gvr, newObj)
-				}
-			},
-		}
-	}, syncedResourceTypes, clusterID)
+	return New(discoveryClient, fromClient, toClient, PclusterToKcp, syncedResourceTypes, clusterID)
 }
 
 func updateStatusInUpstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
 	client := c.getClient(gvr, namespace)
-
-	unstrob = unstrob.DeepCopy()
 
 	// Attempt to create the object; if the object already exists, update it.
 	unstrob.SetUID("")
