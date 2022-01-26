@@ -327,30 +327,50 @@ func (c *Controller) handleErr(err error, i interface{}) {
 const nsDelimiter = "--"
 const nsTemplate = "kcp" + nsDelimiter + "%s" + nsDelimiter + "%s"
 
-func transformForCluster(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
-	if gvr.Group == "" && gvr.Resource == "namespaces" {
-		return fmt.Sprintf(nsTemplate, meta.GetClusterName(), meta.GetName()), "", nil
+type nameTransformer struct {
+	clusterName string
+	namespace   string
+}
+
+func (n *nameTransformer) toCluster() string {
+	return fmt.Sprintf(nsTemplate, n.clusterName, n.namespace)
+}
+
+func toKcp(namespace string) (*nameTransformer, error) {
+	segments := strings.Split(namespace, nsDelimiter)
+
+	if len(segments) != 3 {
+		return nil, fmt.Errorf("Invalid name: %s", namespace)
 	}
-	return meta.GetName(), fmt.Sprintf(nsTemplate, meta.GetClusterName(), meta.GetNamespace()), nil
+
+	return &nameTransformer{
+		clusterName: segments[1],
+		namespace:   segments[2],
+	}, nil
+}
+
+func transformForCluster(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
+	t := nameTransformer{
+		clusterName: meta.GetClusterName(),
+		namespace:   meta.GetNamespace(),
+	}
+
+	if gvr.Group == "" && gvr.Resource == "namespaces" {
+		t.namespace = meta.GetName()
+		return t.toCluster(), "", nil
+	}
+
+	return meta.GetName(), t.toCluster(), nil
 }
 
 func transformForKcp(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
+	name := meta.GetNamespace()
 	if gvr.Group == "" && gvr.Resource == "namespaces" {
-		segments := strings.Split(meta.GetName(), nsDelimiter)
-
-		if len(segments) != 3 {
-			return "", "", fmt.Errorf("Invalid namespace name: %s", meta.GetName())
-		}
-
-		return segments[2], "", nil
-	}
-	segments := strings.Split(meta.GetNamespace(), nsDelimiter)
-
-	if len(segments) != 3 {
-		return "", "", fmt.Errorf("Invalid namespace format: %s", meta.GetNamespace())
+		name = meta.GetName()
 	}
 
-	return meta.GetName(), segments[2], nil
+	transformer, err := toKcp(name)
+	return meta.GetName(), transformer.namespace, err
 }
 
 func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
