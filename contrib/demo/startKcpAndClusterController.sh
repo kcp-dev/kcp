@@ -15,24 +15,24 @@
 # limitations under the License.
 
 CURRENT_DIR="$(pwd)"
-DEMO_ROOT="$(dirname "${BASH_SOURCE}")"
-KCP_ROOT="$(cd ${DEMO_ROOT}/../.. && pwd)"
-KCP_DATA_ROOT=${KCP_DATA_ROOT:-$KCP_ROOT}
+DEMOS_DIR="$(dirname "${BASH_SOURCE}")"
+KCP_DIR="$(cd ${DEMOS_DIR}/../.. && pwd)"
+KCP_DATA_DIR=${KCP_DATA_DIR:-$KCP_DIR}
 
 
-KUBECONFIG=${KCP_DATA_ROOT}/.kcp/admin.kubeconfig
+KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
-source ${DEMO_ROOT}/.startUtils
+source ${DEMOS_DIR}/.startUtils
 setupTraps $0 "rm -Rf ${CURRENT_DIR}/.kcp.running"
 
-KCP_FLAGS=""
+KCP_FLAGS=${KCP_FLAGS:-""}
 
 if [ ! -z "${KCP_LISTEN_ADDR}" ]; then
-    KCP_FLAGS="--listen=${KCP_LISTEN_ADDR} "
+    KCP_FLAGS="--listen=${KCP_LISTEN_ADDR} ${KCP_FLAGS}"
 fi
 
 echo "Starting KCP server ..."
-(cd ${KCP_DATA_ROOT} && exec ${KCP_ROOT}/bin/kcp start ${KCP_FLAGS}) &> kcp.log &
+(cd ${KCP_DATA_DIR} && exec ${KCP_DIR}/bin/kcp start ${KCP_FLAGS}) &> kcp.log &
 KCP_PID=$!
 echo "KCP server started: $KCP_PID" 
 
@@ -44,7 +44,7 @@ kubectl --kubeconfig $KUBECONFIG apply -f config/
 
 echo ""
 echo "Starting Cluster Controller..."
-${KCP_ROOT}/bin/cluster-controller --push-mode=true --pull-mode=false --kubeconfig=${KUBECONFIG} "$@" &> cluster-controller.log &
+${KCP_DIR}/bin/cluster-controller --push-mode=true --pull-mode=false --kubeconfig=${KUBECONFIG} "$@" &> cluster-controller.log &
 CC_PID=$!
 echo "Cluster Controller started: $CC_PID" 
 

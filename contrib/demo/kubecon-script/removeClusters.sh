@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEMO_ROOT="$(dirname "${BASH_SOURCE}")"
-CLUSTERS_DIR=${DEMO_ROOT}/clusters/kind
+export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+source "${DEMO_DIR}"/../.setupEnv
 
 kubectl --kubeconfig=${CLUSTERS_DIR}/us-west1.kubeconfig get deployment my-deployment--us-west1 -o yaml -n demo >>us-west1.log 2>&1
 kubectl --kubeconfig=${CLUSTERS_DIR}/us-west1.kubeconfig get pods -o wide -n demo >>us-west1.log 2>&1

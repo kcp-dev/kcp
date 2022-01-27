@@ -14,13 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEMO_ROOT="$(dirname "${BASH_SOURCE}")"
-${DEMO_ROOT}/clusters/kind/createKindClusters.sh
-NGINX_DEPLOYMENT_YAML="${DEMO_ROOT}/nginx-ingress.yaml"
+export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+source "${DEMO_DIR}"/../.setupEnv
 
-# Get all the created clusters kubeconfigs, and deploy the Ingress controller.
-for kubeconfig in "${DEMO_ROOT}/clusters/kind"/*.kubeconfig;
-do
- [ -f "$kubeconfig" ] || break
- KUBECONFIG=${kubeconfig} kubectl apply -f "${NGINX_DEPLOYMENT_YAML}"
-done
+${DEMOS_DIR}/clusters/kind/createKindClusters.sh

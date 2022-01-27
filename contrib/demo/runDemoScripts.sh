@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+DEMOS_DIR="$(cd $(dirname "${BASH_SOURCE}") && pwd)"
+KCP_DIR="$(cd ${DEMOS_DIR}/../.. && pwd)"
+
 CURRENT_DIR="$(pwd)"
-DEMO_ROOT="$(cd $(dirname "${BASH_SOURCE}") && pwd)"
-KCP_ROOT="$(cd ${DEMO_ROOT}/../.. && pwd)"
 
 DEMO_AS_TESTS=false
 while getopts ":t" opt; do
@@ -37,7 +38,7 @@ else
   DEMOS=$*
 fi
 
-source ${DEMO_ROOT}/.startUtils
+source ${DEMOS_DIR}/.startUtils
 setupTraps $0
 
 cleanupDemoOutput() {
@@ -54,15 +55,19 @@ for demo in ${DEMOS} ; do
   TEST_DIR="$(cd $demoDirName && pwd)"
   cd "${TEST_DIR}"
   
-  echo "Preparing Kind physical clusters for demo ${demo} ..."  
-  ${DEMO_ROOT}/${demo}-prepareClusters.sh &> ${TEST_DIR}/clusters.log
+  DEMO_DIR=${DEMOS_DIR}/${demo}-script
+
+  if test -f "${DEMO_DIR}/prepareClusters.sh" ; then
+    echo "Preparing Kind physical clusters for demo ${demo} ..."  
+    ${DEMO_DIR}/prepareClusters.sh &> ${TEST_DIR}/clusters.log
+  fi
 
   echo "Starting demo ${demo} in directory ${TEST_DIR}"
-  export KCP_DATA_ROOT="${TEST_DIR}"
-  export KUBECONFIG=${KCP_DATA_ROOT}/.kcp/admin.kubeconfig
+  export KCP_DATA_DIR="${TEST_DIR}"
+  export KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
   
   echo "Starting KCP for demo..."
-  ${DEMO_ROOT}/${demo}-startKcp.sh &> /dev/null &
+  ${DEMO_DIR}/startKcp.sh &> /dev/null &
   TEST_KCP_PID=$!
   
   echo "Waiting for KCP to be started..."
@@ -70,9 +75,9 @@ for demo in ${DEMOS} ; do
 
   echo "Running demo ${demo} and output logs to ${TEST_DIR}/demo.log..."
   if $DEMO_AS_TESTS ; then
-    (export NO_COLORS="true" ; ${DEMO_ROOT}/$demo -n &> demo.log)
+    (export NO_COLORS="true" ; ${DEMO_DIR}/script -n &> demo.log)
   else
-    (${DEMO_ROOT}/$demo |& tee demo.log)
+    (${DEMO_DIR}/script |& tee demo.log)
   fi
 
   echo "Dumping the admin logical cluster APIs for demo ${demo} to ${TEST_DIR}/apis.log..."
@@ -81,10 +86,12 @@ for demo in ${DEMOS} ; do
 
   echo "Stopping KCP and cleaning physical clusters for demo ${demo}"
   kill $TEST_KCP_PID
-  ${DEMO_ROOT}/${demo}-removeClusters.sh
+  if test -f "${DEMO_DIR}/removeClusters.sh" ; then
+    ${DEMO_DIR}/removeClusters.sh
+  fi
   cd ${CURRENT_DIR}
 
-  if ! diff <(cleanupDemoOutput ${DEMO_ROOT}/${demo}.result) <(cleanupDemoOutput ${TEST_DIR}/demo.log) > ${TEST_DIR}/diff.log ; then
+  if ! diff <(cleanupDemoOutput ${DEMO_DIR}/result.txt) <(cleanupDemoOutput ${TEST_DIR}/demo.log) > ${TEST_DIR}/diff.log ; then
     echo "Demo $demo failed ! Difference between expected and effective outputs is in the ${TEST_DIR}/diff.log file"    
     error=true
   else
