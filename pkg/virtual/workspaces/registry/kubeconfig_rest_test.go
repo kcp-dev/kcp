@@ -138,7 +138,7 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: PersonalScope,
+			scope: "personal",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -207,7 +207,7 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 			require.NoError(t, err)
 			require.IsType(t, KubeConfig(""), response)
 			responseWorkspace := response.(KubeConfig)
-			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent(PersonalScope), string(responseWorkspace))
+			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent("personal"), string(responseWorkspace))
 		},
 	}
 	applyTest(t, test)
@@ -222,7 +222,7 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: PersonalScope,
+			scope: "personal",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -291,7 +291,7 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 			require.NoError(t, err)
 			require.IsType(t, KubeConfig(""), response)
 			responseWorkspace := response.(KubeConfig)
-			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent(PersonalScope), string(responseWorkspace))
+			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent("personal"), string(responseWorkspace))
 		},
 	}
 	applyTest(t, test)
@@ -306,7 +306,7 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -375,7 +375,7 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			require.NoError(t, err)
 			require.IsType(t, KubeConfig(""), response)
 			responseWorkspace := response.(KubeConfig)
-			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent(OrganizationScope), string(responseWorkspace))
+			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent("oganization"), string(responseWorkspace))
 		},
 	}
 	applyTest(t, test)
@@ -390,7 +390,7 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -477,7 +477,7 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -563,7 +563,7 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -649,7 +649,7 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -732,7 +732,7 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -807,7 +807,7 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -869,7 +869,7 @@ func TestKubeconfigFailBecauseWorkspaceNotFound(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: OrganizationScope,
+			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
