@@ -58,8 +58,11 @@ for demo in ${DEMOS} ; do
   DEMO_DIR=${DEMOS_DIR}/${demo}-script
 
   if test -f "${DEMO_DIR}/prepareClusters.sh" ; then
-    echo "Preparing Kind physical clusters for demo ${demo} ..."  
-    ${DEMO_DIR}/prepareClusters.sh &> ${TEST_DIR}/clusters.log
+    echo "Preparing Kind physical clusters for demo ${demo} ..."
+    if ! ${DEMO_DIR}/prepareClusters.sh &> ${TEST_DIR}/clusters.log; then
+      echo "Error starting Kind clusters - check ${TEST_DIR}/clusters.log for details"
+      exit 1
+    fi
   fi
 
   echo "Starting demo ${demo} in directory ${TEST_DIR}"
