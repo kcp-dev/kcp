@@ -1,5 +1,8 @@
-export DEMOS_DIR="$(cd "${DEMO_DIR}/.."; pwd)"
-export CLUSTERS_DIR=${CLUSTERS_DIR:-${DEMOS_DIR}/clusters/kind}
-export KCP_DIR="$( cd ${DEMOS_DIR}/../.. && pwd)"
-export KCP_DATA_DIR=${KCP_DATA_DIR:-$KCP_DIR}
+# shellcheck shell=bash
 
+DEMOS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLUSTERS_DIR=${CLUSTERS_DIR:-${DEMOS_DIR}/clusters/kind}
+KCP_DIR="$(cd "${DEMOS_DIR}/../.." && pwd)"
+KCP_DATA_DIR=${KCP_DATA_DIR:-$KCP_DIR}
+
+export DEMOS_DIR CLUSTERS_DIR KCP_DIR KCP_DATA_DIR
