@@ -132,6 +132,7 @@ type CommonAPIResourceSpec struct {
 
 	// +required
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +structType=atomic
 	OpenAPIV3Schema runtime.RawExtension `json:"openAPIV3Schema"`
 
 	// +patchMergeKey=name
