@@ -34,9 +34,9 @@ fi
 echo "Starting KCP server ..."
 (cd ${KCP_DATA_DIR} && exec ${KCP_DIR}/bin/kcp start ${KCP_FLAGS}) &> kcp.log &
 KCP_PID=$!
-echo "KCP server started: $KCP_PID" 
+echo "KCP server started: $KCP_PID"
 
-echo "Waiting for KCP server to be up and running..." 
+echo "Waiting for KCP server to be up and running..."
 wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"
 
 echo "Applying CRDs..."
@@ -46,7 +46,7 @@ echo ""
 echo "Starting Cluster Controller..."
 ${KCP_DIR}/bin/cluster-controller --push-mode=true --pull-mode=false --kubeconfig=${KUBECONFIG} "$@" &> cluster-controller.log &
 CC_PID=$!
-echo "Cluster Controller started: $CC_PID" 
+echo "Cluster Controller started: $CC_PID"
 
 echo ""
 echo "Use ctrl-C to stop all components"
