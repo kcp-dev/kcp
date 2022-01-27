@@ -251,3 +251,21 @@ const (
 	// ScalingDownReason (Severity=Info) documents a MachineSet is decreasing the number of replicas.
 	ScalingDownReason = "ScalingDown"
 )
+
+// Conditions and ConditionReasons for the kcp Cluster object.
+const (
+	// ClusterReadyCondition means the Cluster is available.
+	ClusterReadyCondition ConditionType = "Ready"
+
+	// ClusterUnknownReason documents a Cluster which readyness is unknown.
+	ClusterUnknownReason = "ClusterStatusUnknown"
+
+	// ClusterReadyReason documents a Cluster that is ready.
+	ClusterReadyReason = "ClusterReady"
+
+	// ClusterNotReadyReason documents a Cluster is not ready, when the "readyz" check returns false.
+	ClusterNotReadyReason = "ClusterNotReady"
+
+	// ClusterUnreachableReason documents the Cluster state when the Syncer is unable to reach the Cluster "readyz" API endpoint
+	ClusterUnreachableReason = "ClusterUnreachable"
+)
