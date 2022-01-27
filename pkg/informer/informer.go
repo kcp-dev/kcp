@@ -41,14 +41,14 @@ const (
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
 type DynamicDiscoverySharedInformerFactory struct {
-	disco      *discovery.DiscoveryClient
-	dsif       dynamicinformer.DynamicSharedInformerFactory
-	handler    GVREventHandler
-	filterFunc func(interface{}) bool
+	disco        *discovery.DiscoveryClient
+	dsif         dynamicinformer.DynamicSharedInformerFactory
+	handler      GVREventHandler
+	filterFunc   func(interface{}) bool
 	pollInterval time.Duration
 
-	mu           sync.Mutex // guards gvrs
-	gvrs         sets.String
+	mu   sync.Mutex // guards gvrs
+	gvrs sets.String
 }
 
 // IndexerFor returns the indexer for the given type GVR.
