@@ -67,6 +67,11 @@ type Condition struct {
 	// +optional
 	Severity ConditionSeverity `json:"severity,omitempty"`
 
+	// Last time the condition got an update.
+	// Can be used by the system to determine if the ConditionStatus is Unknown in certain cases.
+	// +optional
+	LastHeartbeatTime metav1.Time `json:"lastHeartbeatTime,omitempty"`
+
 	// Last time the condition transitioned from one status to another.
 	// This should be when the underlying condition changed. If that is not known, then using the time when
 	// the API field changed is acceptable.
