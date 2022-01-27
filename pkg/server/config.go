@@ -46,7 +46,7 @@ func DefaultConfig() *Config {
 		ShardKubeconfigFile:       "",
 		EnableSharding:            false,
 		Authentication:            kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
-		DiscoveryPollInterval:     time.Duration(60) * time.Second,
+		DiscoveryPollInterval:     60 * time.Second,
 	}
 }
 

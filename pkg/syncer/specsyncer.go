@@ -76,7 +76,7 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterI
 	}
 	fromClient := fromClients.Cluster(logicalClusterID)
 	toClient := dynamic.NewForConfigOrDie(to)
-	return New(fromDiscovery, fromClient, toClient, KcpToPcluster, syncedResourceTypes, clusterID)
+	return New(fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, clusterID)
 }
 
 func deleteFromDownstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {

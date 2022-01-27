@@ -60,7 +60,7 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, cluste
 		return nil, err
 	}
 	toClient := toClients.Cluster(logicalClusterID)
-	return New(discoveryClient, fromClient, toClient, PclusterToKcp, syncedResourceTypes, clusterID)
+	return New(discoveryClient, fromClient, toClient, PhysicalClusterToKcp, syncedResourceTypes, clusterID)
 }
 
 func updateStatusInUpstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {

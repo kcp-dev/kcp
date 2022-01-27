@@ -24,7 +24,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,7 +81,7 @@ func TestSpecSyncer(t *testing.T) {
 				wildwestSharedInformerFactory := wildwestexternalversions.NewSharedInformerFactoryWithOptions(servers[sinkClusterName].wildwestClientSet, 0)
 				cowboyInformer := wildwestSharedInformerFactory.Wildwest().V1alpha1().Cowboys()
 				cowboyExpecter := framework.NewExpecter(cowboyInformer.Informer())
-				sinkCowboyLister := cowboyInformer.Lister().Cowboys("")
+				sinkCowboyLister := cowboyInformer.Lister().Cowboys(expectedSinkNsName)
 				wildwestSharedInformerFactory.Start(ctx.Done())
 
 				ns, err := sourceNsClient.Create(ctx, &corev1.Namespace{
@@ -132,7 +131,7 @@ func TestSpecSyncer(t *testing.T) {
 				if err := nsExpecter.ExpectBefore(ctx, func(ctx context.Context) (bool, error) {
 					sinkNsList, err := sinkNsLister.List(labels.Everything())
 					if err != nil {
-						return !apierrors.IsNotFound(err), err
+						return true, err
 					}
 					var names []string
 					for _, ns := range sinkNsList {
@@ -143,25 +142,23 @@ func TestSpecSyncer(t *testing.T) {
 					}
 					return false, fmt.Errorf("No namespace in sink cluster: %v", names)
 				}, 30*time.Second); err != nil {
-					t.Errorf("did not see namespace spec updated on sink cluster: %v", err)
+					t.Errorf("did not see namespace on sink cluster: %v", err)
 					return
 				}
 
 				if err := cowboyExpecter.ExpectBefore(ctx, func(ctx context.Context) (bool, error) {
 					sinkCowboyList, err := sinkCowboyLister.List(labels.Everything())
 					if err != nil {
-						return !apierrors.IsNotFound(err), err
+						return true, err
 					}
 
-					if len(sinkCowboyList) < 1 {
-						return false, fmt.Errorf("No cowboys found in target ns in sink cluster")
-					} else if len(sinkCowboyList) > 1 {
-						return false, fmt.Errorf("Too many cowboys found in target ns in sink cluster: %d", len(sinkCowboyList))
+					if len(sinkCowboyList) != 1 {
+						return false, fmt.Errorf("Expected 1 cowboy, but found %d", len(sinkCowboyList))
 					}
 
 					return true, nil
 				}, 30*time.Second); err != nil {
-					t.Errorf("did not see namespace spec updated on sink cluster: %v", err)
+					t.Errorf("did not see cowboy on sink cluster: %v", err)
 					return
 				}
 			},
@@ -170,23 +167,25 @@ func TestSpecSyncer(t *testing.T) {
 	for i := range testCases {
 		testCase := testCases[i]
 		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
-			start := time.Now()
+			if len(servers) != 2 {
+				t.Errorf("incorrect number of servers: %d", len(servers))
+				return
+			}
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)
 				t.Cleanup(cancel)
 				ctx = withDeadline
 			}
-			if len(servers) != 2 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
-			}
+
+			start := time.Now()
 			t.Log("Installing test CRDs...")
 			if err := framework.InstallCrd(ctx, metav1.GroupKind{Group: wildwest.GroupName, Kind: "cowboys"}, servers, rawCustomResourceDefinitions); err != nil {
 				t.Error(err)
 				return
 			}
 			t.Logf("Installed test CRDs after %s", time.Since(start))
+
 			start = time.Now()
 			source, sink := servers[sourceClusterName], servers[sinkClusterName]
 			t.Log("Installing sink cluster...")
@@ -195,6 +194,7 @@ func TestSpecSyncer(t *testing.T) {
 				return
 			}
 			t.Logf("Installed sink cluster after %s", time.Since(start))
+
 			start = time.Now()
 			t.Log("Setting up clients for test...")
 			runningServers := map[string]runningServer{}
@@ -204,6 +204,7 @@ func TestSpecSyncer(t *testing.T) {
 					t.Error(err)
 					return
 				}
+
 				clusterName, err := framework.DetectClusterName(cfg, ctx, crdName)
 				if err != nil {
 					t.Errorf("failed to detect cluster name: %v", err)
@@ -223,6 +224,7 @@ func TestSpecSyncer(t *testing.T) {
 					return
 				}
 				wildwestClient := wildwestClients.Cluster(clusterName)
+
 				runningServers[name] = runningServer{
 					RunningServer:     servers[name],
 					wildwestClientSet: wildwestClient,

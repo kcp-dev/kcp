@@ -103,7 +103,7 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 			"--etcd-peer-port=" + etcdPeerPort,
 			"--etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
 			"--kubeconfig-path=admin.kubeconfig",
-			"--discovery-poll-interval=10s"},
+			"--discovery-poll-interval=2s"},
 			cfg.Args...),
 		dataDir:       dataDir,
 		artifactDir:   artifactDir,

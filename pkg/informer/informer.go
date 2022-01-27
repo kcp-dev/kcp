@@ -45,10 +45,10 @@ type DynamicDiscoverySharedInformerFactory struct {
 	dsif       dynamicinformer.DynamicSharedInformerFactory
 	handler    GVREventHandler
 	filterFunc func(interface{}) bool
+	pollInterval time.Duration
 
 	mu           sync.Mutex // guards gvrs
 	gvrs         sets.String
-	pollInterval time.Duration
 }
 
 // IndexerFor returns the indexer for the given type GVR.

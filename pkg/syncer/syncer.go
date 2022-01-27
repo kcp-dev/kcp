@@ -41,10 +41,14 @@ import (
 const resyncPeriod = 10 * time.Hour
 const SyncerNamespaceKey = "SYNCER_NAMESPACE"
 
+// Direction indicates which direction data is flowing for this particular syncer
 type Direction string
 
-const KcpToPcluster Direction = "kcpToPcluster"
-const PclusterToKcp Direction = "pclusterToKcp"
+// KcpToPhysicalCluster indicates a syncer watches resources on KCP and applies the spec to the target cluster
+const KcpToPhysicalCluster Direction = "kcpToPhysicalCluster"
+
+// PhysicalClusterToKcp indicates a syncer watches resources on the target cluster and applies the status to KCP
+const PhysicalClusterToKcp Direction = "physicalClusterToKcp"
 
 type Syncer struct {
 	specSyncer   *Controller
@@ -110,7 +114,7 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 	var upsertFn UpsertFunc
 	var deleteFn DeleteFunc
 
-	if direction == KcpToPcluster {
+	if direction == KcpToPhysicalCluster {
 		upsertFn = upsertIntoDownstream
 		deleteFn = deleteFromDownstream
 	} else {
@@ -148,7 +152,7 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if c.direction == KcpToPcluster {
+				if c.direction == KcpToPhysicalCluster {
 					if !deepEqualApartFromStatus(oldObj, newObj) {
 						c.AddToQueue(*gvr, newObj)
 					}
@@ -340,7 +344,7 @@ func toKcp(namespace string) (*nameTransformer, error) {
 	segments := strings.Split(namespace, nsDelimiter)
 
 	if len(segments) != 3 {
-		return nil, fmt.Errorf("Invalid name: %s", namespace)
+		return nil, fmt.Errorf("Failed to transform name: %s", namespace)
 	}
 
 	return &nameTransformer{
@@ -401,15 +405,15 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 
 	var targetName, targetNamespace string
 	var err error
-	if c.direction == KcpToPcluster {
+	if c.direction == KcpToPhysicalCluster {
 		targetName, targetNamespace, err = transformForCluster(gvr, meta)
 	} else {
 		targetName, targetNamespace, err = transformForKcp(gvr, meta)
 	}
 
 	if err != nil {
-		klog.Error(err)
-		return err
+		klog.Errorf("Cannot reconcile. Refusing to retry: %w", err)
+		return nil
 	}
 
 	ctx := context.TODO()
@@ -463,7 +467,7 @@ func (c *Controller) inSyncerNamespace(meta metav1.Object) bool {
 	var err error
 	objectNamespace := meta.GetNamespace()
 
-	if c.direction == KcpToPcluster {
+	if c.direction == KcpToPhysicalCluster {
 		_, objectNamespace, err = transformForCluster(schema.GroupVersionResource{}, meta)
 	}
 
