@@ -19,6 +19,10 @@ KCP_DIR="$(cd ${DEMOS_DIR}/../.. && pwd)"
 
 CURRENT_DIR="$(pwd)"
 
+# For podman 3.x - workaround for Mac connecting to kind clusters.
+# This is a relative path because ssh doesn't like long -S arg values
+export PODMAN_SSH_CONTROL_SOCKET="clusters/kind/podman-ssh-control.sock"
+
 DEMO_AS_TESTS=false
 while getopts ":t" opt; do
   case ${opt} in
@@ -42,7 +46,7 @@ source ${DEMOS_DIR}/.startUtils
 setupTraps $0
 
 cleanupDemoOutput() {
-  sed -E --posix -e 's/\x1b\[(3J|H|2J)//g' -e '/^☸️ \$ /d' -e '/^ +certificate-authority-data: /d' -e '/^ +server: https:\/\/127\.0\.0\.1:[0-9]{5}$/d' -e 's/[0-9]+(s|m)/10s/g' -e 's/^(.*)( +[0-9]+s|[0-9]+m([0-9]+s)?)$/\1/' $1
+  sed -E -e 's/\x1b\[(3J|H|2J)//g' -e '/^☸️ \$ /d' -e '/^ +certificate-authority-data: /d' -e '/^ +server: https:\/\/127\.0\.0\.1:[0-9]{5}$/d' -e 's/[0-9]+(s|m)/10s/g' -e 's/^(.*)( +[0-9]+s|[0-9]+m([0-9]+s)?)$/\1/' $1
 }
 
 export TERM=xterm-256color
@@ -54,7 +58,7 @@ for demo in ${DEMOS} ; do
   mkdir "$demoDirName"
   TEST_DIR="$(cd $demoDirName && pwd)"
   cd "${TEST_DIR}"
-  
+
   DEMO_DIR=${DEMOS_DIR}/${demo}-script
 
   if test -f "${DEMO_DIR}/prepareClusters.sh" ; then
@@ -68,11 +72,11 @@ for demo in ${DEMOS} ; do
   echo "Starting demo ${demo} in directory ${TEST_DIR}"
   export KCP_DATA_DIR="${TEST_DIR}"
   export KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
-  
+
   echo "Starting KCP for demo..."
   ${DEMO_DIR}/startKcp.sh &> /dev/null &
   TEST_KCP_PID=$!
-  
+
   echo "Waiting for KCP to be started..."
   wait_command "grep 'Serving securely' ${TEST_DIR}/kcp.log" 60
 
@@ -89,16 +93,17 @@ for demo in ${DEMOS} ; do
 
   echo "Stopping KCP and cleaning physical clusters for demo ${demo}"
   kill $TEST_KCP_PID
+
   if test -f "${DEMO_DIR}/removeClusters.sh" ; then
     ${DEMO_DIR}/removeClusters.sh
   fi
   cd ${CURRENT_DIR}
 
   if ! diff <(cleanupDemoOutput ${DEMO_DIR}/result.txt) <(cleanupDemoOutput ${TEST_DIR}/demo.log) > ${TEST_DIR}/diff.log ; then
-    echo "Demo $demo failed ! Difference between expected and effective outputs is in the ${TEST_DIR}/diff.log file"    
+    echo "Demo $demo failed ! Difference between expected and effective outputs is in the ${TEST_DIR}/diff.log file"
     error=true
   else
-    echo "Demo $demo succeeded !"    
+    echo "Demo $demo succeeded !"
   fi
   echo
 done
