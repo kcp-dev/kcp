@@ -29,6 +29,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -759,7 +760,19 @@ func (s *Server) startNamespaceController(hookContext genericapiserver.PostStart
 	).Run(2, hookContext.StopCh)
 
 	versionedInformer.Start(hookContext.StopCh)
+	return AllInSync(versionedInformer.WaitForCacheSync(hookContext.StopCh))
+}
 
+func AllInSync(syncStatus map[reflect.Type]bool) error {
+	notInSync := []reflect.Type{}
+	for t, synced := range syncStatus {
+		if !synced {
+			notInSync = append(notInSync, t)
+		}
+	}
+	if len(notInSync) > 0 {
+		return fmt.Errorf("failed to wait for caches to sync: %v", notInSync)
+	}
 	return nil
 }
 
