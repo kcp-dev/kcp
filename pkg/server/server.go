@@ -62,6 +62,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
+	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -261,19 +262,6 @@ func (s *Server) Run(ctx context.Context) error {
 		TrustedCAFile: s.cfg.EtcdClientInfo.TrustedCAFile,
 	}
 
-	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
-	// try to issue Update() calls using the * client, which ends up with the cluster name being set to the default
-	// admin cluster in handler.go. This means the update calls are likely going against the wrong logical cluster.
-	// serverOptions.APIExtensionsNewClientFunc = func(config *rest.Config) (apiextensionsclient.Interface, error) {
-	// 	const crossCluster = "*"
-	// 	clusterClient, err := apiextensionsclient.NewClusterForConfig(config)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	client := clusterClient.Cluster(crossCluster)
-	// 	return client, nil
-	// }
-
 	loopbackClientCert, loopbackClientCertKey, err := serverOptions.SecureServing.NewLoopbackClientCert()
 	if err != nil {
 		return err
@@ -313,7 +301,40 @@ func (s *Server) Run(ctx context.Context) error {
 		workspaceLister = kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
 	}
 
-	serverOptions.APIExtensionsNewSharedInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
+	completedOptions, err := genericcontrolplane.Complete(serverOptions)
+	if err != nil {
+		return err
+	}
+
+	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedOptions)
+	if err != nil {
+		return err
+	}
+
+	// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
+	// supported. The effect is that CRD webhook conversions are not supported and will always get an
+	// error.
+	serviceResolver := &unimplementedServiceResolver{}
+
+	// If additional API servers are added, they should be gated.
+	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
+		*apisConfig.GenericConfig,
+		apisConfig.ExtraConfig.VersionedInformers,
+		pluginInitializer,
+		completedOptions.ServerRunOptions,
+		serviceResolver,
+		webhook.NewDefaultAuthenticationInfoResolverWrapper(
+			nil,
+			apisConfig.GenericConfig.EgressSelector,
+			apisConfig.GenericConfig.LoopbackClientConfig,
+			apisConfig.GenericConfig.TracerProvider,
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("configure api extensions: %w", err)
+	}
+
+	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
 		return &kcpAPIExtensionsSharedInformerFactory{
 			SharedInformerFactory: f,
@@ -321,15 +342,24 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	cpOptions, err := genericcontrolplane.Complete(serverOptions)
+	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
+	// try to issue Update() calls using the * client, which ends up with the cluster name being set to the default
+	// admin cluster in handler.go. This means the update calls are likely going against the wrong logical cluster.
+	//    apiExtensionsConfig.ExtraConfig.NewClientFunc = func(config *rest.Config) (apiextensionsclient.Interface, error) {
+	//		crossClusterScope := controllerz.NewScope("*", controllerz.WildcardScope(true))
+	//
+	//		client, err := apiextensionsclient.NewScoperForConfig(config)
+	//		if err != nil {
+	//			return nil, err
+	//		}
+	//		return client.Scope(crossClusterScope), nil
+	//	}
+
+	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
 		return err
 	}
 
-	serverChain, err := genericcontrolplane.CreateServerChain(cpOptions, ctx.Done())
-	if err != nil {
-		return err
-	}
 	server := serverChain.MiniAggregator.GenericAPIServer
 
 	s.AddPostStartHook("wait-for-crd-server", func(ctx genericapiserver.PostStartHookContext) error {
@@ -494,6 +524,9 @@ func (s *Server) Run(ctx context.Context) error {
 		"user":          {Cluster: "user", AuthInfo: "loopback"},
 	}
 	clientConfig.CurrentContext = "admin"
+
+	// ========================================================================================================
+	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
 	if s.cfg.EnableSharding {
 		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
@@ -1106,4 +1139,14 @@ func (r *inMemoryResponseWriter) String() string {
 		s += fmt.Sprintf(", Header: %s", r.header)
 	}
 	return s
+}
+
+// unimplementedServiceResolver is a webhook.ServiceResolver that always returns an error, because
+// we have not implemented support for this yet. As a result, CRD webhook conversions are not
+// supported.
+type unimplementedServiceResolver struct{}
+
+// ResolveEndpoint always returns an error that this is not yet supported.
+func (r *unimplementedServiceResolver) ResolveEndpoint(namespace string, name string, port int32) (*url.URL, error) {
+	return nil, errors.New("CRD webhook conversions are not yet supported in kcp")
 }
