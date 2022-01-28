@@ -39,7 +39,7 @@ _No._
 
 Our intention is that our experiments _improve Kubernetes for everyone_, by improving [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)s and scaling resource watching, and enabling more, better controllers _for everyone_, whether you're using Kubernetes as a container orchestrator or not.
 
-Our `kcp` specific patches are in the [feature-logical-clusters](https://github.com/kcp-dev/kubernetes/tree/feature-logical-clusters) feature branch in the [kcp-dev/kubernetes](https://github.com/kcp-dev/kubernetes) repo. See [DEVELOPMENT.md](DEVELOPMENT.md) for how the patches are structured and how they must be formatted during our experimentation phase.  See [GOALS.md](GOALS.md) for more info on how we intend to use `kcp` as a test-bed for exploring ideas that improve the entire ecosystem.
+Our `kcp` specific patches are in the [feature-logical-clusters-1.22](https://github.com/kcp-dev/kubernetes/tree/feature-logical-clusters-1.22) feature branch in the [kcp-dev/kubernetes](https://github.com/kcp-dev/kubernetes) repo. See [DEVELOPMENT.md](DEVELOPMENT.md) for how the patches are structured and how they must be formatted during our experimentation phase.  See [GOALS.md](GOALS.md) for more info on how we intend to use `kcp` as a test-bed for exploring ideas that improve the entire ecosystem.
 
 
 ## What's in this repo?
