@@ -32,7 +32,7 @@ import (
 
 var reClusterName = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,78}[a-z0-9]_)?[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$`)
 
-func ServeHTTP(apiHandler http.Handler) func(w http.ResponseWriter, req *http.Request) {
+func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var clusterName string
 		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {

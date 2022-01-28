@@ -247,7 +247,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.cfg.EnableSharding {
 			apiHandler = http.HandlerFunc(sharding.ServeHTTP(apiHandler, clientLoader))
 		}
-		apiHandler = http.HandlerFunc(ServeHTTP(genericapiserver.DefaultBuildHandlerChain(apiHandler, c)))
+		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
 
 		return apiHandler
 	}
