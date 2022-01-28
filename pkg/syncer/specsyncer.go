@@ -88,7 +88,53 @@ func deleteFromDownstream(c *Controller, ctx context.Context, gvr schema.GroupVe
 	return c.getClient(gvr, namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
+// TODO:
+// This function is there as a quick and dirty implementation of namespace creation.
+// In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
+func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string) error {
+	namespaces := c.toClient.Resource(schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "namespaces",
+	})
+
+	// See if we need to create the target namespace
+	_, err := namespaces.Get(ctx, namespace, metav1.GetOptions{})
+	if err == nil {
+		// Already exists - all good
+		return nil
+	}
+
+	if !k8serrors.IsNotFound(err) {
+		// Got some error besides not-found - stop & return.
+		// TODO bubble this up as a condition somewhere.
+		klog.Errorf("Error checking if namespace %q exists: %v", namespace, err)
+		return err
+	}
+
+	// Not found - try to create
+	newNamespace := &unstructured.Unstructured{}
+	newNamespace.SetAPIVersion("v1")
+	newNamespace.SetKind("Namespace")
+	newNamespace.SetName(namespace)
+	if _, err := namespaces.Create(context.TODO(), newNamespace, metav1.CreateOptions{}); err != nil {
+		// An already exists error is ok - it means something else beat us to creating the namespace.
+		if !k8serrors.IsAlreadyExists(err) {
+			// Any other error is not good, though.
+			// TODO bubble this up as a condition somewhere.
+			klog.Errorf("Error while creating namespace %q: %v", namespace, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func upsertIntoDownstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
+	if err := c.ensureNamespaceExists(ctx, namespace); err != nil {
+		return err
+	}
+
 	client := c.getClient(gvr, namespace)
 
 	// Attempt to create the object; if the object already exists, update it.
