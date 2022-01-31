@@ -102,7 +102,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
 				vwUser2Client := server.virtualWorkspaceClients[1]
-				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1, metav1.CreateOptions{})
+				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
@@ -111,7 +111,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
-				workspace2, err := vwUser2Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace2, metav1.CreateOptions{})
+				workspace2, err := vwUser2Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
@@ -208,7 +208,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				defer server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, "boston", metav1.GetOptions{})
 				})
-				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1, metav1.CreateOptions{})
+				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace: %v", err)
 					return
