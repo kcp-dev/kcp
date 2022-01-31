@@ -293,9 +293,15 @@ func (s *Server) Run(ctx context.Context) error {
 		s.kubeSharedInformerFactory.Start(context.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(context.StopCh)
 
-		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
-		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
-		s.apiextensionsSharedInformerFactory.WaitForCacheSync(context.StopCh)
+		if err := AllInSync(s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)); err != nil {
+			return err
+		}
+		if err := AllInSync(s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)); err != nil {
+			return err
+		}
+		if err := AllInSync(s.apiextensionsSharedInformerFactory.WaitForCacheSync(context.StopCh)); err != nil {
+			return err
+		}
 
 		return nil
 	})
