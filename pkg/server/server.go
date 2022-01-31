@@ -33,14 +33,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/apiserver/pkg/util/webhook"
 	coreexternalversions "k8s.io/client-go/informers"
@@ -238,17 +236,12 @@ func (s *Server) Run(ctx context.Context) error {
 		TrustedCAFile: s.cfg.EtcdClientInfo.TrustedCAFile,
 	}
 
-	loopbackClientCert, loopbackClientCertKey, err := serverOptions.SecureServing.NewLoopbackClientCert()
+	completedOptions, err := genericcontrolplane.Complete(serverOptions)
 	if err != nil {
 		return err
 	}
-	serverOptions.SecureServing.LoopbackOptions = &genericoptions.LoopbackOptions{
-		Cert:  loopbackClientCert,
-		Key:   loopbackClientCertKey,
-		Token: uuid.New().String(),
-	}
 
-	loopbackClientConfig, err := serverOptions.SecureServing.NewLoopbackClientConfig(serverOptions.SecureServing.LoopbackOptions.Token, serverOptions.SecureServing.LoopbackOptions.Cert)
+	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedOptions)
 	if err != nil {
 		return err
 	}
@@ -256,7 +249,7 @@ func (s *Server) Run(ctx context.Context) error {
 	const crossCluster = "*"
 
 	// Setup kcp * informers
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(loopbackClientConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -264,7 +257,7 @@ func (s *Server) Run(ctx context.Context) error {
 	s.kcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 
 	// Setup kube * informers
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(loopbackClientConfig)
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -272,7 +265,7 @@ func (s *Server) Run(ctx context.Context) error {
 	s.kubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 
 	// Setup apiextensions * informers
-	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(loopbackClientConfig)
+	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -300,16 +293,6 @@ func (s *Server) Run(ctx context.Context) error {
 
 		return nil
 	})
-
-	completedOptions, err := genericcontrolplane.Complete(serverOptions)
-	if err != nil {
-		return err
-	}
-
-	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedOptions)
-	if err != nil {
-		return err
-	}
 
 	// If additional API servers are added, they should be gated.
 	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
