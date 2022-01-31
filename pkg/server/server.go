@@ -378,11 +378,6 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	if err := s.installKubeNamespaceController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
-		return err
-	}
-
 	server := serverChain.MiniAggregator.GenericAPIServer
 
 	s.AddPostStartHook("wait-for-crd-server", func(ctx genericapiserver.PostStartHookContext) error {
@@ -577,6 +572,10 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if err := s.installKubeNamespaceController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+		return err
 	}
 
 	if s.cfg.InstallClusterController {
