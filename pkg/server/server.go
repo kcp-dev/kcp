@@ -65,7 +65,6 @@ import (
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers"
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
@@ -116,6 +115,10 @@ type Server struct {
 	preShutdownHooks []preShutdownHookEntry
 
 	crdServerReady chan struct{}
+
+	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
+	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
+	apiextensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
 }
 
 // postStartHookEntry groups a PostStartHookFunc with a name. We're not storing these hooks
@@ -277,28 +280,51 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	// FIXME: switch to a single set of shared informers
 	const crossCluster = "*"
+
+	// Setup kcp * informers
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(loopbackClientConfig)
 	if err != nil {
 		return err
 	}
 	kcpClient := kcpClusterClient.Cluster(crossCluster)
+	s.kcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
-	s.AddPostStartHook("FIXME-start-informers-for-crd-getter", func(context genericapiserver.PostStartHookContext) error {
+	// Setup kube * informers
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(loopbackClientConfig)
+	if err != nil {
+		return err
+	}
+	kubeClient := kubeClusterClient.Cluster(crossCluster)
+	s.kubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+
+	// Setup apiextensions * informers
+	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(loopbackClientConfig)
+	if err != nil {
+		return err
+	}
+	apiextensionsClient := apiextensionsClusterClient.Cluster(crossCluster)
+	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsClient, resyncPeriod)
+
+	s.AddPostStartHook("start-informers", func(context genericapiserver.PostStartHookContext) error {
 		if err := s.waitForCRDServer(context.StopCh); err != nil {
 			return err
 		}
-		kcpSharedInformerFactory.Start(context.StopCh)
-		kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
+
+		s.kcpSharedInformerFactory.Start(context.StopCh)
+		s.kubeSharedInformerFactory.Start(context.StopCh)
+		s.apiextensionsSharedInformerFactory.Start(context.StopCh)
+
+		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
+		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
+		s.apiextensionsSharedInformerFactory.WaitForCacheSync(context.StopCh)
+
 		return nil
 	})
-	// FIXME: (end) switch to a single set of shared informers
 
 	var workspaceLister tenancylisters.WorkspaceLister
 	if s.cfg.InstallWorkspaceController {
-		workspaceLister = kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
+		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
 	}
 
 	completedOptions, err := genericcontrolplane.Complete(serverOptions)
@@ -335,6 +361,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
+		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
 		return &kcpAPIExtensionsSharedInformerFactory{
 			SharedInformerFactory: f,
@@ -357,6 +384,10 @@ func (s *Server) Run(ctx context.Context) error {
 
 	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
+		return err
+	}
+
+	if err := s.installKubeNamespaceController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
@@ -561,14 +592,6 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 
-		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-		if err != nil {
-			return err
-		}
-
-		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(adminConfig), resyncPeriod)
-		crdSharedInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(adminConfig), resyncPeriod)
-
 		kubeconfig := clientConfig.DeepCopy()
 		for _, cluster := range kubeconfig.Clusters {
 			hostURL, err := url.Parse(cluster.Server)
@@ -585,7 +608,7 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 
 			adaptedCtx := adaptContext(context)
-			return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory).Start(adaptedCtx)
+			return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory).Start(adaptedCtx)
 		}); err != nil {
 			return err
 		}
@@ -598,28 +621,17 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 
-		kubeClient, err := kubernetes.NewClusterForConfig(adminConfig)
-		if err != nil {
-			return err
-		}
-
 		const clusterAll = "*" // TODO: find the correct place for this constant?
-		crossClusterKubeClient := kubeClient.Cluster(clusterAll)
-		kubeSharedInformerFactory := coreexternalversions.NewSharedInformerFactoryWithOptions(crossClusterKubeClient, resyncPeriod)
 
 		kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
 		if err != nil {
 			return err
 		}
 
-		crossClusterKcpClient := kcpClient.Cluster(clusterAll)
-
-		kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(crossClusterKcpClient, resyncPeriod)
-
 		workspaceController, err := workspace.NewController(
 			kcpClient,
-			kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-			kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+			s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+			s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 		)
 		if err != nil {
 			return err
@@ -627,8 +639,8 @@ func (s *Server) Run(ctx context.Context) error {
 
 		workspaceShardController, err := workspaceshard.NewController(
 			kcpClient,
-			kubeSharedInformerFactory.Core().V1().Secrets(),
-			kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+			s.kubeSharedInformerFactory.Core().V1().Secrets(),
+			s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 		)
 		if err != nil {
 			return err
@@ -653,11 +665,6 @@ func (s *Server) Run(ctx context.Context) error {
 			go workspaceController.Start(ctx, 2)
 			go workspaceShardController.Start(ctx, 2)
 
-			kcpSharedInformerFactory.Start(context.StopCh)
-			kubeSharedInformerFactory.Start(context.StopCh)
-			kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
-			kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
-
 			return nil
 		}); err != nil {
 			return err
@@ -671,40 +678,25 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 
-		kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
-		if err != nil {
-			return err
-		}
-		crossClusterClient := kcpClient.Cluster(clusterAll)
-
 		kubeClient := kubernetes.NewForConfigOrDie(adminConfig)
 		disco := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
 		dynClient := dynamic.NewForConfigOrDie(adminConfig)
-
-		csif := kcpexternalversions.NewSharedInformerFactory(crossClusterClient, resyncPeriod)
-		nsif := informers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 
 		gvkTrans := gvk.NewGVKTranslator(adminConfig)
 
 		namespaceScheduler := kcpnamespace.NewController(
 			dynClient,
 			disco,
-			csif.Cluster().V1alpha1().Clusters(),
-			csif.Cluster().V1alpha1().Clusters().Lister(),
-			nsif.Core().V1().Namespaces(),
-			nsif.Core().V1().Namespaces().Lister(),
+			s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
+			s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters().Lister(),
+			s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+			s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
 			kubeClient.CoreV1().Namespaces(),
 			gvkTrans,
 		)
 
 		if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {
-			csif.Start(context.StopCh)
-			csif.WaitForCacheSync(context.StopCh)
-			nsif.Start(context.StopCh)
-			nsif.WaitForCacheSync(context.StopCh)
-
 			go namespaceScheduler.Start(ctx, 2)
-
 			return nil
 		}); err != nil {
 			return err
@@ -754,27 +746,21 @@ func NewServer(cfg *Config) *Server {
 		cfg:            cfg,
 		crdServerReady: make(chan struct{}),
 	}
-	//During the creation of the server, we know that we want to add the namespace controller.
-	s.postStartHooks = append(s.postStartHooks, postStartHookEntry{
-		name: "start-namespace-controller",
-		hook: s.startNamespaceController,
-	})
 	return s
 }
 
-func (s *Server) startNamespaceController(hookContext genericapiserver.PostStartHookContext) error {
-	kubeClient, err := kubernetes.NewForConfig(hookContext.LoopbackClientConfig)
+func (s *Server) installKubeNamespaceController(config *rest.Config) error {
+	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	metadata, err := metadata.NewForConfig(hookContext.LoopbackClientConfig)
+	metadata, err := metadata.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	versionedInformer := coreexternalversions.NewSharedInformerFactory(kubeClient, resyncPeriod)
 
 	discoverResourcesFn := func(clusterName string) ([]*metav1.APIResourceList, error) {
-		logicalClusterConfig := rest.CopyConfig(hookContext.LoopbackClientConfig)
+		logicalClusterConfig := rest.CopyConfig(config)
 		logicalClusterConfig.Host += "/clusters/" + clusterName
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(logicalClusterConfig)
 		if err != nil {
@@ -783,17 +769,25 @@ func (s *Server) startNamespaceController(hookContext genericapiserver.PostStart
 		return discoveryClient.ServerPreferredNamespacedResources()
 	}
 
-	go namespace.NewNamespaceController(
+	// We have to construct this outside of / before any post-start hooks are invoked, because
+	// the constructor sets up event handlers on shared informers, which instructs the factory
+	// which informers need to be started. The shared informer factories are started in their
+	// own post-start hook.
+	c := namespace.NewNamespaceController(
 		kubeClient,
 		metadata,
 		discoverResourcesFn,
-		versionedInformer.Core().V1().Namespaces(),
+		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		time.Duration(30)*time.Second,
 		v1.FinalizerKubernetes,
-	).Run(2, hookContext.StopCh)
+	)
 
-	versionedInformer.Start(hookContext.StopCh)
-	return AllInSync(versionedInformer.WaitForCacheSync(hookContext.StopCh))
+	s.AddPostStartHook("start-kube-namespace-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		go c.Run(2, hookContext.StopCh)
+		return nil
+	})
+
+	return nil
 }
 
 func AllInSync(syncStatus map[reflect.Type]bool) error {
