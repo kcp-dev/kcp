@@ -301,11 +301,6 @@ func (s *Server) Run(ctx context.Context) error {
 		return nil
 	})
 
-	var workspaceLister tenancylisters.WorkspaceLister
-	if s.cfg.InstallWorkspaceScheduler {
-		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
-	}
-
 	completedOptions, err := genericcontrolplane.Complete(serverOptions)
 	if err != nil {
 		return err
@@ -316,18 +311,18 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
-	// supported. The effect is that CRD webhook conversions are not supported and will always get an
-	// error.
-	serviceResolver := &unimplementedServiceResolver{}
-
 	// If additional API servers are added, they should be gated.
 	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
 		*apisConfig.GenericConfig,
 		apisConfig.ExtraConfig.VersionedInformers,
 		pluginInitializer,
 		completedOptions.ServerRunOptions,
-		serviceResolver,
+
+		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
+		// supported. The effect is that CRD webhook conversions are not supported and will always get an
+		// error.
+		&unimplementedServiceResolver{},
+
 		webhook.NewDefaultAuthenticationInfoResolverWrapper(
 			nil,
 			apisConfig.GenericConfig.EgressSelector,
@@ -339,6 +334,10 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
 
+	var workspaceLister tenancylisters.WorkspaceLister
+	if s.cfg.InstallWorkspaceScheduler {
+		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
+	}
 	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
 		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
