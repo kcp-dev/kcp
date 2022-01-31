@@ -194,7 +194,9 @@
 				"request": "launch",
 				"mode": "debug",
 				"program": "${workspaceFolder:kcp}/cmd/virtual-workspaces",
-				"env": { "GOMOD": "${workspaceFolder:kcp}/go.mod", },
+				"env": {
+					"GOMOD": "${workspaceFolder:kcp}/go.mod",
+				},
 				"cwd": "${workspaceFolder:kcp}",
 				"args": [
 					"workspaces",
@@ -223,7 +225,7 @@
 				"args": [
 					"--workspace-directory-insecure-skip-tls-verify",
 					"create",
-					"--inheritFrom=user",
+					"--inherit-from=user",
 					"workspace1",
 					"--use"
 				],
