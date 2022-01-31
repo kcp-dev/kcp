@@ -100,7 +100,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		},
 	}
 
-	inheritFromFlag := "inheritFrom"
+	inheritFromFlag := "inherit-from"
 	useFlag := "use"
 	createCmd := &cobra.Command{
 		Use:          "create",

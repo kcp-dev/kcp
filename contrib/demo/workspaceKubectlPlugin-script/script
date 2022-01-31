@@ -39,7 +39,7 @@ function comment() {
   OLD_DEMO_PROMPT=${DEMO_PROMPT}
   DEMO_PROMPT=''; pei "# $@"
   DEMO_PROMPT=${OLD_DEMO_PROMPT}
-} 
+}
 
 export KUBECONFIG=${KUBECONFIG:-${KCP_DIR}/.kcp/admin.kubeconfig}
 if ! kubectl get namespaces &>/dev/null; then
@@ -187,7 +187,7 @@ comment "We can specify the workspace it should inherit CRDs from,"
 comment "as well as switch directly to the new workspace with the 'use' argument"
 comment ""
 
-pe "kubectl kcp workspace --token user-2-token create user-2-workspace-1 --inheritFrom=user --use"
+pe "kubectl kcp workspace --token user-2-token create user-2-workspace-1 --inherit-from=user --use"
 pe "kubectl --token admin-token create secret generic user-2-secret-1"
 pe "kubectl --token admin-token get secrets"
 

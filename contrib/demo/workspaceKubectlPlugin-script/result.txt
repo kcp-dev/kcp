@@ -196,7 +196,7 @@ user-1-secret-1   Opaque   0      31s
 # We can specify the workspace it should inherit CRDs from,
 # as well as switch directly to the new workspace with the 'use' argument
 # 
-☸️ $ kubectl kcp workspace --token user-2-token create user-2-workspace-1 --inheritFrom=user --use
+☸️ $ kubectl kcp workspace --token user-2-token create user-2-workspace-1 --inherit-from=user --use
 Workspace "user-2-workspace-1" created.
 Current personal workspace is "user-2-workspace-1".
 ☸️ $ kubectl --token admin-token create secret generic user-2-secret-1
