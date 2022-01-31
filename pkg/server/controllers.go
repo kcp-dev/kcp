@@ -166,7 +166,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 			return err
 		}
 
-		ctx := adaptContext(context)
+		ctx := goContext(context)
 		go workspaceController.Start(ctx, 2)
 		go workspaceShardController.Start(ctx, 2)
 
@@ -197,8 +197,8 @@ func (s *Server) installClusterController(clientConfig clientcmdapi.Config, serv
 			return err
 		}
 
-		adaptedCtx := adaptContext(context)
-		return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory).Start(adaptedCtx)
+		ctx := goContext(context)
+		return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory).Start(ctx)
 	}); err != nil {
 		return err
 	}

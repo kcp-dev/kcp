@@ -378,7 +378,7 @@ func (s *Server) Run(ctx context.Context) error {
 	server := serverChain.MiniAggregator.GenericAPIServer
 
 	s.AddPostStartHook("wait-for-crd-server", func(ctx genericapiserver.PostStartHookContext) error {
-		return wait.PollImmediateInfiniteWithContext(adaptContext(ctx), 100*time.Millisecond, func(c context.Context) (done bool, err error) {
+		return wait.PollImmediateInfiniteWithContext(goContext(ctx), 100*time.Millisecond, func(c context.Context) (done bool, err error) {
 			if serverChain.CustomResourceDefinitions.Informers.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() {
 				close(s.crdServerReady)
 				return true, nil
@@ -634,10 +634,10 @@ func AllInSync(syncStatus map[reflect.Type]bool) error {
 	return nil
 }
 
-// adaptContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
+// goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
 // run inside of a post-start-hook. The k8s APIServer wrote the post-start-hook context code before contexts
 // were part of the Go stdlib.
-func adaptContext(parent genericapiserver.PostStartHookContext) context.Context {
+func goContext(parent genericapiserver.PostStartHookContext) context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func(done <-chan struct{}) {
 		<-done
