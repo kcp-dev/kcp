@@ -276,7 +276,7 @@ func TestAPIInheritance(t *testing.T) {
 
 	}, framework.KcpConfig{
 		Name: "main",
-		Args: []string{"--install-workspace-controller"},
+		Args: []string{"--install-workspace-scheduler"},
 	})
 }
 

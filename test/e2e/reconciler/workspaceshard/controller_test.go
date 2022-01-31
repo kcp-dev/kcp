@@ -402,7 +402,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
-			Args: []string{"--install-workspace-controller"},
+			Args: []string{"--install-workspace-scheduler"},
 		})
 	}
 }
