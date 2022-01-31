@@ -83,8 +83,6 @@ func deleteFromDownstream(c *Controller, ctx context.Context, gvr schema.GroupVe
 	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
 	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
 
-	// TODO: check to see if ns is deleting/deleted
-
 	return c.getClient(gvr, namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
