@@ -27,17 +27,17 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
   "cluster:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.go.txt --output-base ${GOPATH}/src
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt --output-base ${GOPATH}/src
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   github.com/kcp-dev/kcp/third_party/conditions/client github.com/kcp-dev/kcp/third_party/conditions/apis \
   "conditions:v1alpha1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.capi.go.txt --output-base ${GOPATH}/src
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt --output-base ${GOPATH}/src
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis \
   "wildwest:v1alpha1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.go.txt --output-base ${GOPATH}/src
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt --output-base ${GOPATH}/src
 
 go install "${CODEGEN_PKG}"/cmd/openapi-gen
 
