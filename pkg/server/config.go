@@ -30,48 +30,48 @@ import (
 // DefaultConfig is the default behavior of the KCP server.
 func DefaultConfig() *Config {
 	return &Config{
-		EtcdClientInfo:             etcd.ClientInfo{},
-		EtcdDirectory:              "",
-		EtcdPeerPort:               "2380",
-		EtcdClientPort:             "2379",
-		InstallClusterController:   false,
-		ClusterControllerOptions:   cluster.DefaultOptions(),
-		InstallWorkspaceController: false,
-		InstallNamespaceScheduler:  false,
-		KubeConfigPath:             "admin.kubeconfig",
-		Listen:                     ":6443",
-		RootDirectory:              ".kcp",
-		ProfilerAddress:            "",
-		ShardKubeconfigFile:        "",
-		EnableSharding:             false,
-		Authentication:             kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
+		EtcdClientInfo:            etcd.ClientInfo{},
+		EtcdDirectory:             "",
+		EtcdPeerPort:              "2380",
+		EtcdClientPort:            "2379",
+		InstallClusterController:  false,
+		ClusterControllerOptions:  cluster.DefaultOptions(),
+		InstallWorkspaceScheduler: false,
+		InstallNamespaceScheduler: false,
+		KubeConfigPath:            "admin.kubeconfig",
+		Listen:                    ":6443",
+		RootDirectory:             ".kcp",
+		ProfilerAddress:           "",
+		ShardKubeconfigFile:       "",
+		EnableSharding:            false,
+		Authentication:            kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
 	}
 }
 
 // Config determines the behavior of the KCP server.
 type Config struct {
-	EtcdClientInfo             etcd.ClientInfo
-	EtcdDirectory              string
-	EtcdPeerPort               string
-	EtcdClientPort             string
-	EtcdWalSizeBytes           int64
-	InstallClusterController   bool
-	ClusterControllerOptions   *cluster.Options
-	InstallWorkspaceController bool
-	InstallNamespaceScheduler  bool
-	KubeConfigPath             string
-	Listen                     string
-	RootDirectory              string
-	ProfilerAddress            string
-	ShardKubeconfigFile        string
-	EnableSharding             bool
-	Authentication             *kubeoptions.BuiltInAuthenticationOptions
+	EtcdClientInfo            etcd.ClientInfo
+	EtcdDirectory             string
+	EtcdPeerPort              string
+	EtcdClientPort            string
+	EtcdWalSizeBytes          int64
+	InstallClusterController  bool
+	ClusterControllerOptions  *cluster.Options
+	InstallWorkspaceScheduler bool
+	InstallNamespaceScheduler bool
+	KubeConfigPath            string
+	Listen                    string
+	RootDirectory             string
+	ProfilerAddress           string
+	ShardKubeconfigFile       string
+	EnableSharding            bool
+	Authentication            *kubeoptions.BuiltInAuthenticationOptions
 }
 
 func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.AddFlag(pflag.PFlagFromGoFlag(flag.CommandLine.Lookup("v")))
 	fs.BoolVar(&c.InstallClusterController, "install-cluster-controller", c.InstallClusterController, "Registers the sample cluster custom resource, and the related controller to allow registering physical clusters")
-	fs.BoolVar(&c.InstallWorkspaceController, "install-workspace-controller", c.InstallWorkspaceController, "Registers the workspace custom resource, and the related controller to allow scheduling workspaces to shards")
+	fs.BoolVar(&c.InstallWorkspaceScheduler, "install-workspace-scheduler", c.InstallWorkspaceScheduler, "Registers the workspace custom resource, and the related controller to allow scheduling workspaces to shards")
 	fs.BoolVar(&c.InstallNamespaceScheduler, "install-namespace-scheduler", c.InstallNamespaceScheduler, "Registers the namespace scheduler to allow scheduling namespaces and resource to physical clusters")
 	fs.StringVar(&c.Listen, "listen", c.Listen, "Address:port to bind to")
 	fs.StringSliceVar(&c.EtcdClientInfo.Endpoints, "etcd-servers", c.EtcdClientInfo.Endpoints, "List of external etcd servers to connect with (scheme://ip:port), comma separated. If absent an in-process etcd will be created.")

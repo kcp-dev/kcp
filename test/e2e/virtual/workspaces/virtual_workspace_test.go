@@ -385,7 +385,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
-			Args: append([]string{"--install-workspace-controller"}, usersKCPArgs...),
+			Args: append([]string{"--install-workspace-scheduler"}, usersKCPArgs...),
 		})
 	}
 }

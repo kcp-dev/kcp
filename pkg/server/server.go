@@ -323,7 +323,7 @@ func (s *Server) Run(ctx context.Context) error {
 	})
 
 	var workspaceLister tenancylisters.WorkspaceLister
-	if s.cfg.InstallWorkspaceController {
+	if s.cfg.InstallWorkspaceScheduler {
 		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
 	}
 
