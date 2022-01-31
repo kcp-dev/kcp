@@ -40,11 +40,9 @@ import (
 	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
-	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions"
 	apiextensionsinformerv1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
@@ -63,32 +61,21 @@ import (
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/apiserver/pkg/util/webhook"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/metadata"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/controller/namespace"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
-	"github.com/kcp-dev/kcp/config"
-	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/etcd"
-	"github.com/kcp-dev/kcp/pkg/gvk"
-	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
@@ -610,125 +597,6 @@ func (s *Server) Run(ctx context.Context) error {
 	return prepared.Run(ctx.Done())
 }
 
-func (s *Server) installNamespaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeconfig := clientConfig.DeepCopy()
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-	if err != nil {
-		return err
-	}
-
-	kubeClient := kubernetes.NewForConfigOrDie(adminConfig)
-	disco := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
-	dynClient := dynamic.NewForConfigOrDie(adminConfig)
-
-	gvkTrans := gvk.NewGVKTranslator(adminConfig)
-
-	namespaceScheduler := kcpnamespace.NewController(
-		dynClient,
-		disco,
-		s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
-		s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters().Lister(),
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
-		kubeClient.CoreV1().Namespaces(),
-		gvkTrans,
-	)
-
-	if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {
-		go namespaceScheduler.Start(ctx, 2)
-		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeconfig := clientConfig.DeepCopy()
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-	if err != nil {
-		return err
-	}
-
-	const clusterAll = "*" // TODO: find the correct place for this constant?
-
-	kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
-	if err != nil {
-		return err
-	}
-
-	workspaceController, err := workspace.NewController(
-		kcpClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
-	)
-	if err != nil {
-		return err
-	}
-
-	workspaceShardController, err := workspaceshard.NewController(
-		kcpClient,
-		s.kubeSharedInformerFactory.Core().V1().Secrets(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := server.AddPostStartHook("install-workspace-scheduler", func(context genericapiserver.PostStartHookContext) error {
-		if err := s.waitForCRDServer(context.StopCh); err != nil {
-			return err
-		}
-
-		// Register CRDs in both the admin and user logical clusters
-		requiredCrds := []metav1.GroupKind{
-			{Group: tenancyapi.GroupName, Kind: "workspaces"},
-			{Group: tenancyapi.GroupName, Kind: "workspaceshards"},
-		}
-		crdClient := apiextensionsv1client.NewForConfigOrDie(adminConfig).CustomResourceDefinitions()
-		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
-			return err
-		}
-
-		ctx := adaptContext(context)
-		go workspaceController.Start(ctx, 2)
-		go workspaceShardController.Start(ctx, 2)
-
-		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Server) installClusterController(clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	if err := s.cfg.ClusterControllerOptions.Validate(); err != nil {
-		return err
-	}
-
-	kubeconfig := clientConfig.DeepCopy()
-	for _, cluster := range kubeconfig.Clusters {
-		hostURL, err := url.Parse(cluster.Server)
-		if err != nil {
-			return err
-		}
-		hostURL.Host = server.ExternalAddress
-		cluster.Server = hostURL.String()
-	}
-
-	if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
-		if err := s.waitForCRDServer(context.StopCh); err != nil {
-			return err
-		}
-
-		adaptedCtx := adaptContext(context)
-		return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory).Start(adaptedCtx)
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
 // AddPostStartHook allows you to add a PostStartHook that gets passed to the underlying genericapiserver implementation.
 func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) {
 	// you could potentially add duplicate or invalid post start hooks here, but we'll let
@@ -749,18 +617,6 @@ func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdo
 	})
 }
 
-func (s *Server) waitForCRDServer(stop <-chan struct{}) error {
-	// Wait for the CRD server to be ready before doing things such as starting the shared informer
-	// factory. Otherwise, informer list calls may go into backoff (before the CRDs are ready) and
-	// take ~10 seconds to succeed.
-	select {
-	case <-stop:
-		return errors.New("timed out waiting for CRD server to be ready")
-	case <-s.crdServerReady:
-		return nil
-	}
-}
-
 // NewServer creates a new instance of Server which manages the KCP api-server.
 func NewServer(cfg *Config) *Server {
 	s := &Server{
@@ -768,47 +624,6 @@ func NewServer(cfg *Config) *Server {
 		crdServerReady: make(chan struct{}),
 	}
 	return s
-}
-
-func (s *Server) installKubeNamespaceController(config *rest.Config) error {
-	kubeClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	metadata, err := metadata.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	discoverResourcesFn := func(clusterName string) ([]*metav1.APIResourceList, error) {
-		logicalClusterConfig := rest.CopyConfig(config)
-		logicalClusterConfig.Host += "/clusters/" + clusterName
-		discoveryClient, err := discovery.NewDiscoveryClientForConfig(logicalClusterConfig)
-		if err != nil {
-			return nil, err
-		}
-		return discoveryClient.ServerPreferredNamespacedResources()
-	}
-
-	// We have to construct this outside of / before any post-start hooks are invoked, because
-	// the constructor sets up event handlers on shared informers, which instructs the factory
-	// which informers need to be started. The shared informer factories are started in their
-	// own post-start hook.
-	c := namespace.NewNamespaceController(
-		kubeClient,
-		metadata,
-		discoverResourcesFn,
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		time.Duration(30)*time.Second,
-		v1.FinalizerKubernetes,
-	)
-
-	s.AddPostStartHook("start-kube-namespace-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		go c.Run(2, hookContext.StopCh)
-		return nil
-	})
-
-	return nil
 }
 
 func AllInSync(syncStatus map[reflect.Type]bool) error {
