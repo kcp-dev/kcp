@@ -208,6 +208,25 @@
 					"--cert-dir",
 					"${workspaceFolder:kcp}/.kcp/data"
 				],
+			},
+			{
+				"name": "Manage workspaces through the kubectl workspace plugin",
+				"type": "go",
+				"request": "launch",
+				"mode": "debug",
+				"program": "${workspaceFolder:kcp}/cmd/kubectl-kcp-workspace",
+				"env": {
+					"GOMOD": "${workspaceFolder:kcp}/go.mod",
+					"KUBECONFIG": "${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
+				},
+				"cwd": "${workspaceFolder:kcp}",
+				"args": [
+					"--workspace-directory-insecure-skip-tls-verify",
+					"create",
+					"--inheritFrom=user",
+					"workspace1",
+					"--use"
+				],
 			}
 		]
 	}

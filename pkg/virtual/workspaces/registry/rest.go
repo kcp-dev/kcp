@@ -50,15 +50,15 @@ import (
 )
 
 const (
-	organizationScope string = "organization"
-	personalScope     string = "personal"
+	OrganizationScope string = "organization"
+	PersonalScope     string = "personal"
 	PrettyNameLabel   string = "workspaces.kcp.dev/pretty-name"
 	InternalNameLabel string = "workspaces.kcp.dev/internal-name"
 	PrettyNameIndex   string = "workspace-pretty-name"
 	InternalNameIndex string = "workspace-internal-name"
 )
 
-var ScopeSets sets.String = sets.NewString(personalScope, organizationScope)
+var ScopeSets sets.String = sets.NewString(PersonalScope, OrganizationScope)
 
 type WorkspacesScopeKeyType string
 
@@ -176,7 +176,7 @@ func (s *REST) getInternalNameFromPrettyName(user kuser.Info, prettyName string)
 }
 
 func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
-	if scope == personalScope {
+	if scope == PersonalScope {
 		return &kuser.DefaultInfo{
 			Name:   user.GetName(),
 			UID:    user.GetUID(),
@@ -207,7 +207,7 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 		return nil, err
 	}
 
-	if scope == personalScope {
+	if scope == PersonalScope {
 		for i, workspace := range workspaceList.Items {
 			var err error
 			workspaceList.Items[i].Name, err = s.getPrettyNameFromInternalName(user, workspace.Name)
@@ -235,7 +235,7 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 	}
 
 	scope := ctx.Value(WorkspacesScopeKey).(string)
-	if scope == personalScope {
+	if scope == PersonalScope {
 		internalName, err := s.getInternalNameFromPrettyName(user, name)
 		if err != nil {
 			return nil, err
@@ -268,7 +268,7 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 		return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces").GroupResource(), name)
 	}
 
-	if scope == personalScope {
+	if scope == PersonalScope {
 		existingWorkspace.Name, err = s.getPrettyNameFromInternalName(user, existingWorkspace.Name)
 		if err != nil {
 			return nil, err
@@ -381,7 +381,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspace"), "", fmt.Errorf("unable to create a workspace without a user on the context"))
 	}
 
-	if scope := ctx.Value(WorkspacesScopeKey); scope != personalScope {
+	if scope := ctx.Value(WorkspacesScopeKey); scope != PersonalScope {
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspace"), "", fmt.Errorf("creating a workspace in only possible in the personal workspaces scope for now"))
 	}
 
@@ -521,7 +521,7 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	}
 
 	internalName := name
-	if scope := ctx.Value(WorkspacesScopeKey); scope == personalScope {
+	if scope := ctx.Value(WorkspacesScopeKey); scope == PersonalScope {
 		var err error
 		internalName, err = s.getInternalNameFromPrettyName(user, name)
 		if err != nil {
