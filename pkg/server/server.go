@@ -99,6 +99,15 @@ type Server struct {
 	apiextensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
 }
 
+// NewServer creates a new instance of Server which manages the KCP api-server.
+func NewServer(cfg *Config) *Server {
+	s := &Server{
+		cfg:            cfg,
+		crdServerReady: make(chan struct{}),
+	}
+	return s
+}
+
 // postStartHookEntry groups a PostStartHookFunc with a name. We're not storing these hooks
 // in a map and are instead letting the underlying api server perform the hook validation,
 // such as checking for multiple PostStartHookFunc with the same name
@@ -610,15 +619,6 @@ func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdo
 		name: name,
 		hook: hook,
 	})
-}
-
-// NewServer creates a new instance of Server which manages the KCP api-server.
-func NewServer(cfg *Config) *Server {
-	s := &Server{
-		cfg:            cfg,
-		crdServerReady: make(chan struct{}),
-	}
-	return s
 }
 
 func AllInSync(syncStatus map[reflect.Type]bool) error {
