@@ -359,20 +359,11 @@ func transformForCluster(gvr schema.GroupVersionResource, meta metav1.Object) (s
 		namespace:   meta.GetNamespace(),
 	}
 
-	if gvr.Group == "" && gvr.Resource == "namespaces" {
-		t.namespace = meta.GetName()
-		return t.toCluster(), "", nil
-	}
-
 	return meta.GetName(), t.toCluster(), nil
 }
 
 func transformForKcp(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
 	name := meta.GetNamespace()
-	if gvr.Group == "" && gvr.Resource == "namespaces" {
-		name = meta.GetName()
-	}
-
 	transformer, err := toKcp(name)
 	return meta.GetName(), transformer.namespace, err
 }
@@ -396,6 +387,11 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	}
 
 	namespace := meta.GetNamespace()
+
+	if namespace == "" {
+		klog.V(2).Infof("Skipping cluster-level resource: %T : %v", obj, obj)
+		return nil
+	}
 
 	// This must be checked before the namespace is transformed
 	if c.inSyncerNamespace(meta) {
@@ -438,10 +434,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 
 	if c.upsertFn != nil {
 		unstrob = unstrob.DeepCopy()
-		unstrob.SetName(targetName)
-		if unstrob.GetNamespace() != "" {
-			unstrob.SetNamespace(targetNamespace)
-		}
+		unstrob.SetNamespace(targetNamespace)
 		return c.upsertFn(c, ctx, gvr, targetNamespace, unstrob)
 	}
 
