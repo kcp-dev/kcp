@@ -48,6 +48,7 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -298,6 +299,7 @@ func (s *Server) Run(ctx context.Context) error {
 	localAuth, localResolver := authorization.NewLocalAuthorizer(s.kubeSharedInformerFactory)
 	apisConfig.GenericConfig.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
 	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(s.kubeSharedInformerFactory, union.New(orgAuth, localAuth))
+	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
 
 	// If additional API servers are added, they should be gated.
 	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
