@@ -20,27 +20,23 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/apiserver/pkg/util/webhook"
 	coreexternalversions "k8s.io/client-go/informers"
@@ -238,17 +234,12 @@ func (s *Server) Run(ctx context.Context) error {
 		TrustedCAFile: s.cfg.EtcdClientInfo.TrustedCAFile,
 	}
 
-	loopbackClientCert, loopbackClientCertKey, err := serverOptions.SecureServing.NewLoopbackClientCert()
+	completedOptions, err := genericcontrolplane.Complete(serverOptions)
 	if err != nil {
 		return err
 	}
-	serverOptions.SecureServing.LoopbackOptions = &genericoptions.LoopbackOptions{
-		Cert:  loopbackClientCert,
-		Key:   loopbackClientCertKey,
-		Token: uuid.New().String(),
-	}
 
-	loopbackClientConfig, err := serverOptions.SecureServing.NewLoopbackClientConfig(serverOptions.SecureServing.LoopbackOptions.Token, serverOptions.SecureServing.LoopbackOptions.Cert)
+	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedOptions)
 	if err != nil {
 		return err
 	}
@@ -256,7 +247,7 @@ func (s *Server) Run(ctx context.Context) error {
 	const crossCluster = "*"
 
 	// Setup kcp * informers
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(loopbackClientConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -264,7 +255,7 @@ func (s *Server) Run(ctx context.Context) error {
 	s.kcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 
 	// Setup kube * informers
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(loopbackClientConfig)
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -272,7 +263,7 @@ func (s *Server) Run(ctx context.Context) error {
 	s.kubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 
 	// Setup apiextensions * informers
-	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(loopbackClientConfig)
+	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -301,33 +292,18 @@ func (s *Server) Run(ctx context.Context) error {
 		return nil
 	})
 
-	var workspaceLister tenancylisters.WorkspaceLister
-	if s.cfg.InstallWorkspaceScheduler {
-		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
-	}
-
-	completedOptions, err := genericcontrolplane.Complete(serverOptions)
-	if err != nil {
-		return err
-	}
-
-	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedOptions)
-	if err != nil {
-		return err
-	}
-
-	// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
-	// supported. The effect is that CRD webhook conversions are not supported and will always get an
-	// error.
-	serviceResolver := &unimplementedServiceResolver{}
-
 	// If additional API servers are added, they should be gated.
 	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
 		*apisConfig.GenericConfig,
 		apisConfig.ExtraConfig.VersionedInformers,
 		pluginInitializer,
 		completedOptions.ServerRunOptions,
-		serviceResolver,
+
+		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
+		// supported. The effect is that CRD webhook conversions are not supported and will always get an
+		// error.
+		&unimplementedServiceResolver{},
+
 		webhook.NewDefaultAuthenticationInfoResolverWrapper(
 			nil,
 			apisConfig.GenericConfig.EgressSelector,
@@ -339,6 +315,10 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
 
+	var workspaceLister tenancylisters.WorkspaceLister
+	if s.cfg.InstallWorkspaceScheduler {
+		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
+	}
 	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
 		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
@@ -515,55 +495,4 @@ func goContext(parent genericapiserver.PostStartHookContext) context.Context {
 		cancel()
 	}(parent.StopCh)
 	return ctx
-}
-
-// COPIED FROM kube-aggregator
-// inMemoryResponseWriter is a http.Writer that keep the response in memory.
-type inMemoryResponseWriter struct {
-	writeHeaderCalled bool
-	header            http.Header
-	respCode          int
-	data              []byte
-}
-
-func newInMemoryResponseWriter() *inMemoryResponseWriter {
-	return &inMemoryResponseWriter{header: http.Header{}}
-}
-
-func (r *inMemoryResponseWriter) Header() http.Header {
-	return r.header
-}
-
-func (r *inMemoryResponseWriter) WriteHeader(code int) {
-	r.writeHeaderCalled = true
-	r.respCode = code
-}
-
-func (r *inMemoryResponseWriter) Write(in []byte) (int, error) {
-	if !r.writeHeaderCalled {
-		r.WriteHeader(http.StatusOK)
-	}
-	r.data = append(r.data, in...)
-	return len(in), nil
-}
-
-func (r *inMemoryResponseWriter) String() string {
-	s := fmt.Sprintf("ResponseCode: %d", r.respCode)
-	if r.data != nil {
-		s += fmt.Sprintf(", Body: %s", string(r.data))
-	}
-	if r.header != nil {
-		s += fmt.Sprintf(", Header: %s", r.header)
-	}
-	return s
-}
-
-// unimplementedServiceResolver is a webhook.ServiceResolver that always returns an error, because
-// we have not implemented support for this yet. As a result, CRD webhook conversions are not
-// supported.
-type unimplementedServiceResolver struct{}
-
-// ResolveEndpoint always returns an error that this is not yet supported.
-func (r *unimplementedServiceResolver) ResolveEndpoint(namespace string, name string, port int32) (*url.URL, error) {
-	return nil, errors.New("CRD webhook conversions are not yet supported in kcp")
 }
