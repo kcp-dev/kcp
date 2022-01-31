@@ -70,7 +70,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
-const clusterAll = "*" // TODO: find the correct place for this constant?
 const resyncPeriod = 10 * time.Hour
 
 // Server manages the configuration and kcp api-server. It allows callers to easily use kcp

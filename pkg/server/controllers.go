@@ -126,8 +126,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
-	const clusterAll = "*" // TODO: find the correct place for this constant?
-
 	kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
 	if err != nil {
 		return err
