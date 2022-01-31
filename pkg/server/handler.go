@@ -17,20 +17,46 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"regexp"
+	"sort"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/emicklei/go-restful"
+
+	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	v1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
+	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 )
 
-var reClusterName = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,78}[a-z0-9]_)?[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$`)
+var (
+	reClusterName = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,78}[a-z0-9]_)?[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$`)
+
+	errorScheme = runtime.NewScheme()
+	errorCodecs = serializer.NewCodecFactory(errorScheme)
+)
+
+func init() {
+	errorScheme.AddUnversionedTypes(metav1.Unversioned,
+		&metav1.Status{},
+	)
+}
+
+const passthroughHeader = "X-Kcp-Api-V1-Discovery-Passthrough"
 
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
@@ -40,8 +66,8 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 			i := strings.Index(path, "/")
 			if i == -1 {
 				responsewriters.ErrorNegotiated(
-					errors.NewBadRequest(fmt.Sprintf("unable to parse cluster: no `/` found in path %s", path)),
-					scheme.Codecs, schema.GroupVersion{},
+					apierrors.NewBadRequest(fmt.Sprintf("unable to parse cluster: no `/` found in path %s", path)),
+					errorCodecs, schema.GroupVersion{},
 					w, req)
 				return
 			}
@@ -51,8 +77,8 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 				slash := strings.Index(req.URL.RawPath[1:], "/")
 				if slash == -1 {
 					responsewriters.ErrorNegotiated(
-						errors.NewInternalError(fmt.Errorf("unable to parse cluster when shortening raw path, have clusterName=%q, rawPath=%q", clusterName, req.URL.RawPath)),
-						scheme.Codecs, schema.GroupVersion{},
+						apierrors.NewInternalError(fmt.Errorf("unable to parse cluster when shortening raw path, have clusterName=%q, rawPath=%q", clusterName, req.URL.RawPath)),
+						errorCodecs, schema.GroupVersion{},
 						w, req)
 					return
 				}
@@ -72,8 +98,8 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		default:
 			if !reClusterName.MatchString(clusterName) {
 				responsewriters.ErrorNegotiated(
-					errors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", clusterName)),
-					scheme.Codecs, schema.GroupVersion{},
+					apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", clusterName)),
+					errorCodecs, schema.GroupVersion{},
 					w, req)
 				return
 			}
@@ -82,4 +108,135 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		ctx := genericapirequest.WithCluster(req.Context(), cluster)
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
 	}
+}
+
+func mergeCRDsIntoCoreGroup(crdLister v1.CustomResourceDefinitionLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
+	return func(req *restful.Request, res *restful.Response, chain *restful.FilterChain) {
+		ctx := req.Request.Context()
+		requestInfo, ok := genericapirequest.RequestInfoFrom(ctx)
+		if !ok {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewInternalError(fmt.Errorf("no RequestInfo found in the context")),
+				// TODO is this the right Codecs?
+				errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, res.ResponseWriter, req.Request,
+			)
+			return
+		}
+
+		// If it's not the core group, pass through
+		if requestInfo.APIGroup != "" {
+			chain.ProcessFilter(req, res)
+			return
+		}
+
+		//
+		// from here on we know it's the core group
+		//
+
+		if !requestInfo.IsResourceRequest && (req.Request.URL.Path == "/api/v1" || req.Request.URL.Path == "/api/v1/") {
+			// This is a discovery request. We may need to combine discovery from the GenericControlPlane (which has built-in v1 types)
+			// and CRDs, if there are any v1 CRDs.
+
+			// Because of the way the http handlers are configured for /api/v1, we have to do something a bit unique to make this work.
+			// /api/v1 is ultimately served by the GoRestfulContainer. This means we have to put a filter on it to be able to change the
+			// behavior. And because the filter runs for the client's initial /api/v1 request, and when we pass the request down to
+			// the generic control plane to get its discovery for /api/v1, we have to do something to short circuit our filter to
+			// avoid infinite recursion. This is done below using passthroughHeader.
+			//
+			// The initial request, from a client, won't have this header set. We set it and send the /api/v1 request to the generic control
+			// plane. This re-invokes this filter, but because the header is set, we pass the request through to the rest of the filter chain,
+			// meaning it will be sent to the generic control plane to return its /api/v1 discovery.
+
+			// If we are retrieving the GenericControlPlane's v1 APIResources, pass it through to the filter chain.
+			if _, passthrough := req.Request.Header[passthroughHeader]; passthrough {
+				chain.ProcessFilter(req, res)
+				return
+			}
+
+			// If we're here, it means it's an initial /api/v1 request from a client.
+
+			serveCoreV1Discovery(ctx, crdLister, coreHandler, res.ResponseWriter, req.Request)
+			return
+		}
+
+		if requestInfo.IsResourceRequest {
+			// This is a CRUD request for something like pods. Try to see if there is a CRD for the resource. If so, let the CRD
+			// server handle it.
+			crdName := requestInfo.Resource + ".core"
+			if _, err := crdLister.GetWithContext(ctx, crdName); err == nil {
+				crdHandler(res.ResponseWriter, req.Request)
+				return
+			}
+
+			// fall-through to the native types
+		}
+
+		// Fall back to pass through if we didn't match anything above
+		chain.ProcessFilter(req, res)
+	}
+}
+
+func serveCoreV1Discovery(ctx context.Context, crdLister v1.CustomResourceDefinitionLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
+	// Get all the CRDs (in the context's logical cluster) to see if any of them are in v1
+	crds, err := crdLister.ListWithContext(ctx, labels.Everything())
+	if err != nil {
+		// Listing from a lister can really only ever fail if invoking meta.Accesor() on an item in the list fails.
+		// Which means it essentially will never fail. But just in case...
+		err = apierrors.NewInternalError(fmt.Errorf("unable to serve /api/v1 discovery: error listing CustomResourceDefinitions: %w", err))
+		_ = responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, res, req)
+		return
+	}
+
+	// Generate discovery for the CRDs.
+	crdDiscovery := apiextensionsapiserver.APIResourcesForGroupVersion("", "v1", crds)
+	if len(crdDiscovery) == 0 {
+		// No v1 CRDs - let the request through.
+		chain.ProcessFilter(req, res)
+		return
+	}
+
+	// v1 CRDs present - need to clone the request, add our passthrough header, and get /api/v1 discovery from
+	// the GenericControlPlane's server.
+	cr := utilnet.CloneRequest(req)
+	cr.Header.Add(passthroughHeader, "1")
+
+	writer := newInMemoryResponseWriter()
+	coreHandler(writer, cr)
+	if writer.respCode != http.StatusOK {
+		// Write the response back to the client
+		res.WriteHeader(writer.respCode)
+		res.Write(writer.data) //nolint:errcheck
+		return
+	}
+
+	// Decode the response. Have to pass into correctly (instead of nil) because APIResourceList
+	// is "special" - it doesn't have an apiVersion field that the decoder needs to determine the
+	// type.
+	into := &metav1.APIResourceList{}
+	obj, _, err := aggregator.DiscoveryCodecs.UniversalDeserializer().Decode(writer.data, nil, into)
+	if err != nil {
+		err = apierrors.NewInternalError(fmt.Errorf("unable to serve /api/v1 discovery: error decoding /api/v1 response from generic control plane: %w", err))
+		_ = responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, res, req)
+		return
+	}
+	v1ResourceList, ok := obj.(*metav1.APIResourceList)
+	if !ok {
+		err = apierrors.NewInternalError(fmt.Errorf("unable to serve /api/v1 discovery: error decoding /api/v1 response from generic control plane: unexpected data type %T", obj))
+		_ = responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, res, req)
+		return
+	}
+
+	// Combine the 2 sets of discovery resources
+	v1ResourceList.APIResources = append(v1ResourceList.APIResources, crdDiscovery...)
+
+	// Sort based on resource name
+	sort.SliceStable(v1ResourceList.APIResources, func(i, j int) bool {
+		return v1ResourceList.APIResources[i].Name < v1ResourceList.APIResources[j].Name
+	})
+
+	// Serve up our combined discovery
+	versionHandler := apiserverdiscovery.NewAPIVersionHandler(aggregator.DiscoveryCodecs, schema.GroupVersion{Group: "", Version: "v1"}, apiserverdiscovery.APIResourceListerFunc(func() []metav1.APIResource {
+		return v1ResourceList.APIResources
+	}))
+	versionHandler.ServeHTTP(res, req)
 }
