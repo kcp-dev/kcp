@@ -36,6 +36,7 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/apiserver/pkg/util/webhook"
@@ -46,6 +47,8 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
+	"github.com/kcp-dev/kcp/pkg/authorization"
+	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -292,6 +295,12 @@ func (s *Server) Run(ctx context.Context) error {
 		return nil
 	})
 
+	orgAuth, orgResolver := authorization.NewOrgWorkspaceAuthorizer(s.kubeSharedInformerFactory)
+	localAuth, localResolver := authorization.NewLocalAuthorizer(s.kubeSharedInformerFactory)
+	apisConfig.GenericConfig.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
+	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(s.kubeSharedInformerFactory, union.New(orgAuth, localAuth))
+	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
+
 	// If additional API servers are added, they should be gated.
 	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
 		*apisConfig.GenericConfig,
@@ -327,7 +336,6 @@ func (s *Server) Run(ctx context.Context) error {
 			workspaceLister:       workspaceLister,
 		}
 	}
-
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
 	// try to issue Update() calls using the * client, which ends up with the cluster name being set to the default
 	// admin cluster in handler.go. This means the update calls are likely going against the wrong logical cluster.
@@ -428,6 +436,10 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if err := s.installKubeNamespaceController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+		return err
+	}
+
+	if err := s.installClusterRoleAggregationController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
