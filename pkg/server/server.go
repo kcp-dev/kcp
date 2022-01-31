@@ -588,117 +588,19 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.cfg.InstallClusterController {
-		if err := s.cfg.ClusterControllerOptions.Validate(); err != nil {
-			return err
-		}
-
-		kubeconfig := clientConfig.DeepCopy()
-		for _, cluster := range kubeconfig.Clusters {
-			hostURL, err := url.Parse(cluster.Server)
-			if err != nil {
-				return err
-			}
-			hostURL.Host = server.ExternalAddress
-			cluster.Server = hostURL.String()
-		}
-
-		if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
-			if err := s.waitForCRDServer(context.StopCh); err != nil {
-				return err
-			}
-
-			adaptedCtx := adaptContext(context)
-			return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory).Start(adaptedCtx)
-		}); err != nil {
+		if err := s.installClusterController(clientConfig, server); err != nil {
 			return err
 		}
 	}
 
-	if s.cfg.InstallWorkspaceController {
-		kubeconfig := clientConfig.DeepCopy()
-		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-		if err != nil {
-			return err
-		}
-
-		const clusterAll = "*" // TODO: find the correct place for this constant?
-
-		kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
-		if err != nil {
-			return err
-		}
-
-		workspaceController, err := workspace.NewController(
-			kcpClient,
-			s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-			s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
-		)
-		if err != nil {
-			return err
-		}
-
-		workspaceShardController, err := workspaceshard.NewController(
-			kcpClient,
-			s.kubeSharedInformerFactory.Core().V1().Secrets(),
-			s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
-		)
-		if err != nil {
-			return err
-		}
-
-		if err := server.AddPostStartHook("install-workspace-controller", func(context genericapiserver.PostStartHookContext) error {
-			if err := s.waitForCRDServer(context.StopCh); err != nil {
-				return err
-			}
-
-			// Register CRDs in both the admin and user logical clusters
-			requiredCrds := []metav1.GroupKind{
-				{Group: tenancyapi.GroupName, Kind: "workspaces"},
-				{Group: tenancyapi.GroupName, Kind: "workspaceshards"},
-			}
-			crdClient := apiextensionsv1client.NewForConfigOrDie(adminConfig).CustomResourceDefinitions()
-			if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
-				return err
-			}
-
-			ctx := adaptContext(context)
-			go workspaceController.Start(ctx, 2)
-			go workspaceShardController.Start(ctx, 2)
-
-			return nil
-		}); err != nil {
+	if s.cfg.InstallWorkspaceScheduler {
+		if err := s.installWorkspaceScheduler(ctx, clientConfig, server); err != nil {
 			return err
 		}
 	}
 
 	if s.cfg.InstallNamespaceScheduler {
-		kubeconfig := clientConfig.DeepCopy()
-		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-		if err != nil {
-			return err
-		}
-
-		kubeClient := kubernetes.NewForConfigOrDie(adminConfig)
-		disco := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
-		dynClient := dynamic.NewForConfigOrDie(adminConfig)
-
-		gvkTrans := gvk.NewGVKTranslator(adminConfig)
-
-		namespaceScheduler := kcpnamespace.NewController(
-			dynClient,
-			disco,
-			s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
-			s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters().Lister(),
-			s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-			s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
-			kubeClient.CoreV1().Namespaces(),
-			gvkTrans,
-		)
-
-		if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {
-			go namespaceScheduler.Start(ctx, 2)
-			return nil
-		}); err != nil {
+		if err := s.installNamespaceScheduler(ctx, clientConfig, server); err != nil {
 			return err
 		}
 	}
@@ -706,6 +608,125 @@ func (s *Server) Run(ctx context.Context) error {
 	prepared := server.PrepareRun()
 
 	return prepared.Run(ctx.Done())
+}
+
+func (s *Server) installNamespaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+	kubeconfig := clientConfig.DeepCopy()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	kubeClient := kubernetes.NewForConfigOrDie(adminConfig)
+	disco := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
+	dynClient := dynamic.NewForConfigOrDie(adminConfig)
+
+	gvkTrans := gvk.NewGVKTranslator(adminConfig)
+
+	namespaceScheduler := kcpnamespace.NewController(
+		dynClient,
+		disco,
+		s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
+		s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters().Lister(),
+		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
+		kubeClient.CoreV1().Namespaces(),
+		gvkTrans,
+	)
+
+	if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {
+		go namespaceScheduler.Start(ctx, 2)
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+	kubeconfig := clientConfig.DeepCopy()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	const clusterAll = "*" // TODO: find the correct place for this constant?
+
+	kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
+	if err != nil {
+		return err
+	}
+
+	workspaceController, err := workspace.NewController(
+		kcpClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+	)
+	if err != nil {
+		return err
+	}
+
+	workspaceShardController, err := workspaceshard.NewController(
+		kcpClient,
+		s.kubeSharedInformerFactory.Core().V1().Secrets(),
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook("install-workspace-scheduler", func(context genericapiserver.PostStartHookContext) error {
+		if err := s.waitForCRDServer(context.StopCh); err != nil {
+			return err
+		}
+
+		// Register CRDs in both the admin and user logical clusters
+		requiredCrds := []metav1.GroupKind{
+			{Group: tenancyapi.GroupName, Kind: "workspaces"},
+			{Group: tenancyapi.GroupName, Kind: "workspaceshards"},
+		}
+		crdClient := apiextensionsv1client.NewForConfigOrDie(adminConfig).CustomResourceDefinitions()
+		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
+			return err
+		}
+
+		ctx := adaptContext(context)
+		go workspaceController.Start(ctx, 2)
+		go workspaceShardController.Start(ctx, 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) installClusterController(clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+	if err := s.cfg.ClusterControllerOptions.Validate(); err != nil {
+		return err
+	}
+
+	kubeconfig := clientConfig.DeepCopy()
+	for _, cluster := range kubeconfig.Clusters {
+		hostURL, err := url.Parse(cluster.Server)
+		if err != nil {
+			return err
+		}
+		hostURL.Host = server.ExternalAddress
+		cluster.Server = hostURL.String()
+	}
+
+	if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
+		if err := s.waitForCRDServer(context.StopCh); err != nil {
+			return err
+		}
+
+		adaptedCtx := adaptContext(context)
+		return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory).Start(adaptedCtx)
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // AddPostStartHook allows you to add a PostStartHook that gets passed to the underlying genericapiserver implementation.
