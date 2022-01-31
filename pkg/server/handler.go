@@ -189,11 +189,6 @@ func serveCoreV1Discovery(ctx context.Context, crdLister v1.CustomResourceDefini
 
 	// Generate discovery for the CRDs.
 	crdDiscovery := apiextensionsapiserver.APIResourcesForGroupVersion("", "v1", crds)
-	if len(crdDiscovery) == 0 {
-		// No v1 CRDs - let the request through.
-		chain.ProcessFilter(req, res)
-		return
-	}
 
 	// v1 CRDs present - need to clone the request, add our passthrough header, and get /api/v1 discovery from
 	// the GenericControlPlane's server.
