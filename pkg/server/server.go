@@ -583,9 +583,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	prepared := server.PrepareRun()
-
-	return prepared.Run(ctx.Done())
+	return server.PrepareRun().Run(ctx.Done())
 }
 
 // AddPostStartHook allows you to add a PostStartHook that gets passed to the underlying genericapiserver implementation.
