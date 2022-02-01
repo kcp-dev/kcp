@@ -414,20 +414,6 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Add our custom hooks to the underlying api server
-	for _, entry := range s.postStartHooks {
-		err := server.AddPostStartHook(entry.name, entry.hook)
-		if err != nil {
-			return err
-		}
-	}
-	for _, entry := range s.preShutdownHooks {
-		err := server.AddPreShutdownHook(entry.name, entry.hook)
-		if err != nil {
-			return err
-		}
-	}
-
 	if err := s.installKubeNamespaceController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
@@ -450,6 +436,20 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.cfg.InstallNamespaceScheduler {
 		if err := s.installNamespaceScheduler(ctx, clientConfig, server); err != nil {
+			return err
+		}
+	}
+
+	// Add our custom hooks to the underlying api server
+	for _, entry := range s.postStartHooks {
+		err := server.AddPostStartHook(entry.name, entry.hook)
+		if err != nil {
+			return err
+		}
+	}
+	for _, entry := range s.preShutdownHooks {
+		err := server.AddPreShutdownHook(entry.name, entry.hook)
+		if err != nil {
 			return err
 		}
 	}
