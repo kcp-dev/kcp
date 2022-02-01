@@ -8,9 +8,17 @@ wait_command() {
 }
 
 cleanup() {
-    echo "Cleaning processes started by $1" 
+    echo "Cleaning processes started by $1"
+
     # kill all processes whose parent is this process
     pkill -P $$
+
+    # Podman 3.x Mac/kind workaround - clean up ssh control socket
+    if test -e "${DEMOS_DIR}/${PODMAN_SSH_CONTROL_SOCKET}"; then
+      pkill -f "${PODMAN_SSH_CONTROL_SOCKET}"
+    fi
+
+    # Is this used?
     eval "$2"
 }
 

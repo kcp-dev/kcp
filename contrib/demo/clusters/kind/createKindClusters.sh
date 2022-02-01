@@ -15,11 +15,76 @@
 # limitations under the License.
 
 set -o errexit
+set -o nounset
+set -o pipefail
+set -o xtrace
 
-DEMO_ROOT="$(dirname "${BASH_SOURCE}")/../.."
+if [[ -z "${CLUSTERS_DIR:-}" ]]; then
+    echo CLUSTERS_DIR is required
+    eixt 1
+fi
 
-kind create cluster --config ${DEMO_ROOT}/clusters/kind/us-east1.config --kubeconfig ${DEMO_ROOT}/clusters/kind/us-east1.kubeconfig
-sed -e 's/^/    /' ${DEMO_ROOT}/clusters/kind/us-east1.kubeconfig | cat ${DEMO_ROOT}/clusters/us-east1.yaml - > ${DEMO_ROOT}/clusters/kind/us-east1.yaml
+DEMO_ROOT="$(dirname "${BASH_SOURCE[0]}")/../.."
 
-kind create cluster --config ${DEMO_ROOT}/clusters/kind/us-west1.config --kubeconfig ${DEMO_ROOT}/clusters/kind/us-west1.kubeconfig
-sed -e 's/^/    /' ${DEMO_ROOT}/clusters/kind/us-west1.kubeconfig | cat ${DEMO_ROOT}/clusters/us-west1.yaml - > ${DEMO_ROOT}/clusters/kind/us-west1.yaml
+get_cluster_port() {
+    local cluster=kind-$1
+    local clusterPort
+    clusterPort=$(kubectl --kubeconfig "${CLUSTERS_DIR}/$1.kubeconfig" config view -o json | jq -r ".clusters[] | select(.name==\"${cluster}\").cluster.server" | cut -d ':' -f 3)
+    echo "${clusterPort}"
+}
+
+podman_ssh() {
+    local podmanMachine
+    podmanMachine="${PODMAN_MACHINE:-podman-machine-default*}"
+
+    local sshURL
+    sshURL=$(podman system connection ls --format=json | jq -r ".[]|select(.Name==\"${podmanMachine}\").URI" | grep -E -o 'ssh://[^:]+:\d+')
+
+    # Strip trailing * from machine name, if any, to get key name
+    local sshKey
+    sshKey="${HOME}/.ssh/${podmanMachine%'*'}"
+
+    # Need to use a subshell in DEMO_ROOT so the control socket arg isn't too long (ssh complains with a long absolute path)
+    (
+        cd "${DEMO_ROOT}"
+        ssh -o 'StrictHostKeyChecking no' -i "${sshKey}" "${sshURL}" -f -N -S "${PODMAN_SSH_CONTROL_SOCKET}" "$@"
+    )
+}
+
+detect_podman() {
+    if ! command -v podman; then
+        return
+    fi
+
+    if [[ -z "$(podman system connection ls --format=json)" ]]; then
+        return
+    fi
+
+    PODMAN_VERSION=$(podman version -f '{{.Server.Version}}')
+    PODMAN_MAJOR=$(echo "${PODMAN_VERSION}" | cut -d. -f1)
+    if [[ "${PODMAN_MAJOR}" == "3" ]]; then
+        PODMAN_MAC_SSH_WORKAROUND=1
+
+        # Setup the control socket if it's not already running
+        if ! test -S "${DEMO_ROOT}/${PODMAN_SSH_CONTROL_SOCKET}"; then
+            podman_ssh -M
+        fi
+    fi
+}
+
+detect_podman
+
+CLUSTERS=(
+    us-east1
+    us-west1
+)
+
+for cluster in "${CLUSTERS[@]}"; do
+    kind create cluster --config "${DEMO_ROOT}/clusters/kind/${cluster}.config" --kubeconfig "${DEMO_ROOT}/clusters/kind/${cluster}.kubeconfig"
+    sed -e 's/^/    /' "${DEMO_ROOT}/clusters/kind/${cluster}.kubeconfig" | cat "${DEMO_ROOT}/clusters/${cluster}.yaml" - > "${DEMO_ROOT}/clusters/kind/${cluster}.yaml"
+
+    if [[ -n "${PODMAN_MAC_SSH_WORKAROUND:-}" ]]; then
+        clusterPort=$(get_cluster_port "${cluster}")
+        podman_ssh -L "${clusterPort}:localhost:${clusterPort}"
+    fi
+done

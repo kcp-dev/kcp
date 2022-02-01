@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -o errexit
+
 export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
 source "${DEMO_DIR}"/../.setupEnv
 
