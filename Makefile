@@ -106,19 +106,19 @@ test: install
 
 .PHONY: demos
 demos: build ## Runs all the default demos (kubecon and apiNegotiation).
-	cd contrib/demo && ./runDemos.sh 
+	cd contrib/demo && ./runDemoScripts.sh
 
 .PHONY: demo-apinegotiation
 demo-apinegotiation: build ## Run the API Negotiation demo.
-	cd contrib/demo && ./runDemos.sh apiNegotiation
+	cd contrib/demo && ./runDemoScripts.sh apiNegotiation
 
 .PHONY: demo-kubecon
 demo-kubecon: build ## Run the KubeCon demo.
-	cd contrib/demo && ./runDemos.sh kubecon
+	cd contrib/demo && ./runDemoScripts.sh kubecon
 
 .PHONY: demo-ingress
 demo-ingress: build ## Run the Ingress demo.
-	cd contrib/demo && ./runDemos.sh ingress
+	cd contrib/demo && ./runDemoScripts.sh ingress
 
 .PHONY: help
 help: ## Show this help.
