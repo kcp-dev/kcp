@@ -27,7 +27,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -282,15 +281,9 @@ func (s *Server) Run(ctx context.Context) error {
 		s.kubeSharedInformerFactory.Start(context.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(context.StopCh)
 
-		if err := AllInSync(s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)); err != nil {
-			return err
-		}
-		if err := AllInSync(s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)); err != nil {
-			return err
-		}
-		if err := AllInSync(s.apiextensionsSharedInformerFactory.WaitForCacheSync(context.StopCh)); err != nil {
-			return err
-		}
+		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
+		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
+		s.apiextensionsSharedInformerFactory.WaitForCacheSync(context.StopCh)
 
 		return nil
 	})
@@ -482,19 +475,6 @@ func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdo
 		name: name,
 		hook: hook,
 	})
-}
-
-func AllInSync(syncStatus map[reflect.Type]bool) error {
-	notInSync := []reflect.Type{}
-	for t, synced := range syncStatus {
-		if !synced {
-			notInSync = append(notInSync, t)
-		}
-	}
-	if len(notInSync) > 0 {
-		return fmt.Errorf("failed to wait for caches to sync: %v", notInSync)
-	}
-	return nil
 }
 
 // goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not

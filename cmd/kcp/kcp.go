@@ -17,13 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/signal"
 
 	"github.com/spf13/cobra"
 
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
@@ -71,10 +70,7 @@ func main() {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
-			defer cancel()
-			srv := server.NewServer(cfg)
-			return srv.Run(ctx)
+			return server.NewServer(cfg).Run(genericapiserver.SetupSignalContext())
 		},
 	}
 	cfg = server.BindOptions(server.DefaultConfig(), startCmd.Flags())
