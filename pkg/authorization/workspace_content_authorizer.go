@@ -32,6 +32,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
@@ -73,18 +74,14 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	if cluster == nil || cluster.Name == "" {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
-	reqScope := cluster.Name
-
-	// future: when we have org workspaces, after Steve's proxy PR merged
-	// Probably like system:org-replica:reqScope.Name().
-	// TODO: not completely true: we will have a (partial) replica of the org workspace on this shard, which holds the necessary
-	//       RBAC objects to do this very authorization work.
-	// For now, "admin" is our org workspace:
-	orgWorkspace := "admin"
+	orgWorkspace, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
+	if err != nil {
+		return authorizer.DecisionNoOpinion, "", err
+	}
 
 	// check the workspace even exists
 	// TODO: using scoping when available
-	if _, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, reqScope)); err != nil {
+	if _, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, workspace)); err != nil {
 		if errors.IsNotFound(err) {
 			return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
 		}
@@ -113,12 +110,13 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	)
 	for verb, group := range verbToGroupMembership {
 		workspaceAttr := authorizer.AttributesRecord{
-			User:        attr.GetUser(),
-			Verb:        verb,
-			APIGroup:    v1alpha1.SchemeGroupVersion.Group,
-			APIVersion:  v1alpha1.SchemeGroupVersion.Version,
-			Resource:    "workspaces",
-			Subresource: "content", Name: reqScope, // TODO: parse and remove org prefix as soon as Steve's proxy PR merges
+			User:            attr.GetUser(),
+			Verb:            verb,
+			APIGroup:        v1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      v1alpha1.SchemeGroupVersion.Version,
+			Resource:        "workspaces",
+			Subresource:     "content",
+			Name:            workspace,
 			ResourceRequest: true,
 		}
 
