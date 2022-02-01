@@ -39,7 +39,7 @@ const clusterLabel = "kcp.dev/cluster"
 // any type, to match the cluster where its namespace is assigned.
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName string, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
 
-	if gvr.Group == "networking.k8s.io" && gvr.Version == "v1" && gvr.Resource == "ingresses" {
+	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
 		klog.V(2).Infof("Skipping reconciliation of ingress %s/%s", unstr.GetNamespace(), unstr.GetName())
 		return nil
 	}
