@@ -17,15 +17,14 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"errors"
 	"os"
-	"os/signal"
 	"runtime"
 	"time"
 
 	"github.com/spf13/pflag"
 
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -66,9 +65,7 @@ func (o *options) Validate() error {
 }
 
 func main() {
-	// Setup signal handler for a cleaner shutdown
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
-	defer cancel()
+	ctx := genericapiserver.SetupSignalContext()
 
 	fs := pflag.NewFlagSet("shard-proxy", pflag.ExitOnError)
 	o := bindOptions(defaultOptions(), fs)
