@@ -60,7 +60,6 @@ type Config struct {
 	EtcdClientPort            string
 	EtcdWalSizeBytes          int64
 	CertKey                   serveroptions.CertKey
-	ServerCAFile              string
 	InstallClusterController  bool
 	ClusterControllerOptions  *cluster.Options
 	InstallWorkspaceScheduler bool
