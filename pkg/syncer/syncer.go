@@ -93,9 +93,8 @@ type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	fromDSIF dynamicinformer.DynamicSharedInformerFactory
-
-	toClient dynamic.Interface
+	fromInformers dynamicinformer.DynamicSharedInformerFactory
+	toClient      dynamic.Interface
 
 	upsertFn  UpsertFunc
 	deleteFn  DeleteFunc
@@ -126,7 +125,7 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 		c.upsertFn = c.updateStatusInUpstream
 	}
 
-	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", clusterID)
 	})
 
@@ -139,12 +138,12 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 
-		if _, err := fromDSIF.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
+		if _, err := fromInformers.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
 			klog.Infof("Failed to list all %q: %v", gvrstr, err)
 			return nil, err
 		}
 
-		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if c.direction == KcpToPhysicalCluster {
@@ -162,7 +161,7 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 		klog.Infof("Set up informer for %v", gvr)
 	}
 
-	c.fromDSIF = fromDSIF
+	c.fromInformers = fromInformers
 
 	return &c, nil
 }
@@ -259,8 +258,8 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	c.ctx, c.cancelFn = context.WithCancel(ctx)
 
-	c.fromDSIF.Start(ctx.Done())
-	c.fromDSIF.WaitForCacheSync(ctx.Done())
+	c.fromInformers.Start(ctx.Done())
+	c.fromInformers.WaitForCacheSync(ctx.Done())
 
 	for i := 0; i < numThreads; i++ {
 		go c.startWorker(ctx)
@@ -384,7 +383,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		}
 	}
 
-	obj, exists, err := c.fromDSIF.ForResource(gvr).Informer().GetIndexer().Get(obj)
+	obj, exists, err := c.fromInformers.ForResource(gvr).Informer().GetIndexer().Get(obj)
 	if err != nil {
 		klog.Error(err)
 		return err
