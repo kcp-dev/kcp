@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	goflags "flag"
 	"fmt"
 	"os"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/cmd"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
@@ -51,13 +53,18 @@ func main() {
 		SilenceErrors: true,
 	}
 
+	// setup klog
+	fs := goflags.NewFlagSet("klog", goflags.PanicOnError)
+	klog.InitFlags(fs)
+	root.PersistentFlags().AddGoFlagSet(fs)
+
 	workspaceCmd, err := cmd.NewCmdWorkspace(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-
 	root.AddCommand(workspaceCmd)
+
 	if err := root.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
