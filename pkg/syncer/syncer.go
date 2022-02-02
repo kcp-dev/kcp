@@ -161,8 +161,7 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 		})
 		klog.Infof("Set up informer for %v", gvr)
 	}
-	fromDSIF.WaitForCacheSync(stopCh)
-	fromDSIF.Start(stopCh)
+
 	c.fromDSIF = fromDSIF
 
 	return &c, nil
@@ -259,6 +258,10 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 // Start starts N worker processes processing work items.
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	c.ctx, c.cancelFn = context.WithCancel(ctx)
+
+	c.fromDSIF.Start(ctx.Done())
+	c.fromDSIF.WaitForCacheSync(ctx.Done())
+
 	for i := 0; i < numThreads; i++ {
 		go c.startWorker(ctx)
 	}
