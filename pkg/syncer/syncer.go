@@ -330,41 +330,18 @@ func (c *Controller) handleErr(err error, i interface{}) {
 const nsDelimiter = "--"
 const nsTemplate = "kcp" + nsDelimiter + "%s" + nsDelimiter + "%s"
 
-type nameTransformer struct {
-	clusterName string
-	namespace   string
+func toCluster(clusterName, kcpNamespace string) (namespace string) {
+	return fmt.Sprintf(nsTemplate, clusterName, kcpNamespace)
 }
 
-func (n *nameTransformer) toCluster() string {
-	return fmt.Sprintf(nsTemplate, n.clusterName, n.namespace)
-}
-
-func toKcp(namespace string) (*nameTransformer, error) {
+func toKcp(namespace string) (clusterName, kcpNamespace string, err error) {
 	segments := strings.Split(namespace, nsDelimiter)
 
 	if len(segments) != 3 {
-		return nil, fmt.Errorf("Failed to transform name: %s", namespace)
+		return "", "", fmt.Errorf("Failed to transform name: %s", namespace)
 	}
 
-	return &nameTransformer{
-		clusterName: segments[1],
-		namespace:   segments[2],
-	}, nil
-}
-
-func transformForCluster(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
-	t := nameTransformer{
-		clusterName: meta.GetClusterName(),
-		namespace:   meta.GetNamespace(),
-	}
-
-	return meta.GetName(), t.toCluster(), nil
-}
-
-func transformForKcp(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
-	name := meta.GetNamespace()
-	transformer, err := toKcp(name)
-	return meta.GetName(), transformer.namespace, err
+	return segments[1], segments[2], nil
 }
 
 func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
