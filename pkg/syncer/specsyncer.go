@@ -79,36 +79,21 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterI
 	return New(fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, clusterID)
 }
 
-func deleteFromDownstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
+func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
 	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
 	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
 
-	return c.getClient(gvr, namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	return c.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-// TODO:
-// This function is there as a quick and dirty implementation of namespace creation.
-// In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
+// TODO: This function is there as a quick and dirty implementation of namespace creation.
+//       In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
 func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string) error {
 	namespaces := c.toClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
 		Resource: "namespaces",
 	})
-
-	// See if we need to create the target namespace
-	_, err := namespaces.Get(ctx, namespace, metav1.GetOptions{})
-	if err == nil {
-		// Already exists - all good
-		return nil
-	}
-
-	if !k8serrors.IsNotFound(err) {
-		// Got some error besides not-found - stop & return.
-		// TODO bubble this up as a condition somewhere.
-		klog.Errorf("Error checking if namespace %q exists: %v", namespace, err)
-		return err
-	}
 
 	// Not found - try to create
 	newNamespace := &unstructured.Unstructured{}
@@ -128,47 +113,50 @@ func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string
 	return nil
 }
 
-func upsertIntoDownstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
+func (c *Controller) upsertIntoDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace string, obj *unstructured.Unstructured) error {
 	if err := c.ensureNamespaceExists(ctx, namespace); err != nil {
 		return err
 	}
 
-	client := c.getClient(gvr, namespace)
-
 	// Attempt to create the object; if the object already exists, update it.
-	unstrob.SetUID("")
-	unstrob.SetResourceVersion("")
+	obj = obj.DeepCopy()
+	obj.SetUID("")
+	obj.SetResourceVersion("")
+	obj.SetNamespace(namespace)
 
-	ownedByLabel := unstrob.GetLabels()["kcp.dev/owned-by"]
+	ownedByLabel := obj.GetLabels()["kcp.dev/owned-by"]
 	var ownerReferences []metav1.OwnerReference
-	for _, reference := range unstrob.GetOwnerReferences() {
+	for _, reference := range obj.GetOwnerReferences() {
 		if reference.Name == ownedByLabel {
 			continue
 		}
 		ownerReferences = append(ownerReferences, reference)
 	}
-	unstrob.SetOwnerReferences(ownerReferences)
+	obj.SetOwnerReferences(ownerReferences)
 
-	if _, err := client.Create(ctx, unstrob, metav1.CreateOptions{}); err != nil {
+	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
+	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
+
+	if _, err := c.toClient.Resource(gvr).Namespace(namespace).Create(ctx, obj, metav1.CreateOptions{}); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			klog.Errorf("Creating resource %s/%s: %v", namespace, unstrob.GetName(), err)
+			klog.Errorf("Creating resource %s/%s: %v", namespace, obj.GetName(), err)
 			return err
 		}
 
-		existing, err := client.Get(ctx, unstrob.GetName(), metav1.GetOptions{})
+		existing, err := c.toClient.Resource(gvr).Namespace(namespace).Get(ctx, obj.GetName(), metav1.GetOptions{})
 		if err != nil {
-			klog.Errorf("Getting resource %s/%s: %v", namespace, unstrob.GetName(), err)
+			klog.Errorf("Getting resource %s/%s: %v", namespace, obj.GetName(), err)
 			return err
 		}
-		klog.Infof("Object %s/%s already exists: update it", gvr.Resource, unstrob.GetName())
+		klog.Infof("Object %s/%s already exists: update it", gvr.Resource, obj.GetName())
 
-		unstrob.SetResourceVersion(existing.GetResourceVersion())
-		if _, err := client.Update(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Updating resource %s/%s: %v", namespace, unstrob.GetName(), err)
+		obj.SetResourceVersion(existing.GetResourceVersion())
+		if _, err := c.toClient.Resource(gvr).Namespace(namespace).Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+			klog.Errorf("Updating resource %s/%s: %v", namespace, obj.GetName(), err)
 			return err
 		}
 		return nil
 	}
-	klog.Infof("Created object %s/%s", gvr.Resource, unstrob.GetName())
+	klog.Infof("Created object %s/%s", gvr.Resource, obj.GetName())
 	return nil
 }

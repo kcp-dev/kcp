@@ -86,8 +86,8 @@ func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resourc
 	}, nil
 }
 
-type UpsertFunc func(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
-type DeleteFunc func(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
+type UpsertFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
+type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
 type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
 
 type Controller struct {
@@ -344,7 +344,7 @@ func toKcp(namespace string) (clusterName, kcpNamespace string, err error) {
 	return segments[1], segments[2], nil
 }
 
-func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
+func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, obj interface{}) error {
 	klog.V(2).Infof("Process object of type: %T : %v", obj, obj)
 	meta, isMeta := obj.(metav1.Object)
 	if !isMeta {
@@ -364,31 +364,25 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 
 	namespace := meta.GetNamespace()
 
-	if namespace == "" {
-		klog.V(2).Infof("Skipping cluster-level resource: %T : %v", obj, obj)
+	if namespace == "" || namespace == c.syncerNamespace {
+		// skipping cluster-level objects and those in syncer namespace
+		// TODO: why do we watch cluster level objects?!
 		return nil
 	}
 
-	// This must be checked before the namespace is transformed
-	if c.inSyncerNamespace(meta) {
-		klog.V(2).Infof("Skipping object of type: %T : %v in syncer namespace", obj, obj)
-		return nil
-	}
-
-	var targetName, targetNamespace string
-	var err error
+	targetName := meta.GetName()
+	var targetNamespace string
 	if c.direction == KcpToPhysicalCluster {
-		targetName, targetNamespace, err = transformForCluster(gvr, meta)
+		targetNamespace = toCluster(meta.GetClusterName(), meta.GetNamespace())
 	} else {
-		targetName, targetNamespace, err = transformForKcp(gvr, meta)
+		var err error
+		_, targetNamespace, err = toKcp(meta.GetNamespace())
+		if err != nil {
+			// this is not our namespace, silently skipping
+			//nolint:nilerr
+			return nil
+		}
 	}
-
-	if err != nil {
-		klog.Errorf("Cannot reconcile. Refusing to retry: %w", err)
-		return nil
-	}
-
-	ctx := context.TODO()
 
 	obj, exists, err := c.fromDSIF.ForResource(gvr).Informer().GetIndexer().Get(obj)
 	if err != nil {
@@ -398,7 +392,7 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 
 	if !exists && c.deleteFn != nil {
 		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, meta.GetName())
-		return c.deleteFn(c, ctx, gvr, targetNamespace, targetName)
+		return c.deleteFn(ctx, gvr, targetNamespace, targetName)
 	}
 
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
@@ -409,20 +403,8 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	}
 
 	if c.upsertFn != nil {
-		unstrob = unstrob.DeepCopy()
-		unstrob.SetNamespace(targetNamespace)
-		return c.upsertFn(c, ctx, gvr, targetNamespace, unstrob)
+		return c.upsertFn(ctx, gvr, targetNamespace, unstrob)
 	}
 
 	return err
 }
-
-// getClient gets a dynamic client for the GVR, scoped to namespace if the namespace is not "".
-func (c *Controller) getClient(gvr schema.GroupVersionResource, namespace string) dynamic.ResourceInterface {
-	nri := c.toClient.Resource(gvr)
-	if namespace != "" {
-		return nri.Namespace(namespace)
-	}
-	return nri
-}
-

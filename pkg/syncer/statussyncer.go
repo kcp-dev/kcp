@@ -63,22 +63,24 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, cluste
 	return New(discoveryClient, fromClient, toClient, PhysicalClusterToKcp, syncedResourceTypes, clusterID)
 }
 
-func updateStatusInUpstream(c *Controller, ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error {
-	client := c.getClient(gvr, namespace)
+func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, namespace string, obj *unstructured.Unstructured) error {
+	obj = obj.DeepCopy()
+	obj.SetUID("")
+	obj.SetResourceVersion("")
+	obj.SetNamespace(namespace)
 
-	// Attempt to create the object; if the object already exists, update it.
-	unstrob.SetUID("")
-	unstrob.SetResourceVersion("")
-
-	existing, err := client.Get(ctx, unstrob.GetName(), metav1.GetOptions{})
+	existing, err := c.toClient.Resource(gvr).Namespace(namespace).Get(ctx, obj.GetName(), metav1.GetOptions{})
 	if err != nil {
-		klog.Errorf("Getting resource %s/%s: %v", namespace, unstrob.GetName(), err)
+		klog.Errorf("Getting resource %s/%s: %v", namespace, obj.GetName(), err)
 		return err
 	}
 
-	unstrob.SetResourceVersion(existing.GetResourceVersion())
-	if _, err := client.UpdateStatus(ctx, unstrob, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Updating status of resource %s/%s: %v", namespace, unstrob.GetName(), err)
+	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.
+	//       I believe to remember that we had resources where that happened.
+
+	obj.SetResourceVersion(existing.GetResourceVersion())
+	if _, err := c.toClient.Resource(gvr).Namespace(namespace).UpdateStatus(ctx, obj, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("Updating status of resource %s/%s: %v", namespace, obj.GetName(), err)
 		return err
 	}
 
