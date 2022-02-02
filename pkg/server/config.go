@@ -22,10 +22,10 @@ import (
 
 	"github.com/spf13/pflag"
 
-	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
-
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	serveroptions "k8s.io/apiserver/pkg/server/options"
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 )
 
 // DefaultConfig is the default behavior of the KCP server.
@@ -35,6 +35,7 @@ func DefaultConfig() *Config {
 		EtcdDirectory:             "",
 		EtcdPeerPort:              "2380",
 		EtcdClientPort:            "2379",
+		CertKey:                   serveroptions.CertKey{},
 		InstallClusterController:  false,
 		ClusterControllerOptions:  cluster.DefaultOptions(),
 		InstallWorkspaceScheduler: false,
@@ -57,6 +58,8 @@ type Config struct {
 	EtcdPeerPort              string
 	EtcdClientPort            string
 	EtcdWalSizeBytes          int64
+	CertKey                   serveroptions.CertKey
+	ServerCAFile              string
 	InstallClusterController  bool
 	ClusterControllerOptions  *cluster.Options
 	InstallWorkspaceScheduler bool
@@ -81,6 +84,9 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.StringVar(&c.EtcdClientInfo.KeyFile, "etcd-keyfile", c.EtcdClientInfo.KeyFile, "TLS key file used to secure etcd communication.")
 	fs.StringVar(&c.EtcdClientInfo.CertFile, "etcd-certfile", c.EtcdClientInfo.CertFile, "TLS certification file used to secure etcd communication.")
 	fs.StringVar(&c.EtcdClientInfo.TrustedCAFile, "etcd-cafile", c.EtcdClientInfo.TrustedCAFile, "TLS Certificate Authority file used to secure etcd communication.")
+	fs.StringVar(&c.CertKey.KeyFile, "server-keyfile", c.CertKey.KeyFile, "TLS key file used to secure server communication.")
+	fs.StringVar(&c.CertKey.CertFile, "server-certfile", c.CertKey.CertFile, "TLS certification file used to secure server communication.")
+	fs.StringVar(&c.ServerCAFile, "server-cafile", c.ServerCAFile, "TLS Certificate Authority file used to secure server communication.")
 	fs.StringVar(&c.ProfilerAddress, "profiler-address", c.ProfilerAddress, "[Address]:port to bind the profiler to.")
 	fs.StringVar(&c.ShardKubeconfigFile, "shard-kubeconfig-file", c.ShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to peer kcp shards.")
 	fs.BoolVar(&c.EnableSharding, "enable-sharding", c.EnableSharding, "Enable delegating to peer kcp shards.")

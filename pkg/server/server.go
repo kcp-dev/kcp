@@ -228,7 +228,12 @@ func (s *Server) Run(ctx context.Context) error {
 		return apiHandler
 	}
 
-	serverOptions.SecureServing.ServerCert.CertDirectory = etcdDir
+	if s.cfg.CertKey.CertFile != "" && s.cfg.CertKey.KeyFile != "" {
+		serverOptions.SecureServing.ServerCert.CertKey = s.cfg.CertKey
+	} else {
+		serverOptions.SecureServing.ServerCert.CertDirectory = etcdDir
+	}
+
 	serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
 		ServerList:    s.cfg.EtcdClientInfo.Endpoints,
 		CertFile:      s.cfg.EtcdClientInfo.CertFile,
