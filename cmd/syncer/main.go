@@ -91,7 +91,7 @@ func main() {
 	defer cancel()
 
 	klog.Infoln("Starting workers")
-	syncer, err := syncer.StartSyncer(fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads)
+	syncer, err := syncer.StartSyncer(ctx, fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads)
 	if err != nil {
 		klog.Fatal(err)
 	}
