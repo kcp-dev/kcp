@@ -57,7 +57,7 @@ const sourceClusterName, sinkClusterName = "source", "sink"
 func TestIngressController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client networkingclient.IngressInterface
+		client networkingclient.NetworkingV1Interface
 		expect RegisterIngressExpectation
 	}
 	var testCases = []struct {
@@ -80,15 +80,18 @@ func TestIngressController(t *testing.T) {
 					return
 				}
 
-				ingress, err = servers[sourceClusterName].client.Create(ctx, ingress, metav1.CreateOptions{})
+				ingress, err = servers[sourceClusterName].client.Ingresses(testNamespace).Create(ctx, ingress, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create ingress: %v", err)
 					return
 				}
 
-				ingress.Name = ingress.Name + "--" + clusterName
-				if err := servers[sinkClusterName].expect(ingress, func(object *v1.Ingress) error {
-					if diff := cmp.Diff(ingress.Spec, object.Spec); diff != "" {
+				targetNamespace := fmt.Sprintf("kcp--%s--%s", ingress.GetClusterName(), ingress.GetNamespace())
+				expectedIngress := ingress.DeepCopy()
+				expectedIngress.Name = ingress.Name + "--" + clusterName
+				expectedIngress.SetNamespace(targetNamespace)
+				if err := servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
+					if diff := cmp.Diff(expectedIngress.Spec, object.Spec); diff != "" {
 						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
 					}
 					return nil
@@ -113,14 +116,16 @@ func TestIngressController(t *testing.T) {
 					return
 				}
 
-				ingress, err = servers[sourceClusterName].client.Create(ctx, ingress, metav1.CreateOptions{})
+				ingress, err = servers[sourceClusterName].client.Ingresses(testNamespace).Create(ctx, ingress, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create ingress: %v", err)
 					return
 				}
 
 				expectedIngress := ingress.DeepCopy()
+				targetNamespace := fmt.Sprintf("kcp--%s--%s", expectedIngress.GetClusterName(), expectedIngress.GetNamespace())
 				expectedIngress.Name = expectedIngress.Name + "--" + clusterName
+				expectedIngress.Namespace = targetNamespace
 				if err := servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
 					if diff := cmp.Diff(expectedIngress.Spec, object.Spec); diff != "" {
 						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
@@ -132,12 +137,13 @@ func TestIngressController(t *testing.T) {
 				}
 
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					ingress, err := servers[sourceClusterName].client.Get(ctx, ingress.Name, metav1.GetOptions{})
+					c := servers[sourceClusterName].client.Ingresses(testNamespace)
+					ingress, err := c.Get(ctx, ingress.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					ingress.Spec.Rules[0].Host = "valid-ingress-2.kcp-apps.127.0.0.1.nip.io"
-					_, err = servers[sourceClusterName].client.Update(ctx, ingress, metav1.UpdateOptions{})
+					_, err = c.Update(ctx, ingress, metav1.UpdateOptions{})
 					if err != nil {
 						return err
 					}
@@ -150,6 +156,7 @@ func TestIngressController(t *testing.T) {
 				}
 
 				ingress.Name = ingress.Name + "--" + clusterName
+				ingress.Namespace = targetNamespace
 				if err := servers[sinkClusterName].expect(ingress, func(object *v1.Ingress) error {
 					if ingress.Spec.Rules[0].Host != object.Spec.Rules[0].Host {
 						return fmt.Errorf("saw incorrect spec on sink cluster, expected host %s, got %s", ingress.Spec.Rules[0].Host, object.Spec.Rules[0].Host)
@@ -203,10 +210,6 @@ func TestIngressController(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			if err := framework.InstallNamespace(ctx, sink, crdName, testNamespace); err != nil {
-				t.Error(err)
-				return
-			}
 
 			if err := installService(ctx, source); err != nil {
 				t.Error(err)
@@ -239,7 +242,7 @@ func TestIngressController(t *testing.T) {
 				}
 				runningServers[name] = runningServer{
 					RunningServer: servers[name],
-					client:        kubeClient.NetworkingV1().Ingresses(testNamespace),
+					client:        kubeClient.NetworkingV1(),
 					expect:        expect,
 				}
 			}

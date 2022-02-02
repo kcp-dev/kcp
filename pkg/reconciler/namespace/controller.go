@@ -56,6 +56,7 @@ func NewController(
 	namespaceLister corelisters.NamespaceLister,
 	namespaceClient coreclient.NamespaceInterface,
 	gvkTrans *gvk.GVKTranslator,
+	pollInterval time.Duration,
 ) *Controller {
 
 	resourceQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -99,7 +100,7 @@ func NewController(
 			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
 			UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueResource(gvr, obj) },
 			DeleteFunc: nil, // Nothing to do.
-		})
+		}, pollInterval)
 
 	return c
 }

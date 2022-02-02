@@ -41,6 +41,15 @@ import (
 const resyncPeriod = 10 * time.Hour
 const SyncerNamespaceKey = "SYNCER_NAMESPACE"
 
+// Direction indicates which direction data is flowing for this particular syncer
+type Direction string
+
+// KcpToPhysicalCluster indicates a syncer watches resources on KCP and applies the spec to the target cluster
+const KcpToPhysicalCluster Direction = "kcpToPhysicalCluster"
+
+// PhysicalClusterToKcp indicates a syncer watches resources on the target cluster and applies the status to KCP
+const PhysicalClusterToKcp Direction = "physicalClusterToKcp"
+
 type Syncer struct {
 	specSyncer   *Controller
 	statusSyncer *Controller
@@ -84,36 +93,42 @@ type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	// Upstream
 	fromDSIF dynamicinformer.DynamicSharedInformerFactory
 
-	// Downstream
 	toClient dynamic.Interface
 
 	stopCh chan struct{}
 
-	upsertFn UpsertFunc
-	deleteFn DeleteFunc
+	upsertFn  UpsertFunc
+	deleteFn  DeleteFunc
+	direction Direction
 
 	namespace string
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, upsertFn UpsertFunc, deleteFn DeleteFunc, handlers HandlersProvider, syncedResourceTypes []string, clusterID string) (*Controller, error) {
+func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	stopCh := make(chan struct{})
 
+	var upsertFn UpsertFunc
+	var deleteFn DeleteFunc
+
+	if direction == KcpToPhysicalCluster {
+		upsertFn = upsertIntoDownstream
+		deleteFn = deleteFromDownstream
+	} else {
+		upsertFn = updateStatusInUpstream
+	}
+
 	c := Controller{
-		// TODO: should we have separate upstream and downstream sync workqueues?
-		queue: queue,
-
-		toClient: toClient,
-
-		stopCh: stopCh,
-
+		queue:     queue,
+		toClient:  toClient,
+		stopCh:    stopCh,
+		direction: direction,
+		namespace: os.Getenv(SyncerNamespaceKey),
 		upsertFn:  upsertFn,
 		deleteFn:  deleteFn,
-		namespace: os.Getenv(SyncerNamespaceKey),
 	}
 
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -134,7 +149,21 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 			return nil, err
 		}
 
-		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(handlers(&c, *gvr))
+		fromDSIF.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if c.direction == KcpToPhysicalCluster {
+					if !deepEqualApartFromStatus(oldObj, newObj) {
+						c.AddToQueue(*gvr, newObj)
+					}
+				} else {
+					if !deepEqualStatus(oldObj, newObj) {
+						c.AddToQueue(*gvr, newObj)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+		})
 		klog.Infof("Set up informer for %v", gvr)
 	}
 	fromDSIF.WaitForCacheSync(stopCh)
@@ -170,7 +199,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 			return nil, err
 		}
 	}
-	var gvrstrs []string
+	gvrstrs := []string{"namespaces.v1."} // A syncer should always watch namespaces
 	for _, r := range rs {
 		// v1 -> v1.
 		// apps/v1 -> v1.apps
@@ -299,6 +328,46 @@ func (c *Controller) handleErr(err error, i interface{}) {
 	klog.Errorf("Dropping key %q after failed retries: %v", i, err)
 }
 
+const nsDelimiter = "--"
+const nsTemplate = "kcp" + nsDelimiter + "%s" + nsDelimiter + "%s"
+
+type nameTransformer struct {
+	clusterName string
+	namespace   string
+}
+
+func (n *nameTransformer) toCluster() string {
+	return fmt.Sprintf(nsTemplate, n.clusterName, n.namespace)
+}
+
+func toKcp(namespace string) (*nameTransformer, error) {
+	segments := strings.Split(namespace, nsDelimiter)
+
+	if len(segments) != 3 {
+		return nil, fmt.Errorf("Failed to transform name: %s", namespace)
+	}
+
+	return &nameTransformer{
+		clusterName: segments[1],
+		namespace:   segments[2],
+	}, nil
+}
+
+func transformForCluster(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
+	t := nameTransformer{
+		clusterName: meta.GetClusterName(),
+		namespace:   meta.GetNamespace(),
+	}
+
+	return meta.GetName(), t.toCluster(), nil
+}
+
+func transformForKcp(gvr schema.GroupVersionResource, meta metav1.Object) (string, string, error) {
+	name := meta.GetNamespace()
+	transformer, err := toKcp(name)
+	return meta.GetName(), transformer.namespace, err
+}
+
 func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) error {
 	klog.V(2).Infof("Process object of type: %T : %v", obj, obj)
 	meta, isMeta := obj.(metav1.Object)
@@ -316,9 +385,30 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 			return err
 		}
 	}
-	namespace, name := meta.GetNamespace(), meta.GetName()
-	if c.inSyncerNamespace(namespace) {
+
+	namespace := meta.GetNamespace()
+
+	if namespace == "" {
+		klog.V(2).Infof("Skipping cluster-level resource: %T : %v", obj, obj)
+		return nil
+	}
+
+	// This must be checked before the namespace is transformed
+	if c.inSyncerNamespace(meta) {
 		klog.V(2).Infof("Skipping object of type: %T : %v in syncer namespace", obj, obj)
+		return nil
+	}
+
+	var targetName, targetNamespace string
+	var err error
+	if c.direction == KcpToPhysicalCluster {
+		targetName, targetNamespace, err = transformForCluster(gvr, meta)
+	} else {
+		targetName, targetNamespace, err = transformForKcp(gvr, meta)
+	}
+
+	if err != nil {
+		klog.Errorf("Cannot reconcile. Refusing to retry: %w", err)
 		return nil
 	}
 
@@ -331,8 +421,8 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	}
 
 	if !exists && c.deleteFn != nil {
-		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, name)
-		return c.deleteFn(c, ctx, gvr, namespace, name)
+		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, meta.GetName())
+		return c.deleteFn(c, ctx, gvr, targetNamespace, targetName)
 	}
 
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
@@ -343,7 +433,9 @@ func (c *Controller) process(gvr schema.GroupVersionResource, obj interface{}) e
 	}
 
 	if c.upsertFn != nil {
-		return c.upsertFn(c, ctx, gvr, namespace, unstrob)
+		unstrob = unstrob.DeepCopy()
+		unstrob.SetNamespace(targetNamespace)
+		return c.upsertFn(c, ctx, gvr, targetNamespace, unstrob)
 	}
 
 	return err
@@ -358,15 +450,19 @@ func (c *Controller) getClient(gvr schema.GroupVersionResource, namespace string
 	return nri
 }
 
-func (c *Controller) inSyncerNamespace(objectNamespace string) bool {
+func (c *Controller) inSyncerNamespace(meta metav1.Object) bool {
 	// If there is no value for the syncer namespace then always process the object
 	// This will also handle the cluster scoped objects case for
 	// objectNamespace when this is not set
 	if c.namespace == "" {
 		return false
 	}
-	if c.namespace == objectNamespace {
-		return true
+	var err error
+	objectNamespace := meta.GetNamespace()
+
+	if c.direction == KcpToPhysicalCluster {
+		_, objectNamespace, err = transformForCluster(schema.GroupVersionResource{}, meta)
 	}
-	return false
+
+	return err == nil && c.namespace == objectNamespace
 }

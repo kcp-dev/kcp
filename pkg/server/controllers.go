@@ -130,6 +130,7 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, clientConfig cli
 		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
 		kubeClient.CoreV1().Namespaces(),
 		gvkTrans,
+		s.cfg.DiscoveryPollInterval,
 	)
 
 	if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {

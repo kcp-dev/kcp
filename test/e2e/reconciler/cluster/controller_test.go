@@ -62,7 +62,7 @@ const sourceClusterName, sinkClusterName = "source", "sink"
 func TestClusterController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client wildwestclient.CowboyInterface
+		client wildwestclient.WildwestV1alpha1Interface
 		expect RegisterCowboyExpectation
 	}
 	var testCases = []struct {
@@ -72,7 +72,7 @@ func TestClusterController(t *testing.T) {
 		{
 			name: "create an object, expect spec to sync to sink",
 			work: func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer) {
-				cowboy, err := servers[sourceClusterName].client.Create(ctx, &wildwestv1alpha1.Cowboy{
+				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
@@ -85,11 +85,16 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to create cowboy: %v", err)
 					return
 				}
-				for _, name := range []string{sourceClusterName, sinkClusterName} {
-					servers[name].Artifact(t, func() (runtime.Object, error) {
-						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
-					})
-				}
+
+				targetNamespace := fmt.Sprintf("kcp--%s--%s", cowboy.GetClusterName(), cowboy.GetNamespace())
+				defer servers[sourceClusterName].Artifact(t, func() (runtime.Object, error) {
+					return servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
+				})
+				defer servers[sinkClusterName].Artifact(t, func() (runtime.Object, error) {
+					return servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
+				})
+
+				cowboy.SetNamespace(targetNamespace)
 				if err := servers[sinkClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					if diff := cmp.Diff(cowboy.Spec, object.Spec); diff != "" {
 						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
@@ -104,7 +109,7 @@ func TestClusterController(t *testing.T) {
 		{
 			name: "update a synced object, expect status to sync to source",
 			work: func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer) {
-				cowboy, err := servers[sourceClusterName].client.Create(ctx, &wildwestv1alpha1.Cowboy{
+				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
@@ -117,11 +122,16 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("failed to create cowboy: %v", err)
 					return
 				}
-				for _, name := range []string{sourceClusterName, sinkClusterName} {
-					servers[name].Artifact(t, func() (runtime.Object, error) {
-						return servers[name].client.Get(ctx, cowboy.Name, metav1.GetOptions{})
-					})
-				}
+
+				targetNamespace := fmt.Sprintf("kcp--%s--%s", cowboy.GetClusterName(), cowboy.GetNamespace())
+				defer servers[sourceClusterName].Artifact(t, func() (runtime.Object, error) {
+					return servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
+				})
+				defer servers[sinkClusterName].Artifact(t, func() (runtime.Object, error) {
+					return servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
+				})
+
+				cowboy.SetNamespace(fmt.Sprintf("kcp--%s--%s", cowboy.GetClusterName(), cowboy.GetNamespace()))
 				if err := servers[sinkClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					// just wait for the sink the catch up
 					if diff := cmp.Diff(cowboy.Spec, object.Spec); diff != "" {
@@ -132,11 +142,13 @@ func TestClusterController(t *testing.T) {
 					t.Errorf("did not see cowboy status updated on source cluster: %v", err)
 					return
 				}
-				updated, err := servers[sinkClusterName].client.Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
+				updated, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
 				if err != nil {
 					t.Errorf("failed to patch cowboy: %v", err)
 					return
 				}
+
+				cowboy.SetNamespace(testNamespace)
 				if err := servers[sourceClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					if diff := cmp.Diff(updated.Status, object.Status); diff != "" {
 						return fmt.Errorf("saw incorrect status on source cluster: %s", diff)
@@ -208,7 +220,7 @@ func TestClusterController(t *testing.T) {
 				}
 				runningServers[name] = runningServer{
 					RunningServer: servers[name],
-					client:        wildwestClient.WildwestV1alpha1().Cowboys(testNamespace),
+					client:        wildwestClient.WildwestV1alpha1(),
 					expect:        expect,
 				}
 			}

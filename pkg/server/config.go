@@ -18,6 +18,7 @@ package server
 
 import (
 	"flag"
+	"time"
 
 	"github.com/spf13/pflag"
 
@@ -45,6 +46,7 @@ func DefaultConfig() *Config {
 		ShardKubeconfigFile:       "",
 		EnableSharding:            false,
 		Authentication:            kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
+		DiscoveryPollInterval:     60 * time.Second,
 	}
 }
 
@@ -66,6 +68,7 @@ type Config struct {
 	ShardKubeconfigFile       string
 	EnableSharding            bool
 	Authentication            *kubeoptions.BuiltInAuthenticationOptions
+	DiscoveryPollInterval     time.Duration
 }
 
 func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
@@ -85,6 +88,7 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.StringVar(&c.EtcdPeerPort, "etcd-peer-port", c.EtcdPeerPort, "Port for etcd peer communication.")
 	fs.StringVar(&c.EtcdClientPort, "etcd-client-port", c.EtcdClientPort, "Port for etcd client communication.")
 	fs.Int64Var(&c.EtcdWalSizeBytes, "etcd-wal-size-bytes", c.EtcdWalSizeBytes, "Size in bytes for the etcd WAL. Leave unset to use the default.")
+	fs.DurationVar(&c.DiscoveryPollInterval, "discovery-poll-interval", c.DiscoveryPollInterval, "Polling interval for dynamic discovery informers.")
 	fs.StringVar(&c.KubeConfigPath, "kubeconfig-path", c.KubeConfigPath, "Path to which the administrative kubeconfig should be written at startup.")
 
 	c.ClusterControllerOptions = cluster.BindOptions(c.ClusterControllerOptions, fs)
