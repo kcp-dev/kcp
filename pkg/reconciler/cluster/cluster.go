@@ -139,7 +139,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				return nil // Don't retry.
 			}
 
-			newSyncer, err := syncer.StartSyncer(upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads)
+			newSyncer, err := syncer.StartSyncer(ctx, upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads)
 			if err != nil {
 				klog.Errorf("error starting syncer in push mode: %v", err)
 				cluster.Status.SetConditionReady(corev1.ConditionFalse,

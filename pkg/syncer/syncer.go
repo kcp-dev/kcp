@@ -66,7 +66,7 @@ func (s *Syncer) WaitUntilDone() {
 	<-s.statusSyncer.Done()
 }
 
-func StartSyncer(upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) (*Syncer, error) {
+func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) (*Syncer, error) {
 	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), cluster, logicalCluster)
 	if err != nil {
 		return nil, err
@@ -76,8 +76,8 @@ func StartSyncer(upstream, downstream *rest.Config, resources sets.String, clust
 		specSyncer.Stop()
 		return nil, err
 	}
-	specSyncer.Start(numSyncerThreads)
-	statusSyncer.Start(numSyncerThreads)
+	specSyncer.Start(ctx, numSyncerThreads)
+	statusSyncer.Start(ctx, numSyncerThreads)
 
 	return &Syncer{
 		specSyncer:   specSyncer,
@@ -97,19 +97,19 @@ type Controller struct {
 
 	toClient dynamic.Interface
 
-	stopCh chan struct{}
-
 	upsertFn  UpsertFunc
 	deleteFn  DeleteFunc
 	direction Direction
 
 	namespace string
+	// set on start
+	ctx      context.Context
+	cancelFn context.CancelFunc
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
 func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	stopCh := make(chan struct{})
 
 	var upsertFn UpsertFunc
 	var deleteFn DeleteFunc
@@ -262,21 +262,22 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 }
 
 // Start starts N worker processes processing work items.
-func (c *Controller) Start(numThreads int) {
+func (c *Controller) Start(ctx context.Context, numThreads int) {
+	c.ctx, c.cancelFn = context.WithCancel(ctx)
 	for i := 0; i < numThreads; i++ {
-		go c.startWorker()
+		go c.startWorker(ctx)
 	}
 }
 
 // startWorker processes work items until stopCh is closed.
-func (c *Controller) startWorker() {
+func (c *Controller) startWorker(ctx context.Context) {
 	for {
 		select {
-		case <-c.stopCh:
+		case <-ctx.Done():
 			klog.Info("stopping syncer worker")
 			return
 		default:
-			c.processNextWorkItem()
+			c.processNextWorkItem(ctx)
 		}
 	}
 }
@@ -284,13 +285,13 @@ func (c *Controller) startWorker() {
 // Stop stops the syncer.
 func (c *Controller) Stop() {
 	c.queue.ShutDown()
-	close(c.stopCh)
+	c.cancelFn()
 }
 
 // Done returns a channel that's closed when the syncer is stopped.
-func (c *Controller) Done() <-chan struct{} { return c.stopCh }
+func (c *Controller) Done() <-chan struct{} { return c.ctx.Done() }
 
-func (c *Controller) processNextWorkItem() bool {
+func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	i, quit := c.queue.Get()
 	if quit {
@@ -302,7 +303,7 @@ func (c *Controller) processNextWorkItem() bool {
 	// other workers.
 	defer c.queue.Done(i)
 
-	err := c.process(h.gvr, h.obj)
+	err := c.process(ctx, h.gvr, h.obj)
 	c.handleErr(err, i)
 	return true
 }
