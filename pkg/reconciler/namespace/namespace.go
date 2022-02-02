@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -141,7 +141,7 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 		return err
 	}
 
-	var clusters []*v1alpha1.Cluster
+	var clusters []*clusterv1alpha1.Cluster
 	for i := range allClusters {
 		// Only include Clusters that are in the same logical cluster as ns
 		if allClusters[i].ClusterName == ns.ClusterName {
@@ -182,7 +182,7 @@ func (c *Controller) isValidCluster(ctx context.Context, lclusterName, clusterNa
 	if err != nil {
 		return false, err
 	}
-	isReady := cluster.Status.Conditions.HasReady()
+	isReady := conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 	if !isReady {
 		klog.Infof("Cluster %q|%q is not reporting ready", lclusterName, clusterName)
 	}
@@ -294,10 +294,10 @@ func clusterLabelPatchBytes(val string) []byte {
 // After the namespace is unassigned, it will be picked up by
 // reconcileNamespace above and assigned to another happy cluster if one can be
 // found.
-func (c *Controller) observeCluster(ctx context.Context, cl *v1alpha1.Cluster) error {
+func (c *Controller) observeCluster(ctx context.Context, cl *clusterv1alpha1.Cluster) error {
 	klog.Infof("Observing Cluster %s", cl.Name)
 
-	if cl.Status.Conditions.HasReady() {
+	if conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition) {
 		// Cluster's happy, nothing to do.
 		return nil
 	}

@@ -56,6 +56,7 @@ import (
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 // ScratchDirs determines where artifacts and data should live for a test case.
@@ -325,14 +326,7 @@ func InstallCluster(t TestingTInterface, ctx context.Context, source, server Run
 				if !ok {
 					continue
 				}
-				var ready bool
-				for _, condition := range updated.Status.Conditions {
-					if condition.Type == clusterv1alpha1.ClusterConditionReady && condition.Status == corev1.ConditionTrue {
-						ready = true
-						break
-					}
-				}
-				if ready {
+				if conditions.IsTrue(updated, clusterv1alpha1.ClusterReadyCondition) {
 					return nil
 				}
 			case watch.Deleted:

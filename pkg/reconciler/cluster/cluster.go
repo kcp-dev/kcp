@@ -18,10 +18,8 @@ package cluster
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +30,8 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const (
@@ -48,17 +48,13 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("invalid kubeconfig: %v", err)
-		cluster.Status.SetConditionReady(corev1.ConditionFalse,
-			"InvalidKubeConfig",
-			fmt.Sprintf("Invalid kubeconfig: %v", err))
+		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
 		return nil // Don't retry.
 	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Errorf("error creating client: %v", err)
-		cluster.Status.SetConditionReady(corev1.ConditionFalse,
-			"ErrorCreatingClient",
-			fmt.Sprintf("Error creating client from kubeconfig: %v", err))
+		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorCreatingClientReason, conditionsv1alpha1.ConditionSeverityError, "Error creating client: %v", err.Error())
 		return nil // Don't retry.
 	}
 
@@ -66,9 +62,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 		apiImporter, err := c.StartAPIImporter(cfg, cluster.Name, logicalCluster, time.Minute)
 		if err != nil {
 			klog.Errorf("error starting the API importer: %v", err)
-			cluster.Status.SetConditionReady(corev1.ConditionFalse,
-				"ErrorStartingAPIImporter",
-				fmt.Sprintf("Error starting the API Importer: %v", err))
+			conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingAPIImporterReason, conditionsv1alpha1.ConditionSeverityError, "Error starting the API importer: %v", err.Error())
 			return nil // Don't retry.
 		}
 		c.apiImporters[cluster.Name] = apiImporter
@@ -124,27 +118,21 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 			upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 			if err != nil {
 				klog.Errorf("error getting kcp kubeconfig: %v", err)
-				cluster.Status.SetConditionReady(corev1.ConditionFalse,
-					"ErrorStartingSyncer",
-					fmt.Sprintf("Error starting syncer: %v", err))
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting kcp kubeconfig: %v", err.Error())
 				return nil // Don't retry.
 			}
 
 			downstream, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 			if err != nil {
 				klog.Errorf("error getting cluster kubeconfig: %v", err)
-				cluster.Status.SetConditionReady(corev1.ConditionFalse,
-					"ErrorStartingSyncer",
-					fmt.Sprintf("Error starting syncer: %v", err))
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
 				return nil // Don't retry.
 			}
 
 			newSyncer, err := syncer.StartSyncer(ctx, upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads)
 			if err != nil {
 				klog.Errorf("error starting syncer in push mode: %v", err)
-				cluster.Status.SetConditionReady(corev1.ConditionFalse,
-					"ErrorStartingSyncer",
-					fmt.Sprintf("Error starting syncer: %v", err))
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error starting syncer in push mode: %v", err.Error())
 				return err
 			}
 
@@ -155,58 +143,42 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 			}
 
 			klog.Infof("started push mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
-			cluster.Status.SetConditionReady(corev1.ConditionTrue,
-				"SyncerReady",
-				"Syncer ready")
+			conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 		case SyncerModePull:
 			kubeConfig.CurrentContext = "admin"
 			bytes, err := clientcmd.Write(*kubeConfig)
 			if err != nil {
 				klog.Errorf("error writing kubeconfig for syncer: %v", err)
-				cluster.Status.SetConditionReady(corev1.ConditionFalse,
-					"ErrorInstallingSyncer",
-					fmt.Sprintf("Error installing syncer: %v", err))
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())
 				return nil // Don't retry.
 			}
 			if err := installSyncer(ctx, client, c.syncerImage, string(bytes), cluster.Name, logicalCluster, groupResources.List()); err != nil {
 				klog.Errorf("error installing syncer: %v", err)
-				cluster.Status.SetConditionReady(corev1.ConditionFalse,
-					"ErrorInstallingSyncer",
-					fmt.Sprintf("Error installing syncer: %v", err))
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error installing syncer: %v", err.Error())
 				return nil // Don't retry.
 			}
 
 			klog.Info("syncer installing...")
-			cluster.Status.SetConditionReady(corev1.ConditionUnknown,
-				"SyncerInstalling",
-				"Installing syncer on cluster")
+			conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 		case SyncerModeNone:
 			klog.Info("started none mode syncer!")
-			cluster.Status.SetConditionReady(corev1.ConditionTrue,
-				"SyncerReady",
-				"Syncer ready")
+			conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 		}
 		cluster.Status.SyncedResources = groupResources.List()
 	}
 
-	if cluster.Status.Conditions.HasReady() {
+	if conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition) {
 		if c.syncerMode == SyncerModePull {
 			if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
 				klog.Error("syncer not yet ready")
-				cluster.Status.SetConditionReady(corev1.ConditionFalse,
-					"SyncerNotReady",
-					err.Error())
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityInfo, "Syncer not yet ready")
 			} else {
 				klog.Infof("started pull mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
-				cluster.Status.SetConditionReady(corev1.ConditionTrue,
-					"SyncerReady",
-					"Syncer ready")
+				conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 			}
 		} else {
 			klog.Infof("healthy push mode syncer running for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
-			cluster.Status.SetConditionReady(corev1.ConditionTrue,
-				"SyncerReady",
-				"Syncer ready")
+			conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 		}
 	}
 
