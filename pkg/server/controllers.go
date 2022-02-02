@@ -29,7 +29,6 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
@@ -48,16 +47,15 @@ import (
 )
 
 func (s *Server) installClusterRoleAggregationController(config *rest.Config) error {
-	kubeClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
-	adminScope := "admin"
-	versionedInformer := coreexternalversions.NewSharedInformerFactory(kubeClient.Cluster(adminScope), resyncPeriod)
+	kubeClient := kubeClusterClient.Cluster("*")
 
 	c := clusterroleaggregation.NewClusterRoleAggregation(
-		versionedInformer.Rbac().V1().ClusterRoles(),
-		kubeClient.Cluster(adminScope).RbacV1())
+		s.kubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		kubeClient.RbacV1())
 
 	s.AddPostStartHook("start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		go c.Run(5, hookContext.StopCh)
