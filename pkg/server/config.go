@@ -22,10 +22,11 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/kcp-dev/kcp/pkg/etcd"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	serveroptions "k8s.io/apiserver/pkg/server/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
+
+	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
 // DefaultConfig is the default behavior of the KCP server.
