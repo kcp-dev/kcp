@@ -20,20 +20,24 @@ import (
 	"context"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	clientgoinformers "k8s.io/client-go/informers"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, workspaceLister kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &OrgWorkspaceAuthorizer{
 		versionedInformers: versionedInformers,
 
@@ -41,6 +45,7 @@ func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedIn
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
 		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+		workspaceLister:          workspaceLister.Tenancy().V1alpha1().Workspaces().Lister(),
 
 		delegate: delegate,
 	}
@@ -51,6 +56,7 @@ type OrgWorkspaceAuthorizer struct {
 	roleBindingLister        rbacv1listers.RoleBindingLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
 	clusterRoleLister        rbacv1listers.ClusterRoleLister
+	workspaceLister          tenancyv1.WorkspaceLister
 
 	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
 	versionedInformers clientgoinformers.SharedInformerFactory
@@ -76,12 +82,21 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	// For now, "admin" is our org workspace:
 	orgWorkspace := "admin"
 
-	orgWorkspaceInformer := frameworkrbac.FilterPerCluster(orgWorkspace, a.versionedInformers.Rbac().V1())
+	// check the workspace even exists
+	// TODO: using scoping when available
+	if _, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, reqScope)); err != nil {
+		if errors.IsNotFound(err) {
+			return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
+		}
+		return authorizer.DecisionNoOpinion, "", err
+	}
+
+	orgWorkspaceKubeInformer := frameworkrbac.FilterPerCluster(orgWorkspace, a.versionedInformers.Rbac().V1())
 	orgAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: orgWorkspaceInformer.Roles().Lister()},
-		&rbac.RoleBindingLister{Lister: orgWorkspaceInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: orgWorkspaceInformer.ClusterRoles().Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: orgWorkspaceInformer.ClusterRoleBindings().Lister()},
+		&rbac.RoleGetter{Lister: orgWorkspaceKubeInformer.Roles().Lister()},
+		&rbac.RoleBindingLister{Lister: orgWorkspaceKubeInformer.RoleBindings().Lister()},
+		&rbac.ClusterRoleGetter{Lister: orgWorkspaceKubeInformer.ClusterRoles().Lister()},
+		&rbac.ClusterRoleBindingLister{Lister: orgWorkspaceKubeInformer.ClusterRoleBindings().Lister()},
 	)
 
 	verbToGroupMembership := map[string]string{

@@ -291,7 +291,12 @@ func (s *Server) Run(ctx context.Context) error {
 	orgAuth, orgResolver := authorization.NewOrgWorkspaceAuthorizer(s.kubeSharedInformerFactory)
 	localAuth, localResolver := authorization.NewLocalAuthorizer(s.kubeSharedInformerFactory)
 	apisConfig.GenericConfig.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
-	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(s.kubeSharedInformerFactory, union.New(orgAuth, localAuth))
+	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(
+		s.kubeSharedInformerFactory,
+		s.kcpSharedInformerFactory,
+		union.New(orgAuth, localAuth),
+	)
+
 	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
 
 	// If additional API servers are added, they should be gated.
