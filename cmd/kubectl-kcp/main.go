@@ -17,24 +17,49 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/cmd"
+	"github.com/kcp-dev/kcp/pkg/cmd/help"
 )
 
 func main() {
 	flags := pflag.NewFlagSet("kubectl-kcp", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
-	root, err := cmd.NewCmdWorkspace(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	root := &cobra.Command{
+		Use:   "kcp",
+		Short: "kubectl plugin for KCP",
+		Long: help.Doc(`
+			KCP is the easiest way to manage Kubernetes applications against one or
+			more clusters, by giving you a personal control plane that schedules your
+			workloads onto one or many clusters, and making it simple to pick up and
+			move. Advanced use cases including spreading your apps across clusters for
+			resiliency, scheduling batch workloads onto clusters with free capacity,
+			and enabling collaboration for individual teams without having access to
+			the underlying clusters.
+
+			This command provides KCP specific sub-command for kubectl.
+		`),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	workspaceCmd, err := cmd.NewCmdWorkspace(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+
+	root.AddCommand(workspaceCmd)
 	if err := root.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }

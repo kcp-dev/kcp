@@ -57,7 +57,7 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	kubectlConfigOverrideFlags.ContextOverrideFlags.Namespace.LongName = ""
 	kubectlConfigOverrideFlags.Timeout.LongName = ""
 
-	clientcmd.BindOverrideFlags(o.KubectlOverrides, cmd.Flags(), kubectlConfigOverrideFlags)
+	clientcmd.BindOverrideFlags(o.KubectlOverrides, cmd.PersistentFlags(), kubectlConfigOverrideFlags)
 
 	// We also add a subset of kubeconfig-related flags related specifically to
 	// workspace directory (user workspace list). They would override the way the
@@ -88,5 +88,5 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	workspaceDirectoryConfigOverrideFlags.CurrentContext.Default = "workspace-directory"
 	workspaceDirectoryConfigOverrideFlags.Timeout.LongName = ""
 
-	clientcmd.BindOverrideFlags(o.WorkspaceDirectoryOverrides, cmd.Flags(), workspaceDirectoryConfigOverrideFlags)
+	clientcmd.BindOverrideFlags(o.WorkspaceDirectoryOverrides, cmd.PersistentFlags(), workspaceDirectoryConfigOverrideFlags)
 }
