@@ -86,7 +86,6 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	fs.StringVar(&c.EtcdClientInfo.TrustedCAFile, "etcd-cafile", c.EtcdClientInfo.TrustedCAFile, "TLS Certificate Authority file used to secure etcd communication.")
 	fs.StringVar(&c.CertKey.KeyFile, "server-keyfile", c.CertKey.KeyFile, "TLS key file used to secure server communication.")
 	fs.StringVar(&c.CertKey.CertFile, "server-certfile", c.CertKey.CertFile, "TLS certification file used to secure server communication.")
-	fs.StringVar(&c.ServerCAFile, "server-cafile", c.ServerCAFile, "TLS Certificate Authority file used to secure server communication.")
 	fs.StringVar(&c.ProfilerAddress, "profiler-address", c.ProfilerAddress, "[Address]:port to bind the profiler to.")
 	fs.StringVar(&c.ShardKubeconfigFile, "shard-kubeconfig-file", c.ShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to peer kcp shards.")
 	fs.BoolVar(&c.EnableSharding, "enable-sharding", c.EnableSharding, "Enable delegating to peer kcp shards.")
