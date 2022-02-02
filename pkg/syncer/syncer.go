@@ -101,7 +101,8 @@ type Controller struct {
 	deleteFn  DeleteFunc
 	direction Direction
 
-	namespace string
+	syncerNamespace string
+
 	// set on start
 	ctx      context.Context
 	cancelFn context.CancelFunc
@@ -111,24 +112,18 @@ type Controller struct {
 func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, clusterID string) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-	var upsertFn UpsertFunc
-	var deleteFn DeleteFunc
-
-	if direction == KcpToPhysicalCluster {
-		upsertFn = upsertIntoDownstream
-		deleteFn = deleteFromDownstream
-	} else {
-		upsertFn = updateStatusInUpstream
+	c := Controller{
+		queue:           queue,
+		toClient:        toClient,
+		direction:       direction,
+		syncerNamespace: os.Getenv(SyncerNamespaceKey),
 	}
 
-	c := Controller{
-		queue:     queue,
-		toClient:  toClient,
-		stopCh:    stopCh,
-		direction: direction,
-		namespace: os.Getenv(SyncerNamespaceKey),
-		upsertFn:  upsertFn,
-		deleteFn:  deleteFn,
+	if direction == KcpToPhysicalCluster {
+		c.upsertFn = c.upsertIntoDownstream
+		c.deleteFn = c.deleteFromDownstream
+	} else {
+		c.upsertFn = c.updateStatusInUpstream
 	}
 
 	fromDSIF := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -451,19 +446,3 @@ func (c *Controller) getClient(gvr schema.GroupVersionResource, namespace string
 	return nri
 }
 
-func (c *Controller) inSyncerNamespace(meta metav1.Object) bool {
-	// If there is no value for the syncer namespace then always process the object
-	// This will also handle the cluster scoped objects case for
-	// objectNamespace when this is not set
-	if c.namespace == "" {
-		return false
-	}
-	var err error
-	objectNamespace := meta.GetNamespace()
-
-	if c.direction == KcpToPhysicalCluster {
-		_, objectNamespace, err = transformForCluster(schema.GroupVersionResource{}, meta)
-	}
-
-	return err == nil && c.namespace == objectNamespace
-}
