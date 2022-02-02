@@ -55,7 +55,7 @@ func TestEncodeLogicalClusterName(t *testing.T) {
 			name: "organization workspace in wrong root cluster",
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
-					ClusterName: "somethingwrong",
+					ClusterName: "too_many_parts",
 					Name:        "organization",
 				},
 			},
@@ -86,14 +86,26 @@ func TestParseLogicalClusterName(t *testing.T) {
 		expectedErr  bool
 	}{
 		{
-			name:         "valid name",
+			name:         "request for /clusters/admin",
+			input:        "admin",
+			expectedOrg:  "admin",
+			expectedName: "admin",
+		},
+		{
+			name:         "valid name for organization workspace",
+			input:        "admin_organization",
+			expectedOrg:  "admin",
+			expectedName: "organization",
+		},
+		{
+			name:         "valid name for org and workspace",
 			input:        "organization_workspace",
 			expectedOrg:  "organization",
 			expectedName: "workspace",
 		},
 		{
 			name:        "invalid name",
-			input:       "whoathere",
+			input:       "foobar",
 			expectedErr: true,
 		},
 	} {
@@ -110,6 +122,35 @@ func TestParseLogicalClusterName(t *testing.T) {
 			}
 			if actualName != testCase.expectedName {
 				t.Errorf("%s: got incorrect logical cluster name, expected %s got %s", testCase.name, testCase.expectedName, actualName)
+			}
+		})
+	}
+}
+
+func TestWorkspaceKey(t *testing.T) {
+	tests := []struct {
+		name string
+		org  string
+		ws   string
+		want string
+	}{
+		{
+			name: "org ws",
+			org:  OrganizationCluster,
+			ws:   "myws",
+			want: "admin#$#myws",
+		},
+		{
+			name: "normal ws",
+			org:  "myorg",
+			ws:   "myws",
+			want: "admin_myorg#$#myws",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := WorkspaceKey(tt.org, tt.ws); got != tt.want {
+				t.Errorf("WorkspaceKey() = %v, want %v", got, tt.want)
 			}
 		})
 	}

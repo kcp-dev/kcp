@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/client-go/tools/clusters"
+
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
@@ -43,15 +45,40 @@ func EncodeLogicalClusterName(workspace *tenancyapi.Workspace) (string, error) {
 		}
 		orgName = name
 	}
-	return orgName + separator + workspace.Name, nil
+	return EncodeOrganizationAndWorkspace(orgName, workspace.Name), nil
+}
+
+// EncodeOrganizationAndWorkspace determines the logical cluster name for
+// an organization and workspace.
+func EncodeOrganizationAndWorkspace(organization, workspace string) string {
+	return organization + separator + workspace
+}
+
+// WorkspaceKey returns a key to use when looking up a Workspace in a lister or indexer.
+// If org is the value of OrganizationCluster, the key will be of the format
+// <OrganizationCluster>#$#<ws>. Otherwise, the key will be of the format
+// <OrganizationClsuter>_<org>#$#<ws>.
+func WorkspaceKey(org, ws string) string {
+	if org == OrganizationCluster {
+		return clusters.ToClusterAwareKey(org, ws)
+	}
+
+	return clusters.ToClusterAwareKey(EncodeOrganizationAndWorkspace(OrganizationCluster, org), ws)
 }
 
 // ParseLogicalClusterName determines the organization and workspace name from a
 // logical cluster name.
 func ParseLogicalClusterName(name string) (string, string, error) {
 	parts := strings.Split(name, separator)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("expected logical cluster name to be in org_name format, got %s", name)
+	switch len(parts) {
+	case 1:
+		if name != OrganizationCluster {
+			return "", "", fmt.Errorf("expected logical cluster name to be %s or in org_name format, got %s", OrganizationCluster, name)
+		}
+		return OrganizationCluster, name, nil
+	case 2:
+		return parts[0], parts[1], nil
+	default:
+		return "", "", fmt.Errorf("expected logical cluster name to be %s or in org_name format, got %s", OrganizationCluster, name)
 	}
-	return parts[0], parts[1], nil
 }
