@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
@@ -67,16 +68,17 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 	// Check for API inheritance
 	inheriting := false
 	inheritFrom := ""
-	// TODO(ncdc): for now, we are hard-coding "admin" as the logical cluster where all Workspace
-	// resources must live, at least for API inheritance to work.
-	const adminClusterName = "admin"
+	org, ws, err := helper.ParseLogicalClusterName(cluster.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	// Chicken-and-egg: we need the Workspace CRD to be created in the default admin logical cluster
 	// before we can try to get said Workspace, but if we fail listing because the Workspace doesn't
 	// exist, we'll never be able to create it. Only check if the target workspace exists for
 	// non-default keys.
-	if cluster.Name != adminClusterName && c.workspaceLister != nil {
-		targetWorkspaceKey := clusters.ToClusterAwareKey(adminClusterName, cluster.Name)
+	if cluster.Name != helper.OrganizationCluster && c.workspaceLister != nil {
+		targetWorkspaceKey := helper.WorkspaceKey(org, ws)
 		workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 		if err != nil && !apierrors.IsNotFound(err) {
 			// Only return errors other than not-found. If we couldn't find the workspace, let's continue
@@ -91,12 +93,12 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 
 		if workspace != nil && workspace.Spec.InheritFrom != "" {
 			// Make sure the source workspace exists
-			sourceWorkspaceKey := clusters.ToClusterAwareKey(adminClusterName, workspace.Spec.InheritFrom)
+			sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
 			_, err := c.workspaceLister.Get(sourceWorkspaceKey)
 			switch {
 			case err == nil:
 				inheriting = true
-				inheritFrom = workspace.Spec.InheritFrom
+				inheritFrom = helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom)
 			case apierrors.IsNotFound(err):
 				// A NotFound error is ok. It means we can't inherit but we should still proceed below to list.
 			default:
@@ -133,6 +135,11 @@ func (c *inheritanceCRDLister) Get(name string) (*apiextensionsv1.CustomResource
 // the CRD in the referenced Workspace/logical cluster.
 func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	org, ws, err := helper.ParseLogicalClusterName(cluster.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -185,12 +192,8 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	// TODO(ncdc): for now, we are hard-coding "admin" as the logical cluster where all Workspace
-	// resources must live, at least for API inheritance to work.
-	const adminClusterName = "admin"
-
 	// Check for API inheritance
-	targetWorkspaceKey := clusters.ToClusterAwareKey(adminClusterName, cluster.Name)
+	targetWorkspaceKey := helper.WorkspaceKey(org, ws)
 	workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 	if err != nil {
 		// If we're here it means ctx's logical cluster doesn't have the CRD and there isn't a
@@ -208,7 +211,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	sourceWorkspaceKey := clusters.ToClusterAwareKey(adminClusterName, workspace.Spec.InheritFrom)
+	sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
 	if _, err := c.workspaceLister.Get(sourceWorkspaceKey); err != nil {
 		// If we're here it means ctx's logical cluster doesn't have the CRD, the Workspace exists,
 		// we are inheriting, but the Workspace we're inheriting from doesn't exist. Just return
@@ -221,7 +224,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	}
 
 	// Try to get the inherited CRD
-	sourceWorkspaceCRDKey := clusters.ToClusterAwareKey(workspace.Spec.InheritFrom, name)
+	sourceWorkspaceCRDKey := clusters.ToClusterAwareKey(helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom), name)
 	crd, err = c.crdLister.Get(sourceWorkspaceCRDKey)
 	return crd, err
 }
