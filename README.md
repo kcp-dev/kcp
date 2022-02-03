@@ -2,7 +2,7 @@
 
 ![build status badge](https://github.com/kcp-dev/kcp/actions/workflows/ci.yaml/badge.svg)
 
-How minimal exactly? `kcp` doesn't know about [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s or [`Node`](https://kubernetes.io/docs/concepts/architecture/nodes/)s, let alone [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)s, [`Service`](https://kubernetes.io/docs/concepts/services-networking/service/)s, [`LoadBalancer`](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/)s, etc.
+How minimal exactly? `kcp` doesn't know about [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s or [`Node`](https://kubernetes.io/docs/concepts/architecture/nodes/)s, let alone [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)s, [`Service`](https://kubernetes.io/docs/concepts/services-networking/service/)s, [`LoadBalancer`](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/)s, etc. when started.
 
 By default, `kcp` only knows about:
 
@@ -16,7 +16,7 @@ By default, `kcp` only knows about:
 
 Like vanilla Kubernetes, `kcp` persists these resources in etcd for durable storage.
 
-Any other resources, including Kubernetes-standard resources like [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s, [`Node`](https://kubernetes.io/docs/concepts/architecture/nodes/)s and the rest, can be added as [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)s and reconciled using the standard controllers.
+Any other resources, including Kubernetes-standard resources like [`Pod`](https://kubernetes.io/docs/concepts/workloads/pods/)s, [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)s and the rest, can be added as [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)s and optionally reconciled using the standard controllers launched against the kcp API, or via two-way replication into a Kubernetes cluster.
 
 ## Why would I want that?
 
@@ -51,13 +51,15 @@ First off, this is a prototype, not a project. We're exploring these ideas here 
   - **`syncer`**, which runs on Kubernetes clusters registered with the `cluster-controller`, and watches `kcp` for resources assigned to the cluster
   - **`deployment-splitter`**, which demonstrates a controller that can split a `Deployment` object into multiple "virtual Deployment" objects across multiple clusters.
   - **`crd-puller`** which demonstrates mirroring CRDs from a cluster back to `kcp`
-
+- **`virtual-workspaces`** which demonstrates how to implement apiservers for custom access-patterns, e.g. like a workspace index.
+- **`syncer`** which implmenents a transparent multi-cluster sync of resources to offer compute (i.e. to run pods and other workload types) to kcp workspaces using external Kubernetes clusters.
+- **`kubectl-kcp`** which is a kubectl plugin that offers kcp specific sub-commands.
 
 ## So what's this for?
 
 #### Multi-Cluster Kubernetes?
 
-`kcp` could be _useful_ for [multi-cluster scenarios](docs/investigations/transparent-multi-cluster.md), by running `kcp` as a control plane outside of any of your workload clusters.
+`kcp` could be _useful_ for [multi-cluster scenarios](docs/investigations/transparent-multi-cluster.md), by running `kcp` as a control plane outside of any of your (shared) workload clusters.
 
 #### Multi-Tenant Kubernetes?
 
