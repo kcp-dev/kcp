@@ -33,12 +33,11 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, workspaceLister kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, workspaceLister tenancyv1.WorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &OrgWorkspaceAuthorizer{
 		versionedInformers: versionedInformers,
 
@@ -46,7 +45,7 @@ func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedIn
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
 		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		workspaceLister:          workspaceLister.Tenancy().V1alpha1().Workspaces().Lister(),
+		workspaceLister:          workspaceLister,
 
 		delegate: delegate,
 	}
@@ -79,13 +78,17 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
-	// check the workspace even exists
-	// TODO: using scoping when available
-	if _, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, workspace)); err != nil {
-		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
+	// TODO: decide if we want to require workspaces for all kcp variations. For now, only check if the workspace controllers are running,
+	// as that ensures the Workspace CRD is installed, and that our shared informer factory can sync all its caches successfully.
+	if a.workspaceLister != nil {
+		// check the workspace even exists
+		// TODO: using scoping when available
+		if _, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, workspace)); err != nil {
+			if errors.IsNotFound(err) {
+				return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
+			}
+			return authorizer.DecisionNoOpinion, "", err
 		}
-		return authorizer.DecisionNoOpinion, "", err
 	}
 
 	orgWorkspaceKubeInformer := frameworkrbac.FilterPerCluster(orgWorkspace, a.versionedInformers.Rbac().V1())

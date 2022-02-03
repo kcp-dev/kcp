@@ -298,15 +298,6 @@ func (s *Server) Run(ctx context.Context) error {
 		return nil
 	})
 
-	orgAuth, orgResolver := authorization.NewOrgWorkspaceAuthorizer(s.kubeSharedInformerFactory)
-	localAuth, localResolver := authorization.NewLocalAuthorizer(s.kubeSharedInformerFactory)
-	apisConfig.GenericConfig.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
-	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(
-		s.kubeSharedInformerFactory,
-		s.kcpSharedInformerFactory,
-		union.New(orgAuth, localAuth),
-	)
-
 	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
 
 	// If additional API servers are added, they should be gated.
@@ -356,6 +347,15 @@ func (s *Server) Run(ctx context.Context) error {
 	//		}
 	//		return client.Scope(crossClusterScope), nil
 	//	}
+
+	orgAuth, orgResolver := authorization.NewOrgWorkspaceAuthorizer(s.kubeSharedInformerFactory)
+	localAuth, localResolver := authorization.NewLocalAuthorizer(s.kubeSharedInformerFactory)
+	apisConfig.GenericConfig.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
+	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(
+		s.kubeSharedInformerFactory,
+		workspaceLister,
+		union.New(orgAuth, localAuth),
+	)
 
 	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
