@@ -49,9 +49,7 @@ type KubeConfig struct {
 }
 
 // NewKubeConfig load a kubeconfig with default config access
-func NewKubeConfig(overridingOptions *Options) (*KubeConfig, error) {
-	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
-
+func NewKubeConfig(configAccess *clientcmd.ClientConfigLoadingRules, overridingOptions *Options) (*KubeConfig, error) {
 	var err error
 	startingConfig, err := configAccess.GetStartingConfig()
 	if err != nil {
