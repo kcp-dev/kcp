@@ -25,7 +25,7 @@ import (
 // ClusterRoleBindings return default rolebindings to the default roles
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("edit").Groups("system:kcp:workspace:edit").BindingOrDie(), "system:kcp:workspace:edit"),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups("system:kcp:workspace:edit").BindingOrDie(), "system:kcp:workspace:edit"),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("view").Groups("system:kcp:workspace:view").BindingOrDie(), "system:kcp:workspace:view"),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("admin").Groups("system:kcp:workspace:admin").BindingOrDie(), "system:kcp:workspace:admin"),
 	}

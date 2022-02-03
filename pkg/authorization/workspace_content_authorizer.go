@@ -97,10 +97,10 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	)
 
 	verbToGroupMembership := map[string]string{
-		"admin":   "cluster-admin",
-		"edit":    "system:kcp:workspace:edit",
-		"view":    "system:kcp:workspace:view",
-		"default": "",
+		"admin":  "system:kcp:workspace:admin",
+		"edit":   "system:kcp:workspace:edit",
+		"view":   "system:kcp:workspace:view",
+		"access": "system:kcp:authenticated",
 	}
 
 	extraGroups := []string{}
