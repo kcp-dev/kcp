@@ -104,7 +104,32 @@ func main() {
 
 	// wire start help to print the named sections
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
-	cliflag.SetUsageAndHelpFunc(cmd, namedStartFlagSets, cols)
+	setPartialUsageAndHelpFunc(cmd, namedStartFlagSets, cols, []string{
+		"etcd-servers",
+		"run-controllers",
+	})
+
+	startOptionsCmd := &cobra.Command{
+		Use:   "options",
+		Short: "Show all start command options",
+		Long: help.Doc(`
+			Show all start command options
+
+			"kcp start"" has a large number of options. This command shows all of them.
+		`),
+		PersistentPreRunE: func(*cobra.Command, []string) error {
+			// silence client-go warnings.
+			// apiserver loopback clients should not log self-issued warnings.
+			rest.SetDefaultWarningHandler(rest.NoWarnings{})
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintf(cmd.OutOrStderr(), usageFmt, startCmd.UseLine())
+			cliflag.PrintSections(cmd.OutOrStderr(), namedStartFlagSets, cols)
+			return nil
+		},
+	}
+	startCmd.AddCommand(startOptionsCmd)
 
 	cmd.AddCommand(startCmd)
 
