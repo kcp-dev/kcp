@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/apiserver/pkg/server/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	"github.com/kcp-dev/kcp/pkg/etcd"
@@ -47,6 +48,7 @@ func DefaultConfig() *Config {
 		EnableSharding:            false,
 		Authentication:            kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
 		DiscoveryPollInterval:     60 * time.Second,
+		Audit:                     options.NewAuditOptions(),
 	}
 }
 
@@ -69,6 +71,7 @@ type Config struct {
 	EnableSharding            bool
 	Authentication            *kubeoptions.BuiltInAuthenticationOptions
 	DiscoveryPollInterval     time.Duration
+	Audit                     *options.AuditOptions
 }
 
 func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
@@ -94,5 +97,7 @@ func BindOptions(c *Config, fs *pflag.FlagSet) *Config {
 	c.ClusterControllerOptions = cluster.BindOptions(c.ClusterControllerOptions, fs)
 
 	c.Authentication.AddFlags(fs)
+	c.Audit.AddFlags(fs)
+
 	return c
 }

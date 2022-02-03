@@ -34,6 +34,7 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -192,6 +193,7 @@ func (s *Server) Run(ctx context.Context) error {
 	serverOptions := options.NewServerRunOptions()
 
 	serverOptions.Authentication = s.cfg.Authentication
+	serverOptions.Audit = s.cfg.Audit
 
 	host, port, err := net.SplitHostPort(s.cfg.Listen)
 	if err != nil {
@@ -243,6 +245,14 @@ func (s *Server) Run(ctx context.Context) error {
 
 	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedOptions)
 	if err != nil {
+		return err
+	}
+
+	// TODO(ncdc): this should move to k/genericcontrolplane
+	if errs := serverOptions.Audit.Validate(); len(errs) > 0 {
+		return kerrors.NewAggregate(errs)
+	}
+	if err := serverOptions.Audit.ApplyTo(apisConfig.GenericConfig); err != nil {
 		return err
 	}
 
