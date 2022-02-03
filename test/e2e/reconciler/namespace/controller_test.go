@@ -157,7 +157,7 @@ func TestNamespaceScheduler(t *testing.T) {
 		}
 	}, framework.KcpConfig{
 		Name: serverName,
-		Args: []string{"--install-cluster-controller", "--install-workspace-scheduler", "--install-namespace-scheduler", "--discovery-poll-interval=2s"},
+		Args: []string{"--discovery-poll-interval=2s"},
 	})
 }
 

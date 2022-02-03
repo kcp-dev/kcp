@@ -352,16 +352,16 @@ func TestWorkspaceIndex(t *testing.T) {
 			testCase.work(ctx, t, port, mapping)
 		}, framework.KcpConfig{
 			Name: serverNameMain,
-			Args: []string{"--install-workspace-scheduler"},
+			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
 		}, framework.KcpConfig{
 			Name: serverNameEast,
-			Args: []string{"--install-workspace-scheduler"}, // TODO: when we have the shard proxy working for API requests, we only need to run the workspace-related controllers in the main shard
+			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"}, // TODO: when we have the shard proxy working for API requests, we only need to run the workspace-related controllers in the main shard
 		}, framework.KcpConfig{
 			Name: serverNameCentral,
-			Args: []string{"--install-workspace-scheduler"},
+			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
 		}, framework.KcpConfig{
 			Name: serverNameWest,
-			Args: []string{"--install-workspace-scheduler"},
+			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
 		})
 	}
 }

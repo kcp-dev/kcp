@@ -23,22 +23,26 @@ import (
 )
 
 type Controllers struct {
-	Enabled bool
-
-	Cluster ClusterController
+	EnableAll           bool
+	IndividuallyEnabled []string
+	Cluster             ClusterController
 }
 
 type ClusterController = cluster.Options
 
 func NewControllers() *Controllers {
 	return &Controllers{
-		Enabled: true,
+		EnableAll: true,
+
 		Cluster: *cluster.DefaultOptions(),
 	}
 }
 
 func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
-	fs.BoolVar(&c.Enabled, "run-controllers", c.Enabled, "Run the controllers in-process")
+	fs.BoolVar(&c.EnableAll, "run-controllers", c.EnableAll, "Run the controllers in-process")
+
+	fs.StringSliceVar(&c.IndividuallyEnabled, "unsupported-run-individual-controllers", c.IndividuallyEnabled, "Run individual controllers in-process. The controller names can change at any time.")
+	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
 	cluster.BindOptions(&c.Cluster, fs)
 }

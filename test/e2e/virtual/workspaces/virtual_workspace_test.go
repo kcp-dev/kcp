@@ -385,7 +385,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
-			Args: append([]string{"--install-workspace-scheduler"}, usersKCPArgs...),
+			Args: append([]string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"}, usersKCPArgs...),
 		})
 	}
 }

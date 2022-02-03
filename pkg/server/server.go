@@ -27,6 +27,7 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -41,7 +42,6 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/sharding"
@@ -237,10 +237,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
 
-	var workspaceLister tenancylisters.WorkspaceLister
-	if s.options.Controllers.Enabled {
-		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
-	}
+	workspaceLister := s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
 	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
 		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
@@ -353,19 +350,21 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if s.options.Controllers.Enabled {
+	enabled := sets.NewString(s.options.Controllers.IndividuallyEnabled...)
+
+	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
 		if err := s.installClusterController(clientConfig, server); err != nil {
 			return err
 		}
 	}
 
-	if s.options.Controllers.Enabled {
+	if s.options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
 		if err := s.installWorkspaceScheduler(ctx, clientConfig, server); err != nil {
 			return err
 		}
 	}
 
-	if s.options.Controllers.Enabled {
+	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
 		if err := s.installNamespaceScheduler(ctx, workspaceLister, clientConfig, server); err != nil {
 			return err
 		}
