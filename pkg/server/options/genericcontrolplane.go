@@ -43,9 +43,11 @@ func (s *ServerRunOptions) Flags() (fss cliflag.NamedFlagSets) {
 	s.Audit.AddFlags(fss.FlagSet("auditing"))
 	s.Features.AddFlags(fss.FlagSet("features"))
 	s.Authentication.AddFlags(fss.FlagSet("authentication"))
-	s.APIEnablement.AddFlags(fss.FlagSet("API enablement"))
+
+	//s.APIEnablement.AddFlags(fss.FlagSet("API enablement"))
 	s.EgressSelector.AddFlags(fss.FlagSet("egress selector"))
 	s.Admission.AddFlags(fss.FlagSet("admission"))
+
 	s.Metrics.AddFlags(fss.FlagSet("metrics"))
 	s.Logs.AddFlags(fss.FlagSet("logs"))
 	s.Traces.AddFlags(fss.FlagSet("traces"))

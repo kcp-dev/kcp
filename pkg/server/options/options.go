@@ -22,6 +22,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/pflag"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 	cliflag "k8s.io/component-base/cli/flag"
 	_ "k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
@@ -89,9 +92,12 @@ func NewOptions() *Options {
 	return o
 }
 
-// Flags returns flags for a specific APIServer by section name
 func (o *Options) Flags() (fss cliflag.NamedFlagSets) {
-	fss = o.GenericControlPlane.Flags()
+	return filter(o.rawFlags(), allowedFlags)
+}
+
+func (o *Options) rawFlags() cliflag.NamedFlagSets {
+	fss := o.GenericControlPlane.Flags()
 
 	etcdServers := fss.FlagSet("etcd").Lookup("etcd-servers")
 	etcdServers.Usage += " By default an embedded etcd server is started."
@@ -165,4 +171,17 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			},
 		},
 	}, nil
+}
+
+func filter(ffs cliflag.NamedFlagSets, allowed sets.String) cliflag.NamedFlagSets {
+	filtered := cliflag.NamedFlagSets{}
+	for title, fs := range ffs.FlagSets {
+		section := filtered.FlagSet(title)
+		fs.VisitAll(func(f *pflag.Flag) {
+			if allowed.Has(f.Name) {
+				section.AddFlag(f)
+			}
+		})
+	}
+	return filtered
 }
