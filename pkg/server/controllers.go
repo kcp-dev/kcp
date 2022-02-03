@@ -131,7 +131,7 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister 
 		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
 		kubeClient,
 		gvkTrans,
-		s.cfg.DiscoveryPollInterval,
+		s.options.Extra.DiscoveryPollInterval,
 	)
 
 	if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {
@@ -200,10 +200,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 }
 
 func (s *Server) installClusterController(clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	if err := s.cfg.ClusterControllerOptions.Validate(); err != nil {
-		return err
-	}
-
 	kubeconfig := clientConfig.DeepCopy()
 	for _, cluster := range kubeconfig.Clusters {
 		hostURL, err := url.Parse(cluster.Server)
@@ -214,7 +210,7 @@ func (s *Server) installClusterController(clientConfig clientcmdapi.Config, serv
 		cluster.Server = hostURL.String()
 	}
 
-	c := s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
+	c := s.options.Controllers.Cluster.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
 	cluster, apiresource, err := c.New()
 	if err != nil {
 		return err

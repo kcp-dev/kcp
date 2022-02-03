@@ -150,7 +150,9 @@ func TestClusterController(t *testing.T) {
 		// this is a kcp acting as a target cluster to sync status from
 		framework.KcpConfig{
 			Name: sinkClusterName,
-			Args: []string{},
+			Args: []string{
+				"--run-controllers=false",
+			},
 		},
 	)
 	defer f.SetUp(t)()

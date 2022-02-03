@@ -298,7 +298,9 @@ func TestIngressController(t *testing.T) {
 			},
 			framework.KcpConfig{
 				Name: "sink",
-				Args: []string{},
+				Args: []string{
+					"--run-controllers=false",
+				},
 			},
 		)
 	}

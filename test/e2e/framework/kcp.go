@@ -99,10 +99,10 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 		args: append([]string{
 			"--root-directory",
 			dataDir,
-			"--listen=:" + kcpListenPort,
-			"--etcd-client-port=" + etcdClientPort,
-			"--etcd-peer-port=" + etcdPeerPort,
-			"--etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
+			"--secure-port=" + kcpListenPort,
+			"--embedded-etcd-client-port=" + etcdClientPort,
+			"--embedded-etcd-peer-port=" + etcdPeerPort,
+			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
 			"--kubeconfig-path=admin.kubeconfig",
 		},
 			cfg.Args...),

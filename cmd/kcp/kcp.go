@@ -22,11 +22,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/apimachinery/pkg/util/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/component-base/cli/globalflag"
+	"k8s.io/component-base/term"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/server"
+	"github.com/kcp-dev/kcp/pkg/server/options"
 )
 
 func main() {
@@ -50,7 +55,8 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	var cfg *server.Config
+
+	serverOptions := options.NewOptions()
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the control plane process",
@@ -70,11 +76,38 @@ func main() {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return server.NewServer(cfg).Run(genericapiserver.SetupSignalContext())
+			completed, err := serverOptions.Complete()
+			if err != nil {
+				return err
+			}
+
+			if errs := completed.Validate(); len(errs) > 0 {
+				return errors.NewAggregate(errs)
+			}
+
+			s, err := server.NewServer(completed)
+			if err != nil {
+				return err
+			}
+
+			return s.Run(genericapiserver.SetupSignalContext())
 		},
 	}
-	cfg = server.BindOptions(server.DefaultConfig(), startCmd.Flags())
+
+	// add start named flag sets to start flags
+	namedStartFlagSets := serverOptions.Flags()
+	globalflag.AddGlobalFlags(namedStartFlagSets.FlagSet("global"), cmd.Name())
+	startFlags := startCmd.Flags()
+	for _, f := range namedStartFlagSets.FlagSets {
+		startFlags.AddFlagSet(f)
+	}
+
+	// wire start help to print the named sections
+	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
+	cliflag.SetUsageAndHelpFunc(cmd, namedStartFlagSets, cols)
+
 	cmd.AddCommand(startCmd)
+
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
