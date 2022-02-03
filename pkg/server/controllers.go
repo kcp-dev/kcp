@@ -47,12 +47,10 @@ import (
 )
 
 func (s *Server) installClusterRoleAggregationController(config *rest.Config) error {
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	kubeClient := kubeClusterClient.Cluster("*")
-
 	c := clusterroleaggregation.NewClusterRoleAggregation(
 		s.kubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		kubeClient.RbacV1())
