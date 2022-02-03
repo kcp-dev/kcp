@@ -222,7 +222,7 @@ func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (scope string, name str
 	}
 
 	if !strings.HasPrefix(currentContextName, kcpWorkspaceContextNamePrefix) {
-		return "", "", errors.New("The current context is not a KCP workspace !")
+		return "", "", fmt.Errorf("The current context (%s) is not a KCP workspace !", currentContextName)
 	}
 
 	scope, workspaceName := extractScopeAndName(strings.TrimPrefix(currentContextName, kcpWorkspaceContextNamePrefix))

@@ -42,6 +42,7 @@ import (
 
 const WorkspacesVirtualWorkspaceName string = "workspaces"
 const DefaultRootPathPrefix string = "/services/applications"
+const KubeContextNamePrefix string = framework.KcpVirtualWorkspaceContextNamePrefix + "workspaces/"
 
 func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, kcpClient kcpclient.Interface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
 	crbInformer := rbacInformers.ClusterRoleBindings()
@@ -75,6 +76,10 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 				return true, rootPathPrefix + workspacesScope, context.WithValue(requestContext, virtualworkspacesregistry.WorkspacesScopeKey, workspacesScope)
 			}
 			return
+		},
+		KubeContextPaths: map[string]string{
+			KubeContextNamePrefix + virtualworkspacesregistry.PersonalScope:     rootPathPrefix + virtualworkspacesregistry.PersonalScope,
+			KubeContextNamePrefix + virtualworkspacesregistry.OrganizationScope: rootPathPrefix + virtualworkspacesregistry.OrganizationScope,
 		},
 		GroupVersionAPISets: []fixedgvs.GroupVersionAPISet{
 			{

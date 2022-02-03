@@ -43,7 +43,9 @@ import (
 )
 
 type APIServerOptions struct {
-	Output io.Writer
+	Output         io.Writer
+	KubeConfigPath string
+	RootDirectory  string
 
 	SecureServing     *genericapiserveroptions.SecureServingOptionsWithLoopback
 	Authentication    *genericapiserveroptions.DelegatingAuthenticationOptions
@@ -62,6 +64,7 @@ type SubCommandOptions interface {
 	AddFlags(flags *pflag.FlagSet)
 	Validate() []error
 	PrepareVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error)
+	GetCurrentKubeContext() string
 }
 
 func APIServerCommand(out, errout io.Writer, stopCh <-chan struct{}, subCommandOptions SubCommandOptions) *cobra.Command {
@@ -105,6 +108,8 @@ func (o *APIServerOptions) AddFlags(flags *pflag.FlagSet) {
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
 	o.SubCommandOptions.AddFlags(flags)
+	flags.StringVar(&o.RootDirectory, "root-directory", ".kcp", "Root directory.")
+	flags.StringVar(&o.KubeConfigPath, "kubeconfig-path", "virtual.kubeconfig", "Path to which the virtual workspaces kubeconfig should be written at startup.")
 }
 
 func (o *APIServerOptions) Validate() error {
@@ -154,6 +159,11 @@ func (o *APIServerOptions) RunAPIServer(stopCh <-chan struct{}) error {
 
 	// this **must** be done after PrepareRun() as it sets up the openapi endpoints
 	if err := completedRootAPIServerConfig.WithOpenAPIAggregationController(preparedRootAPIServer.GenericAPIServer); err != nil {
+		return err
+	}
+
+	klog.Infof("Writing kubeconfig of the virtual workspaces apiserver")
+	if err := o.writeKubeConfig(preparedRootAPIServer.GenericAPIServer, virtualWorkspaces); err != nil {
 		return err
 	}
 

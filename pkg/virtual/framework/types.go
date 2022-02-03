@@ -22,6 +22,10 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 )
 
+// KcpVirtualWorkspaceContextNamePrefix defines the prefix for the names of all the contexts
+// that will be added in the generated kubeconfig
+const KcpVirtualWorkspaceContextNamePrefix string = "virtual.kcp.dev/"
+
 // RootPathResolverFunc is the type of a function that, based on the URL path of a request,
 // returns whether the request should be accepted and served by a given VirtuaWorkspace.
 // When it returns `true`, it will also set the VirtualWorkspace name in the request context,
@@ -45,6 +49,9 @@ type ReadyFunc func() error
 type VirtualWorkspace interface {
 	GetName() string
 	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
+	// GetKubeContextPaths returns a map in which keys are the kubeconfig context names of published endpoints
+	// provided by this virtual workspace, and values are associated endpoint path prefix.
+	GetKubeContextPaths() map[string]string
 	IsReady() error
 	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
 }

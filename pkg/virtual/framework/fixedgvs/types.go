@@ -51,12 +51,15 @@ type GroupVersionAPISet struct {
 	BootstrapRestResources func(rootAPIServerConfig genericapiserver.CompletedConfig) (map[string]RestStorageBuilder, error)
 }
 
+var _ framework.VirtualWorkspace = (*FixedGroupVersionsVirtualWorkspace)(nil)
+
 // FixedGroupVersionsVirtualWorkspace is an implementation of
 // the VirtualWorkspace interface, which allows adding well-defined APIs
 // in a limited number of group/versions, implemented as Rest storages.
 type FixedGroupVersionsVirtualWorkspace struct {
 	Name                string
 	RootPathResolver    framework.RootPathResolverFunc
+	KubeContextPaths    map[string]string
 	Ready               framework.ReadyFunc
 	GroupVersionAPISets []GroupVersionAPISet
 }
@@ -71,4 +74,8 @@ func (vw *FixedGroupVersionsVirtualWorkspace) IsReady() error {
 
 func (vw *FixedGroupVersionsVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 	return vw.RootPathResolver(urlPath, context)
+}
+
+func (vw *FixedGroupVersionsVirtualWorkspace) GetKubeContextPaths() map[string]string {
+	return vw.KubeContextPaths
 }

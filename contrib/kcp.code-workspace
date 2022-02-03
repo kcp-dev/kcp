@@ -207,8 +207,6 @@
 					"--secure-port",
 					"6444",
 					"--authentication-skip-lookup",
-					"--cert-dir",
-					"${workspaceFolder:kcp}/.kcp/data"
 				],
 			},
 			{

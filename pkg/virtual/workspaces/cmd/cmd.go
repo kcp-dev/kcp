@@ -40,6 +40,7 @@ import (
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 	rootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
+	virtualworkspacesregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
 var _ virtualframeworkcmd.SubCommandOptions = (*WorkspacesSubCommandOptions)(nil)
@@ -147,4 +148,8 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 		kcpInformer.Start,
 	}
 	return informerStarts, virtualWorkspaces, nil
+}
+
+func (o *WorkspacesSubCommandOptions) GetCurrentKubeContext() string {
+	return builder.KubeContextNamePrefix + virtualworkspacesregistry.PersonalScope
 }
