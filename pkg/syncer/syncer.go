@@ -258,11 +258,11 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	c.ctx, c.cancelFn = context.WithCancel(ctx)
 
-	c.fromInformers.Start(ctx.Done())
-	c.fromInformers.WaitForCacheSync(ctx.Done())
+	c.fromInformers.Start(c.ctx.Done())
+	c.fromInformers.WaitForCacheSync(c.ctx.Done())
 
 	for i := 0; i < numThreads; i++ {
-		go c.startWorker(ctx)
+		go c.startWorker(c.ctx)
 	}
 }
 
