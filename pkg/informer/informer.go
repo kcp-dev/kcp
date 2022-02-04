@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -32,20 +33,28 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 const (
 	resyncPeriod = 10 * time.Hour
 )
 
+type clusterDiscovery interface {
+	WithCluster(name string) discovery.DiscoveryInterface
+}
+
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
 type DynamicDiscoverySharedInformerFactory struct {
-	disco        *discovery.DiscoveryClient
-	dsif         dynamicinformer.DynamicSharedInformerFactory
-	handler      GVREventHandler
-	filterFunc   func(interface{}) bool
-	pollInterval time.Duration
+	workspaceLister tenancylisters.WorkspaceLister
+	disco           clusterDiscovery
+	dsif            dynamicinformer.DynamicSharedInformerFactory
+	handler         GVREventHandler
+	filterFunc      func(interface{}) bool
+	pollInterval    time.Duration
 
 	mu   sync.Mutex // guards gvrs
 	gvrs sets.String
@@ -85,19 +94,22 @@ func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.Gr
 // informers that discovers new types and informs on updates to resources of
 // those types.
 func NewDynamicDiscoverySharedInformerFactory(
-	disco *discovery.DiscoveryClient,
+	workspaceLister tenancylisters.WorkspaceLister,
+	disco clusterDiscovery,
 	dynClient dynamic.Interface,
 	filterFunc func(obj interface{}) bool,
 	handler GVREventHandler,
-	pollInterval time.Duration) DynamicDiscoverySharedInformerFactory {
+	pollInterval time.Duration,
+) DynamicDiscoverySharedInformerFactory {
 	dsif := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, resyncPeriod)
 	return DynamicDiscoverySharedInformerFactory{
-		disco:        disco,
-		dsif:         dsif,
-		handler:      handler,
-		filterFunc:   filterFunc,
-		gvrs:         sets.NewString(),
-		pollInterval: pollInterval,
+		workspaceLister: workspaceLister,
+		disco:           disco,
+		dsif:            dsif,
+		handler:         handler,
+		filterFunc:      filterFunc,
+		gvrs:            sets.NewString(),
+		pollInterval:    pollInterval,
 	}
 }
 
@@ -161,30 +173,56 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	defer d.mu.Unlock()
 
 	latest := sets.NewString()
-	rs, err := d.disco.ServerPreferredResources()
-	if err != nil {
-		return err
-	}
-	for _, r := range rs {
-		gv, err := schema.ParseGroupVersion(r.GroupVersion)
+	logicalClusterNames := sets.NewString()
+
+	// Assuming the workspaceLister is set, get a list of all the logical cluster names. We'll
+	// get discovery from all of them, union all the GVRs, and use that union for the
+	// informer.
+	// TODO(ncdc): this may not scale well. Watchable discovery or something like that
+	// is a better long term solution.
+	if d.workspaceLister != nil {
+		workspaces, err := d.workspaceLister.List(labels.Everything())
 		if err != nil {
 			return err
 		}
-		for _, ai := range r.APIResources {
-			if strings.Contains(ai.Name, "/") {
-				// foo/status, pods/exec, namespace/finalize, etc.
-				continue
+		for i := range workspaces {
+			logicalClusterName, err := helper.EncodeLogicalClusterName(workspaces[i])
+			if err != nil {
+				return err
 			}
-			if !ai.Namespaced {
-				// Ignore cluster-scoped things.
-				continue
-			}
-			if !sets.NewString([]string(ai.Verbs)...).HasAll("list", "watch") {
-				klog.V(2).Infof("resource %s.%s %s is not list+watchable: %v", gv.Group, gv.Version, ai.Name, ai.Verbs)
-				continue
-			}
+			logicalClusterNames.Insert(logicalClusterName)
+		}
+	} else {
+		// If we don't have the workspaceLister, only check the root logical cluster.
+		logicalClusterNames.Insert(helper.OrganizationCluster)
+	}
 
-			latest.Insert(strings.Join([]string{ai.Name, gv.Version, gv.Group}, "."))
+	for _, logicalClusterName := range logicalClusterNames.List() {
+		rs, err := d.disco.WithCluster(logicalClusterName).ServerPreferredResources()
+		if err != nil {
+			return err
+		}
+		for _, r := range rs {
+			gv, err := schema.ParseGroupVersion(r.GroupVersion)
+			if err != nil {
+				return err
+			}
+			for _, ai := range r.APIResources {
+				if strings.Contains(ai.Name, "/") {
+					// foo/status, pods/exec, namespace/finalize, etc.
+					continue
+				}
+				if !ai.Namespaced {
+					// Ignore cluster-scoped things.
+					continue
+				}
+				if !sets.NewString([]string(ai.Verbs)...).HasAll("list", "watch") {
+					klog.V(2).InfoS("resource is not list+watchable", "logical-cluster", logicalClusterName, "group", gv.Group, "version", gv.Version, "resource", ai.Name, "verbs", ai.Verbs)
+					continue
+				}
+
+				latest.Insert(strings.Join([]string{ai.Name, gv.Version, gv.Group}, "."))
+			}
 		}
 	}
 
@@ -195,7 +233,8 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	for _, gvrstr := range newGVRs.UnsortedList() {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 		if gvr == nil {
-			multierr.AppendInto(&merr, fmt.Errorf("parsing GVR string %q: %w", gvrstr, err))
+			// TODO(ncdc): consider tracking where each gvrstr came from (which workspace) so we can include that in the error.
+			multierr.AppendInto(&merr, fmt.Errorf("Unable to parse %q to a GroupVersionResource", gvrstr))
 			continue
 		}
 

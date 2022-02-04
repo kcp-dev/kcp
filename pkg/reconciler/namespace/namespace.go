@@ -41,7 +41,6 @@ const clusterLabel = "kcp.dev/cluster"
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName string, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
-
 	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
 		klog.V(2).Infof("Skipping reconciliation of ingress %s/%s", unstr.GetNamespace(), unstr.GetName())
 		return nil
@@ -77,7 +76,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 
 	// Update the resource's assignment.
 	klog.Infof("Patching to update cluster assignment for %s %s/%s: %q -> %q", gvr, ns.Name, unstr.GetName(), old, new)
-	if _, err := c.dynClient.Resource(*gvr).Namespace(ns.Name).Patch(ctx, unstr.GetName(), types.MergePatchType, clusterLabelPatchBytes(new), metav1.PatchOptions{}); err != nil {
+	if _, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).Patch(ctx, unstr.GetName(), types.MergePatchType, clusterLabelPatchBytes(new), metav1.PatchOptions{}); err != nil {
 		return err
 	}
 	return nil
@@ -108,7 +107,7 @@ func (c *Controller) patchStatus(ctx context.Context, ns *corev1.Namespace, upda
 	if err != nil {
 		return err
 	}
-	_, err = c.namespaceClient.Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		return fmt.Errorf("failed to patch status on namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
 	}
@@ -137,12 +136,18 @@ func (c *Controller) updateSchedulableCondition(ctx context.Context, ns *corev1.
 // assignCluster attempts to schedule a namespace to a random cluster. If no cluster is
 // available, any existing cluster assignment will be cleared.
 func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) error {
-	clusters, err := c.clusterLister.List(labels.Everything())
+	allClusters, err := c.clusterLister.List(labels.Everything())
 	if err != nil {
 		return err
 	}
 
-	oldClusterName := ns.Labels[clusterLabel]
+	var clusters []*v1alpha1.Cluster
+	for i := range allClusters {
+		// Only include Clusters that are in the same logical cluster as ns
+		if allClusters[i].ClusterName == ns.ClusterName {
+			clusters = append(clusters, allClusters[i])
+		}
+	}
 
 	// TODO: Filter out un-Ready clusters so a namespace doesn't
 	// get assigned to an un-Ready cluster.
@@ -154,9 +159,10 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 		newClusterName = cluster.Name
 	}
 
+	oldClusterName := ns.Labels[clusterLabel]
 	if oldClusterName != newClusterName {
 		klog.Infof("Patching to update cluster assignment for namespace %q|%q: %q -> %q", ns.ClusterName, ns.Name, oldClusterName, newClusterName)
-		if _, err := c.namespaceClient.Patch(ctx, ns.Name, types.MergePatchType, clusterLabelPatchBytes(newClusterName), metav1.PatchOptions{}); err != nil {
+		if _, err := c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().Patch(ctx, ns.Name, types.MergePatchType, clusterLabelPatchBytes(newClusterName), metav1.PatchOptions{}); err != nil {
 			return err
 		}
 
