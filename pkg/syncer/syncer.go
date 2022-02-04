@@ -18,6 +18,8 @@ package syncer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -34,6 +36,7 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 )
@@ -327,21 +330,22 @@ func (c *Controller) handleErr(err error, i interface{}) {
 	klog.Errorf("Dropping key %q after failed retries: %v", i, err)
 }
 
-const nsDelimiter = "--"
-const nsTemplate = "kcp" + nsDelimiter + "%s" + nsDelimiter + "%s"
-
-func toCluster(clusterName, kcpNamespace string) (namespace string) {
-	return fmt.Sprintf(nsTemplate, clusterName, kcpNamespace)
+// NamespaceLocator stores a logical cluster and namespace and is used
+// as the source for the mapped namespace name in a physical cluster.
+type NamespaceLocator struct {
+	LogicalCluster string `json:"logical-cluster"`
+	Namespace      string `json:"namespace"`
 }
 
-func toKcp(namespace string) (clusterName, kcpNamespace string, err error) {
-	segments := strings.Split(namespace, nsDelimiter)
-
-	if len(segments) != 3 {
-		return "", "", fmt.Errorf("Failed to transform name: %s", namespace)
+// PhysicalClusterNamespaceName encodes the NamespaceLocator to a new
+// namespace name for use on a physical cluster. The encoding is repeatable.
+func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
+	b, err := json.Marshal(l)
+	if err != nil {
+		return "", err
 	}
-
-	return segments[1], segments[2], nil
+	hash := sha256.Sum224(b)
+	return fmt.Sprintf("kcp%x", hash), nil
 }
 
 func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, obj interface{}) error {
@@ -370,16 +374,42 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return nil
 	}
 
-	targetName := meta.GetName()
-	var targetNamespace string
+	var (
+		targetName      = meta.GetName()
+		targetNamespace string
+		err             error
+	)
 	if c.direction == KcpToPhysicalCluster {
-		targetNamespace = toCluster(meta.GetClusterName(), meta.GetNamespace())
-	} else {
-		var err error
-		_, targetNamespace, err = toKcp(meta.GetNamespace())
+		l := NamespaceLocator{
+			LogicalCluster: meta.GetClusterName(),
+			Namespace:      namespace,
+		}
+		targetNamespace, err = PhysicalClusterNamespaceName(l)
 		if err != nil {
+			klog.Errorf("error hashing namespace: %v", err)
+			return nil
+		}
+	} else {
+		nsInformer := c.fromInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
+		nsObj, err := nsInformer.Lister().Get(clusters.ToClusterAwareKey(meta.GetClusterName(), namespace))
+		if err != nil {
+			klog.Errorf("error listing namespace %q from the physical cluster: %v", namespace, err)
+			return nil
+		}
+		nsMeta, ok := nsObj.(metav1.Object)
+		if !ok {
+			klog.Errorf("namespace %q: expected metav1.Object, got %T", namespace, nsObj)
+			return nil
+		}
+		if namespaceLocationAnnotation := nsMeta.GetAnnotations()[namespaceLocatorAnnotation]; namespaceLocationAnnotation != "" {
+			var l NamespaceLocator
+			if err := json.Unmarshal([]byte(namespaceLocationAnnotation), &l); err != nil {
+				klog.Errorf("namespace %q: error decoding annotation: %v", namespace, err)
+				return nil
+			}
+			targetNamespace = l.Namespace
+		} else {
 			// this is not our namespace, silently skipping
-			//nolint:nilerr
 			return nil
 		}
 	}

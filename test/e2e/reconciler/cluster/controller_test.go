@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest/v1alpha1"
@@ -86,7 +87,12 @@ func TestClusterController(t *testing.T) {
 					return
 				}
 
-				targetNamespace := fmt.Sprintf("kcp--%s--%s", cowboy.GetClusterName(), cowboy.GetNamespace())
+				nsLocator := syncer.NamespaceLocator{LogicalCluster: cowboy.ClusterName, Namespace: cowboy.Namespace}
+				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+				if err != nil {
+					t.Errorf("Error determining namespace mapping for %v: %v", nsLocator, err)
+					return
+				}
 				defer servers[sourceClusterName].Artifact(t, func() (runtime.Object, error) {
 					return servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
 				})
@@ -123,7 +129,12 @@ func TestClusterController(t *testing.T) {
 					return
 				}
 
-				targetNamespace := fmt.Sprintf("kcp--%s--%s", cowboy.GetClusterName(), cowboy.GetNamespace())
+				nsLocator := syncer.NamespaceLocator{LogicalCluster: cowboy.ClusterName, Namespace: cowboy.Namespace}
+				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+				if err != nil {
+					t.Errorf("Error determining namespace mapping for %v: %v", nsLocator, err)
+					return
+				}
 				defer servers[sourceClusterName].Artifact(t, func() (runtime.Object, error) {
 					return servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
 				})
@@ -131,7 +142,7 @@ func TestClusterController(t *testing.T) {
 					return servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
 				})
 
-				cowboy.SetNamespace(fmt.Sprintf("kcp--%s--%s", cowboy.GetClusterName(), cowboy.GetNamespace()))
+				cowboy.SetNamespace(targetNamespace)
 				if err := servers[sinkClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					// just wait for the sink the catch up
 					if diff := cmp.Diff(cowboy.Spec, object.Spec); diff != "" {
