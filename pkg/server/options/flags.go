@@ -77,6 +77,9 @@ var (
 		"requestheader-username-headers",     // List of request headers to inspect for usernames. X-Remote-User is common.
 		"token-auth-file",                    // If set, the file that will be used to secure the secure port of the API server via token authentication.
 
+		// KCP Authorization flags
+		"authorization-always-allow-paths", // A list of HTTP paths to skip during authorization, i.e. these are authorized without contacting the 'core' kubernetes server.
+
 		// logs flags
 		"logging-format", // Sets the log format. Permitted formats: "text".
 

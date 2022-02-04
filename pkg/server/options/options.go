@@ -36,6 +36,7 @@ type Options struct {
 	GenericControlPlane ServerRunOptions
 	EmbeddedEtcd        EmbeddedEtcd
 	Controllers         Controllers
+	Authorization       Authorization
 
 	Extra ExtraOptions
 }
@@ -63,8 +64,9 @@ func NewOptions() *Options {
 		GenericControlPlane: ServerRunOptions{
 			*options.NewServerRunOptions(),
 		},
-		EmbeddedEtcd: *NewEmbeddedEtcd(),
-		Controllers:  *NewControllers(),
+		EmbeddedEtcd:  *NewEmbeddedEtcd(),
+		Controllers:   *NewControllers(),
+		Authorization: *NewAuthorization(),
 
 		Extra: ExtraOptions{
 			KubeConfigPath:        "admin.kubeconfig",
@@ -104,6 +106,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 
 	o.EmbeddedEtcd.AddFlags(fss.FlagSet("Embedded etcd"))
 	o.Controllers.AddFlags(fss.FlagSet("KCP Controllers"))
+	o.Authorization.AddFlags(fss.FlagSet("KCP Authorization"))
 
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
@@ -122,6 +125,7 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.GenericControlPlane.Validate()...)
 	errs = append(errs, o.Controllers.Validate()...)
 	errs = append(errs, o.EmbeddedEtcd.Validate()...)
+	errs = append(errs, o.Authorization.Validate()...)
 
 	if o.Extra.DiscoveryPollInterval == 0 {
 		errs = append(errs, fmt.Errorf("--discovery-poll-interval not set"))
@@ -167,6 +171,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 				GenericControlPlane: ServerRunOptions{*completedGenericControlPlane.ServerRunOptions},
 				EmbeddedEtcd:        o.EmbeddedEtcd,
 				Controllers:         o.Controllers,
+				Authorization:       o.Authorization,
 				Extra:               o.Extra,
 			},
 		},

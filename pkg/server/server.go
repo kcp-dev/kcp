@@ -29,7 +29,6 @@ import (
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/webhook"
 	coreexternalversions "k8s.io/client-go/informers"
@@ -38,7 +37,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
-	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -259,15 +257,9 @@ func (s *Server) Run(ctx context.Context) error {
 	//		return client.Scope(crossClusterScope), nil
 	//	}
 
-	// wire authz
-	orgAuth, orgResolver := authorization.NewOrgWorkspaceAuthorizer(s.kubeSharedInformerFactory)
-	localAuth, localResolver := authorization.NewLocalAuthorizer(s.kubeSharedInformerFactory)
-	apisConfig.GenericConfig.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
-	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(
-		s.kubeSharedInformerFactory,
-		workspaceLister,
-		union.New(orgAuth, localAuth),
-	)
+	if err := s.options.Authorization.ApplyTo(apisConfig.GenericConfig, s.kubeSharedInformerFactory, workspaceLister); err != nil {
+		return err
+	}
 
 	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
