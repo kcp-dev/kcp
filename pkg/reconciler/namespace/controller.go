@@ -408,7 +408,14 @@ func (c *Controller) processNamespace(ctx context.Context, key string) error {
 func (c *Controller) processCluster(ctx context.Context, key string) error {
 	cluster, err := c.clusterLister.Get(key)
 	if k8serrors.IsNotFound(err) {
-		return nil
+		// A deleted cluster requires evaluating all namespaces for
+		// potential rescheduling.
+		//
+		// TODO(marun) Consider using a cluster finalizer to speed up
+		// convergence if cluster deletion events are missed by this
+		// controller. Rescheduling will always happen eventually due
+		// to namespace informer resync.
+		return c.enqueueAllNamespaces(ctx)
 	} else if err != nil {
 		return err
 	}

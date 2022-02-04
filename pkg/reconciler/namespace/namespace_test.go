@@ -34,10 +34,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-
-	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
-	clusterfake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 const lcluster = "my-logical-cluster"
@@ -133,80 +129,6 @@ func TestReconcileResource(t *testing.T) {
 				wantActions = append(wantActions, k8stesting.NewPatchAction(*gvr, nsName, d.Name, types.MergePatchType, clusterLabelPatchBytes(targetCluster)))
 			}
 			if diff := cmp.Diff(wantActions, dynClient.Actions()); diff != "" {
-				t.Fatalf("Unexpected actions: (-got,+want): %s", diff)
-			}
-
-			// TODO: Get the deployment back out and see that its label was updated.
-		})
-	}
-}
-
-func TestReconcileNamespace(t *testing.T) {
-	targetCluster := "target-cluster"
-	nsName := "my-namespace"
-
-	gvr := &schema.GroupVersionResource{
-		Group:    "",
-		Version:  "v1",
-		Resource: "namespaces",
-	}
-
-	ctx := context.Background()
-
-	for _, tc := range []struct {
-		desc            string
-		assignedCluster string
-		wantPatch       bool
-	}{{
-		desc:            "namespace not assigned",
-		assignedCluster: "",
-		wantPatch:       true,
-	}, {
-		desc:            "namespace assigned",
-		assignedCluster: targetCluster,
-		wantPatch:       false,
-	}} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ns := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					ClusterName: lcluster,
-					Name:        nsName,
-					Labels: map[string]string{
-						clusterLabel: tc.assignedCluster,
-					},
-				},
-			}
-			clientset := fake.NewSimpleClientset(ns)
-
-			clusterClient := clusterfake.NewSimpleClientset(&v1alpha1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: targetCluster,
-				},
-			})
-			csif := externalversions.NewSharedInformerFactory(clusterClient, time.Second)
-			csif.Cluster().V1alpha1().Clusters().Informer() // This is needed to get the informer to start listening.
-			csif.Start(ctx.Done())
-			t.Logf("cache synced: %+v", csif.WaitForCacheSync(ctx.Done()))
-
-			c := &Controller{
-				clusterLister:   csif.Cluster().V1alpha1().Clusters().Lister(),
-				namespaceClient: clientset.CoreV1().Namespaces(),
-			}
-
-			// Reconcile the Namespace and see that its labels were
-			// patched as expected.
-			if err := c.reconcileNamespace(ctx, lcluster, ns); err != nil {
-				// TODO: This should be a t.Fatal, but this fails because the
-				// dynamic client fails to find the Deployment by GVR.  For
-				// now, just t.Logf the failure and check that we got the patch
-				// we expected.
-				t.Logf("reconcileNamespace: %v", err)
-			}
-			wantActions := []k8stesting.Action{}
-			if tc.wantPatch {
-				wantActions = append(wantActions, k8stesting.NewPatchAction(*gvr, "", nsName, types.MergePatchType, clusterLabelPatchBytes(targetCluster)))
-			}
-			if diff := cmp.Diff(wantActions, clientset.Actions()); diff != "" {
 				t.Fatalf("Unexpected actions: (-got,+want): %s", diff)
 			}
 
