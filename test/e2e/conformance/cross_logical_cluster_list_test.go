@@ -40,7 +40,7 @@ import (
 func TestCrossLogicalClusterList(t *testing.T) {
 	const serverName = "main"
 
-	framework.Run(t, "Ensure cross logical cluster list works", func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
+	framework.RunParallel(t, "Ensure cross logical cluster list works", func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
 		ctx := context.Background()
 		if deadline, ok := t.Deadline(); ok {
 			withDeadline, cancel := context.WithDeadline(ctx, deadline)
