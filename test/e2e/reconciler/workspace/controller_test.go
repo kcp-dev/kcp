@@ -286,7 +286,7 @@ func TestWorkspaceController(t *testing.T) {
 	const serverName = "main"
 	for i := range testCases {
 		testCase := testCases[i]
-		framework.Run(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
+		framework.RunParallel(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)

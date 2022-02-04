@@ -53,7 +53,7 @@ type KcpConfig struct {
 	Args []string
 }
 
-// Run mimics the testing.T.Run function while providing a nice set of concurrency
+// RunParallel mimics the testing.T.Run function while providing a nice set of concurrency
 // guarantees for the processes that we create and manage for test cases. We ensure:
 // - any kcp processes that are started will only be exposed to the test
 //   code once they have signalled that they are healthy, ready, and live
@@ -74,7 +74,7 @@ type KcpConfig struct {
 // other than the main testing goroutine. Therefore, when more than one routine needs
 // to be able to influence the execution flow (e.g. preempt other routines) we must
 // have the central routine watch for incoming errors from delegate routines.
-func Run(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
+func RunParallel(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 	if _, previouslyCalled := seen.LoadOrStore(fmt.Sprintf("%p", top), nil); !previouslyCalled {
 		top.Parallel()
 	}
