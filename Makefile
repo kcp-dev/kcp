@@ -98,10 +98,11 @@ imports: $(OPENSHIFT_GOIMPORTS)
 	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
 
 COUNT ?= 5
+E2E_PARALLELISM ?= 1
 
 .PHONY: test-e2e
 test-e2e: install
-	go test -tags e2e -race -count $(COUNT) ./test/e2e... $(WHAT)
+	go test -tags e2e -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) ./test/e2e... $(WHAT)
 
 .PHONY: test
 test:
