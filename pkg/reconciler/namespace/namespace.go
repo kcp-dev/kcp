@@ -22,6 +22,7 @@ import (
 	"math/rand"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -31,6 +32,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const clusterLabel = "kcp.dev/cluster"
@@ -100,6 +103,130 @@ func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionRe
 	return nil
 }
 
+func (c *Controller) patchStatus(ctx context.Context, ns *corev1.Namespace, updateConditions updateConditionsFunc) error {
+	patchBytes, err := statusPatchBytes(ns, updateConditions)
+	if err != nil {
+		return err
+	}
+	_, err = c.namespaceClient.Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	if err != nil {
+		return fmt.Errorf("failed to patch status on namespace %q: %w", ns.Name, err)
+	}
+	return nil
+}
+
+// Set the schedulable condition on namespaces and not the resources it
+// contains. Not all native types support status conditions (e.g. configmaps
+// and secrets) and there is no guarantee that arbitrary CRDs will support
+// conditions.
+func (c *Controller) updateSchedulableCondition(ctx context.Context, ns *corev1.Namespace, schedulable bool) error {
+	klog.Infof("Patching namespace %q status to indicate schedulable=%s", ns.Name, schedulable)
+
+	if schedulable {
+		return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
+			conditions.MarkTrue(conditionsSetter, NamespaceScheduled)
+		})
+	}
+	return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
+		conditions.MarkFalse(conditionsSetter, NamespaceScheduled, NamespaceReasonUnschedulable,
+			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
+			"No clusters are available to schedule Namespaces to.")
+	})
+}
+
+// assignCluster attempts to schedule a namespace to a random cluster. If no cluster is
+// not available, any existing cluster assignment will be cleared.
+func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) error {
+	clusters, err := c.clusterLister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+
+	oldClusterName := ns.Labels[clusterLabel]
+
+	// TODO: Filter out un-Ready clusters so a namespace doesn't
+	// get assigned to an un-Ready cluster.
+
+	newClusterName := ""
+	if len(clusters) > 0 {
+		// Select a cluster at random.
+		cluster := clusters[rand.Intn(len(clusters))]
+		newClusterName = cluster.Name
+	}
+
+	if oldClusterName != newClusterName {
+		klog.Infof("Patching to update cluster assignment for namespace %s: %q -> %q", ns.Name, oldClusterName, newClusterName)
+		if _, err := c.namespaceClient.Patch(ctx, ns.Name, types.MergePatchType, clusterLabelPatchBytes(newClusterName), metav1.PatchOptions{}); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// isValidCluster checks whether the given cluster name exists and is valid for the
+// purposes of scheduling a namespace to it.
+func (c *Controller) isValidCluster(ctx context.Context, lclusterName, clusterName string) (bool, error) {
+	cluster, err := c.clusterLister.Get(clusters.ToClusterAwareKey(lclusterName, clusterName))
+	if apierrors.IsNotFound(err) {
+		klog.Infof("Cluster %q does not exist", clusterName)
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	isReady := cluster.Status.Conditions.HasReady()
+	if !isReady {
+		klog.Infof("Cluster %q is not reporting ready", cluster.Name)
+	}
+	return isReady, nil
+}
+
+// ensureScheduled attempts to ensure the namespace is assigned to a viable cluster. This
+// will succeed without error if a cluster is assigned or if there are no viable clusters
+// to assign to. The condition of not being scheduled to a cluster will be reflected in
+// the namespace's status rather than by returning an error.
+func (c *Controller) ensureScheduled(ctx context.Context, lclusterName string, ns *corev1.Namespace) error {
+	clusterName := ns.Labels[clusterLabel]
+
+	noClusterAssigned := clusterName == ""
+	if noClusterAssigned {
+		if err := c.assignCluster(ctx, ns); err != nil {
+			return err
+		}
+	} else {
+		isValidCluster, err := c.isValidCluster(ctx, lclusterName, clusterName)
+		if err != nil {
+			return err
+		}
+		if !isValidCluster {
+			// Currently assigned cluster no longer exists or is not ready.
+			if err := c.assignCluster(ctx, ns); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ensureScheduledStatus ensures the status of the given namespace reflects whether the
+// namespace has been assigned to a cluster.
+func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Namespace, oldClusterName string) error {
+	// Set status on cluster change to bump the transition time
+	newClusterName := ns.Labels[clusterLabel]
+	clusterChanged := oldClusterName != newClusterName
+
+	// Set status if the scheduled state of the namespace has changed
+	scheduled := (newClusterName != "")
+	statusChangeRequired := scheduled != HasScheduledStatus(ns)
+
+	if clusterChanged || statusChangeRequired {
+		return c.updateSchedulableCondition(ctx, ns, scheduled)
+	}
+	return nil
+}
+
 // reconcileNamespace is responsible for assigning a namespace to a cluster, if
 // it does not already have one.
 //
@@ -112,43 +239,20 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 		ns.Labels = map[string]string{}
 	}
 
-	clusterName := ns.Labels[clusterLabel]
-	if clusterName == "" {
-		// Namespace is not assigned to a cluster; assign one.
-		// First, list all clusters.
-		cls, err := c.clusterLister.List(labels.Everything())
-		if err != nil {
-			return err
-		}
+	// Keep track of the cluster name prior to scheduling to support conditionally
+	// setting status.
+	oldClusterName := ns.Labels[clusterLabel]
 
-		// TODO: Filter out un-Ready clusters so a namespace doesn't
-		// get assigned to an un-Ready cluster.
-
-		if len(cls) == 0 {
-			// TODO set status, on namespace and all resources in namespace.
-			return fmt.Errorf("no clusters")
-		}
-
-		// Select a cluster at random.
-		cl := cls[rand.Intn(len(cls))]
-		old, new := "", cl.Name
-
-		// Patch the namespace.
-		klog.Infof("Patching to update cluster assignment for namespace %s: %q -> %q", ns.Name, old, new)
-		if _, err := c.namespaceClient.Patch(ctx, ns.Name, types.MergePatchType, clusterLabelPatchBytes(new), metav1.PatchOptions{}); err != nil {
-			return err
-		}
-	}
-
-	// Check if the cluster reports as Ready.
-	cl, err := c.clusterLister.Get(clusters.ToClusterAwareKey(lclusterName, clusterName))
-	if err != nil {
+	if err := c.ensureScheduled(ctx, lclusterName, ns); err != nil {
 		return err
 	}
-	if !cl.Status.Conditions.HasReady() {
-		klog.Infof("Cluster %q is not reporting as ready", cl.Name)
 
-		// TODO: reassign this namespace to another Ready cluster at random.
+	// Ensure that the namespace's status is accurate without considering whether there
+	// has been a change in the namespace's assigned cluster. This ensures that the
+	// status will eventually converge if initial attempts to set status are
+	// unsuccessful.
+	if err := c.ensureScheduledStatus(ctx, ns, oldClusterName); err != nil {
+		return err
 	}
 
 	// Update all resources in the namespace with the cluster assignment.
@@ -206,9 +310,21 @@ func (c *Controller) observeCluster(ctx context.Context, cl *v1alpha1.Cluster) e
 		return nil
 	}
 
-	// TODO: If the Cluster reports as unhealthy, enqueue work items to
-	// reconcile every namespace assigned to that cluster. This, along with
-	// the above TODO, will reassign the namespace to a ready cluster.
+	// An unhealthy cluster requires revisiting the scheduling for all namespaces to
+	// ensure rescheduling is performed if needed.
+	return c.enqueueAllNamespaces(ctx)
+}
+
+// enqueueAllNamespaces adds all known namespaces to the queue to allow for rescheduling
+// if a cluster is deleted or becomes NotReady.
+func (c *Controller) enqueueAllNamespaces(ctx context.Context) error {
+	namespaces, err := c.namespaceLister.ListWithContext(ctx, labels.Everything())
+	if err != nil {
+		return err
+	}
+	for _, namespace := range namespaces {
+		c.enqueueNamespace(namespace)
+	}
 
 	return nil
 }

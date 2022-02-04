@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workspace
+package namespace
 
 import (
 	"context"
@@ -26,246 +26,158 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-
 	corev1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 const clusterLabel = "kcp.dev/cluster"
 
 func TestNamespaceScheduler(t *testing.T) {
-	// TODO(jasonhall): Make tests pass.
-	t.Skip("Tests currently don't pass")
-
-	var testCases = []struct {
-		name string
-		work func(ctx context.Context, t framework.TestingTInterface, kubeClient kubernetes.Interface, client clientset.Interface, watcher watch.Interface)
-	}{
-		{
-			name: "create a namespace without clusters, expect it to be unschedulable",
-			work: func(ctx context.Context, t framework.TestingTInterface, kubeClient kubernetes.Interface, client clientset.Interface, watcher watch.Interface) {
-				namespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create namespace: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(namespace), 5*time.Second); err != nil {
-					t.Errorf("did not see workspace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace updated: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "add a cluster after a namespace is unschedulable, expect it to be scheduled",
-			work: func(ctx context.Context, t framework.TestingTInterface, kubeClient kubernetes.Interface, client clientset.Interface, watcher watch.Interface) {
-				namespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create namespace: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(namespace), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace updated: %v", err)
-					return
-				}
-				bostonCluster, err := client.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create cluster: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonCluster.Name), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace updated: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "create a namespace with a cluster, expect it to be scheduled",
-			work: func(ctx context.Context, t framework.TestingTInterface, kubeClient kubernetes.Interface, client clientset.Interface, watcher watch.Interface) {
-				bostonCluster, err := client.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create first cluster: %v", err)
-					return
-				}
-				namespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create namespace: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(namespace), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonCluster.Name), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace updated: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "delete a cluster that a namespace is scheduled to, expect it to move to another cluster",
-			work: func(ctx context.Context, t framework.TestingTInterface, kubeClient kubernetes.Interface, client clientset.Interface, watcher watch.Interface) {
-				bostonCluster, err := client.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create first cluster: %v", err)
-					return
-				}
-				atlantaCluster, err := client.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create second cluster: %v", err)
-					return
-				}
-				namespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create namespace: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(namespace), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace created: %v", err)
-					return
-				}
-				namespace, err = expectNextEvent(watcher, watch.Modified, scheduledAnywhereMatcher(), 5*time.Second)
-				if err != nil {
-					t.Errorf("did not see namespace updated: %v", err)
-					return
-				}
-				var otherCluster string
-				for _, name := range []string{bostonCluster.Name, atlantaCluster.Name} {
-					if name != namespace.Labels[clusterLabel] {
-						otherCluster = name
-						break
-					}
-				}
-				if err := client.ClusterV1alpha1().Clusters().Delete(ctx, namespace.Labels[clusterLabel], metav1.DeleteOptions{}); err != nil {
-					t.Errorf("failed to delete cluster: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(otherCluster), 5*time.Second); err != nil {
-					t.Errorf("did not see workspace updated: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "delete all clusters, expect namespace to be unschedulable",
-			work: func(ctx context.Context, t framework.TestingTInterface, kubeClient kubernetes.Interface, client clientset.Interface, watcher watch.Interface) {
-				bostonCluster, err := client.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create first cluster: %v", err)
-					return
-				}
-				namespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create namespace: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Added, exactMatcher(namespace), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace created: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Modified, scheduledMatcher(bostonCluster.Name), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace updated: %v", err)
-					return
-				}
-				if err := client.ClusterV1alpha1().Clusters().Delete(ctx, bostonCluster.Name, metav1.DeleteOptions{}); err != nil {
-					t.Errorf("failed to delete cluster: %v", err)
-					return
-				}
-				if _, err := expectNextEvent(watcher, watch.Modified, unschedulableMatcher(), 5*time.Second); err != nil {
-					t.Errorf("did not see namespace updated: %v", err)
-					return
-				}
-			},
-		},
-	}
 	const serverName = "main"
-	for i := range testCases {
-		testCase := testCases[i]
-		framework.RunParallel(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
-			ctx := context.Background()
-			if deadline, ok := t.Deadline(); ok {
-				withDeadline, cancel := context.WithDeadline(ctx, deadline)
-				t.Cleanup(cancel)
-				ctx = withDeadline
-			}
-			if len(servers) != 1 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
-			}
-			server := servers[serverName]
-			cfg, err := server.Config()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
-			if err != nil {
-				t.Errorf("failed to detect cluster name: %v", err)
-				return
-			}
-			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct client for server: %v", err)
-				return
-			}
-			client := kubeClient.Cluster(clusterName)
-			watcher, err := client.CoreV1().Namespaces().Watch(ctx, metav1.ListOptions{})
-			if err != nil {
-				t.Errorf("failed to watch namespaces: %v", err)
-				return
-			}
-
-			clients, err := clientset.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct client for server: %v", err)
-				return
-			}
-			clusterClient := clients.Cluster(clusterName)
-
-			testCase.work(ctx, t, client, clusterClient, watcher)
-		}, framework.KcpConfig{
-			Name: "main",
-			Args: []string{"--install-cluster-controller", "--install-workspace-scheduler", "--install-namespace-scheduler", "--discovery-poll-interval=2s"},
-		})
-	}
-}
-
-func exactMatcher(expected *corev1.Namespace) matcher {
-	return func(object *corev1.Namespace) error {
-		if !apiequality.Semantic.DeepEqual(expected, object) {
-			return fmt.Errorf("incorrect object: %v", cmp.Diff(expected, object))
+	framework.RunParallel(t, "validate namespace scheduling", func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
+		ctx := context.Background()
+		if deadline, ok := t.Deadline(); ok {
+			withDeadline, cancel := context.WithDeadline(ctx, deadline)
+			t.Cleanup(cancel)
+			ctx = withDeadline
 		}
-		return nil
-	}
+
+		if len(servers) != 1 {
+			t.Errorf("incorrect number of servers: %d", len(servers))
+			return
+		}
+		server := servers[serverName]
+		cfg, err := server.Config()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		kubeClient, err := kubernetes.NewClusterForConfig(cfg)
+		if err != nil {
+			t.Errorf("failed to construct client for server: %v", err)
+			return
+		}
+
+		clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
+		if err != nil {
+			t.Errorf("failed to detect cluster name: %v", err)
+			return
+		}
+		client := kubeClient.Cluster(clusterName)
+
+		clients, err := clientset.NewClusterForConfig(cfg)
+		if err != nil {
+			t.Errorf("failed to construct client for server: %v", err)
+			return
+		}
+		clusterClient := clients.Cluster(clusterName).ClusterV1alpha1().Clusters()
+
+		expect, err := expectNamespaces(ctx, t, client)
+		if err != nil {
+			t.Errorf("failed to start expecter: %v", err)
+			return
+		}
+
+		// Create a namespace without a cluster available and expect it to be marked unscheduled
+
+		namespace, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "e2e-nss-",
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Errorf("failed to create namespace1: %v", err)
+			return
+		}
+
+		if err := expect(namespace, unschedulableMatcher()); err != nil {
+			t.Errorf("did not see namespace marked unschedulable: %v", err)
+			return
+		}
+
+		// Create a cluster and expect the namespace to be scheduled to it
+
+		cluster1, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "e2e-nss-1-",
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Errorf("failed to create cluster1: %v", err)
+			return
+		}
+
+		if err := expect(namespace, scheduledMatcher(cluster1.Name)); err != nil {
+			t.Errorf("did not see namespace marked scheduled for cluster1 %q: %v", cluster1.Name, err)
+			return
+		}
+
+		// Create a new cluster, delete the old cluster, and expect the
+		// namespace to end up scheduled to the new cluster.
+
+		cluster2, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "e2e-nss-2-",
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Errorf("failed to create cluster2: %v", err)
+			return
+		}
+
+		err = clusterClient.Delete(ctx, cluster1.Name, metav1.DeleteOptions{})
+		if err != nil {
+			t.Errorf("failed to delete cluster1 %q: %v", cluster1.Name, err)
+			return
+		}
+
+		if err := expect(namespace, scheduledMatcher(cluster2.Name)); err != nil {
+			t.Errorf("did not see namespace marked scheduled for cluster2 %q: %v", cluster2.Name, err)
+			return
+		}
+
+		// Delete the remaining cluster and expect the namespace to be
+		// marked unscheduled.
+
+		err = clusterClient.Delete(ctx, cluster2.Name, metav1.DeleteOptions{})
+		if err != nil {
+			t.Errorf("failed to delete cluster2 %q: %v", cluster2.Name, err)
+			return
+		}
+
+		if err := expect(namespace, unschedulableMatcher()); err != nil {
+			t.Errorf("did not see namespace marked unschedulable: %v", err)
+			return
+		}
+	}, framework.KcpConfig{
+		Name: serverName,
+		Args: []string{"--install-cluster-controller", "--install-workspace-scheduler", "--install-namespace-scheduler", "--discovery-poll-interval=2s"},
+	})
 }
 
-func unschedulableMatcher() matcher {
+type namespaceExpectation func(*corev1.Namespace) error
+
+func unschedulableMatcher() namespaceExpectation {
 	return func(object *corev1.Namespace) error {
-		if !isNamespaceUnschedulable(object) {
+		if nscontroller.HasScheduledStatus(object) {
 			return fmt.Errorf("expected an unschedulable namespace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		return nil
 	}
 }
 
-func scheduledMatcher(target string) matcher {
+func scheduledMatcher(target string) namespaceExpectation {
 	return func(object *corev1.Namespace) error {
-		if isNamespaceUnschedulable(object) {
+		if !nscontroller.HasScheduledStatus(object) {
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		if object.Labels[clusterLabel] != target {
@@ -275,56 +187,29 @@ func scheduledMatcher(target string) matcher {
 	}
 }
 
-func scheduledAnywhereMatcher() matcher {
-	return func(object *corev1.Namespace) error {
-		if isNamespaceUnschedulable(object) {
-			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
+type registerNamespaceExpectation func(seed *corev1.Namespace, expectation namespaceExpectation) error
+
+func expectNamespaces(ctx context.Context, t framework.TestingTInterface, client kubernetes.Interface) (registerNamespaceExpectation, error) {
+	informerFactory := informers.NewSharedInformerFactory(client, 0)
+	informer := informerFactory.Core().V1().Namespaces()
+	expecter := framework.NewExpecter(informer.Informer())
+	informerFactory.Start(ctx.Done())
+	if !cache.WaitForNamedCacheSync(t.Name(), ctx.Done(), informer.Informer().HasSynced) {
+		return nil, errors.New("failed to wait for caches to sync")
+	}
+	return func(seed *corev1.Namespace, expectation namespaceExpectation) error {
+		key, err := cache.MetaNamespaceKeyFunc(seed)
+		if err != nil {
+			return err
 		}
-		return nil
-	}
-}
-
-type matcher func(object *corev1.Namespace) error
-
-func expectNextEvent(w watch.Interface, expectType watch.EventType, matcher matcher, duration time.Duration) (*corev1.Namespace, error) {
-	event, err := nextEvent(w, duration)
-	if err != nil {
-		return nil, err
-	}
-	if expectType != event.Type {
-		return nil, fmt.Errorf("got incorrect watch event type: %v != %v\n", expectType, event.Type)
-	}
-	workspace, ok := event.Object.(*corev1.Namespace)
-	if !ok {
-		return nil, fmt.Errorf("got %T, not a Workspace", event.Object)
-	}
-	if err := matcher(workspace); err != nil {
-		return workspace, err
-	}
-	return workspace, nil
-}
-
-func nextEvent(w watch.Interface, duration time.Duration) (watch.Event, error) {
-	stopTimer := time.NewTimer(duration)
-	defer stopTimer.Stop()
-	select {
-	case event, ok := <-w.ResultChan():
-		if !ok {
-			return watch.Event{}, errors.New("watch closed unexpectedly")
-		}
-		return event, nil
-	case <-stopTimer.C:
-		return watch.Event{}, errors.New("timed out waiting for event")
-	}
-}
-
-const conditionTypeUnschedulable = "Unschedulable"
-
-func isNamespaceUnschedulable(ns *corev1.Namespace) bool {
-	for _, cond := range ns.Status.Conditions {
-		if cond.Type == conditionTypeUnschedulable {
-			return cond.Status == corev1.ConditionTrue
-		}
-	}
-	return false
+		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
+			current, err := informer.Lister().Get(key)
+			if err != nil {
+				// Retry on all errors
+				return false, err
+			}
+			expectErr := expectation(current.DeepCopy())
+			return expectErr == nil, expectErr
+		}, 30*time.Second)
+	}, nil
 }
