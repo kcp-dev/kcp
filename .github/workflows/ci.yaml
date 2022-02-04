@@ -78,7 +78,34 @@ jobs:
         with:
           go-version: v1.17
       - run: make build
-      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" make test test-e2e
+      - run: PATH="${PATH}:$(pwd)/bin/" make test
+
+  e2e-single-run:
+    name: e2e-single-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.17
+      - run: make build
+      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" COUNT=1 E2E_PARALLELISM=2 make test-e2e
+      - uses: actions/upload-artifact@v2
+        if: ${{ always() }}
+        with:
+          name: e2e-artifacts
+          path: /tmp/e2e/**/artifacts/
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.17
+      - run: make build
+      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" COUNT=5 E2E_PARALLELISM=2 make test-e2e
       - uses: actions/upload-artifact@v2
         if: ${{ always() }}
         with:
