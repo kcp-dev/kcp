@@ -234,25 +234,29 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 }
 
 func (c *Controller) startResourceWorker(ctx context.Context) {
-	for c.processNextResource(ctx) {
+	for processNext(ctx, c.resourceQueue, c.processResource) {
 	}
 }
 func (c *Controller) startGVRWorker(ctx context.Context) {
-	for c.processNextGVR(ctx) {
+	for processNext(ctx, c.gvrQueue, c.processGVR) {
 	}
 }
 func (c *Controller) startNamespaceWorker(ctx context.Context) {
-	for c.processNextNamespace(ctx) {
+	for processNext(ctx, c.namespaceQueue, c.processNamespace) {
 	}
 }
 func (c *Controller) startClusterWorker(ctx context.Context) {
-	for c.processNextCluster(ctx) {
+	for processNext(ctx, c.clusterQueue, c.processCluster) {
 	}
 }
 
-func (c *Controller) processNextResource(ctx context.Context) bool {
-	// Wait until there is a new item in the working queue
-	k, quit := c.resourceQueue.Get()
+func processNext(
+	ctx context.Context,
+	queue workqueue.RateLimitingInterface,
+	processFunc func(ctx context.Context, key string) error,
+) bool {
+	// Wait until there is a new item in the working  queue
+	k, quit := queue.Get()
 	if quit {
 		return false
 	}
@@ -260,77 +264,14 @@ func (c *Controller) processNextResource(ctx context.Context) bool {
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
-	defer c.resourceQueue.Done(key)
+	defer queue.Done(key)
 
-	if err := c.processResource(ctx, key); err != nil {
+	if err := processFunc(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
-		c.resourceQueue.AddRateLimited(key)
+		queue.AddRateLimited(key)
 		return true
 	}
-	c.resourceQueue.Forget(key)
-	return true
-}
-
-func (c *Controller) processNextGVR(ctx context.Context) bool {
-	// Wait until there is a new item in the working queue
-	k, quit := c.gvrQueue.Get()
-	if quit {
-		return false
-	}
-	key := k.(string)
-
-	// No matter what, tell the queue we're done with this key, to unblock
-	// other workers.
-	defer c.resourceQueue.Done(key)
-
-	if err := c.processGVR(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
-		c.gvrQueue.AddRateLimited(key)
-		return true
-	}
-	c.gvrQueue.Forget(key)
-	return true
-}
-
-func (c *Controller) processNextNamespace(ctx context.Context) bool {
-	// Wait until there is a new item in the working queue
-	k, quit := c.namespaceQueue.Get()
-	if quit {
-		return false
-	}
-	key := k.(string)
-
-	// No matter what, tell the queue we're done with this key, to unblock
-	// other workers.
-	defer c.namespaceQueue.Done(key)
-
-	if err := c.processNamespace(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
-		c.namespaceQueue.AddRateLimited(key)
-		return true
-	}
-	c.namespaceQueue.Forget(key)
-	return true
-}
-
-func (c *Controller) processNextCluster(ctx context.Context) bool {
-	// Wait until there is a new item in the working queue
-	k, quit := c.clusterQueue.Get()
-	if quit {
-		return false
-	}
-	key := k.(string)
-
-	// No matter what, tell the queue we're done with this key, to unblock
-	// other workers.
-	defer c.clusterQueue.Done(key)
-
-	if err := c.processCluster(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
-		c.clusterQueue.AddRateLimited(key)
-		return true
-	}
-	c.clusterQueue.Forget(key)
+	queue.Forget(key)
 	return true
 }
 
