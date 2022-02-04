@@ -85,7 +85,7 @@ func statusPatchBytes(ns *corev1.Namespace, updateConditions updateConditionsFun
 		Status: ns.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal existing status for namespace %q: %w", ns.Name, err)
+		return nil, fmt.Errorf("failed to marshal existing status for namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
 	}
 
 	// Mutation is assumed safe
@@ -100,19 +100,19 @@ func statusPatchBytes(ns *corev1.Namespace, updateConditions updateConditionsFun
 		Status: ns.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal new status for namespace %q: %w", ns.Name, err)
+		return nil, fmt.Errorf("failed to marshal new status for namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create status patch for namespace %q: %w", ns.Name, err)
+		return nil, fmt.Errorf("failed to create status patch for namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
 	}
 	return patchBytes, nil
 }
 
-// HasScheduledStatus returns whether the given namespace's status
-// indicates it is scheduled.
-func HasScheduledStatus(ns *corev1.Namespace) bool {
+// IsScheduled returns whether the given namespace's status indicates
+// it is scheduled.
+func IsScheduled(ns *corev1.Namespace) bool {
 	for _, condition := range ns.Status.Conditions {
 		if condition.Type == corev1.NamespaceConditionType(NamespaceScheduled) {
 			return condition.Status == corev1.ConditionTrue

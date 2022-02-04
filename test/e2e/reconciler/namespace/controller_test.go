@@ -168,7 +168,7 @@ type namespaceExpectation func(*corev1.Namespace) error
 
 func unschedulableMatcher() namespaceExpectation {
 	return func(object *corev1.Namespace) error {
-		if nscontroller.HasScheduledStatus(object) {
+		if nscontroller.IsScheduled(object) {
 			return fmt.Errorf("expected an unschedulable namespace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		return nil
@@ -177,7 +177,7 @@ func unschedulableMatcher() namespaceExpectation {
 
 func scheduledMatcher(target string) namespaceExpectation {
 	return func(object *corev1.Namespace) error {
-		if !nscontroller.HasScheduledStatus(object) {
+		if !nscontroller.IsScheduled(object) {
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		if object.Labels[clusterLabel] != target {

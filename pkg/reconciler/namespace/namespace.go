@@ -110,7 +110,7 @@ func (c *Controller) patchStatus(ctx context.Context, ns *corev1.Namespace, upda
 	}
 	_, err = c.namespaceClient.Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
-		return fmt.Errorf("failed to patch status on namespace %q: %w", ns.Name, err)
+		return fmt.Errorf("failed to patch status on namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
 	}
 	return nil
 }
@@ -120,7 +120,7 @@ func (c *Controller) patchStatus(ctx context.Context, ns *corev1.Namespace, upda
 // and secrets) and there is no guarantee that arbitrary CRDs will support
 // conditions.
 func (c *Controller) updateSchedulableCondition(ctx context.Context, ns *corev1.Namespace, schedulable bool) error {
-	klog.Infof("Patching namespace %q status to indicate schedulable=%s", ns.Name, schedulable)
+	klog.Infof("Patching namespace %q|%q status to indicate schedulable=%s", ns.ClusterName, ns.Name, schedulable)
 
 	if schedulable {
 		return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
@@ -135,7 +135,7 @@ func (c *Controller) updateSchedulableCondition(ctx context.Context, ns *corev1.
 }
 
 // assignCluster attempts to schedule a namespace to a random cluster. If no cluster is
-// not available, any existing cluster assignment will be cleared.
+// available, any existing cluster assignment will be cleared.
 func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) error {
 	clusters, err := c.clusterLister.List(labels.Everything())
 	if err != nil {
@@ -155,7 +155,7 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 	}
 
 	if oldClusterName != newClusterName {
-		klog.Infof("Patching to update cluster assignment for namespace %s: %q -> %q", ns.Name, oldClusterName, newClusterName)
+		klog.Infof("Patching to update cluster assignment for namespace %q|%q: %q -> %q", ns.ClusterName, ns.Name, oldClusterName, newClusterName)
 		if _, err := c.namespaceClient.Patch(ctx, ns.Name, types.MergePatchType, clusterLabelPatchBytes(newClusterName), metav1.PatchOptions{}); err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 func (c *Controller) isValidCluster(ctx context.Context, lclusterName, clusterName string) (bool, error) {
 	cluster, err := c.clusterLister.Get(clusters.ToClusterAwareKey(lclusterName, clusterName))
 	if apierrors.IsNotFound(err) {
-		klog.Infof("Cluster %q does not exist", clusterName)
+		klog.Infof("Cluster %q|%q does not exist", lclusterName, clusterName)
 		return false, nil
 	}
 	if err != nil {
@@ -178,7 +178,7 @@ func (c *Controller) isValidCluster(ctx context.Context, lclusterName, clusterNa
 	}
 	isReady := cluster.Status.Conditions.HasReady()
 	if !isReady {
-		klog.Infof("Cluster %q is not reporting ready", cluster.Name)
+		klog.Infof("Cluster %q|%q is not reporting ready", lclusterName, clusterName)
 	}
 	return isReady, nil
 }
@@ -212,16 +212,10 @@ func (c *Controller) ensureScheduled(ctx context.Context, lclusterName string, n
 
 // ensureScheduledStatus ensures the status of the given namespace reflects whether the
 // namespace has been assigned to a cluster.
-func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Namespace, oldClusterName string) error {
-	// Set status on cluster change to bump the transition time
-	newClusterName := ns.Labels[clusterLabel]
-	clusterChanged := oldClusterName != newClusterName
-
-	// Set status if the scheduled state of the namespace has changed
-	scheduled := (newClusterName != "")
-	statusChangeRequired := scheduled != HasScheduledStatus(ns)
-
-	if clusterChanged || statusChangeRequired {
+func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Namespace) error {
+	scheduled := (ns.Labels[clusterLabel] != "")
+	statusChangeRequired := scheduled != IsScheduled(ns)
+	if statusChangeRequired {
 		return c.updateSchedulableCondition(ctx, ns, scheduled)
 	}
 	return nil
@@ -233,25 +227,17 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 // After assigning (or if it's already assigned), this also updates all
 // resources in the namespace to be assigned to the namespace's cluster.
 func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string, ns *corev1.Namespace) error {
-	klog.Infof("Reconciling Namespace %s", ns.Name)
+	klog.Infof("Reconciling namespace %q|%q", lclusterName, ns.Name)
 
 	if ns.Labels == nil {
 		ns.Labels = map[string]string{}
 	}
 
-	// Keep track of the cluster name prior to scheduling to support conditionally
-	// setting status.
-	oldClusterName := ns.Labels[clusterLabel]
-
 	if err := c.ensureScheduled(ctx, lclusterName, ns); err != nil {
 		return err
 	}
 
-	// Ensure that the namespace's status is accurate without considering whether there
-	// has been a change in the namespace's assigned cluster. This ensures that the
-	// status will eventually converge if initial attempts to set status are
-	// unsuccessful.
-	if err := c.ensureScheduledStatus(ctx, ns, oldClusterName); err != nil {
+	if err := c.ensureScheduledStatus(ctx, ns); err != nil {
 		return err
 	}
 
