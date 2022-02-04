@@ -159,13 +159,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return apiHandler
 	}
 
-	// TODO: get rid of this idem-potent completion call. The o.GenericControlPlane value should be completed already.
-	completedGenericControlPlane, err := genericcontrolplane.Complete(&s.options.GenericControlPlane.ServerRunOptions)
-	if err != nil {
-		return err
-	}
-
-	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedGenericControlPlane)
+	genericConfig, storageFactory, err := genericcontrolplane.BuildGenericConfig(s.options.GenericControlPlane)
 	if err != nil {
 		return err
 	}
@@ -173,7 +167,7 @@ func (s *Server) Run(ctx context.Context) error {
 	const crossCluster = "*"
 
 	// Setup kcp * informers
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -181,7 +175,7 @@ func (s *Server) Run(ctx context.Context) error {
 	s.kcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 
 	// Setup kube * informers
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(genericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
@@ -189,12 +183,21 @@ func (s *Server) Run(ctx context.Context) error {
 	s.kubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 
 	// Setup apiextensions * informers
-	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(apisConfig.GenericConfig.LoopbackClientConfig)
+	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(genericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
 	apiextensionsClient := apiextensionsClusterClient.Cluster(crossCluster)
 	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsClient, resyncPeriod)
+
+	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()); err != nil {
+		return err
+	}
+
+	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, nil, storageFactory)
+	if err != nil {
+		return err
+	}
 
 	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
 
@@ -202,8 +205,8 @@ func (s *Server) Run(ctx context.Context) error {
 	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
 		*apisConfig.GenericConfig,
 		apisConfig.ExtraConfig.VersionedInformers,
-		pluginInitializer,
-		completedGenericControlPlane.ServerRunOptions,
+		nil,
+		s.options.GenericControlPlane,
 
 		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
 		// supported. The effect is that CRD webhook conversions are not supported and will always get an
@@ -220,14 +223,12 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
-
-	workspaceLister := s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
 	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
 		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
 		return &kcpAPIExtensionsSharedInformerFactory{
 			SharedInformerFactory: f,
-			workspaceLister:       workspaceLister,
+			workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(),
 		}
 	}
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
@@ -242,10 +243,6 @@ func (s *Server) Run(ctx context.Context) error {
 	//		}
 	//		return client.Scope(crossClusterScope), nil
 	//	}
-
-	if err := s.options.Authorization.ApplyTo(apisConfig.GenericConfig, s.kubeSharedInformerFactory, workspaceLister); err != nil {
-		return err
-	}
 
 	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
@@ -364,7 +361,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
-		if err := s.installNamespaceScheduler(ctx, workspaceLister, clientConfig, server); err != nil {
+		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(), clientConfig, server); err != nil {
 			return err
 		}
 	}

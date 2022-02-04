@@ -204,5 +204,8 @@ var (
 
 		// egress selector flags
 		"egress-selector-config-file", // File with apiserver egress selector configuration.
+
+		// API enablement flags
+		"runtime-config", // A set of key=value pairs that enable or disable built-in APIs. Supported options are:
 	)
 )
