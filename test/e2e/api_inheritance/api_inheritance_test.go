@@ -85,6 +85,16 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
+			rootCRDClient := apiExtensionsClients.Cluster(helper.OrganizationCluster).ApiextensionsV1().CustomResourceDefinitions()
+			rootCRDs := []metav1.GroupKind{
+				{Group: "apiresource.kcp.dev", Kind: "apiresourceimports"},
+			}
+
+			if err := config.BootstrapCustomResourceDefinitions(ctx, rootCRDClient, rootCRDs); err != nil {
+				t.Errorf("failed to bootstrap CRDs: %v", err)
+				return
+			}
+
 			crdClient := apiExtensionsClients.Cluster(testCase.logicalClusterName).ApiextensionsV1().CustomResourceDefinitions()
 
 			workspaceCRDs := []metav1.GroupKind{
@@ -107,6 +117,9 @@ func TestAPIInheritance(t *testing.T) {
 			sourceWorkspace := &tenancyapi.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "source",
+				},
+				Spec: tenancyapi.WorkspaceSpec{
+					InheritFrom: helper.OrganizationCluster,
 				},
 			}
 			_, err = kcpOrganizationClient.TenancyV1alpha1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
@@ -145,6 +158,21 @@ func TestAPIInheritance(t *testing.T) {
 			sourceCrdClient := apiExtensionsClients.Cluster(sourceWorkspaceClusterName).ApiextensionsV1().CustomResourceDefinitions()
 			if err := config.BootstrapCustomResourceDefinitions(ctx, sourceCrdClient, crdsForWorkspaces); err != nil {
 				t.Errorf("failed to bootstrap CRDs: %v", err)
+				return
+			}
+
+			// Make sure an API group from helper.OrganizationCluster shows up in source workspace group discovery
+			if err := wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {
+				groups, err := kcpClients.Cluster(sourceWorkspaceClusterName).Discovery().ServerGroups()
+				if err != nil {
+					return false, fmt.Errorf("error retrieving source workspace group discovery: %w", err)
+				}
+				if groupExists(groups, "apiresource.kcp.dev") {
+					return true, nil
+				}
+				return false, nil
+			}); err != nil {
+				t.Errorf("source workspace discovery is missing group %q", cluster.GroupName)
 				return
 			}
 
