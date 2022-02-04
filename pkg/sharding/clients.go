@@ -24,55 +24,54 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-type IdentifiedConfig struct {
-	Identifier string
-	Config     *rest.Config
-}
-
 type ClientLoader struct {
-	*sync.RWMutex
+	sync.RWMutex
 	clients map[string]*rest.Config
 }
 
-func New(delegates string, injector <-chan IdentifiedConfig) (*ClientLoader, error) {
-	l := &ClientLoader{
-		clients: map[string]*rest.Config{},
-		RWMutex: &sync.RWMutex{},
+func NewClientLoader() *ClientLoader {
+	return &ClientLoader{
+		clients: make(map[string]*rest.Config),
 	}
+}
 
-	loader := &clientcmd.ClientConfigLoadingRules{ExplicitPath: delegates}
+func (c *ClientLoader) Add(name string, config *rest.Config) {
+	c.Lock()
+	defer c.Unlock()
+	c.clients[name] = config
+}
+
+func (c *ClientLoader) AddKubeConfigContexts(path string) error {
+	loader := &clientcmd.ClientConfigLoadingRules{ExplicitPath: path}
 	cfg, err := loader.Load()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load: %w", err)
+		return fmt.Errorf("failed to load: %w", err)
 	}
+
+	c.Lock()
+	defer c.Unlock()
+
 	for context := range cfg.Contexts {
 		contextCfg, err := clientcmd.NewNonInteractiveClientConfig(*cfg, context, &clientcmd.ConfigOverrides{}, loader).ClientConfig()
 		if err != nil {
-			return nil, fmt.Errorf("create %s client: %w", context, err)
+			return fmt.Errorf("create %s client: %w", context, err)
 		}
 		contextCfg.ContentType = "application/json"
-		l.Lock()
-		l.clients[context] = contextCfg
-		l.Unlock()
+		c.clients[context] = contextCfg
+		c.Unlock()
 	}
 
-	l.Lock()
-	go func() {
-		defer l.Unlock()
-		local := <-injector
-		local.Config.ContentType = "application/json"
-		l.clients[local.Identifier] = local.Config
-	}()
-
-	return l, nil
+	return nil
 }
 
 func (c *ClientLoader) Clients() map[string]*rest.Config {
 	c.Lock()
-	out := map[string]*rest.Config{}
+	defer c.Unlock()
+
+	out := make(map[string]*rest.Config, len(c.clients))
 	for key, value := range c.clients {
 		out[key] = rest.CopyConfig(value)
 	}
-	c.Unlock()
+
 	return out
 }

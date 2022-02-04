@@ -136,29 +136,6 @@ func (s *Server) Run(ctx context.Context) error {
 		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.TrustedCAFile = embeddedClientInfo.TrustedCAFile
 	}
 
-	// patch the handler chain. We should do this after creating the generic apiserver config, but before CreateKubeAPIServerConfig. But
-	// this needs surgery in k/k. So we do it here no, changing the already completed options. Not nice, but must be here because
-	// we need to create the injector to be in-scope with the NewNonInteractiveClientConfig further down in this func.
-	injector := make(chan sharding.IdentifiedConfig)
-	clientLoader, err := sharding.New(s.options.Extra.ShardKubeconfigFile, injector)
-	if err != nil {
-		return err
-	}
-	s.options.GenericControlPlane.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
-		// we want a request to hit the chain like:
-		// - lcluster handler (this package's ServeHTTP)
-		// - shard proxy (sharding.ServeHTTP)
-		// - original handler chain
-		// the lcluster handler is a pass-through, not a delegate, so the wrapping looks weird
-		if s.options.Extra.EnableSharding {
-			apiHandler = http.HandlerFunc(sharding.ServeHTTP(apiHandler, clientLoader))
-		}
-		apiHandler = GuardWildcardCluster(apiHandler)
-		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
-
-		return apiHandler
-	}
-
 	genericConfig, storageFactory, err := genericcontrolplane.BuildGenericConfig(s.options.GenericControlPlane)
 	if err != nil {
 		return err
@@ -192,6 +169,23 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()); err != nil {
 		return err
+	}
+
+	genericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
+		// we want a request to hit the chain like:
+		// - lcluster handler (this package's ServeHTTP)
+		// - shard proxy (sharding.ServeHTTP)
+		// - original handler chain
+		// the lcluster handler is a pass-through, not a delegate, so the wrapping looks weird
+		if s.options.Extra.EnableSharding {
+			clientLoader := sharding.NewClientLoader()
+			clientLoader.Add(s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, genericConfig.LoopbackClientConfig)
+			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
+		}
+		apiHandler = WithWildcardListWatchGuard(apiHandler)
+		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
+
+		return apiHandler
 	}
 
 	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, nil, storageFactory)
@@ -319,17 +313,6 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
-
-	if s.options.Extra.EnableSharding {
-		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-		if err != nil {
-			return err
-		}
-		injector <- sharding.IdentifiedConfig{
-			Identifier: server.ExternalAddress,
-			Config:     adminConfig,
-		}
-	}
 
 	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.options.Extra.RootDirectory, s.options.Extra.KubeConfigPath)); err != nil {
 		return err
