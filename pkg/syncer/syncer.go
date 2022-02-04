@@ -389,14 +389,17 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return err
 	}
 
-	if !exists && c.deleteFn != nil {
+	if !exists {
 		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, meta.GetName())
-		return c.deleteFn(ctx, gvr, targetNamespace, targetName)
+		if c.deleteFn != nil {
+			return c.deleteFn(ctx, gvr, targetNamespace, targetName)
+		}
+		return nil
 	}
 
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
 	if !isUnstructured {
-		err := fmt.Errorf("Object to synchronize is expected to be Unstructured, but is %T", obj)
+		err := fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 		klog.Error(err)
 		return err
 	}
