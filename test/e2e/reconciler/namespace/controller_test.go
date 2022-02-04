@@ -240,7 +240,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			testCase.work(ctx, t, client, clusterClient, watcher)
 		}, framework.KcpConfig{
 			Name: "main",
-			Args: []string{"--install-cluster-controller", "--install-workspace-scheduler", "--install-namespace-scheduler"},
+			Args: []string{"--install-cluster-controller", "--install-workspace-scheduler", "--install-namespace-scheduler", "--discovery-poll-interval=2s"},
 		})
 	}
 }
