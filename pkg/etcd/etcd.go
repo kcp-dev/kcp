@@ -32,6 +32,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"go.etcd.io/etcd/server/v3/embed"
@@ -90,6 +91,10 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBy
 	cfg.ClientTLSInfo.KeyFile = filepath.Join(cfg.Dir, "secrets", "peer", "key.pem")
 	cfg.ClientTLSInfo.TrustedCAFile = filepath.Join(cfg.Dir, "secrets", "ca", "cert.pem")
 	cfg.ClientTLSInfo.ClientCertAuth = true
+
+	if enableUnsafeMacE2EDisableFsyncHack, _ := strconv.ParseBool(os.Getenv("UNSAFE_MAC_E2E_HACK_DISABLE_ETCD_FSYNC")); enableUnsafeMacE2EDisableFsyncHack {
+		cfg.UnsafeNoFsync = true
+	}
 
 	e, err := embed.StartEtcd(cfg)
 	if err != nil {
