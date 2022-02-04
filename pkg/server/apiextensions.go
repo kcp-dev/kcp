@@ -92,18 +92,24 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 		}
 
 		if workspace != nil && workspace.Spec.InheritFrom != "" {
-			// Make sure the source workspace exists
-			sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
-			_, err := c.workspaceLister.Get(sourceWorkspaceKey)
-			switch {
-			case err == nil:
+			if workspace.Spec.InheritFrom == helper.OrganizationCluster {
+				// HACK: allow inheriting from the OrganizationCluster logical cluster
 				inheriting = true
-				inheritFrom = helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom)
-			case apierrors.IsNotFound(err):
-				// A NotFound error is ok. It means we can't inherit but we should still proceed below to list.
-			default:
-				// Only error if there was a problem checking for workspace existence
-				return nil, err
+				inheritFrom = helper.OrganizationCluster
+			} else {
+				// Make sure the source workspace exists
+				sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
+				_, err := c.workspaceLister.Get(sourceWorkspaceKey)
+				switch {
+				case err == nil:
+					inheriting = true
+					inheritFrom = helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom)
+				case apierrors.IsNotFound(err):
+					// A NotFound error is ok. It means we can't inherit but we should still proceed below to list.
+				default:
+					// Only error if there was a problem checking for workspace existence
+					return nil, err
+				}
 			}
 		}
 	}
@@ -211,20 +217,26 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
-	if _, err := c.workspaceLister.Get(sourceWorkspaceKey); err != nil {
-		// If we're here it means ctx's logical cluster doesn't have the CRD, the Workspace exists,
-		// we are inheriting, but the Workspace we're inheriting from doesn't exist. Just return
-		// not-found.
-		if apierrors.IsNotFound(err) {
-			return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+	var sourceWorkspaceCRDKey string
+	if workspace.Spec.InheritFrom == helper.OrganizationCluster {
+		// HACK: allow inheriting from the OrganizationCluster logical cluster
+		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.OrganizationCluster, name)
+	} else {
+		sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
+		if _, err := c.workspaceLister.Get(sourceWorkspaceKey); err != nil {
+			// If we're here it means ctx's logical cluster doesn't have the CRD, the Workspace exists,
+			// we are inheriting, but the Workspace we're inheriting from doesn't exist. Just return
+			// not-found.
+			if apierrors.IsNotFound(err) {
+				return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+			}
+
+			return nil, err
 		}
 
-		return nil, err
+		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom), name)
 	}
-
 	// Try to get the inherited CRD
-	sourceWorkspaceCRDKey := clusters.ToClusterAwareKey(helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom), name)
 	crd, err = c.crdLister.Get(sourceWorkspaceCRDKey)
 	return crd, err
 }
