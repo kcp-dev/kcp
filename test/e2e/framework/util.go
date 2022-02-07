@@ -288,7 +288,19 @@ func InstallCluster(t TestingTInterface, ctx context.Context, source, server Run
 	if err != nil {
 		return fmt.Errorf("failed to serialize server config: %w", err)
 	}
+
 	sourceKcpClient := sourceKcpClients.Cluster(sourceClusterName)
+	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer func() {
+		cancel()
+	}()
+	watcher, err := sourceKcpClient.ClusterV1alpha1().Clusters().Watch(ctx, metav1.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", clusterName).String(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to watch cluster in source kcp: %w", err)
+	}
+
 	cluster, err := sourceKcpClient.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
 		Spec:       clusterv1alpha1.ClusterSpec{KubeConfig: string(rawSinkCfgBytes)},
@@ -299,16 +311,7 @@ func InstallCluster(t TestingTInterface, ctx context.Context, source, server Run
 	source.Artifact(t, func() (runtime.Object, error) {
 		return sourceKcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	})
-	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer func() {
-		cancel()
-	}()
-	watcher, err := sourceKcpClient.ClusterV1alpha1().Clusters().Watch(ctx, metav1.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.name", cluster.Name).String(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to watch cluster in source kcp: %w", err)
-	}
+
 	for {
 		select {
 		case <-waitCtx.Done():
