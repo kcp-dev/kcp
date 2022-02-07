@@ -1,0 +1,48 @@
+name: Build and Publish KCP Image
+
+permissions:
+  packages: write
+
+on:
+  workflow_run:
+    workflows: [ "CI" ]
+    branches: [ "main" ]
+    types:
+      - completed
+
+jobs:
+  kcp-image:
+    if: ${{ github.event.workflow_run.conclusion == "success" && github.event_name == "push" }}
+    name: Build and Publish KCP Image
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: v1.17
+
+    - name: Get the short sha
+      id: vars
+      run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+    # Build and push a KCP image, tagged with latest and the commit SHA.
+    - name: Build KCP Image
+      id: build-image
+      uses: redhat-actions/buildah-build@v2
+      with:
+        image: kcp
+        tags: latest ${{ steps.vars.outputs.sha_short }}
+        containerfiles: |
+          ./Dockerfile
+
+    - name: Push to ghcr.io
+      id: push-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: ${{ steps.build-image.outputs.image }}
+        tags: ${{ steps.build-image.outputs.tags }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
