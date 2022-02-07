@@ -26,11 +26,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -258,7 +255,7 @@ func TestClusterController(t *testing.T) {
 // RegisterCowboyExpectation registers an expectation about the future state of the seed.
 type RegisterCowboyExpectation func(seed *wildwestv1alpha1.Cowboy, expectation CowboyExpectation) error
 
-// CowboyExpectation evaluates an expectation about the object.
+// CowboyExpectation evaluates an expectation about the object. It must not mutate the object.
 type CowboyExpectation func(*wildwestv1alpha1.Cowboy) error
 
 // ExpectCowboys sets up an Expecter in order to allow registering expectations in tests with minimal setup.
@@ -272,26 +269,11 @@ func ExpectCowboys(ctx context.Context, t framework.TestingTInterface, client wi
 	}
 	return func(seed *wildwestv1alpha1.Cowboy, expectation CowboyExpectation) error {
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
-			// we are using a seed from one kcp to expect something about an object in
-			// another kcp, so the cluster names will not match - this is fine, just do
-			// client-side filtering for what we know
-			all, err := informer.Lister().Cowboys(seed.Namespace).List(labels.Everything())
+			cowboy, err := informer.Lister().Cowboys(seed.Namespace).Get(seed.Name)
 			if err != nil {
-				return !apierrors.IsNotFound(err), err
+				return false, err
 			}
-			var current *wildwestv1alpha1.Cowboy
-			for i := range all {
-				if all[i].Namespace == seed.Namespace && all[i].Name == seed.Name {
-					current = all[i]
-				}
-			}
-			if current == nil {
-				return false, apierrors.NewNotFound(schema.GroupResource{
-					Group:    wildwest.GroupName,
-					Resource: "cowboys",
-				}, seed.Name)
-			}
-			expectErr := expectation(current.DeepCopy())
+			expectErr := expectation(cowboy)
 			return expectErr == nil, expectErr
 		}, 30*time.Second)
 	}, nil
