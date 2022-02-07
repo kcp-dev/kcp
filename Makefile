@@ -108,7 +108,7 @@ test-e2e: install
 .PHONY: test
 test: WHAT ?= ./...
 test:
-	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic
+	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $$(go list "$(WHAT)" | grep -v ./test/e2e/)
 
 .PHONY: demos
 demos: build ## Runs all the default demos (kubecon and apiNegotiation).
