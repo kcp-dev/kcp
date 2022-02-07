@@ -276,10 +276,10 @@ func clusterLabelPatchBytes(val string) []byte {
 {
   "metadata":{
     "labels":{
-      "kcp.dev/cluster": %q
+      %q: %q
     }
   }
-}`, val))
+}`, clusterLabel, val))
 }
 
 // observeCluster is responsible for watching to see if the Cluster is happy;
