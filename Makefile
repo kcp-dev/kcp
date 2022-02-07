@@ -43,7 +43,7 @@ install: install-ingress-controller
 .PHONY: install
 
 lint:
-	golangci-lint run --build-tags e2e ./...
+	golangci-lint run ./...
 .PHONY: lint
 
 INGRESS_CONTROLLER_DIR = ./build/kcp-ingress
@@ -103,12 +103,12 @@ E2E_PARALLELISM ?= 1
 .PHONY: test-e2e
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: install
-	go test -tags e2e -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT)
+	go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT)
 
 .PHONY: test
 test: WHAT ?= ./...
 test:
-	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(WHAT)
+	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic
 
 .PHONY: demos
 demos: build ## Runs all the default demos (kubecon and apiNegotiation).
