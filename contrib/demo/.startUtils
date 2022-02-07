@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+
 wait_command() {
   local command="$1"; shift
   local wait_seconds="${1:-40}"; shift # 40 seconds as default timeout
