@@ -22,13 +22,17 @@ jobs:
       with:
         go-version: v1.17
 
+    - name: Get the short sha
+      id: vars
+      run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
     # Build and push a KCP image, tagged with latest and the commit SHA.
     - name: Build KCP Image
       id: build-image
       uses: redhat-actions/buildah-build@v2
       with:
         image: kcp
-        tags: latest ${{ github.sha }}
+        tags: latest ${{ steps.vars.outputs.sha_short }}
         containerfiles: |
           ./Dockerfile
 
