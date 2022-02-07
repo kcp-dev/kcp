@@ -17,23 +17,17 @@ limitations under the License.
 package cluster
 
 import (
-	"context"
 	"errors"
 	"runtime"
 
 	"github.com/spf13/pflag"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
-	"github.com/kcp-dev/kcp/config"
-	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
@@ -95,24 +89,7 @@ type Config struct {
 	crdSharedInformerFactory crdexternalversions.SharedInformerFactory
 }
 
-func (c *Config) Start(ctx context.Context) error {
-	// Register CRDs in both the admin and user logical clusters
-	requiredCrds := []metav1.GroupKind{
-		{Group: apiresourceapi.GroupName, Kind: "apiresourceimports"},
-		{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
-		{Group: clusterapi.GroupName, Kind: "clusters"},
-	}
-	for _, contextName := range []string{"admin", "user"} {
-		logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-		if err != nil {
-			return err
-		}
-		crdClient := apiextensionsv1client.NewForConfigOrDie(logicalClusterConfig).CustomResourceDefinitions()
-		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
-			return err
-		}
-	}
-
+func (c *Config) New() (*Controller, *apiresource.Controller, error) {
 	syncerMode := SyncerModeNone
 	if c.PullMode {
 		syncerMode = SyncerModePull
@@ -123,7 +100,7 @@ func (c *Config) Start(ctx context.Context) error {
 
 	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	clientutils.EnableMultiCluster(adminConfig, nil, true, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 
@@ -141,7 +118,7 @@ func (c *Config) Start(ctx context.Context) error {
 		syncerMode,
 	)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	apiresourceController, err := apiresource.NewController(
@@ -153,13 +130,8 @@ func (c *Config) Start(ctx context.Context) error {
 		c.crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	c.kcpSharedInformerFactory.Start(ctx.Done())
-	c.crdSharedInformerFactory.Start(ctx.Done())
-	go clusterController.Start(ctx, c.NumThreads)
-	go apiresourceController.Start(ctx, c.NumThreads)
-
-	return nil
+	return clusterController, apiresourceController, nil
 }

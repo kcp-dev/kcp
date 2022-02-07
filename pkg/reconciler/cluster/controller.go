@@ -219,11 +219,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	klog.Info("Starting Cluster controller")
 	defer klog.Info("Shutting down Cluster controller")
 
-	if !cache.WaitForNamedCacheSync("cluster", ctx.Done(), c.syncChecks...) {
-		klog.Warning("Failed to wait for caches to sync")
-		return
-	}
-
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 	}

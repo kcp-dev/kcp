@@ -30,9 +30,14 @@ import (
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kcp-dev/kcp/config"
+	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -91,10 +96,40 @@ func main() {
 	}
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(r), resyncPeriod)
 	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(r), resyncPeriod)
-	if err := options.Options.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory).Start(ctx); err != nil {
+	c := options.Options.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
+	cluster, apiresource, err := c.New()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	kcpSharedInformerFactory.Start(ctx.Done())
+	crdSharedInformerFactory.Start(ctx.Done())
+
+	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
+
+	// TODO(sttts): remove CRD creation from controller startup
+	requiredCrds := []metav1.GroupKind{
+		{Group: apiresourceapi.GroupName, Kind: "apiresourceimports"},
+		{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
+		{Group: clusterapi.GroupName, Kind: "clusters"},
+	}
+	for _, contextName := range []string{"admin", "user"} {
+		logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(kubeconfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		crdClient := apiextensionsv1client.NewForConfigOrDie(logicalClusterConfig).CustomResourceDefinitions()
+		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+
+	go cluster.Start(ctx, c.NumThreads)
+	go apiresource.Start(ctx, c.NumThreads)
 
 	<-ctx.Done()
 }
