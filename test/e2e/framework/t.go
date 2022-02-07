@@ -98,5 +98,22 @@ func (t *T) Wait() {
 	}
 }
 
+func (t *T) flush() {
+	t.T.Helper()
+	for {
+		select {
+		case err := <-t.errors:
+			t.T.Error(err)
+		default:
+			return
+		}
+	}
+}
+
+func (t *T) Failed() bool {
+	t.flush()
+	return t.T.Failed()
+}
+
 var _ TestingTInterface = &testing.T{}
 var _ TestingTInterface = &T{}
