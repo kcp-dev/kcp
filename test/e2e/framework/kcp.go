@@ -326,7 +326,7 @@ func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
 			lastMsg = fmt.Sprintf("error contacting %s: %v", endpoint, err)
 		}
 	}, 100*time.Millisecond)
-	if !succeeded {
+	if !succeeded && c.ctx.Err() == nil {
 		c.t.Errorf(lastMsg)
 	}
 }
@@ -342,6 +342,9 @@ func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
 	}
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
+		if c.ctx.Err() != nil {
+			return
+		}
 		if err != nil {
 			c.t.Errorf("error contacting %s: %v", endpoint, err)
 		}

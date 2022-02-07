@@ -48,11 +48,13 @@ type TestingTInterface interface {
 }
 
 func NewT(ctx context.Context, t *testing.T) *T {
-	return &T{
+	wrapped := &T{
 		T:      t,
 		ctx:    ctx,
 		errors: make(chan error, 10),
 	}
+	t.Cleanup(wrapped.flush)
+	return wrapped
 }
 
 // T allows us to provide a similar UX to the testing.T while
