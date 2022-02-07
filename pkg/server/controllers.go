@@ -242,7 +242,11 @@ func (s *Server) installClusterController(clientConfig clientcmdapi.Config, serv
 		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
 		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
 
-		go cluster.Start(goContext(context), c.NumThreads)
+		cluster, err := cluster.Prepare()
+		if err != nil {
+			return err
+		}
+		go cluster.Start(goContext(context))
 		go apiresource.Start(goContext(context), c.NumThreads)
 
 		return nil

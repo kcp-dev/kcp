@@ -27,7 +27,9 @@ import (
 	"github.com/spf13/pflag"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/config"
@@ -36,8 +38,6 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -128,7 +128,12 @@ func main() {
 		}
 	}
 
-	go cluster.Start(ctx, c.NumThreads)
+	prepared, err := cluster.Prepare()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	go prepared.Start(ctx)
 	go apiresource.Start(ctx, c.NumThreads)
 
 	<-ctx.Done()
