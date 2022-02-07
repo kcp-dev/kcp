@@ -35,8 +35,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -67,7 +69,7 @@ type Server struct {
 	postStartHooks   []postStartHookEntry
 	preShutdownHooks []preShutdownHookEntry
 
-	crdServerReady chan struct{}
+	syncedCh chan struct{}
 
 	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
@@ -77,8 +79,8 @@ type Server struct {
 // NewServer creates a new instance of Server which manages the KCP api-server.
 func NewServer(o *kcpserveroptions.CompletedOptions) (*Server, error) {
 	return &Server{
-		options:        o,
-		crdServerReady: make(chan struct{}),
+		options:  o,
+		syncedCh: make(chan struct{}),
 	}, nil
 }
 
@@ -194,22 +196,6 @@ func (s *Server) Run(ctx context.Context) error {
 	apiextensionsClient := apiextensionsClusterClient.Cluster(crossCluster)
 	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsClient, resyncPeriod)
 
-	s.AddPostStartHook("start-informers", func(context genericapiserver.PostStartHookContext) error {
-		if err := s.waitForCRDServer(context.StopCh); err != nil {
-			return err
-		}
-
-		s.kcpSharedInformerFactory.Start(context.StopCh)
-		s.kubeSharedInformerFactory.Start(context.StopCh)
-		s.apiextensionsSharedInformerFactory.Start(context.StopCh)
-
-		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
-		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
-		s.apiextensionsSharedInformerFactory.WaitForCacheSync(context.StopCh)
-
-		return nil
-	})
-
 	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
 
 	// If additional API servers are added, they should be gated.
@@ -274,14 +260,32 @@ func (s *Server) Run(ctx context.Context) error {
 		),
 	)
 
-	s.AddPostStartHook("wait-for-crd-server", func(ctx genericapiserver.PostStartHookContext) error {
-		return wait.PollImmediateInfiniteWithContext(goContext(ctx), 100*time.Millisecond, func(c context.Context) (done bool, err error) {
-			if serverChain.CustomResourceDefinitions.Informers.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() {
-				close(s.crdServerReady)
-				return true, nil
+	s.AddPostStartHook("start-informers", func(ctx genericapiserver.PostStartHookContext) error {
+		s.kubeSharedInformerFactory.Start(ctx.StopCh)
+		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
+		s.kcpSharedInformerFactory.Start(ctx.StopCh)
+
+		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		// wait for CRD inheritance work through the custom informer
+		// TODO: merge with upper s.apiextensionsSharedInformerFactory
+		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
+
+		//nolint:golint,errcheck
+		wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
+			if err := s.bootstrapCRDs(ctx, apiextensionsClusterClient.Cluster(helper.OrganizationCluster).ApiextensionsV1().CustomResourceDefinitions()); err != nil {
+				klog.Errorf("failed to bootstrap CRDs: %v", err)
+				return false, nil // keep going
 			}
-			return false, nil
+			return true, nil
 		})
+
+		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+		klog.Infof("Bootstrapped CRDs and synced all informers. Ready to start controllers")
+		close(s.syncedCh)
+
+		return nil
 	})
 
 	//Create Client and Shared
@@ -334,18 +338,21 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.installKubeNamespaceController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+	if err := s.installKubeNamespaceController(ctx, serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
-	if err := s.installClusterRoleAggregationController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+	if err := s.installClusterRoleAggregationController(ctx, serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
 	enabled := sets.NewString(s.options.Controllers.IndividuallyEnabled...)
+	if len(enabled) > 0 {
+		klog.Infof("Starting controllers individually: %v", enabled)
+	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
-		if err := s.installClusterController(clientConfig, server); err != nil {
+		if err := s.installClusterController(ctx, clientConfig, server); err != nil {
 			return err
 		}
 	}

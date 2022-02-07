@@ -38,8 +38,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
 	"github.com/kcp-dev/kcp/config"
-	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
+	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/apis/cluster"
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -49,7 +49,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 )
 
-func (s *Server) installClusterRoleAggregationController(config *rest.Config) error {
+func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -59,14 +59,14 @@ func (s *Server) installClusterRoleAggregationController(config *rest.Config) er
 		kubeClient.RbacV1())
 
 	s.AddPostStartHook("start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		go c.Run(5, hookContext.StopCh)
+		go c.Run(5, ctx.Done())
 		return nil
 	})
 
 	return nil
 }
 
-func (s *Server) installKubeNamespaceController(config *rest.Config) error {
+func (s *Server) installKubeNamespaceController(ctx context.Context, config *rest.Config) error {
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -100,7 +100,11 @@ func (s *Server) installKubeNamespaceController(config *rest.Config) error {
 	)
 
 	s.AddPostStartHook("start-kube-namespace-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		go c.Run(2, hookContext.StopCh)
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			return err
+		}
+
+		go c.Run(2, ctx.Done())
 		return nil
 	})
 
@@ -134,7 +138,11 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister 
 		s.options.Extra.DiscoveryPollInterval,
 	)
 
-	if err := server.AddPostStartHook("install-namespace-scheduler", func(context genericapiserver.PostStartHookContext) error {
+	if err := server.AddPostStartHook("install-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			return err
+		}
+
 		go namespaceScheduler.Start(ctx, 2)
 		return nil
 	}); err != nil {
@@ -173,22 +181,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
-	if err := server.AddPostStartHook("install-workspace-scheduler", func(context genericapiserver.PostStartHookContext) error {
-		if err := s.waitForCRDServer(context.StopCh); err != nil {
+	if err := server.AddPostStartHook("install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			return err
 		}
 
-		// Register CRDs in both the admin and user logical clusters
-		requiredCrds := []metav1.GroupResource{
-			{Group: tenancyapi.GroupName, Resource: "workspaces"},
-			{Group: tenancyapi.GroupName, Resource: "workspaceshards"},
-		}
-		crdClient := apiextensionsv1client.NewForConfigOrDie(adminConfig).CustomResourceDefinitions()
-		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
-			return err
-		}
-
-		ctx := goContext(context)
 		go workspaceController.Start(ctx, 2)
 		go workspaceShardController.Start(ctx, 2)
 
@@ -199,7 +196,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 	return nil
 }
 
-func (s *Server) installClusterController(clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installClusterController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
 	kubeconfig := clientConfig.DeepCopy()
 	for _, cluster := range kubeconfig.Clusters {
 		hostURL, err := url.Parse(cluster.Server)
@@ -216,37 +213,17 @@ func (s *Server) installClusterController(clientConfig clientcmdapi.Config, serv
 		return err
 	}
 
-	if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
-		if err := s.waitForCRDServer(context.StopCh); err != nil {
+	if err := server.AddPostStartHook("install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			return err
 		}
-
-		// TODO(sttts): remove CRD creation from controller startup
-		requiredCrds := []metav1.GroupResource{
-			{Group: apiresourceapi.GroupName, Resource: "apiresourceimports"},
-			{Group: apiresourceapi.GroupName, Resource: "negotiatedapiresources"},
-			{Group: clusterapi.GroupName, Resource: "clusters"},
-		}
-		for _, contextName := range []string{"admin", "user"} {
-			logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-			if err != nil {
-				return err
-			}
-			crdClient := apiextensionsv1client.NewForConfigOrDie(logicalClusterConfig).CustomResourceDefinitions()
-			if err := config.BootstrapCustomResourceDefinitions(goContext(context), crdClient, requiredCrds); err != nil {
-				return err
-			}
-		}
-
-		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
-		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
 
 		cluster, err := cluster.Prepare()
 		if err != nil {
 			return err
 		}
-		go cluster.Start(goContext(context))
-		go apiresource.Start(goContext(context), c.NumThreads)
+		go cluster.Start(goContext(hookContext))
+		go apiresource.Start(goContext(hookContext), c.NumThreads)
 
 		return nil
 	}); err != nil {
@@ -255,14 +232,30 @@ func (s *Server) installClusterController(clientConfig clientcmdapi.Config, serv
 	return nil
 }
 
-func (s *Server) waitForCRDServer(stop <-chan struct{}) error {
-	// Wait for the CRD server to be ready before doing things such as starting the shared informer
+func (s *Server) bootstrapCRDs(ctx context.Context, crdClient apiextensionsv1client.CustomResourceDefinitionInterface) error {
+	requiredCrds := []metav1.GroupResource{
+		{Group: tenancyapi.GroupName, Resource: "workspaces"},
+		{Group: tenancyapi.GroupName, Resource: "workspaceshards"},
+		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
+		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
+		{Group: cluster.GroupName, Resource: "clusters"},
+	}
+
+	if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) waitForSync(stop <-chan struct{}) error {
+	// Wait for shared informer factories to by synced.
 	// factory. Otherwise, informer list calls may go into backoff (before the CRDs are ready) and
 	// take ~10 seconds to succeed.
 	select {
 	case <-stop:
-		return errors.New("timed out waiting for CRD server to be ready")
-	case <-s.crdServerReady:
+		return errors.New("timed out waiting for informers to sync")
+	case <-s.syncedCh:
 		return nil
 	}
 }

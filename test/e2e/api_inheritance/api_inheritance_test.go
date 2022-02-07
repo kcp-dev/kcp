@@ -85,17 +85,6 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// TODO(sttts): remove this once we install the CRDs by default
-			t.Logf("Bootstrapping apiresource CRD into root org lcluster %s", testCase.orglogicalClusterName)
-			rootCRDClient := apiExtensionsClients.Cluster(helper.OrganizationCluster).ApiextensionsV1().CustomResourceDefinitions()
-			rootCRDs := []metav1.GroupResource{
-				{Group: "apiresource.kcp.dev", Resource: "apiresourceimports"},
-			}
-			if err := config.BootstrapCustomResourceDefinitions(ctx, rootCRDClient, rootCRDs); err != nil {
-				t.Errorf("failed to bootstrap CRDs: %v", err)
-				return
-			}
-
 			t.Logf("Bootstrapping workspace CRD into org lcluster %s", testCase.orglogicalClusterName)
 			orgCRDClient := apiExtensionsClients.Cluster(testCase.orglogicalClusterName).ApiextensionsV1().CustomResourceDefinitions()
 			workspaceCRDs := []metav1.GroupResource{
