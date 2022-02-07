@@ -18,17 +18,20 @@ package syncer
 
 import (
 	"context"
+	"encoding/json"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 )
 
 func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
@@ -100,7 +103,7 @@ func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string
 	newNamespace.SetAPIVersion("v1")
 	newNamespace.SetKind("Namespace")
 	newNamespace.SetName(namespace)
-	if _, err := namespaces.Create(context.TODO(), newNamespace, metav1.CreateOptions{}); err != nil {
+	if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
 		// An already exists error is ok - it means something else beat us to creating the namespace.
 		if !k8serrors.IsAlreadyExists(err) {
 			// Any other error is not good, though.
@@ -113,16 +116,16 @@ func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string
 	return nil
 }
 
-func (c *Controller) upsertIntoDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace string, obj *unstructured.Unstructured) error {
+func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace string, obj *unstructured.Unstructured) error {
 	if err := c.ensureNamespaceExists(ctx, namespace); err != nil {
 		return err
 	}
 
-	// Attempt to create the object; if the object already exists, update it.
 	obj = obj.DeepCopy()
 	obj.SetUID("")
 	obj.SetResourceVersion("")
 	obj.SetNamespace(namespace)
+	obj.SetManagedFields(nil)
 
 	ownedByLabel := obj.GetLabels()["kcp.dev/owned-by"]
 	var ownerReferences []metav1.OwnerReference
@@ -137,26 +140,16 @@ func (c *Controller) upsertIntoDownstream(ctx context.Context, gvr schema.GroupV
 	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
 	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
 
-	if _, err := c.toClient.Resource(gvr).Namespace(namespace).Create(ctx, obj, metav1.CreateOptions{}); err != nil {
-		if !k8serrors.IsAlreadyExists(err) {
-			klog.Errorf("Creating resource %s/%s: %v", namespace, obj.GetName(), err)
-			return err
-		}
-
-		existing, err := c.toClient.Resource(gvr).Namespace(namespace).Get(ctx, obj.GetName(), metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("Getting resource %s/%s: %v", namespace, obj.GetName(), err)
-			return err
-		}
-		klog.Infof("Object %s/%s already exists: update it", gvr.Resource, obj.GetName())
-
-		obj.SetResourceVersion(existing.GetResourceVersion())
-		if _, err := c.toClient.Resource(gvr).Namespace(namespace).Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Updating resource %s/%s: %v", namespace, obj.GetName(), err)
-			return err
-		}
-		return nil
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return err
 	}
-	klog.Infof("Created object %s/%s", gvr.Resource, obj.GetName())
+
+	if _, err := c.toClient.Resource(gvr).Namespace(namespace).Patch(ctx, obj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
+		klog.Errorf("Applying resource %s/%s to cluster %q: %v", namespace, obj.GetName(), obj.GetClusterName(), err)
+		return err
+	}
+	klog.Infof("Applied object %s/%s to cluster %q", gvr.Resource, obj.GetName(), obj.GetClusterName())
+
 	return nil
 }

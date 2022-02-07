@@ -40,6 +40,7 @@ import (
 
 const resyncPeriod = 10 * time.Hour
 const SyncerNamespaceKey = "SYNCER_NAMESPACE"
+const syncerApplyManager = "syncer"
 
 // Direction indicates which direction data is flowing for this particular syncer
 type Direction string
@@ -119,7 +120,7 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 	}
 
 	if direction == KcpToPhysicalCluster {
-		c.upsertFn = c.upsertIntoDownstream
+		c.upsertFn = c.applyToDownstream
 		c.deleteFn = c.deleteFromDownstream
 	} else {
 		c.upsertFn = c.updateStatusInUpstream
