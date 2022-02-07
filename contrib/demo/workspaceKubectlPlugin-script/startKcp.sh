@@ -14,25 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+# shellcheck source=../.setupEnv
 source "${DEMO_DIR}"/../.setupEnv
+# shellcheck source=../.startUtils
+source "${DEMOS_DIR}"/.startUtils
 
-source ${DEMOS_DIR}/.startUtils
-setupTraps $0
+setupTraps "$0"
 
-CURRENT_DIR="$(pwd)"
 
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
-export KCP_LISTEN_ADDR="127.0.0.1:6443"
-export KCP_FLAGS="--install-workspace-scheduler --token-auth-file ${DEMO_DIR}/kcp-tokens"
-${DEMOS_DIR}/startKcpAndClusterController.sh --auto-publish-apis=true --resources-to-sync deployments.apps &
-KCP_PID=$!
-
-wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"
+"${DEMOS_DIR}"/startKcp.sh \
+    --install-cluster-controller \
+    --push-mode \
+    --auto-publish-apis=true \
+    --resources-to-sync deployments.apps \
+    --token-auth-file "${DEMO_DIR}"/kcp-tokens
 
 echo ""
 echo "Starting Virtual Workspace"
-${KCP_DIR}/bin/virtual-workspaces workspaces --workspaces:kubeconfig ${KUBECONFIG} --authentication-kubeconfig ${KUBECONFIG} --secure-port 6444 --authentication-skip-lookup --cert-dir ${KCP_DATA_DIR}/.kcp/secrets/ca &> virtual-workspace.log &
+"${KCP_DIR}"/bin/virtual-workspaces workspaces \
+    --workspaces:kubeconfig "${KUBECONFIG}" \
+    --authentication-kubeconfig "${KUBECONFIG}" \
+    --secure-port 6444 \
+    --authentication-skip-lookup \
+    --cert-dir "${KCP_DATA_DIR}"/.kcp/secrets/ca &> virtual-workspace.log &
 SPLIT_PID=$!
 echo "Virtual Workspace started: $SPLIT_PID"
 

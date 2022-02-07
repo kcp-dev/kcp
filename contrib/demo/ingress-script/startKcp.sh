@@ -14,13 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
 source "${DEMO_DIR}"/../.setupEnv
 
+# shellcheck source=../.startUtils
 source "${DEMOS_DIR}"/.startUtils
-setupTraps $0
+setupTraps "$0"
 
-CURRENT_DIR="$(pwd)"
 TEMP_DIR="$(mktemp -d)"
 
 if ! command -v envoy &> /dev/null
@@ -30,13 +30,13 @@ then
     exit
 fi
 
-export KCP_LISTEN_ADDR="127.0.0.1:6443"
 
-
-"${DEMOS_DIR}"/startKcpAndClusterController.sh --auto-publish-apis=true --resources-to-sync "ingresses.networking.k8s.io,deployments.apps,services" &
-KCP_PID=$!
-
-wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"
+"${DEMOS_DIR}"/startKcp.sh \
+    --install-cluster-controller \
+    --push-mode \
+    --auto-publish-apis=true \
+    --resources-to-sync "ingresses.networking.k8s.io,deployments.apps,services" \
+    --listen=127.0.0.1:6443
 
 kubectl config use-context admin &>/dev/null
 
@@ -44,13 +44,13 @@ echo ""
 echo "Building KCP-Ingress controller"
 
 git clone --depth=1 https://github.com/jmprusi/kcp-ingress "${TEMP_DIR}"
-pushd "${TEMP_DIR}" && go build -o ${TEMP_DIR}/bin/kcp-ingress ./cmd/ingress-controller/main.go &>"${DEMOS_DIR}/ingress-test/"kcp-ingress_build.log
-popd
+pushd "${TEMP_DIR}" && go build -o "${TEMP_DIR}"/bin/kcp-ingress ./cmd/ingress-controller/main.go &>"${DEMOS_DIR}/ingress-test/"kcp-ingress_build.log
+popd || exit
 
-echo "" 
+echo ""
 echo "Running the kcp-ingress controller"
 
-${TEMP_DIR}/bin/kcp-ingress -kubeconfig="${KUBECONFIG}" -envoyxds -envoy-listener-port=8181 &>kcp-ingress.log &
+"${TEMP_DIR}"/bin/kcp-ingress -kubeconfig="${KUBECONFIG}" -envoyxds -envoy-listener-port=8181 &>kcp-ingress.log &
 KCP_INGRESS_PID=$!
 echo "KCP Ingress started: $KCP_INGRESS_PID"
 
