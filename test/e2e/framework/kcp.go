@@ -31,11 +31,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/pflag"
+
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/kcp-dev/kcp/pkg/server"
+	"github.com/kcp-dev/kcp/pkg/server/options"
 )
 
 // kcpServer exposes a kcp invocation to a test and
@@ -134,8 +140,48 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 		cancel()
 		<-cleanupCtx.Done()
 	})
+
+	c.t.Logf("running: %v", strings.Join(append([]string{"kcp", "start"}, c.args...), " "))
+
+	// run kcp start in-process for easier debugging
+	if value, found := os.LookupEnv("INPROCESS"); found && value == "1" {
+		serverOptions := options.NewOptions()
+
+		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
+		for _, fs := range serverOptions.Flags().FlagSets {
+			all.AddFlagSet(fs)
+		}
+		if err := all.Parse(c.args); err != nil {
+			cleanupCancel()
+			return err
+		}
+
+		completed, err := serverOptions.Complete()
+		if err != nil {
+			cleanupCancel()
+			return err
+		}
+		if errs := completed.Validate(); len(errs) > 0 {
+			cleanupCancel()
+			return errors.NewAggregate(errs)
+		}
+
+		s, err := server.NewServer(completed)
+		if err != nil {
+			cleanupCancel()
+			return err
+		}
+		go func() {
+			defer func() { cleanupCancel() }()
+			if err := s.Run(ctx); err != nil && ctx.Err() == nil {
+				c.t.Errorf("`kcp` failed: %w", err)
+			}
+		}()
+
+		return nil
+	}
+
 	cmd := exec.CommandContext(ctx, "kcp", append([]string{"start"}, c.args...)...)
-	c.t.Logf("running: %v", strings.Join(cmd.Args, " "))
 	logFile, err := os.Create(filepath.Join(c.artifactDir, "kcp.log"))
 	if err != nil {
 		cleanupCancel()
@@ -160,6 +206,7 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 			c.t.Errorf("`kcp` failed: %w logs:\n%v", err, data)
 		}
 	}()
+
 	return nil
 }
 
