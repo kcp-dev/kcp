@@ -89,20 +89,43 @@ func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupV
 	return c.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
+const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"
+
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
 //       In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
-func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string) error {
+func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string, obj *unstructured.Unstructured) error {
 	namespaces := c.toClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
 		Resource: "namespaces",
 	})
 
-	// Not found - try to create
 	newNamespace := &unstructured.Unstructured{}
 	newNamespace.SetAPIVersion("v1")
 	newNamespace.SetKind("Namespace")
 	newNamespace.SetName(namespace)
+
+	// TODO: if the downstream namespace loses these annotations/labels after creation,
+	// we don't have anything in place currently that will put them back.
+	l := NamespaceLocator{
+		LogicalCluster: obj.GetClusterName(),
+		Namespace:      obj.GetNamespace(),
+	}
+	b, err := json.Marshal(l)
+	if err != nil {
+		return err
+	}
+	newNamespace.SetAnnotations(map[string]string{
+		namespaceLocatorAnnotation: string(b),
+	})
+
+	if obj.GetLabels() != nil {
+		newNamespace.SetLabels(map[string]string{
+			// TODO: this should be set once at syncer startup and propagated around everywhere.
+			"kcp.dev/cluster": obj.GetLabels()["kcp.dev/cluster"],
+		})
+	}
+
 	if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
 		// An already exists error is ok - it means something else beat us to creating the namespace.
 		if !k8serrors.IsAlreadyExists(err) {
@@ -117,7 +140,7 @@ func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string
 }
 
 func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace string, obj *unstructured.Unstructured) error {
-	if err := c.ensureNamespaceExists(ctx, namespace); err != nil {
+	if err := c.ensureNamespaceExists(ctx, namespace, obj); err != nil {
 		return err
 	}
 

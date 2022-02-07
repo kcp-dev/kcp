@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	coreclient "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -40,21 +40,27 @@ import (
 
 	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
 	clusterlisters "github.com/kcp-dev/kcp/pkg/client/listers/cluster/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
 const controllerName = "namespace-scheduler"
 
+type clusterDiscovery interface {
+	WithCluster(name string) discovery.DiscoveryInterface
+}
+
 // NewController returns a new Controller which schedules namespaced resources to a Cluster.
 func NewController(
-	dynClient dynamic.Interface,
-	disco *discovery.DiscoveryClient,
+	workspaceLister tenancylisters.WorkspaceLister,
+	dynClient dynamic.ClusterInterface,
+	disco clusterDiscovery,
 	clusterInformer clusterinformer.ClusterInformer,
 	clusterLister clusterlisters.ClusterLister,
 	namespaceInformer coreinformers.NamespaceInformer,
 	namespaceLister corelisters.NamespaceLister,
-	namespaceClient coreclient.NamespaceInterface,
+	kubeClient kubernetes.ClusterInterface,
 	gvkTrans *gvk.GVKTranslator,
 	pollInterval time.Duration,
 ) *Controller {
@@ -73,7 +79,7 @@ func NewController(
 		dynClient:       dynClient,
 		clusterLister:   clusterLister,
 		namespaceLister: namespaceLister,
-		namespaceClient: namespaceClient,
+		kubeClient:      kubeClient,
 		gvkTrans:        gvkTrans,
 
 		syncChecks: []cache.InformerSynced{
@@ -94,7 +100,8 @@ func NewController(
 			DeleteFunc: nil, // Nothing to do.
 		},
 	})
-	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(disco, dynClient,
+	// Always do a * list/watch
+	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, disco, dynClient.Cluster("*"),
 		filterResource,
 		informer.GVREventHandlerFuncs{
 			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
@@ -111,10 +118,10 @@ type Controller struct {
 	namespaceQueue workqueue.RateLimitingInterface
 	clusterQueue   workqueue.RateLimitingInterface
 
-	dynClient       dynamic.Interface
+	dynClient       dynamic.ClusterInterface
 	clusterLister   clusterlisters.ClusterLister
 	namespaceLister corelisters.NamespaceLister
-	namespaceClient coreclient.NamespaceInterface
+	kubeClient      kubernetes.ClusterInterface
 	ddsif           informer.DynamicDiscoverySharedInformerFactory
 	gvkTrans        *gvk.GVKTranslator
 
@@ -122,22 +129,6 @@ type Controller struct {
 }
 
 func filterResource(obj interface{}) bool {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return false
-	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(err)
-		return false
-	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
-	if clusterName != "admin" {
-		klog.V(2).Infof("Skipping update for non-admin cluster %q", clusterName)
-		return false
-	}
-
 	current, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		klog.V(2).Infof("Object was not Unstructured: %T", obj)
@@ -162,11 +153,7 @@ func filterNamespace(obj interface{}) bool {
 		runtime.HandleError(err)
 		return false
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
-	if clusterName != "admin" {
-		klog.Infof("Skipping update for non-admin cluster %q", clusterName)
-		return false
-	}
+	_, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	if namespaceBlocklist.Has(name) {
 		klog.V(2).Infof("Skipping syncing namespace %q", name)
 		return false

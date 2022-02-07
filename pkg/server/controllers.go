@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/config"
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
@@ -104,27 +105,29 @@ func (s *Server) installKubeNamespaceController(config *rest.Config) error {
 	return nil
 }
 
-func (s *Server) installNamespaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeconfig := clientConfig.DeepCopy()
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister tenancylisters.WorkspaceLister, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+	kubeClient, err := kubernetes.NewClusterForConfig(server.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(server.LoopbackClientConfig)
+	if err != nil {
+		return err
+	}
+	dynamicClient := dynamicClusterClient
 
-	kubeClient := kubernetes.NewForConfigOrDie(adminConfig)
-	disco := discovery.NewDiscoveryClientForConfigOrDie(adminConfig)
-	dynClient := dynamic.NewForConfigOrDie(adminConfig)
-
-	gvkTrans := gvk.NewGVKTranslator(adminConfig)
+	// TODO(ncdc): I dont' think this is used anywhere?
+	gvkTrans := gvk.NewGVKTranslator(server.LoopbackClientConfig)
 
 	namespaceScheduler := kcpnamespace.NewController(
-		dynClient,
-		disco,
+		workspaceLister,
+		dynamicClient,
+		kubeClient.DiscoveryClient,
 		s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
 		s.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters().Lister(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
-		kubeClient.CoreV1().Namespaces(),
+		kubeClient,
 		gvkTrans,
 		s.cfg.DiscoveryPollInterval,
 	)

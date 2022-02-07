@@ -450,7 +450,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.cfg.InstallNamespaceScheduler {
-		if err := s.installNamespaceScheduler(ctx, clientConfig, server); err != nil {
+		if err := s.installNamespaceScheduler(ctx, workspaceLister, clientConfig, server); err != nil {
 			return err
 		}
 	}

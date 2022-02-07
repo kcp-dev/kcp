@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 
+	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -86,7 +87,12 @@ func TestIngressController(t *testing.T) {
 					return
 				}
 
-				targetNamespace := fmt.Sprintf("kcp--%s--%s", ingress.GetClusterName(), ingress.GetNamespace())
+				nsLocator := syncer.NamespaceLocator{LogicalCluster: ingress.ClusterName, Namespace: ingress.Namespace}
+				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+				if err != nil {
+					t.Errorf("Error determining namespace mapping for %v: %v", nsLocator, err)
+					return
+				}
 				expectedIngress := ingress.DeepCopy()
 				expectedIngress.Name = ingress.Name + "--" + clusterName
 				expectedIngress.SetNamespace(targetNamespace)
@@ -123,7 +129,12 @@ func TestIngressController(t *testing.T) {
 				}
 
 				expectedIngress := ingress.DeepCopy()
-				targetNamespace := fmt.Sprintf("kcp--%s--%s", expectedIngress.GetClusterName(), expectedIngress.GetNamespace())
+				nsLocator := syncer.NamespaceLocator{LogicalCluster: ingress.ClusterName, Namespace: ingress.Namespace}
+				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+				if err != nil {
+					t.Errorf("Error determining namespace mapping for %v: %v", nsLocator, err)
+					return
+				}
 				expectedIngress.Name = expectedIngress.Name + "--" + clusterName
 				expectedIngress.Namespace = targetNamespace
 				if err := servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
