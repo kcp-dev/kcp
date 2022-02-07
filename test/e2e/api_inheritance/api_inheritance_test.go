@@ -101,6 +101,7 @@ func TestAPIInheritance(t *testing.T) {
 				{Group: tenancy.GroupName, Kind: "workspaces"},
 			}
 
+			t.Logf("Bootstrapping CRDs")
 			if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, workspaceCRDs); err != nil {
 				t.Errorf("failed to bootstrap CRDs: %v", err)
 				return
@@ -112,8 +113,8 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
+			t.Logf("Creating \"source\" workspaces inheriting from %q", helper.OrganizationCluster)
 			kcpOrganizationClient := kcpClients.Cluster(testCase.logicalClusterName)
-
 			sourceWorkspace := &tenancyapi.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "source",
@@ -131,6 +132,7 @@ func TestAPIInheritance(t *testing.T) {
 				return kcpOrganizationClient.TenancyV1alpha1().Workspaces().Get(ctx, "source", metav1.GetOptions{})
 			})
 
+			t.Logf("Creating \"target\" workspace")
 			targetWorkspace := &tenancyapi.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "target",
@@ -151,7 +153,7 @@ func TestAPIInheritance(t *testing.T) {
 				targetWorkspaceClusterName = testCase.orgPrefix + "_target"
 			)
 
-			// Install a CRD into source workspace
+			t.Logf("Install a clusters CRD into source workspace")
 			crdsForWorkspaces := []metav1.GroupKind{
 				{Group: cluster.GroupName, Kind: "clusters"},
 			}
@@ -161,7 +163,7 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// Make sure an API group from helper.OrganizationCluster shows up in source workspace group discovery
+			t.Logf("Make sure an API group from %q shows up in source workspace group discovery", helper.OrganizationCluster)
 			if err := wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {
 				groups, err := kcpClients.Cluster(sourceWorkspaceClusterName).Discovery().ServerGroups()
 				if err != nil {
@@ -176,7 +178,7 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// Make sure API group from CRD shows up in source workspace group discovery
+			t.Logf("Make sure API group from CRD shows up in source workspace group discovery")
 			if err := wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {
 				groups, err := kcpClients.Cluster(sourceWorkspaceClusterName).Discovery().ServerGroups()
 				if err != nil {
@@ -191,7 +193,7 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// Make sure API resource from CRD shows up in source workspace group version discovery
+			t.Logf("Make sure API resource from CRD shows up in source workspace group version discovery")
 			resources, err := kcpClients.Cluster(sourceWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(clusterapi.SchemeGroupVersion.String())
 			if err != nil {
 				t.Errorf("error retrieving source workspace cluster API discovery: %v", err)
@@ -213,6 +215,7 @@ func TestAPIInheritance(t *testing.T) {
 
 			sourceClusterClient := kcpClients.Cluster(sourceWorkspaceClusterName).ClusterV1alpha1().Clusters()
 
+			t.Logf("Creating a cluster in source workspace")
 			_, err = sourceClusterClient.Create(ctx, sourceWorkspaceCluster, metav1.CreateOptions{})
 			if err != nil {
 				t.Errorf("Error creating sourceWorkspaceCluster inside source: %v", err)
@@ -222,7 +225,7 @@ func TestAPIInheritance(t *testing.T) {
 				return sourceClusterClient.Get(ctx, "source-cluster", metav1.GetOptions{})
 			})
 
-			// Make sure API group from CRD does NOT show up in target workspace group discovery
+			t.Logf("Make sure API group from CRD does NOT show up in target workspace group discovery")
 			groups, err := kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerGroups()
 			if err != nil {
 				t.Errorf("error retrieving target workspace group discovery: %w", err)
@@ -233,7 +236,7 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// Update target workspace to inherit from source
+			t.Logf("Update target workspace to inherit from source")
 			targetWorkspace, err = kcpOrganizationClient.TenancyV1alpha1().Workspaces().Get(ctx, targetWorkspace.GetName(), metav1.GetOptions{})
 
 			if err != nil {
@@ -247,7 +250,7 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// Make sure API group from inheritance shows up in target workspace group discovery
+			t.Logf("Make sure API group from inheritance shows up in target workspace group discovery")
 			if err := wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {
 				groups, err := kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerGroups()
 				if err != nil {
@@ -262,7 +265,7 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// Make sure API resource from inheritance shows up in target workspace group version discovery
+			t.Logf("Make sure API resource from inheritance shows up in target workspace group version discovery")
 			resources, err = kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(clusterapi.SchemeGroupVersion.String())
 			if err != nil {
 				t.Errorf("error retrieving target workspace cluster API discovery: %v", err)
@@ -273,10 +276,9 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
-			// Make sure we can perform CRUD operations in the target cluster for the inherited API.
+			t.Logf("Make sure we can perform CRUD operations in the target cluster for the inherited API")
 
-			// Make sure list shows nothing to start
-
+			t.Logf("Make sure list shows nothing to start")
 			targetClusterClient := kcpClients.Cluster(targetWorkspaceClusterName).ClusterV1alpha1().Clusters()
 			clusters, err := targetClusterClient.List(ctx, metav1.ListOptions{})
 			if err != nil {
@@ -288,6 +290,7 @@ func TestAPIInheritance(t *testing.T) {
 				return
 			}
 
+			t.Logf("Create a cluster CR in the target cluster")
 			targetWorkspaceCluster := &clusterapi.Cluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "target-cluster",
@@ -301,7 +304,7 @@ func TestAPIInheritance(t *testing.T) {
 				return targetClusterClient.Get(ctx, "target-cluster", metav1.GetOptions{})
 			})
 
-			// Make sure source has sourceWorkspaceCluster and target has targetWorkspaceCluster
+			t.Logf("Make sure source has sourceWorkspaceCluster and target has targetWorkspaceCluster")
 			clusters, err = sourceClusterClient.List(ctx, metav1.ListOptions{})
 			if err != nil {
 				t.Errorf("error listing clusters inside source: %v", err)
