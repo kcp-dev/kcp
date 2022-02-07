@@ -301,11 +301,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	klog.Info("Starting APIResource controller")
 	defer klog.Info("Shutting down APIResource controller")
 
-	if !cache.WaitForNamedCacheSync("apiresource", ctx.Done(), c.syncChecks...) {
-		klog.Warning("Failed to wait for caches to sync")
-		return
-	}
-
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 	}

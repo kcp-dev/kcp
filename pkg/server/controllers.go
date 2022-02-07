@@ -38,6 +38,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
 	"github.com/kcp-dev/kcp/config"
+	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -212,13 +214,45 @@ func (s *Server) installClusterController(clientConfig clientcmdapi.Config, serv
 		cluster.Server = hostURL.String()
 	}
 
+	c := s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
+	cluster, apiresource, err := c.New()
+	if err != nil {
+		return err
+	}
+
 	if err := server.AddPostStartHook("install-cluster-controller", func(context genericapiserver.PostStartHookContext) error {
 		if err := s.waitForCRDServer(context.StopCh); err != nil {
 			return err
 		}
 
-		ctx := goContext(context)
-		return s.cfg.ClusterControllerOptions.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory).Start(ctx)
+		// TODO(sttts): remove CRD creation from controller startup
+		requiredCrds := []metav1.GroupKind{
+			{Group: apiresourceapi.GroupName, Kind: "apiresourceimports"},
+			{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
+			{Group: clusterapi.GroupName, Kind: "clusters"},
+		}
+		for _, contextName := range []string{"admin", "user"} {
+			logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+			if err != nil {
+				return err
+			}
+			crdClient := apiextensionsv1client.NewForConfigOrDie(logicalClusterConfig).CustomResourceDefinitions()
+			if err := config.BootstrapCustomResourceDefinitions(goContext(context), crdClient, requiredCrds); err != nil {
+				return err
+			}
+		}
+
+		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
+		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
+
+		cluster, err := cluster.Prepare()
+		if err != nil {
+			return err
+		}
+		go cluster.Start(goContext(context))
+		go apiresource.Start(goContext(context), c.NumThreads)
+
+		return nil
 	}); err != nil {
 		return err
 	}

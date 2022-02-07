@@ -82,37 +82,6 @@ func NewController(
 ) (*Controller, error) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-	var genericControlPlaneResources []schema.GroupVersionResource
-
-	//TODO(ncdc): does this need a per-cluster client?
-	discoveryClient := apiExtensionsClient.Discovery()
-	serverGroups, err := discoveryClient.ServerGroups()
-	if err != nil {
-		return nil, err
-	}
-	for _, apiGroup := range serverGroups.Groups {
-		if genericcontrolplanescheme.Scheme.IsGroupRegistered(apiGroup.Name) {
-			for _, version := range apiGroup.Versions {
-				gv := schema.GroupVersion{
-					Group:   apiGroup.Name,
-					Version: version.Version,
-				}
-				if genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
-					apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(gv.String())
-					if err != nil {
-						return nil, err
-					}
-					for _, apiResource := range apiResourceList.APIResources {
-						gvk := gv.WithKind(apiResource.Kind)
-						if !strings.Contains(apiResource.Name, "/") && genericcontrolplanescheme.Scheme.Recognizes(gvk) {
-							genericControlPlaneResources = append(genericControlPlaneResources, gv.WithResource(apiResource.Name))
-						}
-					}
-				}
-			}
-		}
-	}
-
 	c := &Controller{
 		queue:                    queue,
 		apiExtensionsClient:      apiExtensionsClient,
@@ -123,13 +92,12 @@ func NewController(
 			clusterInformer.Informer().HasSynced,
 			apiResourceImportInformer.Informer().HasSynced,
 		},
-		syncerImage:                  syncerImage,
-		kubeconfig:                   kubeconfig,
-		resourcesToSync:              resourcesToSync,
-		syncerMode:                   syncerMode,
-		syncers:                      map[string]*syncer.Syncer{},
-		apiImporters:                 map[string]*APIImporter{},
-		genericControlPlaneResources: genericControlPlaneResources,
+		syncerImage:     syncerImage,
+		kubeconfig:      kubeconfig,
+		resourcesToSync: resourcesToSync,
+		syncerMode:      syncerMode,
+		syncers:         map[string]*syncer.Syncer{},
+		apiImporters:    map[string]*APIImporter{},
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -212,23 +180,59 @@ func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
 	}
 }
 
-func (c *Controller) Start(ctx context.Context, numThreads int) {
+type preparedController struct {
+	Controller
+}
+
+type PreparedController struct {
+	*preparedController
+}
+
+func (c *Controller) Prepare() (PreparedController, error) {
+	// TODO(ncdc): does this need a per-cluster client?
+	// TODO(sttts): make resilient to errors
+	discoveryClient := c.apiExtensionsClient.Discovery()
+	serverGroups, err := discoveryClient.ServerGroups()
+	if err != nil {
+		return PreparedController{}, err
+	}
+	for _, apiGroup := range serverGroups.Groups {
+		if genericcontrolplanescheme.Scheme.IsGroupRegistered(apiGroup.Name) {
+			for _, version := range apiGroup.Versions {
+				gv := schema.GroupVersion{
+					Group:   apiGroup.Name,
+					Version: version.Version,
+				}
+				if genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
+					apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(gv.String())
+					if err != nil {
+						return PreparedController{}, err
+					}
+					for _, apiResource := range apiResourceList.APIResources {
+						gvk := gv.WithKind(apiResource.Kind)
+						if !strings.Contains(apiResource.Name, "/") && genericcontrolplanescheme.Scheme.Recognizes(gvk) {
+							c.genericControlPlaneResources = append(c.genericControlPlaneResources, gv.WithResource(apiResource.Name))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return PreparedController{&preparedController{
+		Controller: *c,
+	}}, nil
+}
+
+// TODO(sttts): fix the many races due to unprotected field access and then increase worker count
+func (c *PreparedController) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Info("Starting Cluster controller")
 	defer klog.Info("Shutting down Cluster controller")
 
-	if !cache.WaitForNamedCacheSync("cluster", ctx.Done(), c.syncChecks...) {
-		klog.Warning("Failed to wait for caches to sync")
-		return
-	}
-
-	for i := 0; i < numThreads; i++ {
-		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
-	}
-
-	<-ctx.Done()
+	wait.Until(func() { c.startWorker(ctx) }, time.Millisecond*10, ctx.Done())
 }
 
 func (c *Controller) startWorker(ctx context.Context) {
