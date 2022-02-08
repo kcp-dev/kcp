@@ -56,12 +56,6 @@ const KcpToPhysicalCluster Direction = "kcpToPhysicalCluster"
 // PhysicalClusterToKcp indicates a syncer watches resources on the target cluster and applies the status to KCP
 const PhysicalClusterToKcp Direction = "physicalClusterToKcp"
 
-type Syncer struct {
-	specSyncer   *Controller
-	statusSyncer *Controller
-	Resources    sets.String
-}
-
 func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) error {
 	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), cluster, logicalCluster)
 	if err != nil {
