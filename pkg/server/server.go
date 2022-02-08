@@ -34,7 +34,6 @@ import (
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
@@ -238,7 +237,13 @@ func (s *Server) Run(ctx context.Context) error {
 	//		return client.Scope(crossClusterScope), nil
 	//	}
 
-	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
+	completedAPISConfig := apisConfig.Complete()
+	externalKubeConfigAdminToken, externalKubeConfigAdminTokenHash, err := setupKubeConfigAdminToken(s.options.Extra.RootDirectory, &completedAPISConfig.GenericConfig.Authentication, &completedAPISConfig.GenericConfig.Authorization)
+	if err != nil {
+		return err
+	}
+
+	serverChain, err := genericcontrolplane.CreateServerChain(completedAPISConfig, apiExtensionsConfig.Complete())
 	if err != nil {
 		return err
 	}
@@ -279,42 +284,16 @@ func (s *Server) Run(ctx context.Context) error {
 		return nil
 	})
 
-	//Create Client and Shared
-	var clientConfig clientcmdapi.Config
-	clientConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-		"loopback": {Token: server.LoopbackClientConfig.BearerToken},
+	externalKubeConfigPath := filepath.Join(s.options.Extra.RootDirectory, s.options.Extra.KubeConfigPath)
+	loopbackClientConfig, externalClientConfig, err := createKubeConfigs(server, externalKubeConfigAdminToken, externalKubeConfigAdminTokenHash, externalKubeConfigPath)
+	if err != nil {
+		return err
 	}
-	clientConfig.Clusters = map[string]*clientcmdapi.Cluster{
-		// cross-cluster is the virtual cluster running by default
-		"cross-cluster": {
-			Server:                   server.LoopbackClientConfig.Host + "/clusters/*",
-			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
-			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
-		},
-		// admin is the virtual cluster running by default
-		"admin": {
-			Server:                   server.LoopbackClientConfig.Host,
-			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
-			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
-		},
-		// user is a virtual cluster that is lazily instantiated
-		"user": {
-			Server:                   server.LoopbackClientConfig.Host + "/clusters/user",
-			CertificateAuthorityData: server.LoopbackClientConfig.CAData,
-			TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
-		},
-	}
-	clientConfig.Contexts = map[string]*clientcmdapi.Context{
-		"cross-cluster": {Cluster: "cross-cluster", AuthInfo: "loopback"},
-		"admin":         {Cluster: "admin", AuthInfo: "loopback"},
-		"user":          {Cluster: "user", AuthInfo: "loopback"},
-	}
-	clientConfig.CurrentContext = "admin"
 
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
-	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.options.Extra.RootDirectory, s.options.Extra.KubeConfigPath)); err != nil {
+	if err := clientcmd.WriteToFile(*externalClientConfig, externalKubeConfigPath); err != nil {
 		return err
 	}
 
@@ -332,19 +311,19 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
-		if err := s.installClusterController(ctx, clientConfig, server); err != nil {
+		if err := s.installClusterController(ctx, *loopbackClientConfig, server); err != nil {
 			return err
 		}
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
-		if err := s.installWorkspaceScheduler(ctx, clientConfig, server); err != nil {
+		if err := s.installWorkspaceScheduler(ctx, *loopbackClientConfig, server); err != nil {
 			return err
 		}
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
-		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(), clientConfig, server); err != nil {
+		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(), *loopbackClientConfig, server); err != nil {
 			return err
 		}
 	}
