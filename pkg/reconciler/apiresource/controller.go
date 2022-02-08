@@ -54,7 +54,7 @@ func NewController(
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	crdInformer crdinfomer.CustomResourceDefinitionInformer,
 ) (*Controller, error) {
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-apiresource")
 
 	c := &Controller{
 		queue:                            queue,

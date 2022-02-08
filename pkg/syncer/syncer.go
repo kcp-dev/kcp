@@ -82,6 +82,7 @@ type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, names
 type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
 
 type Controller struct {
+	name  string
 	queue workqueue.RateLimitingInterface
 
 	fromInformers dynamicinformer.DynamicSharedInformerFactory
@@ -95,10 +96,12 @@ type Controller struct {
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, clusterID string) (*Controller, error) {
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+func New(cluster, logicalCluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, clusterID string) (*Controller, error) {
+	controllerName := string(direction) + "-" + logicalCluster + "-" + cluster
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
 	c := Controller{
+		name:            controllerName,
 		queue:           queue,
 		toClient:        toClient,
 		direction:       direction,
@@ -244,6 +247,8 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	c.fromInformers.Start(ctx.Done())
 	c.fromInformers.WaitForCacheSync(ctx.Done())
 
+	klog.InfoS("Starting syncer workers", "controller", c.name)
+	defer klog.InfoS("Stopping syncer workers", "controller", c.name)
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
@@ -271,8 +276,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, h.gvr, h.obj); err != nil {
-		// TODO(ncdc): see if we can plumb through a name to indicate which syncer this is (direction, clusters involved)
-		runtime.HandleError(fmt.Errorf("syncer failed to sync %q, err: %w", key, err))
+		runtime.HandleError(fmt.Errorf("syncer %q failed to sync %q, err: %w", c.name, key, err))
 		c.queue.AddRateLimited(key)
 	}
 

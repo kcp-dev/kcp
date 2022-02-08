@@ -79,7 +79,7 @@ func NewController(
 	resourcesToSync []string,
 	syncerMode SyncerMode,
 ) (*Controller, error) {
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-cluster")
 
 	c := &Controller{
 		queue:                    queue,
