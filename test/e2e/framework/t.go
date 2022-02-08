@@ -18,6 +18,7 @@ package framework
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -102,7 +103,9 @@ func (t *T) flush() {
 	for {
 		select {
 		case err := <-t.errors:
-			t.T.Error(err)
+			if !errors.Is(err, context.Canceled) {
+				t.T.Error(err)
+			}
 		default:
 			return
 		}

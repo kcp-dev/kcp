@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -334,7 +335,7 @@ func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
 	}
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
-		if c.ctx.Err() != nil {
+		if errors.Is(err, context.Canceled) || c.ctx.Err() != nil {
 			return
 		}
 		if err != nil {
