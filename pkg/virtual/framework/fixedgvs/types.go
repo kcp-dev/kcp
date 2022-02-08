@@ -59,7 +59,7 @@ var _ framework.VirtualWorkspace = (*FixedGroupVersionsVirtualWorkspace)(nil)
 type FixedGroupVersionsVirtualWorkspace struct {
 	Name                string
 	RootPathResolver    framework.RootPathResolverFunc
-	KubeContextPaths    map[string]string
+	PublishedRootPaths  map[string]string
 	Ready               framework.ReadyFunc
 	GroupVersionAPISets []GroupVersionAPISet
 }
@@ -76,6 +76,6 @@ func (vw *FixedGroupVersionsVirtualWorkspace) ResolveRootPath(urlPath string, co
 	return vw.RootPathResolver(urlPath, context)
 }
 
-func (vw *FixedGroupVersionsVirtualWorkspace) GetKubeContextPaths() map[string]string {
-	return vw.KubeContextPaths
+func (vw *FixedGroupVersionsVirtualWorkspace) GetPublishedRootPaths() map[string]string {
+	return vw.PublishedRootPaths
 }

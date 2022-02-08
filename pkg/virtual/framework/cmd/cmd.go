@@ -45,6 +45,7 @@ import (
 type APIServerOptions struct {
 	Output         io.Writer
 	KubeConfigPath string
+	DumpKubeConfig bool
 	RootDirectory  string
 
 	SecureServing     *genericapiserveroptions.SecureServingOptionsWithLoopback
@@ -108,8 +109,9 @@ func (o *APIServerOptions) AddFlags(flags *pflag.FlagSet) {
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
 	o.SubCommandOptions.AddFlags(flags)
-	flags.StringVar(&o.RootDirectory, "root-directory", ".kcp", "Root directory.")
-	flags.StringVar(&o.KubeConfigPath, "kubeconfig-path", "virtual.kubeconfig", "Path to which the virtual workspaces kubeconfig should be written at startup.")
+	flags.StringVar(&o.RootDirectory, "root-directory", ".kcp", "Root directory where the kubeconfig will be written as startup. Only useful if --dump-kubeconfig is set.")
+	flags.StringVar(&o.KubeConfigPath, "kubeconfig-path", "virtual.kubeconfig", "Path to which the virtual workspaces kubeconfig should be written at startup. Only useful if --dump-kubeconfig is set.")
+	flags.BoolVar(&o.DumpKubeConfig, "dump-kubeconfig", false, "Dumps the kubeconfig with all the published paths of all the running virtual workspaces.\nThis is mainly for development use-cases and uses the loopback client configuration.")
 }
 
 func (o *APIServerOptions) Validate() error {
@@ -162,9 +164,13 @@ func (o *APIServerOptions) RunAPIServer(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	klog.Infof("Writing kubeconfig of the virtual workspaces apiserver")
-	if err := o.writeKubeConfig(preparedRootAPIServer.GenericAPIServer, virtualWorkspaces); err != nil {
-		return err
+	if o.DumpKubeConfig {
+		klog.Infof("Writing kubeconfig of the virtual workspaces apiserver")
+		config := preparedRootAPIServer.GenericAPIServer.LoopbackClientConfig
+
+		if err := o.writeKubeConfig(config.Host, config.ServerName, config.CAData, virtualWorkspaces); err != nil {
+			return err
+		}
 	}
 
 	klog.Infof("Starting virtual workspace apiserver on %s (%s)", rootAPIServerConfig.GenericConfig.ExternalAddress, version.Get().String())

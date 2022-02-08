@@ -21,14 +21,13 @@ import (
 	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 )
 
-func (o *APIServerOptions) writeKubeConfig(server *genericapiserver.GenericAPIServer, virtualWorkspaces []framework.VirtualWorkspace) error {
+func (o *APIServerOptions) writeKubeConfig(serverHost, TLSServerName string, CAData []byte, virtualWorkspaces []framework.VirtualWorkspace) error {
 	var clientConfig clientcmdapi.Config
 
 	contextNames := sets.NewString()
@@ -36,20 +35,19 @@ func (o *APIServerOptions) writeKubeConfig(server *genericapiserver.GenericAPISe
 	clientConfig.Contexts = map[string]*clientcmdapi.Context{}
 
 	for _, vw := range virtualWorkspaces {
-		for contextName, path := range vw.GetKubeContextPaths() {
+		for contextName, path := range vw.GetPublishedRootPaths() {
 			if contextNames.Has(contextName) {
 				return fmt.Errorf("Duplicate Kubeconfig context names: %s", contextName)
 			}
 			clientConfig.Clusters[contextName] = &clientcmdapi.Cluster{
-				Server:                   server.LoopbackClientConfig.Host + path,
-				CertificateAuthorityData: server.LoopbackClientConfig.CAData,
-				TLSServerName:            server.LoopbackClientConfig.TLSClientConfig.ServerName,
+				Server:                   serverHost + path,
+				CertificateAuthorityData: CAData,
+				TLSServerName:            TLSServerName,
 			}
 			clientConfig.Contexts[contextName] = &clientcmdapi.Context{Cluster: contextName}
 			contextNames.Insert(contextName)
 		}
 	}
-	clientConfig.CurrentContext = o.SubCommandOptions.GetCurrentKubeContext()
 
 	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(o.RootDirectory, o.KubeConfigPath)); err != nil {
 		return err

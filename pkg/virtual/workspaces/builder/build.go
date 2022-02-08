@@ -77,7 +77,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 			}
 			return
 		},
-		KubeContextPaths: map[string]string{
+		PublishedRootPaths: map[string]string{
 			KubeContextNamePrefix + virtualworkspacesregistry.PersonalScope:     rootPathPrefix + virtualworkspacesregistry.PersonalScope,
 			KubeContextNamePrefix + virtualworkspacesregistry.OrganizationScope: rootPathPrefix + virtualworkspacesregistry.OrganizationScope,
 		},

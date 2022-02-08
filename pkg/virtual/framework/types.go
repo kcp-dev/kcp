@@ -49,9 +49,9 @@ type ReadyFunc func() error
 type VirtualWorkspace interface {
 	GetName() string
 	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
-	// GetKubeContextPaths returns a map in which keys are the kubeconfig context names of published endpoints
-	// provided by this virtual workspace, and values are associated endpoint path prefix.
-	GetKubeContextPaths() map[string]string
+	// GetPublishedRootPaths returns the root paths of published endpoints, indexed by keys
+	// that allow identifying them.
+	GetPublishedRootPaths() map[string]string
 	IsReady() error
 	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
 }
