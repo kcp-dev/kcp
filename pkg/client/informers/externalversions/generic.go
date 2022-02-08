@@ -25,6 +25,7 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
@@ -60,6 +61,14 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().APIResourceImports().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()}, nil
+
+		// Group=apis.kcp.dev, Version=v1alpha1
+	case apisv1alpha1.SchemeGroupVersion.WithResource("resourceschemas"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().ResourceSchemas().Informer()}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("servicebindings"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().ServiceBindings().Informer()}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("serviceexports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().ServiceExports().Informer()}, nil
 
 		// Group=cluster.example.dev, Version=v1alpha1
 	case clusterv1alpha1.SchemeGroupVersion.WithResource("clusters"):

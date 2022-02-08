@@ -28,6 +28,8 @@ import (
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
 	fakeapiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1/fake"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	fakeapisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	fakeclusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1/fake"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -87,6 +89,11 @@ var (
 // ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client
 func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface {
 	return &fakeapiresourcev1alpha1.FakeApiresourceV1alpha1{Fake: &c.Fake}
+}
+
+// ApisV1alpha1 retrieves the ApisV1alpha1Client
+func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
+	return &fakeapisv1alpha1.FakeApisV1alpha1{Fake: &c.Fake}
 }
 
 // ClusterV1alpha1 retrieves the ClusterV1alpha1Client

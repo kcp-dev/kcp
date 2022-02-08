@@ -26,6 +26,7 @@ import (
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 )
@@ -60,6 +61,7 @@ func NewClusterForConfig(c *rest.Config) (*Cluster, error) {
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface
+	ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface
 	ClusterV1alpha1() clusterv1alpha1.ClusterV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 }
@@ -76,6 +78,7 @@ type Clientset struct {
 type scopedClientset struct {
 	*discovery.DiscoveryClient
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1Client
+	apisV1alpha1        *apisv1alpha1.ApisV1alpha1Client
 	clusterV1alpha1     *clusterv1alpha1.ClusterV1alpha1Client
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1Client
 }
@@ -83,6 +86,11 @@ type scopedClientset struct {
 // ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client
 func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface {
 	return apiresourcev1alpha1.NewWithCluster(c.apiresourceV1alpha1.RESTClient(), c.cluster)
+}
+
+// ApisV1alpha1 retrieves the ApisV1alpha1Client
+func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
+	return apisv1alpha1.NewWithCluster(c.apisV1alpha1.RESTClient(), c.cluster)
 }
 
 // ClusterV1alpha1 retrieves the ClusterV1alpha1Client
@@ -120,6 +128,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.apisV1alpha1, err = apisv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.clusterV1alpha1, err = clusterv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -141,6 +153,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs scopedClientset
 	cs.apiresourceV1alpha1 = apiresourcev1alpha1.NewForConfigOrDie(c)
+	cs.apisV1alpha1 = apisv1alpha1.NewForConfigOrDie(c)
 	cs.clusterV1alpha1 = clusterv1alpha1.NewForConfigOrDie(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.NewForConfigOrDie(c)
 
@@ -152,6 +165,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs scopedClientset
 	cs.apiresourceV1alpha1 = apiresourcev1alpha1.New(c)
+	cs.apisV1alpha1 = apisv1alpha1.New(c)
 	cs.clusterV1alpha1 = clusterv1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 
