@@ -52,6 +52,7 @@ func TestWorkspaceShardController(t *testing.T) {
 		{
 			name: "create a workspace shard without credentials, expect to see status reflect missing credentials",
 			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				t.Logf("create a workspace shard without credentials")
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "of-glass"}}, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("failed to create workspace shard: %v", err)
@@ -60,6 +61,8 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
 					if !utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) || utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) != tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing {
 						return fmt.Errorf("expected to see missing credentials, got: %#v", workspaceShard.Status.Conditions)
@@ -74,6 +77,7 @@ func TestWorkspaceShardController(t *testing.T) {
 		{
 			name: "create a workspace shard referencing missing credentials, expect to see status reflect missing credentials",
 			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				t.Logf("create a workspace shard referencing missing credentials")
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
@@ -88,6 +92,8 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
 					if !utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) || utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) != tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing {
 						return fmt.Errorf("expected to see missing credentials, got: %#v", workspaceShard.Status.Conditions)
@@ -102,10 +108,13 @@ func TestWorkspaceShardController(t *testing.T) {
 		{
 			name: "create a workspace shard referencing credentials without data, expect to see status reflect invalid credentials",
 			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				t.Logf("create a namespace %q for the credentials secret", "credentials")
 				if _, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{}); err != nil {
 					t.Errorf("failed to create credentials namespace: %v", err)
 					return
 				}
+
+				t.Logf("create credential secret without credentials")
 				secret, err := server.kubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
 					Data: map[string][]byte{
@@ -119,6 +128,8 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("create a workspace shard referencing the secret above")
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
@@ -133,6 +144,8 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid)
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
 					if !utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) || utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) != tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid {
 						return fmt.Errorf("expected to see invalid credentials, got: %#v", workspaceShard.Status.Conditions)
@@ -147,10 +160,13 @@ func TestWorkspaceShardController(t *testing.T) {
 		{
 			name: "create a workspace shard referencing credentials with invalid data, expect to see status reflect invalid credentials",
 			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				t.Logf("create a namespace %q for the credentials secret", "credentials")
 				if _, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{}); err != nil {
 					t.Errorf("failed to create credentials namespace: %v", err)
 					return
 				}
+
+				t.Logf("create credential secret with an invalid kubeconfig file")
 				secret, err := server.kubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
 					Data: map[string][]byte{
@@ -164,6 +180,8 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("create a workspace shard referencing the secret above")
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
@@ -178,6 +196,8 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid)
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
 					if !utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) || utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) != tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid {
 						return fmt.Errorf("expected to see invalid credentials, got: %#v", workspaceShard.Status.Conditions)
@@ -190,12 +210,15 @@ func TestWorkspaceShardController(t *testing.T) {
 			},
 		},
 		{
-			name: "create a workspace shard referencing valid credentials, expect to see status reflect that",
+			name: "create a workspace shard referencing valid credentials, expect to see status reflect that, and then notice a change in the secret",
 			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+				t.Logf("create a namespace %q for the credentials secret", "credentials")
 				if _, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{}); err != nil {
 					t.Errorf("failed to create credentials namespace: %v", err)
 					return
 				}
+
+				t.Logf("create credential secret with a valid kubeconfig file")
 				rawCfg := clientcmdapi.Config{
 					Clusters:       map[string]*clientcmdapi.Cluster{"cluster": {Server: "https://kcp.dev/apiprefix"}},
 					Contexts:       map[string]*clientcmdapi.Context{"context": {Cluster: "cluster", AuthInfo: "user"}},
@@ -225,6 +248,8 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("create a workspace shard referencing the secret above")
 				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
@@ -239,6 +264,9 @@ func TestWorkspaceShardController(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
+
+				t.Logf("expecting workspace shard condition %s status=True", tenancyv1alpha1.WorkspaceShardCredentialsValid)
+				var originalVersion string
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
 					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
 						return fmt.Errorf("expected to see valid credentials, got: %#v", workspaceShard.Status.Conditions)
@@ -249,83 +277,19 @@ func TestWorkspaceShardController(t *testing.T) {
 					}); diff != "" {
 						return fmt.Errorf("got incorrect connection info: %v", diff)
 					}
-					return nil
-				}); err != nil {
-					t.Errorf("did not see workspace shard updated: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "update credentials for shard, see credential version change",
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
-				if _, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{}); err != nil {
-					t.Errorf("failed to create credentials namespace: %v", err)
-					return
-				}
-				rawCfg := clientcmdapi.Config{
-					Clusters:       map[string]*clientcmdapi.Cluster{"cluster": {Server: "https://kcp.dev/apiprefix"}},
-					Contexts:       map[string]*clientcmdapi.Context{"context": {Cluster: "cluster", AuthInfo: "user"}},
-					CurrentContext: "context",
-					AuthInfos:      map[string]*clientcmdapi.AuthInfo{"user": {Username: "user", Password: "password"}},
-				}
-				rawBytes, err := clientcmd.Write(rawCfg)
-				if err != nil {
-					t.Errorf("could not serialize raw config: %v", err)
-					return
-				}
-				cfg, err := clientcmd.NewNonInteractiveClientConfig(rawCfg, "context", nil, nil).ClientConfig()
-				if err != nil {
-					t.Errorf("failed to create client config: %v", err)
-					return
-				}
-				secret, err := server.kubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
-					Data: map[string][]byte{
-						"kubeconfig": rawBytes,
-					},
-				}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create credentials secret: %v", err)
-					return
-				}
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kubeClient.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
-				})
-				workspaceShard, err := server.client.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
-						Name:      "kubeconfig",
-						Namespace: "credentials",
-					}},
-				}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace shard: %v", err)
-					return
-				}
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
-				})
-				var version string
-				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
-					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
-						return fmt.Errorf("expected to see valid credentials, got: %#v", workspaceShard.Status.Conditions)
-					}
-					if diff := cmp.Diff(workspaceShard.Status.ConnectionInfo, &tenancyv1alpha1.ConnectionInfo{
-						Host:    cfg.Host,
-						APIPath: cfg.APIPath,
-					}); diff != "" {
-						return fmt.Errorf("got incorrect connection info: %v", diff)
-					}
+
 					if workspaceShard.Status.CredentialsHash == "" {
 						return errors.New("no credential version encoded")
 					}
-					version = workspaceShard.Status.CredentialsHash
+					originalVersion = workspaceShard.Status.CredentialsHash
+
 					return nil
 				}); err != nil {
 					t.Errorf("did not see workspace shard updated: %v", err)
 					return
 				}
+
+				t.Logf("update credential secret with a valid kubeconfig file")
 				rawCfg.AuthInfos["user"].Password = "rotated"
 				rawBytes, err = clientcmd.Write(rawCfg)
 				if err != nil {
@@ -337,11 +301,13 @@ func TestWorkspaceShardController(t *testing.T) {
 					t.Errorf("failed to create credentials secret: %v", err)
 					return
 				}
+
+				t.Logf("expecting workspace shard condition %s status=True", tenancyv1alpha1.WorkspaceShardCredentialsValid)
 				if err := server.expect(workspaceShard, func(workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
 					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
 						return fmt.Errorf("expected to see valid credentials, got: %#v", workspaceShard.Status.Conditions)
 					}
-					if workspaceShard.Status.CredentialsHash == version {
+					if workspaceShard.Status.CredentialsHash == originalVersion {
 						return errors.New("did not see credential version change")
 					}
 					return nil
