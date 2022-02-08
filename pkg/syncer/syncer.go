@@ -310,14 +310,6 @@ func (c *Controller) handleErr(err error, i interface{}) {
 		return
 	}
 
-	// Re-enqueue up to 5 times.
-	num := c.queue.NumRequeues(i)
-	if num < 5 {
-		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", i, num, err)
-		c.queue.AddRateLimited(i)
-		return
-	}
-
 	// Give up and report error elsewhere.
 	c.queue.Forget(i)
 	utilruntime.HandleError(err)
