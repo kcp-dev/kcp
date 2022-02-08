@@ -65,10 +65,10 @@ func NewController(
 	pollInterval time.Duration,
 ) *Controller {
 
-	resourceQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	gvrQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	namespaceQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	clusterQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
+	gvrQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-gvr")
+	namespaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-namespace")
+	clusterQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-cluster")
 
 	c := &Controller{
 		resourceQueue:  resourceQueue,

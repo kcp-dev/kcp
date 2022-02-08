@@ -110,30 +110,28 @@ func Ready(ctx context.Context, t TestingTInterface, port string) bool {
 }
 
 func waitForEndpoint(ctx context.Context, t TestingTInterface, port, endpoint string) {
-	var lastMsg string
-	var succeeded bool
-	loadCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
+	var lastError error
+	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, 30*time.Second, func(ctx context.Context) (bool, error) {
 		url := fmt.Sprintf("http://[::1]:%s%s", port, endpoint)
 		resp, err := http.Get(url)
-		if err == nil {
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				lastMsg = fmt.Sprintf("error reading response from %s: %v", url, err)
-				return
-			}
-			if resp.StatusCode != 200 {
-				lastMsg = fmt.Sprintf("unready response from %s: %v", url, string(body))
-				return
-			}
-			t.Logf("success contacting %s", url)
-			cancel()
-			succeeded = true
-		} else {
-			lastMsg = fmt.Sprintf("error contacting %s: %v", url, err)
+		if err != nil {
+			lastError = fmt.Errorf("error contacting %s: %w", url, err)
+			return false, nil
+
 		}
-	}, 100*time.Millisecond)
-	if !succeeded {
-		t.Errorf(lastMsg)
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			lastError = fmt.Errorf("error reading response from %s: %w", url, err)
+			return false, nil
+		}
+		if resp.StatusCode != 200 {
+			lastError = fmt.Errorf("unready response from %s: %v", url, string(body))
+			return false, nil
+		}
+
+		t.Logf("success contacting %s", url)
+		return true, nil
+	}); err != nil && lastError != nil {
+		t.Error(lastError)
 	}
 }

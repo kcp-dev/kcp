@@ -49,7 +49,7 @@ const controllerName = "deployment"
 func NewController(cfg *rest.Config) *Controller {
 	client := appsv1client.NewForConfigOrDie(cfg)
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-deployment")
 	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
 
 	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)

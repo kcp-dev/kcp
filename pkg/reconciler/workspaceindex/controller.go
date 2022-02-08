@@ -58,8 +58,8 @@ func NewController(
 	workspaceShardInformer tenancyinformer.WorkspaceShardInformer,
 	index Index,
 ) (*Controller, error) {
-	orgQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	workspaceQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	orgQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspaceindex-org")
+	workspaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspaceindex-workspace")
 
 	c := &Controller{
 		orgQueue:              orgQueue,

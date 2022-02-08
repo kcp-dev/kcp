@@ -91,14 +91,11 @@ func main() {
 	defer cancel()
 
 	klog.Infoln("Starting workers")
-	syncer, err := syncer.StartSyncer(ctx, fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads)
-	if err != nil {
+	if err := syncer.StartSyncer(ctx, fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads); err != nil {
 		klog.Fatal(err)
 	}
 
 	<-ctx.Done()
 
 	klog.Infoln("Stopping workers")
-	syncer.Stop()
-	syncer.WaitUntilDone()
 }

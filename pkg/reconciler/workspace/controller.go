@@ -60,7 +60,7 @@ func NewController(
 	workspaceInformer tenancyinformer.WorkspaceInformer,
 	workspaceShardInformer tenancyinformer.WorkspaceShardInformer,
 ) (*Controller, error) {
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspace")
 
 	c := &Controller{
 		queue:                 queue,
