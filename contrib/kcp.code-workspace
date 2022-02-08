@@ -215,18 +215,17 @@
 				"type": "go",
 				"request": "launch",
 				"mode": "debug",
-				"program": "${workspaceFolder:kcp}/cmd/kubectl-kcp-workspace",
+				"program": "${workspaceFolder:kcp}/cmd/kubectl-kcp",
 				"env": {
 					"GOMOD": "${workspaceFolder:kcp}/go.mod",
 					"KUBECONFIG": "${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
 				},
 				"cwd": "${workspaceFolder:kcp}",
 				"args": [
-					"--workspace-directory-insecure-skip-tls-verify",
-					"create",
-					"--inherit-from=user",
-					"workspace1",
-					"--use"
+					"workspace",
+					"--token",
+					"user-1-token",
+					"list",
 				],
 			}
 		]
