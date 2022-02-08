@@ -311,13 +311,14 @@ func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
 	var succeeded bool
 	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
 	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
-		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
+		req := rest.NewRequest(client).RequestURI(endpoint)
+		_, err := req.Do(ctx).Raw()
 		if err == nil {
-			c.t.Logf("success contacting %s", endpoint)
+			c.t.Logf("success contacting %s", req.URL())
 			cancel()
 			succeeded = true
 		} else {
-			lastMsg = fmt.Sprintf("error contacting %s: %v", endpoint, err)
+			lastMsg = fmt.Sprintf("error contacting %s: %v", req.URL(), err)
 		}
 	}, 100*time.Millisecond)
 	if !succeeded && c.ctx.Err() == nil {
