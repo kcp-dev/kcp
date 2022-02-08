@@ -390,7 +390,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		nsObj, err := nsInformer.Lister().Get(clusters.ToClusterAwareKey(meta.GetClusterName(), namespace))
 		if err != nil {
 			klog.Errorf("error listing namespace %q from the physical cluster: %v", namespace, err)
-			return nil
+			return err
 		}
 		nsMeta, ok := nsObj.(metav1.Object)
 		if !ok {
