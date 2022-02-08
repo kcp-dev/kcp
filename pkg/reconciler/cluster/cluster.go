@@ -129,17 +129,20 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				return nil // Don't retry.
 			}
 
-			newSyncer, err := syncer.StartSyncer(ctx, upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads)
-			if err != nil {
+			syncerCtx, syncerCancel := context.WithCancel(ctx)
+			if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads); err != nil {
 				klog.Errorf("error starting syncer in push mode: %v", err)
 				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error starting syncer in push mode: %v", err.Error())
+
+				syncerCancel()
+
 				return err
 			}
 
-			oldSyncer := c.syncers[cluster.Name]
-			c.syncers[cluster.Name] = newSyncer
-			if oldSyncer != nil {
-				oldSyncer.Stop()
+			oldSyncerCancel := c.syncerCancelFuncs[cluster.Name]
+			c.syncerCancelFuncs[cluster.Name] = syncerCancel
+			if oldSyncerCancel != nil {
+				oldSyncerCancel()
 			}
 
 			klog.Infof("started push mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
@@ -216,13 +219,13 @@ func (c *Controller) cleanup(ctx context.Context, deletedCluster *clusterv1alpha
 
 		uninstallSyncer(ctx, client)
 	case SyncerModePush:
-		s, ok := c.syncers[deletedCluster.Name]
+		syncerCancel, ok := c.syncerCancelFuncs[deletedCluster.Name]
 		if !ok {
 			klog.Errorf("could not find syncer for cluster %q", deletedCluster.Name)
 			return
 		}
 		klog.Infof("stopping syncer for cluster %q", deletedCluster.Name)
-		s.Stop()
-		delete(c.syncers, deletedCluster.Name)
+		syncerCancel()
+		delete(c.syncerCancelFuncs, deletedCluster.Name)
 	}
 }

@@ -28,8 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -40,9 +41,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const resyncPeriod = 10 * time.Hour
-const SyncerNamespaceKey = "SYNCER_NAMESPACE"
-const syncerApplyManager = "syncer"
+const (
+	resyncPeriod       = 10 * time.Hour
+	SyncerNamespaceKey = "SYNCER_NAMESPACE"
+	syncerApplyManager = "syncer"
+)
 
 // Direction indicates which direction data is flowing for this particular syncer
 type Direction string
@@ -59,34 +62,19 @@ type Syncer struct {
 	Resources    sets.String
 }
 
-func (s *Syncer) Stop() {
-	s.specSyncer.Stop()
-	s.statusSyncer.Stop()
-}
-
-func (s *Syncer) WaitUntilDone() {
-	<-s.specSyncer.Done()
-	<-s.statusSyncer.Done()
-}
-
-func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) (*Syncer, error) {
+func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) error {
 	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), cluster, logicalCluster)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	statusSyncer, err := NewStatusSyncer(downstream, upstream, resources.List(), cluster, logicalCluster)
 	if err != nil {
-		specSyncer.Stop()
-		return nil, err
+		return err
 	}
-	specSyncer.Start(ctx, numSyncerThreads)
-	statusSyncer.Start(ctx, numSyncerThreads)
+	go specSyncer.Start(ctx, numSyncerThreads)
+	go statusSyncer.Start(ctx, numSyncerThreads)
 
-	return &Syncer{
-		specSyncer:   specSyncer,
-		statusSyncer: statusSyncer,
-		Resources:    resources,
-	}, nil
+	return nil
 }
 
 type UpsertFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
@@ -104,10 +92,6 @@ type Controller struct {
 	direction Direction
 
 	syncerNamespace string
-
-	// set on start
-	ctx      context.Context
-	cancelFn context.CancelFunc
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
@@ -249,71 +233,52 @@ type holder struct {
 }
 
 func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
-	c.queue.AddRateLimited(holder{gvr: gvr, obj: obj})
+	c.queue.Add(holder{gvr: gvr, obj: obj})
 }
 
 // Start starts N worker processes processing work items.
 func (c *Controller) Start(ctx context.Context, numThreads int) {
-	c.ctx, c.cancelFn = context.WithCancel(ctx)
+	defer runtime.HandleCrash()
+	defer c.queue.ShutDown()
 
-	c.fromInformers.Start(c.ctx.Done())
-	c.fromInformers.WaitForCacheSync(c.ctx.Done())
+	c.fromInformers.Start(ctx.Done())
+	c.fromInformers.WaitForCacheSync(ctx.Done())
 
 	for i := 0; i < numThreads; i++ {
-		go c.startWorker(c.ctx)
+		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
+
+	<-ctx.Done()
 }
 
 // startWorker processes work items until stopCh is closed.
 func (c *Controller) startWorker(ctx context.Context) {
 	for {
-		select {
-		case <-ctx.Done():
-			klog.Info("stopping syncer worker")
-			return
-		default:
-			c.processNextWorkItem(ctx)
-		}
+		c.processNextWorkItem(ctx)
 	}
 }
-
-// Stop stops the syncer.
-func (c *Controller) Stop() {
-	c.queue.ShutDown()
-	c.cancelFn()
-}
-
-// Done returns a channel that's closed when the syncer is stopped.
-func (c *Controller) Done() <-chan struct{} { return c.ctx.Done() }
 
 func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
-	i, quit := c.queue.Get()
+	key, quit := c.queue.Get()
 	if quit {
 		return false
 	}
-	h := i.(holder)
+	h := key.(holder)
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
-	defer c.queue.Done(i)
+	defer c.queue.Done(key)
 
-	err := c.process(ctx, h.gvr, h.obj)
-	c.handleErr(err, i)
-	return true
-}
-
-func (c *Controller) handleErr(err error, i interface{}) {
-	// Reconcile worked, nothing else to do for this workqueue item.
-	if err == nil {
-		c.queue.Forget(i)
-		return
+	if err := c.process(ctx, h.gvr, h.obj); err != nil {
+		// TODO(ncdc): see if we can plumb through a name to indicate which syncer this is (direction, clusters involved)
+		runtime.HandleError(fmt.Errorf("syncer failed to sync %q, err: %w", key, err))
+		c.queue.AddRateLimited(key)
 	}
 
-	// Give up and report error elsewhere.
-	c.queue.Forget(i)
-	utilruntime.HandleError(err)
-	klog.Errorf("Dropping key %q after failed retries: %v", i, err)
+	c.queue.Forget(key)
+
+	return true
 }
 
 // NamespaceLocator stores a logical cluster and namespace and is used

@@ -41,7 +41,6 @@ import (
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 type SyncerMode int
@@ -92,12 +91,12 @@ func NewController(
 			clusterInformer.Informer().HasSynced,
 			apiResourceImportInformer.Informer().HasSynced,
 		},
-		syncerImage:     syncerImage,
-		kubeconfig:      kubeconfig,
-		resourcesToSync: resourcesToSync,
-		syncerMode:      syncerMode,
-		syncers:         map[string]*syncer.Syncer{},
-		apiImporters:    map[string]*APIImporter{},
+		syncerImage:       syncerImage,
+		kubeconfig:        kubeconfig,
+		resourcesToSync:   resourcesToSync,
+		syncerMode:        syncerMode,
+		syncerCancelFuncs: map[string]func(){},
+		apiImporters:      map[string]*APIImporter{},
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -145,7 +144,7 @@ type Controller struct {
 	kubeconfig                   clientcmdapi.Config
 	resourcesToSync              []string
 	syncerMode                   SyncerMode
-	syncers                      map[string]*syncer.Syncer
+	syncerCancelFuncs            map[string]func()
 	apiImporters                 map[string]*APIImporter
 	genericControlPlaneResources []schema.GroupVersionResource
 }
