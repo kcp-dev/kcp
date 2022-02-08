@@ -34,7 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/syncer"
@@ -61,8 +64,9 @@ const sourceClusterName, sinkClusterName = "source", "sink"
 func TestClusterController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
-		client wildwestclient.WildwestV1alpha1Interface
-		expect RegisterCowboyExpectation
+		client     wildwestclient.WildwestV1alpha1Interface
+		coreClient corev1client.CoreV1Interface
+		expect     RegisterCowboyExpectation
 	}
 	var testCases = []struct {
 		name string
@@ -71,6 +75,7 @@ func TestClusterController(t *testing.T) {
 		{
 			name: "create an object, expect spec and status to sync to sink",
 			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer) {
+				t.Logf("Creating cowboy timothy")
 				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
@@ -84,7 +89,18 @@ func TestClusterController(t *testing.T) {
 
 				nsLocator := syncer.NamespaceLocator{LogicalCluster: cowboy.ClusterName, Namespace: cowboy.Namespace}
 				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)
 				require.NoErrorf(t, err, "Error determining namespace mapping for %v: %v", nsLocator, err)
+				require.Eventually(t, func() bool {
+					if _, err = servers[sinkClusterName].coreClient.Namespaces().Get(ctx, targetNamespace, metav1.GetOptions{}); err != nil {
+						if apierrors.IsNotFound(err) {
+							return false
+						}
+						require.NoErrorf(t, err, "Error getting namespace %v: %v", targetNamespace, err)
+						return false
+					}
+					return true
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				defer servers[sourceClusterName].Artifact(t, func() (runtime.Object, error) {
 					return servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
@@ -93,6 +109,7 @@ func TestClusterController(t *testing.T) {
 					return servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
 				})
 
+				t.Logf("Expecting same spec to show up in sink")
 				cowboy.SetNamespace(targetNamespace)
 				err = servers[sinkClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					if diff := cmp.Diff(cowboy.Spec, object.Spec); diff != "" {
@@ -102,9 +119,11 @@ func TestClusterController(t *testing.T) {
 				})
 				require.NoErrorf(t, err, "did not see cowboy spec updated on sink cluster: %v", err)
 
+				t.Logf("Patching status in sink")
 				updated, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch cowboy: %v", err)
 
+				t.Logf("Expecting status update to show up in source")
 				cowboy.SetNamespace(testNamespace)
 				err = servers[sourceClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
 					if diff := cmp.Diff(updated.Status, object.Status); diff != "" {
@@ -184,9 +203,17 @@ func TestClusterController(t *testing.T) {
 				expect, err := ExpectCowboys(ctx, t, wildwestClient)
 				require.NoErrorf(t, err, "failed to start expecter: %v", err)
 
+				coreClients, err := kubernetes.NewClusterForConfig(cfg)
+				require.NoErrorf(t, err, "failed to construct client for server: %v", err)
+
+				coreClient := coreClients.Cluster(clusterName)
+				expect, err = ExpectCowboys(ctx, t, wildwestClient)
+				require.NoErrorf(t, err, "failed to start expecter: %v", err)
+
 				runningServers[name] = runningServer{
 					RunningServer: f.Servers[name],
 					client:        wildwestClient.WildwestV1alpha1(),
+					coreClient:    coreClient.CoreV1(),
 					expect:        expect,
 				}
 			}

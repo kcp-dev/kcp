@@ -27,7 +27,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -141,7 +140,6 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 	}
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
-
 
 		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
