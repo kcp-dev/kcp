@@ -207,8 +207,6 @@ func TestClusterController(t *testing.T) {
 				require.NoErrorf(t, err, "failed to construct client for server: %v", err)
 
 				coreClient := coreClients.Cluster(clusterName)
-				expect, err = ExpectCowboys(ctx, t, wildwestClient)
-				require.NoErrorf(t, err, "failed to start expecter: %v", err)
 
 				runningServers[name] = runningServer{
 					RunningServer: f.Servers[name],
