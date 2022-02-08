@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -38,127 +40,96 @@ import (
 const clusterLabel = "kcp.dev/cluster"
 
 func TestNamespaceScheduler(t *testing.T) {
+	t.Parallel()
+
 	const serverName = "main"
-	framework.RunParallel(t, "validate namespace scheduling", func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
-		ctx := context.Background()
-		if deadline, ok := t.Deadline(); ok {
-			withDeadline, cancel := context.WithDeadline(ctx, deadline)
-			t.Cleanup(cancel)
-			ctx = withDeadline
-		}
-
-		if len(servers) != 1 {
-			t.Errorf("incorrect number of servers: %d", len(servers))
-			return
-		}
-		server := servers[serverName]
-		cfg, err := server.Config()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		kubeClient, err := kubernetes.NewClusterForConfig(cfg)
-		if err != nil {
-			t.Errorf("failed to construct client for server: %v", err)
-			return
-		}
-
-		clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
-		if err != nil {
-			t.Errorf("failed to detect cluster name: %v", err)
-			return
-		}
-		client := kubeClient.Cluster(clusterName)
-
-		clients, err := clientset.NewClusterForConfig(cfg)
-		if err != nil {
-			t.Errorf("failed to construct client for server: %v", err)
-			return
-		}
-		clusterClient := clients.Cluster(clusterName).ClusterV1alpha1().Clusters()
-
-		expect, err := expectNamespaces(ctx, t, client)
-		if err != nil {
-			t.Errorf("failed to start expecter: %v", err)
-			return
-		}
-
-		// Create a namespace without a cluster available and expect it to be marked unscheduled
-
-		namespace, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "e2e-nss-",
+	f := framework.NewKCPFixture(
+		framework.KcpConfig{
+			Name: serverName,
+			Args: []string{
+				"--install-cluster-controller",
+				"--install-workspace-scheduler",
+				"--install-namespace-scheduler",
+				"--discovery-poll-interval=2s",
 			},
-		}, metav1.CreateOptions{})
-		if err != nil {
-			t.Errorf("failed to create namespace1: %v", err)
-			return
-		}
+		},
+	)
+	defer f.SetUp(t)()
 
-		if err := expect(namespace, unschedulableMatcher()); err != nil {
-			t.Errorf("did not see namespace marked unschedulable: %v", err)
-			return
-		}
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		withDeadline, cancel := context.WithDeadline(ctx, deadline)
+		t.Cleanup(cancel)
+		ctx = withDeadline
+	}
 
-		// Create a cluster and expect the namespace to be scheduled to it
+	require.Equalf(t, len(f.Servers), 1, "incorrect number of servers")
 
-		cluster1, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "e2e-nss-1-",
-			},
-		}, metav1.CreateOptions{})
-		if err != nil {
-			t.Errorf("failed to create cluster1: %v", err)
-			return
-		}
+	server := f.Servers[serverName]
+	cfg, err := server.Config()
+	require.NoError(t, err)
 
-		if err := expect(namespace, scheduledMatcher(cluster1.Name)); err != nil {
-			t.Errorf("did not see namespace marked scheduled for cluster1 %q: %v", cluster1.Name, err)
-			return
-		}
+	clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
+	require.NoError(t, err, "failed to detect cluster name")
 
-		// Create a new cluster, delete the old cluster, and expect the
-		// namespace to end up scheduled to the new cluster.
+	clients, err := clientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct client for server")
 
-		cluster2, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "e2e-nss-2-",
-			},
-		}, metav1.CreateOptions{})
-		if err != nil {
-			t.Errorf("failed to create cluster2: %v", err)
-			return
-		}
+	kubeClient, err := kubernetes.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct client for server")
 
-		err = clusterClient.Delete(ctx, cluster1.Name, metav1.DeleteOptions{})
-		if err != nil {
-			t.Errorf("failed to delete cluster1 %q: %v", cluster1.Name, err)
-			return
-		}
+	client := kubeClient.Cluster(clusterName)
+	expect, err := expectNamespaces(ctx, t, client)
+	require.NoError(t, err, "failed to start expecter")
 
-		if err := expect(namespace, scheduledMatcher(cluster2.Name)); err != nil {
-			t.Errorf("did not see namespace marked scheduled for cluster2 %q: %v", cluster2.Name, err)
-			return
-		}
+	clusterClient := clients.Cluster(clusterName).ClusterV1alpha1().Clusters()
 
-		// Delete the remaining cluster and expect the namespace to be
-		// marked unscheduled.
+	t.Log("Create a namespace without a cluster available and expect it to be marked unscheduled")
 
-		err = clusterClient.Delete(ctx, cluster2.Name, metav1.DeleteOptions{})
-		if err != nil {
-			t.Errorf("failed to delete cluster2 %q: %v", cluster2.Name, err)
-			return
-		}
+	namespace, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-nss-1-",
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create namespace1")
 
-		if err := expect(namespace, unschedulableMatcher()); err != nil {
-			t.Errorf("did not see namespace marked unschedulable: %v", err)
-			return
-		}
-	}, framework.KcpConfig{
-		Name: serverName,
-		Args: []string{"--install-cluster-controller", "--install-workspace-scheduler", "--install-namespace-scheduler", "--discovery-poll-interval=2s"},
-	})
+	err = expect(namespace, unschedulableMatcher())
+	require.NoError(t, err, "did not see namespace marked unschedulable")
+
+	t.Log("Create a cluster and expect the namespace to be scheduled to it")
+
+	cluster1, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-nss-1-",
+		},
+	}, metav1.CreateOptions{})
+	require.NoErrorf(t, err, "failed to create cluster1")
+
+	err = expect(namespace, scheduledMatcher(cluster1.Name))
+	require.NoErrorf(t, err, "did not see namespace marked scheduled for cluster1 %q", cluster1.Name)
+
+	t.Log("Create a new cluster, delete the old cluster, and expect the namespace to end up scheduled to the new cluster.")
+
+	cluster2, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-nss-2-",
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create cluster2")
+
+	err = clusterClient.Delete(ctx, cluster1.Name, metav1.DeleteOptions{})
+	require.NoErrorf(t, err, "failed to delete cluster1 %q", cluster1.Name)
+
+	err = expect(namespace, scheduledMatcher(cluster2.Name))
+	require.NoErrorf(t, err, "did not see namespace marked scheduled for cluster2 %q", cluster2.Name)
+
+	t.Log("Delete the remaining cluster and expect the namespace to be marked unscheduled.")
+
+	err = clusterClient.Delete(ctx, cluster2.Name, metav1.DeleteOptions{})
+	require.NoErrorf(t, err, "failed to delete cluster2 %q", cluster2.Name)
+
+	err = expect(namespace, unschedulableMatcher())
+	require.NoError(t, err, "did not see namespace marked unschedulable")
 }
 
 type namespaceExpectation func(*corev1.Namespace) error
