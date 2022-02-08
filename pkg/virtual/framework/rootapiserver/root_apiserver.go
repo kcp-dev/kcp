@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/google/uuid"
+
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
@@ -210,12 +212,36 @@ func (c completedConfig) NewRequestInfo(req *http.Request) (*genericapirequest.R
 	return defaultResolver.NewRequestInfo(req)
 }
 
-func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptionsWithLoopback, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
+func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptions, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
 	genericConfig := genericapiserver.NewRecommendedConfig(legacyscheme.Codecs)
 
 	// TODO: genericConfig.ExternalAddress = ... allow a command line flag or it to be overridden by a top-level multiroot apiServer
 
-	if err := secureServing.ApplyTo(&genericConfig.Config.SecureServing, &genericConfig.Config.LoopbackClientConfig); err != nil {
+	if err := secureServing.ApplyTo(&genericConfig.Config.SecureServing); err != nil {
+		return nil, err
+	}
+
+	var err error
+
+	var loopbackConfigCert []byte
+	if genericConfig.Config.SecureServing.Cert != nil {
+		loopbackConfigCert, _ = genericConfig.Config.SecureServing.Cert.CurrentCertKeyContent()
+	}
+	for _, sniCert := range genericConfig.Config.SecureServing.SNICerts {
+		if loopbackConfigCert == nil {
+			loopbackConfigCert, _ = sniCert.CurrentCertKeyContent()
+		}
+		if sets.NewString(sniCert.SNINames()...).Has(genericapiserver.LoopbackClientServerNameOverride) {
+			loopbackConfigCert, _ = sniCert.CurrentCertKeyContent()
+		}
+	}
+
+	if loopbackConfigCert == nil {
+		return nil, errors.New("No certs setup")
+	}
+
+	genericConfig.Config.LoopbackClientConfig, err = genericConfig.Config.SecureServing.NewLoopbackClientConfig(uuid.New().String(), loopbackConfigCert)
+	if err != nil {
 		return nil, err
 	}
 
