@@ -142,10 +142,6 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 
-		if _, err := fromInformers.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
-			klog.Infof("Failed to list all %q: %v", gvrstr, err)
-			return nil, err
-		}
 
 		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
