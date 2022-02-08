@@ -69,8 +69,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 			crdClient := apiExtensionsClients.Cluster(logicalCluster).ApiextensionsV1().CustomResourceDefinitions()
 
-			workspaceCRDs := []metav1.GroupKind{
-				{Group: tenancy.GroupName, Kind: "workspaces"},
+			workspaceCRDs := []metav1.GroupResource{
+				{Group: tenancy.GroupName, Resource: "workspaces"},
 			}
 
 			if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, workspaceCRDs); err != nil {

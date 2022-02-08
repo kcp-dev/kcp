@@ -235,7 +235,7 @@ func GetFreePort(t TestingTInterface) (string, error) {
 }
 
 // InstallCrd installs a CRD on one or multiple servers.
-func InstallCrd(ctx context.Context, gvk metav1.GroupKind, servers map[string]RunningServer, embeddedResources embed.FS) error {
+func InstallCrd(ctx context.Context, gr metav1.GroupResource, servers map[string]RunningServer, embeddedResources embed.FS) error {
 	wg := sync.WaitGroup{}
 	bootstrapErrChan := make(chan error, len(servers))
 	for _, server := range servers {
@@ -252,7 +252,7 @@ func InstallCrd(ctx context.Context, gvk metav1.GroupKind, servers map[string]Ru
 				bootstrapErrChan <- fmt.Errorf("failed to construct client for server: %w", err)
 				return
 			}
-			bootstrapErrChan <- config.BootstrapCustomResourceDefinitionFromFS(ctx, crdClient.CustomResourceDefinitions(), gvk, embeddedResources)
+			bootstrapErrChan <- config.BootstrapCustomResourceDefinitionFromFS(ctx, crdClient.CustomResourceDefinitions(), gr, embeddedResources)
 		}(server)
 	}
 	wg.Wait()

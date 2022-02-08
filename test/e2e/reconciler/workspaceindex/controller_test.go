@@ -71,9 +71,9 @@ func resolveRunningServer(ctx context.Context, t framework.TestingTInterface, se
 			return runningServer{}, fmt.Errorf("failed to construct extensions client for server: %w", err)
 		}
 		extensionsClient := extensionsClients.Cluster(clusterName)
-		requiredCrds := []metav1.GroupKind{
-			{Group: tenancyapi.GroupName, Kind: "workspaces"},
-			{Group: tenancyapi.GroupName, Kind: "workspaceshards"},
+		requiredCrds := []metav1.GroupResource{
+			{Group: tenancyapi.GroupName, Resource: "workspaces"},
+			{Group: tenancyapi.GroupName, Resource: "workspaceshards"},
 		}
 		crdClient := extensionsClient.ApiextensionsV1().CustomResourceDefinitions()
 		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {

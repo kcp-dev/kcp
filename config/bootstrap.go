@@ -41,14 +41,14 @@ var rawCustomResourceDefinitions embed.FS
 
 // BootstrapCustomResourceDefinitions creates the CRDs using the target client and waits
 // for all of them to become established in parallel. This call is blocking.
-func BootstrapCustomResourceDefinitions(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gks []metav1.GroupKind) error {
+func BootstrapCustomResourceDefinitions(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, grs []metav1.GroupResource) error {
 	wg := sync.WaitGroup{}
-	bootstrapErrChan := make(chan error, len(gks))
-	for _, gk := range gks {
+	bootstrapErrChan := make(chan error, len(grs))
+	for _, gk := range grs {
 		wg.Add(1)
-		go func(gk metav1.GroupKind) {
+		go func(gr metav1.GroupResource) {
 			defer wg.Done()
-			bootstrapErrChan <- BootstrapCustomResourceDefinition(ctx, client, gk)
+			bootstrapErrChan <- BootstrapCustomResourceDefinition(ctx, client, gr)
 		}(gk)
 	}
 	wg.Wait()
@@ -65,33 +65,33 @@ func BootstrapCustomResourceDefinitions(ctx context.Context, client apiextension
 
 // BootstrapCustomResourceDefinition creates the CRD using the target client and waits
 // for it to become established. This call is blocking.
-func BootstrapCustomResourceDefinition(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gk metav1.GroupKind) error {
-	return BootstrapCustomResourceDefinitionFromFS(ctx, client, gk, rawCustomResourceDefinitions)
+func BootstrapCustomResourceDefinition(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gr metav1.GroupResource) error {
+	return BootstrapCustomResourceDefinitionFromFS(ctx, client, gr, rawCustomResourceDefinitions)
 }
 
 // BootstrapCustomResourceDefinitionFromFS creates the CRD using the target client from the
 // provided filesystem handle and waits for it to become established. This call is blocking.
-func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gk metav1.GroupKind, fs embed.FS) error {
+func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gr metav1.GroupResource, fs embed.FS) error {
 	start := time.Now()
-	klog.Infof("bootstrapping %v", gk.String())
+	klog.Infof("bootstrapping %v", gr.String())
 	defer func() {
-		klog.Infof("bootstrapped %v after %s", gk.String(), time.Since(start).String())
+		klog.Infof("bootstrapped %v after %s", gr.String(), time.Since(start).String())
 	}()
-	raw, err := fs.ReadFile(fmt.Sprintf("%s_%s.yaml", gk.Group, gk.Kind))
+	raw, err := fs.ReadFile(fmt.Sprintf("%s_%s.yaml", gr.Group, gr.Resource))
 	if err != nil {
-		return fmt.Errorf("could not read CRD %s: %w", gk.String(), err)
+		return fmt.Errorf("could not read CRD %s: %w", gr.String(), err)
 	}
 	expectedGvk := &schema.GroupVersionKind{Group: apiextensionsv1.GroupName, Version: "v1", Kind: "CustomResourceDefinition"}
 	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(raw, expectedGvk, &apiextensionsv1.CustomResourceDefinition{})
 	if err != nil {
-		return fmt.Errorf("could not decode raw CRD %s: %w", gk.String(), err)
+		return fmt.Errorf("could not decode raw CRD %s: %w", gr.String(), err)
 	}
 	if !equality.Semantic.DeepEqual(gvk, expectedGvk) {
-		return fmt.Errorf("decoded CRD %s into incorrect GroupVersionKind, got %#v, wanted %#v", gk.String(), gvk, expectedGvk)
+		return fmt.Errorf("decoded CRD %s into incorrect GroupVersionKind, got %#v, wanted %#v", gr.String(), gvk, expectedGvk)
 	}
 	rawCrd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 	if !ok {
-		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gk.String(), rawCrd, &apiextensionsv1.CustomResourceDefinition{})
+		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gr.String(), rawCrd, &apiextensionsv1.CustomResourceDefinition{})
 	}
 
 	crdResource, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
@@ -99,16 +99,16 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 		if apierrors.IsNotFound(err) {
 			_, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("Error creating CRD %s: %w", gk.String(), err)
+				return fmt.Errorf("Error creating CRD %s: %w", gr.String(), err)
 			}
 		} else {
-			return fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
+			return fmt.Errorf("Error fetching CRD %s: %w", gr.String(), err)
 		}
 	} else {
 		rawCrd.ResourceVersion = crdResource.ResourceVersion
 		_, err = client.Update(ctx, rawCrd, metav1.UpdateOptions{})
 		if err != nil {
-			return fmt.Errorf("Error updating CRD %s: %w", gk.String(), err)
+			return fmt.Errorf("Error updating CRD %s: %w", gr.String(), err)
 		}
 	}
 
@@ -116,9 +116,9 @@ func BootstrapCustomResourceDefinitionFromFS(ctx context.Context, client apiexte
 		crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return false, fmt.Errorf("CRD %s was deleted before being established", gk.String())
+				return false, fmt.Errorf("CRD %s was deleted before being established", gr.String())
 			}
-			return false, fmt.Errorf("Error fetching CRD %s: %w", gk.String(), err)
+			return false, fmt.Errorf("Error fetching CRD %s: %w", gr.String(), err)
 		}
 
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil

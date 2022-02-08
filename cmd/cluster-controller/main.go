@@ -110,10 +110,10 @@ func main() {
 	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
 	// TODO(sttts): remove CRD creation from controller startup
-	requiredCrds := []metav1.GroupKind{
-		{Group: apiresourceapi.GroupName, Kind: "apiresourceimports"},
-		{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
-		{Group: clusterapi.GroupName, Kind: "clusters"},
+	requiredCrds := []metav1.GroupResource{
+		{Group: apiresourceapi.GroupName, Resource: "apiresourceimports"},
+		{Group: apiresourceapi.GroupName, Resource: "negotiatedapiresources"},
+		{Group: clusterapi.GroupName, Resource: "clusters"},
 	}
 	for _, contextName := range []string{"admin", "user"} {
 		logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(kubeconfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()

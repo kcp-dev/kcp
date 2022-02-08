@@ -83,8 +83,8 @@ func TestAPIInheritance(t *testing.T) {
 			}
 
 			rootCRDClient := apiExtensionsClients.Cluster(helper.OrganizationCluster).ApiextensionsV1().CustomResourceDefinitions()
-			rootCRDs := []metav1.GroupKind{
-				{Group: "apiresource.kcp.dev", Kind: "apiresourceimports"},
+			rootCRDs := []metav1.GroupResource{
+				{Group: "apiresource.kcp.dev", Resource: "apiresourceimports"},
 			}
 
 			if err := config.BootstrapCustomResourceDefinitions(ctx, rootCRDClient, rootCRDs); err != nil {
@@ -94,8 +94,8 @@ func TestAPIInheritance(t *testing.T) {
 
 			crdClient := apiExtensionsClients.Cluster(testCase.logicalClusterName).ApiextensionsV1().CustomResourceDefinitions()
 
-			workspaceCRDs := []metav1.GroupKind{
-				{Group: tenancy.GroupName, Kind: "workspaces"},
+			workspaceCRDs := []metav1.GroupResource{
+				{Group: tenancy.GroupName, Resource: "workspaces"},
 			}
 
 			t.Logf("Bootstrapping CRDs")
@@ -151,8 +151,8 @@ func TestAPIInheritance(t *testing.T) {
 			)
 
 			t.Logf("Install a clusters CRD into source workspace")
-			crdsForWorkspaces := []metav1.GroupKind{
-				{Group: cluster.GroupName, Kind: "clusters"},
+			crdsForWorkspaces := []metav1.GroupResource{
+				{Group: cluster.GroupName, Resource: "clusters"},
 			}
 			sourceCrdClient := apiExtensionsClients.Cluster(sourceWorkspaceClusterName).ApiextensionsV1().CustomResourceDefinitions()
 			if err := config.BootstrapCustomResourceDefinitions(ctx, sourceCrdClient, crdsForWorkspaces); err != nil {
