@@ -1,0 +1,74 @@
+# create workspace shard and workspace1
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: WorkspaceShard
+metadata:
+  name: boston
+spec:
+  credentials:
+    namespace: default
+    name: kubeconfig
+---
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: workspace1
+spec:
+  inheritFrom: admin
+---
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: workspace2
+spec:
+  inheritFrom: admin
+---
+
+# declare user-1 to be editor
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: user-1-editor
+subjects:
+  - kind: User
+    name: user-1
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: workspace1-editor
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: workspace1-editor
+rules:
+  - apiGroups: ["tenancy.kcp.dev"]
+    resources: ["workspaces/content"]
+    resourceNames: ["workspace1"]
+    verbs: ["edit", "view"]
+---
+
+# declare user-2 to be viewer
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: user-2-viewer
+subjects:
+  - kind: User
+    name: user-2
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: workspace1-viewer
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: workspace1-viewer
+rules:
+  - apiGroups: ["tenancy.kcp.dev"]
+    resources: ["workspaces/content"]
+    resourceNames: ["workspace1"]
+    verbs: ["view"]
+---
