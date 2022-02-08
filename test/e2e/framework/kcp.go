@@ -307,22 +307,19 @@ func (c *kcpServer) loadCfg() error {
 }
 
 func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
-	var lastMsg string
-	var succeeded bool
-	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
-	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
+	var lastError error
+	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
 		req := rest.NewRequest(client).RequestURI(endpoint)
 		_, err := req.Do(ctx).Raw()
-		if err == nil {
-			c.t.Logf("success contacting %s", req.URL())
-			cancel()
-			succeeded = true
-		} else {
-			lastMsg = fmt.Sprintf("error contacting %s: %v", req.URL(), err)
+		if err != nil {
+			lastError = fmt.Errorf("error contacting %s: %w", req.URL(), err)
+			return false, nil
 		}
-	}, 100*time.Millisecond)
-	if !succeeded && c.ctx.Err() == nil {
-		c.t.Errorf(lastMsg)
+
+		c.t.Logf("success contacting %s", req.URL())
+		return true, nil
+	}); err != nil && lastError != nil {
+		c.t.Error(lastError)
 	}
 }
 
