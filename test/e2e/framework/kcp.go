@@ -270,23 +270,23 @@ func (c *kcpServer) Ready() error {
 }
 
 func (c *kcpServer) loadCfg() error {
-	var loadError error
-	loadCtx, cancel := context.WithTimeout(c.ctx, 1*time.Minute)
-	wait.UntilWithContext(loadCtx, func(ctx context.Context) {
+	var lastError error
+	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, 1*time.Minute, func(ctx context.Context) (bool, error) {
 		c.kubeconfigPath = filepath.Join(c.dataDir, "admin.kubeconfig")
 		if fs, err := os.Stat(c.kubeconfigPath); os.IsNotExist(err) {
-			return // try again
+			lastError = err
+			return false, nil
 		} else if err != nil {
-			loadError = fmt.Errorf("failed to read admin kubeconfig after kcp start: %w", err)
-			return
+			lastError = fmt.Errorf("failed to read admin kubeconfig after kcp start: %w", err)
+			return false, nil
 		} else if fs.Size() == 0 {
-			return // try again
+			return false, nil
 		}
 
 		rawConfig, err := clientcmd.LoadFromFile(c.kubeconfigPath)
 		if err != nil {
-			loadError = fmt.Errorf("failed to load admin kubeconfig: %w", err)
-			return
+			lastError = fmt.Errorf("failed to load admin kubeconfig: %w", err)
+			return false, nil
 		}
 
 		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil)
@@ -296,17 +296,14 @@ func (c *kcpServer) loadCfg() error {
 		c.rawCfg = rawConfig // TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
 		c.lock.Unlock()
 
-		// If we were able to load, clear loadError so we eventually return nil
-		loadError = nil
-
-		cancel()
-	}, 100*time.Millisecond)
-	c.lock.Lock()
-	if c.cfg == nil && loadError == nil {
-		loadError = fmt.Errorf("failed to load admin kubeconfig: %w", loadCtx.Err())
+		return true, nil
+	}); err != nil && lastError != nil {
+		return fmt.Errorf("failed to load admin kubeconfig: %w", lastError)
+	} else if err != nil {
+		// should never happen
+		return fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
-	c.lock.Unlock()
-	return loadError
+	return nil
 }
 
 func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
