@@ -27,7 +27,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -141,11 +140,6 @@ func New(fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynami
 	}
 	for _, gvrstr := range gvrstrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
-
-		if _, err := fromInformers.ForResource(*gvr).Lister().List(labels.Everything()); err != nil {
-			klog.Infof("Failed to list all %q: %v", gvrstr, err)
-			return nil, err
-		}
 
 		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
@@ -316,14 +310,6 @@ func (c *Controller) handleErr(err error, i interface{}) {
 		return
 	}
 
-	// Re-enqueue up to 5 times.
-	num := c.queue.NumRequeues(i)
-	if num < 5 {
-		klog.Errorf("Error reconciling key %q, retrying... (#%d): %v", i, num, err)
-		c.queue.AddRateLimited(i)
-		return
-	}
-
 	// Give up and report error elsewhere.
 	c.queue.Forget(i)
 	utilruntime.HandleError(err)
@@ -394,7 +380,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		nsObj, err := nsInformer.Lister().Get(clusters.ToClusterAwareKey(meta.GetClusterName(), namespace))
 		if err != nil {
 			klog.Errorf("error listing namespace %q from the physical cluster: %v", namespace, err)
-			return nil
+			return err
 		}
 		nsMeta, ok := nsObj.(metav1.Object)
 		if !ok {
