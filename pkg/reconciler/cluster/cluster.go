@@ -101,16 +101,35 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 		}.String())
 	}
 
-	var upToDate bool
-	if c.syncerMode == SyncerModePull {
-		upToDate, err = isSyncerInstalledAndUpToDate(ctx, client, logicalCluster, c.syncerImage)
+	needsUpdate := false
+	switch c.syncerMode {
+	case SyncerModePull:
+		upToDate, err := isSyncerInstalledAndUpToDate(ctx, client, logicalCluster, c.syncerImage)
 		if err != nil {
 			klog.Errorf("error checking if syncer needs to be installed: %v", err)
 			return err
 		}
+
+		if !upToDate && groupResources.Len() > 0 {
+			needsUpdate = true
+		}
+	case SyncerModePush:
+		_, running := c.syncerCancelFuncs[cluster.Name]
+		if !running || !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources) {
+			needsUpdate = true
+		}
 	}
 
-	if !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources) || (!upToDate && groupResources.Len() > 0) {
+	if klog.V(2).Enabled() {
+		klog.V(2).InfoS("Determining if we need to start or update a syncer",
+			"synced-resources", cluster.Status.SyncedResources,
+			"group-resources", groupResources,
+			"equal", sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources),
+			"needs-update", needsUpdate,
+		)
+	}
+	if needsUpdate {
+		klog.V(2).Info("Need to create/update syncer")
 		kubeConfig := c.kubeconfig.DeepCopy()
 
 		switch c.syncerMode {
