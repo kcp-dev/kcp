@@ -58,6 +58,8 @@ type SubCommandDescription struct {
 	Long  string
 }
 
+const SecurePortDefault = 6444
+
 type SubCommandOptions interface {
 	Description() SubCommandDescription
 	AddFlags(flags *pflag.FlagSet)
@@ -75,7 +77,8 @@ func APIServerCommand(out, errout io.Writer, stopCh <-chan struct{}, subCommandO
 
 	options.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(".", ".kcp", "apiserver.crt")
 	options.SecureServing.ServerCert.CertKey.KeyFile = filepath.Join(".", ".kcp", "apiserver.key")
-
+	options.SecureServing.BindPort = SecurePortDefault
+	options.Authentication.SkipInClusterLookup = true
 	cmd := &cobra.Command{
 		Use:   options.SubCommandOptions.Description().Use,
 		Short: options.SubCommandOptions.Description().Short,
