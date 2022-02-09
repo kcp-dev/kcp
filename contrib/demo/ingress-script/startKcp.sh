@@ -41,7 +41,7 @@ echo ""
 echo "Starting the kcp-ingress-controller"
 ingress-controller --kubeconfig="${KUBECONFIG}" --envoyxds --envoy-listener-port=8181 &>ingress-controller.log &
 KCP_INGRESS_PID=$!
-echo "KCP Ingress started: $KCP_INGRESS_PID"
+echo "Ingress-controller started: $KCP_INGRESS_PID"
 
 echo ""
 echo "Starting Envoy"
