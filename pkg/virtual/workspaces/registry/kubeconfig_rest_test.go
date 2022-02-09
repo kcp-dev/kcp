@@ -462,7 +462,7 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 			require.Len(t, statusError.Status().Details.Causes, 1)
 			assert.Equal(t, statusError.Status().Details.Causes[0].Type, metav1.CauseTypeUnexpectedServerResponse)
 			assert.Regexp(t, "^Workspace shard Kubeconfig is invalid: .*", statusError.Status().Details.Causes[0].Message)
-			assert.Contains(t, statusError.Status().Details.Causes[0].Message, "decode base64: illegal base64 data at input byte 7, error found in #10 byte of ...|LID_VALUE")
+			assert.Contains(t, statusError.Status().Details.Causes[0].Message, "illegal base64 data at input byte 7")
 		},
 	}
 	applyTest(t, test)
