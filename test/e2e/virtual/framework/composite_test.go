@@ -509,7 +509,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
-			Args: []string{""},
+			Args: []string{"--run-controllers=false"},
 		})
 	}
 }

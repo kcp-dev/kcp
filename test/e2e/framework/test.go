@@ -76,7 +76,11 @@ func RunParallel(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 		top.Parallel()
 	}
 	top.Run(name, func(mid *testing.T) {
-		mid.Parallel()
+		// don't run in parallel if we are in INPROCESS debugging mode
+		if !runKcpInProcess() {
+			mid.Parallel()
+		}
+
 		ctx, cancel := context.WithCancel(context.Background())
 		bottom := NewT(ctx, mid)
 		artifactDir, dataDir, err := ScratchDirs(bottom)

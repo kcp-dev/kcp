@@ -18,41 +18,32 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
-
-	clientv3 "go.etcd.io/etcd/client/v3"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/apiserver/pkg/util/webhook"
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 
-	"github.com/kcp-dev/kcp/pkg/authorization"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/etcd"
+	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
@@ -73,11 +64,12 @@ const resyncPeriod = 10 * time.Hour
 //       client := clientset.NewForConfigOrDie(context.LoopbackClientConfig)
 //   })
 type Server struct {
-	cfg              *Config
+	options *kcpserveroptions.CompletedOptions
+
 	postStartHooks   []postStartHookEntry
 	preShutdownHooks []preShutdownHookEntry
 
-	crdServerReady chan struct{}
+	syncedCh chan struct{}
 
 	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
@@ -85,12 +77,11 @@ type Server struct {
 }
 
 // NewServer creates a new instance of Server which manages the KCP api-server.
-func NewServer(cfg *Config) *Server {
-	s := &Server{
-		cfg:            cfg,
-		crdServerReady: make(chan struct{}),
-	}
-	return s
+func NewServer(o *kcpserveroptions.CompletedOptions) (*Server, error) {
+	return &Server{
+		options:  o,
+		syncedCh: make(chan struct{}),
+	}, nil
 }
 
 // postStartHookEntry groups a PostStartHookFunc with a name. We're not storing these hooks
@@ -110,18 +101,12 @@ type preShutdownHookEntry struct {
 
 // Run starts the KCP api-server. This function blocks until the api-server stops or an error.
 func (s *Server) Run(ctx context.Context) error {
-	if s.cfg.ProfilerAddress != "" {
+	if s.options.Extra.ProfilerAddress != "" {
 		// nolint:errcheck
-		go http.ListenAndServe(s.cfg.ProfilerAddress, nil)
+		go http.ListenAndServe(s.options.Extra.ProfilerAddress, nil)
 	}
 
-	var dir string
-	if filepath.IsAbs(s.cfg.RootDirectory) {
-		dir = s.cfg.RootDirectory
-	} else {
-		dir = filepath.Join(".", s.cfg.RootDirectory)
-	}
-	if len(dir) != 0 {
+	if dir := s.options.Extra.RootDirectory; len(dir) != 0 {
 		if fi, err := os.Stat(dir); err != nil {
 			if !os.IsNotExist(err) {
 				return err
@@ -136,93 +121,37 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	etcdDir := filepath.Join(dir, s.cfg.EtcdDirectory)
-
-	if len(s.cfg.EtcdClientInfo.Endpoints) == 0 {
-		// No etcd servers specified so create one in-process:
+	etcdDir := filepath.Join(s.options.Extra.RootDirectory, s.options.EmbeddedEtcd.Directory)
+	if s.options.EmbeddedEtcd.Enabled {
 		es := &etcd.Server{
 			Dir: etcdDir,
 		}
-		embeddedClientInfo, err := es.Run(ctx, s.cfg.EtcdPeerPort, s.cfg.EtcdClientPort, s.cfg.EtcdWalSizeBytes)
+		embeddedClientInfo, err := es.Run(ctx, s.options.EmbeddedEtcd.PeerPort, s.options.EmbeddedEtcd.ClientPort, s.options.EmbeddedEtcd.WalSizeBytes)
 		if err != nil {
 			return err
 		}
-		s.cfg.EtcdClientInfo = embeddedClientInfo
-	} else {
-		// Set up for connection to an external etcd cluster
-		s.cfg.EtcdClientInfo.TLS = &tls.Config{
-			InsecureSkipVerify: true,
-		}
 
-		if len(s.cfg.EtcdClientInfo.CertFile) > 0 && len(s.cfg.EtcdClientInfo.KeyFile) > 0 {
-			cert, err := tls.LoadX509KeyPair(s.cfg.EtcdClientInfo.CertFile, s.cfg.EtcdClientInfo.KeyFile)
-			if err != nil {
-				return fmt.Errorf("failed to load x509 keypair: %w", err)
-			}
-			s.cfg.EtcdClientInfo.TLS.Certificates = []tls.Certificate{cert}
-		}
-
-		if len(s.cfg.EtcdClientInfo.TrustedCAFile) > 0 {
-			if caCert, err := ioutil.ReadFile(s.cfg.EtcdClientInfo.TrustedCAFile); err != nil {
-				return fmt.Errorf("failed to read ca file: %w", err)
-			} else {
-				caPool := x509.NewCertPool()
-				caPool.AppendCertsFromPEM(caCert)
-				s.cfg.EtcdClientInfo.TLS.RootCAs = caPool
-				s.cfg.EtcdClientInfo.TLS.InsecureSkipVerify = false
-			}
-		}
+		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = embeddedClientInfo.Endpoints
+		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.KeyFile = embeddedClientInfo.KeyFile
+		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.CertFile = embeddedClientInfo.CertFile
+		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.TrustedCAFile = embeddedClientInfo.TrustedCAFile
 	}
 
-	c, err := clientv3.New(clientv3.Config{
-		Endpoints: s.cfg.EtcdClientInfo.Endpoints,
-		TLS:       s.cfg.EtcdClientInfo.TLS,
-	})
-	if err != nil {
-		return err
-	}
-	defer c.Close()
-	r, err := c.Cluster.MemberList(ctx)
-	if err != nil {
-		return err
-	}
-	for _, member := range r.Members {
-		fmt.Fprintf(os.Stderr, "Connected to etcd %d %s\n", member.GetID(), member.GetName())
-	}
-
-	serverOptions := options.NewServerRunOptions()
-
-	serverOptions.Authentication = s.cfg.Authentication
-	serverOptions.Audit = s.cfg.Audit
-
-	host, port, err := net.SplitHostPort(s.cfg.Listen)
-	if err != nil {
-		return fmt.Errorf("--listen must be of format host:port: %w", err)
-	}
-
-	if host != "" {
-		serverOptions.SecureServing.BindAddress = net.ParseIP(host)
-	}
-	if port != "" {
-		p, err := strconv.Atoi(port)
-		if err != nil {
-			return err
-		}
-		serverOptions.SecureServing.BindPort = p
-	}
-
+	// patch the handler chain. We should do this after creating the generic apiserver config, but before CreateKubeAPIServerConfig. But
+	// this needs surgery in k/k. So we do it here no, changing the already completed options. Not nice, but must be here because
+	// we need to create the injector to be in-scope with the NewNonInteractiveClientConfig further down in this func.
 	injector := make(chan sharding.IdentifiedConfig)
-	clientLoader, err := sharding.New(s.cfg.ShardKubeconfigFile, injector)
+	clientLoader, err := sharding.New(s.options.Extra.ShardKubeconfigFile, injector)
 	if err != nil {
 		return err
 	}
-	serverOptions.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
+	s.options.GenericControlPlane.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
 		// we want a request to hit the chain like:
 		// - lcluster handler (this package's ServeHTTP)
 		// - shard proxy (sharding.ServeHTTP)
 		// - original handler chain
 		// the lcluster handler is a pass-through, not a delegate, so the wrapping looks weird
-		if s.cfg.EnableSharding {
+		if s.options.Extra.EnableSharding {
 			apiHandler = http.HandlerFunc(sharding.ServeHTTP(apiHandler, clientLoader))
 		}
 		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
@@ -230,29 +159,14 @@ func (s *Server) Run(ctx context.Context) error {
 		return apiHandler
 	}
 
-	serverOptions.SecureServing.ServerCert.CertDirectory = etcdDir
-	serverOptions.Etcd.StorageConfig.Transport = storagebackend.TransportConfig{
-		ServerList:    s.cfg.EtcdClientInfo.Endpoints,
-		CertFile:      s.cfg.EtcdClientInfo.CertFile,
-		KeyFile:       s.cfg.EtcdClientInfo.KeyFile,
-		TrustedCAFile: s.cfg.EtcdClientInfo.TrustedCAFile,
-	}
-
-	completedOptions, err := genericcontrolplane.Complete(serverOptions)
+	// TODO: get rid of this idem-potent completion call. The o.GenericControlPlane value should be completed already.
+	completedGenericControlPlane, err := genericcontrolplane.Complete(&s.options.GenericControlPlane.ServerRunOptions)
 	if err != nil {
 		return err
 	}
 
-	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedOptions)
+	apisConfig, _, pluginInitializer, err := genericcontrolplane.CreateKubeAPIServerConfig(completedGenericControlPlane)
 	if err != nil {
-		return err
-	}
-
-	// TODO(ncdc): this should move to k/genericcontrolplane
-	if errs := serverOptions.Audit.Validate(); len(errs) > 0 {
-		return kerrors.NewAggregate(errs)
-	}
-	if err := serverOptions.Audit.ApplyTo(apisConfig.GenericConfig); err != nil {
 		return err
 	}
 
@@ -282,22 +196,6 @@ func (s *Server) Run(ctx context.Context) error {
 	apiextensionsClient := apiextensionsClusterClient.Cluster(crossCluster)
 	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsClient, resyncPeriod)
 
-	s.AddPostStartHook("start-informers", func(context genericapiserver.PostStartHookContext) error {
-		if err := s.waitForCRDServer(context.StopCh); err != nil {
-			return err
-		}
-
-		s.kcpSharedInformerFactory.Start(context.StopCh)
-		s.kubeSharedInformerFactory.Start(context.StopCh)
-		s.apiextensionsSharedInformerFactory.Start(context.StopCh)
-
-		s.kcpSharedInformerFactory.WaitForCacheSync(context.StopCh)
-		s.kubeSharedInformerFactory.WaitForCacheSync(context.StopCh)
-		s.apiextensionsSharedInformerFactory.WaitForCacheSync(context.StopCh)
-
-		return nil
-	})
-
 	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
 
 	// If additional API servers are added, they should be gated.
@@ -305,7 +203,7 @@ func (s *Server) Run(ctx context.Context) error {
 		*apisConfig.GenericConfig,
 		apisConfig.ExtraConfig.VersionedInformers,
 		pluginInitializer,
-		completedOptions.ServerRunOptions,
+		completedGenericControlPlane.ServerRunOptions,
 
 		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
 		// supported. The effect is that CRD webhook conversions are not supported and will always get an
@@ -323,10 +221,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
 
-	var workspaceLister tenancylisters.WorkspaceLister
-	if s.cfg.InstallWorkspaceScheduler {
-		workspaceLister = s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
-	}
+	workspaceLister := s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()
 	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
 		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
@@ -348,14 +243,9 @@ func (s *Server) Run(ctx context.Context) error {
 	//		return client.Scope(crossClusterScope), nil
 	//	}
 
-	orgAuth, orgResolver := authorization.NewOrgWorkspaceAuthorizer(s.kubeSharedInformerFactory)
-	localAuth, localResolver := authorization.NewLocalAuthorizer(s.kubeSharedInformerFactory)
-	apisConfig.GenericConfig.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
-	apisConfig.GenericConfig.Authorization.Authorizer = authorization.NewWorkspaceContentAuthorizer(
-		s.kubeSharedInformerFactory,
-		workspaceLister,
-		union.New(orgAuth, localAuth),
-	)
+	if err := s.options.Authorization.ApplyTo(apisConfig.GenericConfig, s.kubeSharedInformerFactory, workspaceLister); err != nil {
+		return err
+	}
 
 	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
@@ -370,14 +260,32 @@ func (s *Server) Run(ctx context.Context) error {
 		),
 	)
 
-	s.AddPostStartHook("wait-for-crd-server", func(ctx genericapiserver.PostStartHookContext) error {
-		return wait.PollImmediateInfiniteWithContext(goContext(ctx), 100*time.Millisecond, func(c context.Context) (done bool, err error) {
-			if serverChain.CustomResourceDefinitions.Informers.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() {
-				close(s.crdServerReady)
-				return true, nil
+	s.AddPostStartHook("start-informers", func(ctx genericapiserver.PostStartHookContext) error {
+		s.kubeSharedInformerFactory.Start(ctx.StopCh)
+		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
+		s.kcpSharedInformerFactory.Start(ctx.StopCh)
+
+		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		// wait for CRD inheritance work through the custom informer
+		// TODO: merge with upper s.apiextensionsSharedInformerFactory
+		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
+
+		//nolint:golint,errcheck
+		wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
+			if err := s.bootstrapCRDs(ctx, apiextensionsClusterClient.Cluster(helper.OrganizationCluster).ApiextensionsV1().CustomResourceDefinitions()); err != nil {
+				klog.Errorf("failed to bootstrap CRDs: %v", err)
+				return false, nil // keep going
 			}
-			return false, nil
+			return true, nil
 		})
+
+		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+		klog.Infof("Bootstrapped CRDs and synced all informers. Ready to start controllers")
+		close(s.syncedCh)
+
+		return nil
 	})
 
 	//Create Client and Shared
@@ -415,7 +323,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
-	if s.cfg.EnableSharding {
+	if s.options.Extra.EnableSharding {
 		adminConfig, err := clientcmd.NewNonInteractiveClientConfig(clientConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 		if err != nil {
 			return err
@@ -425,31 +333,37 @@ func (s *Server) Run(ctx context.Context) error {
 			Config:     adminConfig,
 		}
 	}
-	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.cfg.RootDirectory, s.cfg.KubeConfigPath)); err != nil {
+
+	if err := clientcmd.WriteToFile(clientConfig, filepath.Join(s.options.Extra.RootDirectory, s.options.Extra.KubeConfigPath)); err != nil {
 		return err
 	}
 
-	if err := s.installKubeNamespaceController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+	if err := s.installKubeNamespaceController(ctx, serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
-	if err := s.installClusterRoleAggregationController(serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+	if err := s.installClusterRoleAggregationController(ctx, serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
-	if s.cfg.InstallClusterController {
-		if err := s.installClusterController(clientConfig, server); err != nil {
+	enabled := sets.NewString(s.options.Controllers.IndividuallyEnabled...)
+	if len(enabled) > 0 {
+		klog.Infof("Starting controllers individually: %v", enabled)
+	}
+
+	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
+		if err := s.installClusterController(ctx, clientConfig, server); err != nil {
 			return err
 		}
 	}
 
-	if s.cfg.InstallWorkspaceScheduler {
+	if s.options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
 		if err := s.installWorkspaceScheduler(ctx, clientConfig, server); err != nil {
 			return err
 		}
 	}
 
-	if s.cfg.InstallNamespaceScheduler {
+	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
 		if err := s.installNamespaceScheduler(ctx, workspaceLister, clientConfig, server); err != nil {
 			return err
 		}

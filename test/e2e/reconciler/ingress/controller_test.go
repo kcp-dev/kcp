@@ -292,13 +292,15 @@ func TestIngressController(t *testing.T) {
 				Name: "source",
 				Args: []string{
 					"--push-mode",
-					"--install-cluster-controller",
+					"--run-controllers=false", "--unsupported-run-individual-controllers=cluster",
 					"--auto-publish-apis=true",
 					"--resources-to-sync=ingresses.networking.k8s.io,deployments.apps,services"},
 			},
 			framework.KcpConfig{
 				Name: "sink",
-				Args: []string{},
+				Args: []string{
+					"--run-controllers=false",
+				},
 			},
 		)
 	}

@@ -368,7 +368,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			})
 		}, framework.KcpConfig{
 			Name: serverName,
-			Args: []string{"--install-workspace-scheduler"},
+			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
 		})
 	}
 }

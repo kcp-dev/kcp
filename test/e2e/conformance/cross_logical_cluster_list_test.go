@@ -128,6 +128,6 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 	}, framework.KcpConfig{
 		Name: "main",
-		Args: []string{"--install-workspace-scheduler"},
+		Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
 	})
 }

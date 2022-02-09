@@ -142,7 +142,7 @@ func TestClusterController(t *testing.T) {
 			Name: sourceClusterName,
 			Args: []string{
 				"--push-mode",
-				"--install-cluster-controller",
+				"--run-controllers=false", "--unsupported-run-individual-controllers=cluster",
 				"--resources-to-sync=cowboys.wildwest.dev",
 				"--auto-publish-apis",
 			},
@@ -150,7 +150,9 @@ func TestClusterController(t *testing.T) {
 		// this is a kcp acting as a target cluster to sync status from
 		framework.KcpConfig{
 			Name: sinkClusterName,
-			Args: []string{},
+			Args: []string{
+				"--run-controllers=false",
+			},
 		},
 	)
 	defer f.SetUp(t)()
