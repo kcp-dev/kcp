@@ -179,9 +179,9 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		}
 
 		// Register CRDs in both the admin and user logical clusters
-		requiredCrds := []metav1.GroupKind{
-			{Group: tenancyapi.GroupName, Kind: "workspaces"},
-			{Group: tenancyapi.GroupName, Kind: "workspaceshards"},
+		requiredCrds := []metav1.GroupResource{
+			{Group: tenancyapi.GroupName, Resource: "workspaces"},
+			{Group: tenancyapi.GroupName, Resource: "workspaceshards"},
 		}
 		crdClient := apiextensionsv1client.NewForConfigOrDie(adminConfig).CustomResourceDefinitions()
 		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
@@ -226,10 +226,10 @@ func (s *Server) installClusterController(clientConfig clientcmdapi.Config, serv
 		}
 
 		// TODO(sttts): remove CRD creation from controller startup
-		requiredCrds := []metav1.GroupKind{
-			{Group: apiresourceapi.GroupName, Kind: "apiresourceimports"},
-			{Group: apiresourceapi.GroupName, Kind: "negotiatedapiresources"},
-			{Group: clusterapi.GroupName, Kind: "clusters"},
+		requiredCrds := []metav1.GroupResource{
+			{Group: apiresourceapi.GroupName, Resource: "apiresourceimports"},
+			{Group: apiresourceapi.GroupName, Resource: "negotiatedapiresources"},
+			{Group: clusterapi.GroupName, Resource: "clusters"},
 		}
 		for _, contextName := range []string{"admin", "user"} {
 			logicalClusterConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()

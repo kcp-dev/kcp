@@ -192,10 +192,10 @@ func TestIngressController(t *testing.T) {
 				return
 			}
 			t.Log("Installing test CRDs...")
-			requiredCrds := []metav1.GroupKind{
-				{Group: "core.k8s.io", Kind: "services"},
-				{Group: "apps.k8s.io", Kind: "deployments"},
-				{Group: "networking.k8s.io", Kind: "ingresses"},
+			requiredCrds := []metav1.GroupResource{
+				{Group: "core.k8s.io", Resource: "services"},
+				{Group: "apps.k8s.io", Resource: "deployments"},
+				{Group: "networking.k8s.io", Resource: "ingresses"},
 			}
 			for _, requiredCrd := range requiredCrds {
 				if err := framework.InstallCrd(ctx, requiredCrd, servers, embeddedResources); err != nil {

@@ -170,7 +170,7 @@ func TestClusterController(t *testing.T) {
 			require.Equalf(t, len(f.Servers), 2, "incorrect number of servers")
 
 			t.Log("Installing test CRDs...")
-			err := framework.InstallCrd(ctx, metav1.GroupKind{Group: wildwest.GroupName, Kind: "cowboys"}, f.Servers, rawCustomResourceDefinitions)
+			err := framework.InstallCrd(ctx, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"}, f.Servers, rawCustomResourceDefinitions)
 			require.NoError(t, err)
 
 			t.Logf("Installed test CRDs after %s", time.Since(start))
