@@ -81,7 +81,10 @@ var (
 		"authorization-always-allow-paths", // A list of HTTP paths to skip during authorization, i.e. these are authorized without contacting the 'core' kubernetes server.
 
 		// logs flags
-		"logging-format", // Sets the log format. Permitted formats: "text".
+		"logging-format",      // Sets the log format. Permitted formats: "text".
+		"log-flush-frequency", // Maximum number of seconds between log flushes
+		"v",                   // number for the log level verbosity
+		"vmodule",             // comma-separated list of pattern=N settings for file-filtered logging (only works for text log format)
 
 		// traces flags
 		"tracing-config-file", // File with apiserver tracing configuration.
@@ -128,6 +131,7 @@ var (
 		"goaway-chance",                        // To prevent HTTP/2 clients from getting stuck on a single apiserver, randomly close a connection (GOAWAY). The client's other in-flight requests won't be affected, and the client will reconnect, likely landing on a different apiserver after going through the load balancer again. This argument sets the fraction of requests that will be sent a GOAWAY. Clusters with single apiservers, or which don't use a load balancer, should NOT enable this. Min is 0 (off), Max is .02 (1/50 requests); .001 (1/1000) is a recommended starting point.
 		"livez-grace-period",                   // This option represents the maximum amount of time it should take for apiserver to complete its startup sequence and become live. From apiserver's start time to when this amount of time has elapsed, /livez will assume that unfinished post-start hooks will complete successfully and therefore return true.
 		"shutdown-delay-duration",              // Time to delay the termination. During that time the server keeps serving requests normally. The endpoints /healthz and /livez will return success, but /readyz immediately returns failure. Graceful termination starts after this delay has elapsed. This can be used to allow load balancer to stop sending traffic to this server.
+		"shutdown-send-retry-after",            // If true the HTTP Server will continue listening until all non long running request(s) in flight have been drained, during this window all incoming requests will be rejected with a status code 429 and a 'Retry-After' response header, in addition 'Connection: close' response header is set in order to tear down the TCP connection when idle.
 		"strict-transport-security-directives", // List of directives for HSTS, comma separated. If this list is empty, then HSTS directives will not be added. Example: 'max-age=31536000,includeSubDomains,preload'
 
 		// etcd flags
