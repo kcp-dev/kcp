@@ -34,12 +34,17 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
+	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
+	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
 const (
 	kcpWorkspaceContextNamePrefix  string = "workspace.kcp.dev/"
 	kcpPreviousWorkspaceContextKey string = "workspace.kcp.dev/-"
 )
+
+var defaultWorkspaceDirectoryApiServerPath = workspacebuilder.DefaultRootPathPrefix + "/" + workspaceregistry.PersonalScope
 
 // KubeConfig contains a config loaded from a Kubeconfig
 // and allows modifications on it through workspace-related
@@ -104,7 +109,7 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*
 			if err != nil {
 				return nil, err
 			}
-			workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s", currentServerURL.Scheme, currentServerURL.Hostname(), 6444, "/services/applications/personal")
+			workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, defaultWorkspaceDirectoryApiServerPath)
 		}
 		if workspaceDirectoryOverrides.ClusterInfo.CertificateAuthority != "" {
 			workspaceDirectoryCluster.CertificateAuthority = workspaceDirectoryOverrides.ClusterInfo.CertificateAuthority
