@@ -14,21 +14,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+DEMO_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 # shellcheck source=../.setupEnv
 source "${DEMO_DIR}"/../.setupEnv
 # shellcheck source=../.startUtils
 source "${DEMOS_DIR}"/.startUtils
-
 setupTraps "$0"
 
+if ! command -v envoy 2>/dev/null; then
+    echo "envoy is required - please install and try again"
+    exit 1
+fi
+
+CURRENT_DIR="$(pwd)"
 
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 "${DEMOS_DIR}"/startKcp.sh \
+    --token-auth-file "${DEMO_DIR}"/kcp-tokens \
+    --auto-publish-apis \
     --push-mode \
-    --auto-publish-apis=true \
-    --resources-to-sync deployments.apps \
-    --token-auth-file "${DEMO_DIR}"/kcp-tokens
+    --discovery-poll-interval 3s \
+    --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services "${CURRENT_DIR}"/start-kcp.log &
+
+wait_command "ls ${KUBECONFIG}"
+echo "Waiting for KCP to be ready ..."
+wait_command "kubectl --kubeconfig=${KUBECONFIG} --raw /readyz"
+
+echo ""
+echo "Starting Ingress Controller"
+ingress-controller --kubeconfig="${KUBECONFIG}" --envoyxds --envoy-listener-port=8181 &> "${CURRENT_DIR}"/ingress-controller.log &
+INGRESS_CONTROLLER_PID=$!
+echo "Ingress Controller started: ${INGRESS_CONTROLLER_PID}"
+
+echo ""
+echo "Starting envoy"
+envoy --config-path "${KCP_DIR}"/build/kcp-ingress/utils/envoy/bootstrap.yaml &> "${CURRENT_DIR}"/envoy.log &
+ENVOY_PID=$!
+echo "Envoy started: ${ENVOY_PID}"
 
 echo ""
 echo "Starting Virtual Workspace"
@@ -37,7 +59,7 @@ echo "Starting Virtual Workspace"
     --authentication-kubeconfig "${KUBECONFIG}" \
     --secure-port 6444 \
     --authentication-skip-lookup \
-    --cert-dir "${KCP_DATA_DIR}"/.kcp/secrets/ca &> virtual-workspace.log &
+    --cert-dir "${KCP_DATA_DIR}"/.kcp/secrets/ca &> "${CURRENT_DIR}"/virtual-workspace.log &
 SPLIT_PID=$!
 echo "Virtual Workspace started: $SPLIT_PID"
 

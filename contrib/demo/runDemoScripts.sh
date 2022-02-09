@@ -74,7 +74,7 @@ for demo in ${DEMOS} ; do
   export KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
   echo "Starting KCP for demo..."
-  ${DEMO_DIR}/startKcp.sh &> /dev/null &
+  ${DEMO_DIR}/startKcp.sh & # &> /dev/null &
   TEST_KCP_PID=$!
 
   echo "Waiting for KCP to be started..."

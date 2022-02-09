@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+# Copyright 2022 The KCP Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+
+DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
+source "${DEMO_DIR}"/../.setupEnv
+
+# shellcheck source=../demo-magic
+. "${DEMOS_DIR}"/demo-magic
+
+#TYPE_SPEED=30
+DEMO_PROMPT="☸️ $ "
+
+TYPE_SPEED=90
+NO_WAIT=1
+
+function pause() {
+  if [[ -n "${NO_WAIT}" ]]; then
+    sleep 2
+  else
+    if [[ -n "${1-}" ]]; then
+      sleep "$1"
+    else
+      wait
+    fi
+  fi
+}
+
+function comment() {
+  NO_WAIT=1 p "# $*"
+}
+
+export KUBECONFIG=${KUBECONFIG:-${KCP_DIR}/.kcp/admin.kubeconfig}
+if ! kubectl get namespaces &>/dev/null; then
+  echo "kcp server not started, run 'bin/kcp start'"
+  exit 1
+fi
+
+#p "# Patch the control plane nodes of the kind cluster to allow the scheduling of the nginx-ingress"
+#p "# controller into them. Then, apply the nginx-ingress controller manifest into each cluster."
+
+#pe "kubectl --context kind-us-east1 label node east-control-plane ingress-ready=true"
+#pe "kubectl --context kind-us-east1 apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
+#pe "kubectl --context kind-us-west1 label node west-control-plane ingress-ready=true"
+#pe "kubectl --context kind-us-west1 apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
+comment "Start with some basic setup. Start by creating the 'default' namespace, which kcp"
+comment "does not currently precreate for you, like Kubernetes does"
+pe "kubectl create namespace default"
+
+comment "We have to do some prep work for kcp's new Workspaces feature."
+comment "First, store a copy of the kubeconfig in a secret."
+pe "kubectl create secret generic kubeconfig --from-file=kubeconfig=${KUBECONFIG}"
+
+comment "Next, create a WorkspaceShard that represents this kcp instance that looks like this:"
+pe "cat ${DEMO_DIR}/workspace-shard.yaml"
+pe "kubectl apply -f ${DEMO_DIR}/workspace-shard.yaml"
+
+comment "Let's start by creating a workspace and using it."
+comment "Note, we are still working through certificate configurations, so for the time being, we have to"
+comment "skip TLS verification with the kubectl kcp workspace plugin."
+pe "kubectl kcp workspace --token user-1-token --workspace-directory-insecure-skip-tls-verify create workspace1 --use"
+
+# Because KCP doesn’t include Deployments by default, and we haven’t
+# registered any Clusters yet, we need to teach KCP about Deployments
+
+# First grab the schema for deployments from one of our kind clusters
+pe "(cd ${KCP_DATA_DIR} && go run ${KCP_DIR}/cmd/crd-puller/pull-crds.go --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig deployments.apps)"
+
+comment "Now apply it to kcp"
+pe "kubectl apply -f ${KCP_DATA_DIR}/deployments.apps.yaml"
+
+comment "Now we can create a deployment"
+pe "kubectl create namespace default"
+sed "s/amd64/$(uname -m)/" ${DEMO_DIR}/deployment-kuard.yaml > ${KCP_DATA_DIR}/deployment-kuard.yaml
+pe "cat ${KCP_DATA_DIR}/deployment-kuard.yaml"
+pe "kubectl apply -f ${KCP_DATA_DIR}/deployment-kuard.yaml"
+# FIXME(ncdc): we don't have Services yet
+#pe "kubectl expose deployment/kuard"
+
+comment "Let's describe it to see its status"
+pe "kubectl describe deployment/kuard"
+
+comment "Now let's register our kind cluster us-east1 with kcp"
+
+cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
+apiVersion: cluster.example.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: kind-us-east1
+spec:
+  kubeconfig: |
+$(sed 's,^,    ,' "${CLUSTERS_DIR}"/us-east1.kubeconfig)
+EOF
+pe "cat ${KCP_DATA_DIR}/cluster-us-east1.yaml"
+pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-east1.yaml"
+
+comment "Let's wait for kcp to have the cluster syncing ready"
+pe "kubectl wait --for condition=Ready cluster/kind-us-east1"
+
+comment "Let's wait for the deployment to show up in kind"
+# kubectl wait fails on non-existing objects and non-existing jsonpath :-/ So some bash glue.
+while [ -z $(kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments --no-headers=true 2>/dev/null) ]
+do
+  sleep 1
+done
+pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
+
+comment "Wait for the pod to be running"
+pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
+
+comment "Let's describe the deployment again"
+pe "kubectl describe deployment/kuard"
+
+comment "Now let's register our kind cluster us-west1 with kcp"
+
+cat <<EOF > "${KCP_DATA_DIR}/cluster-us-west1.yaml"
+apiVersion: cluster.example.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: kind-us-west1
+spec:
+  kubeconfig: |
+$(sed 's,^,    ,' "${CLUSTERS_DIR}"/us-west1.kubeconfig)
+EOF
+pe "cat ${KCP_DATA_DIR}/cluster-us-west1.yaml"
+pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-west1.yaml"
+
+comment "Let's stop kind-us-east1 and see what happens"
+#pe "podman stop us-east1-control-plane"
+
+cmd

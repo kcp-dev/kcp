@@ -14,20 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
+DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
 source "${DEMO_DIR}"/../.setupEnv
 
-source ${DEMOS_DIR}/.startUtils
-setupTraps $0
+# shellcheck source=../.startUtils
+source "${DEMOS_DIR}"/.startUtils
+setupTraps "$0"
 
-CURRENT_DIR="$(pwd)"
-
-KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
-export KCP_LISTEN_ADDR="127.0.0.1:6443"
-
-${DEMOS_DIR}/startKcpAndClusterController.sh --auto-publish-apis=false --resources-to-sync deployments.apps &
-
-wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"
+"${DEMOS_DIR}"/startKcp.sh \
+    --push-mode \
+    --auto-publish-apis=false \
+    --resources-to-sync deployments.apps
 
 echo ""
 echo "Use ctrl-C to stop all components"

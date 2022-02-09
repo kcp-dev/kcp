@@ -14,29 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEMO_DIR="$( dirname "${BASH_SOURCE[0]}" )"
-# shellcheck source=../.setupEnv
-source "${DEMO_DIR}"/../.setupEnv
-# shellcheck source=../.startUtils
+CURRENT_DIR="$(pwd)"
+DEMOS_DIR="$(dirname "${BASH_SOURCE[0]}")"
+KCP_DIR="$(cd "${DEMOS_DIR}"/../.. && pwd)"
+KCP_DATA_DIR=${KCP_DATA_DIR:-$KCP_DIR}
+
 source "${DEMOS_DIR}"/.startUtils
-setupTraps "$0"
+setupTraps "$0" "rm -Rf ${CURRENT_DIR}/.kcp.running"
 
-KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
+echo "Starting KCP server ..."
+(cd "${KCP_DATA_DIR}" && exec "${KCP_DIR}"/bin/kcp start "$@") &> kcp.log &
+KCP_PID=$!
+echo "KCP server started: $KCP_PID"
 
-"${DEMOS_DIR}"/startKcp.sh \
-    --push-mode \
-    --auto-publish-apis=true \
-    --resources-to-sync deployments.apps
-echo ""
-echo "Starting Deployment Splitter"
-"${KCP_DIR}"/bin/deployment-splitter -kubeconfig="${KUBECONFIG}" &> deployment-splitter.log &
-SPLIT_PID=$!
-echo "Deployment Splitter started: $SPLIT_PID"
+echo "Waiting for KCP server to be ready..."
+wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"
+wait_command "grep 'Ready to start controllers' ${CURRENT_DIR}/kcp.log"
 
-echo ""
-echo "Use ctrl-C to stop all components"
-echo ""
-
-tail -f deployment-splitter.log  &
+echo "Server is ready. Press <ctrl>-C to terminate."
 
 wait
