@@ -21,4 +21,4 @@ set -o pipefail
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${DEMO_DIR}"/../.setupEnv
 
-#"${CLUSTERS_DIR}"/createKindClusters.sh
+"${CLUSTERS_DIR}"/createKindClusters.sh

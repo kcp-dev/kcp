@@ -34,10 +34,11 @@ KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
     --auto-publish-apis \
     --push-mode \
     --discovery-poll-interval 3s \
-    --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services & # \
-    # --listen=127.0.0.1:6443
+    --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services "${CURRENT_DIR}"/start-kcp.log &
 
 wait_command "ls ${KUBECONFIG}"
+echo "Waiting for KCP to be ready ..."
+wait_command "kubectl --kubeconfig=${KUBECONFIG} --raw /readyz"
 
 echo ""
 echo "Starting Ingress Controller"

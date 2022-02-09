@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e
+
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${DEMO_DIR}"/../.setupEnv
 
@@ -55,7 +57,6 @@ fi
 #pe "kubectl --context kind-us-east1 apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
 #pe "kubectl --context kind-us-west1 label node west-control-plane ingress-ready=true"
 #pe "kubectl --context kind-us-west1 apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
-
 comment "Start with some basic setup. Start by creating the 'default' namespace, which kcp"
 comment "does not currently precreate for you, like Kubernetes does"
 pe "kubectl create namespace default"
@@ -71,7 +72,7 @@ pe "kubectl apply -f ${DEMO_DIR}/workspace-shard.yaml"
 comment "Let's start by creating a workspace and using it."
 comment "Note, we are still working through certificate configurations, so for the time being, we have to"
 comment "skip TLS verification with the kubectl kcp workspace plugin."
-pe "kubectl kcp workspace --token user-1-token create workspace1 --use --workspace-directory-insecure-skip-tls-verify"
+pe "kubectl kcp workspace --token user-1-token --workspace-directory-insecure-skip-tls-verify create workspace1 --use"
 
 # Because KCP doesn’t include Deployments by default, and we haven’t
 # registered any Clusters yet, we need to teach KCP about Deployments
@@ -80,12 +81,13 @@ pe "kubectl kcp workspace --token user-1-token create workspace1 --use --workspa
 pe "(cd ${KCP_DATA_DIR} && go run ${KCP_DIR}/cmd/crd-puller/pull-crds.go --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig deployments.apps)"
 
 comment "Now apply it to kcp"
-pe "kubectl apply -f deployments.apps.yaml"
+pe "kubectl apply -f ${KCP_DATA_DIR}/deployments.apps.yaml"
 
 comment "Now we can create a deployment"
 pe "kubectl create namespace default"
-pe "cat ${DEMO_DIR}/deployment-kuard.yaml"
-pe "kubectl apply -f ${DEMO_DIR}/deployment-kuard.yaml"
+sed "s/amd64/$(uname -m)/" ${DEMO_DIR}/deployment-kuard.yaml > ${KCP_DATA_DIR}/deployment-kuard.yaml
+pe "cat ${KCP_DATA_DIR}/deployment-kuard.yaml"
+pe "kubectl apply -f ${KCP_DATA_DIR}/deployment-kuard.yaml"
 # FIXME(ncdc): we don't have Services yet
 #pe "kubectl expose deployment/kuard"
 
@@ -109,7 +111,15 @@ pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-east1.yaml"
 comment "Let's wait for kcp to have the cluster syncing ready"
 pe "kubectl wait --for condition=Ready cluster/kind-us-east1"
 
-comment "Let's wait for a deployment to show up in kind"
+comment "Let's wait for the deployment to show up in kind"
+# kubectl wait fails on non-existing objects and non-existing jsonpath :-/ So some bash glue.
+while [ -z $(kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments --no-headers=true 2>/dev/null) ]
+do
+  sleep 1
+done
+pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
+
+comment "Wait for the pod to be running"
 pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
 
 comment "Let's describe the deployment again"
