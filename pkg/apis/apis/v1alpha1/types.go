@@ -53,19 +53,24 @@ type ServiceBindingSpec struct {
 
 // ServiceSpec describes one API and backing implementation.
 type ServiceSpec struct {
-	Native   *NativeServiceSpec   `json:"native,omitempty"`
-	Local    *LocalServiceSpec    `json:"local,omitempty"`
-	External *ExternalServiceSpec `json:"external,omitempty"`
+	// TODO: use a YAML patcher as a post-processing step to add oneOf validation to the CRD YAML, ex:
+	// https://github.com/openshift/build-machinery-go/blob/7e33a7eb4ce3955ce3500d6daa96859384d0702b/make/targets/openshift/yaml-patch.mk
+	// https://github.com/openshift/build-machinery-go/blob/6ed14425650f63995829a6c95c7ad3a23e589046/make/targets/openshift/operator/profile-manifests.mk#L17-L25
+	// https://github.com/openshift/build-machinery-go/blob/6ed14425650f63995829a6c95c7ad3a23e589046/make/targets/openshift/operator/profile-manifests.mk#L34
+	// https://github.com/openshift/api/blob/14f26e4285a42be94433c57dfea792cb6acda410/networkoperator/v1/001-egressrouter.crd.yaml-patch
+	Published *PublishedServiceSpec `json:"published,omitempty"`
+	Local     *LocalServiceSpec     `json:"local,omitempty"`
+	External  *ExternalServiceSpec  `json:"external,omitempty"`
 }
 
-// NativeServiceSpec describes an API and backing implementation that are provided by an actor on kcp.
-type NativeServiceSpec struct {
-	// Name of the ServiceExport that describes the API for this NativeServiceSpec.
+// PublishedServiceSpec describes an API and backing implementation that are provided by an actor on kcp.
+type PublishedServiceSpec struct {
+	// Name of the ServiceExport that describes the API for this PublishedServiceSpec.
 	//
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
-	// Workspace of the ServiceExport that describes the API for this NativeServiceSpec.
+	// Workspace of the ServiceExport that describes the API for this PublishedServiceSpec.
 	//
 	// +kubebuilder:validation:Required
 	Workspace string `json:"workspace"`
@@ -192,7 +197,7 @@ type ServiceExportList struct {
 	Items []ServiceExport `json:"items"`
 }
 
-// ResourceSchema describes .
+// ResourceSchema describes a resource, identified by (group, version, resource, schema).
 //
 // +crd
 // +genclient
@@ -215,7 +220,17 @@ type ResourceSchema struct {
 }
 
 type ResourceSchemaSpec struct {
-	apiextensionsv1.CustomResourceDefinitionSpec `json:",inline"`
+	// group is the API group of the defined custom resource.
+	// The custom resources are served under `/apis/<group>/...`.
+	// Must match the name of the CustomResourceDefinition (in the form `<names.plural>.<group>`).
+	Group string `json:"group"`
+	// names specify the resource and kind names for the custom resource.
+	Names apiextensionsv1.CustomResourceDefinitionNames `json:"names"`
+	// scope indicates whether the defined custom resource is cluster- or namespace-scoped.
+	// Allowed values are `Cluster` and `Namespaced`.
+	Scope apiextensionsv1.ResourceScope `json:"scope"`
+	// version is the API version of the defined custom resource.
+	Version apiextensionsv1.CustomResourceDefinitionVersion `json:"version"`
 }
 
 type ResourceSchemaStatus struct {

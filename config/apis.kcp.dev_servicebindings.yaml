@@ -67,17 +67,20 @@ spec:
                       required:
                       - name
                       type: object
-                    native:
-                      description: NativeServiceSpec describes an API and backing
-                        implementation that are provided by an actor on kcp.
+                    published:
+                      description: 'TODO: use a YAML patcher as a post-processing
+                        step to add oneOf validation to the CRD YAML, ex: https://github.com/openshift/build-machinery-go/blob/7e33a7eb4ce3955ce3500d6daa96859384d0702b/make/targets/openshift/yaml-patch.mk
+                        https://github.com/openshift/build-machinery-go/blob/6ed14425650f63995829a6c95c7ad3a23e589046/make/targets/openshift/operator/profile-manifests.mk#L17-L25
+                        https://github.com/openshift/build-machinery-go/blob/6ed14425650f63995829a6c95c7ad3a23e589046/make/targets/openshift/operator/profile-manifests.mk#L34
+                        https://github.com/openshift/api/blob/14f26e4285a42be94433c57dfea792cb6acda410/networkoperator/v1/001-egressrouter.crd.yaml-patch'
                       properties:
                         name:
                           description: Name of the ServiceExport that describes the
-                            API for this NativeServiceSpec.
+                            API for this PublishedServiceSpec.
                           type: string
                         workspace:
                           description: Workspace of the ServiceExport that describes
-                            the API for this NativeServiceSpec.
+                            the API for this PublishedServiceSpec.
                           type: string
                       required:
                       - name
