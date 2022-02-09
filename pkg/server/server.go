@@ -121,10 +121,9 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	etcdDir := filepath.Join(s.options.Extra.RootDirectory, s.options.EmbeddedEtcd.Directory)
 	if s.options.EmbeddedEtcd.Enabled {
 		es := &etcd.Server{
-			Dir: etcdDir,
+			Dir: s.options.EmbeddedEtcd.Directory,
 		}
 		embeddedClientInfo, err := es.Run(ctx, s.options.EmbeddedEtcd.PeerPort, s.options.EmbeddedEtcd.ClientPort, s.options.EmbeddedEtcd.WalSizeBytes)
 		if err != nil {
