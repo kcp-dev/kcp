@@ -21,4 +21,4 @@ set -o pipefail
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${DEMO_DIR}"/../.setupEnv
 
-#kind delete clusters us-west1 us-east1 > /dev/null || true
+kind delete clusters us-west1 us-east1 > /dev/null || true
