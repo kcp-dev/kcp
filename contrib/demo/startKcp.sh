@@ -27,7 +27,10 @@ echo "Starting KCP server ..."
 KCP_PID=$!
 echo "KCP server started: $KCP_PID"
 
-echo "Waiting for KCP server to be up and running..."
+echo "Waiting for KCP server to be ready..."
 wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"
+wait_command "grep 'Ready to start controllers' ${CURRENT_DIR}/kcp.log"
+
+echo "Server is ready. Press <ctrl>-C to terminate."
 
 wait
