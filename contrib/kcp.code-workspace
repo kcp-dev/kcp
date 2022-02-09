@@ -55,7 +55,6 @@
 				"cwd": "${workspaceFolder:kcp}",
 				"args": [
 					"start",
-					"--install-cluster-controller",
 					"--pull-mode=false",
 					"--push-mode=true",
 					"--resources-to-sync",

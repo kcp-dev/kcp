@@ -25,7 +25,6 @@ setupTraps "$0"
 
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 "${DEMOS_DIR}"/startKcp.sh \
-    --install-cluster-controller \
     --push-mode \
     --auto-publish-apis=true \
     --resources-to-sync deployments.apps \

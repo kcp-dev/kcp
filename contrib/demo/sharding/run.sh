@@ -60,7 +60,7 @@ echo "Starting Cluster Controller on kcp1..."
 "${KCP_ROOT}"/bin/cluster-controller -push-mode=true -pull-mode=false -kubeconfig=".kcp1/admin.kubeconfig" -auto-publish-apis=true .configmaps &> .kcp1.cluster-controller.log 2>&1 &
 
 echo "Starting kcp2..."
-"${KCP_ROOT}"/bin/kcp start --enable-sharding --shard-kubeconfig-file ".kcp1/data/shard.kubeconfig" --root-directory ".kcp2" --etcd-client-port 2381 --etcd-peer-port 2382 --listen :6444 > ".kcp2.log" 2>&1 &
+"${KCP_ROOT}"/bin/kcp start --enable-sharding --shard-kubeconfig-file ".kcp1/data/shard.kubeconfig" --root-directory ".kcp2" --etcd-client-port 2381 --etcd-peer-port 2382 --secure-port :6444 > ".kcp2.log" 2>&1 &
 for i in {1..10} ; do
     if grep -q "Serving securely" ".kcp2.log"; then
       break

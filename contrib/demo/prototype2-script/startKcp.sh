@@ -30,8 +30,6 @@ CURRENT_DIR="$(pwd)"
 
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 "${DEMOS_DIR}"/startKcp.sh \
-    --install-namespace-scheduler \
-    --install-cluster-controller \
     --token-auth-file "${DEMO_DIR}"/kcp-tokens \
     --auto-publish-apis \
     --push-mode \

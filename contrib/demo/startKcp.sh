@@ -23,7 +23,7 @@ source "${DEMOS_DIR}"/.startUtils
 setupTraps "$0" "rm -Rf ${CURRENT_DIR}/.kcp.running"
 
 echo "Starting KCP server ..."
-(cd "${KCP_DATA_DIR}" && exec "${KCP_DIR}"/bin/kcp start --install-workspace-scheduler "$@") &> kcp.log &
+(cd "${KCP_DATA_DIR}" && exec "${KCP_DIR}"/bin/kcp start "$@") &> kcp.log &
 KCP_PID=$!
 echo "KCP server started: $KCP_PID"
 

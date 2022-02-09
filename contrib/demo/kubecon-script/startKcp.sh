@@ -24,12 +24,9 @@ setupTraps "$0"
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
 "${DEMOS_DIR}"/startKcp.sh \
-    --install-cluster-controller \
     --push-mode \
     --auto-publish-apis=true \
-    --resources-to-sync deployments.apps \
-    --listen=127.0.0.1:6443
-
+    --resources-to-sync deployments.apps
 echo ""
 echo "Starting Deployment Splitter"
 "${KCP_DIR}"/bin/deployment-splitter -kubeconfig="${KUBECONFIG}" &> deployment-splitter.log &

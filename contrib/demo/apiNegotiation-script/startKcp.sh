@@ -22,11 +22,9 @@ source "${DEMOS_DIR}"/.startUtils
 setupTraps "$0"
 
 "${DEMOS_DIR}"/startKcp.sh \
-    --install-cluster-controller \
     --push-mode \
     --auto-publish-apis=false \
-    --resources-to-sync deployments.apps \
-    --listen 127.0.0.1:6443
+    --resources-to-sync deployments.apps
 
 echo ""
 echo "Use ctrl-C to stop all components"

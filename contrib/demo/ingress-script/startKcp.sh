@@ -32,12 +32,9 @@ fi
 
 
 "${DEMOS_DIR}"/startKcp.sh \
-    --install-cluster-controller \
     --push-mode \
     --auto-publish-apis=true \
-    --resources-to-sync "ingresses.networking.k8s.io,deployments.apps,services" \
-    --listen=127.0.0.1:6443
-
+    --resources-to-sync "ingresses.networking.k8s.io,deployments.apps,services"
 kubectl config use-context admin &>/dev/null
 
 echo ""
