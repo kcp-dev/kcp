@@ -31,8 +31,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/request/bearertoken"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
-	authorizationunion "k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -40,7 +38,7 @@ import (
 
 const adminTokenStore string = ".admin-token-store"
 
-func setupKubeConfigAdminToken(rootDirectory string, authn *server.AuthenticationInfo, authz *server.AuthorizationInfo) (newAdminToken string, adminTokenHash []byte, err error) {
+func setupKubeConfigAdminToken(rootDirectory string, authn *server.AuthenticationInfo) (newAdminToken string, adminTokenHash []byte, err error) {
 	tokenHashFileName := filepath.Join(rootDirectory, adminTokenStore)
 	adminTokenHash, err = ioutil.ReadFile(tokenHashFileName)
 	if os.IsNotExist(err) {
@@ -52,11 +50,11 @@ func setupKubeConfigAdminToken(rootDirectory string, authn *server.Authenticatio
 		}
 	}
 
-	if authn == nil || authz == nil {
+	if authn == nil {
 		// prevent nil pointer panic
 		return
 	}
-	if authn.Authenticator == nil || authz.Authorizer == nil {
+	if authn.Authenticator == nil {
 		// authenticator or authorizer might be nil if we want to bypass authz/authn
 		// and we also do nothing in this case.
 		return
@@ -79,9 +77,6 @@ func setupKubeConfigAdminToken(rootDirectory string, authn *server.Authenticatio
 	})))
 
 	authn.Authenticator = authenticatorunion.New(newAuthenticator, authn.Authenticator)
-
-	tokenAuthorizer := authorizerfactory.NewPrivilegedGroups(user.SystemPrivilegedGroup)
-	authz.Authorizer = authorizationunion.New(tokenAuthorizer, authz.Authorizer)
 
 	return newAdminToken, adminTokenHash, nil
 }

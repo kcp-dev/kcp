@@ -238,7 +238,7 @@ func (s *Server) Run(ctx context.Context) error {
 	//	}
 
 	completedAPISConfig := apisConfig.Complete()
-	externalKubeConfigAdminToken, externalKubeConfigAdminTokenHash, err := setupKubeConfigAdminToken(s.options.Extra.RootDirectory, &completedAPISConfig.GenericConfig.Authentication, &completedAPISConfig.GenericConfig.Authorization)
+	externalKubeConfigAdminToken, externalKubeConfigAdminTokenHash, err := setupKubeConfigAdminToken(s.options.Extra.RootDirectory, &completedAPISConfig.GenericConfig.Authentication)
 	if err != nil {
 		return err
 	}
