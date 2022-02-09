@@ -153,6 +153,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.options.Extra.EnableSharding {
 			apiHandler = http.HandlerFunc(sharding.ServeHTTP(apiHandler, clientLoader))
 		}
+		apiHandler = GuardWildcardCluster(apiHandler)
 		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
 
 		return apiHandler

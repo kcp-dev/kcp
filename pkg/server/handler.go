@@ -38,8 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/apimachinery/pkg/util/sets"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
@@ -109,6 +111,32 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		}
 		ctx := genericapirequest.WithCluster(req.Context(), cluster)
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
+	}
+}
+
+func GuardWildcardCluster(apiHandler http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		cluster := genericapirequest.ClusterFrom(req.Context())
+		if cluster != nil && cluster.Wildcard {
+			requestInfo, ok := request.RequestInfoFrom(req.Context())
+			if !ok {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewInternalError(fmt.Errorf("missing requestInfo")),
+					errorCodecs, schema.GroupVersion{}, w, req,
+				)
+				return
+			}
+			if requestInfo.IsResourceRequest && !sets.NewString("list", "watch").Has(requestInfo.Verb) {
+				statusErr := apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb)
+				statusErr.ErrStatus.Message += " in the `*` logical cluster"
+				responsewriters.ErrorNegotiated(
+					statusErr,
+					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
+				)
+				return
+			}
+		}
+		apiHandler.ServeHTTP(w, req)
 	}
 }
 
