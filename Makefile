@@ -99,16 +99,17 @@ imports: $(OPENSHIFT_GOIMPORTS)
 
 COUNT ?= 5
 E2E_PARALLELISM ?= 1
+TEST_ARGS ?= ""
 
 .PHONY: test-e2e
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: install
-	go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT)
+	go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(TEST_ARGS) $(WHAT)
 
 .PHONY: test
 test: WHAT ?= ./...
 test:
-	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $$(go list "$(WHAT)" | grep -v ./test/e2e/)
+	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
 
 .PHONY: demos
 demos: build ## Runs all the default demos (kubecon and apiNegotiation).
