@@ -73,7 +73,7 @@ func TestClusterController(t *testing.T) {
 		work func(ctx context.Context, t *testing.T, servers map[string]runningServer)
 	}{
 		{
-			name: "create an object, expect spec and status to sync to sink",
+			name: "create an object, expect spec and status to sync to sink, then delete",
 			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer) {
 				t.Logf("Creating cowboy timothy")
 				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
@@ -132,6 +132,16 @@ func TestClusterController(t *testing.T) {
 					return nil
 				})
 				require.NoErrorf(t, err, "did not see cowboy status updated on source cluster: %v", err)
+
+				err = servers[sourceClusterName].client.Cowboys(testNamespace).Delete(ctx, cowboy.Name, metav1.DeleteOptions{})
+				require.NoError(t, err, "error deleting source cowboy")
+
+				// TODO(ncdc): the expect code for cowboys currently expects the cowboy to exist. See if we can adjust it
+				// so we can reuse that here instead of polling.
+				require.Eventually(t, func() bool {
+					_, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
+					return apierrors.IsNotFound(err)
+				}, 30*time.Second, 100*time.Millisecond, "expected sink cowboy to be deleted")
 			},
 		},
 	}

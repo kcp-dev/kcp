@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -137,7 +138,7 @@ func New(cluster, logicalCluster string, fromDiscovery discovery.DiscoveryInterf
 			},
 			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
 		})
-		klog.Infof("Set up informer for %v", gvr)
+		klog.InfoS("Set up informer", "direction", c.direction, "clusterName", cluster, "logicalCluster", logicalCluster, "gvr", gvr)
 	}
 
 	c.fromInformers = fromInformers
@@ -225,12 +226,34 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 }
 
 type holder struct {
-	gvr schema.GroupVersionResource
-	obj interface{}
+	gvr         schema.GroupVersionResource
+	clusterName string
+	namespace   string
+	name        string
 }
 
 func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
-	c.queue.Add(holder{gvr: gvr, obj: obj})
+	objToCheck := obj
+
+	tombstone, ok := objToCheck.(cache.DeletedFinalStateUnknown)
+	if ok {
+		objToCheck = tombstone.Obj
+	}
+
+	metaObj, err := meta.Accessor(objToCheck)
+	if err != nil {
+		klog.Errorf("%s: error getting meta for %T", c.name, obj)
+		return
+	}
+
+	c.queue.Add(
+		holder{
+			gvr:         gvr,
+			clusterName: metaObj.GetClusterName(),
+			namespace:   metaObj.GetNamespace(),
+			name:        metaObj.GetName(),
+		},
+	)
 }
 
 // Start starts N worker processes processing work items.
@@ -269,9 +292,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, h.gvr, h.obj); err != nil {
+	if err := c.process(ctx, h); err != nil {
 		runtime.HandleError(fmt.Errorf("syncer %q failed to sync %q, err: %w", c.name, key, err))
 		c.queue.AddRateLimited(key)
+		return true
 	}
 
 	c.queue.Forget(key)
@@ -297,95 +321,106 @@ func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 	return fmt.Sprintf("kcp%x", hash), nil
 }
 
-func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, obj interface{}) error {
-	klog.V(2).Infof("Process object of type: %T : %v", obj, obj)
-	meta, isMeta := obj.(metav1.Object)
-	if !isMeta {
-		if tombstone, isTombstone := obj.(cache.DeletedFinalStateUnknown); isTombstone {
-			meta, isMeta = tombstone.Obj.(metav1.Object)
-			if !isMeta {
-				err := fmt.Errorf("Tombstone contained object is expected to be a metav1.Object, but is %T: %#v", obj, obj)
-				klog.Error(err)
-				return err
-			}
-		} else {
-			err := fmt.Errorf("Object to synchronize is expected to be a metav1.Object, but is %T", obj)
-			klog.Error(err)
-			return err
-		}
-	}
+func (c *Controller) process(ctx context.Context, h holder) error {
+	klog.V(2).InfoS("Processing", "gvr", h.gvr, "clusterName", h.clusterName, "namespace", h.namespace, "name", h.name)
 
-	namespace := meta.GetNamespace()
-
-	if namespace == "" || namespace == c.syncerNamespace {
+	if h.namespace == "" || h.namespace == c.syncerNamespace {
 		// skipping cluster-level objects and those in syncer namespace
 		// TODO: why do we watch cluster level objects?!
 		return nil
 	}
 
 	var (
-		targetName      = meta.GetName()
-		targetNamespace string
-		err             error
+		// No matter which direction we're going, when we're trying to retrieve a (potentially existing) object,
+		// always use its namespace, without any mapping. This is the namespace that came from the event from
+		// the shared informer.
+		fromNamespace = h.namespace
+
+		// We do need to map the namespace in which we are creating or updating an object
+		toNamespace string
+
+		err error
 	)
+
+	// Determine toNamespace
 	if c.direction == KcpToPhysicalCluster {
+		// Convert the clusterName and namespace to a single string for toNamespace
 		l := NamespaceLocator{
-			LogicalCluster: meta.GetClusterName(),
-			Namespace:      namespace,
+			LogicalCluster: h.clusterName,
+			Namespace:      h.namespace,
 		}
-		targetNamespace, err = PhysicalClusterNamespaceName(l)
+
+		toNamespace, err = PhysicalClusterNamespaceName(l)
 		if err != nil {
-			klog.Errorf("error hashing namespace: %v", err)
+			klog.Errorf("%s: error hashing namespace: %v", c.name, err)
 			return nil
 		}
 	} else {
 		nsInformer := c.fromInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
-		nsObj, err := nsInformer.Lister().Get(clusters.ToClusterAwareKey(meta.GetClusterName(), namespace))
+
+		nsKey := fromNamespace
+		if h.clusterName != "" {
+			// If our "physical" cluster is a kcp instance (e.g. for testing purposes), it will return resources
+			// with metadata.clusterName set, which means their keys are cluster-aware, so we need to do the same here.
+			nsKey = clusters.ToClusterAwareKey(h.clusterName, nsKey)
+		}
+
+		nsObj, err := nsInformer.Lister().Get(nsKey)
 		if err != nil {
-			klog.Errorf("error listing namespace %q from the physical cluster: %v", namespace, err)
+			klog.Errorf("%s: error listing namespace %q from physical cluster: %v", c.name, nsKey, err)
 			return err
 		}
+
 		nsMeta, ok := nsObj.(metav1.Object)
 		if !ok {
-			klog.Errorf("namespace %q: expected metav1.Object, got %T", namespace, nsObj)
+			klog.Errorf("%s: namespace %q: expected metav1.Object, got %T", c.name, nsKey, nsObj)
 			return nil
 		}
+
 		if namespaceLocationAnnotation := nsMeta.GetAnnotations()[namespaceLocatorAnnotation]; namespaceLocationAnnotation != "" {
 			var l NamespaceLocator
 			if err := json.Unmarshal([]byte(namespaceLocationAnnotation), &l); err != nil {
-				klog.Errorf("namespace %q: error decoding annotation: %v", namespace, err)
+				klog.Errorf("%s: namespace %q: error decoding annotation: %v", c.name, nsKey, err)
 				return nil
 			}
-			targetNamespace = l.Namespace
+			toNamespace = l.Namespace
 		} else {
 			// this is not our namespace, silently skipping
 			return nil
 		}
 	}
 
-	obj, exists, err := c.fromInformers.ForResource(gvr).Informer().GetIndexer().Get(obj)
+	key := h.name
+
+	if h.clusterName != "" {
+		key = clusters.ToClusterAwareKey(h.clusterName, key)
+	}
+
+	key = fromNamespace + "/" + key
+
+	obj, exists, err := c.fromInformers.ForResource(h.gvr).Informer().GetIndexer().GetByKey(key)
 	if err != nil {
 		klog.Error(err)
 		return err
 	}
 
 	if !exists {
-		klog.Infof("Object with gvr=%q was deleted : %s/%s", gvr, namespace, meta.GetName())
+		klog.InfoS("Object doesn't exist:", "direction", c.direction, "clusterName", h.clusterName, "namespace", fromNamespace, "name", h.name)
 		if c.deleteFn != nil {
-			return c.deleteFn(ctx, gvr, targetNamespace, targetName)
+			return c.deleteFn(ctx, h.gvr, toNamespace, h.name)
 		}
 		return nil
 	}
 
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
 	if !isUnstructured {
-		err := fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
+		err := fmt.Errorf("%s: object to synchronize is expected to be Unstructured, but is %T", c.name, obj)
 		klog.Error(err)
 		return err
 	}
 
 	if c.upsertFn != nil {
-		return c.upsertFn(ctx, gvr, targetNamespace, unstrob)
+		return c.upsertFn(ctx, h.gvr, toNamespace, unstrob)
 	}
 
 	return err
