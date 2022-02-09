@@ -38,16 +38,8 @@ fi
 kubectl config use-context admin &>/dev/null
 
 echo ""
-echo "Building KCP-Ingress controller"
-
-git clone --depth=1 https://github.com/jmprusi/kcp-ingress "${TEMP_DIR}"
-pushd "${TEMP_DIR}" && go build -o "${TEMP_DIR}"/bin/kcp-ingress ./cmd/ingress-controller/main.go &>"${DEMOS_DIR}/ingress-test/"kcp-ingress_build.log
-popd || exit
-
-echo ""
-echo "Running the kcp-ingress controller"
-
-"${TEMP_DIR}"/bin/kcp-ingress -kubeconfig="${KUBECONFIG}" -envoyxds -envoy-listener-port=8181 &>kcp-ingress.log &
+echo "Starting the kcp-ingress-controller"
+ingress-controller --kubeconfig="${KUBECONFIG}" --envoyxds --envoy-listener-port=8181 &>ingress-controller.log &
 KCP_INGRESS_PID=$!
 echo "KCP Ingress started: $KCP_INGRESS_PID"
 
