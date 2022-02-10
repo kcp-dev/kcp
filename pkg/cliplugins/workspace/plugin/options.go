@@ -79,7 +79,6 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.APIVersion.LongName = ""
 	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.APIServer.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.APIServer.Default = "https://127.0.0.1:6444/services/applications/personal"
 	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.CertificateAuthority.Description += descriptionSuffix
 	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.InsecureSkipTLSVerify.Description += descriptionSuffix
 	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.TLSServerName.Description += descriptionSuffix

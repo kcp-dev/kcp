@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -57,6 +58,8 @@ type SubCommandDescription struct {
 	Long  string
 }
 
+const SecurePortDefault = 6444
+
 type SubCommandOptions interface {
 	Description() SubCommandDescription
 	AddFlags(flags *pflag.FlagSet)
@@ -67,11 +70,15 @@ type SubCommandOptions interface {
 func APIServerCommand(out, errout io.Writer, stopCh <-chan struct{}, subCommandOptions SubCommandOptions) *cobra.Command {
 	options := &APIServerOptions{
 		Output:            out,
-		SecureServing:     kubeoptions.NewSecureServingOptions().WithLoopback(),
+		SecureServing:     kubeoptions.NewSecureServingOptions(),
 		Authentication:    genericapiserveroptions.NewDelegatingAuthenticationOptions(),
 		SubCommandOptions: subCommandOptions,
 	}
 
+	options.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(".", ".kcp", "apiserver.crt")
+	options.SecureServing.ServerCert.CertKey.KeyFile = filepath.Join(".", ".kcp", "apiserver.key")
+	options.SecureServing.BindPort = SecurePortDefault
+	options.Authentication.SkipInClusterLookup = true
 	cmd := &cobra.Command{
 		Use:   options.SubCommandOptions.Description().Use,
 		Short: options.SubCommandOptions.Description().Short,
@@ -140,7 +147,7 @@ func (o *APIServerOptions) RunAPIServer(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(o.SecureServing, o.Authentication, informerStarts, virtualWorkspaces...)
+	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(o.SecureServing.SecureServingOptions, o.Authentication, informerStarts, virtualWorkspaces...)
 	if err != nil {
 		return err
 	}

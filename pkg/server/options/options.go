@@ -36,12 +36,12 @@ type Options struct {
 	EmbeddedEtcd        EmbeddedEtcd
 	Controllers         Controllers
 	Authorization       Authorization
+	AdminAuthentication AdminAuthentication
 
 	Extra ExtraOptions
 }
 
 type ExtraOptions struct {
-	KubeConfigPath        string
 	RootDirectory         string
 	ProfilerAddress       string
 	ShardKubeconfigFile   string
@@ -54,6 +54,7 @@ type completedOptions struct {
 	EmbeddedEtcd        EmbeddedEtcd
 	Controllers         Controllers
 	Authorization       Authorization
+	AdminAuthentication AdminAuthentication
 
 	Extra ExtraOptions
 }
@@ -68,12 +69,12 @@ func NewOptions() *Options {
 		GenericControlPlane: ServerRunOptions{
 			*options.NewServerRunOptions(),
 		},
-		EmbeddedEtcd:  *NewEmbeddedEtcd(),
-		Controllers:   *NewControllers(),
-		Authorization: *NewAuthorization(),
+		EmbeddedEtcd:        *NewEmbeddedEtcd(),
+		Controllers:         *NewControllers(),
+		Authorization:       *NewAuthorization(),
+		AdminAuthentication: *NewAdminAuthentication(),
 
 		Extra: ExtraOptions{
-			KubeConfigPath:        "admin.kubeconfig",
 			RootDirectory:         ".kcp",
 			ProfilerAddress:       "",
 			ShardKubeconfigFile:   "",
@@ -111,6 +112,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	o.EmbeddedEtcd.AddFlags(fss.FlagSet("Embedded etcd"))
 	o.Controllers.AddFlags(fss.FlagSet("KCP Controllers"))
 	o.Authorization.AddFlags(fss.FlagSet("KCP Authorization"))
+	o.AdminAuthentication.AddFlags(fss.FlagSet("KCP Authentication"))
 
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
@@ -118,7 +120,6 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.BoolVar(&o.Extra.EnableSharding, "enable-sharding", o.Extra.EnableSharding, "Enable delegating to peer kcp shards.")
 	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 	fs.DurationVar(&o.Extra.DiscoveryPollInterval, "discovery-poll-interval", o.Extra.DiscoveryPollInterval, "Polling interval for dynamic discovery informers.")
-	fs.StringVar(&o.Extra.KubeConfigPath, "kubeconfig-path", o.Extra.KubeConfigPath, "Path to which the administrative kubeconfig should be written at startup.")
 
 	return fss
 }
@@ -130,6 +131,7 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.Controllers.Validate()...)
 	errs = append(errs, o.EmbeddedEtcd.Validate()...)
 	errs = append(errs, o.Authorization.Validate()...)
+	errs = append(errs, o.AdminAuthentication.Validate()...)
 
 	if o.Extra.DiscoveryPollInterval == 0 {
 		errs = append(errs, fmt.Errorf("--discovery-poll-interval not set"))
@@ -162,6 +164,12 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 	if len(o.GenericControlPlane.SecureServing.ServerCert.CertDirectory) == 0 {
 		o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = filepath.Join(o.Extra.RootDirectory, "certs")
 	}
+	if !filepath.IsAbs(o.AdminAuthentication.TokenHashFilePath) {
+		o.AdminAuthentication.TokenHashFilePath = filepath.Join(o.Extra.RootDirectory, o.AdminAuthentication.TokenHashFilePath)
+	}
+	if !filepath.IsAbs(o.AdminAuthentication.KubeConfigPath) {
+		o.AdminAuthentication.KubeConfigPath = filepath.Join(o.Extra.RootDirectory, o.AdminAuthentication.KubeConfigPath)
+	}
 
 	completedGenericControlPlane, err := o.GenericControlPlane.ServerRunOptions.Complete()
 	if err != nil {
@@ -175,6 +183,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			EmbeddedEtcd:        o.EmbeddedEtcd,
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
+			AdminAuthentication: o.AdminAuthentication,
 			Extra:               o.Extra,
 		},
 	}, nil

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -33,12 +34,17 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
+	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
+	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
 const (
 	kcpWorkspaceContextNamePrefix  string = "workspace.kcp.dev/"
 	kcpPreviousWorkspaceContextKey string = "workspace.kcp.dev/-"
 )
+
+var defaultWorkspaceDirectoryApiServerPath = workspacebuilder.DefaultRootPathPrefix + "/" + workspaceregistry.PersonalScope
 
 // KubeConfig contains a config loaded from a Kubeconfig
 // and allows modifications on it through workspace-related
@@ -67,20 +73,26 @@ func NewKubeConfig(overridingOptions *Options) (*KubeConfig, error) {
 // ensureWorkspaceDirectoryContextExists tries to find a context in the kubeconfig
 // that corresponds to the expected workspace directory context
 // (thus pointing to the `workspaces` virtual workspace).
-// If none is found add one, based on the kubeconfig current context, overridden by
+// If none is found produce one, based on the kubeconfig current context, overridden by
 // by the workspace directory overrides.
 // No Auth info is added in this workspace directory new context.
-func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) error {
-	currentContext := kc.startingConfig.Contexts[kc.startingConfig.CurrentContext]
+// The current kubeconfig is not modified though, but a copy of it is returned
+func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*api.Config, error) {
+	workspaceDirectoryAwareConfig := kc.startingConfig.DeepCopy()
+	currentContextName := workspaceDirectoryAwareConfig.CurrentContext
+	if options.KubectlOverrides.CurrentContext != "" {
+		currentContextName = options.KubectlOverrides.CurrentContext
+	}
+	currentContext := workspaceDirectoryAwareConfig.Contexts[currentContextName]
 
 	workspaceDirectoryOverrides := options.WorkspaceDirectoryOverrides
 
-	workspaceDirectoryContext := kc.startingConfig.Contexts[workspaceDirectoryOverrides.CurrentContext]
-	workspaceDirectoryCluster := kc.startingConfig.Clusters[workspaceDirectoryOverrides.CurrentContext]
+	workspaceDirectoryContext := workspaceDirectoryAwareConfig.Contexts[workspaceDirectoryOverrides.CurrentContext]
+	workspaceDirectoryCluster := workspaceDirectoryAwareConfig.Clusters[workspaceDirectoryOverrides.CurrentContext]
 	if workspaceDirectoryContext == nil || workspaceDirectoryCluster == nil {
 
 		if currentContext != nil {
-			workspaceDirectoryCluster = kc.startingConfig.Clusters[currentContext.Cluster].DeepCopy()
+			workspaceDirectoryCluster = workspaceDirectoryAwareConfig.Clusters[currentContext.Cluster].DeepCopy()
 			workspaceDirectoryContext = &api.Context{
 				Cluster: workspaceDirectoryOverrides.CurrentContext,
 			}
@@ -90,7 +102,15 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) er
 				Cluster: workspaceDirectoryOverrides.CurrentContext,
 			}
 		}
-		workspaceDirectoryCluster.Server = workspaceDirectoryOverrides.ClusterInfo.Server
+		if workspaceDirectoryOverrides.ClusterInfo.Server != "" {
+			workspaceDirectoryCluster.Server = workspaceDirectoryOverrides.ClusterInfo.Server
+		} else {
+			currentServerURL, err := url.Parse(workspaceDirectoryCluster.Server)
+			if err != nil {
+				return nil, err
+			}
+			workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, defaultWorkspaceDirectoryApiServerPath)
+		}
 		if workspaceDirectoryOverrides.ClusterInfo.CertificateAuthority != "" {
 			workspaceDirectoryCluster.CertificateAuthority = workspaceDirectoryOverrides.ClusterInfo.CertificateAuthority
 		}
@@ -100,25 +120,24 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) er
 		if workspaceDirectoryOverrides.ClusterInfo.InsecureSkipTLSVerify {
 			workspaceDirectoryCluster.InsecureSkipTLSVerify = workspaceDirectoryOverrides.ClusterInfo.InsecureSkipTLSVerify
 		}
-		kc.startingConfig.Clusters[workspaceDirectoryOverrides.CurrentContext] = workspaceDirectoryCluster
-		kc.startingConfig.Contexts[workspaceDirectoryOverrides.CurrentContext] = workspaceDirectoryContext
-
-		return clientcmd.ModifyConfig(kc.configAccess, *kc.startingConfig, true)
+		workspaceDirectoryAwareConfig.Clusters[workspaceDirectoryOverrides.CurrentContext] = workspaceDirectoryCluster
+		workspaceDirectoryAwareConfig.Contexts[workspaceDirectoryOverrides.CurrentContext] = workspaceDirectoryContext
 	}
-	return nil
+	return workspaceDirectoryAwareConfig, nil
 }
 
 // workspaceDirectoryRestConfig returns the rest.Config to access the workspace directory
 // virtual workspace based on the stored config and CLI overrides
 func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options) (*rest.Config, error) {
-	if err := kc.ensureWorkspaceDirectoryContextExists(options); err != nil {
+	workpaceDirectoryAwareConfig, err := kc.ensureWorkspaceDirectoryContextExists(options)
+	if err != nil {
 		return nil, err
 	}
 
 	currentContextAuthInfo := &api.AuthInfo{}
-	currentContext := kc.startingConfig.Contexts[kc.startingConfig.CurrentContext]
+	currentContext := workpaceDirectoryAwareConfig.Contexts[workpaceDirectoryAwareConfig.CurrentContext]
 	if currentContext != nil {
-		currentContextAuthInfo = kc.startingConfig.AuthInfos[currentContext.AuthInfo]
+		currentContextAuthInfo = workpaceDirectoryAwareConfig.AuthInfos[currentContext.AuthInfo]
 	}
 
 	workspaceDirectoryOverrides := options.WorkspaceDirectoryOverrides
@@ -129,7 +148,7 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options) (*rest.Conf
 		ClusterInfo:    workspaceDirectoryOverrides.ClusterInfo,
 		CurrentContext: workspaceDirectoryOverrides.CurrentContext,
 	}
-	return clientcmd.NewDefaultClientConfig(*kc.startingConfig, overrides).ClientConfig()
+	return clientcmd.NewDefaultClientConfig(*workpaceDirectoryAwareConfig, overrides).ClientConfig()
 }
 
 // UseWorkspace switch the current workspace to the given workspace.

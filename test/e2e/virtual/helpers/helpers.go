@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -45,7 +46,13 @@ type VirtualWorkspace struct {
 }
 
 func (vw VirtualWorkspace) Setup(t framework.TestingTInterface, ctx context.Context, kcpServer framework.RunningServer) ([]*rest.Config, error) {
-	secureOptions := kubeoptions.NewSecureServingOptions().WithLoopback()
+	kcpKubeconfigPath := kcpServer.KubeconfigPath()
+	kcpDataDir := filepath.Dir(kcpKubeconfigPath)
+
+	secureOptions := kubeoptions.NewSecureServingOptions()
+	secureOptions.ServerCert.CertKey.CertFile = filepath.Join(kcpDataDir, "apiserver.crt")
+	secureOptions.ServerCert.CertKey.KeyFile = filepath.Join(kcpDataDir, "apiserver.key")
+
 	portStr, err := framework.GetFreePort(t)
 	if err != nil {
 		return nil, err
@@ -60,7 +67,7 @@ func (vw VirtualWorkspace) Setup(t framework.TestingTInterface, ctx context.Cont
 		return nil, err
 	}
 	authenticationOptions := options.NewDelegatingAuthenticationOptions()
-	authenticationOptions.RemoteKubeConfigFile = kcpServer.KubeconfigPath()
+	authenticationOptions.RemoteKubeConfigFile = kcpKubeconfigPath
 	authenticationOptions.SkipInClusterLookup = true
 	vwOptions := virtualcmd.APIServerOptions{
 		Output:            os.Stdout,

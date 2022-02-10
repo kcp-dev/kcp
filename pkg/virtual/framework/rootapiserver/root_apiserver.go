@@ -29,6 +29,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/client-go/rest"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -210,13 +211,22 @@ func (c completedConfig) NewRequestInfo(req *http.Request) (*genericapirequest.R
 	return defaultResolver.NewRequestInfo(req)
 }
 
-func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptionsWithLoopback, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
+func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptions, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
 	genericConfig := genericapiserver.NewRecommendedConfig(legacyscheme.Codecs)
 
 	// TODO: genericConfig.ExternalAddress = ... allow a command line flag or it to be overridden by a top-level multiroot apiServer
 
-	if err := secureServing.ApplyTo(&genericConfig.Config.SecureServing, &genericConfig.Config.LoopbackClientConfig); err != nil {
+	if err := secureServing.ApplyTo(&genericConfig.Config.SecureServing); err != nil {
 		return nil, err
+	}
+
+	// Loopback is not wired for now, since virtual workspaces are expected to delegate to
+	// some APIServer.
+	// The RootAPISrver is just a proxy to the various virtual workspaces.
+	// We might consider a giving a special meaning to a global loopback config, in the future
+	// but that's not the case for now.
+	genericConfig.Config.LoopbackClientConfig = &rest.Config{
+		Host: "loopback-config-not-wired-for-now",
 	}
 
 	if err := authenticationOptions.ApplyTo(&genericConfig.Authentication, genericConfig.SecureServing, genericConfig.OpenAPIConfig); err != nil {

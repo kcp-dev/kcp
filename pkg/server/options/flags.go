@@ -80,6 +80,10 @@ var (
 		// KCP Authorization flags
 		"authorization-always-allow-paths", // A list of HTTP paths to skip during authorization, i.e. these are authorized without contacting the 'core' kubernetes server.
 
+		// KCP Admin Authentication flags
+		"authentication-admin-token-path", // Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.
+		"kubeconfig-path",                 // Path to which the administrative kubeconfig should be written at startup.
+
 		// logs flags
 		"logging-format",      // Sets the log format. Permitted formats: "text".
 		"log-flush-frequency", // Maximum number of seconds between log flushes
@@ -92,7 +96,6 @@ var (
 		// KCP flags
 		"discovery-poll-interval", // Polling interval for dynamic discovery informers.
 		"enable-sharding",         // Enable delegating to peer kcp shards.
-		"kubeconfig-path",         // Path to which the administrative kubeconfig should be written at startup.
 		"profiler-address",        // [Address]:port to bind the profiler to
 		"root-directory",          // Root directory.
 		"shard-kubeconfig-file",   // Kubeconfig holding admin(!) credentials to peer kcp shards.
