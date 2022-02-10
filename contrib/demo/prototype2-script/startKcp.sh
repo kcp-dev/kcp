@@ -59,9 +59,9 @@ echo "Starting Virtual Workspace"
 "${KCP_DIR}"/bin/virtual-workspaces workspaces \
     --workspaces:kubeconfig "${KUBECONFIG}" \
     --authentication-kubeconfig "${KUBECONFIG}" \
-    --secure-port 6444 \
-    --authentication-skip-lookup \
-    --cert-dir "${KCP_DATA_DIR}"/.kcp/secrets/ca &> "${CURRENT_DIR}"/virtual-workspace.log &
+    --tls-cert-file "${KCP_DATA_DIR}"/.kcp/apiserver.crt \
+    --tls-private-key-file "${KCP_DATA_DIR}"/.kcp/apiserver.key \
+    &> "${CURRENT_DIR}"/virtual-workspace.log &
 SPLIT_PID=$!
 echo "Virtual Workspace started: $SPLIT_PID"
 
