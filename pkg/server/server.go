@@ -285,7 +285,8 @@ func (s *Server) Run(ctx context.Context) error {
 	})
 
 	externalKubeConfigPath := filepath.Join(s.options.Extra.RootDirectory, s.options.Extra.KubeConfigPath)
-	loopbackClientConfig, externalClientConfig, err := createKubeConfigs(server, externalKubeConfigAdminToken, externalKubeConfigAdminTokenHash, externalKubeConfigPath)
+
+	loopbackKubeConfig, externalKubeConfig, err := createKubeConfigs(server, externalKubeConfigAdminToken, externalKubeConfigAdminTokenHash, externalKubeConfigPath)
 	if err != nil {
 		return err
 	}
@@ -293,7 +294,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
-	if err := clientcmd.WriteToFile(*externalClientConfig, externalKubeConfigPath); err != nil {
+	if err := clientcmd.WriteToFile(*externalKubeConfig, externalKubeConfigPath); err != nil {
 		return err
 	}
 
@@ -311,19 +312,19 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
-		if err := s.installClusterController(ctx, *loopbackClientConfig, server); err != nil {
+		if err := s.installClusterController(ctx, *loopbackKubeConfig, server); err != nil {
 			return err
 		}
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
-		if err := s.installWorkspaceScheduler(ctx, *loopbackClientConfig, server); err != nil {
+		if err := s.installWorkspaceScheduler(ctx, *loopbackKubeConfig, server); err != nil {
 			return err
 		}
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
-		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(), *loopbackClientConfig, server); err != nil {
+		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(), *loopbackKubeConfig, server); err != nil {
 			return err
 		}
 	}
