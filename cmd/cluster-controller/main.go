@@ -69,7 +69,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 	defer cancel()
 
-	fs := pflag.NewFlagSet("cluster-controller", pflag.ExitOnError)
+	fs := pflag.NewFlagSet("cluster-controller", pflag.ContinueOnError)
 	options := bindOptions(fs)
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
