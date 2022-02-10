@@ -139,7 +139,7 @@ EOF
 pe "cat ${KCP_DATA_DIR}/cluster-us-west1.yaml"
 pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-west1.yaml"
 
-comment "Let's stop kind-us-east1 and see what happens"
-#pe "podman stop us-east1-control-plane"
-
+comment "Let's delete kind-us-east1 and see what happens"
+#pe "kind delete clusters us-east1-control-plane"
 cmd
+

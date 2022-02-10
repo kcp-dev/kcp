@@ -14,4 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if [[ -n "${REUSE_KIND_CLUSTERS:-}" ]]; then
+    exit
+fi
+
 kind delete clusters us-west1 us-east1 > /dev/null || true

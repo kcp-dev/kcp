@@ -18,6 +18,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+if [[ -n "${REUSE_KIND_CLUSTERS:-}" ]]; then
+    exit
+fi
+
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${DEMO_DIR}"/../.setupEnv
 
