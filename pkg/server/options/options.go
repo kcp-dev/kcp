@@ -184,6 +184,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			EmbeddedEtcd:        o.EmbeddedEtcd,
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
+			AdminAuthentication: o.AdminAuthentication,
 			Extra:               o.Extra,
 		},
 	}, nil
