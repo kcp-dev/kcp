@@ -23,14 +23,13 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/google/uuid"
-
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/client-go/rest"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -221,28 +220,13 @@ func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOption
 		return nil, err
 	}
 
-	var err error
-
-	var loopbackConfigCert []byte
-	if genericConfig.Config.SecureServing.Cert != nil {
-		loopbackConfigCert, _ = genericConfig.Config.SecureServing.Cert.CurrentCertKeyContent()
-	}
-	for _, sniCert := range genericConfig.Config.SecureServing.SNICerts {
-		if loopbackConfigCert == nil {
-			loopbackConfigCert, _ = sniCert.CurrentCertKeyContent()
-		}
-		if sets.NewString(sniCert.SNINames()...).Has(genericapiserver.LoopbackClientServerNameOverride) {
-			loopbackConfigCert, _ = sniCert.CurrentCertKeyContent()
-		}
-	}
-
-	if loopbackConfigCert == nil {
-		return nil, errors.New("No certs setup")
-	}
-
-	genericConfig.Config.LoopbackClientConfig, err = genericConfig.Config.SecureServing.NewLoopbackClientConfig(uuid.New().String(), loopbackConfigCert)
-	if err != nil {
-		return nil, err
+	// Loopback is not wired for now, since virtual workspaces are expected to delegate to
+	// some APIServer.
+	// The RootAPISrver is just a proxy to the various virtual workspaces.
+	// We might consider a giving a special meaning to a global loopback config, in the future
+	// but that's not the case for now.
+	genericConfig.Config.LoopbackClientConfig = &rest.Config{
+		Host: "loopback-config-not-wired-for-now",
 	}
 
 	if err := authenticationOptions.ApplyTo(&genericConfig.Authentication, genericConfig.SecureServing, genericConfig.OpenAPIConfig); err != nil {
