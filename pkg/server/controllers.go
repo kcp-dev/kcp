@@ -59,7 +59,7 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 		kubeClient.RbacV1())
 
 	s.AddPostStartHook("start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		go c.Run(5, ctx.Done())
+		go c.Run(ctx, 5)
 		return nil
 	})
 

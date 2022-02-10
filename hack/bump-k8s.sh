@@ -28,5 +28,5 @@ set -o xtrace
 # we know we will always want to use a self-consistent set of modules from our fork.
 # Note: setting GOPROXY=direct allows us to bump very quickly after the fork has been committed to.
 current_version="$( GOPROXY=direct go mod edit -json | jq '.Replace[] | select(.Old.Path=="k8s.io/kubernetes") | .New.Version' --raw-output )"
-sed -i'' -e "s/${current_version}/feature-logical-clusters-1.22/g" go.mod # equivalent to go mod edit -replace
+sed -i'' -e "s/${current_version}/feature-logical-clusters-1.23/g" go.mod # equivalent to go mod edit -replace
 GOPROXY=direct go mod tidy

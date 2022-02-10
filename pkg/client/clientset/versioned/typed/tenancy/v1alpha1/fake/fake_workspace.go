@@ -111,7 +111,7 @@ func (c *FakeWorkspaces) UpdateStatus(ctx context.Context, workspace *v1alpha1.W
 // Delete takes name of the workspace and deletes it. Returns an error if one occurs.
 func (c *FakeWorkspaces) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(workspacesResource, name), &v1alpha1.Workspace{})
+		Invokes(testing.NewRootDeleteActionWithOptions(workspacesResource, name, opts), &v1alpha1.Workspace{})
 	return err
 }
 
