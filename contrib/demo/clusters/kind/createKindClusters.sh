@@ -79,9 +79,18 @@ CLUSTERS=(
     us-west1
 )
 
+IMAGE_FLAG=()
+if [[ -n "${KIND_IMAGE:-}" ]]; then
+    IMAGE_FLAG=(--image "${KIND_IMAGE}")
+fi
+
 for cluster in "${CLUSTERS[@]}"; do
-    kind create cluster --config "${DEMO_ROOT}/clusters/kind/${cluster}.config" --kubeconfig "${DEMO_ROOT}/clusters/kind/${cluster}.kubeconfig"
-    sed -e 's/^/    /' "${DEMO_ROOT}/clusters/kind/${cluster}.kubeconfig" | cat "${DEMO_ROOT}/clusters/${cluster}.yaml" - > "${DEMO_ROOT}/clusters/kind/${cluster}.yaml"
+    kind create cluster \
+        --config "${CLUSTERS_DIR}/${cluster}.config" \
+        --kubeconfig "${CLUSTERS_DIR}/${cluster}.kubeconfig" \
+        "${IMAGE_FLAG[@]}"
+
+    sed -e 's/^/    /' "${CLUSTERS_DIR}/${cluster}.kubeconfig" | cat "${DEMO_ROOT}/clusters/${cluster}.yaml" - > "${CLUSTERS_DIR}/${cluster}.yaml"
 
     if [[ -n "${PODMAN_MAC_SSH_WORKAROUND:-}" ]]; then
         clusterPort=$(get_cluster_port "${cluster}")
