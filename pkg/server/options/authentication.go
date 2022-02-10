@@ -71,7 +71,7 @@ func (s *AdminAuthentication) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&s.KubeConfigPath, "kubeconfig-path", s.KubeConfigPath,
 		"Path to which the administrative kubeconfig should be written at startup. If this is relative, it is relative to --root-directory.")
-	fs.StringVar(&s.TokenHashFilePath, "authentication-admin-token-store", s.TokenHashFilePath,
+	fs.StringVar(&s.TokenHashFilePath, "authentication-admin-token-path", s.TokenHashFilePath,
 		"Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.")
 }
 
