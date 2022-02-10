@@ -80,6 +80,9 @@ var (
 		// KCP Authorization flags
 		"authorization-always-allow-paths", // A list of HTTP paths to skip during authorization, i.e. these are authorized without contacting the 'core' kubernetes server.
 
+		// KCP Admin Authentication flags
+		"authentication-admin-token-store", // Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.
+
 		// logs flags
 		"logging-format",      // Sets the log format. Permitted formats: "text".
 		"log-flush-frequency", // Maximum number of seconds between log flushes
