@@ -74,11 +74,11 @@ for demo in ${DEMOS} ; do
   export KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
   echo "Starting KCP for demo..."
-  ${DEMO_DIR}/startKcp.sh & # &> /dev/null &
+  ${DEMO_DIR}/startKcp.sh &> "${TEST_DIR}"/start-kcp.log &
   TEST_KCP_PID=$!
 
   echo "Waiting for KCP to be started..."
-  wait_command "grep 'Serving securely' ${TEST_DIR}/kcp.log" 60
+  wait_command "test -f ${KCP_DATA_DIR}/servers-ready"
 
   echo "Running demo ${demo} and output logs to ${TEST_DIR}/demo.log..."
   if $DEMO_AS_TESTS ; then

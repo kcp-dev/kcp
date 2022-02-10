@@ -45,6 +45,7 @@ function comment() {
 }
 
 export KUBECONFIG=${KUBECONFIG:-${KCP_DIR}/.kcp/admin.kubeconfig}
+
 if ! kubectl get namespaces &>/dev/null; then
   echo "kcp server not started, run 'bin/kcp start'"
   exit 1

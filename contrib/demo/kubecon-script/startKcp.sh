@@ -26,7 +26,10 @@ KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 "${DEMOS_DIR}"/startKcp.sh \
     --push-mode \
     --auto-publish-apis=true \
-    --resources-to-sync deployments.apps
+    --resources-to-sync deployments.apps &
+
+wait_command "test -f ${KCP_DATA_DIR}/kcp-started"
+
 echo ""
 echo "Starting Deployment Splitter"
 "${KCP_DIR}"/bin/deployment-splitter -kubeconfig="${KUBECONFIG}" &> deployment-splitter.log &
@@ -36,6 +39,8 @@ echo "Deployment Splitter started: $SPLIT_PID"
 echo ""
 echo "Use ctrl-C to stop all components"
 echo ""
+
+touch "${KCP_DATA_DIR}/servers-ready"
 
 tail -f deployment-splitter.log  &
 

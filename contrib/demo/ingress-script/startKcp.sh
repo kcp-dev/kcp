@@ -34,7 +34,10 @@ fi
 "${DEMOS_DIR}"/startKcp.sh \
     --push-mode \
     --auto-publish-apis=true \
-    --resources-to-sync "ingresses.networking.k8s.io,deployments.apps,services"
+    --resources-to-sync "ingresses.networking.k8s.io,deployments.apps,services" &
+
+wait_command "test -f ${KCP_DATA_DIR}/kcp-started"
+
 kubectl config use-context admin &>/dev/null
 
 echo ""
@@ -56,6 +59,8 @@ echo "Starting Envoy"
 envoy -c "${TEMP_DIR}"/utils/envoy/bootstrap.yaml &>envoy.log &
 ENVOY_PID=$!
 echo "Envoy started: $ENVOY_PID"
+
+touch "${KCP_DATA_DIR}/servers-ready"
 
 echo ""
 echo "Use ctrl-C to stop all components"
