@@ -15,8 +15,8 @@ spec:
         app: kuard
     spec:
       containers:
-        - image: gcr.io/kuar-demo/kuard-amd64:blue
-          name: kuard-amd64
+        - image: gcr.io/kuar-demo/kuard-ARCH:blue
+          name: kuard
           ports:
             - containerPort: 8080
               protocol: TCP

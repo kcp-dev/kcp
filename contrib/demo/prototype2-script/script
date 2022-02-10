@@ -86,8 +86,16 @@ pe "kubectl apply -f ${KCP_DATA_DIR}/deployments.apps.yaml"
 
 comment "Now we can create a deployment"
 pe "kubectl create namespace default"
-sed "s/amd64/$(uname -m)/" "${DEMO_DIR}"/deployment-kuard.yaml > "${KCP_DATA_DIR}"/deployment-kuard.yaml
+
+# Use the right arch for the kuard image
+kuardArch=$(uname -m)
+if [[ "${kuardArch}" == "x86_64" ]]; then
+  kuardArch=amd64
+fi
+sed "s/ARCH/$kuardArch/" "${DEMO_DIR}"/deployment-kuard.yaml > "${KCP_DATA_DIR}"/deployment-kuard.yaml
+
 pe "cat ${KCP_DATA_DIR}/deployment-kuard.yaml"
+
 pe "kubectl apply -f ${KCP_DATA_DIR}/deployment-kuard.yaml"
 # FIXME(ncdc): we don't have Services yet
 #pe "kubectl expose deployment/kuard"
