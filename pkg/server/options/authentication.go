@@ -75,13 +75,12 @@ func (s *AdminAuthentication) AddFlags(fs *pflag.FlagSet) {
 		"Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.")
 }
 
-func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newToken string, tokenHash []byte, err error) {
+func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newTokenOrEmpty string, tokenHash []byte, err error) {
 	// try to load existing token to reuse
 	tokenHash, err = ioutil.ReadFile(s.TokenHashFilePath)
-	var newAdminToken string
 	if os.IsNotExist(err) {
-		newAdminToken := uuid.New().String()
-		sum := sha256.Sum256([]byte(newAdminToken))
+		newTokenOrEmpty = uuid.New().String()
+		sum := sha256.Sum256([]byte(newTokenOrEmpty))
 		tokenHash = sum[:]
 		if err := ioutil.WriteFile(s.TokenHashFilePath, tokenHash, 0600); err != nil {
 			return "", nil, err
@@ -105,7 +104,7 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newToken
 
 	config.Authentication.Authenticator = authenticatorunion.New(newAuthenticator, config.Authentication.Authenticator)
 
-	return newAdminToken, tokenHash, nil
+	return newTokenOrEmpty, tokenHash, nil
 }
 
 func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte) error {

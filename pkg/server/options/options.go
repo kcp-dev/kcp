@@ -42,7 +42,6 @@ type Options struct {
 }
 
 type ExtraOptions struct {
-	KubeConfigPath        string
 	RootDirectory         string
 	ProfilerAddress       string
 	ShardKubeconfigFile   string
