@@ -275,8 +275,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 // startWorker processes work items until stopCh is closed.
 func (c *Controller) startWorker(ctx context.Context) {
-	for {
-		c.processNextWorkItem(ctx)
+	for c.processNextWorkItem(ctx) {
 	}
 }
 
