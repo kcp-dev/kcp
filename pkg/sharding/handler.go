@@ -25,8 +25,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/sharding/apiserver"
 )
 
-func ServeHTTP(apiHandler http.Handler, loader *ClientLoader) func(w http.ResponseWriter, req *http.Request) {
-	return func(w http.ResponseWriter, req *http.Request) {
+func WithSharding(apiHandler http.Handler, loader *ClientLoader) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
 			http.Error(w, "no request info", http.StatusInternalServerError)
@@ -44,5 +44,5 @@ func ServeHTTP(apiHandler http.Handler, loader *ClientLoader) func(w http.Respon
 		}
 		handler := apiserver.NewShardedHandler(loader.Clients(), 0, 10*time.Minute)
 		handler.ServeHTTP(w, req)
-	}
+	})
 }

@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	cliflag "k8s.io/component-base/cli/flag"
 	_ "k8s.io/kubernetes/pkg/features"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 )
@@ -51,11 +50,16 @@ type ExtraOptions struct {
 }
 
 type completedOptions struct {
-	*Options
+	GenericControlPlane options.CompletedServerRunOptions
+	EmbeddedEtcd        EmbeddedEtcd
+	Controllers         Controllers
+	Authorization       Authorization
+
+	Extra ExtraOptions
 }
 
 type CompletedOptions struct {
-	completedOptions
+	*completedOptions
 }
 
 // NewOptions creates a new Options with default parameters.
@@ -159,21 +163,19 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = filepath.Join(o.Extra.RootDirectory, "certs")
 	}
 
-	completedGenericControlPlane, err := genericcontrolplane.Complete(&o.GenericControlPlane.ServerRunOptions)
+	completedGenericControlPlane, err := o.GenericControlPlane.ServerRunOptions.Complete()
 	if err != nil {
 		return nil, err
 	}
 
 	return &CompletedOptions{
-		completedOptions: completedOptions{
-			&Options{
-				// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
-				GenericControlPlane: ServerRunOptions{*completedGenericControlPlane.ServerRunOptions},
-				EmbeddedEtcd:        o.EmbeddedEtcd,
-				Controllers:         o.Controllers,
-				Authorization:       o.Authorization,
-				Extra:               o.Extra,
-			},
+		completedOptions: &completedOptions{
+			// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
+			GenericControlPlane: completedGenericControlPlane,
+			EmbeddedEtcd:        o.EmbeddedEtcd,
+			Controllers:         o.Controllers,
+			Authorization:       o.Authorization,
+			Extra:               o.Extra,
 		},
 	}, nil
 }

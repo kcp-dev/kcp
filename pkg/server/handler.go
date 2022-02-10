@@ -114,7 +114,7 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	}
 }
 
-func GuardWildcardCluster(apiHandler http.Handler) http.HandlerFunc {
+func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		cluster := genericapirequest.ClusterFrom(req.Context())
 		if cluster != nil && cluster.Wildcard {
