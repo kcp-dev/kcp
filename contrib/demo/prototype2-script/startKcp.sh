@@ -35,6 +35,7 @@ KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
     --auto-publish-apis \
     --push-mode \
     --discovery-poll-interval 3s \
+    --profiler-address localhost:6060 \
     --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services &
 
 wait_command "ls ${KUBECONFIG}"
