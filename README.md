@@ -86,7 +86,7 @@ However, `kcp` is not an acronym.
 
 ## How do I get started?
 1. Clone the repository.
-2. [Install Go](https://golang.org/doc/install) (1.16+).
+2. [Install Go](https://golang.org/doc/install) (1.17+).
 3. Download the [latest kubectl binary for your OS](https://kubernetes.io/docs/tasks/tools/#kubectl).
 4. Build and start `kcp` in the background: `go run ./cmd/kcp start`.
 5. Tell `kubectl` where to find the kubeconfig: `export KUBECONFIG=.kcp/admin.kubeconfig` (this assumes your working directory is the root directory of the repository).

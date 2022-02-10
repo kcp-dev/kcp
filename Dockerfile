@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the binary
-FROM registry.access.redhat.com/ubi8/go-toolset:1.16.12-4 as builder
+FROM golang:1.17 AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

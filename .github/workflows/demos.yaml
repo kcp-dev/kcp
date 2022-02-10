@@ -12,7 +12,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
-        go-version: v1.16
+        go-version: v1.17
     - run: make build
 
     - name: Install latest version of Kind
