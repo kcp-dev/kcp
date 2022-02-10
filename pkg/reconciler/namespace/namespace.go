@@ -144,13 +144,10 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 	var clusters []*clusterv1alpha1.Cluster
 	for i := range allClusters {
 		// Only include Clusters that are in the same logical cluster as ns
-		if allClusters[i].ClusterName == ns.ClusterName {
+		if allClusters[i].ClusterName == ns.ClusterName && conditions.IsTrue(allClusters[i], clusterv1alpha1.ClusterReadyCondition) {
 			clusters = append(clusters, allClusters[i])
 		}
 	}
-
-	// TODO: Filter out un-Ready clusters so a namespace doesn't
-	// get assigned to an un-Ready cluster.
 
 	newClusterName := ""
 	if len(clusters) > 0 {
