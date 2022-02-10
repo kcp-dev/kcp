@@ -36,7 +36,8 @@ KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
     --push-mode \
     --discovery-poll-interval 3s \
     --profiler-address localhost:6060 \
-    --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services &
+    --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services \
+    -v 2 &
 
 wait_command "ls ${KUBECONFIG}"
 echo "Waiting for KCP to be ready ..."
