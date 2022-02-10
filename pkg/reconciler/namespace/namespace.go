@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
@@ -37,6 +38,29 @@ import (
 )
 
 const clusterLabel = "kcp.dev/cluster"
+
+var (
+	unscheduledSelector        labels.Selector
+	scheduledToNothingSelector labels.Selector
+)
+
+func init() {
+	var err error
+
+	// This matches namespaces without the label
+	unscheduled := "!" + clusterLabel
+	unscheduledSelector, err = labels.Parse(unscheduled)
+	if err != nil {
+		klog.Fatalf("error parsing label selector %q: %v", unscheduled, err)
+	}
+
+	// This matches namespaces with the label set to ""
+	scheduledToNothing := clusterLabel + "="
+	scheduledToNothingSelector, err = labels.Parse(scheduledToNothing)
+	if err != nil {
+		klog.Fatalf("error parsing label selector %q: %v", scheduledToNothing, err)
+	}
+}
 
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
@@ -144,9 +168,17 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 	var clusters []*clusterv1alpha1.Cluster
 	for i := range allClusters {
 		// Only include Clusters that are in the same logical cluster as ns
-		if allClusters[i].ClusterName == ns.ClusterName && conditions.IsTrue(allClusters[i], clusterv1alpha1.ClusterReadyCondition) {
-			clusters = append(clusters, allClusters[i])
+		if allClusters[i].ClusterName != ns.ClusterName {
+			klog.V(2).InfoS("assignCluster: excluding cluster with different metadata.clusterName", "ns.clusterName", ns.ClusterName, "check", allClusters[i].ClusterName)
+			continue
 		}
+		if !conditions.IsTrue(allClusters[i], clusterv1alpha1.ClusterReadyCondition) {
+			klog.V(2).InfoS("assignCluster: excluding not-ready cluster", "metadata.name", allClusters[i].Name)
+			continue
+		}
+
+		klog.V(2).InfoS("assignCluster: found a ready candidate", "metadata.name", allClusters[i].Name)
+		clusters = append(clusters, allClusters[i])
 	}
 
 	newClusterName := ""
@@ -295,23 +327,29 @@ func (c *Controller) observeCluster(ctx context.Context, cl *clusterv1alpha1.Clu
 	klog.Infof("Observing Cluster %s", cl.Name)
 
 	if conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition) {
-		// Cluster's happy, nothing to do.
-		return nil
+		// Revisit any unscheduled namespaces
+		var errs []error
+		errs = append(errs, c.enqueueNamespaces(ctx, unscheduledSelector))
+		errs = append(errs, c.enqueueNamespaces(ctx, scheduledToNothingSelector))
+		return errors.NewAggregate(errs)
 	}
 
 	// An unhealthy cluster requires revisiting the scheduling for all namespaces to
 	// ensure rescheduling is performed if needed.
-	return c.enqueueAllNamespaces(ctx)
+	return c.enqueueNamespaces(ctx, labels.Everything())
 }
 
-// enqueueAllNamespaces adds all known namespaces to the queue to allow for rescheduling
-// if a cluster is deleted or becomes NotReady.
-func (c *Controller) enqueueAllNamespaces(ctx context.Context) error {
-	namespaces, err := c.namespaceLister.ListWithContext(ctx, labels.Everything())
+// enqueueNamespaces adds all namespaces matching selector to the queue to allow for scheduliing.
+func (c *Controller) enqueueNamespaces(ctx context.Context, selector labels.Selector) error {
+	namespaces, err := c.namespaceLister.ListWithContext(ctx, selector)
 	if err != nil {
 		return err
 	}
 	for _, namespace := range namespaces {
+		if namespaceBlocklist.Has(namespace.Name) {
+			klog.V(2).Infof("Skipping syncing namespace %q", namespace.Name)
+			continue
+		}
 		c.enqueueNamespace(namespace)
 	}
 

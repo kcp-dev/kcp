@@ -24,6 +24,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -343,7 +344,7 @@ func (c *Controller) processCluster(ctx context.Context, key string) error {
 		// convergence if cluster deletion events are missed by this
 		// controller. Rescheduling will always happen eventually due
 		// to namespace informer resync.
-		return c.enqueueAllNamespaces(ctx)
+		return c.enqueueNamespaces(ctx, labels.Everything())
 	} else if err != nil {
 		return err
 	}
