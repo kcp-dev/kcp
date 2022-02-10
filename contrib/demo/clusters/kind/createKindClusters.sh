@@ -21,7 +21,7 @@ set -o xtrace
 
 if [[ -z "${CLUSTERS_DIR:-}" ]]; then
     echo CLUSTERS_DIR is required
-    eixt 1
+    exit 1
 fi
 
 DEMO_ROOT="$(dirname "${BASH_SOURCE[0]}")/../.."
