@@ -67,7 +67,7 @@ func (o *options) Validate() error {
 func main() {
 	ctx := genericapiserver.SetupSignalContext()
 
-	fs := pflag.NewFlagSet("shard-proxy", pflag.ExitOnError)
+	fs := pflag.NewFlagSet("shard-proxy", pflag.ContinueOnError)
 	o := bindOptions(defaultOptions(), fs)
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		klog.Fatalf("failed to parse arguments: %v", err)
