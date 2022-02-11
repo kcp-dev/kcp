@@ -51,6 +51,15 @@ cleanupDemoOutput() {
 
 export TERM=xterm-256color
 
+cols=100
+if command -v tput &> /dev/null; then
+  output=$(echo -e cols | tput -S)
+  if [[ -n "${output}" ]]; then
+    cols=$((output - 10))
+  fi
+fi
+export cols
+
 error=false
 for demo in ${DEMOS} ; do
   demoDirName="$demo"-test
