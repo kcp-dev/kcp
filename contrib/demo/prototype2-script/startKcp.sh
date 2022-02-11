@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEMO_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
+DEMO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../.setupEnv
 source "${DEMO_DIR}"/../.setupEnv
 # shellcheck source=../.startUtils
