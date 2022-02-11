@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -30,6 +31,7 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/scheme"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -102,6 +104,8 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 	}
 
 	needsUpdate := false
+	needsHealthCheck := true
+
 	switch c.syncerMode {
 	case SyncerModePull:
 		upToDate, err := isSyncerInstalledAndUpToDate(ctx, client, logicalCluster, c.syncerImage)
@@ -184,12 +188,13 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 			conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 		case SyncerModeNone:
 			klog.Info("started none mode syncer!")
+			needsHealthCheck = false
 			conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 		}
 		cluster.Status.SyncedResources = groupResources.List()
 	}
 
-	if conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition) {
+	if needsHealthCheck {
 		if c.syncerMode == SyncerModePull {
 			if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
 				klog.Error("syncer not yet ready")
@@ -199,6 +204,27 @@ func (c *Controller) reconcile(ctx context.Context, cluster *clusterv1alpha1.Clu
 				conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 			}
 		} else {
+			cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
+			if err != nil {
+				klog.Errorf("error getting cluster kubeconfig: %v", err)
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
+				return nil // Don't retry.
+			}
+
+			cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+			restClient, err := rest.UnversionedRESTClientFor(cfg)
+			if err != nil {
+				klog.Errorf("error getting rest client: %v", err)
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting rest client: %v", err.Error())
+				return nil // Don't retry.
+			}
+
+			_, err = restClient.Get().AbsPath("/readyz").Timeout(5 * time.Second).DoRaw(ctx)
+			if err != nil {
+				conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityError, "Error getting /readyz: %v", err.Error())
+				return nil // Don't retry.
+			}
+
 			klog.Infof("healthy push mode syncer running for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
 			conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 		}
