@@ -14,19 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
-
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${DEMO_DIR}"/../.setupEnv
 
 # shellcheck source=../demo-magic
 . "${DEMOS_DIR}"/demo-magic
 
-#TYPE_SPEED=30
 DEMO_PROMPT="☸️ $ "
 
-TYPE_SPEED=90
-NO_WAIT=1
+TYPE_SPEED=150
+#TYPE_SPEED=999
+#NO_WAIT=1
 
 function pause() {
   if [[ -n "${NO_WAIT}" ]]; then
@@ -41,7 +39,11 @@ function pause() {
 }
 
 function c() {
-  NO_WAIT=1 p "# $*"
+  local comment="$*"
+  if command -v fold &> /dev/null; then
+    comment=$(echo "$comment" | fold -w "${cols:-100}")
+  fi
+  p "# $comment"
 }
 
 export KUBECONFIG=${KUBECONFIG:-${KCP_DIR}/.kcp/admin.kubeconfig}
@@ -51,19 +53,21 @@ if ! kubectl get namespaces &>/dev/null; then
   exit 1
 fi
 
-#p "# Patch the control plane nodes of the kind cluster to allow the scheduling of the nginx-ingress"
-#p "# controller into them. Then, apply the nginx-ingress controller manifest into each cluster."
+c "Install nginx-based ingress into both kind clusters"
 
-#pe "kubectl --context kind-us-east1 label node east-control-plane ingress-ready=true"
-#pe "kubectl --context kind-us-east1 apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
-#pe "kubectl --context kind-us-west1 label node west-control-plane ingress-ready=true"
-#pe "kubectl --context kind-us-west1 apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
-c "Start with some basic setup. Start by creating the 'default' namespace, which kcp"
-c "does not currently precreate for you, like Kubernetes does"
+# TODO(ncdc): trying to get ingress working on mac+podman+kind
+#pe "sed -e 's,hostPort: 80,hostPort: 8080,' -e 's,hostPort: 443,hostPort: 8443,' ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml | kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig apply -f -"
+#pe "sed -e 's,hostPort: 80,hostPort: 9080,' -e 's,hostPort: 443,hostPort: 9443,' ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml | kubectl --kubeconfig ${CLUSTERS_DIR}/us-west1.kubeconfig apply -f -"
+pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
+pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-west1.kubeconfig apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
+
+wait
+clear
+
+c "Start with some basic setup. Start by creating the 'default' namespace, which kcp does not currently precreate for you, like Kubernetes does"
 pe "kubectl create namespace default"
 
-c "We have to do some prep work for kcp's new Workspaces feature."
-c "First, store a copy of the kubeconfig in a secret."
+c "We have to do some prep work for kcp's new Workspaces feature. First, store a copy of the kubeconfig in a secret."
 pe "kubectl create secret generic kubeconfig --from-file=kubeconfig=${KUBECONFIG}"
 
 c "Next, create a WorkspaceShard that represents this kcp instance that looks like this:"
@@ -71,18 +75,18 @@ pe "cat ${DEMO_DIR}/workspace-shard.yaml"
 pe "kubectl apply -f ${DEMO_DIR}/workspace-shard.yaml"
 
 c "Let's start by creating a workspace and using it."
-c "Note, we are still working through certificate configurations, so for the time being, we have to"
-c "skip TLS verification with the kubectl kcp workspace plugin."
-pe "kubectl kcp workspace --token user-1-token --workspace-directory-insecure-skip-tls-verify create workspace1 --use"
+pe "kubectl kcp workspace --token user-1-token create workspace1 --use"
 
-c "Because KCP doesn’t include Deployments by default, and we haven’t"
-c "registered any Clusters yet, we need to teach KCP about Deployments"
+c "Because KCP doesn’t include Deployments by default, and we haven’t registered any Clusters yet, we need to teach KCP about Deployments"
 
 c "First grab the schema for deployments from one of our kind clusters"
 pe "(cd ${KCP_DATA_DIR} && go run ${KCP_DIR}/cmd/crd-puller/pull-crds.go --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig deployments.apps)"
 
 c "Now apply it to kcp"
 pe "kubectl apply -f ${KCP_DATA_DIR}/deployments.apps.yaml"
+
+wait
+clear
 
 c "Now we can create a deployment"
 pe "kubectl create namespace default"
@@ -97,12 +101,15 @@ sed "s/ARCH/$kuardArch/" "${DEMO_DIR}"/deployment-kuard.yaml > "${KCP_DATA_DIR}"
 pe "cat ${KCP_DATA_DIR}/deployment-kuard.yaml"
 
 pe "kubectl apply -f ${KCP_DATA_DIR}/deployment-kuard.yaml"
-# FIXME(ncdc): we don't have Services yet
-#pe "kubectl expose deployment/kuard"
 
-c "Let's describe it to see its status"
+wait
+clear
+
+c "Let's describe it to see its status - take note of Replicas"
 pe "kubectl describe deployment/kuard"
 
+wait
+clear
 c "Now let's register our kind cluster us-east1 with kcp"
 
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
@@ -115,24 +122,39 @@ spec:
 $(sed 's,^,    ,' "${CLUSTERS_DIR}"/us-east1.kubeconfig)
 EOF
 pe "cat ${KCP_DATA_DIR}/cluster-us-east1.yaml"
+
+wait;clear
 pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-east1.yaml"
 
 c "Let's wait for kcp to have the cluster syncing ready"
 pe "kubectl wait --for condition=Ready cluster/kind-us-east1"
 
-c "Let's wait for the deployment to show up in kind"
-# kubectl wait fails on non-existing objects and non-existing jsonpath :-/ So some bash glue.
-while [ -z "$(kubectl --kubeconfig "${CLUSTERS_DIR}"/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments --no-headers=true 2>/dev/null)" ]
-do
+c "Let's wait for the deployment to be running in kind"
+pe "while ! kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments; do
   sleep 1
-done
-pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
+done"
 
-c "Wait for the pod to be running"
-pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
+wait
+clear
 
 c "Let's describe the deployment again"
 pe "kubectl describe deployment/kuard"
+
+c "Wait for the Services API resource to be synced from kind"
+pe "while ! kubectl api-resources | grep 'services.*svc.*Service'; do sleep 1; done"
+
+c "Let's expose the deployment"
+pe "kubectl expose deployment/kuard"
+
+wait;clear
+c "And create an ingress"
+pe "cat ${DEMO_DIR}/ingress-kuard.yaml"
+pe "kubectl apply -f ${DEMO_DIR}/ingress-kuard.yaml"
+
+# TODO show that you can access it
+
+wait
+clear
 
 c "Now let's register our kind cluster us-west1 with kcp"
 
@@ -146,9 +168,126 @@ spec:
 $(sed 's,^,    ,' "${CLUSTERS_DIR}"/us-west1.kubeconfig)
 EOF
 pe "cat ${KCP_DATA_DIR}/cluster-us-west1.yaml"
+
+wait;clear
 pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-west1.yaml"
 
 c "Let's delete kind-us-east1 and see what happens"
-#pe "kind delete clusters us-east1-control-plane"
-cmd
+pe "kind delete clusters us-east1"
 
+wait
+clear
+
+c "Let's see if the deployment got rescheduled"
+pe "kubectl describe deployment/kuard"
+
+#### Section 3 Policy/Orgs
+wait
+clear
+
+c "Now we're going to show our new workspaces APIs! Think of a workspace like your own Kubernetes apiserver, where you can create your own CRDs without worrying about conflicting with anyone else's."
+c "Let's start by creating a 'demo' workspace"
+pe "kubectl kcp workspace --token user-1-token create demo --use"
+
+c "This sets up RBAC permissions, including a ClusterRole for owners of the workspace, and a ClusterRoleBinding for user-1 as an owner:"
+pe "kubectl --context admin get clusterrole/owner-workspace-demo-user-1 -oyaml"
+wait
+clear
+pe "kubectl --context admin get clusterrole/owner-workspace-demo-user-1 -oyaml"
+wait
+clear
+c "As user-1, I should be able to access content in my new workspace"
+pe "kubectl get namespaces"
+pe "kubectl create namespace default"
+pe "kubectl create configmap test --from-literal hello=world"
+
+c "And if we remove user-1's access by deleting the ClusterRoleBinding..."
+pe "kubectl --context admin delete clusterrolebinding owner-workspace-demo-user-1"
+c "Then we see permissions have been revoked"
+pe "kubectl get configmaps"
+pe "kubectl get namespaces"
+wait;clear
+c "Since we only removed permission to the demo workspace, user-1 should still be able to use workspace1 (created earlier)"
+pe "kubectl kcp workspace --token user-1-token use workspace1"
+pe "kubectl get namespaces"
+wait;clear
+c "Each workspace maps to a specific path in the kcp apiserver. For workspace1, its content is stored in /clusters/admin_workspace1"
+pe "kubectl get --raw /clusters/admin_workspace1/api/v1/namespaces"
+wait;clear
+c "And you can't get access to a path for a workspace until that workspace has been created:"
+pe "kubectl get --raw /clusters/admin_someotherworkspace/api/v1/namespaces"
+
+#### Section 4 API Inheritance
+wait;clear
+
+c "Now let's examine one more cool feature of workspaces - API inheritance! A workspace can specify another workspace from which it can inherit CRD-based APIs. Let's start by creating 2 workspaces that don't have any inheritance."
+
+c "Add a workspace called 'inherit' for user-2 (but it's not inheriting yet!)"
+pe "kubectl kcp workspace --token user-2-token create inherit --inherit-from=''"
+c "Add a workspace called 'source' for user-1 and use it"
+pe "kubectl kcp workspace --token user-1-token create source --inherit-from='' --use"
+
+c "Let's add a CRD to the source workspace and show that it's only available there and not in the inheriting workspace yet"
+pe "kubectl apply -f ${KCP_DIR}/test/e2e/reconciler/cluster/wildwest.dev_cowboys.yaml"
+
+c "The CRD and API resources exist:"
+pe "kubectl get crd"
+pe "kubectl api-resources | grep cowboys"
+
+wait;clear
+c "Let's create a Cowboy in 'source'"
+
+pe "kubectl create namespace default"
+
+c "Create a Cowboy in source"
+pe "cat <<EOF | kubectl apply -f -
+apiVersion: wildwest.dev/v1alpha1
+kind: Cowboy
+metadata:
+  name: bob
+spec:
+  intent: Peaceful
+EOF"
+
+p "Show that it was created"
+pe "kubectl get cowboys"
+
+wait;clear
+c "Switch to the inherit workspace and show there are no CRDs or Cowboys"
+pe "kubectl kcp workspace --token user-2-token use inherit"
+pe "kubectl get crd"
+pe "kubectl api-resources | grep cowboys"
+pe "kubectl get cowboys"
+
+wait;clear
+c "Update the inherit workspace to inherit from source"
+pe "kubectl --context admin patch workspaces/inherit --type merge --patch '{\"spec\":{\"inheritFrom\":\"source\"}}'"
+
+c "Now we have access to the cowboys resource"
+pe "kubectl api-resources | grep cowboys"
+
+c "But we don't see it as a CRD"
+pe "kubectl get crd"
+
+wait;clear
+c "Now let's work with cowboys via inheritance"
+pe "kubectl create namespace default"
+
+c "Create a Cowboy in inherit"
+pe "cat <<EOF | kubectl apply -f -
+apiVersion: wildwest.dev/v1alpha1
+kind: Cowboy
+metadata:
+  name: via-inheritance
+spec:
+  intent: Happy
+EOF"
+
+c "Show it exists"
+pe "kubectl get cowboys"
+
+c "Check source and make sure it only has bob"
+pe "kubectl kcp workspace --token user-1-token use source"
+pe "kubectl get cowboys"
+
+c "Shows: we did some exploratory work to show we can inject types into a workspace without it existing as a CRD in the workspace - in the future this will be more even more powerful"
