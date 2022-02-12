@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,28 +17,22 @@ limitations under the License.
 package framework
 
 import (
-	"testing"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"flag"
 )
 
-type RunningServer interface {
-	Name() string
-	KubeconfigPath() string
-	RawConfig() (clientcmdapi.Config, error)
-	Config(context string) (*rest.Config, error)
-	Artifact(t *testing.T, producer func() (runtime.Object, error))
+type testConfig struct {
+	InProcessControllers bool
 }
 
-// KcpConfig qualify a kcp server to start
-type KcpConfig struct {
-	Name string
-	Args []string
+var TestConfig *testConfig
 
-	LogToConsole bool
-	RunInProcess bool
+func init() {
+	TestConfig = &testConfig{}
+	registerFlags(TestConfig)
+	// The testing package will call flags.Parse()
+}
 
-	Controllers []ControllerFixture
+func registerFlags(c *testConfig) {
+	flag.BoolVar(&c.InProcessControllers, "in-process-controllers", false,
+		"Whether controllers should be instantiated in the same process as the tests that require them.")
 }

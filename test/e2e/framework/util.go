@@ -290,7 +290,7 @@ func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactF
 		}
 		return false, nil
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cluster %s|%s failed to become ready: %w", cluster.ClusterName, cluster.Name, err)
 	}
 
 	return cluster, nil

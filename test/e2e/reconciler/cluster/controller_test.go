@@ -152,10 +152,20 @@ func TestClusterController(t *testing.T) {
 		framework.KcpConfig{
 			Name: sourceClusterName,
 			Args: []string{
-				"--push-mode",
-				"--resources-to-sync=cowboys.wildwest.dev",
-				"--auto-publish-apis",
 				"--discovery-poll-interval=5s",
+			},
+			Controllers: []framework.ControllerFixture{
+				&framework.ClusterControllerFixture{
+					Args: []string{
+						"--push-mode",
+						"--resources-to-sync=cowboys.wildwest.dev",
+						"--auto-publish-apis",
+					},
+					InProcessServerArgs: []string{
+						"--run-controllers=false",
+						"--unsupported-run-individual-controllers=workspace-scheduler,namespace-scheduler",
+					},
+				},
 			},
 		},
 		// this is a kcp acting as a target cluster to sync status from
