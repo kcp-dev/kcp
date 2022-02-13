@@ -30,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -101,13 +100,6 @@ func TestClusterController(t *testing.T) {
 					}
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-				servers[sourceClusterName].Artifact(t, func() (runtime.Object, error) {
-					return servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
-				})
-				servers[sinkClusterName].Artifact(t, func() (runtime.Object, error) {
-					return servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
-				})
 
 				t.Logf("Expecting same spec to show up in sink")
 				cowboy.SetNamespace(targetNamespace)
