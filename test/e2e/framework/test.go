@@ -82,6 +82,13 @@ func RunParallel(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+
+		// Ensure servers are torn down after artifact collection by
+		// registering the context cancellation (that controls server
+		// exit) before the test has a chance to register artifact
+		// collection.
+		mid.Cleanup(cancel)
+
 		bottom := NewT(ctx, mid)
 		artifactDir, dataDir, err := ScratchDirs(bottom)
 		if err != nil {
@@ -100,10 +107,14 @@ func RunParallel(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 			runningServers[server.name] = server
 		}
 
+		// Use a context to communicate when the test-executing
+		// goroutine has finished.
+		testCompleteCtx, testCompleteCancel := context.WithCancel(context.Background())
+
 		// start all test routines separately, so the main routine can begin
 		// consuming multi-threaded *testing.T calls
-		go func(t TestingTInterface) {
-			defer func() { cancel() }() // stop waiting for errors
+		go func(t TestingTInterface, cancel func()) {
+			defer cancel() // stop waiting for errors
 
 			start := time.Now()
 			t.Log("Starting kcp servers...")
@@ -124,7 +135,6 @@ func RunParallel(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 						}
 					}(srv)
 				}
-				defer srv.GatherArtifacts()
 			}
 			wg.Wait()
 
@@ -136,8 +146,8 @@ func RunParallel(top *testing.T, name string, f TestFunc, cfgs ...KcpConfig) {
 
 			// run the test
 			f(t, runningServers, artifactDir, dataDir)
-		}(bottom)
+		}(bottom, testCompleteCancel)
 
-		bottom.Wait()
+		<-testCompleteCtx.Done()
 	})
 }

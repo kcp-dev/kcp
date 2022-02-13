@@ -165,7 +165,7 @@ func TestClusterController(t *testing.T) {
 			},
 		},
 	)
-	defer f.SetUp(t)()
+	f.SetUp(t)
 
 	for i := range testCases {
 		testCase := testCases[i]

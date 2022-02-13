@@ -139,8 +139,7 @@ func TestAuthorizer(t *testing.T) {
 		Name: "main",
 		Args: usersKCPArgs,
 	})
-	teardown := f.SetUp(t)
-	defer teardown()
+	f.SetUp(t)
 
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {

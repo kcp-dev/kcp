@@ -27,14 +27,9 @@ import (
 
 // KCPFixture manages the lifecycle of a set of kcp servers.
 type KCPFixture struct {
-	Servers     map[string]RunningServer
-	ArtifactDir string
-	DataDir     string
+	Servers map[string]RunningServer
 
 	configs []KcpConfig
-
-	// TODO(marun) Consider making the artifact methods part of RunningServer
-	rawServers []*kcpServer
 }
 
 func NewKCPFixture(cfgs ...KcpConfig) *KCPFixture {
@@ -43,20 +38,21 @@ func NewKCPFixture(cfgs ...KcpConfig) *KCPFixture {
 	}
 }
 
-func (f *KCPFixture) SetUp(t *testing.T) func() {
-	var err error
-	f.ArtifactDir, f.DataDir, err = ScratchDirs(t)
+func (f *KCPFixture) SetUp(t *testing.T) {
+	artifactDir, dataDir, err := ScratchDirs(t)
 	require.NoErrorf(t, err, "failed to create scratch dirs: %v", err)
 
-	ctx := context.Background()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
 
 	// Initialize servers from the provided configuration
+	var servers []*kcpServer
 	f.Servers = map[string]RunningServer{}
 	for _, cfg := range f.configs {
-		server, err := newKcpServer(NewT(ctx, t), cfg, f.ArtifactDir, f.DataDir)
+		server, err := newKcpServer(NewT(ctx, t), cfg, artifactDir, dataDir)
 		require.NoError(t, err)
 
-		f.rawServers = append(f.rawServers, server)
+		servers = append(servers, server)
 		f.Servers[server.name] = server
 	}
 
@@ -64,8 +60,8 @@ func (f *KCPFixture) SetUp(t *testing.T) func() {
 	start := time.Now()
 	t.Log("Starting kcp servers...")
 	wg := sync.WaitGroup{}
-	wg.Add(len(f.rawServers))
-	for _, srv := range f.rawServers {
+	wg.Add(len(servers))
+	for _, srv := range servers {
 		err := srv.Run(ctx)
 		require.NoError(t, err)
 
@@ -83,15 +79,4 @@ func (f *KCPFixture) SetUp(t *testing.T) func() {
 	}
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
-
-	// Enable `defer f.SetUp(t)()` to simplify teardown invocation
-	return func() {
-		f.TearDown(t)
-	}
-}
-
-func (f *KCPFixture) TearDown(t *testing.T) {
-	for _, srv := range f.rawServers {
-		srv.GatherArtifacts()
-	}
 }
