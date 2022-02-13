@@ -71,6 +71,10 @@ func NewController(
 	namespaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-namespace")
 	clusterQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-cluster")
 
+	// TODO(marun) Queue workspace resources to ensure a change in the
+	// `contents-unschedulable` annotation for a workspace is reflected in the
+	// scheduling of the namespaces it contains.
+
 	c := &Controller{
 		resourceQueue:  resourceQueue,
 		gvrQueue:       gvrQueue,
@@ -78,6 +82,7 @@ func NewController(
 		clusterQueue:   clusterQueue,
 
 		dynClient:       dynClient,
+		workspaceLister: workspaceLister,
 		clusterLister:   clusterLister,
 		namespaceLister: namespaceLister,
 		kubeClient:      kubeClient,
@@ -122,6 +127,7 @@ type Controller struct {
 	dynClient       dynamic.ClusterInterface
 	clusterLister   clusterlisters.ClusterLister
 	namespaceLister corelisters.NamespaceLister
+	workspaceLister tenancylisters.WorkspaceLister
 	kubeClient      kubernetes.ClusterInterface
 	ddsif           informer.DynamicDiscoverySharedInformerFactory
 	gvkTrans        *gvk.GVKTranslator
