@@ -108,7 +108,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					return
 				}
 				assert.Equal(t, testData.workspace1.Name, workspace1.Name)
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 				workspace2, err := vwUser2Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
@@ -117,7 +117,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					return
 				}
 				assert.Equal(t, testData.workspace2.Name, workspace2.Name)
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
 				})
 				if err := server.kcpExpect(workspace1, func(w *tenancyv1alpha1.Workspace) error {
@@ -205,7 +205,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					t.Errorf("failed to create workspace shard: %v", err)
 					return
 				}
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, "boston", metav1.GetOptions{})
 				})
 				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
@@ -214,7 +214,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					return
 				}
 				assert.Equal(t, testData.workspace1.Name, workspace1.Name)
-				defer server.Artifact(t, func() (runtime.Object, error) {
+				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 				workspaceURL := ""
