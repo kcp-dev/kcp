@@ -22,24 +22,20 @@ import (
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 
-	v1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	v1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
 )
 
-type FakeTenancyV1alpha1 struct {
+type FakeTenancyV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeTenancyV1alpha1) ClusterWorkspaces() v1alpha1.ClusterWorkspaceInterface {
-	return &FakeClusterWorkspaces{c}
-}
-
-func (c *FakeTenancyV1alpha1) WorkspaceShards() v1alpha1.WorkspaceShardInterface {
-	return &FakeWorkspaceShards{c}
+func (c *FakeTenancyV1beta1) Workspaces() v1beta1.WorkspaceInterface {
+	return &FakeWorkspaces{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeTenancyV1alpha1) RESTClient() rest.Interface {
+func (c *FakeTenancyV1beta1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

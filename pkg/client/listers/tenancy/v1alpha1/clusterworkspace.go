@@ -28,13 +28,13 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-// WorkspaceLister helps list Workspaces.
+// ClusterWorkspaceLister helps list ClusterWorkspaces.
 // All objects returned here must be treated as read-only.
-type WorkspaceLister interface {
-	// List lists all Workspaces in the indexer.
+type ClusterWorkspaceLister interface {
+	// List lists all ClusterWorkspaces in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error)
-	// ListWithContext lists all Workspaces in the indexer.
+	// ListWithContext lists all ClusterWorkspaces in the indexer.
 	// Objects returned here must be treated as read-only.
 	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error)
 	// Get retrieves the ClusterWorkspace from the index for a given name.
@@ -43,26 +43,26 @@ type WorkspaceLister interface {
 	// GetWithContext retrieves the ClusterWorkspace from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspace, error)
-	WorkspaceListerExpansion
+	ClusterWorkspaceListerExpansion
 }
 
-// workspaceLister implements the WorkspaceLister interface.
-type workspaceLister struct {
+// clusterWorkspaceLister implements the ClusterWorkspaceLister interface.
+type clusterWorkspaceLister struct {
 	indexer cache.Indexer
 }
 
-// NewWorkspaceLister returns a new WorkspaceLister.
-func NewWorkspaceLister(indexer cache.Indexer) WorkspaceLister {
-	return &workspaceLister{indexer: indexer}
+// NewClusterWorkspaceLister returns a new ClusterWorkspaceLister.
+func NewClusterWorkspaceLister(indexer cache.Indexer) ClusterWorkspaceLister {
+	return &clusterWorkspaceLister{indexer: indexer}
 }
 
-// List lists all Workspaces in the indexer.
-func (s *workspaceLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error) {
+// List lists all ClusterWorkspaces in the indexer.
+func (s *clusterWorkspaceLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error) {
 	return s.ListWithContext(context.Background(), selector)
 }
 
-// ListWithContext lists all Workspaces in the indexer.
-func (s *workspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error) {
+// ListWithContext lists all ClusterWorkspaces in the indexer.
+func (s *clusterWorkspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.ClusterWorkspace))
 	})
@@ -70,18 +70,18 @@ func (s *workspaceLister) ListWithContext(ctx context.Context, selector labels.S
 }
 
 // Get retrieves the ClusterWorkspace from the index for a given name.
-func (s *workspaceLister) Get(name string) (*v1alpha1.ClusterWorkspace, error) {
+func (s *clusterWorkspaceLister) Get(name string) (*v1alpha1.ClusterWorkspace, error) {
 	return s.GetWithContext(context.Background(), name)
 }
 
 // GetWithContext retrieves the ClusterWorkspace from the index for a given name.
-func (s *workspaceLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspace, error) {
+func (s *clusterWorkspaceLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspace, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("workspace"), name)
+		return nil, errors.NewNotFound(v1alpha1.Resource("clusterworkspace"), name)
 	}
 	return obj.(*v1alpha1.ClusterWorkspace), nil
 }
