@@ -30,14 +30,14 @@ import (
 	workspaceClient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 )
 
-// NewWorkspaceCache returns a non-initialized WorkspaceCache. The cache needs to be run to begin functioning
-func NewWorkspaceCache(workspaces cache.SharedIndexInformer, client workspaceClient.ClusterWorkspaceInterface, defaultNodeSelector string) *WorkspaceCache {
+// NewClusterWorkspaceCache returns a non-initialized ClusterWorkspaceCache. The cache needs to be run to begin functioning
+func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, client workspaceClient.ClusterWorkspaceInterface, defaultNodeSelector string) *ClusterWorkspaceCache {
 	if err := workspaces.GetIndexer().AddIndexers(cache.Indexers{
 		"requester": indexWorkspaceByRequester,
 	}); err != nil {
 		panic(err)
 	}
-	return &WorkspaceCache{
+	return &ClusterWorkspaceCache{
 		Client:              client,
 		Store:               workspaces.GetIndexer(),
 		HasSynced:           workspaces.GetController().HasSynced,
@@ -45,18 +45,18 @@ func NewWorkspaceCache(workspaces cache.SharedIndexInformer, client workspaceCli
 	}
 }
 
-type WorkspaceCache struct {
+type ClusterWorkspaceCache struct {
 	Client              workspaceClient.ClusterWorkspaceInterface
 	Store               cache.Indexer
 	HasSynced           cache.InformerSynced
 	DefaultNodeSelector string
 }
 
-func (p *WorkspaceCache) GetWorkspace(name string) (*workspaceapi.ClusterWorkspace, error) {
+func (p *ClusterWorkspaceCache) GetWorkspace(name string) (*workspaceapi.ClusterWorkspace, error) {
 	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: name}}
 
-	// check for workspace in the cache
-	workspaceObj, exists, err := p.Store.Get(key)
+	// check for cluster workspace in the cache
+	clusterWorkspaceObj, exists, err := p.Store.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (p *WorkspaceCache) GetWorkspace(name string) (*workspaceapi.ClusterWorkspa
 	if !exists {
 		// give the cache time to observe a recent workspace creation
 		time.Sleep(50 * time.Millisecond)
-		workspaceObj, exists, err = p.Store.Get(key)
+		clusterWorkspaceObj, exists, err = p.Store.Get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -73,23 +73,23 @@ func (p *WorkspaceCache) GetWorkspace(name string) (*workspaceapi.ClusterWorkspa
 		}
 	}
 
-	var workspace *workspaceapi.ClusterWorkspace
+	var clusterWorkspace *workspaceapi.ClusterWorkspace
 	if exists {
-		workspace = workspaceObj.(*workspaceapi.ClusterWorkspace)
+		clusterWorkspace = clusterWorkspaceObj.(*workspaceapi.ClusterWorkspace)
 	} else {
 		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
-		workspace, err = p.Client.Get(context.TODO(), name, metav1.GetOptions{})
+		clusterWorkspace, err = p.Client.Get(context.TODO(), name, metav1.GetOptions{})
 		// the workspace does not exist, so prevent create and update in that workspace
 		if err != nil {
 			return nil, fmt.Errorf("workspace %s does not exist", name)
 		}
 		klog.V(4).Infof("found %s via storage lookup", name)
 	}
-	return workspace, nil
+	return clusterWorkspace, nil
 }
 
 // Run waits until the cache has synced.
-func (c *WorkspaceCache) Run(stopCh <-chan struct{}) {
+func (c *ClusterWorkspaceCache) Run(stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
 		return
@@ -98,13 +98,13 @@ func (c *WorkspaceCache) Run(stopCh <-chan struct{}) {
 }
 
 // Running determines if the cache is initialized and running
-func (c *WorkspaceCache) Running() bool {
+func (c *ClusterWorkspaceCache) Running() bool {
 	return c.Store != nil
 }
 
 // NewFake is used for testing purpose only
-func NewFake(c workspaceClient.ClusterWorkspaceInterface, store cache.Indexer, defaultNodeSelector string) *WorkspaceCache {
-	return &WorkspaceCache{
+func NewFake(c workspaceClient.ClusterWorkspaceInterface, store cache.Indexer, defaultNodeSelector string) *ClusterWorkspaceCache {
+	return &ClusterWorkspaceCache{
 		Client:              c,
 		Store:               store,
 		DefaultNodeSelector: defaultNodeSelector,

@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
-	tenancyAPI "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -105,15 +105,15 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 		return nil, nil, err
 	}
 
-	workspacesCRD, err := apiExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "workspaces."+tenancyAPI.SchemeGroupVersion.Group, metav1.GetOptions{})
+	clusterWorkspacesCRD, err := apiExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "clusterworkspaces."+tenancyv1alpha1.SchemeGroupVersion.Group, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
-		return nil, nil, errors.New("The Workspaces CRD should be registered in the cluster providing the workspaces")
+		return nil, nil, errors.New("the ClusterWorkspaces CRD should be registered in the cluster providing the workspaces")
 	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	adminLogicalClusterName := workspacesCRD.ClusterName
+	adminLogicalClusterName := clusterWorkspacesCRD.ClusterName
 
 	kubeClientClusterChooser, err := kubernetes.NewClusterForConfig(kubeClientConfig)
 	if err != nil {

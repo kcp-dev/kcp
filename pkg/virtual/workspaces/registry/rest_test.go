@@ -39,7 +39,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 )
@@ -98,7 +100,7 @@ func (m mockReviewerProvider) ForVerb(checkedVerb string) workspaceauth.Reviewer
 type TestData struct {
 	clusterRoles        []rbacv1.ClusterRole
 	clusterRoleBindings []rbacv1.ClusterRoleBinding
-	workspaces          []tenancyv1alpha1.ClusterWorkspace
+	clusterWorkspaces   []tenancyv1alpha1.ClusterWorkspace
 	workspaceShards     []tenancyv1alpha1.WorkspaceShard
 	secrets             []corev1.Secret
 	workspaceLister     *mockLister
@@ -119,7 +121,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	watcherStarted := make(chan struct{})
 
 	workspaceList := tenancyv1alpha1.ClusterWorkspaceList{
-		Items: test.workspaces,
+		Items: test.clusterWorkspaces,
 	}
 	workspaceShardList := tenancyv1alpha1.WorkspaceShardList{
 		Items: test.workspaceShards,
@@ -198,19 +200,19 @@ func applyTest(t *testing.T, test TestDescription) {
 	// informer/controllers.
 	<-watcherStarted
 
-	workspaceLister := test.workspaceLister
-	if workspaceLister == nil {
-		workspaceLister = &mockLister{
-			workspaces: test.workspaces,
+	clusterWorkspaceLister := test.workspaceLister
+	if clusterWorkspaceLister == nil {
+		clusterWorkspaceLister = &mockLister{
+			workspaces: test.clusterWorkspaces,
 		}
 	}
 
 	storage := REST{
 		rbacClient:                mockKubeClient.RbacV1(),
 		crbInformer:               crbInformer,
-		workspaceClient:           mockKCPClient.TenancyV1alpha1().Workspaces(),
+		clusterWorkspaceClient:    mockKCPClient.TenancyV1alpha1().ClusterWorkspaces(),
 		crbLister:                 kubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		workspaceLister:           workspaceLister,
+		clusterWorkspaceLister:    clusterWorkspaceLister,
 		workspaceReviewerProvider: test.reviewerProvider,
 	}
 	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
@@ -221,7 +223,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	ctx = apirequest.WithUser(ctx, test.user)
 	ctx = apirequest.WithValue(ctx, WorkspacesScopeKey, test.scope)
 
-	test.apply(t, &storage, &kubeconfigSubresourceStorage, ctx, mockKubeClient, mockKCPClient, workspaceLister.CheckedUsers, test.TestData)
+	test.apply(t, &storage, &kubeconfigSubresourceStorage, ctx, mockKubeClient, mockKCPClient, clusterWorkspaceLister.CheckedUsers, test.TestData)
 }
 
 func TestListPersonalWorkspaces(t *testing.T) {
@@ -238,7 +240,7 @@ func TestListPersonalWorkspaces(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -264,10 +266,10 @@ func TestListPersonalWorkspaces(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
-			workspaces := response.(*tenancyv1alpha1.ClusterWorkspaceList)
+			workspaces := response.(*tenancyv1beta1.WorkspaceList)
 			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
-			responseWorkspace := workspaces.Items[0]
-			assert.Equal(t, "foo", responseWorkspace.Name)
+			responseClusterWorkspace := workspaces.Items[0]
+			assert.Equal(t, "foo", responseClusterWorkspace.Name)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
 			assert.Equal(t,
@@ -297,7 +299,7 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
 				},
@@ -323,7 +325,7 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
-			workspaces := response.(*tenancyv1alpha1.ClusterWorkspaceList)
+			workspaces := response.(*tenancyv1beta1.WorkspaceList)
 			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
 			responseWorkspace := workspaces.Items[0]
 			assert.Equal(t, "foo", responseWorkspace.Name)
@@ -360,7 +362,7 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -386,7 +388,7 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
-			workspaces := response.(*tenancyv1alpha1.ClusterWorkspaceList)
+			workspaces := response.(*tenancyv1beta1.WorkspaceList)
 			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
 			responseWorkspace := workspaces.Items[0]
 			assert.Equal(t, "foo", responseWorkspace.Name)
@@ -415,7 +417,7 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
 				},
@@ -441,7 +443,7 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
-			workspaces := response.(*tenancyv1alpha1.ClusterWorkspaceList)
+			workspaces := response.(*tenancyv1beta1.WorkspaceList)
 			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
 			responseWorkspace := workspaces.Items[0]
 			assert.Equal(t, "foo--1", responseWorkspace.Name)
@@ -470,7 +472,7 @@ func TestGetPersonalWorkspace(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -496,8 +498,8 @@ func TestGetPersonalWorkspace(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
 			require.NoError(t, err)
-			require.IsType(t, &tenancyv1alpha1.ClusterWorkspace{}, response)
-			responseWorkspace := response.(*tenancyv1alpha1.ClusterWorkspace)
+			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
+			responseWorkspace := response.(*tenancyv1beta1.Workspace)
 			assert.Equal(t, "foo", responseWorkspace.Name)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
@@ -528,7 +530,7 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
 				},
@@ -554,8 +556,8 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
 			require.NoError(t, err)
-			require.IsType(t, &tenancyv1alpha1.ClusterWorkspace{}, response)
-			responseWorkspace := response.(*tenancyv1alpha1.ClusterWorkspace)
+			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
+			responseWorkspace := response.(*tenancyv1beta1.Workspace)
 			assert.Equal(t, "foo", responseWorkspace.Name)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
@@ -586,7 +588,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -685,7 +687,7 @@ func TestCreateWorkspace(t *testing.T) {
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1alpha1.ClusterWorkspace{
+			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
@@ -693,8 +695,8 @@ func TestCreateWorkspace(t *testing.T) {
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
 			require.NoError(t, err)
 			require.NotNil(t, response)
-			require.IsType(t, &tenancyv1alpha1.ClusterWorkspace{}, response)
-			workspace := response.(*tenancyv1alpha1.ClusterWorkspace)
+			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
+			workspace := response.(*tenancyv1beta1.Workspace)
 			assert.Equal(t, "foo", workspace.Name)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
 			require.NoError(t, err)
@@ -794,7 +796,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -864,7 +866,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1alpha1.ClusterWorkspace{
+			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
@@ -872,8 +874,8 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
 			require.NoError(t, err)
 			require.NotNil(t, response)
-			require.IsType(t, &tenancyv1alpha1.ClusterWorkspace{}, response)
-			workspace := response.(*tenancyv1alpha1.ClusterWorkspace)
+			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
+			workspace := response.(*tenancyv1beta1.Workspace)
 			assert.Equal(t, "foo", workspace.Name)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
 			require.NoError(t, err)
@@ -950,10 +952,10 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 				},
 			))
 
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
+			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
 			require.NoError(t, err)
 			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.ElementsMatch(t, wsList.Items, append(testData.workspaces,
+			assert.ElementsMatch(t, wsList.Items, append(testData.clusterWorkspaces,
 				tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo--1",
@@ -979,7 +981,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -1049,7 +1051,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1alpha1.ClusterWorkspace{
+			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
@@ -1066,10 +1068,10 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			require.NoError(t, err)
 			crs := crList.(*rbacv1.ClusterRoleList)
 			assert.ElementsMatch(t, crs.Items, testData.clusterRoles)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
+			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
 			require.NoError(t, err)
 			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.ElementsMatch(t, wsList.Items, testData.workspaces)
+			assert.ElementsMatch(t, wsList.Items, testData.clusterWorkspaces)
 		},
 	}
 	applyTest(t, test)
@@ -1089,7 +1091,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -1159,10 +1161,10 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			require.NoError(t, err)
 			crs := crList.(*rbacv1.ClusterRoleList)
 			assert.ElementsMatch(t, crs.Items, testData.clusterRoles)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
+			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
 			require.NoError(t, err)
 			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.ElementsMatch(t, wsList.Items, testData.workspaces)
+			assert.ElementsMatch(t, wsList.Items, testData.clusterWorkspaces)
 		},
 	}
 	applyTest(t, test)
@@ -1182,7 +1184,7 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -1252,10 +1254,10 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			require.NoError(t, err)
 			crs := crList.(*rbacv1.ClusterRoleList)
 			assert.ElementsMatch(t, crs.Items, testData.clusterRoles)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
+			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
 			require.NoError(t, err)
 			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.ElementsMatch(t, wsList.Items, testData.workspaces)
+			assert.ElementsMatch(t, wsList.Items, testData.clusterWorkspaces)
 		},
 	}
 	applyTest(t, test)
@@ -1285,7 +1287,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 					},
 				},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
@@ -1355,7 +1357,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			require.NoError(t, err)
 			crs := crList.(*rbacv1.ClusterRoleList)
 			assert.Empty(t, crs.Items)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
+			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
 			require.NoError(t, err)
 			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
 			assert.Empty(t, wsList.Items)
@@ -1388,7 +1390,7 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 					},
 				},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
 				},
@@ -1458,11 +1460,19 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			require.NoError(t, err)
 			crs := crList.(*rbacv1.ClusterRoleList)
 			assert.Empty(t, crs.Items)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
+			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
 			require.NoError(t, err)
 			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
 			assert.Empty(t, wsList.Items)
 		},
 	}
 	applyTest(t, test)
+}
+
+func clusterWorkspacesToWorkspaces(list []tenancyv1alpha1.ClusterWorkspace) []tenancyv1beta1.Workspace {
+	ret := make([]tenancyv1beta1.Workspace, len(list))
+	for i, cws := range list {
+		projection.ProjectClusterWorkspaceToWorkspace(&cws, &ret[i])
+	}
+	return ret
 }

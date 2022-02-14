@@ -21,19 +21,23 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	workspacescmd "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cmd"
@@ -44,7 +48,7 @@ import (
 
 type testDataType struct {
 	user1, user2, user3                                                      framework.User
-	workspace1, workspace1Disambiguited, workspace2, workspace2Disambiguited *tenancyv1alpha1.ClusterWorkspace
+	workspace1, workspace1Disambiguited, workspace2, workspace2Disambiguited *tenancyv1beta1.Workspace
 }
 
 var testData = testDataType{
@@ -66,10 +70,10 @@ var testData = testDataType{
 		Token:  "user-3-token",
 		Groups: []string{"team-3"},
 	},
-	workspace1:              &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1"}},
-	workspace1Disambiguited: &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1--1"}},
-	workspace2:              &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2"}},
-	workspace2Disambiguited: &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2--1"}},
+	workspace1:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1"}},
+	workspace1Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1--1"}},
+	workspace2:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2"}},
+	workspace2Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2--1"}},
 }
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
@@ -79,7 +83,6 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 		framework.RunningServer
 		kubeClient                     kubernetes.Interface
 		kcpClient                      clientset.Interface
-		kcpExpect                      framework.RegisterWorkspaceExpectation
 		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
 		virtualWorkspaceClients        []clientset.Interface
 		virtualWorkspaceExpectations   []framework.RegisterWorkspaceListExpectation
@@ -104,39 +107,52 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
 				vwUser2Client := server.virtualWorkspaceClients[1]
-				workspace1, err := vwUser1Client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace1")
 
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
-				workspace2, err := vwUser2Client.TenancyV1alpha1().ClusterWorkspace().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+				workspace2, err := vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace2")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
+					return server.kcpClient.TenancyV1beta1().Workspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
 				})
 
-				err = server.kcpExpect(workspace1, func(w *tenancyv1alpha1.ClusterWorkspace) error {
-					return nil
+				err = wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (done bool, err error) {
+					if _, err := server.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{}); err != nil {
+						if apierrors.IsNotFound(err) {
+							return false, nil
+						}
+						return false, err
+					}
+					return true, nil
 				})
-				require.NoError(t, err, "did not see the workspace1 created in KCP")
+				require.NoError(t, err, "did not see the workspace1 created and valid in KCP")
 
-				err = server.kcpExpect(workspace2, func(w *tenancyv1alpha1.ClusterWorkspace) error {
-					return nil
-				})
-				require.NoError(t, err, "did not see the workspace2 created in KCP")
+				if err := wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (done bool, err error) {
+					if _, err := server.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{}); err != nil {
+						if apierrors.IsNotFound(err) {
+							return false, nil
+						}
+						return false, err
+					}
+					return true, nil
+				}); err != nil {
+					t.Errorf("did not see the workspace1 created and valid in KCP: %v", err)
+					return
+				}
 
-				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1alpha1.ClusterWorkspaceList) error {
+				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
 					}
 					return nil
 				})
-				require.NoError(t, err, "did not see workspace1 created in personal virtual workspace")
-
-				err = server.virtualWorkspaceExpectations[1](func(w *tenancyv1alpha1.ClusterWorkspaceList) error {
+				require.NoError(t, err, "did not see the workspace created in personal virtual workspace")
+				err = server.virtualWorkspaceExpectations[1](func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace2.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace2.Name, w)
 					}
@@ -192,24 +208,30 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					return server.kcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, "boston", metav1.GetOptions{})
 				})
 
-				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace1")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+					return server.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
 				workspaceURL := ""
-				err = server.kcpExpect(workspace1, func(w *tenancyv1alpha1.ClusterWorkspaces) error {
-					if !conditions.IsTrue(w, tenancyv1alpha1.WorkspaceURLValid) {
-						return fmt.Errorf("ClusterWorkspace %s is not valid: %s", w.Name, conditions.GetMessage(w, tenancyv1alpha1.WorkspaceURLValid))
+				err = wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (done bool, err error) {
+					cw, err := server.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+					if err != nil {
+						if apierrors.IsNotFound(err) {
+							return false, nil
+						}
+						return false, err
+					} else if !conditions.IsTrue(cw, tenancyv1alpha1.WorkspaceURLValid) {
+						return false, fmt.Errorf("ClusterWorkspace %s is not valid: %s", cw.Name, conditions.GetMessage(cw, tenancyv1alpha1.WorkspaceURLValid))
 					}
-					workspaceURL = w.Status.BaseURL
-					return nil
+					workspaceURL = cw.Status.BaseURL
+					return true, nil
 				})
 				require.NoError(t, err, "did not see the workspace created and valid in KCP")
 
-				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1alpha1.ClusterWorkspaceList) error {
+				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
 					}
@@ -217,7 +239,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				})
 				require.NoError(t, err, "did not see the workspace created in personal virtual workspace")
 
-				req := vwUser1Client.TenancyV1alpha1().RESTClient().Get().Resource("workspaces").Name(workspace1.Name).SubResource("kubeconfig").Do(ctx)
+				req := vwUser1Client.TenancyV1beta1().RESTClient().Get().Resource("workspaces").Name(workspace1.Name).SubResource("kubeconfig").Do(ctx)
 				require.Nil(t, req.Error(), "error retrieving the kubeconfig for workspace %s: %v", workspace1.Name, err)
 
 				kcpConfigCurrentContextName := kcpServerKubeconfig.CurrentContext
@@ -316,25 +338,22 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			kcpCfg, err := server.Config()
 			require.NoError(t, err)
 
-			clusterName, err := detectClusterName(kcpCfg, ctx)
+			orgWorkspaceName, err := detectClusterName(kcpCfg, ctx)
 			require.NoError(t, err, "failed to detect cluster name")
 
 			kubeClients, err := kubernetes.NewClusterForConfig(kcpCfg)
 			require.NoError(t, err, "failed to construct client for server")
 
-			kubeClient := kubeClients.Cluster(clusterName)
+			kubeClient := kubeClients.Cluster(orgWorkspaceName)
 			kcpClients, err := clientset.NewClusterForConfig(kcpCfg)
 			require.NoError(t, err, "failed to construct client for server")
 
-			kcpClient := kcpClients.Cluster(clusterName)
-			kcpExpect, err := framework.ExpectWorkspaces(ctx, t, kcpClient)
-			require.NoError(t, err, "failed to start expecter")
+			kcpClient := kcpClients.Cluster(orgWorkspaceName)
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:                  server,
 				kubeClient:                     kubeClient,
 				kcpClient:                      kcpClient,
-				kcpExpect:                      kcpExpect,
 				virtualWorkspaceClientContexts: testCase.virtualWorkspaceClientContexts,
 				virtualWorkspaceClients:        virtualWorkspaceClients,
 				virtualWorkspaceExpectations:   virtualWorkspaceExpectations,
@@ -357,7 +376,7 @@ func detectClusterName(cfg *rest.Config, ctx context.Context) (string, error) {
 		return "", errors.New("found no crds, cannot detect cluster name")
 	}
 	for _, crd := range crds.Items {
-		if crd.ObjectMeta.Name == "workspaces.tenancy.kcp.dev" {
+		if crd.ObjectMeta.Name == "clusterworkspaces.tenancy.kcp.dev" {
 			return crd.ObjectMeta.ClusterName, nil
 		}
 	}
