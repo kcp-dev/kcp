@@ -43,7 +43,7 @@ import (
 const WorkspacesVirtualWorkspaceName string = "workspaces"
 const DefaultRootPathPrefix string = "/services/applications"
 
-func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.WorkspaceInformer, kcpClient kcpclient.Interface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.ClusterWorkspaceInformer, kcpClient kcpclient.Interface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
 	crbInformer := rbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
@@ -90,7 +90,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.W
 						rbacInformers,
 					)
 
-					workspaceClient := kcpClient.TenancyV1alpha1().Workspaces()
+					workspaceClient := kcpClient.TenancyV1alpha1().ClusterWorkspaces()
 					workspaceCache := workspacecache.NewWorkspaceCache(
 						workspaces.Informer(),
 						workspaceClient,

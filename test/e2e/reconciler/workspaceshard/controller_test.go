@@ -309,7 +309,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			cfg, err := server.Config()
 			require.NoError(t, err)
 
-			clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
+			clusterName, err := framework.DetectClusterName(cfg, ctx, "clusterworkspaces.tenancy.kcp.dev")
 			require.NoError(t, err, "failed to detect cluster name")
 
 			kcpClients, err := kcpclientset.NewClusterForConfig(cfg)

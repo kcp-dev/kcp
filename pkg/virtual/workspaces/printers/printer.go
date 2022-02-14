@@ -38,13 +38,13 @@ func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
 		{
 			Name:        "Phase",
 			Type:        "string",
-			Description: "Workspace phase",
+			Description: "ClusterWorkspace phase",
 			Priority:    1,
 		},
 		{
 			Name:        "Base URL",
 			Type:        "string",
-			Description: "Workspace API Server URL",
+			Description: "ClusterWorkspace API Server URL",
 			Priority:    2,
 		},
 	}
@@ -57,7 +57,7 @@ func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
 	}
 }
 
-func printWorkspace(workspace *workspaceapi.Workspace, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
+func printWorkspace(workspace *workspaceapi.ClusterWorkspace, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
 	row := metav1.TableRow{
 		Object: runtime.RawExtension{Object: workspace},
 	}
@@ -67,7 +67,7 @@ func printWorkspace(workspace *workspaceapi.Workspace, options kprinters.Generat
 	return []metav1.TableRow{row}, nil
 }
 
-func printWorkspaceList(list *workspaceapi.WorkspaceList, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
+func printWorkspaceList(list *workspaceapi.ClusterWorkspaceList, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
 	sort.Sort(SortableWorkspaces(list.Items))
 	rows := make([]metav1.TableRow, 0, len(list.Items))
 	for i := range list.Items {
@@ -81,7 +81,7 @@ func printWorkspaceList(list *workspaceapi.WorkspaceList, options kprinters.Gene
 }
 
 // SortableWorkspaces is a list of workspaces that can be sorted
-type SortableWorkspaces []workspaceapi.Workspace
+type SortableWorkspaces []workspaceapi.ClusterWorkspace
 
 func (list SortableWorkspaces) Len() int {
 	return len(list)

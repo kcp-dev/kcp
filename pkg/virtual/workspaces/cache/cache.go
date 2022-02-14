@@ -31,7 +31,7 @@ import (
 )
 
 // NewWorkspaceCache returns a non-initialized WorkspaceCache. The cache needs to be run to begin functioning
-func NewWorkspaceCache(workspaces cache.SharedIndexInformer, client workspaceClient.WorkspaceInterface, defaultNodeSelector string) *WorkspaceCache {
+func NewWorkspaceCache(workspaces cache.SharedIndexInformer, client workspaceClient.ClusterWorkspaceInterface, defaultNodeSelector string) *WorkspaceCache {
 	if err := workspaces.GetIndexer().AddIndexers(cache.Indexers{
 		"requester": indexWorkspaceByRequester,
 	}); err != nil {
@@ -46,14 +46,14 @@ func NewWorkspaceCache(workspaces cache.SharedIndexInformer, client workspaceCli
 }
 
 type WorkspaceCache struct {
-	Client              workspaceClient.WorkspaceInterface
+	Client              workspaceClient.ClusterWorkspaceInterface
 	Store               cache.Indexer
 	HasSynced           cache.InformerSynced
 	DefaultNodeSelector string
 }
 
-func (p *WorkspaceCache) GetWorkspace(name string) (*workspaceapi.Workspace, error) {
-	key := &workspaceapi.Workspace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+func (p *WorkspaceCache) GetWorkspace(name string) (*workspaceapi.ClusterWorkspace, error) {
+	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: name}}
 
 	// check for workspace in the cache
 	workspaceObj, exists, err := p.Store.Get(key)
@@ -73,9 +73,9 @@ func (p *WorkspaceCache) GetWorkspace(name string) (*workspaceapi.Workspace, err
 		}
 	}
 
-	var workspace *workspaceapi.Workspace
+	var workspace *workspaceapi.ClusterWorkspace
 	if exists {
-		workspace = workspaceObj.(*workspaceapi.Workspace)
+		workspace = workspaceObj.(*workspaceapi.ClusterWorkspace)
 	} else {
 		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
 		workspace, err = p.Client.Get(context.TODO(), name, metav1.GetOptions{})
@@ -103,7 +103,7 @@ func (c *WorkspaceCache) Running() bool {
 }
 
 // NewFake is used for testing purpose only
-func NewFake(c workspaceClient.WorkspaceInterface, store cache.Indexer, defaultNodeSelector string) *WorkspaceCache {
+func NewFake(c workspaceClient.ClusterWorkspaceInterface, store cache.Indexer, defaultNodeSelector string) *WorkspaceCache {
 	return &WorkspaceCache{
 		Client:              c,
 		Store:               store,
@@ -120,6 +120,6 @@ func NewCacheStore(keyFn cache.KeyFunc) cache.Indexer {
 
 // indexWorkspaceByRequester returns the requester for a given workspace object as an index value
 func indexWorkspaceByRequester(obj interface{}) ([]string, error) {
-	requester := obj.(*workspaceapi.Workspace).Annotations["kcp.dev/workspace-requester"]
+	requester := obj.(*workspaceapi.ClusterWorkspace).Annotations["kcp.dev/workspace-requester"]
 	return []string{requester}, nil
 }

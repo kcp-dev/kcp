@@ -49,7 +49,7 @@ type clusterDiscovery interface {
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
 type DynamicDiscoverySharedInformerFactory struct {
-	workspaceLister tenancylisters.WorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 	disco           clusterDiscovery
 	dsif            dynamicinformer.DynamicSharedInformerFactory
 	handler         GVREventHandler
@@ -94,7 +94,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.Gr
 // informers that discovers new types and informs on updates to resources of
 // those types.
 func NewDynamicDiscoverySharedInformerFactory(
-	workspaceLister tenancylisters.WorkspaceLister,
+	workspaceLister tenancylisters.ClusterWorkspaceLister,
 	disco clusterDiscovery,
 	dynClient dynamic.Interface,
 	filterFunc func(obj interface{}) bool,
@@ -234,7 +234,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 		if gvr == nil {
 			// TODO(ncdc): consider tracking where each gvrstr came from (which workspace) so we can include that in the error.
-			multierr.AppendInto(&merr, fmt.Errorf("Unable to parse %q to a GroupVersionResource", gvrstr))
+			multierr.AppendInto(&merr, fmt.Errorf("unable to parse %q to a GroupVersionResource", gvrstr))
 			continue
 		}
 

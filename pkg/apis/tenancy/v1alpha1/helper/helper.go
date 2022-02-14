@@ -36,7 +36,7 @@ const (
 // EncodeLogicalClusterName determines the logical cluster name for a workspace.
 // We assume that the organization that this workspace resides in is the cluster
 // it lives in.
-func EncodeLogicalClusterName(workspace *tenancyapi.Workspace) (string, error) {
+func EncodeLogicalClusterName(workspace *tenancyapi.ClusterWorkspace) (string, error) {
 	orgName := workspace.ClusterName
 	if workspace.ClusterName != OrganizationCluster {
 		_, name, err := ParseLogicalClusterName(workspace.ClusterName)
@@ -54,7 +54,7 @@ func EncodeOrganizationAndWorkspace(organization, workspace string) string {
 	return organization + separator + workspace
 }
 
-// WorkspaceKey returns a key to use when looking up a Workspace in a lister or indexer.
+// WorkspaceKey returns a key to use when looking up a ClusterWorkspace in a lister or indexer.
 // If org is the value of OrganizationCluster, the key will be of the format
 // <OrganizationCluster>#$#<ws>. Otherwise, the key will be of the format
 // <OrganizationClsuter>_<org>#$#<ws>.

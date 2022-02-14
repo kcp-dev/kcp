@@ -49,7 +49,7 @@ type KubeconfigSubresourceREST struct {
 var _ rest.Getter = &KubeconfigSubresourceREST{}
 var _ rest.Scoper = &KubeconfigSubresourceREST{}
 
-// Get retrieves a Workspace KubeConfig by workspace name
+// Get retrieves a ClusterWorkspace KubeConfig by workspace name
 func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 	wrapError := func(err error) error {
 		k8sErr := kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces/kubeconfig").GroupResource(), name)
@@ -64,13 +64,13 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 	if err != nil {
 		return nil, err
 	}
-	workspace, isAWorkspace := runtimeWorkspace.(*tenancyv1alpha1.Workspace)
+	workspace, isAWorkspace := runtimeWorkspace.(*tenancyv1alpha1.ClusterWorkspace)
 	if !isAWorkspace {
-		return nil, wrapError(fmt.Errorf("Workspace '%s' doesn't have the expected type ! This should never happen.", name))
+		return nil, wrapError(fmt.Errorf("ClusterWorkspace '%s' doesn't have the expected type ! This should never happen.", name))
 	}
 	scope := ctx.Value(WorkspacesScopeKey).(string)
 	if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
-		return nil, wrapError(errors.New("Workspace URL is not valid"))
+		return nil, wrapError(errors.New("ClusterWorkspace URL is not valid"))
 	}
 	shard, err := s.workspaceShardClient.Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
 	if err != nil {
@@ -86,16 +86,16 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 	}
 	shardKubeConfig, err := clientcmd.Load(data)
 	if err != nil {
-		return nil, wrapError(fmt.Errorf("Workspace shard Kubeconfig is invalid: %w", err))
+		return nil, wrapError(fmt.Errorf("ClusterWorkspace shard Kubeconfig is invalid: %w", err))
 	}
 
 	currentContext := shardKubeConfig.Contexts[shardKubeConfig.CurrentContext]
 	if currentContext == nil {
-		return nil, wrapError(errors.New("Workspace shard Kubeconfig has no current context"))
+		return nil, wrapError(errors.New("ClusterWorkspace shard Kubeconfig has no current context"))
 	}
 	currentCluster := shardKubeConfig.Clusters[currentContext.Cluster]
 	if currentCluster == nil {
-		return nil, wrapError(fmt.Errorf("Workspace shard Kubeconfig has no cluster corresponding to the current context cluster key: %s", currentContext.Cluster))
+		return nil, wrapError(fmt.Errorf("ClusterWorkspace shard Kubeconfig has no cluster corresponding to the current context cluster key: %s", currentContext.Cluster))
 	}
 	currentCluster.Server = workspace.Status.BaseURL
 
@@ -120,10 +120,10 @@ func (s *KubeconfigSubresourceREST) NamespaceScoped() bool {
 	return false
 }
 
-// New creates a new Workspace log options object
+// New creates a new ClusterWorkspace log options object
 func (r *KubeconfigSubresourceREST) New() runtime.Object {
 	// TODO - return a resource that represents a log
-	return &tenancyv1alpha1.Workspace{}
+	return &tenancyv1alpha1.ClusterWorkspace{}
 }
 
 // ProducesMIMETypes returns a list of the MIME types the specified HTTP verb (GET, POST, DELETE,

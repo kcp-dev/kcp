@@ -41,10 +41,10 @@ import (
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-// inheritanceCRDLister is a CRD lister that add support for Workspace API inheritance.
+// inheritanceCRDLister is a CRD lister that add support for ClusterWorkspace API inheritance.
 type inheritanceCRDLister struct {
 	crdLister       apiextensionslisters.CustomResourceDefinitionLister
-	workspaceLister tenancylisters.WorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 }
 
 var _ apiextensionslisters.CustomResourceDefinitionLister = (*inheritanceCRDLister)(nil)
@@ -56,9 +56,9 @@ func (c *inheritanceCRDLister) List(selector labels.Selector) ([]*apiextensionsv
 }
 
 // ListWithContext lists all CustomResourceDefinitions in the logical cluster associated with ctx that match
-// selector. Workspace API inheritance is also supported: if the Workspace for ctx's logical cluster
-// has spec.inheritFrom set, it will aggregate all CustomResourceDefinitions from the Workspace named
-// spec.inheritFrom with the CustomResourceDefinitions from the Workspace for ctx's logical cluster.
+// selector. ClusterWorkspace API inheritance is also supported: if the ClusterWorkspace for ctx's logical cluster
+// has spec.inheritFrom set, it will aggregate all CustomResourceDefinitions from the ClusterWorkspace named
+// spec.inheritFrom with the CustomResourceDefinitions from the ClusterWorkspace for ctx's logical cluster.
 func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
@@ -73,8 +73,8 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 		return nil, err
 	}
 
-	// Chicken-and-egg: we need the Workspace CRD to be created in the default admin logical cluster
-	// before we can try to get said Workspace, but if we fail listing because the Workspace doesn't
+	// Chicken-and-egg: we need the ClusterWorkspace CRD to be created in the default admin logical cluster
+	// before we can try to get said ClusterWorkspace, but if we fail listing because the ClusterWorkspace doesn't
 	// exist, we'll never be able to create it. Only check if the target workspace exists for
 	// non-default keys.
 	if cluster.Name != helper.OrganizationCluster && c.workspaceLister != nil {
@@ -82,12 +82,12 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 		workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 		if err != nil && !apierrors.IsNotFound(err) {
 			// Only return errors other than not-found. If we couldn't find the workspace, let's continue
-			// to list the CRDs in ctx's logical cluster, at least until we have proper Workspace permissions
+			// to list the CRDs in ctx's logical cluster, at least until we have proper ClusterWorkspace permissions
 			// requirements in place (i.e. reject all requests to a logical cluster if there isn't a
-			// Workspace for it). Otherwise, because this method is used for API discovery, you'd have
+			// ClusterWorkspace for it). Otherwise, because this method is used for API discovery, you'd have
 			// a weird situation where you could create a CRD but not be able to perform CRUD operations
 			// on its CRs with kubectl (because it relies on discovery, and returning [] when we can't
-			// find the Workspace would mean CRDs from this logical cluster wouldn't be in discovery).
+			// find the ClusterWorkspace would mean CRDs from this logical cluster wouldn't be in discovery).
 			return nil, err
 		}
 
@@ -136,9 +136,9 @@ func (c *inheritanceCRDLister) Get(name string) (*apiextensionsv1.CustomResource
 }
 
 // GetWithContext gets a CustomResourceDefinitions in the logical cluster associated with ctx by
-// name. Workspace API inheritance is also supported: if ctx's logical cluster does not contain the
-// CRD, and if the Workspace for ctx's logical cluster has spec.inheritFrom set, it will try to find
-// the CRD in the referenced Workspace/logical cluster.
+// name. ClusterWorkspace API inheritance is also supported: if ctx's logical cluster does not contain the
+// CRD, and if the ClusterWorkspace for ctx's logical cluster has spec.inheritFrom set, it will try to find
+// the CRD in the referenced ClusterWorkspace/logical cluster.
 func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
@@ -193,7 +193,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		return crd, nil
 	}
 
-	// Workspace CRD is apparently not installed
+	// ClusterWorkspace CRD is apparently not installed
 	if c.workspaceLister == nil {
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
@@ -203,7 +203,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 	if err != nil {
 		// If we're here it means ctx's logical cluster doesn't have the CRD and there isn't a
-		// Workspace for the logical cluster. Just return not-found.
+		// ClusterWorkspace for the logical cluster. Just return not-found.
 		if apierrors.IsNotFound(err) {
 			return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 		}
@@ -212,7 +212,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	}
 
 	if workspace.Spec.InheritFrom == "" {
-		// If we're here it means ctx's logical cluster doesn't have the CRD, the Workspace exists,
+		// If we're here it means ctx's logical cluster doesn't have the CRD, the ClusterWorkspace exists,
 		// but it's not inheriting. Just return not-found.
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
@@ -224,8 +224,8 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	} else {
 		sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
 		if _, err := c.workspaceLister.Get(sourceWorkspaceKey); err != nil {
-			// If we're here it means ctx's logical cluster doesn't have the CRD, the Workspace exists,
-			// we are inheriting, but the Workspace we're inheriting from doesn't exist. Just return
+			// If we're here it means ctx's logical cluster doesn't have the CRD, the ClusterWorkspace exists,
+			// we are inheriting, but the ClusterWorkspace we're inheriting from doesn't exist. Just return
 			// not-found.
 			if apierrors.IsNotFound(err) {
 				return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
@@ -268,7 +268,7 @@ func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (
 // we can supply our own inheritance-aware CRD lister.
 type kcpAPIExtensionsSharedInformerFactory struct {
 	apiextensionsexternalversions.SharedInformerFactory
-	workspaceLister tenancylisters.WorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 }
 
 // Apiextensions returns an apiextensions.Interface that supports inheritance when getting and
@@ -285,7 +285,7 @@ func (f *kcpAPIExtensionsSharedInformerFactory) Apiextensions() apiextensions.In
 // we can supply our own inheritance-aware CRD lister.
 type kcpAPIExtensionsApiextensions struct {
 	apiextensions.Interface
-	workspaceLister tenancylisters.WorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 }
 
 // V1 returns an apiextensionsinformerv1.Interface that supports inheritance when getting and
@@ -302,7 +302,7 @@ func (i *kcpAPIExtensionsApiextensions) V1() apiextensionsinformerv1.Interface {
 // we can supply our own inheritance-aware CRD lister.
 type kcpAPIExtensionsApiextensionsV1 struct {
 	apiextensionsinformerv1.Interface
-	workspaceLister tenancylisters.WorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 }
 
 // CustomResourceDefinitions returns an apiextensionsinformerv1.CustomResourceDefinitionInformer
@@ -320,7 +320,7 @@ func (i *kcpAPIExtensionsApiextensionsV1) CustomResourceDefinitions() apiextensi
 // inheritance-aware CRD lister.
 type kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer struct {
 	apiextensionsinformerv1.CustomResourceDefinitionInformer
-	workspaceLister tenancylisters.WorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 }
 
 // Lister returns an apiextensionslisters.CustomResourceDefinitionLister

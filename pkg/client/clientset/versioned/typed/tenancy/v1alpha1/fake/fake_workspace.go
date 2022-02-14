@@ -38,22 +38,22 @@ type FakeWorkspaces struct {
 
 var workspacesResource = schema.GroupVersionResource{Group: "tenancy.kcp.dev", Version: "v1alpha1", Resource: "workspaces"}
 
-var workspacesKind = schema.GroupVersionKind{Group: "tenancy.kcp.dev", Version: "v1alpha1", Kind: "Workspace"}
+var workspacesKind = schema.GroupVersionKind{Group: "tenancy.kcp.dev", Version: "v1alpha1", Kind: "ClusterWorkspace"}
 
 // Get takes name of the workspace, and returns the corresponding workspace object, and an error if there is any.
-func (c *FakeWorkspaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Workspace, err error) {
+func (c *FakeWorkspaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterWorkspace, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(workspacesResource, name), &v1alpha1.Workspace{})
+		Invokes(testing.NewRootGetAction(workspacesResource, name), &v1alpha1.ClusterWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.Workspace), err
+	return obj.(*v1alpha1.ClusterWorkspace), err
 }
 
 // List takes label and field selectors, and returns the list of Workspaces that match those selectors.
-func (c *FakeWorkspaces) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.WorkspaceList, err error) {
+func (c *FakeWorkspaces) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ClusterWorkspaceList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(workspacesResource, workspacesKind, opts), &v1alpha1.WorkspaceList{})
+		Invokes(testing.NewRootListAction(workspacesResource, workspacesKind, opts), &v1alpha1.ClusterWorkspaceList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -62,8 +62,8 @@ func (c *FakeWorkspaces) List(ctx context.Context, opts v1.ListOptions) (result 
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.WorkspaceList{ListMeta: obj.(*v1alpha1.WorkspaceList).ListMeta}
-	for _, item := range obj.(*v1alpha1.WorkspaceList).Items {
+	list := &v1alpha1.ClusterWorkspaceList{ListMeta: obj.(*v1alpha1.ClusterWorkspaceList).ListMeta}
+	for _, item := range obj.(*v1alpha1.ClusterWorkspaceList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -78,40 +78,40 @@ func (c *FakeWorkspaces) Watch(ctx context.Context, opts v1.ListOptions) (watch.
 }
 
 // Create takes the representation of a workspace and creates it.  Returns the server's representation of the workspace, and an error, if there is any.
-func (c *FakeWorkspaces) Create(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.CreateOptions) (result *v1alpha1.Workspace, err error) {
+func (c *FakeWorkspaces) Create(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.CreateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(workspacesResource, workspace), &v1alpha1.Workspace{})
+		Invokes(testing.NewRootCreateAction(workspacesResource, workspace), &v1alpha1.ClusterWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.Workspace), err
+	return obj.(*v1alpha1.ClusterWorkspace), err
 }
 
 // Update takes the representation of a workspace and updates it. Returns the server's representation of the workspace, and an error, if there is any.
-func (c *FakeWorkspaces) Update(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (result *v1alpha1.Workspace, err error) {
+func (c *FakeWorkspaces) Update(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(workspacesResource, workspace), &v1alpha1.Workspace{})
+		Invokes(testing.NewRootUpdateAction(workspacesResource, workspace), &v1alpha1.ClusterWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.Workspace), err
+	return obj.(*v1alpha1.ClusterWorkspace), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeWorkspaces) UpdateStatus(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (*v1alpha1.Workspace, error) {
+func (c *FakeWorkspaces) UpdateStatus(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (*v1alpha1.ClusterWorkspace, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(workspacesResource, "status", workspace), &v1alpha1.Workspace{})
+		Invokes(testing.NewRootUpdateSubresourceAction(workspacesResource, "status", workspace), &v1alpha1.ClusterWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.Workspace), err
+	return obj.(*v1alpha1.ClusterWorkspace), err
 }
 
 // Delete takes name of the workspace and deletes it. Returns an error if one occurs.
 func (c *FakeWorkspaces) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(workspacesResource, name, opts), &v1alpha1.Workspace{})
+		Invokes(testing.NewRootDeleteActionWithOptions(workspacesResource, name, opts), &v1alpha1.ClusterWorkspace{})
 	return err
 }
 
@@ -119,16 +119,16 @@ func (c *FakeWorkspaces) Delete(ctx context.Context, name string, opts v1.Delete
 func (c *FakeWorkspaces) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	action := testing.NewRootDeleteCollectionAction(workspacesResource, listOpts)
 
-	_, err := c.Fake.Invokes(action, &v1alpha1.WorkspaceList{})
+	_, err := c.Fake.Invokes(action, &v1alpha1.ClusterWorkspaceList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched workspace.
-func (c *FakeWorkspaces) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Workspace, err error) {
+func (c *FakeWorkspaces) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterWorkspace, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(workspacesResource, name, pt, data, subresources...), &v1alpha1.Workspace{})
+		Invokes(testing.NewRootPatchSubresourceAction(workspacesResource, name, pt, data, subresources...), &v1alpha1.ClusterWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.Workspace), err
+	return obj.(*v1alpha1.ClusterWorkspace), err
 }

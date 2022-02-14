@@ -143,12 +143,12 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -227,12 +227,12 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -311,12 +311,12 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -395,12 +395,12 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -461,7 +461,7 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 			require.ErrorAs(t, err, &statusError)
 			require.Len(t, statusError.Status().Details.Causes, 1)
 			assert.Equal(t, statusError.Status().Details.Causes[0].Type, metav1.CauseTypeUnexpectedServerResponse)
-			assert.Regexp(t, "^Workspace shard Kubeconfig is invalid: .*", statusError.Status().Details.Causes[0].Message)
+			assert.Regexp(t, "^ClusterWorkspace shard Kubeconfig is invalid: .*", statusError.Status().Details.Causes[0].Message)
 			assert.Contains(t, statusError.Status().Details.Causes[0].Message, "illegal base64 data at input byte 7")
 		},
 	}
@@ -482,12 +482,12 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -548,7 +548,7 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			require.ErrorAs(t, err, &statusError)
 			require.Len(t, statusError.Status().Details.Causes, 1)
 			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
-			assert.Equal(t, "Workspace shard Kubeconfig has no current context", statusError.Status().Details.Causes[0].Message)
+			assert.Equal(t, "ClusterWorkspace shard Kubeconfig has no current context", statusError.Status().Details.Causes[0].Message)
 		},
 	}
 	applyTest(t, test)
@@ -568,12 +568,12 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -634,7 +634,7 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 			require.ErrorAs(t, err, &statusError)
 			require.Len(t, statusError.Status().Details.Causes, 1)
 			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
-			assert.Equal(t, "Workspace shard Kubeconfig is invalid: yaml: line 5: could not find expected ':'", statusError.Status().Details.Causes[0].Message)
+			assert.Equal(t, "ClusterWorkspace shard Kubeconfig is invalid: yaml: line 5: could not find expected ':'", statusError.Status().Details.Causes[0].Message)
 		},
 	}
 	applyTest(t, test)
@@ -654,12 +654,12 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -737,12 +737,12 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{
@@ -812,12 +812,12 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.Workspace{
+			workspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Status: tenancyv1alpha1.WorkspaceStatus{
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
-						Location: tenancyv1alpha1.WorkspaceLocation{
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
 							Current: "theOneAndOnlyShard",
 						},
 						Conditions: conditionsv1alpha1.Conditions{

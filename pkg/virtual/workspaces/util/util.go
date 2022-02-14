@@ -30,7 +30,7 @@ import (
 
 // getAttrs returns labels and fields of a given object for filtering purposes.
 func getAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
-	workspaceObj, ok := obj.(*workspaceapi.Workspace)
+	workspaceObj, ok := obj.(*workspaceapi.ClusterWorkspace)
 	if !ok {
 		return nil, nil, fmt.Errorf("not a workspace")
 	}
@@ -47,7 +47,7 @@ func MatchWorkspace(label labels.Selector, field fields.Selector) apistorage.Sel
 }
 
 // workspaceToSelectableFields returns a field set that represents the object
-func workspaceToSelectableFields(workspaceObj *workspaceapi.Workspace) fields.Set {
+func workspaceToSelectableFields(workspaceObj *workspaceapi.ClusterWorkspace) fields.Set {
 	objectMetaFieldsSet := generic.ObjectMetaFieldsSet(&workspaceObj.ObjectMeta, false)
 	specificFieldsSet := fields.Set{
 		"status.phase": string(workspaceObj.Status.Phase),
