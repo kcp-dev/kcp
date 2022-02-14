@@ -33,42 +33,42 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-// WorkspaceInformer provides access to a shared informer and lister for
-// Workspaces.
-type WorkspaceInformer interface {
+// ClusterWorkspaceInformer provides access to a shared informer and lister for
+// ClusterWorkspaces.
+type ClusterWorkspaceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.WorkspaceLister
+	Lister() v1alpha1.ClusterWorkspaceLister
 }
 
-type workspaceInformer struct {
+type clusterWorkspaceInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewWorkspaceInformer constructs a new informer for ClusterWorkspace type.
+// NewClusterWorkspaceInformer constructs a new informer for ClusterWorkspace type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewWorkspaceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredWorkspaceInformer(client, resyncPeriod, indexers, nil)
+func NewClusterWorkspaceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterWorkspaceInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredWorkspaceInformer constructs a new informer for ClusterWorkspace type.
+// NewFilteredClusterWorkspaceInformer constructs a new informer for ClusterWorkspace type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredWorkspaceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterWorkspaceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.TenancyV1alpha1().Workspaces().List(context.TODO(), options)
+				return client.TenancyV1alpha1().ClusterWorkspaces().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.TenancyV1alpha1().Workspaces().Watch(context.TODO(), options)
+				return client.TenancyV1alpha1().ClusterWorkspaces().Watch(context.TODO(), options)
 			},
 		},
 		&tenancyv1alpha1.ClusterWorkspace{},
@@ -77,14 +77,14 @@ func NewFilteredWorkspaceInformer(client versioned.Interface, resyncPeriod time.
 	)
 }
 
-func (f *workspaceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredWorkspaceInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *clusterWorkspaceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterWorkspaceInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *workspaceInformer) Informer() cache.SharedIndexInformer {
+func (f *clusterWorkspaceInformer) Informer() cache.SharedIndexInformer {
 	return f.factory.InformerFor(&tenancyv1alpha1.ClusterWorkspace{}, f.defaultInformer)
 }
 
-func (f *workspaceInformer) Lister() v1alpha1.WorkspaceLister {
-	return v1alpha1.NewWorkspaceLister(f.Informer().GetIndexer())
+func (f *clusterWorkspaceInformer) Lister() v1alpha1.ClusterWorkspaceLister {
+	return v1alpha1.NewClusterWorkspaceLister(f.Informer().GetIndexer())
 }
