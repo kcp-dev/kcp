@@ -29,7 +29,7 @@ import (
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
@@ -43,7 +43,7 @@ import (
 const WorkspacesVirtualWorkspaceName string = "workspaces"
 const DefaultRootPathPrefix string = "/services/applications"
 
-func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.ClusterWorkspaceInformer, kcpClient kcpclient.Interface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, kcpClient kcpclient.Interface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
 	crbInformer := rbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
@@ -55,7 +55,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.C
 		Name: WorkspacesVirtualWorkspaceName,
 		Ready: func() error {
 			if workspaceAuthorizationCache == nil || !workspaceAuthorizationCache.ReadyForAccess() {
-				return errors.New("WorkspaceAuthorizationcache is not ready for access")
+				return errors.New("WorkspaceAuthorizationCache is not ready for access")
 			}
 			return nil
 		},
@@ -78,31 +78,31 @@ func BuildVirtualWorkspace(rootPathPrefix string, workspaces workspaceinformer.C
 		},
 		GroupVersionAPISets: []fixedgvs.GroupVersionAPISet{
 			{
-				GroupVersion:       tenancyv1alpha1.SchemeGroupVersion,
-				AddToScheme:        tenancyv1alpha1.AddToScheme,
+				GroupVersion:       tenancyv1beta1.SchemeGroupVersion,
+				AddToScheme:        tenancyv1beta1.AddToScheme,
 				OpenAPIDefinitions: kcpopenapi.GetOpenAPIDefinitions,
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
 					reviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(subjectLocator)
 					workspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
-						workspaces.Lister(),
-						workspaces.Informer(),
+						clusterWorkspaces.Lister(),
+						clusterWorkspaces.Informer(),
 						reviewerProvider.ForVerb("get"),
 						rbacInformers,
 					)
 
 					workspaceClient := kcpClient.TenancyV1alpha1().ClusterWorkspaces()
-					workspaceCache := workspacecache.NewWorkspaceCache(
-						workspaces.Informer(),
+					clusterWorkspaceCache := workspacecache.NewClusterWorkspaceCache(
+						clusterWorkspaces.Informer(),
 						workspaceClient,
 						"")
 
-					if err := mainConfig.AddPostStartHook("workspaces.kcp.dev-workspacecache", func(context genericapiserver.PostStartHookContext) error {
-						go workspaceCache.Run(context.StopCh)
+					if err := mainConfig.AddPostStartHook("clusterworkspaces.kcp.dev-workspacecache", func(context genericapiserver.PostStartHookContext) error {
+						go clusterWorkspaceCache.Run(context.StopCh)
 						return nil
 					}); err != nil {
 						return nil, err
 					}
-					if err := mainConfig.AddPostStartHook("workspaces.kcp.dev-workspaceauthorizationcache", func(context genericapiserver.PostStartHookContext) error {
+					if err := mainConfig.AddPostStartHook("clusterworkspaces.kcp.dev-workspaceauthorizationcache", func(context genericapiserver.PostStartHookContext) error {
 						period := 1 * time.Second
 						workspaceAuthorizationCache.Run(period)
 						return nil

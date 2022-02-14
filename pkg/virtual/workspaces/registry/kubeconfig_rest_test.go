@@ -143,7 +143,7 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -227,7 +227,7 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -311,7 +311,7 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -395,7 +395,7 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -482,7 +482,7 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -548,7 +548,7 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			require.ErrorAs(t, err, &statusError)
 			require.Len(t, statusError.Status().Details.Causes, 1)
 			assert.Equal(t, metav1.CauseTypeUnexpectedServerResponse, statusError.Status().Details.Causes[0].Type)
-			assert.Equal(t, "ClusterWorkspace shard Kubeconfig has no current context", statusError.Status().Details.Causes[0].Message)
+			assert.Equal(t, "Workspace shard Kubeconfig has no current context", statusError.Status().Details.Causes[0].Message)
 		},
 	}
 	applyTest(t, test)
@@ -568,7 +568,7 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -654,7 +654,7 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -737,7 +737,7 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -812,7 +812,7 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
 			},
-			workspaces: []tenancyv1alpha1.ClusterWorkspace{
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{

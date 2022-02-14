@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -60,13 +61,12 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 		return k8sErr
 	}
 
-	runtimeWorkspace, err := s.mainRest.Get(ctx, name, options)
+	workspace, err := s.mainRest.getClusterWorkspace(ctx, name, options)
+	if kerrors.IsNotFound(err) {
+		return nil, kerrors.NewNotFound(tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces").GroupResource(), name)
+	}
 	if err != nil {
 		return nil, err
-	}
-	workspace, isAWorkspace := runtimeWorkspace.(*tenancyv1alpha1.ClusterWorkspace)
-	if !isAWorkspace {
-		return nil, wrapError(fmt.Errorf("ClusterWorkspace '%s' doesn't have the expected type ! This should never happen.", name))
 	}
 	scope := ctx.Value(WorkspacesScopeKey).(string)
 	if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
@@ -91,7 +91,7 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 
 	currentContext := shardKubeConfig.Contexts[shardKubeConfig.CurrentContext]
 	if currentContext == nil {
-		return nil, wrapError(errors.New("ClusterWorkspace shard Kubeconfig has no current context"))
+		return nil, wrapError(errors.New("Workspace shard Kubeconfig has no current context"))
 	}
 	currentCluster := shardKubeConfig.Clusters[currentContext.Cluster]
 	if currentCluster == nil {
@@ -123,7 +123,7 @@ func (s *KubeconfigSubresourceREST) NamespaceScoped() bool {
 // New creates a new ClusterWorkspace log options object
 func (r *KubeconfigSubresourceREST) New() runtime.Object {
 	// TODO - return a resource that represents a log
-	return &tenancyv1alpha1.ClusterWorkspace{}
+	return &tenancyv1beta1.Workspace{}
 }
 
 // ProducesMIMETypes returns a list of the MIME types the specified HTTP verb (GET, POST, DELETE,

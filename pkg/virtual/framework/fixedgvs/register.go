@@ -18,12 +18,13 @@ package fixedgvs
 
 import (
 	openapibuilder "k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/handler"
 	"k8s.io/kube-openapi/pkg/validation/spec"
@@ -54,9 +55,7 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(rootAPIServerConfig gener
 		}
 
 		scheme := runtime.NewScheme()
-		if err := kubernetesscheme.AddToScheme(scheme); err != nil {
-			return nil, err
-		}
+		metav1.AddToGroupVersion(scheme, schema.GroupVersion{Version: "v1"})
 		if err := groupVersionAPISet.AddToScheme(scheme); err != nil {
 			return nil, err
 		}
