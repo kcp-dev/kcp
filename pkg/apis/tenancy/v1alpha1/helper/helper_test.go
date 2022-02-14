@@ -27,13 +27,13 @@ import (
 func TestEncodeLogicalClusterName(t *testing.T) {
 	for _, testCase := range []struct {
 		name        string
-		input       *tenancyv1alpha1.Workspace
+		input       *tenancyv1alpha1.ClusterWorkspace
 		expected    string
 		expectedErr bool
 	}{
 		{
 			name: "organization workspace",
-			input: &tenancyv1alpha1.Workspace{
+			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					ClusterName: "admin",
 					Name:        "organization",
@@ -43,7 +43,7 @@ func TestEncodeLogicalClusterName(t *testing.T) {
 		},
 		{
 			name: "normal workspace",
-			input: &tenancyv1alpha1.Workspace{
+			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					ClusterName: "admin_organization",
 					Name:        "workspace",
@@ -53,7 +53,7 @@ func TestEncodeLogicalClusterName(t *testing.T) {
 		},
 		{
 			name: "organization workspace in wrong root cluster",
-			input: &tenancyv1alpha1.Workspace{
+			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					ClusterName: "too_many_parts",
 					Name:        "organization",

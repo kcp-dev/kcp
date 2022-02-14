@@ -45,14 +45,14 @@ type workspaceInformer struct {
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewWorkspaceInformer constructs a new informer for Workspace type.
+// NewWorkspaceInformer constructs a new informer for ClusterWorkspace type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewWorkspaceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewFilteredWorkspaceInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredWorkspaceInformer constructs a new informer for Workspace type.
+// NewFilteredWorkspaceInformer constructs a new informer for ClusterWorkspace type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredWorkspaceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
@@ -71,7 +71,7 @@ func NewFilteredWorkspaceInformer(client versioned.Interface, resyncPeriod time.
 				return client.TenancyV1alpha1().Workspaces().Watch(context.TODO(), options)
 			},
 		},
-		&tenancyv1alpha1.Workspace{},
+		&tenancyv1alpha1.ClusterWorkspace{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,7 +82,7 @@ func (f *workspaceInformer) defaultInformer(client versioned.Interface, resyncPe
 }
 
 func (f *workspaceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&tenancyv1alpha1.Workspace{}, f.defaultInformer)
+	return f.factory.InformerFor(&tenancyv1alpha1.ClusterWorkspace{}, f.defaultInformer)
 }
 
 func (f *workspaceInformer) Lister() v1alpha1.WorkspaceLister {

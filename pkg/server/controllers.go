@@ -109,7 +109,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 	return nil
 }
 
-func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister tenancylisters.WorkspaceLister, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister tenancylisters.ClusterWorkspaceLister, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
 	kubeClient, err := kubernetes.NewClusterForConfig(server.LoopbackClientConfig)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 
 	workspaceController, err := workspace.NewController(
 		kcpClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 	)
 	if err != nil {

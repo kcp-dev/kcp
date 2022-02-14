@@ -36,7 +36,7 @@ func TestWorkspaceStrategy(t *testing.T) {
 	if Strategy.AllowUnconditionalUpdate() {
 		t.Errorf("Workspaces should not allow unconditional update")
 	}
-	project := &tenancyv1alpha1.Workspace{
+	project := &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "foo", ResourceVersion: "10"},
 	}
 	Strategy.PrepareForCreate(ctx, project)

@@ -24,7 +24,7 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-// Workspace describes how clients access (kubelike) APIs
+// ClusterWorkspace describes how clients access (kubelike) APIs
 //
 // +crd
 // +genclient
@@ -32,31 +32,31 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-type Workspace struct {
+type ClusterWorkspace struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +optional
-	Spec WorkspaceSpec `json:"spec,omitempty"`
+	Spec ClusterWorkspaceSpec `json:"spec,omitempty"`
 
 	// +optional
-	Status WorkspaceStatus `json:"status,omitempty"`
+	Status ClusterWorkspaceStatus `json:"status,omitempty"`
 }
 
-func (in *Workspace) SetConditions(c conditionsv1alpha1.Conditions) {
+func (in *ClusterWorkspace) SetConditions(c conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = c
 }
 
-func (in *Workspace) GetConditions() conditionsv1alpha1.Conditions {
+func (in *ClusterWorkspace) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
 }
 
-var _ conditions.Getter = &Workspace{}
-var _ conditions.Setter = &Workspace{}
+var _ conditions.Getter = &ClusterWorkspace{}
+var _ conditions.Setter = &ClusterWorkspace{}
 
-// WorkspaceSpec holds the desired state of the Workspace.
-type WorkspaceSpec struct {
+// ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
+type ClusterWorkspaceSpec struct {
 	// +optional
 	ReadOnly bool `json:"readOnly,omitempty"`
 
@@ -64,25 +64,25 @@ type WorkspaceSpec struct {
 	InheritFrom string `json:"inheritFrom,omitempty"`
 }
 
-// WorkspacePhaseType is the type of the current phase of the workspace
-type WorkspacePhaseType string
+// ClusterWorkspacePhaseType is the type of the current phase of the workspace
+type ClusterWorkspacePhaseType string
 
 const (
-	WorkspacePhaseInitializing WorkspacePhaseType = "Initializing"
-	WorkspacePhaseActive       WorkspacePhaseType = "Active"
-	WorkspacePhaseTerminating  WorkspacePhaseType = "Terminating"
+	ClusterWorkspacePhaseInitializing ClusterWorkspacePhaseType = "Initializing"
+	ClusterWorkspacePhaseActive       ClusterWorkspacePhaseType = "Active"
+	ClusterWorkspacePhaseTerminating  ClusterWorkspacePhaseType = "Terminating"
 )
 
-// WorkspaceStatus communicates the observed state of the Workspace.
-type WorkspaceStatus struct {
+// ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.
+type ClusterWorkspaceStatus struct {
 	// Phase of the workspace  (Initializing / Active / Terminating)
-	Phase WorkspacePhaseType `json:"phase,omitempty"`
+	Phase ClusterWorkspacePhaseType `json:"phase,omitempty"`
 
-	// Current processing state of the Workspace.
+	// Current processing state of the ClusterWorkspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
-	// Base URL where this Workspace can be targeted.
+	// Base URL where this ClusterWorkspace can be targeted.
 	// This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>.
 	// But a workspace could also be targetable by a unique hostname in the future.
 	//
@@ -93,7 +93,7 @@ type WorkspaceStatus struct {
 	// Contains workspace placement information.
 	//
 	// +optional
-	Location WorkspaceLocation `json:"location,omitempty"`
+	Location ClusterWorkspaceLocation `json:"location,omitempty"`
 }
 
 // These are valid conditions of workspace.
@@ -114,9 +114,9 @@ const (
 	WorkspaceURLReasonInvalid = "Invalid"
 )
 
-// WorkspaceLocation specifies workspace placement information, including current, desired (target), and
+// ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
 // historical information.
-type WorkspaceLocation struct {
+type ClusterWorkspaceLocation struct {
 	// Current workspace placement (shard).
 	//
 	// +optional
@@ -151,14 +151,14 @@ type ShardStatus struct {
 	LiveAfterResourceVersion string `json:"liveAfterResourceVersion,omitempty"`
 }
 
-// WorkspaceList is a list of Workspace resources
+// ClusterWorkspaceList is a list of ClusterWorkspace resources
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type WorkspaceList struct {
+type ClusterWorkspaceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []Workspace `json:"items"`
+	Items []ClusterWorkspace `json:"items"`
 }
 
 // WorkspaceShard describes a Shard (== KCP instance) on which a number of
@@ -244,7 +244,7 @@ const (
 	WorkspaceShardCredentialsReasonInvalid = "Invalid"
 )
 
-// WorkspaceShardList is a list of Workspace shards
+// WorkspaceShardList is a list of ClusterWorkspace shards
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type WorkspaceShardList struct {

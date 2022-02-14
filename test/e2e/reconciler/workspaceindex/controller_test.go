@@ -52,7 +52,7 @@ type runningServer struct {
 	framework.RunningServer
 	client          clientset.Interface
 	kubeClient      kubernetesclientset.Interface
-	expectWorkspace framework.RegisterWorkspaceExpectation
+	expectWorkspace framework.RegisterClusterWorkspaceExpectation
 	expectShard     framework.RegisterWorkspaceShardExpectation
 }
 
@@ -62,7 +62,7 @@ func resolveRunningServer(ctx context.Context, t *testing.T, server framework.Ru
 		return runningServer{}, err
 	}
 	if clusterName == "" {
-		detectedName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
+		detectedName, err := framework.DetectClusterName(cfg, ctx, "clusterworkspaces.tenancy.kcp.dev")
 		if err != nil {
 			return runningServer{}, fmt.Errorf("failed to detect cluster name: %w", err)
 		}
@@ -74,7 +74,7 @@ func resolveRunningServer(ctx context.Context, t *testing.T, server framework.Ru
 		}
 		extensionsClient := extensionsClients.Cluster(clusterName)
 		requiredCrds := []metav1.GroupResource{
-			{Group: tenancyapi.GroupName, Resource: "workspaces"},
+			{Group: tenancyapi.GroupName, Resource: "clusterworkspaces"},
 			{Group: tenancyapi.GroupName, Resource: "workspaceshards"},
 		}
 		crdClient := extensionsClient.ApiextensionsV1().CustomResourceDefinitions()
@@ -87,7 +87,7 @@ func resolveRunningServer(ctx context.Context, t *testing.T, server framework.Ru
 		return runningServer{}, fmt.Errorf("failed to construct client for server: %w", err)
 	}
 	client := clients.Cluster(clusterName)
-	expectWorkspace, err := framework.ExpectWorkspaces(ctx, t, client)
+	expectWorkspace, err := framework.ExpectClusterWorkspaces(ctx, t, client)
 	if err != nil {
 		return runningServer{}, fmt.Errorf("failed to start expecter: %w", err)
 	}
@@ -232,10 +232,10 @@ func TestWorkspaceIndex(t *testing.T) {
 
 			// in the root workspace, set up:
 			// - WorkspaceShard objects with the credentials for our servers
-			// - Workspace objects for our organizations
+			// - ClusterWorkspace objects for our organizations
 			// in the "admin" workspace on each shard, set up:
 			// - WorkspaceShard object for the scheduler (this will be removed when we have a cross-shard client)
-			// - Workspace objects (these are end-user-facing)
+			// - ClusterWorkspace objects (these are end-user-facing)
 			serverNames := []string{serverNameEast, serverNameCentral, serverNameWest}
 			orgs := []string{orgNameAcme, orgNameInitech, orgNameGlobex}
 			workspaces := []string{"accounting", "engineering", "executive"}
@@ -369,11 +369,11 @@ func TestWorkspaceIndex(t *testing.T) {
 	}
 }
 
-func isUnschedulable(workspace *tenancyv1alpha1.Workspace) bool {
+func isUnschedulable(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
 }
 
-func scheduledAnywhere(object *tenancyv1alpha1.Workspace) error {
+func scheduledAnywhere(object *tenancyv1alpha1.ClusterWorkspace) error {
 	if isUnschedulable(object) {
 		return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
@@ -430,16 +430,16 @@ func initializeShard(ctx context.Context, t *testing.T, server runningServer, se
 	return nil
 }
 
-func initializeWorkspace(ctx context.Context, t *testing.T, server runningServer, name string) (*tenancyv1alpha1.Workspace, error) {
-	orgWorkspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: name}}, metav1.CreateOptions{})
+func initializeWorkspace(ctx context.Context, t *testing.T, server runningServer, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+	orgWorkspace, err := server.client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: name}}, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
 	server.Artifact(t, func() (runtime.Object, error) {
-		return server.client.TenancyV1alpha1().Workspaces().Get(ctx, name, metav1.GetOptions{})
+		return server.client.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, metav1.GetOptions{})
 	})
-	var ws *tenancyv1alpha1.Workspace
-	if err := server.expectWorkspace(orgWorkspace, func(workspace *tenancyv1alpha1.Workspace) error {
+	var ws *tenancyv1alpha1.ClusterWorkspace
+	if err := server.expectWorkspace(orgWorkspace, func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 		if err := scheduledAnywhere(workspace); err != nil {
 			return err
 		}

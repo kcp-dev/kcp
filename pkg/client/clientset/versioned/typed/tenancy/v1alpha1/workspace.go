@@ -37,17 +37,17 @@ type WorkspacesGetter interface {
 	Workspaces() WorkspaceInterface
 }
 
-// WorkspaceInterface has methods to work with Workspace resources.
+// WorkspaceInterface has methods to work with ClusterWorkspace resources.
 type WorkspaceInterface interface {
-	Create(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.CreateOptions) (*v1alpha1.Workspace, error)
-	Update(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (*v1alpha1.Workspace, error)
-	UpdateStatus(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (*v1alpha1.Workspace, error)
+	Create(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.CreateOptions) (*v1alpha1.ClusterWorkspace, error)
+	Update(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (*v1alpha1.ClusterWorkspace, error)
+	UpdateStatus(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (*v1alpha1.ClusterWorkspace, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Workspace, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.WorkspaceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ClusterWorkspace, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ClusterWorkspaceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Workspace, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterWorkspace, err error)
 	WorkspaceExpansion
 }
 
@@ -66,8 +66,8 @@ func newWorkspaces(c *TenancyV1alpha1Client) *workspaces {
 }
 
 // Get takes name of the workspace, and returns the corresponding workspace object, and an error if there is any.
-func (c *workspaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
+func (c *workspaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterWorkspace, err error) {
+	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Get().
 		Cluster(c.cluster).
 		Resource("workspaces").
@@ -79,12 +79,12 @@ func (c *workspaces) Get(ctx context.Context, name string, options v1.GetOptions
 }
 
 // List takes label and field selectors, and returns the list of Workspaces that match those selectors.
-func (c *workspaces) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.WorkspaceList, err error) {
+func (c *workspaces) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ClusterWorkspaceList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
-	result = &v1alpha1.WorkspaceList{}
+	result = &v1alpha1.ClusterWorkspaceList{}
 	err = c.client.Get().
 		Cluster(c.cluster).
 		Resource("workspaces").
@@ -111,8 +111,8 @@ func (c *workspaces) Watch(ctx context.Context, opts v1.ListOptions) (watch.Inte
 }
 
 // Create takes the representation of a workspace and creates it.  Returns the server's representation of the workspace, and an error, if there is any.
-func (c *workspaces) Create(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.CreateOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
+func (c *workspaces) Create(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.CreateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
+	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Post().
 		Cluster(c.cluster).
 		Resource("workspaces").
@@ -124,8 +124,8 @@ func (c *workspaces) Create(ctx context.Context, workspace *v1alpha1.Workspace, 
 }
 
 // Update takes the representation of a workspace and updates it. Returns the server's representation of the workspace, and an error, if there is any.
-func (c *workspaces) Update(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
+func (c *workspaces) Update(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
+	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Put().
 		Cluster(c.cluster).
 		Resource("workspaces").
@@ -139,8 +139,8 @@ func (c *workspaces) Update(ctx context.Context, workspace *v1alpha1.Workspace, 
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *workspaces) UpdateStatus(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
+func (c *workspaces) UpdateStatus(ctx context.Context, workspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
+	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Put().
 		Cluster(c.cluster).
 		Resource("workspaces").
@@ -181,8 +181,8 @@ func (c *workspaces) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 }
 
 // Patch applies the patch and returns the patched workspace.
-func (c *workspaces) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
+func (c *workspaces) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterWorkspace, err error) {
+	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Patch(pt).
 		Cluster(c.cluster).
 		Resource("workspaces").

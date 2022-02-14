@@ -152,7 +152,7 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options) (*rest.Conf
 }
 
 // UseWorkspace switch the current workspace to the given workspace.
-// To do so it retrieves the Workspace minimal KubeConfig (mainly cluster infos)
+// To do so it retrieves the ClusterWorkspace minimal KubeConfig (mainly cluster infos)
 // from the `workspaces` virtual workspace `workspaces/kubeconfig` sube-resources,
 // and adds it (along with the Auth info that is currently used) to the Kubeconfig.
 // Then it make this new context the current context.
@@ -251,7 +251,7 @@ func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (scope string, name str
 // checkWorkspaceExists checks whether this workspace exsts in the
 // user workspace directory, by requesting the `workspaces` virtual workspace.
 func checkWorkspaceExists(ctx context.Context, workspaceName string, tenancyClient *tenancyclient.TenancyV1alpha1Client) error {
-	_, err := tenancyClient.Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+	_, err := tenancyClient.ClusterWorkspaces().Get(ctx, workspaceName, metav1.GetOptions{})
 	return err
 }
 
@@ -351,11 +351,11 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, worksp
 		return err
 	}
 
-	if _, err := tenancyClient.Workspaces().Create(ctx, &v1alpha1.Workspace{
+	if _, err := tenancyClient.ClusterWorkspaces().Create(ctx, &v1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: workspaceName,
 		},
-		Spec: v1alpha1.WorkspaceSpec{
+		Spec: v1alpha1.ClusterWorkspaceSpec{
 			InheritFrom: inheritFrom,
 		},
 	}, metav1.CreateOptions{}); err != nil {
@@ -388,7 +388,7 @@ func (kc *KubeConfig) DeleteWorkspace(ctx context.Context, opts *Options, worksp
 		return err
 	}
 
-	if err := tenancyClient.Workspaces().Delete(ctx, workspaceName, metav1.DeleteOptions{}); err != nil {
+	if err := tenancyClient.ClusterWorkspaces().Delete(ctx, workspaceName, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
 

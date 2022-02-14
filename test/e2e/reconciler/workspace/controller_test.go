@@ -45,7 +45,7 @@ func TestWorkspaceController(t *testing.T) {
 		framework.RunningServer
 		client      clientset.Interface
 		kubeClient  kubernetesclientset.Interface
-		expect      framework.RegisterWorkspaceExpectation
+		expect      framework.RegisterClusterWorkspaceExpectation
 		expectShard framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
@@ -53,13 +53,30 @@ func TestWorkspaceController(t *testing.T) {
 		work func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
+			name: "create a workspace without shards, expect it to be unschedulable",
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				workspace, err := server.client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}, Status: tenancyv1alpha1.ClusterWorkspaceStatus{}}, metav1.CreateOptions{})
+				if err != nil {
+					t.Errorf("failed to create workspace: %v", err)
+					return
+				}
+				server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				})
+				if err := server.expect(workspace, unschedulable); err != nil {
+					t.Errorf("did not see workspace marked unschedulable: %v", err)
+					return
+				}
+			},
+		},
+		{
 			name: "add a shard after a workspace is unschedulable, expect it to be scheduled",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}, Status: tenancyv1alpha1.WorkspaceStatus{}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}, Status: tenancyv1alpha1.ClusterWorkspaceStatus{}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.client.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				err = server.expect(workspace, unschedulable)
@@ -86,11 +103,11 @@ func TestWorkspaceController(t *testing.T) {
 					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
 				})
 
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.client.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				err = server.expect(workspace, scheduled(bostonShard.Name))
@@ -106,15 +123,15 @@ func TestWorkspaceController(t *testing.T) {
 				atlantaShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create second workspace shard")
 
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.client.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				var currentShard, otherShard string
-				err = server.expect(workspace, func(current *tenancyv1alpha1.Workspace) error {
+				err = server.expect(workspace, func(current *tenancyv1alpha1.ClusterWorkspace) error {
 					expectationErr := scheduledAnywhere(current)
 					if expectationErr == nil {
 						currentShard = current.Status.Location.Current
@@ -147,11 +164,11 @@ func TestWorkspaceController(t *testing.T) {
 				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create first workspace shard")
 
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.client.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				err = server.expect(workspace, scheduled(bostonShard.Name))
@@ -204,14 +221,14 @@ func TestWorkspaceController(t *testing.T) {
 				})
 				require.NoError(t, err, "did not see workspace shard get valid credentials")
 
-				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.client.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.client.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
-				err = server.expect(workspace, func(workspace *tenancyv1alpha1.Workspace) error {
+				err = server.expect(workspace, func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 					if err := scheduled(workspaceShard.Name)(workspace); err != nil {
 						return err
 					}
@@ -256,14 +273,14 @@ func TestWorkspaceController(t *testing.T) {
 			cfg, err := server.Config()
 			require.NoError(t, err)
 
-			clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
+			clusterName, err := framework.DetectClusterName(cfg, ctx, "clusterworkspaces.tenancy.kcp.dev")
 			require.NoError(t, err, "failed to detect cluster name")
 
 			clients, err := kcpclientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 
 			client := clients.Cluster(clusterName)
-			expect, err := framework.ExpectWorkspaces(ctx, t, client)
+			expect, err := framework.ExpectClusterWorkspaces(ctx, t, client)
 			require.NoError(t, err, "failed to start expecter")
 
 			expectShard, err := framework.ExpectWorkspaceShards(ctx, t, client)
@@ -284,19 +301,19 @@ func TestWorkspaceController(t *testing.T) {
 	}
 }
 
-func isUnschedulable(workspace *tenancyv1alpha1.Workspace) bool {
+func isUnschedulable(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
 }
 
-func unschedulable(object *tenancyv1alpha1.Workspace) error {
+func unschedulable(object *tenancyv1alpha1.ClusterWorkspace) error {
 	if !isUnschedulable(object) {
 		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
 	return nil
 }
 
-func scheduled(target string) func(workspace *tenancyv1alpha1.Workspace) error {
-	return func(object *tenancyv1alpha1.Workspace) error {
+func scheduled(target string) func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
+	return func(object *tenancyv1alpha1.ClusterWorkspace) error {
 		if isUnschedulable(object) {
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
@@ -307,7 +324,7 @@ func scheduled(target string) func(workspace *tenancyv1alpha1.Workspace) error {
 	}
 }
 
-func scheduledAnywhere(object *tenancyv1alpha1.Workspace) error {
+func scheduledAnywhere(object *tenancyv1alpha1.ClusterWorkspace) error {
 	if isUnschedulable(object) {
 		return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 	}

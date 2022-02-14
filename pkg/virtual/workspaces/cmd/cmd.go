@@ -140,7 +140,7 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 	ruleResolver := frameworkrbac.NewRuleResolver(singleClusterRBACV1)
 
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(o.RootPathPrefix, kcpInformer.Tenancy().V1alpha1().Workspaces(), kcpClient, kubeClient, singleClusterRBACV1, subjectLocator, ruleResolver),
+		builder.BuildVirtualWorkspace(o.RootPathPrefix, kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces(), kcpClient, kubeClient, singleClusterRBACV1, subjectLocator, ruleResolver),
 	}
 	informerStarts := []rootapiserver.InformerStart{
 		kubeInformers.Start,

@@ -110,8 +110,8 @@ func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.
 }
 
 func TestSyncWorkspace(t *testing.T) {
-	workspaceList := workspaceapi.WorkspaceList{
-		Items: []workspaceapi.Workspace{
+	workspaceList := workspaceapi.ClusterWorkspaceList{
+		Items: []workspaceapi.ClusterWorkspace{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", ResourceVersion: "1"},
 			},

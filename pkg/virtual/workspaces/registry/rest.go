@@ -72,7 +72,7 @@ type REST struct {
 	// crbLister allows listing RBAC cluster role bindings
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	// workspaceClient can modify KCP workspaces
-	workspaceClient tenancyclient.WorkspaceInterface
+	workspaceClient tenancyclient.ClusterWorkspaceInterface
 	// workspaceReviewerProvider allow getting a reviewer that checks
 	// permissions for a given verb to workspaces
 	workspaceReviewerProvider workspaceauth.ReviewerProvider
@@ -111,14 +111,14 @@ var _ rest.Scoper = &REST{}
 var _ rest.Creater = &REST{}
 var _ rest.GracefulDeleter = &REST{}
 
-// NewREST returns a RESTStorage object that will work against Workspace resources
+// NewREST returns a RESTStorage object that will work against ClusterWorkspace resources
 func NewREST(tenancyClient tenancyclient.TenancyV1alpha1Interface, kubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
 		rbacClient:                kubeClient.RbacV1(),
 		crbInformer:               crbInformer,
 		crbLister:                 crbInformer.Lister(),
 		workspaceReviewerProvider: workspaceReviewerProvider,
-		workspaceClient:           tenancyClient.Workspaces(),
+		workspaceClient:           tenancyClient.ClusterWorkspaces(),
 		workspaceLister:           workspaceLister,
 		createStrategy:            Strategy,
 		updateStrategy:            Strategy,
@@ -133,14 +133,14 @@ func NewREST(tenancyClient tenancyclient.TenancyV1alpha1Interface, kubeClient ku
 		}
 }
 
-// New returns a new Workspace
+// New returns a new ClusterWorkspace
 func (s *REST) New() runtime.Object {
-	return &tenancyv1alpha1.Workspace{}
+	return &tenancyv1alpha1.ClusterWorkspace{}
 }
 
-// NewList returns a new WorkspaceList
+// NewList returns a new ClusterWorkspaceList
 func (*REST) NewList() runtime.Object {
-	return &tenancyv1alpha1.WorkspaceList{}
+	return &tenancyv1alpha1.ClusterWorkspaceList{}
 }
 
 func (s *REST) NamespaceScoped() bool {
@@ -222,7 +222,7 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 
 var _ = rest.Getter(&REST{})
 
-// Get retrieves a Workspace by name
+// Get retrieves a ClusterWorkspace by name
 func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 	opts := metav1.GetOptions{}
 	if options != nil {
@@ -256,7 +256,7 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 	if err != nil {
 		return nil, err
 	}
-	var existingWorkspace *tenancyv1alpha1.Workspace
+	var existingWorkspace *tenancyv1alpha1.ClusterWorkspace
 	for _, ws := range obj.Items {
 		if ws.Name == workspace.Name && ws.ClusterName == workspace.ClusterName {
 			existingWorkspace = workspace
@@ -349,7 +349,7 @@ var _ = rest.Creater(&REST{})
 // However when the user manages his workspaces through the personal scope, the pretty names will always be used.
 //
 // Personal pretty names and the related internal names are stored on the ClusterRoleBinding that links the
-// Workspace-related ClusterRole with the user Subject.
+// ClusterWorkspace-related ClusterRole with the user Subject.
 //
 // Typical actions done against the underlying KCP instance when
 //
@@ -365,7 +365,7 @@ var _ = rest.Creater(&REST{})
 //      create ClusterRole owner-workspace-my-app-user-A
 //      create ClusterRole lister-workspace-my-app-user-A  (in order to later allow sharing)
 //
-//   3. create Workspace my-app
+//   3. create ClusterWorkspace my-app
 //
 // If this conflicts, create my-app--1, then my-app--2, …
 //
@@ -385,9 +385,9 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("workspace"), "", fmt.Errorf("creating a workspace in only possible in the personal workspaces scope for now"))
 	}
 
-	workspace, isWorkspace := obj.(*tenancyv1alpha1.Workspace)
+	workspace, isWorkspace := obj.(*tenancyv1alpha1.ClusterWorkspace)
 	if !isWorkspace {
-		return nil, kerrors.NewInvalid(tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
+		return nil, kerrors.NewInvalid(tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, user)
 	listerRoleBindingName := getRoleBindingName(ListerRoleType, workspace.Name, user)
@@ -439,7 +439,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// doesn't already exist.
 	// The suffixed name based on the pretty name will be the internal name
 	prettyName := workspace.Name
-	var createdWorkspace *tenancyv1alpha1.Workspace
+	var createdWorkspace *tenancyv1alpha1.ClusterWorkspace
 	var err error
 	var nameSuffix string
 	i := 0

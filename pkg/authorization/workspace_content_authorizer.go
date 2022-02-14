@@ -37,7 +37,7 @@ import (
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, workspaceLister tenancyv1.WorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, workspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &OrgWorkspaceAuthorizer{
 		versionedInformers: versionedInformers,
 
@@ -56,7 +56,7 @@ type OrgWorkspaceAuthorizer struct {
 	roleBindingLister        rbacv1listers.RoleBindingLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
 	clusterRoleLister        rbacv1listers.ClusterRoleLister
-	workspaceLister          tenancyv1.WorkspaceLister
+	workspaceLister          tenancyv1.ClusterWorkspaceLister
 
 	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
 	versionedInformers clientgoinformers.SharedInformerFactory
@@ -79,7 +79,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	}
 
 	// TODO: decide if we want to require workspaces for all kcp variations. For now, only check if the workspace controllers are running,
-	// as that ensures the Workspace CRD is installed, and that our shared informer factory can sync all its caches successfully.
+	// as that ensures the ClusterWorkspace CRD is installed, and that our shared informer factory can sync all its caches successfully.
 	if a.workspaceLister != nil {
 		// check the workspace even exists
 		// TODO: using scoping when available

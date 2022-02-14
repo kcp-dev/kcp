@@ -172,7 +172,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()); err != nil {
+	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister()); err != nil {
 		return err
 	}
 	newTokenOrEmpty, tokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)
@@ -243,7 +243,7 @@ func (s *Server) Run(ctx context.Context) error {
 		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
 		return &kcpAPIExtensionsSharedInformerFactory{
 			SharedInformerFactory: f,
-			workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(),
+			workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
 		}
 	}
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
@@ -335,7 +335,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
-		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(), *loopbackKubeConfig, server); err != nil {
+		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(), *loopbackKubeConfig, server); err != nil {
 			return err
 		}
 	}

@@ -54,7 +54,7 @@ type clusterDiscovery interface {
 
 // NewController returns a new Controller which schedules namespaced resources to a Cluster.
 func NewController(
-	workspaceLister tenancylisters.WorkspaceLister,
+	workspaceLister tenancylisters.ClusterWorkspaceLister,
 	dynClient dynamic.ClusterInterface,
 	disco clusterDiscovery,
 	clusterInformer clusterinformer.ClusterInformer,

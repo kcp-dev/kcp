@@ -57,7 +57,7 @@ const (
 
 func NewController(
 	kcpClient kcpclient.ClusterInterface,
-	workspaceInformer tenancyinformer.WorkspaceInformer,
+	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	workspaceShardInformer tenancyinformer.WorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspace")
@@ -81,13 +81,13 @@ func NewController(
 	})
 	if err := c.workspaceIndexer.AddIndexers(map[string]cache.IndexFunc{
 		currentShardIndex: func(obj interface{}) ([]string, error) {
-			if workspace, ok := obj.(*tenancyv1alpha1.Workspace); ok {
+			if workspace, ok := obj.(*tenancyv1alpha1.ClusterWorkspace); ok {
 				return []string{workspace.Status.Location.Current}, nil
 			}
 			return []string{}, nil
 		},
 		unschedulableIndex: func(obj interface{}) ([]string, error) {
-			if workspace, ok := obj.(*tenancyv1alpha1.Workspace); ok {
+			if workspace, ok := obj.(*tenancyv1alpha1.ClusterWorkspace); ok {
 				if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable {
 					return []string{"true"}, nil
 				}
@@ -95,7 +95,7 @@ func NewController(
 			return []string{}, nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("failed to add indexer for Workspace: %w", err)
+		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
 	}
 
 	workspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -106,14 +106,14 @@ func NewController(
 	return c, nil
 }
 
-// Controller watches Workspaces and WorkspaceShards in order to make sure every Workspace
+// Controller watches Workspaces and WorkspaceShards in order to make sure every ClusterWorkspace
 // is scheduled to a valid WorkspaceShard.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClient        kcpclient.ClusterInterface
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancylister.WorkspaceLister
+	workspaceLister  tenancylister.ClusterWorkspaceLister
 
 	workspaceShardIndexer cache.Indexer
 	workspaceShardLister  tenancylister.WorkspaceShardLister
@@ -189,8 +189,8 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting Workspace controller")
-	defer klog.Info("Shutting down Workspace controller")
+	klog.Info("Starting ClusterWorkspace controller")
+	defer klog.Info("Shutting down ClusterWorkspace controller")
 
 	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.syncChecks...) {
 		klog.Warning("Failed to wait for caches to sync")
@@ -239,7 +239,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if namespace != "" {
-		klog.Errorf("namespace %q found in key for cluster-wide Workspace object", namespace)
+		klog.Errorf("namespace %q found in key for cluster-wide ClusterWorkspace object", namespace)
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
@@ -260,14 +260,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, obj.Status) {
-		oldData, err := json.Marshal(tenancyv1alpha1.Workspace{
+		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
 			Status: previous.Status,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to Marshal old data for workspace %q|%q/%q: %w", clusterName, namespace, name, err)
 		}
 
-		newData, err := json.Marshal(tenancyv1alpha1.Workspace{
+		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             previous.UID,
 				ResourceVersion: previous.ResourceVersion,
@@ -282,14 +282,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace %q|%q/%q: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClient.Cluster(clusterName).TenancyV1alpha1().Workspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
 	return nil
 }
 
-func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) error {
+func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	var shard *tenancyv1alpha1.WorkspaceShard
 	if currentShardName := workspace.Status.Location.Current; currentShardName != "" {
 		// make sure current shard still exists
@@ -349,10 +349,10 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 		}
 	}
 	if workspace.Status.Location.Current == "" {
-		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
+		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
 		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No shards are available to schedule Workspaces to.")
 	} else {
-		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseActive
+		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseActive
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 	}
 	// expose the correct base URL given our current shard
@@ -366,7 +366,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.W
 		}
 		logicalCluster, err := tenancyhelper.EncodeLogicalClusterName(workspace)
 		if err != nil {
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonInvalid, conditionsv1alpha1.ConditionSeverityError, "Invalid Workspace location: %v.", err)
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonInvalid, conditionsv1alpha1.ConditionSeverityError, "Invalid ClusterWorkspace location: %v.", err)
 			return nil
 		}
 		u.Path = path.Join(u.Path, shard.Status.ConnectionInfo.APIPath, "clusters", logicalCluster)

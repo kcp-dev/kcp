@@ -54,7 +54,7 @@ const resyncPeriod = 10 * time.Hour
 
 func NewController(
 	kubeClient kubernetes.ClusterInterface,
-	workspaceInformer tenancyinformer.WorkspaceInformer,
+	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	workspaceShardInformer tenancyinformer.WorkspaceShardInformer,
 	index Index,
 ) (*Controller, error) {
@@ -90,13 +90,13 @@ func NewController(
 	})
 	if err := c.workspaceIndexer.AddIndexers(map[string]cache.IndexFunc{
 		currentShardIndex: func(obj interface{}) ([]string, error) {
-			if workspace, ok := obj.(*tenancyv1alpha1.Workspace); ok {
+			if workspace, ok := obj.(*tenancyv1alpha1.ClusterWorkspace); ok {
 				return []string{workspace.Status.Location.Current}, nil
 			}
 			return []string{}, nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("failed to add indexer for Workspace: %w", err)
+		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
 	}
 
 	workspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -124,11 +124,11 @@ type Controller struct {
 	orgQueueActiveWorkers       uint64
 	workspaceQueueActiveWorkers uint64
 
-	// kubeClient is used to fetch kubeconfig secrets for shards in the root Workspace
+	// kubeClient is used to fetch kubeconfig secrets for shards in the root ClusterWorkspace
 	kubeClient kubernetes.ClusterInterface
 
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancylister.WorkspaceLister
+	workspaceLister  tenancylister.ClusterWorkspaceLister
 
 	workspaceShardIndexer cache.Indexer
 	workspaceShardLister  tenancylister.WorkspaceShardLister
@@ -149,7 +149,7 @@ type organizationInformer struct {
 	cancel func()
 
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancylister.WorkspaceLister
+	workspaceLister  tenancylister.ClusterWorkspaceLister
 
 	credentialsHash string
 }
@@ -258,7 +258,7 @@ func (c *Controller) processOrg(ctx context.Context, key string) error {
 
 // handleOrg ensures that an informer is running for Workspaces in every Organization, using the
 // latest credentials available for the Shard on which the Organization is held
-func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.Workspace) error {
+func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled) ||
 		!conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
 		klog.Infof("org workspace %s/%s not ready, skipping...", workspace.ClusterName, workspace.Name)
@@ -348,7 +348,7 @@ func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.W
 	octx, cancel := context.WithCancel(ctx)
 	crossClusterKcpClient := kcpClient.Cluster(logicalCluster)
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(crossClusterKcpClient, resyncPeriod, options...)
-	workspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces()
+	workspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces()
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueWorkspace(workspaceShard.Name, logicalCluster, obj) },
@@ -434,7 +434,7 @@ func (c *Controller) processWorkspace(ctx context.Context, key string) error {
 	}
 	var shard, logicalCluster string
 	shard, logicalCluster, key = parts[0], parts[1], parts[2]
-	var lister tenancylister.WorkspaceLister
+	var lister tenancylister.ClusterWorkspaceLister
 	if shard == rootShard {
 		lister = c.workspaceLister
 	} else {

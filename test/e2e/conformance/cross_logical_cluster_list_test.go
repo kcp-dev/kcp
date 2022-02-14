@@ -82,7 +82,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 			crdClient := apiExtensionsClients.Cluster(logicalCluster).ApiextensionsV1().CustomResourceDefinitions()
 
 			workspaceCRDs := []metav1.GroupResource{
-				{Group: tenancy.GroupName, Resource: "workspaces"},
+				{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
 			}
 
 			err = configcrds.Create(ctx, crdClient, workspaceCRDs...)
@@ -93,16 +93,16 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 			kcpClient := kcpClients.Cluster(logicalCluster)
 
-			sourceWorkspace := &tenancyapi.Workspace{
+			sourceWorkspace := &tenancyapi.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("ws-%d", i),
 				},
 			}
-			_, err = kcpClient.TenancyV1alpha1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
+			_, err = kcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating source workspace")
 
 			server.Artifact(t, func() (runtime.Object, error) {
-				return kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
+				return kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
 			})
 		}
 
@@ -110,7 +110,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		require.NoError(t, err, "failed to construct kcp client for server")
 
 		kcpClient := kcpClients.Cluster("*")
-		workspaces, err := kcpClient.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+		workspaces, err := kcpClient.TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing workspaces")
 		require.Equal(t, 3, len(workspaces.Items), "unexpected number of workspaces")
 

@@ -6,22 +6,26 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: workspaces.tenancy.kcp.dev
+  name: clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
     categories:
     - kcp
-    kind: Workspace
-    listKind: WorkspaceList
-    plural: workspaces
-    singular: workspace
+    kind: ClusterWorkspace
+    listKind: ClusterWorkspaceList
+    plural: clusterworkspaces
+    singular: clusterworkspace
   scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Workspace describes how clients access (kubelike) APIs
+        description: "ClusterWorkspace defines a Kubernetes-cluster-like endpoint
+          that holds a default set of resources and exhibits standard Kubernetes API
+          semantics of CRUD operations. It represents the full life-cycle of the persisted
+          data in this workspace in a KCP installation. \n ClusterWorkspace is a concrete
+          type that implements a workspace."
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -36,7 +40,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: WorkspaceSpec holds the desired state of the Workspace.
+            description: ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
             properties:
               inheritFrom:
                 type: string
@@ -44,16 +48,17 @@ spec:
                 type: boolean
             type: object
           status:
-            description: WorkspaceStatus communicates the observed state of the Workspace.
+            description: ClusterWorkspaceStatus communicates the observed state of
+              the ClusterWorkspace.
             properties:
               baseURL:
-                description: 'Base URL where this Workspace can be targeted. This
-                  will generally be of the form: https://<workspace shard server>/cluster/<workspace
+                description: 'Base URL where this ClusterWorkspace can be targeted.
+                  This will generally be of the form: https://<workspace shard server>/cluster/<workspace
                   name>. But a workspace could also be targetable by a unique hostname
                   in the future.'
                 type: string
               conditions:
-                description: Current processing state of the Workspace.
+                description: Current processing state of the ClusterWorkspace.
                 items:
                   description: Condition defines an observation of a object operational
                     state.
