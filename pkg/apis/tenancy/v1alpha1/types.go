@@ -24,7 +24,11 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-// ClusterWorkspace describes how clients access (kubelike) APIs
+// ClusterWorkspace defines a Kubernetes-cluster-like endpoint that holds a default set
+// of resources and exhibits standard Kubernetes API semantics of CRUD operations. It represents
+// the full life-cycle of the persisted data in this workspace in a KCP installation.
+//
+// ClusterWorkspace is a concrete type that implements a workspace.
 //
 // +crd
 // +genclient
@@ -244,7 +248,7 @@ const (
 	WorkspaceShardCredentialsReasonInvalid = "Invalid"
 )
 
-// WorkspaceShardList is a list of ClusterWorkspace shards
+// WorkspaceShardList is a list of workspace shards
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type WorkspaceShardList struct {
