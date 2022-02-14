@@ -18,10 +18,13 @@ package framework
 
 import (
 	"flag"
+	"os"
+	"strconv"
 )
 
 type testConfig struct {
 	InProcessControllers bool
+	InProcessServers     bool
 }
 
 var TestConfig *testConfig
@@ -33,6 +36,9 @@ func init() {
 }
 
 func registerFlags(c *testConfig) {
+	inProcessServersDefault, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
 	flag.BoolVar(&c.InProcessControllers, "in-process-controllers", false,
 		"Whether controllers should be instantiated in the same process as the tests that require them.")
+	flag.BoolVar(&c.InProcessServers, "in-process-servers", inProcessServersDefault,
+		"Whether servers should be instantiated in the same process as the tests that require them.")
 }

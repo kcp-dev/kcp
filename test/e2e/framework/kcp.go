@@ -142,7 +142,7 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 	c.t.Logf("running: %v", strings.Join(append([]string{"kcp", "start"}, c.args...), " "))
 
 	// run kcp start in-process for easier debugging
-	if runKcpInProcess() {
+	if TestConfig.InProcessServers {
 		serverOptions := options.NewOptions()
 		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
 		for _, fs := range serverOptions.Flags().FlagSets {
@@ -205,11 +205,6 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 	}()
 
 	return nil
-}
-
-func runKcpInProcess() bool {
-	inProcess, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
-	return inProcess
 }
 
 // filterKcpLogs is a silly hack to get rid of the nonsense output that
