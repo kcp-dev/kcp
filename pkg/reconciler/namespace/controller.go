@@ -195,6 +195,15 @@ func (c *Controller) enqueueCluster(obj interface{}) {
 	c.clusterQueue.Add(key)
 }
 
+func (c *Controller) enqueueClusterAfter(obj interface{}, dur time.Duration) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.clusterQueue.AddAfter(key, dur)
+}
+
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.resourceQueue.ShutDown()
