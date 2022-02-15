@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +41,8 @@ import (
 )
 
 func TestAPIInheritance(t *testing.T) {
+	t.Parallel()
+
 	const serverName = "main"
 
 	testCases := []struct {
@@ -59,47 +63,48 @@ func TestAPIInheritance(t *testing.T) {
 			orglogicalClusterName: "admin_myorg",
 		},
 	}
+
+	f := framework.NewKcpFixture(t,
+		framework.KcpConfig{
+			Name: serverName,
+			Args: []string{
+				"--run-controllers=false",
+				"--unsupported-run-individual-controllers=workspace-scheduler",
+			},
+		},
+	)
+
 	for i := range testCases {
 		testCase := testCases[i]
-		framework.RunParallel(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)
 				t.Cleanup(cancel)
 				ctx = withDeadline
 			}
-			if len(servers) != 1 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
-			}
-			server := servers[serverName]
+
+			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
+			server := f.Servers[serverName]
+
 			cfg, err := server.Config()
-			if err != nil {
-				t.Error(err)
-				return
-			}
+			require.NoError(t, err)
 
 			apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct apiextensions client for server: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to construct apiextensions client for server")
 
 			t.Logf("Bootstrapping workspace CRD into org lcluster %s", testCase.orglogicalClusterName)
 			orgCRDClient := apiExtensionsClients.Cluster(testCase.orglogicalClusterName).ApiextensionsV1().CustomResourceDefinitions()
 			workspaceCRDs := []metav1.GroupResource{
 				{Group: tenancy.GroupName, Resource: "workspaces"},
 			}
-			if err := config.BootstrapCustomResourceDefinitions(ctx, orgCRDClient, workspaceCRDs); err != nil {
-				t.Errorf("failed to bootstrap CRDs: %v", err)
-				return
-			}
+			err = config.BootstrapCustomResourceDefinitions(ctx, orgCRDClient, workspaceCRDs)
+			require.NoError(t, err, "failed to bootstrap CRDs")
 
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct kcp client for server: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to construct kcp client for server")
 
 			t.Logf("Creating \"source\" workspaces in org lcluster %s, inheriting from %q", testCase.orglogicalClusterName, helper.OrganizationCluster)
 			orgKcpClient := kcpClients.Cluster(testCase.orglogicalClusterName)
@@ -112,10 +117,8 @@ func TestAPIInheritance(t *testing.T) {
 				},
 			}
 			_, err = orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
-			if err != nil {
-				t.Errorf("error creating source workspace: %v", err)
-				return
-			}
+			require.NoError(t, err, "error creating source workspace")
+
 			server.Artifact(t, func() (runtime.Object, error) {
 				return orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, "source", metav1.GetOptions{})
 			})
@@ -127,10 +130,8 @@ func TestAPIInheritance(t *testing.T) {
 				},
 			}
 			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, targetWorkspace, metav1.CreateOptions{})
-			if err != nil {
-				t.Errorf("error creating target workspace: %v", err)
-				return
-			}
+			require.NoError(t, err, "error creating target workspace")
+
 			server.Artifact(t, func() (runtime.Object, error) {
 				return orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, "target", metav1.GetOptions{})
 			})
@@ -146,10 +147,8 @@ func TestAPIInheritance(t *testing.T) {
 				{Group: cluster.GroupName, Resource: "clusters"},
 			}
 			sourceCrdClient := apiExtensionsClients.Cluster(sourceWorkspaceClusterName).ApiextensionsV1().CustomResourceDefinitions()
-			if err := config.BootstrapCustomResourceDefinitions(ctx, sourceCrdClient, crdsForWorkspaces); err != nil {
-				t.Errorf("failed to bootstrap CRDs: %v", err)
-				return
-			}
+			err = config.BootstrapCustomResourceDefinitions(ctx, sourceCrdClient, crdsForWorkspaces)
+			require.NoError(t, err, "failed to bootstrap CRDs in source")
 
 			expectGroupInDiscovery := func(lcluster, group string) error {
 				if err := wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {
@@ -168,27 +167,17 @@ func TestAPIInheritance(t *testing.T) {
 			}
 
 			t.Logf("Make sure %q API group shows up in \"source\" workspace group discovery, inherited from root", apiresourceapi.GroupName)
-			if err := expectGroupInDiscovery(sourceWorkspaceClusterName, apiresourceapi.GroupName); err != nil {
-				t.Error(err)
-				return
-			}
+			err = expectGroupInDiscovery(sourceWorkspaceClusterName, apiresourceapi.GroupName)
+			require.NoError(t, err)
 
 			t.Logf("Make sure %q API group shows up in \"source\" workspace group discovery, inherited from org", cluster.GroupName)
-			if err := expectGroupInDiscovery(sourceWorkspaceClusterName, cluster.GroupName); err != nil {
-				t.Error(err)
-				return
-			}
+			err = expectGroupInDiscovery(sourceWorkspaceClusterName, cluster.GroupName)
+			require.NoError(t, err)
 
 			t.Logf("Make sure \"clusters\" API resource shows up in \"source\" workspace group version discovery")
 			resources, err := kcpClients.Cluster(sourceWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(clusterv1alpha1.SchemeGroupVersion.String())
-			if err != nil {
-				t.Errorf("error retrieving source workspace cluster API discovery: %v", err)
-				return
-			}
-			if !resourceExists(resources, "clusters") {
-				t.Errorf("source workspace discovery is missing clusters resource")
-				return
-			}
+			require.NoError(t, err, "error retrieving source workspace cluster API discovery")
+			require.True(t, resourceExists(resources, "clusters"), "source workspace discovery is missing clusters resource")
 
 			t.Logf("Creating cluster CR in \"source\" workspace, and later make sure CRs are not inherited by the \"target\" workspace")
 			sourceWorkspaceCluster := &clusterv1alpha1.Cluster{
@@ -198,31 +187,22 @@ func TestAPIInheritance(t *testing.T) {
 			}
 			sourceClusterClient := kcpClients.Cluster(sourceWorkspaceClusterName).ClusterV1alpha1().Clusters()
 			_, err = sourceClusterClient.Create(ctx, sourceWorkspaceCluster, metav1.CreateOptions{})
-			if err != nil {
-				t.Errorf("Error creating sourceWorkspaceCluster inside source: %v", err)
-				return
-			}
+			require.NoError(t, err, "Error creating sourceWorkspaceCluster inside source")
+
 			server.Artifact(t, func() (runtime.Object, error) {
 				return sourceClusterClient.Get(ctx, "source-cluster", metav1.GetOptions{})
 			})
 
 			t.Logf("Make sure %s API group does NOT show up yet in \"target\" workspace group discovery", cluster.GroupName)
 			groups, err := kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerGroups()
-			if err != nil {
-				t.Errorf("error retrieving target workspace group discovery: %w", err)
-				return
-			}
-			if groupExists(groups, cluster.GroupName) {
-				t.Errorf("should not have seen cluster API group in target workspace group discovery")
-				return
-			}
+			require.NoError(t, err, "error retrieving target workspace group discovery")
+			require.False(t, groupExists(groups, cluster.GroupName),
+				"should not have seen cluster API group in target workspace group discovery")
 
 			t.Logf("Update \"target\" workspace to inherit from \"source\" workspace")
 			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, targetWorkspace.GetName(), metav1.GetOptions{})
-			if err != nil {
-				t.Errorf("error retrieving target workspace: %w", err)
-				return
-			}
+			require.NoError(t, err, "error retrieving target workspace")
+
 			targetWorkspace.Spec.InheritFrom = "source"
 			if _, err = orgKcpClient.TenancyV1alpha1().Workspaces().Update(ctx, targetWorkspace, metav1.UpdateOptions{}); err != nil {
 				t.Errorf("error updating target workspace to inherit from source: %v", err)
@@ -230,35 +210,21 @@ func TestAPIInheritance(t *testing.T) {
 			}
 
 			t.Logf("Make sure API group from inheritance shows up in target workspace group discovery")
-			if err := expectGroupInDiscovery(targetWorkspaceClusterName, cluster.GroupName); err != nil {
-				t.Error(err)
-				return
-			}
+			err = expectGroupInDiscovery(targetWorkspaceClusterName, cluster.GroupName)
+			require.NoError(t, err)
 
 			t.Logf("Make sure \"clusters\" resource inherited from \"source\" shows up in \"target\" workspace group version discovery")
 			resources, err = kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(clusterv1alpha1.SchemeGroupVersion.String())
-			if err != nil {
-				t.Errorf("error retrieving target workspace cluster API discovery: %v", err)
-				return
-			}
-			if !resourceExists(resources, "clusters") {
-				t.Errorf("target workspace discovery is missing clusters resource")
-				return
-			}
+			require.NoError(t, err, "error retrieving target workspace cluster API discovery")
+			require.True(t, resourceExists(resources, "clusters"), "target workspace discovery is missing clusters resource")
 
 			t.Logf("Make sure we can perform CRUD operations in the \"target\" cluster for the inherited API")
 
 			t.Logf("Make sure list shows nothing to start")
 			targetClusterClient := kcpClients.Cluster(targetWorkspaceClusterName).ClusterV1alpha1().Clusters()
 			clusters, err := targetClusterClient.List(ctx, metav1.ListOptions{})
-			if err != nil {
-				t.Errorf("error listing clusters inside target: %v", err)
-				return
-			}
-			if len(clusters.Items) != 0 {
-				t.Errorf("expected 0 clusters inside target but got %d: %#v", len(clusters.Items), clusters.Items)
-				return
-			}
+			require.NoError(t, err, "error listing clusters inside target")
+			require.Zero(t, len(clusters.Items), "expected 0 clusters inside target")
 
 			t.Logf("Create a cluster CR in the \"target\" workspace")
 			targetWorkspaceCluster := &clusterv1alpha1.Cluster{
@@ -266,44 +232,24 @@ func TestAPIInheritance(t *testing.T) {
 					Name: "target-cluster",
 				},
 			}
-			if _, err := targetClusterClient.Create(ctx, targetWorkspaceCluster, metav1.CreateOptions{}); err != nil {
-				t.Errorf("error creating targetWorkspaceCluster inside target: %v", err)
-				return
-			}
+			_, err = targetClusterClient.Create(ctx, targetWorkspaceCluster, metav1.CreateOptions{})
+			require.NoError(t, err, "error creating targetWorkspaceCluster inside target")
+
 			server.Artifact(t, func() (runtime.Object, error) {
 				return targetClusterClient.Get(ctx, "target-cluster", metav1.GetOptions{})
 			})
 
 			t.Logf("Make sure source has \"source-cluster\" and target have \"target-cluster\" cluster CR")
 			clusters, err = sourceClusterClient.List(ctx, metav1.ListOptions{})
-			if err != nil {
-				t.Errorf("error listing clusters inside source: %v", err)
-				return
-			}
-			if len(clusters.Items) != 1 {
-				t.Errorf("expected 1 cluster inside source, got %d: %#v", len(clusters.Items), clusters.Items)
-				return
-			}
-			if clusters.Items[0].Name != "source-cluster" {
-				t.Errorf("expected source-cluster, got %q", clusters.Items[0].Name)
-			}
+			require.NoError(t, err, "error listing clusters inside source")
+			require.Equal(t, 1, len(clusters.Items), "expected 1 cluster inside source")
+			require.Equal(t, "source-cluster", clusters.Items[0].Name, "unexpected name for source cluster")
 
 			clusters, err = targetClusterClient.List(ctx, metav1.ListOptions{})
-			if err != nil {
-				t.Errorf("error listing clusters inside target: %v", err)
-				return
-			}
-			if len(clusters.Items) != 1 {
-				t.Errorf("expected 1 cluster inside target, got %d: %#v", len(clusters.Items), clusters.Items)
-				return
-			}
-			if clusters.Items[0].Name != "target-cluster" {
-				t.Errorf("expected target-cluster, got %q", clusters.Items[0].Name)
-			}
+			require.NoError(t, err, "error listing clusters inside target")
+			require.Equal(t, 1, len(clusters.Items), "expected 1 cluster inside target")
+			require.Equal(t, "target-cluster", clusters.Items[0].Name, "unexpected name for target cluster")
 
-		}, framework.KcpConfig{
-			Name: "main",
-			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
 		})
 	}
 }
