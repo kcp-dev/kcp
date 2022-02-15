@@ -59,32 +59,72 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-// ScratchDirs determines where artifacts and data should live for a test case.
-func ScratchDirs(t TestingTInterface) (string, string, error) {
-	var baseDir string
-	if dir, set := os.LookupEnv("ARTIFACT_DIR"); set {
-		baseDir = dir
-	} else {
-		baseDir = t.TempDir()
-	}
-	baseDir = filepath.Join(baseDir, strings.NewReplacer("\\", "_", ":", "_").Replace(t.Name()))
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return "", "", fmt.Errorf("could not create base dir: %w", err)
-	}
-	baseTempDir, err := os.MkdirTemp(baseDir, "")
-	if err != nil {
-		return "", "", fmt.Errorf("could not create base temp dir: %w", err)
-	}
-	var directories []string
-	for _, prefix := range []string{"artifacts", "data"} {
-		dir := filepath.Join(baseTempDir, prefix)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return "", "", fmt.Errorf("could not create subdir: %w", err)
+// Persistent mapping of test name to base temp dir used to ensure
+// artifact paths have a common root across servers for a given test.
+var baseTempDirs map[string]string = map[string]string{}
+var baseTempDirsLock sync.Mutex = sync.Mutex{}
+
+// ensureBaseTempDir returns the name of a base temp dir for the
+// current test, creating it if needed.
+func ensureBaseTempDir(t TestingTInterface) (string, error) {
+	baseTempDirsLock.Lock()
+	defer baseTempDirsLock.Unlock()
+	name := t.Name()
+	if _, ok := baseTempDirs[name]; !ok {
+		var baseDir string
+		if dir, set := os.LookupEnv("ARTIFACT_DIR"); set {
+			baseDir = dir
+		} else {
+			baseDir = t.TempDir()
 		}
-		directories = append(directories, dir)
+		baseDir = filepath.Join(baseDir, strings.NewReplacer("\\", "_", ":", "_").Replace(t.Name()))
+		if err := os.MkdirAll(baseDir, 0755); err != nil {
+			return "", fmt.Errorf("could not create base dir: %w", err)
+		}
+		baseTempDir, err := os.MkdirTemp(baseDir, "")
+		if err != nil {
+			return "", fmt.Errorf("could not create base temp dir: %w", err)
+		}
+		baseTempDirs[name] = baseTempDir
+		t.Logf("Saving test artifacts for test %q under %q.", name, baseTempDir)
+
+		// Remove the path from the cache after test completion to
+		// ensure subsequent invocations of the test (e.g. due to
+		// -count=<val> for val > 1) don't reuse the same path.
+		t.Cleanup(func() {
+			baseTempDirsLock.Lock()
+			defer baseTempDirsLock.Unlock()
+			delete(baseTempDirs, name)
+		})
 	}
-	t.Logf("Saving test artifacts and data under %s.", baseTempDir)
-	return directories[0], directories[1], nil
+	return baseTempDirs[name], nil
+}
+
+// createTempDirForTest creates the named directory with a unique base
+// path derived from the name of the current test.
+func createTempDirForTest(t TestingTInterface, dirName string) (string, error) {
+	baseTempDir, err := ensureBaseTempDir(t)
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(baseTempDir, dirName)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("could not create subdir: %w", err)
+	}
+	return dir, nil
+}
+
+// ScratchDirs determines where artifacts and data should live for a test server.
+func ScratchDirs(t TestingTInterface) (string, string, error) {
+	artifactDir, err := createTempDirForTest(t, "artifacts")
+	if err != nil {
+		return "", "", err
+	}
+	dataDir, err := createTempDirForTest(t, "data")
+	if err != nil {
+		return "", "", err
+	}
+	return artifactDir, dataDir, nil
 }
 
 var localSchemeBuilder = runtime.SchemeBuilder{
@@ -97,25 +137,19 @@ func init() {
 	utilruntime.Must(localSchemeBuilder.AddToScheme(scheme.Scheme))
 }
 
-func (c *kcpServer) GatherArtifacts() {
-	c.artifactsLock.RLock()
-	defer c.artifactsLock.RUnlock()
-	for _, artifact := range c.artifacts {
-		artifact()
-	}
-}
-
 // Artifact registers the data-producing function to run and dump the YAML-formatted output
 // to the artifact directory for the test before the kcp process is terminated.
-func (c *kcpServer) Artifact(tinterface TestingTInterface, producer func() (runtime.Object, error)) {
-	c.artifactsLock.Lock()
-	defer c.artifactsLock.Unlock()
-	c.artifacts = append(c.artifacts, func() {
-		t, ok := tinterface.(*T)
-		if !ok {
-			tinterface.Logf("Artifact() called with %#v, not a framework.T", tinterface)
-			return
-		}
+func (c *kcpServer) Artifact(t TestingTInterface, producer func() (runtime.Object, error)) {
+	subDir := filepath.Join("artifacts", "kcp", c.name)
+	artifactDir, err := createTempDirForTest(t, subDir)
+	if err != nil {
+		// TODO(marun) This error should fail the test
+		t.Logf("could not create artifact dir: %v", err)
+		return
+	}
+	// Using t.Cleanup ensures that artifact collection is local to
+	// the test requesting retention regardless of server's scope.
+	t.Cleanup(func() {
 		data, err := producer()
 		if err != nil {
 			t.Logf("error fetching artifact: %v", err)
@@ -126,7 +160,7 @@ func (c *kcpServer) Artifact(tinterface TestingTInterface, producer func() (runt
 			t.Logf("artifact has no object meta: %#v", data)
 			return
 		}
-		dir := path.Join(c.artifactDir, accessor.GetClusterName())
+		dir := path.Join(artifactDir, accessor.GetClusterName())
 		if accessor.GetNamespace() != "" {
 			dir = path.Join(dir, accessor.GetNamespace())
 		}

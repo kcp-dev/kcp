@@ -113,6 +113,8 @@ func newUserClient(t *testing.T, username, orgWorkspace, workspace string, cfg *
 }
 
 func TestAuthorizer(t *testing.T) {
+	t.Parallel()
+
 	usersKCPArgs, err := framework.Users([]framework.User{
 		{
 			Name:   "user-1",
@@ -139,8 +141,7 @@ func TestAuthorizer(t *testing.T) {
 		Name: "main",
 		Args: usersKCPArgs,
 	})
-	teardown := f.SetUp(t)
-	defer teardown()
+	f.SetUp(t)
 
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {

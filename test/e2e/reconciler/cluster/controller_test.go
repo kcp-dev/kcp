@@ -30,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -62,6 +61,8 @@ const clusterName = "us-east1"
 const sourceClusterName, sinkClusterName = "source", "sink"
 
 func TestClusterController(t *testing.T) {
+	t.Parallel()
+
 	type runningServer struct {
 		framework.RunningServer
 		client     wildwestclient.WildwestV1alpha1Interface
@@ -101,13 +102,6 @@ func TestClusterController(t *testing.T) {
 					}
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-				defer servers[sourceClusterName].Artifact(t, func() (runtime.Object, error) {
-					return servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
-				})
-				defer servers[sinkClusterName].Artifact(t, func() (runtime.Object, error) {
-					return servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
-				})
 
 				t.Logf("Expecting same spec to show up in sink")
 				cowboy.SetNamespace(targetNamespace)
@@ -165,7 +159,7 @@ func TestClusterController(t *testing.T) {
 			},
 		},
 	)
-	defer f.SetUp(t)()
+	f.SetUp(t)
 
 	for i := range testCases {
 		testCase := testCases[i]

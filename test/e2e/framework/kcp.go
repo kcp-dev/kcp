@@ -57,9 +57,6 @@ type kcpServer struct {
 	dataDir     string
 	artifactDir string
 
-	artifactsLock *sync.RWMutex
-	artifacts     []func()
-
 	lock           *sync.Mutex
 	cfg            clientcmd.ClientConfig
 	kubeconfigPath string
@@ -112,12 +109,11 @@ func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer,
 			"--kubeconfig-path=admin.kubeconfig",
 		},
 			cfg.Args...),
-		dataDir:       dataDir,
-		artifactDir:   artifactDir,
-		artifactsLock: &sync.RWMutex{},
-		ctx:           ctx,
-		t:             t,
-		lock:          &sync.Mutex{},
+		dataDir:     dataDir,
+		artifactDir: artifactDir,
+		ctx:         ctx,
+		t:           t,
+		lock:        &sync.Mutex{},
 	}, nil
 }
 
