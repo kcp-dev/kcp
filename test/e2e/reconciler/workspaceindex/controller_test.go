@@ -54,7 +54,7 @@ type runningServer struct {
 	expectShard     framework.RegisterWorkspaceShardExpectation
 }
 
-func resolveRunningServer(ctx context.Context, t framework.TestingTInterface, server framework.RunningServer, clusterName string) (runningServer, error) {
+func resolveRunningServer(ctx context.Context, t *testing.T, server framework.RunningServer, clusterName string) (runningServer, error) {
 	cfg, err := server.Config()
 	if err != nil {
 		return runningServer{}, err
@@ -380,7 +380,7 @@ func scheduledAnywhere(object *tenancyv1alpha1.Workspace) error {
 	return nil
 }
 
-func initializeShard(ctx context.Context, t framework.TestingTInterface, server runningServer, serverName string, rawCfg clientcmdapi.Config) error {
+func initializeShard(ctx context.Context, t *testing.T, server runningServer, serverName string, rawCfg clientcmdapi.Config) error {
 	if _, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{}); !errors.IsAlreadyExists(err) && err != nil {
 		return fmt.Errorf("failed to create credentials namespace: %w", err)
 	}
@@ -427,7 +427,7 @@ func initializeShard(ctx context.Context, t framework.TestingTInterface, server 
 	return nil
 }
 
-func initializeWorkspace(ctx context.Context, t framework.TestingTInterface, server runningServer, name string) (*tenancyv1alpha1.Workspace, error) {
+func initializeWorkspace(ctx context.Context, t *testing.T, server runningServer, name string) (*tenancyv1alpha1.Workspace, error) {
 	orgWorkspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: name}}, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)
