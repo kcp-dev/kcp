@@ -69,6 +69,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=tenancy.kcp.dev, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaces().Informer()}, nil
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspacetypes"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer()}, nil
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaceshards"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().WorkspaceShards().Informer()}, nil
 

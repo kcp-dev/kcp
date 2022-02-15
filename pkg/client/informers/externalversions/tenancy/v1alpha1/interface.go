@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// ClusterWorkspaces returns a ClusterWorkspaceInformer.
 	ClusterWorkspaces() ClusterWorkspaceInformer
+	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
+	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
 	// WorkspaceShards returns a WorkspaceShardInformer.
 	WorkspaceShards() WorkspaceShardInformer
 }
@@ -44,6 +46,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // ClusterWorkspaces returns a ClusterWorkspaceInformer.
 func (v *version) ClusterWorkspaces() ClusterWorkspaceInformer {
 	return &clusterWorkspaceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
+func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer {
+	return &clusterWorkspaceTypeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // WorkspaceShards returns a WorkspaceShardInformer.

@@ -33,6 +33,10 @@ func (c *FakeTenancyV1alpha1) ClusterWorkspaces() v1alpha1.ClusterWorkspaceInter
 	return &FakeClusterWorkspaces{c}
 }
 
+func (c *FakeTenancyV1alpha1) ClusterWorkspaceTypes() v1alpha1.ClusterWorkspaceTypeInterface {
+	return &FakeClusterWorkspaceTypes{c}
+}
+
 func (c *FakeTenancyV1alpha1) WorkspaceShards() v1alpha1.WorkspaceShardInterface {
 	return &FakeWorkspaceShards{c}
 }
