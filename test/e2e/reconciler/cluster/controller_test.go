@@ -61,6 +61,8 @@ const clusterName = "us-east1"
 const sourceClusterName, sinkClusterName = "source", "sink"
 
 func TestClusterController(t *testing.T) {
+	t.Parallel()
+
 	type runningServer struct {
 		framework.RunningServer
 		client     wildwestclient.WildwestV1alpha1Interface
