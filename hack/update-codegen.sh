@@ -33,6 +33,14 @@ ${CONTROLLER_GEN} \
     paths="./pkg/apis/..." \
     output:crd:artifacts:config=config/
 
+for F in ./config/*.yaml; do
+    if [ -f "${F}-patch" ]; then
+        echo "Applying ${F}"
+        ${YAML_PATCH} -o "${F}-patch" < "${F}" > "${F}.patched"
+        mv "${F}.patched" "${F}"
+    fi
+done
+
 ${CONTROLLER_GEN} \
     crd \
     rbac:roleName=manager-role \
