@@ -28,17 +28,11 @@ import (
 // KCPFixture manages the lifecycle of a set of kcp servers.
 type KCPFixture struct {
 	Servers map[string]RunningServer
-
-	configs []KcpConfig
 }
 
-func NewKCPFixture(cfgs ...KcpConfig) *KCPFixture {
-	return &KCPFixture{
-		configs: cfgs,
-	}
-}
+func NewKCPFixture(t *testing.T, cfgs ...KcpConfig) *KCPFixture {
+	f := &KCPFixture{}
 
-func (f *KCPFixture) SetUp(t *testing.T) {
 	artifactDir, dataDir, err := ScratchDirs(t)
 	require.NoErrorf(t, err, "failed to create scratch dirs: %v", err)
 
@@ -48,7 +42,7 @@ func (f *KCPFixture) SetUp(t *testing.T) {
 	// Initialize servers from the provided configuration
 	var servers []*kcpServer
 	f.Servers = map[string]RunningServer{}
-	for _, cfg := range f.configs {
+	for _, cfg := range cfgs {
 		server, err := newKcpServer(NewT(ctx, t), cfg, artifactDir, dataDir)
 		require.NoError(t, err)
 
@@ -79,4 +73,6 @@ func (f *KCPFixture) SetUp(t *testing.T) {
 	}
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
+
+	return f
 }

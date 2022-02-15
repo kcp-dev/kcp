@@ -137,11 +137,10 @@ func TestAuthorizer(t *testing.T) {
 	}).ArgsForKCP(t)
 	require.NoError(t, err)
 
-	f := framework.NewKCPFixture(framework.KcpConfig{
+	f := framework.NewKCPFixture(t, framework.KcpConfig{
 		Name: "main",
 		Args: usersKCPArgs,
 	})
-	f.SetUp(t)
 
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {

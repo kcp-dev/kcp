@@ -159,7 +159,6 @@ func TestClusterController(t *testing.T) {
 			},
 		},
 	)
-	f.SetUp(t)
 
 	for i := range testCases {
 		testCase := testCases[i]
