@@ -34,6 +34,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -143,74 +145,50 @@ func init() {
 func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
 	subDir := filepath.Join("artifacts", "kcp", c.name)
 	artifactDir, err := CreateTempDirForTest(t, subDir)
-	if err != nil {
-		// TODO(marun) This error should fail the test
-		t.Logf("could not create artifact dir: %v", err)
-		return
-	}
+	require.NoError(t, err, "could not create artifacts dir")
 	// Using t.Cleanup ensures that artifact collection is local to
 	// the test requesting retention regardless of server's scope.
 	t.Cleanup(func() {
 		data, err := producer()
-		if err != nil {
-			t.Logf("error fetching artifact: %v", err)
-			return
-		}
+		require.NoError(t, err, "error fetching artifact")
+
 		accessor, ok := data.(metav1.Object)
-		if !ok {
-			t.Logf("artifact has no object meta: %#v", data)
-			return
-		}
+		require.True(t, ok, "artifact has no object meta: %#v", data)
+
 		dir := path.Join(artifactDir, accessor.GetClusterName())
 		if accessor.GetNamespace() != "" {
 			dir = path.Join(dir, accessor.GetNamespace())
 		}
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Logf("could not create dir: %v", err)
-			return
-		}
+		err = os.MkdirAll(dir, 0755)
+		require.NoError(t, err, "could not create dir")
+
 		gvks, _, err := scheme.Scheme.ObjectKinds(data)
-		if err != nil {
-			t.Logf("error finding gvk for artifact: %v", err)
-			return
-		}
-		if len(gvks) == 0 {
-			t.Logf("found no gvk for artifact: %T", data)
-			return
-		}
+		require.NoError(t, err, "error finding gvk for artifact")
+		require.NotEmpty(t, gvks, "found no gvk for artifact: %T", data)
 		gvk := gvks[0]
 		data.GetObjectKind().SetGroupVersionKind(gvk)
 
 		cfg, err := c.Config()
-		if err != nil {
-			t.Logf("could not get config for server: %v", err)
-			return
-		}
+		require.NoError(t, err, "could not get config for server %q", c.name)
+
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
-		if err != nil {
-			t.Logf("could not get discovery client for server: %v", err)
-			return
-		}
+		require.NoError(t, err, "could not get discovery client for server")
+
 		scopedDiscoveryClient := discoveryClient.WithCluster(accessor.GetClusterName())
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(scopedDiscoveryClient))
 		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			t.Logf("could not get REST mapping for artifact's GVK: %v", err)
-			return
-		}
+		require.NoError(t, err, "could not get REST mapping for artifact's GVK")
+
 		file := path.Join(dir, fmt.Sprintf("%s_%s.yaml", mapping.Resource.GroupResource().String(), accessor.GetName()))
 		t.Logf("saving artifact to %s", file)
 
 		serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
 		raw := bytes.Buffer{}
-		if err := serializer.Encode(data, &raw); err != nil {
-			t.Logf("error marshalling artifact: %v", err)
-			return
-		}
-		if err := ioutil.WriteFile(file, raw.Bytes(), 0644); err != nil {
-			t.Logf("error writing artifact: %v", err)
-			return
-		}
+		err = serializer.Encode(data, &raw)
+		require.NoError(t, err, "error marshalling artifact")
+
+		err = ioutil.WriteFile(file, raw.Bytes(), 0644)
+		require.NoError(t, err, "error writing artifact")
 	})
 }
 
