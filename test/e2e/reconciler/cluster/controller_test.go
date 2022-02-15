@@ -182,9 +182,7 @@ func TestClusterController(t *testing.T) {
 			start = time.Now()
 			source, sink := f.Servers[sourceClusterName], f.Servers[sinkClusterName]
 			t.Log("Installing sink cluster...")
-			// TODO(marun) Use raw *testing.T
-			wrappedT := framework.NewT(ctx, t)
-			err = framework.InstallCluster(wrappedT, ctx, source, sink, "clusters.cluster.example.dev", clusterName)
+			err = framework.InstallCluster(t, ctx, source, sink, "clusters.cluster.example.dev", clusterName)
 			require.NoError(t, err)
 
 			t.Logf("Installed sink cluster after %s", time.Since(start))
@@ -235,7 +233,7 @@ type RegisterCowboyExpectation func(seed *wildwestv1alpha1.Cowboy, expectation C
 type CowboyExpectation func(*wildwestv1alpha1.Cowboy) error
 
 // ExpectCowboys sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectCowboys(ctx context.Context, t framework.TestingTInterface, client wildwestclientset.Interface) (RegisterCowboyExpectation, error) {
+func ExpectCowboys(ctx context.Context, t *testing.T, client wildwestclientset.Interface) (RegisterCowboyExpectation, error) {
 	sharedInformerFactory := wildwestexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
 	informer := sharedInformerFactory.Wildwest().V1alpha1().Cowboys()
 	expecter := framework.NewExpecter(informer.Informer())

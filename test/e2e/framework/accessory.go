@@ -28,13 +28,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // NewAccessory creates a new accessory process.
-func NewAccessory(t TestingTInterface, artifactDir string, cmd string, args ...string) *Accessory {
+func NewAccessory(t *testing.T, artifactDir string, cmd string, args ...string) *Accessory {
 	return &Accessory{
 		t:           t,
 		artifactDir: artifactDir,
@@ -46,7 +47,7 @@ func NewAccessory(t TestingTInterface, artifactDir string, cmd string, args ...s
 // Accessory knows how to run an executable with arguments for the duration of the context.
 type Accessory struct {
 	ctx         context.Context
-	t           TestingTInterface
+	t           *testing.T
 	artifactDir string
 	cmd         string
 	args        []string
@@ -89,14 +90,14 @@ func (a *Accessory) Run(parentCtx context.Context) error {
 		defer func() { cleanupCancel() }()
 		err := cmd.Wait()
 		if err != nil && ctx.Err() == nil {
-			a.t.Errorf("`%s` failed: %w output: %s", a.cmd, err, log)
+			a.t.Errorf("`%s` failed: %v output: %v", a.cmd, err, log)
 		}
 	}()
 	return nil
 }
 
 // Ready blocks until the server is healthy and ready.
-func Ready(ctx context.Context, t TestingTInterface, port string) bool {
+func Ready(ctx context.Context, t *testing.T, port string) bool {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	for _, endpoint := range []string{"/healthz", "/readyz"} {
@@ -109,7 +110,7 @@ func Ready(ctx context.Context, t TestingTInterface, port string) bool {
 	return !t.Failed()
 }
 
-func waitForEndpoint(ctx context.Context, t TestingTInterface, port, endpoint string) {
+func waitForEndpoint(ctx context.Context, t *testing.T, port, endpoint string) {
 	var lastError error
 	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, 30*time.Second, func(ctx context.Context) (bool, error) {
 		url := fmt.Sprintf("http://[::1]:%s%s", port, endpoint)

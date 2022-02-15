@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -221,7 +222,7 @@ type RegisterWorkspaceExpectation func(seed *tenancyv1alpha1.Workspace, expectat
 type WorkspaceExpectation func(*tenancyv1alpha1.Workspace) error
 
 // ExpectWorkspaces sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectWorkspaces(ctx context.Context, t TestingTInterface, client kcpclientset.Interface) (RegisterWorkspaceExpectation, error) {
+func ExpectWorkspaces(ctx context.Context, t *testing.T, client kcpclientset.Interface) (RegisterWorkspaceExpectation, error) {
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
 	workspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces()
 	expecter := NewExpecter(workspaceInformer.Informer())
@@ -252,7 +253,7 @@ type RegisterWorkspaceListExpectation func(expectation WorkspaceListExpectation)
 type WorkspaceListExpectation func(*tenancyv1alpha1.WorkspaceList) error
 
 // ExpectWorkspaceListPolling sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectWorkspaceListPolling(ctx context.Context, t TestingTInterface, client kcpclientset.Interface) (RegisterWorkspaceListExpectation, error) {
+func ExpectWorkspaceListPolling(ctx context.Context, t *testing.T, client kcpclientset.Interface) (RegisterWorkspaceListExpectation, error) {
 	expecter := NewPollingExpecter(100 * time.Millisecond)
 	return func(expectation WorkspaceListExpectation) error {
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
@@ -273,7 +274,7 @@ type RegisterWorkspaceShardExpectation func(seed *tenancyv1alpha1.WorkspaceShard
 type WorkspaceShardExpectation func(*tenancyv1alpha1.WorkspaceShard) error
 
 // ExpectWorkspaceShards sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectWorkspaceShards(ctx context.Context, t TestingTInterface, client kcpclientset.Interface) (RegisterWorkspaceShardExpectation, error) {
+func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclientset.Interface) (RegisterWorkspaceShardExpectation, error) {
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
 	workspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards()
 	expecter := NewExpecter(workspaceInformer.Informer())

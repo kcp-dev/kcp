@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"testing"
 )
 
 type User struct {
@@ -40,7 +41,7 @@ func (u User) String() string {
 
 type Users []User
 
-func (us Users) ArgsForKCP(t TestingTInterface) ([]string, error) {
+func (us Users) ArgsForKCP(t *testing.T) ([]string, error) {
 	kcpTokensPath := path.Join(t.TempDir(), "kcp-tokens")
 	kcpTokens, err := os.Create(kcpTokensPath)
 	if err != nil {
