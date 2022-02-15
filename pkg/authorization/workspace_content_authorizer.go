@@ -28,7 +28,6 @@ import (
 	clientgoinformers "k8s.io/client-go/informers"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/clusters"
-	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -78,19 +77,6 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
-	// TODO: decide if we want to require workspaces for all kcp variations. For now, only check if the workspace controllers are running,
-	// as that ensures the ClusterWorkspace CRD is installed, and that our shared informer factory can sync all its caches successfully.
-	if a.workspaceLister != nil {
-		// check the workspace even exists
-		// TODO: using scoping when available
-		if _, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, workspace)); err != nil {
-			if errors.IsNotFound(err) {
-				return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
-			}
-			return authorizer.DecisionNoOpinion, "", err
-		}
-	}
-
 	orgWorkspaceKubeInformer := frameworkrbac.FilterPerCluster(orgWorkspace, a.versionedInformers.Rbac().V1())
 	orgAuthorizer := rbac.New(
 		&rbac.RoleGetter{Lister: orgWorkspaceKubeInformer.Roles().Lister()},
@@ -98,6 +84,38 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		&rbac.ClusterRoleGetter{Lister: orgWorkspaceKubeInformer.ClusterRoles().Lister()},
 		&rbac.ClusterRoleBindingLister{Lister: orgWorkspaceKubeInformer.ClusterRoleBindings().Lister()},
 	)
+
+	// TODO: decide if we want to require workspaces for all kcp variations. For now, only check if the workspace controllers are running,
+	// as that ensures the ClusterWorkspace CRD is installed, and that our shared informer factory can sync all its caches successfully.
+	if a.workspaceLister != nil {
+		// check the workspace even exists
+		// TODO: using scoping when available
+		if ws, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, workspace)); err != nil {
+			if errors.IsNotFound(err) {
+				return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
+			}
+			return authorizer.DecisionNoOpinion, "", err
+		} else if len(ws.Status.Initializers) > 0 {
+			workspaceAttr := authorizer.AttributesRecord{
+				User:            attr.GetUser(),
+				Verb:            attr.GetVerb(),
+				APIGroup:        v1alpha1.SchemeGroupVersion.Group,
+				APIVersion:      v1alpha1.SchemeGroupVersion.Version,
+				Resource:        "workspaces",
+				Subresource:     "initialize",
+				Name:            workspace,
+				ResourceRequest: true,
+			}
+
+			dec, reason, err := orgAuthorizer.Authorize(ctx, workspaceAttr)
+			if err != nil {
+				return dec, reason, err
+			}
+			if dec != authorizer.DecisionAllow {
+				return dec, "workspace is initializing", nil
+			}
+		}
+	}
 
 	verbToGroupMembership := map[string]string{
 		"admin":  "system:kcp:workspace:admin",
@@ -139,8 +157,6 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	if len(extraGroups) == 0 {
 		return authorizer.DecisionNoOpinion, "workspace access not permitted", nil
 	}
-
-	klog.Infof("adding groups: %v", extraGroups)
 
 	attrsWithExtraGroups := authorizer.AttributesRecord{
 		User: &user.DefaultInfo{
