@@ -143,7 +143,7 @@ func (c *Controller) patchStatus(ctx context.Context, ns *corev1.Namespace, upda
 // and secrets) and there is no guarantee that arbitrary CRDs will support
 // conditions.
 func (c *Controller) updateSchedulableCondition(ctx context.Context, ns *corev1.Namespace, schedulable bool) error {
-	klog.Infof("Patching namespace %q|%q status to indicate schedulable=%s", ns.ClusterName, ns.Name, schedulable)
+	klog.Infof("Patching namespace %q|%q status to indicate schedulable=%t", ns.ClusterName, ns.Name, schedulable)
 
 	if schedulable {
 		return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
