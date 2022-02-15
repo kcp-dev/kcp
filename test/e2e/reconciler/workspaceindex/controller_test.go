@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -108,13 +110,15 @@ func resolveRunningServer(ctx context.Context, t *testing.T, server framework.Ru
 }
 
 func TestWorkspaceIndex(t *testing.T) {
+	t.Parallel()
+
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t framework.TestingTInterface, port string, observed map[string]map[string]string)
+		work func(ctx context.Context, t *testing.T, port string, observed map[string]map[string]string)
 	}{
 		{
 			name: "test",
-			work: func(ctx context.Context, t framework.TestingTInterface, port string, observed map[string]map[string]string) {
+			work: func(ctx context.Context, t *testing.T, port string, observed map[string]map[string]string) {
 				resolve := func(logicalCluster, resourceVersion string) (string, error) {
 					u, err := url.Parse(fmt.Sprintf("http://[::1]:%s/shard", port))
 					if err != nil {
@@ -143,37 +147,23 @@ func TestWorkspaceIndex(t *testing.T) {
 				}
 
 				resp, err := http.Get(fmt.Sprintf("http://[::1]:%s/data", port))
-				if err != nil {
-					t.Errorf("failed to get data from proxy: %v", err)
-					return
-				}
-				if resp.StatusCode != http.StatusOK {
-					t.Errorf("request for data did not get 200, but %d", resp.StatusCode)
-					return
-				}
+				require.NoError(t, err, "failed to get data from proxy")
+				require.Equal(t, http.StatusOK, resp.StatusCode, "unexpected request status")
+
 				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					t.Errorf("failed to read data from body: %v", err)
-					return
-				}
-				if err := resp.Body.Close(); err != nil {
-					t.Errorf("failed to close body: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to read data from body")
 				t.Log(string(body))
+
+				err = resp.Body.Close()
+				require.NoError(t, err, "failed to close body")
 
 				for orgName, workspaces := range observed {
 					for workspaceName, shardName := range workspaces {
 						logicalCluster := orgName + "_" + workspaceName
 						shard, err := resolve(logicalCluster, "")
-						if err != nil {
-							t.Errorf("%s/%s: expected no error but got one: %v", orgName, workspaceName, err)
-							return
-						}
-						if shard != shardName {
-							t.Errorf("%s/%s: expected %s on %s, got %s", orgName, workspaceName, logicalCluster, shardName, shard)
-							return
-						}
+						require.NoError(t, err, "%s/%s: expected no error but got one", orgName, workspaceName)
+						require.Equalf(t, shardName, shard, "%s/%s: expected %s on %s, got %s",
+							orgName, workspaceName, logicalCluster, shardName, shard)
 					}
 				}
 			},
@@ -193,22 +183,53 @@ func TestWorkspaceIndex(t *testing.T) {
 	)
 	for i := range testCases {
 		testCase := testCases[i]
-		framework.RunParallel(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			// TODO(marun) Refactor tests to enable the use of shared fixture
+			f := framework.NewKcpFixture(t,
+				// TODO: when we have the shard proxy working for API
+				// requests, we only need to run the workspace-related
+				// controllers in the main shard
+				framework.KcpConfig{
+					Name: serverNameMain,
+					Args: []string{
+						"--run-controllers=false",
+						"--unsupported-run-individual-controllers=workspace-scheduler",
+					},
+				}, framework.KcpConfig{
+					Name: serverNameEast,
+					Args: []string{
+						"--run-controllers=false",
+						"--unsupported-run-individual-controllers=workspace-scheduler",
+					},
+				}, framework.KcpConfig{
+					Name: serverNameCentral,
+					Args: []string{
+						"--run-controllers=false",
+						"--unsupported-run-individual-controllers=workspace-scheduler",
+					},
+				}, framework.KcpConfig{
+					Name: serverNameWest,
+					Args: []string{
+						"--run-controllers=false",
+						"--unsupported-run-individual-controllers=workspace-scheduler",
+					},
+				},
+			)
+
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)
 				t.Cleanup(cancel)
 				ctx = withDeadline
 			}
-			if len(servers) != 4 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
-			}
-			mainServer, err := resolveRunningServer(ctx, t, servers[serverNameMain], "")
-			if err != nil {
-				t.Error(err)
-				return
-			}
+
+			require.Equal(t, 4, len(f.Servers), "incorrect number of servers")
+
+			mainServer, err := resolveRunningServer(ctx, t, f.Servers[serverNameMain], "")
+			require.NoError(t, err)
+
 			// in the root workspace, set up:
 			// - WorkspaceShard objects with the credentials for our servers
 			// - Workspace objects for our organizations
@@ -227,7 +248,7 @@ func TestWorkspaceIndex(t *testing.T) {
 				go func(serverName string) {
 					defer wg.Done()
 
-					rawCfg, err := servers[serverName].RawConfig()
+					rawCfg, err := f.Servers[serverName].RawConfig()
 					if err != nil {
 						initErrorChan <- fmt.Errorf("failed to resolve raw credentials: %w", err)
 						return
@@ -247,10 +268,8 @@ func TestWorkspaceIndex(t *testing.T) {
 					initErrors = append(initErrors, err)
 				}
 			}
-			if len(initErrors) > 0 {
-				t.Errorf("failed to bootstrap shards: %v", kerrors.NewAggregate(initErrors))
-				return
-			}
+			require.Zero(t, len(initErrors), "failed to bootstrap shards: %v", kerrors.NewAggregate(initErrors))
+
 			mapping := map[string]map[string]string{} // org to workspace to shard
 			mappingLock := sync.Mutex{}
 			orgErrorChan := make(chan error, len(orgs))
@@ -277,7 +296,7 @@ func TestWorkspaceIndex(t *testing.T) {
 						orgErrorChan <- err
 						return
 					}
-					shardServer, err := resolveRunningServer(ctx, t, servers[orgWorkspace.Status.Location.Current], clusterName)
+					shardServer, err := resolveRunningServer(ctx, t, f.Servers[orgWorkspace.Status.Location.Current], clusterName)
 					if err != nil {
 						orgErrorChan <- err
 						return
@@ -318,20 +337,17 @@ func TestWorkspaceIndex(t *testing.T) {
 					orgErrors = append(orgErrors, err)
 				}
 			}
-			if len(orgErrors) > 0 {
-				t.Errorf("failed to bootstrap org workspaces in root workspace: %v", kerrors.NewAggregate(orgErrors))
-				return
-			}
+			require.Zero(t, len(orgErrors), "failed to bootstrap shards: %v", kerrors.NewAggregate(orgErrors))
+
 			port, err := framework.GetFreePort(t)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			cfg, err := servers[serverNameMain].RawConfig()
-			if err != nil {
-				t.Error(err)
-				return
-			}
+			require.NoError(t, err)
+
+			cfg, err := f.Servers[serverNameMain].RawConfig()
+			require.NoError(t, err)
+
+			artifactDir, err := framework.CreateTempDirForTest(t, "artifacts")
+			require.NoError(t, err, "failed to create artifact dir for shard-proxy")
+
 			proxy := framework.NewAccessory(t, artifactDir,
 				"shard-proxy",
 				"--port="+port,
@@ -342,26 +358,12 @@ func TestWorkspaceIndex(t *testing.T) {
 					t.Error(err)
 				}
 			}()
-			if !framework.Ready(ctx, t, port) {
-				t.Log("failed to wait for accessory to be ready")
-				return
-			}
+			require.True(t, framework.Ready(ctx, t, port), "failed to wait for accessory to be ready")
+
 			mappingLock.Lock()
 			defer mappingLock.Unlock()
 			t.Logf("expecting: %#v", mapping)
 			testCase.work(ctx, t, port, mapping)
-		}, framework.KcpConfig{
-			Name: serverNameMain,
-			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
-		}, framework.KcpConfig{
-			Name: serverNameEast,
-			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"}, // TODO: when we have the shard proxy working for API requests, we only need to run the workspace-related controllers in the main shard
-		}, framework.KcpConfig{
-			Name: serverNameCentral,
-			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
-		}, framework.KcpConfig{
-			Name: serverNameWest,
-			Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
 		})
 	}
 }
