@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -53,6 +54,8 @@ const existingServiceName = "existing-service"
 const sourceClusterName, sinkClusterName = "source", "sink"
 
 func TestIngressController(t *testing.T) {
+	t.Parallel()
+
 	type runningServer struct {
 		framework.RunningServer
 		client networkingclient.NetworkingV1Interface
@@ -60,89 +63,35 @@ func TestIngressController(t *testing.T) {
 	}
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer)
+		work func(ctx context.Context, t *testing.T, servers map[string]runningServer)
 	}{
 		{
-			name: "create an ingress that points to a valid service and expect the Ingress to be scheduled to the same cluster",
-			work: func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer) {
-
+			name: "ingress lifecycle",
+			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer) {
 				ingressYaml, err := embeddedResources.ReadFile("ingress.yaml")
-				if err != nil {
-					t.Errorf("failed to read ingress: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to read ingress")
 
 				var ingress *v1.Ingress
-				if err := yaml.Unmarshal(ingressYaml, &ingress); err != nil {
-					t.Errorf("failed to create ingress: %v", err)
-					return
-				}
+				err = yaml.Unmarshal(ingressYaml, &ingress)
+				require.NoError(t, err, "failed to create ingress")
 
 				ingress, err = servers[sourceClusterName].client.Ingresses(testNamespace).Create(ctx, ingress, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create ingress: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to create ingress")
 
 				nsLocator := syncer.NamespaceLocator{LogicalCluster: ingress.ClusterName, Namespace: ingress.Namespace}
 				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
-				if err != nil {
-					t.Errorf("Error determining namespace mapping for %v: %v", nsLocator, err)
-					return
-				}
-				expectedIngress := ingress.DeepCopy()
-				expectedIngress.Name = ingress.Name + "--" + clusterName
-				expectedIngress.SetNamespace(targetNamespace)
-				if err := servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
-					if diff := cmp.Diff(expectedIngress.Spec, object.Spec); diff != "" {
-						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
-					}
-					return nil
-				}); err != nil {
-					t.Errorf("did not see Ingress spec updated on sink cluster: %v", err)
-					return
-				}
-			},
-		},
-		{
-			name: "update the ingress expect the sink to be updated",
-			work: func(ctx context.Context, t framework.TestingTInterface, servers map[string]runningServer) {
-				ingressYaml, err := embeddedResources.ReadFile("ingress.yaml")
-				if err != nil {
-					t.Errorf("failed to read ingress: %v", err)
-					return
-				}
-
-				var ingress *v1.Ingress
-				if err := yaml.Unmarshal(ingressYaml, &ingress); err != nil {
-					t.Errorf("failed to create ingress: %v", err)
-					return
-				}
-
-				ingress, err = servers[sourceClusterName].client.Ingresses(testNamespace).Create(ctx, ingress, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create ingress: %v", err)
-					return
-				}
+				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 
 				expectedIngress := ingress.DeepCopy()
-				nsLocator := syncer.NamespaceLocator{LogicalCluster: ingress.ClusterName, Namespace: ingress.Namespace}
-				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
-				if err != nil {
-					t.Errorf("Error determining namespace mapping for %v: %v", nsLocator, err)
-					return
-				}
 				expectedIngress.Name = expectedIngress.Name + "--" + clusterName
 				expectedIngress.Namespace = targetNamespace
-				if err := servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
+				err = servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
 					if diff := cmp.Diff(expectedIngress.Spec, object.Spec); diff != "" {
 						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
 					}
 					return nil
-				}); err != nil {
-					t.Errorf("did not see the ingress synced on sink cluster: %v", err)
-					return
-				}
+				})
+				require.NoError(t, err, "did not see the ingress synced on sink cluster")
 
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 					c := servers[sourceClusterName].client.Ingresses(testNamespace)
@@ -157,29 +106,45 @@ func TestIngressController(t *testing.T) {
 					}
 					return nil
 				})
-
-				if err != nil {
-					t.Errorf("failed updating the ingress object in the source cluster: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed updating the ingress object in the source cluster")
 
 				ingress.Name = ingress.Name + "--" + clusterName
 				ingress.Namespace = targetNamespace
-				if err := servers[sinkClusterName].expect(ingress, func(object *v1.Ingress) error {
+				err = servers[sinkClusterName].expect(ingress, func(object *v1.Ingress) error {
 					if ingress.Spec.Rules[0].Host != object.Spec.Rules[0].Host {
 						return fmt.Errorf("saw incorrect spec on sink cluster, expected host %s, got %s", ingress.Spec.Rules[0].Host, object.Spec.Rules[0].Host)
 					}
 					return nil
-				}); err != nil {
-					t.Errorf("did not see Ingress spec updated on sink cluster: %v", err)
-					return
-				}
+				})
+				require.NoError(t, err, "did not see Ingress spec updated on sink cluster")
 			},
 		},
 	}
 	for i := range testCases {
 		testCase := testCases[i]
-		framework.RunParallel(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			// TODO(marun) Refactor tests to enable the use of shared fixture
+			f := framework.NewKcpFixture(t,
+				framework.KcpConfig{
+					Name: "source",
+					Args: []string{
+						"--push-mode",
+						"--run-controllers=false",
+						"--unsupported-run-individual-controllers=cluster",
+						"--auto-publish-apis=true",
+						"--resources-to-sync=ingresses.networking.k8s.io,deployments.apps,services",
+					},
+				},
+				framework.KcpConfig{
+					Name: "sink",
+					Args: []string{
+						"--run-controllers=false",
+					},
+				},
+			)
+
 			start := time.Now()
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -187,10 +152,9 @@ func TestIngressController(t *testing.T) {
 				t.Cleanup(cancel)
 				ctx = withDeadline
 			}
-			if len(servers) != 2 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
-			}
+
+			require.Equal(t, 2, len(f.Servers), "incorrect number of servers")
+
 			t.Log("Installing test CRDs...")
 			requiredCrds := []metav1.GroupResource{
 				{Group: "core.k8s.io", Resource: "services"},
@@ -198,78 +162,59 @@ func TestIngressController(t *testing.T) {
 				{Group: "networking.k8s.io", Resource: "ingresses"},
 			}
 			for _, requiredCrd := range requiredCrds {
-				if err := framework.InstallCrd(ctx, requiredCrd, servers, embeddedResources); err != nil {
-					t.Error(err)
-					return
-				}
+				err := framework.InstallCrd(ctx, requiredCrd, f.Servers, embeddedResources)
+				require.NoError(t, err, "failed to install crds")
 			}
 			t.Logf("Installed test CRDs after %s", time.Since(start))
+
 			start = time.Now()
-			source, sink := servers[sourceClusterName], servers[sinkClusterName]
+			source, sink := f.Servers[sourceClusterName], f.Servers[sinkClusterName]
 			t.Log("Installing sink cluster...")
-			if err := framework.InstallCluster(t, ctx, source, sink, "clusters.cluster.example.dev", clusterName); err != nil {
-				t.Error(err)
-				return
-			}
+			err := framework.InstallCluster(t, ctx, source, sink, "clusters.cluster.example.dev", clusterName)
+			require.NoError(t, err, "failed to install cluster %q", clusterName)
 			t.Logf("Installed sink cluster after %s", time.Since(start))
+
 			start = time.Now()
 			t.Log("Setting up clients for test...")
-			if err := framework.InstallNamespace(ctx, source, crdName, testNamespace); err != nil {
-				t.Error(err)
-				return
-			}
+			err = framework.InstallNamespace(ctx, source, crdName, testNamespace)
+			require.NoError(t, err, "failed to install namespace %q", testNamespace)
 
-			if err := installService(ctx, source); err != nil {
-				t.Error(err)
-				return
-			}
+			err = installService(ctx, source)
+			require.NoError(t, err, "failed to install service on source")
 
 			runningServers := map[string]runningServer{}
 			for _, name := range []string{sourceClusterName, sinkClusterName} {
-				cfg, err := servers[name].Config()
-				if err != nil {
-					t.Error(err)
-					return
-				}
+				cfg, err := f.Servers[name].Config()
+				require.NoError(t, err, "failed to load config for server %q", name)
+
 				clusterName, err := framework.DetectClusterName(cfg, ctx, crdName)
-				if err != nil {
-					t.Errorf("failed to detect cluster name: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to detect cluster name")
 
 				kubeClients, err := kubernetesclientset.NewClusterForConfig(cfg)
-				if err != nil {
-					t.Errorf("failed to construct client for server: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to construct client for server")
+
 				kubeClient := kubeClients.Cluster(clusterName)
 				expect, err := ExpectIngresses(ctx, t, kubeClient)
-				if err != nil {
-					t.Errorf("failed to start expecter: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to start expecter")
+
 				runningServers[name] = runningServer{
-					RunningServer: servers[name],
+					RunningServer: f.Servers[name],
 					client:        kubeClient.NetworkingV1(),
 					expect:        expect,
 				}
 			}
 
 			cfg, err := source.RawConfig()
-			if err != nil {
-				return
-			}
+			require.NoError(t, err, "failed to load raw config for source")
 
 			envoyListenerPort, err := framework.GetFreePort(t)
-			if err != nil {
-				t.Error(err)
-				return
-			}
+			require.NoError(t, err, "failed to pick envoy listener port")
+
 			xdsListenerPort, err := framework.GetFreePort(t)
-			if err != nil {
-				t.Error(err)
-				return
-			}
+			require.NoError(t, err, "failed to pick xds listener port")
+
+			artifactDir, err := framework.CreateTempDirForTest(t, "artifacts")
+			require.NoError(t, err, "failed to create artifact dir for ingress-controller")
 
 			ingressController := framework.NewAccessory(t, artifactDir,
 				"ingress-controller",
@@ -280,29 +225,12 @@ func TestIngressController(t *testing.T) {
 			)
 
 			err = ingressController.Run(ctx)
-			if err != nil {
-				t.Error(err)
-				return
-			}
+			require.NoError(t, err, "failed to start ingress controller")
+
 			t.Logf("Set up clients for test after %s", time.Since(start))
 			t.Log("Starting test...")
 			testCase.work(ctx, t, runningServers)
-		},
-			framework.KcpConfig{
-				Name: "source",
-				Args: []string{
-					"--push-mode",
-					"--run-controllers=false", "--unsupported-run-individual-controllers=cluster",
-					"--auto-publish-apis=true",
-					"--resources-to-sync=ingresses.networking.k8s.io,deployments.apps,services"},
-			},
-			framework.KcpConfig{
-				Name: "sink",
-				Args: []string{
-					"--run-controllers=false",
-				},
-			},
-		)
+		})
 	}
 }
 
@@ -343,7 +271,7 @@ type RegisterIngressExpectation func(seed *v1.Ingress, expectation IngressExpect
 type IngressExpectation func(ingress *v1.Ingress) error
 
 // ExpectIngresses sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectIngresses(ctx context.Context, t framework.TestingTInterface, client kubernetesclientset.Interface) (RegisterIngressExpectation, error) {
+func ExpectIngresses(ctx context.Context, t *testing.T, client kubernetesclientset.Interface) (RegisterIngressExpectation, error) {
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
 	informer := sharedInformerFactory.Networking().V1().Ingresses()
 	expecter := framework.NewExpecter(informer.Informer())
