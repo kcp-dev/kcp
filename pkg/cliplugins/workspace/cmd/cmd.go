@@ -100,7 +100,6 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		},
 	}
 
-	inheritFromFlag := "inherit-from"
 	useFlag := "use"
 	createCmd := &cobra.Command{
 		Use:          "create",
@@ -113,17 +112,12 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 			if err != nil {
 				return err
 			}
-			inheritFrom, err := c.Flags().GetString(inheritFromFlag)
-			if err != nil {
-				return err
-			}
-			if err := kubeconfig.CreateWorkspace(c.Context(), opts, args[0], useAfterCreation, inheritFrom); err != nil {
+			if err := kubeconfig.CreateWorkspace(c.Context(), opts, args[0], useAfterCreation); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	createCmd.Flags().String(inheritFromFlag, "admin", "Specifies another workspace it should inherit CRDs from")
 	createCmd.Flags().Bool(useFlag, false, "Use the new workspace after a successful creation")
 
 	deleteCmd := &cobra.Command{
