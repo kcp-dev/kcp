@@ -71,12 +71,16 @@ func (f *KCPFixture) SetUp(t *testing.T) func() {
 
 		// Wait for the server to become ready
 		go func(s *kcpServer) {
+			defer wg.Done()
 			err := s.Ready()
 			require.NoErrorf(t, err, "kcp server %s never became ready: %v", s.name, err)
-			wg.Done()
 		}(srv)
 	}
 	wg.Wait()
+
+	if t.Failed() {
+		t.Fatal("Fixture setup failed: one or more servers did not become ready")
+	}
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
 
