@@ -47,6 +47,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&ClusterWorkspace{},
 		&ClusterWorkspaceList{},
+		&ClusterWorkspaceType{},
+		&ClusterWorkspaceTypeList{},
 		&WorkspaceShard{},
 		&WorkspaceShardList{},
 	)

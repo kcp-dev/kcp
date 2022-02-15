@@ -349,12 +349,17 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		}
 	}
 	if workspace.Status.Location.Current == "" {
-		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseScheduling
 		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No shards are available to schedule Workspaces to.")
 	} else {
-		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseActive
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+		if len(workspace.Status.Initializers) > 0 {
+			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+		} else {
+			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
+		}
 	}
+
 	// expose the correct base URL given our current shard
 	if shard == nil || !conditions.IsTrue(shard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
 		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonMissing, conditionsv1alpha1.ConditionSeverityError, "No connection information on target WorkspaceShard.")

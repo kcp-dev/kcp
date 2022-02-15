@@ -66,20 +66,73 @@ type ClusterWorkspaceSpec struct {
 
 	// +optional
 	InheritFrom string `json:"inheritFrom,omitempty"`
+
+	// type defines properties of the workspace both on creation (e.g. initial
+	// resources and initially installed APIs) and during runtime (e.g. permissions).
+	//
+	// The type is a reference to a ClusterWorkspaceType in the same workspace
+	// with the same name, but lower-cased. The ClusterWorkspaceType existence is
+	// validated during admission during creation, with the exception of the
+	// "Universal" type whose existence is not required but respected if it exists.
+	// The type is immutable after creation. The use of a type is gated via
+	// the RBAC clusterworkspacetypes/use resource permission.
+	//
+	// +optional
+	// +kubebuilder:default:="Universal"
+	Type string `json:"type,omitempty"`
 }
+
+// ClusterWorkspaceType specifies behaviour of workspaces of this type.
+//
+// +crd
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Cluster,categories=kcp
+type ClusterWorkspaceType struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// +optional
+	Spec ClusterWorkspaceTypeSpec `json:"spec,omitempty"`
+}
+
+type ClusterWorkspaceTypeSpec struct {
+	// initializers are set of a ClusterWorkspace on creation and must be
+	// cleared by a controller before the workspace can be used. The workspace
+	// will stay in the phase "Initializing" state until all initializers are cleared.
+	//
+	// +optional
+	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+}
+
+// ClusterWorkspaceTypeList is a list of cluster workspace types
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ClusterWorkspaceTypeList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []ClusterWorkspaceType `json:"items"`
+}
+
+// ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
+// initialization controller for the given type of workspaces.
+type ClusterWorkspaceInitializer string
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
 type ClusterWorkspacePhaseType string
 
 const (
+	ClusterWorkspacePhaseScheduling   ClusterWorkspacePhaseType = "Scheduling"
 	ClusterWorkspacePhaseInitializing ClusterWorkspacePhaseType = "Initializing"
-	ClusterWorkspacePhaseActive       ClusterWorkspacePhaseType = "Active"
-	ClusterWorkspacePhaseTerminating  ClusterWorkspacePhaseType = "Terminating"
+	ClusterWorkspacePhaseReady        ClusterWorkspacePhaseType = "Ready"
 )
 
 // ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.
 type ClusterWorkspaceStatus struct {
-	// Phase of the workspace  (Initializing / Active / Terminating)
+	// Phase of the workspace  (Scheduling / Initializing / Ready)
 	Phase ClusterWorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
@@ -98,6 +151,16 @@ type ClusterWorkspaceStatus struct {
 	//
 	// +optional
 	Location ClusterWorkspaceLocation `json:"location,omitempty"`
+
+	// initializers are set on creation by the system and must be cleared
+	// by a controller before the workspace can be used. The workspace will
+	// stay in the phase "Initializing" state until all initializers are cleared.
+	//
+	// A cluster workspace in "Initializing" state are gated via the RBAC
+	// clusterworkspaces/initilize resource permission.
+	//
+	// +optional
+	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 // These are valid conditions of workspace.

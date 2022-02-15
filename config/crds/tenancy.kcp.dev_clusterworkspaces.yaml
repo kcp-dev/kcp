@@ -40,6 +40,7 @@ spec:
           metadata:
             type: object
           spec:
+            default: {}
             description: ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
             properties:
               inheritFrom:
