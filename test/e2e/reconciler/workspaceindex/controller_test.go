@@ -233,7 +233,7 @@ func TestWorkspaceIndex(t *testing.T) {
 			// in the root workspace, set up:
 			// - WorkspaceShard objects with the credentials for our servers
 			// - ClusterWorkspace objects for our organizations
-			// in the "admin" workspace on each shard, set up:
+			// in the "root" workspace on each shard, set up:
 			// - WorkspaceShard object for the scheduler (this will be removed when we have a cross-shard client)
 			// - ClusterWorkspace objects (these are end-user-facing)
 			serverNames := []string{serverNameEast, serverNameCentral, serverNameWest}
@@ -285,10 +285,10 @@ func TestWorkspaceIndex(t *testing.T) {
 						return
 					}
 					mappingLock.Lock()
-					if _, recorded := mapping[helper.OrganizationCluster]; !recorded {
-						mapping[helper.OrganizationCluster] = map[string]string{}
+					if _, recorded := mapping[helper.RootCluster]; !recorded {
+						mapping[helper.RootCluster] = map[string]string{}
 					}
-					mapping[helper.OrganizationCluster][orgName] = orgWorkspace.Status.Location.Current
+					mapping[helper.RootCluster][orgName] = orgWorkspace.Status.Location.Current
 					mappingLock.Unlock()
 
 					clusterName, err := helper.EncodeLogicalClusterName(orgWorkspace)

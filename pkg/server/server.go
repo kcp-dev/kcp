@@ -248,7 +248,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
 	// try to issue Update() calls using the * client, which ends up with the cluster name being set to the default
-	// admin cluster in handler.go. This means the update calls are likely going against the wrong logical cluster.
+	// root cluster in handler.go. This means the update calls are likely going against the wrong logical cluster.
 	//    apiExtensionsConfig.ExtraConfig.NewClientFunc = func(config *rest.Config) (apiextensionsclient.Interface, error) {
 	//		crossClusterScope := controllerz.NewScope("*", controllerz.WildcardScope(true))
 	//

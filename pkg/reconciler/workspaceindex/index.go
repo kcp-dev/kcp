@@ -72,13 +72,13 @@ func (i *index) Record(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	}
 	// TODO: how to handle the root itself?
 	org := workspace.ClusterName
-	if workspace.ClusterName != helper.OrganizationCluster {
+	if workspace.ClusterName != helper.RootCluster {
 		orgName, workspaceName, err := helper.ParseLogicalClusterName(workspace.ClusterName)
 		if err != nil {
 			klog.Errorf("failed to determine org for cluster: %v", err)
 			return nil
 		}
-		if orgName != helper.OrganizationCluster {
+		if orgName != helper.RootCluster {
 			klog.Errorf("invalid org %q, only one level of nesting allowed", orgName)
 			return nil
 		}

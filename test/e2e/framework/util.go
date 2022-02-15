@@ -383,7 +383,7 @@ func DetectClusterName(cfg *rest.Config, ctx context.Context, crdName string) (s
 			return crd.ObjectMeta.ClusterName, nil
 		}
 	}
-	return "", errors.New("detected no admin cluster")
+	return "", errors.New("detected no root cluster")
 }
 
 // GetClientForServer returns a kubernetes clientset for a given server.

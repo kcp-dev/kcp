@@ -19,14 +19,14 @@ package authorization
 import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	clientgoinformers "k8s.io/client-go/informers"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 )
 
 func NewBootstrapPolicyAuthorizer(informers clientgoinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
-	filteredInformer := frameworkrbac.FilterPerCluster(genericcontrolplane.RootClusterName, informers.Rbac().V1())
+	filteredInformer := frameworkrbac.FilterPerCluster(helper.RootCluster, informers.Rbac().V1())
 
 	a := rbac.New(
 		&rbac.RoleGetter{Lister: filteredInformer.Roles().Lister()},

@@ -65,7 +65,7 @@ type Config struct {
 }
 
 func (c *Config) New() (*clusterctl.ClusterReconciler, error) {
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "root", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		return nil, err
 	}

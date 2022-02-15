@@ -55,7 +55,7 @@ func (m *pullSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1a
 }
 
 func (m *pullSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
-	kubeConfig.CurrentContext = "admin"
+	kubeConfig.CurrentContext = "root"
 	bytes, err := clientcmd.Write(*kubeConfig)
 	if err != nil {
 		klog.Errorf("error writing kubeconfig for syncer: %v", err)

@@ -98,7 +98,7 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 			cluster.Wildcard = true
 			fallthrough
 		case "":
-			cluster.Name = genericcontrolplane.RootClusterName
+			cluster.Name = genericcontrolplane.LocalAdminCluster
 		default:
 			if !reClusterName.MatchString(clusterName) {
 				responsewriters.ErrorNegotiated(

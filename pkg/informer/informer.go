@@ -194,7 +194,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 		}
 	} else {
 		// If we don't have the workspaceLister, only check the root logical cluster.
-		logicalClusterNames.Insert(helper.OrganizationCluster)
+		logicalClusterNames.Insert(helper.RootCluster)
 	}
 
 	for _, logicalClusterName := range logicalClusterNames.List() {

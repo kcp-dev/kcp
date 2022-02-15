@@ -73,11 +73,11 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 		return nil, err
 	}
 
-	// Chicken-and-egg: we need the ClusterWorkspace CRD to be created in the default admin logical cluster
+	// Chicken-and-egg: we need the ClusterWorkspace CRD to be created in the default root logical cluster
 	// before we can try to get said ClusterWorkspace, but if we fail listing because the ClusterWorkspace doesn't
 	// exist, we'll never be able to create it. Only check if the target workspace exists for
 	// non-default keys.
-	if cluster.Name != helper.OrganizationCluster && c.workspaceLister != nil {
+	if cluster.Name != helper.RootCluster && c.workspaceLister != nil {
 		targetWorkspaceKey := helper.WorkspaceKey(org, ws)
 		workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -92,10 +92,10 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 		}
 
 		if workspace != nil && workspace.Spec.InheritFrom != "" {
-			if workspace.Spec.InheritFrom == helper.OrganizationCluster {
+			if workspace.Spec.InheritFrom == helper.RootCluster {
 				// HACK: allow inheriting from the OrganizationCluster logical cluster
 				inheriting = true
-				inheritFrom = helper.OrganizationCluster
+				inheritFrom = helper.RootCluster
 			} else {
 				// Make sure the source workspace exists
 				sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
@@ -159,7 +159,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	if cluster.Wildcard {
 		// HACK: Search for the right logical cluster hosting the given CRD when watching or listing with wildcards.
 		// This is a temporary fix for issue https://github.com/kcp-dev/kcp/issues/183: One cannot watch with wildcards
-		// (across logical clusters) if the CRD of the related API Resource hasn't been added in the admin logical cluster first.
+		// (across logical clusters) if the CRD of the related API Resource hasn't been added in the root logical cluster first.
 		// The fix in this HACK is limited since the request will fail if 2 logical clusters contain CRDs for the same GVK
 		// with non-equal specs (especially non-equal schemas).
 		var crds []*apiextensionsv1.CustomResourceDefinition
@@ -218,9 +218,9 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	}
 
 	var sourceWorkspaceCRDKey string
-	if workspace.Spec.InheritFrom == helper.OrganizationCluster {
+	if workspace.Spec.InheritFrom == helper.RootCluster {
 		// HACK: allow inheriting from the OrganizationCluster logical cluster
-		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.OrganizationCluster, name)
+		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.RootCluster, name)
 	} else {
 		sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
 		if _, err := c.workspaceLister.Get(sourceWorkspaceKey); err != nil {

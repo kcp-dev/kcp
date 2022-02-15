@@ -380,5 +380,5 @@ func detectClusterName(cfg *rest.Config, ctx context.Context) (string, error) {
 			return crd.ObjectMeta.ClusterName, nil
 		}
 	}
-	return "", errors.New("detected no admin cluster")
+	return "", errors.New("detected no root cluster")
 }

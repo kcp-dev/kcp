@@ -56,7 +56,7 @@ func (m *pushSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1a
 }
 
 func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
-	upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, "root", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		klog.Errorf("error getting kcp kubeconfig: %v", err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting kcp kubeconfig: %v", err.Error())

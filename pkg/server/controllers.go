@@ -153,18 +153,18 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister 
 
 func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
 	kubeconfig := clientConfig.DeepCopy()
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(adminConfig)
 	if err != nil {
 		return err
 	}
 
 	workspaceController, err := workspace.NewController(
-		kcpClient,
+		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 	)
@@ -173,7 +173,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 	}
 
 	workspaceShardController, err := workspaceshard.NewController(
-		kcpClient,
+		kcpClusterClient,
 		s.kubeSharedInformerFactory.Core().V1().Secrets(),
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 	)

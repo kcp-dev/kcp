@@ -53,14 +53,14 @@ func TestAPIInheritance(t *testing.T) {
 		orgPrefix             string
 	}{
 		{
-			name:                  "transitively inherit from admin root workspace",
-			orgPrefix:             helper.OrganizationCluster,
-			orglogicalClusterName: helper.OrganizationCluster,
+			name:                  "transitively inherit from root workspace",
+			orgPrefix:             helper.RootCluster,
+			orglogicalClusterName: helper.RootCluster,
 		},
 		{
 			name:                  "transitively inherit from some other org workspace",
 			orgPrefix:             "myorg",
-			orglogicalClusterName: "admin_myorg",
+			orglogicalClusterName: "root_myorg",
 		},
 	}
 
@@ -106,14 +106,14 @@ func TestAPIInheritance(t *testing.T) {
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp client for server")
 
-			t.Logf("Creating \"source\" workspaces in org lcluster %s, inheriting from %q", testCase.orglogicalClusterName, helper.OrganizationCluster)
+			t.Logf("Creating \"source\" workspaces in org lcluster %s, inheriting from %q", testCase.orglogicalClusterName, helper.RootCluster)
 			orgKcpClient := kcpClients.Cluster(testCase.orglogicalClusterName)
 			sourceWorkspace := &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "source",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					InheritFrom: helper.OrganizationCluster,
+					InheritFrom: helper.RootCluster,
 				},
 			}
 			_, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})

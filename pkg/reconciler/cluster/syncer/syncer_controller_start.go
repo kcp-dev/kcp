@@ -95,7 +95,7 @@ func (c *Config) New() (*Controller, error) {
 		return nil, nil
 	}
 
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "root", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		return nil, err
 	}

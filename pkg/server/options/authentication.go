@@ -148,22 +148,23 @@ func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName s
 			CertificateAuthorityData: caData,
 			TLSServerName:            tlsServerName,
 		},
-		// admin is the virtual cluster running by default
-		"admin": {
-			Server:                   baseHost,
+		// root is the virtual cluster containing the organizations
+		"root": {
+			Server:                   baseHost + "/clusters/root",
 			CertificateAuthorityData: caData,
 			TLSServerName:            tlsServerName,
 		},
-		// user is a virtual cluster that is lazily instantiated
-		"user": {
-			Server:                   baseHost + "/clusters/user",
+		// system:admin is the virtual cluster running by default
+		"system:admin": {
+			Server:                   baseHost,
 			CertificateAuthorityData: caData,
 			TLSServerName:            tlsServerName,
 		},
 	}
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
 		"cross-cluster": {Cluster: "cross-cluster", AuthInfo: adminUserName},
-		"admin":         {Cluster: "admin", AuthInfo: adminUserName},
+		"root":          {Cluster: "root", AuthInfo: adminUserName},
+		"admin":         {Cluster: "system:admin", AuthInfo: adminUserName},
 		"user":          {Cluster: "user", AuthInfo: adminUserName},
 	}
 	kubeConfig.CurrentContext = "admin"

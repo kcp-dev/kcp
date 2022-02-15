@@ -360,7 +360,7 @@ func (c *kcpServer) loadCfg() error {
 			return false, nil
 		}
 
-		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "admin", nil, nil)
+		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "root", nil, nil)
 
 		c.lock.Lock()
 		c.cfg = config
