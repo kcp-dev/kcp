@@ -32,6 +32,8 @@ import (
 	"k8s.io/apiserver/pkg/util/webhook"
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
@@ -70,6 +72,7 @@ type Server struct {
 
 	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
+	metadataSharedInformerFactory      metadatainformer.SharedInformerFactory
 	apiextensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
 }
 
@@ -163,6 +166,10 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	apiextensionsClient := apiextensionsClusterClient.Cluster(crossCluster)
 	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsClient, resyncPeriod)
+
+	// Setup metadata * informers (required by for garbage collector controller)
+	metadataClient := metadata.NewForConfigOrDie(genericConfig.LoopbackClientConfig)
+	s.metadataSharedInformerFactory = metadatainformer.NewSharedInformerFactory(metadataClient, resyncPeriod)
 
 	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()); err != nil {
 		return err
@@ -259,6 +266,7 @@ func (s *Server) Run(ctx context.Context) error {
 		s.kubeSharedInformerFactory.Start(ctx.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
 		s.kcpSharedInformerFactory.Start(ctx.StopCh)
+		s.metadataSharedInformerFactory.Start(ctx.StopCh)
 
 		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		// wait for CRD inheritance work through the custom informer
@@ -276,6 +284,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.metadataSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
 		klog.Infof("Bootstrapped CRDs and synced all informers. Ready to start controllers")
 		close(s.syncedCh)
@@ -317,6 +326,10 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installNamespaceScheduler(ctx, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(), *loopbackKubeConfig, server); err != nil {
 			return err
 		}
+	}
+
+	if err := s.installGarbageCollectorController(ctx, serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+		return err
 	}
 
 	// Add our custom hooks to the underlying api server

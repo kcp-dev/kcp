@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	_ "net/http/pprof"
 	"net/url"
 	"time"
@@ -26,15 +27,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/controller-manager/pkg/informerfactory"
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
+	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
 	"github.com/kcp-dev/kcp/config"
@@ -48,6 +55,53 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 )
+
+func (s *Server) installGarbageCollectorController(ctx context.Context, config *rest.Config) error {
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	metadataClient, err := metadata.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kubeClient))
+	go wait.Until(func() {
+		mapper.Reset()
+	}, 30*time.Second, ctx.Done())
+
+	ignoredResources := make(map[schema.GroupResource]struct{})
+
+	garbageCollector, err := garbagecollector.NewGarbageCollector(
+		kubeClient,
+		metadataClient,
+		mapper,
+		ignoredResources,
+		informerfactory.NewInformerFactory(s.kubeSharedInformerFactory, s.metadataSharedInformerFactory),
+		s.syncedCh,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create the garbage collector: %w", err)
+	}
+
+	s.AddPostStartHook("start-garbage-collector-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			return err
+		}
+
+		// Start the garbage collector.
+		go garbageCollector.Run(ctx, 2)
+
+		// Periodically refresh the RESTMapper with new discovery information and sync
+		// the garbage collector.
+		go garbageCollector.Sync(kubeClient, 30*time.Second, ctx.Done())
+
+		return nil
+	})
+
+	return nil
+}
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
 	kubeClient, err := kubernetes.NewForConfig(config)
