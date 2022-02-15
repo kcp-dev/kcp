@@ -86,18 +86,18 @@ func TestClusterController(t *testing.T) {
 					},
 					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
 				}, metav1.CreateOptions{})
-				require.NoErrorf(t, err, "failed to create cowboy: %v", err)
+				require.NoErrorf(t, err, "failed to create cowboy")
 
 				nsLocator := syncer.NamespaceLocator{LogicalCluster: cowboy.ClusterName, Namespace: cowboy.Namespace}
 				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
 				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)
-				require.NoErrorf(t, err, "Error determining namespace mapping for %v: %v", nsLocator, err)
+				require.NoErrorf(t, err, "Error determining namespace mapping for %v", nsLocator)
 				require.Eventually(t, func() bool {
 					if _, err = servers[sinkClusterName].coreClient.Namespaces().Get(ctx, targetNamespace, metav1.GetOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							return false
 						}
-						require.NoErrorf(t, err, "Error getting namespace %v: %v", targetNamespace, err)
+						require.NoErrorf(t, err, "Error getting namespace %q", targetNamespace)
 						return false
 					}
 					return true
@@ -111,11 +111,11 @@ func TestClusterController(t *testing.T) {
 					}
 					return nil
 				})
-				require.NoErrorf(t, err, "did not see cowboy spec updated on sink cluster: %v", err)
+				require.NoErrorf(t, err, "did not see cowboy spec updated on sink cluster")
 
 				t.Logf("Patching status in sink")
 				updated, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
-				require.NoError(t, err, "failed to patch cowboy: %v", err)
+				require.NoError(t, err, "failed to patch cowboy")
 
 				t.Logf("Expecting status update to show up in source")
 				cowboy.SetNamespace(testNamespace)
@@ -125,7 +125,7 @@ func TestClusterController(t *testing.T) {
 					}
 					return nil
 				})
-				require.NoErrorf(t, err, "did not see cowboy status updated on source cluster: %v", err)
+				require.NoErrorf(t, err, "did not see cowboy status updated on source cluster")
 
 				err = servers[sourceClusterName].client.Cowboys(testNamespace).Delete(ctx, cowboy.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "error deleting source cowboy")
@@ -199,17 +199,17 @@ func TestClusterController(t *testing.T) {
 				require.NoError(t, err)
 
 				clusterName, err := framework.DetectClusterName(cfg, ctx, crdName)
-				require.NoErrorf(t, err, "failed to detect cluster name: %v", err)
+				require.NoErrorf(t, err, "failed to detect cluster name")
 
 				wildwestClients, err := wildwestclientset.NewClusterForConfig(cfg)
-				require.NoErrorf(t, err, "failed to construct client for server: %v", err)
+				require.NoErrorf(t, err, "failed to construct client for server")
 
 				wildwestClient := wildwestClients.Cluster(clusterName)
 				expect, err := ExpectCowboys(ctx, t, wildwestClient)
-				require.NoErrorf(t, err, "failed to start expecter: %v", err)
+				require.NoErrorf(t, err, "failed to start expecter")
 
 				coreClients, err := kubernetes.NewClusterForConfig(cfg)
-				require.NoErrorf(t, err, "failed to construct client for server: %v", err)
+				require.NoErrorf(t, err, "failed to construct client for server")
 
 				coreClient := coreClients.Cluster(clusterName)
 
