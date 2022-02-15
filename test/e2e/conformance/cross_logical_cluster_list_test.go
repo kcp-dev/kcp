@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,25 +37,38 @@ import (
 )
 
 func TestCrossLogicalClusterList(t *testing.T) {
+	t.Parallel()
+
 	const serverName = "main"
 
-	framework.RunParallel(t, "Ensure cross logical cluster list works", func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
+	f := framework.NewKcpFixture(t,
+		framework.KcpConfig{
+			Name: "main",
+			Args: []string{
+				"--run-controllers=false",
+				"--unsupported-run-individual-controllers=workspace-scheduler",
+			},
+		},
+	)
+
+	// TODO(marun) Collapse this sub test into its parent. It's only
+	// left in this form to simplify review of the transition to the
+	// new fixture.
+	t.Run("Ensure cross logical cluster list works", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := context.Background()
 		if deadline, ok := t.Deadline(); ok {
 			withDeadline, cancel := context.WithDeadline(ctx, deadline)
 			t.Cleanup(cancel)
 			ctx = withDeadline
 		}
-		if len(servers) != 1 {
-			t.Errorf("incorrect number of servers: %d", len(servers))
-			return
-		}
-		server := servers[serverName]
+
+		require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
+		server := f.Servers[serverName]
+
 		cfg, err := server.Config()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		require.NoError(t, err)
 
 		// Until we get rid of the multiClusterClientConfigRoundTripper and replace it with scoping,
 		// make sure we don't break cross-logical cluster client listing.
@@ -62,10 +77,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		logicalClusters := []string{"admin_one", "admin_two", "admin_three"}
 		for i, logicalCluster := range logicalClusters {
 			apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct apiextensions client for server: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to construct apiextensions client for server")
 
 			crdClient := apiExtensionsClients.Cluster(logicalCluster).ApiextensionsV1().CustomResourceDefinitions()
 
@@ -73,16 +85,11 @@ func TestCrossLogicalClusterList(t *testing.T) {
 				{Group: tenancy.GroupName, Resource: "workspaces"},
 			}
 
-			if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, workspaceCRDs); err != nil {
-				t.Errorf("failed to bootstrap CRDs: %v", err)
-				return
-			}
+			err = config.BootstrapCustomResourceDefinitions(ctx, crdClient, workspaceCRDs)
+			require.NoError(t, err, "failed to bootstrap CRDs")
 
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct kcp client for server: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to construct kcp client for server")
 
 			kcpClient := kcpClients.Cluster(logicalCluster)
 
@@ -92,42 +99,26 @@ func TestCrossLogicalClusterList(t *testing.T) {
 				},
 			}
 			_, err = kcpClient.TenancyV1alpha1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
-			if err != nil {
-				t.Errorf("error creating source workspace: %v", err)
-				return
-			}
+			require.NoError(t, err, "error creating source workspace")
+
 			server.Artifact(t, func() (runtime.Object, error) {
 				return kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
 			})
 		}
 
 		kcpClients, err := clientset.NewClusterForConfig(cfg)
-		if err != nil {
-			t.Errorf("failed to construct kcp client for server: %v", err)
-			return
-		}
+		require.NoError(t, err, "failed to construct kcp client for server")
 
 		kcpClient := kcpClients.Cluster("*")
 		workspaces, err := kcpClient.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Errorf("error listing workspaces: %v", err)
-			return
-		}
-		if len(workspaces.Items) != 3 {
-			t.Errorf("expected 3 workspaces, got %d", len(workspaces.Items))
-			return
-		}
+		require.NoError(t, err, "error listing workspaces")
+		require.Equal(t, 3, len(workspaces.Items), "unexpected number of workspaces")
+
 		got := sets.NewString()
 		for _, ws := range workspaces.Items {
 			got.Insert(ws.ClusterName + "/" + ws.Name)
 		}
 		expected := sets.NewString("admin_one/ws-0", "admin_two/ws-1", "admin_three/ws-2")
-		if !expected.Equal(got) {
-			t.Errorf("expected %v, got %v", expected, got)
-		}
-
-	}, framework.KcpConfig{
-		Name: "main",
-		Args: []string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"},
+		require.Empty(t, expected.Difference(got), "unexpected workspaces detected")
 	})
 }
