@@ -140,7 +140,7 @@ func TestClusterController(t *testing.T) {
 		},
 	}
 
-	f := framework.NewKCPFixture(
+	f := framework.NewKcpFixture(t,
 		// this is the host kcp cluster from which we sync spec
 		framework.KcpConfig{
 			Name: sourceClusterName,

@@ -25,13 +25,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// KCPFixture manages the lifecycle of a set of kcp servers.
-type KCPFixture struct {
+// KcpFixture manages the lifecycle of a set of kcp servers.
+type KcpFixture struct {
 	Servers map[string]RunningServer
 }
 
-func NewKCPFixture(t *testing.T, cfgs ...KcpConfig) *KCPFixture {
-	f := &KCPFixture{}
+func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
+	f := &KcpFixture{}
 
 	artifactDir, dataDir, err := ScratchDirs(t)
 	require.NoErrorf(t, err, "failed to create scratch dirs: %v", err)

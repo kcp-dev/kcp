@@ -137,7 +137,7 @@ func TestAuthorizer(t *testing.T) {
 	}).ArgsForKCP(t)
 	require.NoError(t, err)
 
-	f := framework.NewKCPFixture(t, framework.KcpConfig{
+	f := framework.NewKcpFixture(t, framework.KcpConfig{
 		Name: "main",
 		Args: usersKCPArgs,
 	})
