@@ -80,8 +80,8 @@ jobs:
       - run: make build
       - run: PATH="${PATH}:$(pwd)/bin/" make test
 
-  e2e-single-run:
-    name: e2e-single-run
+  e2e:
+    name: e2e
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -89,15 +89,15 @@ jobs:
         with:
           go-version: v1.17
       - run: make build
-      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" COUNT=1 E2E_PARALLELISM=2 make test-e2e
+      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" E2E_PARALLELISM=2 make test-e2e
       - uses: actions/upload-artifact@v2
         if: ${{ always() }}
         with:
           name: e2e-artifacts
           path: /tmp/e2e/**/artifacts/
 
-  e2e:
-    name: e2e
+  e2e-multiple-runs:
+    name: e2e-multiple-runs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
