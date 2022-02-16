@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -71,8 +72,14 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 
 	existing, err := c.toClient.Resource(gvr).Namespace(namespace).Get(ctx, obj.GetName(), metav1.GetOptions{})
 	if err != nil {
-		klog.Errorf("Getting resource %s/%s: %v", namespace, obj.GetName(), err)
-		return err
+		if !errors.IsNotFound(err) {
+			klog.Errorf("Getting resource %s/%s: %v", namespace, obj.GetName(), err)
+			return err
+		}
+		if _, err := c.toClient.Resource(gvr).Namespace(namespace).Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+			klog.Errorf("Creating resource %s/%s: %v", namespace, obj.GetName(), err)
+		}
+		return nil
 	}
 
 	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.

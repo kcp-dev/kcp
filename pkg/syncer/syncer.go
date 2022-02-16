@@ -103,16 +103,20 @@ func New(cluster, logicalCluster string, fromDiscovery discovery.DiscoveryInterf
 		syncerNamespace: os.Getenv(SyncerNamespaceKey),
 	}
 
+	var options dynamicinformer.TweakListOptionsFunc
+
 	if direction == KcpToPhysicalCluster {
 		c.upsertFn = c.applyToDownstream
 		c.deleteFn = c.deleteFromDownstream
+		options = func(o *metav1.ListOptions) {
+			o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", clusterID)
+		}
 	} else {
 		c.upsertFn = c.updateStatusInUpstream
+		options = func(options *metav1.ListOptions) {}
 	}
 
-	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", clusterID)
-	})
+	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, options)
 
 	// Get all types the upstream API server knows about.
 	// TODO: watch this and learn about new types, or forget about old ones.
