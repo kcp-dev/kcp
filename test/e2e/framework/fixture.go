@@ -43,7 +43,7 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 	var servers []*kcpServer
 	f.Servers = map[string]RunningServer{}
 	for _, cfg := range cfgs {
-		server, err := newKcpServer(NewT(ctx, t), cfg, artifactDir, dataDir)
+		server, err := newKcpServer(t, cfg, artifactDir, dataDir)
 		require.NoError(t, err)
 
 		servers = append(servers, server)

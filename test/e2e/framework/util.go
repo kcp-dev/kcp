@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +67,7 @@ var baseTempDirsLock sync.Mutex = sync.Mutex{}
 
 // ensureBaseTempDir returns the name of a base temp dir for the
 // current test, creating it if needed.
-func ensureBaseTempDir(t TestingTInterface) (string, error) {
+func ensureBaseTempDir(t *testing.T) (string, error) {
 	baseTempDirsLock.Lock()
 	defer baseTempDirsLock.Unlock()
 	name := t.Name()
@@ -102,7 +103,7 @@ func ensureBaseTempDir(t TestingTInterface) (string, error) {
 
 // createTempDirForTest creates the named directory with a unique base
 // path derived from the name of the current test.
-func CreateTempDirForTest(t TestingTInterface, dirName string) (string, error) {
+func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
 	baseTempDir, err := ensureBaseTempDir(t)
 	if err != nil {
 		return "", err
@@ -115,7 +116,7 @@ func CreateTempDirForTest(t TestingTInterface, dirName string) (string, error) {
 }
 
 // ScratchDirs determines where artifacts and data should live for a test server.
-func ScratchDirs(t TestingTInterface) (string, string, error) {
+func ScratchDirs(t *testing.T) (string, string, error) {
 	artifactDir, err := CreateTempDirForTest(t, "artifacts")
 	if err != nil {
 		return "", "", err
@@ -139,7 +140,7 @@ func init() {
 
 // Artifact registers the data-producing function to run and dump the YAML-formatted output
 // to the artifact directory for the test before the kcp process is terminated.
-func (c *kcpServer) Artifact(t TestingTInterface, producer func() (runtime.Object, error)) {
+func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
 	subDir := filepath.Join("artifacts", "kcp", c.name)
 	artifactDir, err := CreateTempDirForTest(t, subDir)
 	if err != nil {
@@ -214,7 +215,7 @@ func (c *kcpServer) Artifact(t TestingTInterface, producer func() (runtime.Objec
 }
 
 // GetFreePort asks the kernel for a free open port that is ready to use.
-func GetFreePort(t TestingTInterface) (string, error) {
+func GetFreePort(t *testing.T) (string, error) {
 	for {
 		addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 		if err != nil {
@@ -302,7 +303,7 @@ func InstallCrd(ctx context.Context, gr metav1.GroupResource, servers map[string
 }
 
 // InstallCluster creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
-func InstallCluster(t TestingTInterface, ctx context.Context, source, server RunningServer, crdName, clusterName string) error {
+func InstallCluster(t *testing.T, ctx context.Context, source, server RunningServer, crdName, clusterName string) error {
 	sourceCfg, err := source.Config()
 	if err != nil {
 		return fmt.Errorf("failed to get source config: %w", err)

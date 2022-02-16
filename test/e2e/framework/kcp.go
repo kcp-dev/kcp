@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -63,10 +64,10 @@ type kcpServer struct {
 	// TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
 	rawCfg *clientcmdapi.Config
 
-	t TestingTInterface
+	t *testing.T
 }
 
-func newKcpServer(t *T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
+func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
 	t.Helper()
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {
@@ -170,7 +171,7 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 		go func() {
 			defer func() { cleanupCancel() }()
 			if err := s.Run(ctx); err != nil && ctx.Err() == nil {
-				c.t.Errorf("`kcp` failed: %w", err)
+				c.t.Errorf("`kcp` failed: %v", err)
 			}
 		}()
 
@@ -199,7 +200,7 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 		if err != nil && ctx.Err() == nil {
 			// we care about errors in the process that did not result from the
 			// context expiring and us ending the process
-			c.t.Errorf("`kcp` failed: %w logs:\n%v", err, data)
+			c.t.Errorf("`kcp` failed: %v logs:\n%v", err, data)
 		}
 	}()
 
