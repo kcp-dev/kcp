@@ -148,7 +148,7 @@ func TestAuthorizer(t *testing.T) {
 		t.Cleanup(cancel)
 		ctx = withDeadline
 	}
-	require.Equalf(t, len(f.Servers), 1, "incorrect number of servers")
+	require.Equal(t, len(f.Servers), 1, "incorrect number of servers")
 
 	server := f.Servers["main"]
 	kcpCfg, err := server.Config()

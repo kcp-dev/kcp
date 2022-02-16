@@ -437,8 +437,8 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 							resource := resource()
 							openAPITypeName := util.GetCanonicalTypeName(resource.new())
 							openAPIDefinitionName, _ := namer.GetDefinitionName(openAPITypeName)
-							if assert.Containsf(t, definitions, openAPIDefinitionName, "OpenAPI definitions should contain definition %s for type %s", openAPIDefinitionName, openAPITypeName) {
-								require.Equalf(t, resource.OpenAPISchemaDescription(), definitions[openAPIDefinitionName].Description, "OpenAPI Schema description is not correct for %s", openAPIDefinitionName)
+							if assert.Contains(t, definitions, openAPIDefinitionName, "OpenAPI definitions should contain definition %s for type %s", openAPIDefinitionName, openAPITypeName) {
+								require.Equal(t, resource.OpenAPISchemaDescription(), definitions[openAPIDefinitionName].Description, "OpenAPI Schema description is not correct for %s", openAPIDefinitionName)
 							}
 							separatorPlaceholder := "/"
 							if resource.namespaceScoped {
@@ -446,7 +446,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 							}
 							pathPrefix := "/apis/" + group.gv.Group + "/" + group.gv.Version + separatorPlaceholder + resource.ResourceName() + "/{name}"
 
-							require.Containsf(t, paths, pathPrefix, "OpenAPI paths should contain path %s for resource %s", pathPrefix, resource.ResourceName())
+							require.Contains(t, paths, pathPrefix, "OpenAPI paths should contain path %s for resource %s", pathPrefix, resource.ResourceName())
 						}
 					}
 

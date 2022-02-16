@@ -34,7 +34,7 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 	f := &KcpFixture{}
 
 	artifactDir, dataDir, err := ScratchDirs(t)
-	require.NoErrorf(t, err, "failed to create scratch dirs: %v", err)
+	require.NoError(t, err, "failed to create scratch dirs: %v", err)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -63,7 +63,7 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 		go func(s *kcpServer) {
 			defer wg.Done()
 			err := s.Ready()
-			require.NoErrorf(t, err, "kcp server %s never became ready: %v", s.name, err)
+			require.NoError(t, err, "kcp server %s never became ready: %v", s.name, err)
 		}(srv)
 	}
 	wg.Wait()

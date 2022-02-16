@@ -218,7 +218,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				require.NoError(t, err, "did not see the workspace created in personal virtual workspace")
 
 				req := vwUser1Client.TenancyV1alpha1().RESTClient().Get().Resource("workspaces").Name(workspace1.Name).SubResource("kubeconfig").Do(ctx)
-				require.Nilf(t, req.Error(), "error retrieving the kubeconfig for workspace %s: %v", workspace1.Name, err)
+				require.Nil(t, req.Error(), "error retrieving the kubeconfig for workspace %s: %v", workspace1.Name, err)
 
 				kcpConfigCurrentContextName := kcpServerKubeconfig.CurrentContext
 				kcpConfigCurrentContext := kcpServerKubeconfig.Contexts[kcpConfigCurrentContextName]
@@ -241,10 +241,10 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					},
 				}
 				expectedKubeconfigContent, err := clientcmd.Write(*expectedKubeconfig)
-				require.NoErrorf(t, err, "error writing the content of the expected kubeconfig for workspace %s", workspace1.Name)
+				require.NoError(t, err, "error writing the content of the expected kubeconfig for workspace %s", workspace1.Name)
 
 				workspaceKubeconfigContent, err := req.Raw()
-				require.NoErrorf(t, err, "error retrieving the content of the kubeconfig for workspace %s", workspace1.Name)
+				require.NoError(t, err, "error retrieving the content of the kubeconfig for workspace %s", workspace1.Name)
 
 				require.YAMLEq(t, string(expectedKubeconfigContent), string(workspaceKubeconfigContent))
 			},

@@ -162,7 +162,7 @@ func TestWorkspaceIndex(t *testing.T) {
 						logicalCluster := orgName + "_" + workspaceName
 						shard, err := resolve(logicalCluster, "")
 						require.NoError(t, err, "%s/%s: expected no error but got one", orgName, workspaceName)
-						require.Equalf(t, shardName, shard, "%s/%s: expected %s on %s, got %s",
+						require.Equal(t, shardName, shard, "%s/%s: expected %s on %s, got %s",
 							orgName, workspaceName, logicalCluster, shardName, shard)
 					}
 				}
