@@ -97,7 +97,7 @@ $(OPENSHIFT_GOIMPORTS):
 imports: $(OPENSHIFT_GOIMPORTS)
 	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
 
-COUNT ?= 5
+COUNT ?= 1
 E2E_PARALLELISM ?= 1
 
 .PHONY: test-e2e
