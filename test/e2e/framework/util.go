@@ -102,7 +102,7 @@ func ensureBaseTempDir(t TestingTInterface) (string, error) {
 
 // createTempDirForTest creates the named directory with a unique base
 // path derived from the name of the current test.
-func createTempDirForTest(t TestingTInterface, dirName string) (string, error) {
+func CreateTempDirForTest(t TestingTInterface, dirName string) (string, error) {
 	baseTempDir, err := ensureBaseTempDir(t)
 	if err != nil {
 		return "", err
@@ -116,11 +116,11 @@ func createTempDirForTest(t TestingTInterface, dirName string) (string, error) {
 
 // ScratchDirs determines where artifacts and data should live for a test server.
 func ScratchDirs(t TestingTInterface) (string, string, error) {
-	artifactDir, err := createTempDirForTest(t, "artifacts")
+	artifactDir, err := CreateTempDirForTest(t, "artifacts")
 	if err != nil {
 		return "", "", err
 	}
-	dataDir, err := createTempDirForTest(t, "data")
+	dataDir, err := CreateTempDirForTest(t, "data")
 	if err != nil {
 		return "", "", err
 	}
@@ -141,7 +141,7 @@ func init() {
 // to the artifact directory for the test before the kcp process is terminated.
 func (c *kcpServer) Artifact(t TestingTInterface, producer func() (runtime.Object, error)) {
 	subDir := filepath.Join("artifacts", "kcp", c.name)
-	artifactDir, err := createTempDirForTest(t, subDir)
+	artifactDir, err := CreateTempDirForTest(t, subDir)
 	if err != nil {
 		// TODO(marun) This error should fail the test
 		t.Logf("could not create artifact dir: %v", err)

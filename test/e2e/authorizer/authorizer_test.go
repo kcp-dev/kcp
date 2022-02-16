@@ -137,11 +137,10 @@ func TestAuthorizer(t *testing.T) {
 	}).ArgsForKCP(t)
 	require.NoError(t, err)
 
-	f := framework.NewKCPFixture(framework.KcpConfig{
+	f := framework.NewKcpFixture(t, framework.KcpConfig{
 		Name: "main",
 		Args: usersKCPArgs,
 	})
-	f.SetUp(t)
 
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {
@@ -149,7 +148,7 @@ func TestAuthorizer(t *testing.T) {
 		t.Cleanup(cancel)
 		ctx = withDeadline
 	}
-	require.Equalf(t, len(f.Servers), 1, "incorrect number of servers")
+	require.Equal(t, len(f.Servers), 1, "incorrect number of servers")
 
 	server := f.Servers["main"]
 	kcpCfg, err := server.Config()

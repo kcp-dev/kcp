@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,158 +42,20 @@ import (
 const clusterLabel = "kcp.dev/cluster"
 
 func TestNamespaceScheduler(t *testing.T) {
+	t.Parallel()
+
 	const (
 		serverName           = "main"
 		physicalCluster1Name = "pcluster1"
 		physicalCluster2Name = "pcluster2"
 	)
-	framework.RunParallel(t, "validate namespace scheduling",
-		func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
-			ctx := context.Background()
-			if deadline, ok := t.Deadline(); ok {
-				withDeadline, cancel := context.WithDeadline(ctx, deadline)
-				t.Cleanup(cancel)
-				ctx = withDeadline
-			}
 
-			if len(servers) != 3 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
-			}
-			server := servers[serverName]
-			cfg, err := server.Config()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-
-			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct client for server: %v", err)
-				return
-			}
-
-			clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
-			if err != nil {
-				t.Errorf("failed to detect cluster name: %v", err)
-				return
-			}
-			client := kubeClient.Cluster(clusterName)
-
-			clients, err := clientset.NewClusterForConfig(cfg)
-			if err != nil {
-				t.Errorf("failed to construct client for server: %v", err)
-				return
-			}
-			clusterClient := clients.Cluster(clusterName).ClusterV1alpha1().Clusters()
-
-			expect, err := expectNamespaces(ctx, t, client)
-			if err != nil {
-				t.Errorf("failed to start expecter: %v", err)
-				return
-			}
-
-			// Create a namespace without a cluster available and expect it to be marked unscheduled
-
-			namespace, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "e2e-nss-",
-				},
-			}, metav1.CreateOptions{})
-			if err != nil {
-				t.Errorf("failed to create namespace1: %v", err)
-				return
-			}
-			server.Artifact(t, func() (runtime.Object, error) {
-				return client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
-			})
-
-			if err := expect(namespace, unschedulableMatcher()); err != nil {
-				t.Errorf("did not see namespace marked unschedulable: %v", err)
-				return
-			}
-
-			// Create a cluster and expect the namespace to be scheduled to it
-			server1RawConfig, err := servers[physicalCluster1Name].RawConfig()
-			if err != nil {
-				t.Errorf("failed to get server 1 raw config: %v", err)
-				return
-			}
-			server1Kubeconfig, err := clientcmd.Write(server1RawConfig)
-			if err != nil {
-				t.Errorf("failed to marshal server 1 kubeconfig: %v", err)
-			}
-			cluster1, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "e2e-nss-1-",
-				},
-				Spec: clusterv1alpha1.ClusterSpec{
-					KubeConfig: string(server1Kubeconfig),
-				},
-			}, metav1.CreateOptions{})
-			if err != nil {
-				t.Errorf("failed to create cluster1: %v", err)
-				return
-			}
-
-			if err := expect(namespace, scheduledMatcher(cluster1.Name)); err != nil {
-				t.Errorf("did not see namespace marked scheduled for cluster1 %q: %v", cluster1.Name, err)
-				return
-			}
-
-			// Create a new cluster, delete the old cluster, and expect the
-			// namespace to end up scheduled to the new cluster.
-			// Create a cluster and expect the namespace to be scheduled to it
-			server2RawConfig, err := servers[physicalCluster2Name].RawConfig()
-			if err != nil {
-				t.Errorf("failed to get server 2 raw config: %v", err)
-				return
-			}
-			server2Kubeconfig, err := clientcmd.Write(server2RawConfig)
-			if err != nil {
-				t.Errorf("failed to marshal server 2 kubeconfig: %v", err)
-			}
-			cluster2, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "e2e-nss-2-",
-				},
-				Spec: clusterv1alpha1.ClusterSpec{
-					KubeConfig: string(server2Kubeconfig),
-				},
-			}, metav1.CreateOptions{})
-			if err != nil {
-				t.Errorf("failed to create cluster2: %v", err)
-				return
-			}
-
-			err = clusterClient.Delete(ctx, cluster1.Name, metav1.DeleteOptions{})
-			if err != nil {
-				t.Errorf("failed to delete cluster1 %q: %v", cluster1.Name, err)
-				return
-			}
-
-			if err := expect(namespace, scheduledMatcher(cluster2.Name)); err != nil {
-				t.Errorf("did not see namespace marked scheduled for cluster2 %q: %v", cluster2.Name, err)
-				return
-			}
-
-			// Delete the remaining cluster and expect the namespace to be
-			// marked unscheduled.
-
-			err = clusterClient.Delete(ctx, cluster2.Name, metav1.DeleteOptions{})
-			if err != nil {
-				t.Errorf("failed to delete cluster2 %q: %v", cluster2.Name, err)
-				return
-			}
-
-			if err := expect(namespace, unschedulableMatcher()); err != nil {
-				t.Errorf("did not see namespace marked unschedulable: %v", err)
-				return
-			}
-		},
+	f := framework.NewKcpFixture(t,
 		framework.KcpConfig{
 			Name: serverName,
-			Args: []string{"--discovery-poll-interval=2s"},
+			Args: []string{
+				"--discovery-poll-interval=2s",
+			},
 		},
 		// this is a kcp acting as a physical cluster
 		framework.KcpConfig{
@@ -206,6 +70,113 @@ func TestNamespaceScheduler(t *testing.T) {
 			Args: []string{
 				"--run-controllers=false",
 			},
+		},
+	)
+
+	// TODO(marun) Collapse this sub test into its parent. It's only
+	// left in this form to simplify review of the transition to the
+	// new fixture.
+	t.Run("validate namespace scheduling",
+		func(t *testing.T) {
+			t.Parallel()
+
+			ctx := context.Background()
+			if deadline, ok := t.Deadline(); ok {
+				withDeadline, cancel := context.WithDeadline(ctx, deadline)
+				t.Cleanup(cancel)
+				ctx = withDeadline
+			}
+
+			require.Equal(t, 3, len(f.Servers), "incorrect number of servers")
+			server := f.Servers[serverName]
+
+			cfg, err := server.Config()
+			require.NoError(t, err)
+
+			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
+			require.NoError(t, err, "failed to construct client for server")
+
+			clusterName, err := framework.DetectClusterName(cfg, ctx, "workspaces.tenancy.kcp.dev")
+			require.NoError(t, err, "failed to detect cluster name")
+			client := kubeClient.Cluster(clusterName)
+
+			clients, err := clientset.NewClusterForConfig(cfg)
+			require.NoError(t, err, "failed to construct client for server")
+			clusterClient := clients.Cluster(clusterName).ClusterV1alpha1().Clusters()
+
+			expect, err := expectNamespaces(ctx, t, client)
+			require.NoError(t, err, "failed to start expecter")
+
+			t.Log("Create a namespace without a cluster available and expect it to be marked unscheduled")
+
+			namespace, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "e2e-nss-",
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err, "failed to create namespace1")
+
+			server.Artifact(t, func() (runtime.Object, error) {
+				return client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
+			})
+
+			err = expect(namespace, unschedulableMatcher())
+			require.NoError(t, err, "did not see namespace marked unschedulable")
+
+			t.Log("Create a cluster and expect the namespace to be scheduled to it")
+
+			server1RawConfig, err := f.Servers[physicalCluster1Name].RawConfig()
+			require.NoError(t, err, "failed to get server 1 raw config")
+
+			server1Kubeconfig, err := clientcmd.Write(server1RawConfig)
+			require.NoError(t, err, "failed to marshal server 1 kubeconfig")
+
+			cluster1, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "e2e-nss-1-",
+				},
+				Spec: clusterv1alpha1.ClusterSpec{
+					KubeConfig: string(server1Kubeconfig),
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err, "failed to create cluster1")
+
+			err = expect(namespace, scheduledMatcher(cluster1.Name))
+			require.NoError(t, err, "did not see namespace marked scheduled for cluster1 %q", cluster1.Name)
+
+			t.Log("Create a new cluster")
+
+			server2RawConfig, err := f.Servers[physicalCluster2Name].RawConfig()
+			require.NoError(t, err, "failed to get server 2 raw config")
+
+			server2Kubeconfig, err := clientcmd.Write(server2RawConfig)
+			require.NoError(t, err, "failed to get server 2 kubeconfig")
+
+			cluster2, err := clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "e2e-nss-2-",
+				},
+				Spec: clusterv1alpha1.ClusterSpec{
+					KubeConfig: string(server2Kubeconfig),
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err, "failed to create cluster2")
+
+			t.Log("Delete the old cluster and expect the namespace to end up scheduled to the new cluster.")
+
+			err = clusterClient.Delete(ctx, cluster1.Name, metav1.DeleteOptions{})
+			require.NoError(t, err, "failed to delete cluster1 %q", cluster1.Name)
+
+			err = expect(namespace, scheduledMatcher(cluster2.Name))
+			require.NoError(t, err, "did not see namespace marked scheduled for cluster2 %q", cluster2.Name)
+
+			t.Log("Delete the remaining cluster and expect the namespace to be marked unscheduled.")
+
+			err = clusterClient.Delete(ctx, cluster2.Name, metav1.DeleteOptions{})
+			require.NoError(t, err, "failed to delete cluster2 %q", cluster2.Name)
+
+			err = expect(namespace, unschedulableMatcher())
+			require.NoError(t, err, "did not see namespace marked unschedulable")
 		},
 	)
 }
@@ -235,7 +206,7 @@ func scheduledMatcher(target string) namespaceExpectation {
 
 type registerNamespaceExpectation func(seed *corev1.Namespace, expectation namespaceExpectation) error
 
-func expectNamespaces(ctx context.Context, t framework.TestingTInterface, client kubernetes.Interface) (registerNamespaceExpectation, error) {
+func expectNamespaces(ctx context.Context, t *testing.T, client kubernetes.Interface) (registerNamespaceExpectation, error) {
 	informerFactory := informers.NewSharedInformerFactory(client, 0)
 	informer := informerFactory.Core().V1().Namespaces()
 	expecter := framework.NewExpecter(informer.Informer())

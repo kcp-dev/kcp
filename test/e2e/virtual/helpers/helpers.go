@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,7 +46,7 @@ type VirtualWorkspace struct {
 	ClientContexts        []VirtualWorkspaceClientContext
 }
 
-func (vw VirtualWorkspace) Setup(t framework.TestingTInterface, ctx context.Context, kcpServer framework.RunningServer) ([]*rest.Config, error) {
+func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer framework.RunningServer) ([]*rest.Config, error) {
 	kcpKubeconfigPath := kcpServer.KubeconfigPath()
 	kcpDataDir := filepath.Dir(kcpKubeconfigPath)
 
@@ -90,7 +91,7 @@ func (vw VirtualWorkspace) Setup(t framework.TestingTInterface, ctx context.Cont
 		if err != nil && ctx.Err() == nil {
 			// we care about errors in the process that did not result from the
 			// context expiring and us ending the process
-			t.Errorf("`virtual-workspaces` failed: %w", err)
+			t.Errorf("`virtual-workspaces` failed: %v", err)
 		}
 		virtualWorkspaceStopped <- struct{}{}
 	}()

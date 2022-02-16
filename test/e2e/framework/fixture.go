@@ -25,22 +25,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// KCPFixture manages the lifecycle of a set of kcp servers.
-type KCPFixture struct {
+// KcpFixture manages the lifecycle of a set of kcp servers.
+type KcpFixture struct {
 	Servers map[string]RunningServer
-
-	configs []KcpConfig
 }
 
-func NewKCPFixture(cfgs ...KcpConfig) *KCPFixture {
-	return &KCPFixture{
-		configs: cfgs,
-	}
-}
+func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
+	f := &KcpFixture{}
 
-func (f *KCPFixture) SetUp(t *testing.T) {
 	artifactDir, dataDir, err := ScratchDirs(t)
-	require.NoErrorf(t, err, "failed to create scratch dirs: %v", err)
+	require.NoError(t, err, "failed to create scratch dirs: %v", err)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -48,7 +42,7 @@ func (f *KCPFixture) SetUp(t *testing.T) {
 	// Initialize servers from the provided configuration
 	var servers []*kcpServer
 	f.Servers = map[string]RunningServer{}
-	for _, cfg := range f.configs {
+	for _, cfg := range cfgs {
 		server, err := newKcpServer(NewT(ctx, t), cfg, artifactDir, dataDir)
 		require.NoError(t, err)
 
@@ -69,7 +63,7 @@ func (f *KCPFixture) SetUp(t *testing.T) {
 		go func(s *kcpServer) {
 			defer wg.Done()
 			err := s.Ready()
-			require.NoErrorf(t, err, "kcp server %s never became ready: %v", s.name, err)
+			require.NoError(t, err, "kcp server %s never became ready: %v", s.name, err)
 		}(srv)
 	}
 	wg.Wait()
@@ -79,4 +73,6 @@ func (f *KCPFixture) SetUp(t *testing.T) {
 	}
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
+
+	return f
 }

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -73,6 +73,8 @@ var testData = testDataType{
 }
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
+	t.Parallel()
+
 	type runningServer struct {
 		framework.RunningServer
 		kubeClient                     kubernetes.Interface
@@ -85,7 +87,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 	var testCases = []struct {
 		name                           string
 		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
-		work                           func(ctx context.Context, t framework.TestingTInterface, server runningServer)
+		work                           func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "create a workspace in personal virtual workspace and have only its owner list it",
@@ -99,57 +101,48 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					Prefix: "/personal",
 				},
 			},
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
 				vwUser2Client := server.virtualWorkspaceClients[1]
 				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace: %v", err)
-					return
-				}
-				assert.Equal(t, testData.workspace1.Name, workspace1.Name)
+				require.NoError(t, err, "failed to create workspace1")
+
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
+
 				workspace2, err := vwUser2Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace: %v", err)
-					return
-				}
-				assert.Equal(t, testData.workspace2.Name, workspace2.Name)
+				require.NoError(t, err, "failed to create workspace2")
+
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
 				})
-				if err := server.kcpExpect(workspace1, func(w *tenancyv1alpha1.Workspace) error {
+
+				err = server.kcpExpect(workspace1, func(w *tenancyv1alpha1.Workspace) error {
 					return nil
-				}); err != nil {
-					t.Errorf("did not see the workspace created in KCP: %v", err)
-					return
-				}
-				if err := server.kcpExpect(workspace2, func(w *tenancyv1alpha1.Workspace) error {
+				})
+				require.NoError(t, err, "did not see the workspace1 created in KCP")
+
+				err = server.kcpExpect(workspace2, func(w *tenancyv1alpha1.Workspace) error {
 					return nil
-				}); err != nil {
-					t.Errorf("did not see the workspace created in KCP: %v", err)
-					return
-				}
-				if err := server.virtualWorkspaceExpectations[0](func(w *tenancyv1alpha1.WorkspaceList) error {
+				})
+				require.NoError(t, err, "did not see the workspace2 created in KCP")
+
+				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1alpha1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
 					}
 					return nil
-				}); err != nil {
-					t.Errorf("did not see the workspace created in personal virtual workspace: %v", err)
-					return
-				}
-				if err := server.virtualWorkspaceExpectations[1](func(w *tenancyv1alpha1.WorkspaceList) error {
+				})
+				require.NoError(t, err, "did not see workspace1 created in personal virtual workspace")
+
+				err = server.virtualWorkspaceExpectations[1](func(w *tenancyv1alpha1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace2.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace2.Name, w)
 					}
 					return nil
-				}); err != nil {
-					t.Errorf("did not see the workspace created in personal virtual workspace: %v", err)
-					return
-				}
+				})
+				require.NoError(t, err, "did not see workspace2 created in personal virtual workspace")
 			},
 		},
 		{
@@ -160,23 +153,17 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					Prefix: "/personal",
 				},
 			},
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
 				_, err := server.kubeClient.CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create namespace: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to create namespace")
+
 				kcpServerKubeconfig, err := server.RunningServer.RawConfig()
-				if err != nil {
-					t.Errorf("failed to get KCP Kubeconfig: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to get KCP Kubeconfig")
+
 				kubeconfigContent, err := clientcmd.Write(kcpServerKubeconfig)
-				if err != nil {
-					t.Errorf("failed to get KCP Kubeconfig content: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to get KCP Kubeconfig content: %v")
+
 				_, err = server.kubeClient.CoreV1().Secrets("default").Create(ctx, &v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "kubeconfig",
@@ -186,10 +173,8 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 						"kubeconfig": string(kubeconfigContent),
 					},
 				}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace shard secret: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to create workspace shard secret")
+
 				_, err = server.kcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "boston",
@@ -201,59 +186,46 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 						},
 					},
 				}, metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace shard: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to create workspace shard")
+
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, "boston", metav1.GetOptions{})
 				})
+
 				workspace1, err := vwUser1Client.TenancyV1alpha1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
-				if err != nil {
-					t.Errorf("failed to create workspace: %v", err)
-					return
-				}
-				assert.Equal(t, testData.workspace1.Name, workspace1.Name)
+				require.NoError(t, err, "failed to create workspace1")
+
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
+
 				workspaceURL := ""
-				if err := server.kcpExpect(workspace1, func(w *tenancyv1alpha1.Workspace) error {
+				err = server.kcpExpect(workspace1, func(w *tenancyv1alpha1.Workspace) error {
 					if !conditions.IsTrue(w, tenancyv1alpha1.WorkspaceURLValid) {
 						return fmt.Errorf("Workspace %s is not valid: %s", w.Name, conditions.GetMessage(w, tenancyv1alpha1.WorkspaceURLValid))
 					}
 					workspaceURL = w.Status.BaseURL
 					return nil
-				}); err != nil {
-					t.Errorf("did not see the workspace created and valid in KCP: %v", err)
-					return
-				}
+				})
+				require.NoError(t, err, "did not see the workspace created and valid in KCP")
 
-				if err := server.virtualWorkspaceExpectations[0](func(w *tenancyv1alpha1.WorkspaceList) error {
+				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1alpha1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
 					}
 					return nil
-				}); err != nil {
-					t.Errorf("did not see the workspace created in personal virtual workspace: %v", err)
-					return
-				}
+				})
+				require.NoError(t, err, "did not see the workspace created in personal virtual workspace")
 
 				req := vwUser1Client.TenancyV1alpha1().RESTClient().Get().Resource("workspaces").Name(workspace1.Name).SubResource("kubeconfig").Do(ctx)
-				if req.Error() != nil {
-					t.Errorf("error retrieving the kubeconfig for workspace %s: %v", workspace1.Name, err)
-				}
+				require.Nil(t, req.Error(), "error retrieving the kubeconfig for workspace %s: %v", workspace1.Name, err)
+
 				kcpConfigCurrentContextName := kcpServerKubeconfig.CurrentContext
 				kcpConfigCurrentContext := kcpServerKubeconfig.Contexts[kcpConfigCurrentContextName]
-				if kcpConfigCurrentContext == nil {
-					t.Errorf("kcp Kubeconfig is invalid:\n %+v", kcpServerKubeconfig)
-					return
-				}
+				require.NotNil(t, kcpConfigCurrentContext, "kcp Kubeconfig is invalid")
+
 				kcpConfigCurrentCluster := kcpServerKubeconfig.Clusters[kcpConfigCurrentContext.Cluster]
-				if kcpConfigCurrentCluster == nil {
-					t.Errorf("kcp Kubeconfig is invalid:\n %+v", kcpServerKubeconfig)
-					return
-				}
+				require.NotNil(t, kcpConfigCurrentCluster, "kcp Kubeconfig is invalid")
 
 				expectedKubeconfigCluster := kcpConfigCurrentCluster.DeepCopy()
 				expectedKubeconfigCluster.Server = workspaceURL
@@ -269,17 +241,12 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					},
 				}
 				expectedKubeconfigContent, err := clientcmd.Write(*expectedKubeconfig)
-				if err != nil {
-					t.Errorf("error writing the content of the expected kubeconfig for workspace %s: %v", workspace1.Name, err)
-					return
-				}
-				workspaceKubeconfigContent, err := req.Raw()
-				if err != nil {
-					t.Errorf("error retrieving the content of the kubeconfig for workspace %s: %v", workspace1.Name, err)
-					return
-				}
+				require.NoError(t, err, "error writing the content of the expected kubeconfig for workspace %s", workspace1.Name)
 
-				assert.YAMLEq(t, string(expectedKubeconfigContent), string(workspaceKubeconfigContent))
+				workspaceKubeconfigContent, err := req.Raw()
+				require.NoError(t, err, "error retrieving the content of the kubeconfig for workspace %s", workspace1.Name)
+
+				require.YAMLEq(t, string(expectedKubeconfigContent), string(workspaceKubeconfigContent))
 			},
 		},
 	}
@@ -288,23 +255,29 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 	for i := range testCases {
 		testCase := testCases[i]
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-		var users []framework.User
-		for _, vwClientContexts := range testCase.virtualWorkspaceClientContexts {
-			users = append(users, vwClientContexts.User)
-		}
-		usersKCPArgs, err := framework.Users(users).ArgsForKCP(t)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-
-		framework.RunParallel(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
-			if len(servers) != 1 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
+			var users []framework.User
+			for _, vwClientContexts := range testCase.virtualWorkspaceClientContexts {
+				users = append(users, vwClientContexts.User)
 			}
-			server := servers[serverName]
+			usersKCPArgs, err := framework.Users(users).ArgsForKCP(t)
+			require.NoError(t, err)
+
+			// TODO(marun) Can fixture be shared for this test?
+			f := framework.NewKcpFixture(t,
+				framework.KcpConfig{
+					Name: serverName,
+					Args: append([]string{
+						"--run-controllers=false",
+						"--unsupported-run-individual-controllers=workspace-scheduler",
+					}, usersKCPArgs...),
+				},
+			)
+
+			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
+			server := f.Servers[serverName]
 
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -324,55 +297,38 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			}
 
 			vwConfigs, err := vw.Setup(t, ctx, server)
-			if err != nil {
-				t.Error(err.Error())
-				return
-			}
+			require.NoError(t, err)
 
 			virtualWorkspaceClients := []clientset.Interface{}
 			virtualWorkspaceExpectations := []framework.RegisterWorkspaceListExpectation{}
 			for _, vwConfig := range vwConfigs {
 				vwClients, err := clientset.NewForConfig(vwConfig)
-				if err != nil {
-					t.Errorf("failed to construct client for server: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to construct client for server")
+
 				virtualWorkspaceClients = append(virtualWorkspaceClients, vwClients)
+
 				expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, vwClients)
-				if err != nil {
-					t.Errorf("failed to start expecter: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to start expecter")
+
 				virtualWorkspaceExpectations = append(virtualWorkspaceExpectations, expecter)
 			}
 
 			kcpCfg, err := server.Config()
-			if err != nil {
-				t.Error(err)
-				return
-			}
+			require.NoError(t, err)
+
 			clusterName, err := detectClusterName(kcpCfg, ctx)
-			if err != nil {
-				t.Errorf("failed to detect cluster name: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to detect cluster name")
+
 			kubeClients, err := kubernetes.NewClusterForConfig(kcpCfg)
-			if err != nil {
-				t.Errorf("failed to construct client for server: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to construct client for server")
+
 			kubeClient := kubeClients.Cluster(clusterName)
 			kcpClients, err := clientset.NewClusterForConfig(kcpCfg)
-			if err != nil {
-				t.Errorf("failed to construct client for server: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to construct client for server")
+
 			kcpClient := kcpClients.Cluster(clusterName)
 			kcpExpect, err := framework.ExpectWorkspaces(ctx, t, kcpClient)
-			if err != nil {
-				t.Errorf("failed to start expecter: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to start expecter")
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:                  server,
@@ -383,9 +339,6 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				virtualWorkspaceClients:        virtualWorkspaceClients,
 				virtualWorkspaceExpectations:   virtualWorkspaceExpectations,
 			})
-		}, framework.KcpConfig{
-			Name: serverName,
-			Args: append([]string{"--run-controllers=false", "--unsupported-run-individual-controllers=workspace-scheduler"}, usersKCPArgs...),
 		})
 	}
 }

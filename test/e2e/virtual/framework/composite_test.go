@@ -26,6 +26,7 @@ import (
 
 	openapi_v2 "github.com/googleapis/gnostic/openapiv2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -165,6 +166,8 @@ func (d virtualWorkspaceAPIGroupDescription) GetOpenAPIDefinitions() map[string]
 }
 
 func TestCompositeVirtualWorkspace(t *testing.T) {
+	t.Parallel()
+
 	type runningServer struct {
 		framework.RunningServer
 		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
@@ -175,7 +178,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 		name                           string
 		virtualWorkspaces              virtualWorkspacesDescription
 		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
-		work                           func(ctx context.Context, t framework.TestingTInterface, server runningServer)
+		work                           func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "Test that discovery is correctly published at the right subpaths for each APIGroup-based virtual workspace",
@@ -248,14 +251,13 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 					},
 				},
 			},
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vw1Client := server.virtualWorkspaceClients[0]
 
 				_, vw1ServerResources, err := vw1Client.Discovery().ServerGroupsAndResources()
-				if err != nil {
-					t.Error(err)
-				} else {
-					assert.Equal(t, []*metav1.APIResourceList{
+				require.NoError(t, err)
+				require.Equal(t,
+					[]*metav1.APIResourceList{
 						{
 							TypeMeta: metav1.TypeMeta{
 								Kind:       "APIResourceList",
@@ -298,15 +300,15 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 								},
 							},
 						},
-					}, sortAPIResourceList(vw1ServerResources))
-				}
+					},
+					sortAPIResourceList(vw1ServerResources),
+				)
 
 				vw2Client := server.virtualWorkspaceClients[1]
 				_, vw2ServerResources, err := vw2Client.Discovery().ServerGroupsAndResources()
-				if err != nil {
-					t.Error(err)
-				} else {
-					assert.Equal(t, []*metav1.APIResourceList{
+				require.NoError(t, err)
+				require.Equal(t,
+					[]*metav1.APIResourceList{
 						{
 							TypeMeta: metav1.TypeMeta{
 								Kind:       "APIResourceList",
@@ -324,8 +326,9 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 								},
 							},
 						},
-					}, sortAPIResourceList(vw2ServerResources))
-				}
+					},
+					sortAPIResourceList(vw2ServerResources),
+				)
 			},
 		},
 		{
@@ -399,18 +402,15 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 					},
 				},
 			},
-			work: func(ctx context.Context, t framework.TestingTInterface, server runningServer) {
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				testJson := func(expected, actual *yaml.Node) {
 					expectedJsonBytes, err1 := json.Marshal(expected)
-					actualJsonBytes, err2 := json.Marshal(actual)
-					if err1 != nil {
-						t.Error(err1)
-					} else if err2 != nil {
-						t.Error(err2)
-					} else {
-						assert.JSONEq(t, string(expectedJsonBytes), string(actualJsonBytes))
-					}
+					require.NoError(t, err1)
 
+					actualJsonBytes, err2 := json.Marshal(actual)
+					require.NoError(t, err2)
+
+					require.JSONEq(t, string(expectedJsonBytes), string(actualJsonBytes))
 				}
 				namer := openapinamer.NewDefinitionNamer()
 				for i := 0; i < 2; i++ {
@@ -418,39 +418,38 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 					vw := server.virtualWorkspaces[i]
 
 					vwOpenAPIDocument, err := vwClient.Discovery().OpenAPISchema()
-					if err != nil {
-						t.Error(err)
-					} else {
-						testJson((&openapi_v2.Info{
-							Title:   "KCP Virtual Workspace for " + vw.prefix,
-							Version: "unversioned",
-						}).ToRawInfo(), vwOpenAPIDocument.GetInfo().ToRawInfo())
-						paths := map[string]*openapi_v2.PathItem{}
-						for _, path := range vwOpenAPIDocument.GetPaths().Path {
-							paths[path.GetName()] = path.GetValue()
-						}
-						definitions := map[string]*openapi_v2.Schema{}
-						for _, def := range vwOpenAPIDocument.GetDefinitions().AdditionalProperties {
-							definitions[def.GetName()] = def.Value
-						}
-						for _, group := range vw.groups {
-							for _, resource := range group.resources {
-								resource := resource()
-								openAPITypeName := util.GetCanonicalTypeName(resource.new())
-								openAPIDefinitionName, _ := namer.GetDefinitionName(openAPITypeName)
-								if assert.Containsf(t, definitions, openAPIDefinitionName, "OpenAPI definitions should contain definition %s for type %s", openAPIDefinitionName, openAPITypeName) {
-									assert.Equalf(t, resource.OpenAPISchemaDescription(), definitions[openAPIDefinitionName].Description, "OpenAPI Schema description is not correct for %s", openAPIDefinitionName)
-								}
-								separatorPlaceholder := "/"
-								if resource.namespaceScoped {
-									separatorPlaceholder = "/namespaces/{namespace}/"
-								}
-								pathPrefix := "/apis/" + group.gv.Group + "/" + group.gv.Version + separatorPlaceholder + resource.ResourceName() + "/{name}"
+					require.NoError(t, err)
 
-								assert.Containsf(t, paths, pathPrefix, "OpenAPI paths should contain path %s for resource %s", pathPrefix, resource.ResourceName())
+					testJson((&openapi_v2.Info{
+						Title:   "KCP Virtual Workspace for " + vw.prefix,
+						Version: "unversioned",
+					}).ToRawInfo(), vwOpenAPIDocument.GetInfo().ToRawInfo())
+					paths := map[string]*openapi_v2.PathItem{}
+					for _, path := range vwOpenAPIDocument.GetPaths().Path {
+						paths[path.GetName()] = path.GetValue()
+					}
+					definitions := map[string]*openapi_v2.Schema{}
+					for _, def := range vwOpenAPIDocument.GetDefinitions().AdditionalProperties {
+						definitions[def.GetName()] = def.Value
+					}
+					for _, group := range vw.groups {
+						for _, resource := range group.resources {
+							resource := resource()
+							openAPITypeName := util.GetCanonicalTypeName(resource.new())
+							openAPIDefinitionName, _ := namer.GetDefinitionName(openAPITypeName)
+							if assert.Contains(t, definitions, openAPIDefinitionName, "OpenAPI definitions should contain definition %s for type %s", openAPIDefinitionName, openAPITypeName) {
+								require.Equal(t, resource.OpenAPISchemaDescription(), definitions[openAPIDefinitionName].Description, "OpenAPI Schema description is not correct for %s", openAPIDefinitionName)
 							}
+							separatorPlaceholder := "/"
+							if resource.namespaceScoped {
+								separatorPlaceholder = "/namespaces/{namespace}/"
+							}
+							pathPrefix := "/apis/" + group.gv.Group + "/" + group.gv.Version + separatorPlaceholder + resource.ResourceName() + "/{name}"
+
+							require.Contains(t, paths, pathPrefix, "OpenAPI paths should contain path %s for resource %s", pathPrefix, resource.ResourceName())
 						}
 					}
+
 				}
 			},
 		},
@@ -458,15 +457,23 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 
 	const serverName = "main"
 
+	f := framework.NewKcpFixture(t,
+		framework.KcpConfig{
+			Name: serverName,
+			Args: []string{
+				"--run-controllers=false",
+			},
+		},
+	)
+
 	for i := range testCases {
 		testCase := testCases[i]
 
-		framework.RunParallel(t, testCase.name, func(t framework.TestingTInterface, servers map[string]framework.RunningServer, artifactDir, dataDir string) {
-			if len(servers) != 1 {
-				t.Errorf("incorrect number of servers: %d", len(servers))
-				return
-			}
-			server := servers[serverName]
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
+			server := f.Servers[serverName]
 
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -486,18 +493,12 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 			}
 
 			vwConfigs, err := vw.Setup(t, ctx, server)
-			if err != nil {
-				t.Error(err.Error())
-				return
-			}
+			require.NoError(t, err)
 
 			virtualWorkspaceClients := []kubernetes.Interface{}
 			for _, vwConfig := range vwConfigs {
 				kubeClient, err := kubernetes.NewForConfig(vwConfig)
-				if err != nil {
-					t.Errorf("failed to construct client for server: %v", err)
-					return
-				}
+				require.NoError(t, err, "failed to construct client for server")
 				virtualWorkspaceClients = append(virtualWorkspaceClients, kubeClient)
 			}
 
@@ -507,9 +508,6 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 				virtualWorkspaceClients:        virtualWorkspaceClients,
 				virtualWorkspaces:              testCase.virtualWorkspaces,
 			})
-		}, framework.KcpConfig{
-			Name: serverName,
-			Args: []string{"--run-controllers=false"},
 		})
 	}
 }
