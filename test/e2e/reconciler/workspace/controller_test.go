@@ -103,16 +103,8 @@ func TestWorkspaceController(t *testing.T) {
 				bostonShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create first workspace shard")
 
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
-				})
-
 				atlantaShard, err := server.client.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create second workspace shard")
-
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, atlantaShard.Name, metav1.GetOptions{})
-				})
 
 				workspace, err := server.client.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
@@ -136,6 +128,11 @@ func TestWorkspaceController(t *testing.T) {
 					return expectationErr
 				})
 				require.NoError(t, err, "did not see workspace scheduled")
+
+				// Only collect the other shard - the current shard won't be available after deletion.
+				server.Artifact(t, func() (runtime.Object, error) {
+					return server.client.TenancyV1alpha1().WorkspaceShards().Get(ctx, otherShard, metav1.GetOptions{})
+				})
 
 				err = server.client.TenancyV1alpha1().WorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete workspace shard")
