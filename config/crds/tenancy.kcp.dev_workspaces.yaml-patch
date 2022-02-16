@@ -14,3 +14,14 @@
 - op: add
   path: /spec/versions/name=v1beta1/schema/openAPIV3Schema/properties/spec/default
   value: {}
+- op: add
+  path: /spec/versions/name=v1beta1/additionalPrinterColumns
+  value:
+    - name: Type
+      type: string
+      description: The cluster workspace type
+      jsonPath: .spec.type
+    - name: Phase
+      type: string
+      description: The current phase (e.g. "Scheduling", "Initializing", "Ready")
+      jsonPath: .status.phase
