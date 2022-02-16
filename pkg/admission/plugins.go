@@ -38,10 +38,14 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/persistentvolume/resize"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageclass/setdefault"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageobjectinuseprotection"
+
+	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
-var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins)
+var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
+	clusterworkspacetype.PluginName,
+)
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
 	ret := make([]string, 0, len(recommended)+len(plugins))
@@ -58,6 +62,7 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 // The order of registration is irrelevant, see AllOrderedPlugins for execution order.
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
+	clusterworkspacetype.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.NewString(
@@ -68,6 +73,9 @@ var defaultOnPluginsInKcp = sets.NewString(
 	certapproval.PluginName,           // CertificateApproval
 	certsigning.PluginName,            // CertificateSigning
 	certsubjectrestriction.PluginName, // CertificateSubjectRestriction
+
+	// KCP
+	clusterworkspacetype.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.

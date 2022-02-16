@@ -349,13 +349,18 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		}
 	}
 	if workspace.Status.Location.Current == "" {
-		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseScheduling
 		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No shards are available to schedule Workspaces to.")
 	} else {
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-		if len(workspace.Status.Initializers) > 0 {
-			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
-		} else {
+	}
+
+	switch workspace.Status.Phase {
+	case "":
+		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseScheduling
+	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
+		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing:
+		if len(workspace.Status.Initializers) == 0 {
 			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
 		}
 	}
