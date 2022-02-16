@@ -40,11 +40,14 @@ wait_command "ls ${KUBECONFIG}"
 echo "Waiting for KCP to be ready ..."
 wait_command "kubectl --kubeconfig=${KUBECONFIG} --raw /readyz"
 
-echo ""
-echo "Starting Ingress Controller"
-ingress-controller --kubeconfig="${KUBECONFIG}" --envoyxds --envoy-listener-port=8181 &> "${CURRENT_DIR}"/ingress-controller.log &
-INGRESS_CONTROLLER_PID=$!
-echo "Ingress Controller started: ${INGRESS_CONTROLLER_PID}"
+# It does not work without cloning the ingress repo and building the controller
+# see: ingress-script/startKcp.sh
+# not needed for the demp
+# echo ""
+# echo "Starting Ingress Controller"
+# ingress-controller --kubeconfig="${KUBECONFIG}" --envoyxds --envoy-listener-port=8181 &> "${CURRENT_DIR}"/ingress-controller.log &
+# INGRESS_CONTROLLER_PID=$!
+# echo "Ingress Controller started: ${INGRESS_CONTROLLER_PID}"
 
 echo ""
 echo "Starting envoy"

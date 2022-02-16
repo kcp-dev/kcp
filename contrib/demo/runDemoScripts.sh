@@ -78,7 +78,7 @@ for demo in ${DEMOS} ; do
   TEST_KCP_PID=$!
 
   echo "Waiting for KCP to be started..."
-  wait_command "grep 'Serving securely' ${TEST_DIR}/kcp.log" 60
+  ${DEMO_DIR}/waitKcp.sh
 
   echo "Running demo ${demo} and output logs to ${TEST_DIR}/demo.log..."
   if $DEMO_AS_TESTS ; then
