@@ -1,0 +1,84 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: workspaces.tenancy.kcp.dev
+spec:
+  group: tenancy.kcp.dev
+  names:
+    categories:
+    - kcp
+    kind: Workspace
+    listKind: WorkspaceList
+    plural: workspaces
+    singular: workspace
+  scope: Cluster
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: "Workspace defines a generic Kubernetes-cluster-like endpoint,
+          with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.
+          \n A workspace can be backed by different concrete types of workspace implementation,
+          depending on access pattern. All of them have in common, that the resulting
+          workspace under the URL where it is served can be used with standard Kubernetes
+          API machinery and client libraries and command line tools."
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            properties:
+              name:
+                maxLength: 31
+                minLength: 1
+                not:
+                  enum:
+                  - root
+                  - org
+                  - system
+                pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+                type: string
+            type: object
+          spec:
+            description: WorkspaceSpec holds the desired state of the ClusterWorkspace.
+            type: object
+          status:
+            description: WorkspaceStatus communicates the observed state of the Workspace.
+            properties:
+              URL:
+                description: url is the address under which the Kubernetes-cluster-like
+                  endpoint can be found. This URL can be used to access the workspace
+                  with standard Kubernetes client libraries and command line tools.
+                type: string
+              phase:
+                description: Phase of the workspace (Initializing / Active / Terminating).
+                  This field is ALPHA.
+                type: string
+            required:
+            - URL
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

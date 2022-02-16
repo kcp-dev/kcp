@@ -39,32 +39,32 @@ func TestEncodeLogicalClusterName(t *testing.T) {
 					Name:        "organization",
 				},
 			},
-			expected: "root_organization",
+			expected: "root:organization",
 		}, {
 			name: "organization workspace",
 			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
-					ClusterName: "root_admin",
+					ClusterName: "root:default",
 					Name:        "organization",
 				},
 			},
-			expected: "admin_organization",
+			expected: "default:organization",
 		},
 		{
 			name: "normal workspace",
 			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
-					ClusterName: "root_organization",
+					ClusterName: "root:organization",
 					Name:        "workspace",
 				},
 			},
-			expected: "organization_workspace",
+			expected: "organization:workspace",
 		},
 		{
 			name: "organization workspace in wrong root cluster",
 			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
-					ClusterName: "too_many_parts",
+					ClusterName: "too:many:parts",
 					Name:        "organization",
 				},
 			},
@@ -97,18 +97,18 @@ func TestParseLogicalClusterName(t *testing.T) {
 		{
 			name:         "request for /clusters/root",
 			input:        "root",
-			expectedOrg:  "root",
+			expectedOrg:  "",
 			expectedName: "root",
 		},
 		{
 			name:         "valid name for organization workspace",
-			input:        "root_organization",
+			input:        "root:organization",
 			expectedOrg:  "root",
 			expectedName: "organization",
 		},
 		{
 			name:         "valid name for org and workspace",
-			input:        "organization_workspace",
+			input:        "organization:workspace",
 			expectedOrg:  "organization",
 			expectedName: "workspace",
 		},
@@ -153,7 +153,7 @@ func TestWorkspaceKey(t *testing.T) {
 			name: "normal ws",
 			org:  "myorg",
 			ws:   "myws",
-			want: "root_myorg#$#myws",
+			want: "root:myorg#$#myws",
 		},
 	}
 	for _, tt := range tests {

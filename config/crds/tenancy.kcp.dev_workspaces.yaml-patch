@@ -1,0 +1,13 @@
+- op: add
+  path: /spec/versions/name=v1beta1/schema/openAPIV3Schema/properties/metadata/properties
+  value:
+    name:
+      pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+      minLength: 1
+      maxLength: 31 # half of max name length
+      type: string
+      not:
+        enum:
+        - root
+        - org
+        - system

@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	separator = "_"
+	separator = ":"
 
 	// RootCluster is the name of the logical cluster containing the organizations.
 	RootCluster              = "root"
@@ -75,10 +75,10 @@ func ParseLogicalClusterName(name string) (string, string, error) {
 		if name == RootCluster || strings.HasPrefix(name, LocalSystemClusterPrefix) {
 			return "", name, nil
 		}
-		return "", "", fmt.Errorf("expected logical cluster name to be %s, system:* or in org_name format, got %s", RootCluster, name)
+		return "", "", fmt.Errorf("expected logical cluster name to be %s, system:* or in org:name format, got %s", RootCluster, name)
 	case 2:
 		return parts[0], parts[1], nil
 	default:
-		return "", "", fmt.Errorf("expected logical cluster name to be %s, system:* or in org_name format, got %s", RootCluster, name)
+		return "", "", fmt.Errorf("expected logical cluster name to be %s, system:* or in org:name format, got %s", RootCluster, name)
 	}
 }
