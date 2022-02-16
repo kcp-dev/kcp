@@ -99,7 +99,6 @@ imports: $(OPENSHIFT_GOIMPORTS)
 
 COUNT ?= 5
 E2E_PARALLELISM ?= 1
-TEST_ARGS ?= ""
 
 .PHONY: test-e2e
 test-e2e: WHAT ?= ./test/e2e...
