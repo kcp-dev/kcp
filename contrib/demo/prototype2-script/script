@@ -116,13 +116,18 @@ pe "kubectl wait --for condition=Ready cluster/kind-us-east1"
 
 comment "Let's wait for the deployment to show up in kind"
 # kubectl wait fails on non-existing objects and non-existing jsonpath :-/ So some bash glue.
-while [ -z $(kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments --no-headers=true 2>/dev/null) ]
+while [ -z "$(kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments --no-headers=true 2>/dev/null)" ]
 do
   sleep 1
 done
 pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig get -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
 
 comment "Wait for the pod to be running"
+
+while [ "$(kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments 2>/dev/null)" != "deployment.apps/kuard condition met" ]
+do
+  sleep 1
+done
 pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments"
 
 comment "Let's describe the deployment again"
