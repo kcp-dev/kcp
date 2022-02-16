@@ -28,6 +28,7 @@ import (
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/admission"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/webhook"
 	coreexternalversions "k8s.io/client-go/informers"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
+	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -192,7 +194,11 @@ func (s *Server) Run(ctx context.Context) error {
 		return apiHandler
 	}
 
-	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, nil, storageFactory)
+	admissionPluginInitializers := []admission.PluginInitializer{
+		kcpadmissioninitializers.NewKcpInformersInitializer(s.kcpSharedInformerFactory),
+	}
+
+	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, admissionPluginInitializers, storageFactory)
 	if err != nil {
 		return err
 	}
@@ -203,7 +209,7 @@ func (s *Server) Run(ctx context.Context) error {
 	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
 		*apisConfig.GenericConfig,
 		apisConfig.ExtraConfig.VersionedInformers,
-		nil,
+		admissionPluginInitializers,
 		s.options.GenericControlPlane,
 
 		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet

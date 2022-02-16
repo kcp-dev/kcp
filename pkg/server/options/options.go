@@ -29,6 +29,8 @@ import (
 	_ "k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
+
+	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 )
 
 type Options struct {
@@ -95,6 +97,11 @@ func NewOptions() *Options {
 		WithTokenFile()
 	//WithWebHook()
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
+
+	// override set of admission plugins
+	kcpadmission.RegisterAllKcpAdmissionPlugins(o.GenericControlPlane.Admission.Plugins)
+	o.GenericControlPlane.Admission.DisablePlugins = kcpadmission.DefaultOffAdmissionPlugins().List()
+	o.GenericControlPlane.Admission.RecommendedPluginOrder = kcpadmission.AllOrderedPlugins
 
 	return o
 }
