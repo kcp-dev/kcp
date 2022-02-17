@@ -27,6 +27,13 @@ set -o xtrace
 # version of the k8s.io/kubernetes replacement and replace all modules at that version, since
 # we know we will always want to use a self-consistent set of modules from our fork.
 # Note: setting GOPROXY=direct allows us to bump very quickly after the fork has been committed to.
+GITHUB_USER=${GITHUB_USER:-kcp-dev}
+GITHUB_REPO=${GITHUB_REPO:-kubernetes}
+BRANCH=${BRANCH:-feature-logical-clusters-1.23}
+
 current_version="$( GOPROXY=direct go mod edit -json | jq '.Replace[] | select(.Old.Path=="k8s.io/kubernetes") | .New.Version' --raw-output )"
-sed -i'' -e "s/${current_version}/feature-logical-clusters-1.23/g" go.mod # equivalent to go mod edit -replace
+
+# equivalent to go mod edit -replace
+sed -i '' -e "s/${current_version}/${BRANCH}/g" -E -e "s,=> github.com/[^/]+/[a-zA-Z0-9_-]+,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
+
 GOPROXY=direct go mod tidy
