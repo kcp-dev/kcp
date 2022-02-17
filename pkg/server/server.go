@@ -33,11 +33,13 @@ import (
 	"k8s.io/client-go/dynamic"
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
-	configadmin "github.com/kcp-dev/kcp/config/admin"
+	configroot "github.com/kcp-dev/kcp/config/root"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -282,7 +284,27 @@ func (s *Server) Run(ctx context.Context) error {
 		// TODO: merge with upper s.apiextensionsSharedInformerFactory
 		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
 
-		if err := configadmin.Bootstrap(goContext(ctx), apiextensionsClusterClient.Cluster(genericcontrolplane.RootClusterName), dynamicClusterClient.Cluster(genericcontrolplane.RootClusterName)); err != nil {
+		// bootstrap root workspace with workspace shard
+		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
+		if err := configroot.Bootstrap(goContext(ctx),
+			apiextensionsClusterClient.Cluster(helper.RootCluster),
+			dynamicClusterClient.Cluster(helper.RootCluster),
+			"root",
+
+			// TODO(sttts): move away from loopback, use external advertise address, an external CA and an access header enabled client servingCert for authentication
+			clientcmdapi.Config{
+				Clusters: map[string]*clientcmdapi.Cluster{
+					// cross-cluster is the virtual cluster running by default
+					"shard": {
+						Server:                   "https://" + server.ExternalAddress,
+						CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
+					},
+				},
+				Contexts: map[string]*clientcmdapi.Context{
+					"shard": {Cluster: "shard"},
+				},
+				CurrentContext: "shard",
+			}); err != nil {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}

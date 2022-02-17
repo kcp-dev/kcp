@@ -1,0 +1,7 @@
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: ClusterWorkspaceType
+metadata:
+  name: organization
+spec:
+  initializers:
+  - initializers.tenancy.kcp.dev/organization
