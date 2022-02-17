@@ -24,7 +24,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
@@ -38,10 +37,6 @@ import (
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
-	"github.com/kcp-dev/kcp/config"
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/cluster"
-	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
@@ -238,22 +233,6 @@ func (s *Server) installClusterController(ctx context.Context, clientConfig clie
 	}); err != nil {
 		return err
 	}
-	return nil
-}
-
-func (s *Server) bootstrapCRDs(ctx context.Context, crdClient apiextensionsv1client.CustomResourceDefinitionInterface) error {
-	requiredCrds := []metav1.GroupResource{
-		{Group: tenancyapi.GroupName, Resource: "workspaces"},
-		{Group: tenancyapi.GroupName, Resource: "workspaceshards"},
-		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
-		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-		{Group: cluster.GroupName, Resource: "clusters"},
-	}
-
-	if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
-		return err
-	}
-
 	return nil
 }
 

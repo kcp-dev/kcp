@@ -54,7 +54,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/kcp-dev/kcp/config"
+	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -265,7 +265,7 @@ func InstallCrd(ctx context.Context, gr metav1.GroupResource, servers map[string
 				bootstrapErrChan <- fmt.Errorf("failed to construct client for server: %w", err)
 				return
 			}
-			bootstrapErrChan <- config.BootstrapCustomResourceDefinitionFromFS(ctx, crdClient.CustomResourceDefinitions(), gr, embeddedResources)
+			bootstrapErrChan <- configcrds.CreateFromFS(ctx, crdClient.CustomResourceDefinitions(), gr, embeddedResources)
 		}(server)
 	}
 	wg.Wait()

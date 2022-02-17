@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kcp-dev/kcp/config"
+	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/cluster"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
@@ -100,7 +100,7 @@ func TestAPIInheritance(t *testing.T) {
 			workspaceCRDs := []metav1.GroupResource{
 				{Group: tenancy.GroupName, Resource: "workspaces"},
 			}
-			err = config.BootstrapCustomResourceDefinitions(ctx, orgCRDClient, workspaceCRDs)
+			err = configcrds.Create(ctx, orgCRDClient, workspaceCRDs...)
 			require.NoError(t, err, "failed to bootstrap CRDs")
 
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
@@ -147,7 +147,8 @@ func TestAPIInheritance(t *testing.T) {
 				{Group: cluster.GroupName, Resource: "clusters"},
 			}
 			sourceCrdClient := apiExtensionsClients.Cluster(sourceWorkspaceClusterName).ApiextensionsV1().CustomResourceDefinitions()
-			err = config.BootstrapCustomResourceDefinitions(ctx, sourceCrdClient, crdsForWorkspaces)
+
+			err = configcrds.Create(ctx, sourceCrdClient, crdsForWorkspaces...)
 			require.NoError(t, err, "failed to bootstrap CRDs in source")
 
 			expectGroupInDiscovery := func(lcluster, group string) error {
