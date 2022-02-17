@@ -25,6 +25,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 // KcpFixture manages the lifecycle of a set of kcp servers.
@@ -89,4 +96,105 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 func InProcessEnvSet() bool {
 	inProcess, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
 	return inProcess
+}
+
+func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName string) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	cfg, err := server.Config()
+	if err != nil {
+		t.Fatalf("failed to get kcp server config: %v", err)
+	}
+
+	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	if err != nil {
+		t.Fatalf("failed to construct client for server: %v", err)
+	}
+
+	org, err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-org-",
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: "Organization",
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
+	t.Cleanup(func() {
+		err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+		if err != nil {
+			// nolint: nilcheck
+			t.Logf("failed to delete organization workspace %s: %v", org.Name, err)
+		}
+	})
+
+	if err := wait.PollImmediateWithContext(ctx, time.Millisecond*100, wait.ForeverTestTimeout, func(ctx context.Context) (done bool, err error) {
+		ws, err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, nil
+	}); err != nil {
+		t.Fatalf("failed to wait for organization workspace %s to become ready: %v", org.Name, err)
+	}
+
+	return helper.EncodeOrganizationAndWorkspace(helper.RootCluster, org.Name)
+}
+
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName string, typ string) (clusterName string) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	rootOrg, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
+	if err != nil {
+		t.Fatalf("failed to parse organization cluster name %q: %v", orgClusterName, err)
+	} else if rootOrg != helper.RootCluster {
+		t.Fatalf("expected an org cluster name, i.e. with \"%s:\" prefix, got: %s", helper.RootCluster, orgClusterName)
+	}
+
+	cfg, err := server.Config()
+	if err != nil {
+		t.Fatalf("failed to get server config: %v", err)
+	}
+
+	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	if err != nil {
+		t.Fatalf("failed to construct client for server: %v", err)
+	}
+
+	ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-workspace-",
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: typ,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create workspace: %v", err)
+	}
+
+	t.Cleanup(func() {
+		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
+		if err != nil {
+			// nolint: nilcheck
+			t.Logf("failed to delete workspace %s: %v", ws.Name, err)
+		}
+	})
+
+	if err := wait.PollImmediateWithContext(ctx, time.Millisecond*100, wait.ForeverTestTimeout, func(ctx context.Context) (done bool, err error) {
+		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, nil
+	}); err != nil {
+		t.Fatalf("failed to wait for workspace %s:%s to become ready: %v", orgName, ws.Name, err)
+	}
+
+	return helper.EncodeOrganizationAndWorkspace(orgName, ws.Name)
 }
