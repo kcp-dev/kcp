@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
@@ -58,7 +59,7 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 		s.kubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		kubeClient.RbacV1())
 
-	s.AddPostStartHook("start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	s.AddPostStartHook("kcp-start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		go c.Run(ctx, 5)
 		return nil
 	})
@@ -99,9 +100,11 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		corev1.FinalizerKubernetes,
 	)
 
-	s.AddPostStartHook("start-kube-namespace-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	s.AddPostStartHook("kcp-start-kube-namespace-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			return err
+			klog.Errorf("failed to finish post-start-hook kcp-start-kube-namespace-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
 		go c.Run(2, ctx.Done())
@@ -138,9 +141,11 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister 
 		s.options.Extra.DiscoveryPollInterval,
 	)
 
-	if err := server.AddPostStartHook("install-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+	if err := server.AddPostStartHook("kcp-install-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			return err
+			klog.Errorf("failed to finish post-start-hook kcp-install-namespace-scheduler: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
 		go namespaceScheduler.Start(ctx, 2)
@@ -181,9 +186,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
-	if err := server.AddPostStartHook("install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+	if err := server.AddPostStartHook("kcp-install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			return err
+			klog.Errorf("failed to finish post-start-hook kcp-install-workspace-scheduler: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
 		go workspaceController.Start(ctx, 2)
@@ -213,9 +220,11 @@ func (s *Server) installClusterController(ctx context.Context, clientConfig clie
 		return err
 	}
 
-	if err := server.AddPostStartHook("install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	if err := server.AddPostStartHook("kcp-install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			return err
+			klog.Errorf("failed to finish post-start-hook kcp-install-cluster-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
 		cluster, err := cluster.Prepare()
