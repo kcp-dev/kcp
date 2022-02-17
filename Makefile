@@ -26,6 +26,11 @@ CONTROLLER_GEN_BIN := controller-gen
 CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
 export CONTROLLER_GEN # so hack scripts can use it
 
+YAML_PATCH_VER ?= v0.0.11
+YAML_PATCH_BIN := yaml-patch
+YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
+export YAML_PATCH # so hack scripts can use it
+
 OPENSHIFT_GOIMPORTS_VER := b92214262c6ce8598aefdee87aae6b8cf1a9fc86
 OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
 OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
@@ -68,7 +73,10 @@ vendor: ## Vendor the dependencies
 $(CONTROLLER_GEN):
 	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
 
-codegen: $(CONTROLLER_GEN) ## Run the codegenerator
+$(YAML_PATCH):
+	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
+
+codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
 	./hack/update-codegen.sh
 	$(MAKE) imports
 .PHONY: codegen
