@@ -19,7 +19,6 @@ package framework
 import (
 	"bytes"
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"io"
@@ -39,14 +38,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
@@ -55,7 +51,6 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 
-	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -248,108 +243,44 @@ func GetFreePort(t *testing.T) (string, error) {
 	}
 }
 
-// InstallCrd installs a CRD on one or multiple servers.
-func InstallCrd(ctx context.Context, gr metav1.GroupResource, servers map[string]RunningServer, embeddedResources embed.FS) error {
-	wg := sync.WaitGroup{}
-	bootstrapErrChan := make(chan error, len(servers))
-	for _, server := range servers {
-		wg.Add(1)
-		go func(server RunningServer) {
-			defer wg.Done()
-			cfg, err := server.Config()
-			if err != nil {
-				bootstrapErrChan <- err
-				return
-			}
-			crdClient, err := apiextensionsv1client.NewForConfig(cfg)
-			if err != nil {
-				bootstrapErrChan <- fmt.Errorf("failed to construct client for server: %w", err)
-				return
-			}
-			bootstrapErrChan <- configcrds.CreateFromFS(ctx, crdClient.CustomResourceDefinitions(), embeddedResources, gr)
-		}(server)
-	}
-	wg.Wait()
-	close(bootstrapErrChan)
-	var bootstrapErrors []error
-	for err := range bootstrapErrChan {
-		bootstrapErrors = append(bootstrapErrors, err)
-	}
-	if err := kerrors.NewAggregate(bootstrapErrors); err != nil {
-		return fmt.Errorf("could not bootstrap CRDs: %w", err)
-	}
-	return nil
-}
+type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
-// InstallCluster creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
-func InstallCluster(t *testing.T, ctx context.Context, source, server RunningServer, crdName, clusterName string) error {
-	sourceCfg, err := source.Config()
+// CreateClusterAndWait creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
+func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*clusterv1alpha1.Cluster, error) {
+	pclusterConfig, err := pcluster.RawConfig()
 	if err != nil {
-		return fmt.Errorf("failed to get source config: %w", err)
+		return nil, fmt.Errorf("failed to get server config: %w", err)
 	}
-	rawServerCfg, err := server.RawConfig()
+	bs, err := clientcmd.Write(pclusterConfig)
 	if err != nil {
-		return fmt.Errorf("failed to get server config: %w", err)
-	}
-	sourceClusterName, err := DetectClusterName(sourceCfg, ctx, crdName)
-	if err != nil {
-		return fmt.Errorf("failed to detect cluster name: %w", err)
-	}
-	sourceKcpClients, err := kcpclientset.NewClusterForConfig(sourceCfg)
-	if err != nil {
-		return fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	rawSinkCfgBytes, err := clientcmd.Write(rawServerCfg)
-	if err != nil {
-		return fmt.Errorf("failed to serialize server config: %w", err)
+		return nil, fmt.Errorf("failed to serialize server config: %w", err)
 	}
 
-	sourceKcpClient := sourceKcpClients.Cluster(sourceClusterName)
-	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer func() {
-		cancel()
-	}()
-	watcher, err := sourceKcpClient.ClusterV1alpha1().Clusters().Watch(ctx, metav1.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.name", clusterName).String(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to watch cluster in source kcp: %w", err)
-	}
-
-	cluster, err := sourceKcpClient.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{
-		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
-		Spec:       clusterv1alpha1.ClusterSpec{KubeConfig: string(rawSinkCfgBytes)},
+	cluster, err := kcpClient.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{Name: pcluster.Name()},
+		Spec:       clusterv1alpha1.ClusterSpec{KubeConfig: string(bs)},
 	}, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to create cluster on source kcp: %w", err)
+		return nil, fmt.Errorf("failed to create cluster: %w", err)
 	}
-	source.Artifact(t, func() (runtime.Object, error) {
-		return sourceKcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+	artifacts(t, func() (runtime.Object, error) {
+		return kcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	})
 
-	for {
-		select {
-		case <-waitCtx.Done():
-			return fmt.Errorf("failed to wait for cluster in source kcp to be ready: %w", waitCtx.Err())
-		case event := <-watcher.ResultChan():
-			switch event.Type {
-			case watch.Added, watch.Bookmark:
-				continue
-			case watch.Modified:
-				updated, ok := event.Object.(*clusterv1alpha1.Cluster)
-				if !ok {
-					continue
-				}
-				if conditions.IsTrue(updated, clusterv1alpha1.ClusterReadyCondition) {
-					return nil
-				}
-			case watch.Deleted:
-				return fmt.Errorf("cluster %s was deleted before being ready", cluster.Name)
-			case watch.Error:
-				return fmt.Errorf("encountered error while watching cluster %s: %#v", cluster.Name, event.Object)
-			}
+	if err := wait.PollImmediateWithContext(ctx, time.Millisecond*500, wait.ForeverTestTimeout, func(ctx context.Context) (done bool, err error) {
+		cluster, err = kcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
 		}
+		if conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition) {
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		return nil, err
 	}
+
+	return cluster, nil
 }
 
 // InstallNamespace creates a new namespace into the desired server.
