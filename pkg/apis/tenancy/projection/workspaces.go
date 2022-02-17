@@ -23,6 +23,7 @@ import (
 
 func ProjectClusterWorkspaceToWorkspace(from *v1alpha1.ClusterWorkspace, to *v1beta1.Workspace) {
 	to.ObjectMeta = from.ObjectMeta
+	to.Spec.Type = from.Spec.Type
 	to.Status.URL = from.Status.BaseURL
 	to.Status.Phase = from.Status.Phase
 }

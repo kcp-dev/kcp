@@ -463,6 +463,9 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// The suffixed name based on the pretty name will be the internal name
 	clusterWorkspace := &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: workspace.ObjectMeta,
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: workspace.Spec.Type,
+		},
 	}
 	prettyName := workspace.Name
 	var createdClusterWorkspace *tenancyv1alpha1.ClusterWorkspace

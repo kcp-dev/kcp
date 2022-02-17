@@ -49,6 +49,19 @@ type Workspace struct {
 
 // WorkspaceSpec holds the desired state of the ClusterWorkspace.
 type WorkspaceSpec struct {
+	// type defines properties of the workspace both on creation (e.g. initial
+	// resources and initially installed APIs) and during runtime (e.g. permissions).
+	//
+	// The type is a reference to a ClusterWorkspaceType in the same workspace
+	// with the same name, but lower-cased. The ClusterWorkspaceType existence is
+	// validated during admission during creation, with the exception of the
+	// "Universal" type whose existence is not required but respected if it exists.
+	// The type is immutable after creation. The use of a type is gated via
+	// the RBAC clusterworkspacetypes/use resource permission.
+	//
+	// +optional
+	// +kubebuilder:default:="Universal"
+	Type string `json:"type,omitempty"`
 }
 
 // WorkspaceStatus communicates the observed state of the Workspace.

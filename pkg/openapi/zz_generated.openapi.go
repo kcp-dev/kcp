@@ -813,6 +813,15 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback)
 			SchemaProps: spec.SchemaProps{
 				Description: "WorkspaceSpec holds the desired state of the ClusterWorkspace.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions).\n\nThe type is a reference to a ClusterWorkspaceType in the same workspace with the same name, but lower-cased. The ClusterWorkspaceType existence is validated during admission during creation, with the exception of the \"Universal\" type whose existence is not required but respected if it exists. The type is immutable after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use resource permission.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
