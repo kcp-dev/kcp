@@ -217,6 +217,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err, "failed to create artifact dir for ingress-controller")
 
 			ingressController := framework.NewAccessory(t, artifactDir,
+				"ingress-controller", // name
 				"ingress-controller",
 				"-kubeconfig="+cfg.Clusters[cfg.CurrentContext].LocationOfOrigin,
 				"-envoyxds",

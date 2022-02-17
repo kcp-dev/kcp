@@ -33,6 +33,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egymgmbh/go-prefix-writer/prefixer"
 	"github.com/spf13/pflag"
 
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
@@ -118,9 +119,29 @@ func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kc
 	}, nil
 }
 
+type runOptions struct {
+	runInProcess bool
+	streamLogs   bool
+}
+
+type RunOption func(o *runOptions)
+
+func RunInProcess(o *runOptions) {
+	o.runInProcess = true
+}
+
+func WithLogStreaming(o *runOptions) {
+	o.streamLogs = true
+}
+
 // Run runs the kcp server while the parent context is active. This call is not blocking,
 // callers should ensure that the server is Ready() before using it.
-func (c *kcpServer) Run(parentCtx context.Context) error {
+func (c *kcpServer) Run(parentCtx context.Context, opts ...RunOption) error {
+	runOpts := runOptions{}
+	for _, opt := range opts {
+		opt(&runOpts)
+	}
+
 	// calling any methods on *testing.T after the test is finished causes
 	// a panic, so we need to communicate to our cleanup routines when the
 	// test has been completed, and we need to communicate back up to the
@@ -142,7 +163,7 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 	c.t.Logf("running: %v", strings.Join(append([]string{"kcp", "start"}, c.args...), " "))
 
 	// run kcp start in-process for easier debugging
-	if runKcpInProcess() {
+	if runOpts.runInProcess {
 		serverOptions := options.NewOptions()
 		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
 		for _, fs := range serverOptions.Flags().FlagSets {
@@ -186,6 +207,10 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 	}
 	log := bytes.Buffer{}
 	writers := []io.Writer{&log, logFile}
+	if runOpts.streamLogs {
+		prefix := fmt.Sprintf("%s: ", c.name)
+		writers = append(writers, prefixer.New(os.Stdout, func() string { return prefix }))
+	}
 	mw := io.MultiWriter(writers...)
 	cmd.Stdout = mw
 	cmd.Stderr = mw
@@ -205,11 +230,6 @@ func (c *kcpServer) Run(parentCtx context.Context) error {
 	}()
 
 	return nil
-}
-
-func runKcpInProcess() bool {
-	inProcess, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
-	return inProcess
 }
 
 // filterKcpLogs is a silly hack to get rid of the nonsense output that
