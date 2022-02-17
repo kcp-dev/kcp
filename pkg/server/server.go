@@ -255,7 +255,7 @@ func (s *Server) Run(ctx context.Context) error {
 		),
 	)
 
-	s.AddPostStartHook("start-informers", func(ctx genericapiserver.PostStartHookContext) error {
+	s.AddPostStartHook("kcp-start-informers", func(ctx genericapiserver.PostStartHookContext) error {
 		s.kubeSharedInformerFactory.Start(ctx.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
 		s.kcpSharedInformerFactory.Start(ctx.StopCh)
@@ -265,14 +265,16 @@ func (s *Server) Run(ctx context.Context) error {
 		// TODO: merge with upper s.apiextensionsSharedInformerFactory
 		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
 
-		//nolint:golint,errcheck
-		wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
 			if err := s.bootstrapCRDs(ctx, apiextensionsClusterClient.Cluster(helper.OrganizationCluster).ApiextensionsV1().CustomResourceDefinitions()); err != nil {
 				klog.Errorf("failed to bootstrap CRDs: %v", err)
 				return false, nil // keep going
 			}
 			return true, nil
-		})
+		}); err != nil {
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
 
 		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
