@@ -82,3 +82,18 @@ func ParseLogicalClusterName(name string) (string, string, error) {
 		return "", "", fmt.Errorf("expected logical cluster name to be %s, system:* or in org:name format, got %s", RootCluster, name)
 	}
 }
+
+// ParentClusterName returns the cluster name of the parent workspace.
+func ParentClusterName(name string) (string, error) {
+	if name == RootCluster {
+		return "", fmt.Errorf("cannot get parent cluster name of root cluster")
+	}
+	parent, _, err := ParseLogicalClusterName(name)
+	if err != nil {
+		return "", err
+	}
+	if parent == RootCluster {
+		return RootCluster, nil
+	}
+	return EncodeOrganizationAndWorkspace(RootCluster, parent), nil
+}

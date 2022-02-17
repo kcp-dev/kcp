@@ -72,12 +72,18 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	if cluster == nil || cluster.Name == "" {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
-	orgWorkspace, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
+
+	parentClusterName, err := helper.ParentClusterName(cluster.Name)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
-	orgWorkspaceKubeInformer := frameworkrbac.FilterPerCluster(orgWorkspace, a.versionedInformers.Rbac().V1())
+	_, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
+	if err != nil {
+		return authorizer.DecisionNoOpinion, "", err
+	}
+
+	orgWorkspaceKubeInformer := frameworkrbac.FilterPerCluster(parentClusterName, a.versionedInformers.Rbac().V1())
 	orgAuthorizer := rbac.New(
 		&rbac.RoleGetter{Lister: orgWorkspaceKubeInformer.Roles().Lister()},
 		&rbac.RoleBindingLister{Lister: orgWorkspaceKubeInformer.RoleBindings().Lister()},
@@ -90,7 +96,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	if a.workspaceLister != nil {
 		// check the workspace even exists
 		// TODO: using scoping when available
-		if ws, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(orgWorkspace, workspace)); err != nil {
+		if ws, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, workspace)); err != nil {
 			if errors.IsNotFound(err) {
 				return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
 			}
