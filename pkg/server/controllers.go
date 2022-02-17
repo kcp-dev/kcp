@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
@@ -40,6 +41,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
+	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetype_organization"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
@@ -163,6 +165,16 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(adminConfig)
+	if err != nil {
+		return err
+	}
+
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(adminConfig)
+	if err != nil {
+		return err
+	}
+
 	workspaceController, err := workspace.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
@@ -181,6 +193,16 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
+	organizationController, err := clusterworkspacetype_organization.NewController(
+		dynamicClusterClient,
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+	)
+	if err != nil {
+		return err
+	}
+
 	if err := server.AddPostStartHook("kcp-install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-workspace-scheduler: %v", err)
@@ -190,6 +212,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 
 		go workspaceController.Start(ctx, 2)
 		go workspaceShardController.Start(ctx, 2)
+		go organizationController.Start(ctx, 2)
 
 		return nil
 	}); err != nil {

@@ -60,7 +60,7 @@ func NewController(
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	workspaceShardInformer tenancyinformer.WorkspaceShardInformer,
 ) (*Controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspace")
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
 		queue:                 queue,
@@ -236,10 +236,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("invalid key: %q: %v", key, err)
-		return nil
-	}
-	if namespace != "" {
-		klog.Errorf("namespace %q found in key for cluster-wide ClusterWorkspace object", namespace)
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
