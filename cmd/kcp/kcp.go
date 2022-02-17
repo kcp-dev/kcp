@@ -57,6 +57,8 @@ func main() {
 		SilenceErrors: true,
 	}
 
+	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
+
 	serverOptions := options.NewOptions()
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -108,13 +110,6 @@ func main() {
 		startFlags.AddFlagSet(f)
 	}
 
-	// wire start help to print the named sections
-	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
-	setPartialUsageAndHelpFunc(cmd, namedStartFlagSets, cols, []string{
-		"etcd-servers",
-		"run-controllers",
-	})
-
 	startOptionsCmd := &cobra.Command{
 		Use:   "options",
 		Short: "Show all start command options",
@@ -136,8 +131,12 @@ func main() {
 		},
 	}
 	startCmd.AddCommand(startOptionsCmd)
-
 	cmd.AddCommand(startCmd)
+
+	setPartialUsageAndHelpFunc(cmd, namedStartFlagSets, cols, []string{
+		"etcd-servers",
+		"run-controllers",
+	})
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

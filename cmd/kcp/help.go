@@ -37,13 +37,13 @@ func setPartialUsageAndHelpFunc(cmd *cobra.Command, fss cliflag.NamedFlagSets, c
 	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
 		fmt.Fprintf(cmd.OutOrStderr(), usageFmt, cmd.UseLine())
 		printMostImportantFlags(cmd.OutOrStderr(), fss, cols, flags)
-		fmt.Fprintf(cmd.OutOrStderr(), "\nUse \"%s %s\" for a list of all flags available.\n", cmd.Parent().CommandPath(), cmd.Use)
+		fmt.Fprintf(cmd.OutOrStderr(), "\nUse \"%s\" for a list of all flags available.\n", cmd.CommandPath())
 		return nil
 	})
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		fmt.Fprintf(cmd.OutOrStdout(), "%s\n\n"+usageFmt, cmd.Long, cmd.UseLine())
 		printMostImportantFlags(cmd.OutOrStdout(), fss, cols, flags)
-		fmt.Fprintf(cmd.OutOrStderr(), "\nUse \"%s %s options\" for a list of all flags available.\n", cmd.Parent().CommandPath(), cmd.Use)
+		fmt.Fprintf(cmd.OutOrStderr(), "\nUse \"%s options\" for a list of all flags available.\n", cmd.CommandPath())
 	})
 }
 
