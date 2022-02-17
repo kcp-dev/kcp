@@ -19,33 +19,33 @@ package cowboy
 import (
 	"context"
 	"embed"
-	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 
+	configcrds "github.com/kcp-dev/kcp/config/crds"
+	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned"
 	wildwestclient "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/typed/wildwest/v1alpha1"
-	wildwestexternalversions "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/informers/externalversions"
 )
 
 func init() {
@@ -55,9 +55,7 @@ func init() {
 //go:embed *.yaml
 var rawCustomResourceDefinitions embed.FS
 
-const crdName = "cowboys.wildwest.dev"
 const testNamespace = "cluster-controller-test"
-const clusterName = "us-east1"
 const sourceClusterName, sinkClusterName = "source", "sink"
 
 func TestClusterController(t *testing.T) {
@@ -67,7 +65,6 @@ func TestClusterController(t *testing.T) {
 		framework.RunningServer
 		client     wildwestclient.WildwestV1alpha1Interface
 		coreClient corev1client.CoreV1Interface
-		expect     RegisterCowboyExpectation
 	}
 	var testCases = []struct {
 		name string
@@ -81,7 +78,7 @@ func TestClusterController(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
-							"kcp.dev/cluster": clusterName,
+							"kcp.dev/cluster": sinkClusterName,
 						},
 					},
 					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
@@ -101,31 +98,40 @@ func TestClusterController(t *testing.T) {
 						return false
 					}
 					return true
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected namespace to be created in sink")
 
 				t.Logf("Expecting same spec to show up in sink")
-				cowboy.SetNamespace(targetNamespace)
-				err = servers[sinkClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
-					if diff := cmp.Diff(cowboy.Spec, object.Spec); diff != "" {
-						return fmt.Errorf("saw incorrect spec on sink cluster: %s", diff)
+				require.Eventually(t, func() bool {
+					if got, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{}); err != nil {
+						if apierrors.IsNotFound(err) {
+							return false
+						}
+						require.NoError(t, err, "Error getting cowboy %q in sink", cowboy.Name)
+
+						return false
+					} else if diff := cmp.Diff(cowboy.Spec, got.Spec); diff != "" {
+						require.Errorf(t, nil, "Spec mismatch on sink cluster: %s", diff)
 					}
-					return nil
-				})
-				require.NoError(t, err, "did not see cowboy spec updated on sink cluster")
+					return true
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected cowboy to be synced to sink with right spec")
 
 				t.Logf("Patching status in sink")
 				updated, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Patch(ctx, cowboy.Name, types.MergePatchType, []byte(`{"status":{"result":"giddyup"}}`), metav1.PatchOptions{}, "status")
-				require.NoError(t, err, "failed to patch cowboy")
+				require.NoError(t, err, "failed to patch cowboy status in sink")
 
 				t.Logf("Expecting status update to show up in source")
-				cowboy.SetNamespace(testNamespace)
-				err = servers[sourceClusterName].expect(cowboy, func(object *wildwestv1alpha1.Cowboy) error {
-					if diff := cmp.Diff(updated.Status, object.Status); diff != "" {
-						return fmt.Errorf("saw incorrect status on source cluster: %s", diff)
+				require.Eventually(t, func() bool {
+					if got, err := servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{}); err != nil {
+						if apierrors.IsNotFound(err) {
+							return false
+						}
+						require.NoError(t, err, "Error getting cowboy %q in source", cowboy.Name)
+						return false
+					} else if diff := cmp.Diff(updated.Status, got.Status); diff != "" {
+						require.Errorf(t, nil, "Status mismatch on source cluster: %s", diff)
 					}
-					return nil
-				})
-				require.NoError(t, err, "did not see cowboy status updated on source cluster")
+					return true
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected source to show status change")
 
 				err = servers[sourceClusterName].client.Cowboys(testNamespace).Delete(ctx, cowboy.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "error deleting source cowboy")
@@ -135,7 +141,7 @@ func TestClusterController(t *testing.T) {
 				require.Eventually(t, func() bool {
 					_, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
-				}, 30*time.Second, 100*time.Millisecond, "expected sink cowboy to be deleted")
+				}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected sink cowboy to be deleted")
 			},
 		},
 	}
@@ -146,9 +152,9 @@ func TestClusterController(t *testing.T) {
 			Name: sourceClusterName,
 			Args: []string{
 				"--push-mode",
-				"--run-controllers=false", "--unsupported-run-individual-controllers=cluster",
 				"--resources-to-sync=cowboys.wildwest.dev",
 				"--auto-publish-apis",
+				"--discovery-poll-interval=5s",
 			},
 		},
 		// this is a kcp acting as a target cluster to sync status from
@@ -159,6 +165,7 @@ func TestClusterController(t *testing.T) {
 			},
 		},
 	)
+	orgClusterName := framework.NewOrganizationFixture(t, f.Servers[sourceClusterName])
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -174,96 +181,78 @@ func TestClusterController(t *testing.T) {
 			}
 			require.Equal(t, len(f.Servers), 2, "incorrect number of servers")
 
-			t.Log("Installing test CRDs...")
-			err := framework.InstallCrd(ctx, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"}, f.Servers, rawCustomResourceDefinitions)
-			require.NoError(t, err)
-
-			t.Logf("Installed test CRDs after %s", time.Since(start))
-			start = time.Now()
 			source, sink := f.Servers[sourceClusterName], f.Servers[sinkClusterName]
+
+			t.Log("Creating a workspace")
+			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+
+			// clients
+			sourceConfig, err := source.Config()
+			require.NoError(t, err)
+			sourceKubeClusterClient, err := kubernetesclient.NewClusterForConfig(sourceConfig)
+			require.NoError(t, err)
+			sourceCrdClusterClient, err := apiextensionsclientset.NewClusterForConfig(sourceConfig)
+			require.NoError(t, err)
+			sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sourceConfig)
+			require.NoError(t, err)
+			sourceWildwestClusterClient, err := wildwestclientset.NewClusterForConfig(sourceConfig)
+			require.NoError(t, err)
+
+			sourceCrdClient := sourceCrdClusterClient.Cluster(wsClusterName)
+			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
+			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
+
+			sinkConfig, err := sink.Config()
+			require.NoError(t, err)
+			sinkKubeClient, err := kubernetesclient.NewForConfig(sinkConfig)
+			require.NoError(t, err)
+			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
+			require.NoError(t, err)
+			sinkWildwestClient, err := wildwestclientset.NewForConfig(sinkConfig)
+			require.NoError(t, err)
+
+			t.Log("Installing test CRDs into source cluster...")
+			err = configcrds.Create(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
+				metav1.GroupResource{Group: clusterapi.GroupName, Resource: "clusters"},
+				metav1.GroupResource{Group: apiresource.GroupName, Resource: "apiresourceimports"},
+				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
+			)
+			require.NoError(t, err)
+			err = configcrds.CreateFromFS(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), rawCustomResourceDefinitions, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+			require.NoError(t, err)
+
+			t.Log("Installing test CRDs into sink cluster...")
+			err = configcrds.CreateFromFS(ctx, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), rawCustomResourceDefinitions, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+			require.NoError(t, err)
+			t.Logf("Installed test CRDs after %s", time.Since(start))
+
 			t.Log("Installing sink cluster...")
-			err = framework.InstallCluster(t, ctx, source, sink, "clusters.cluster.example.dev", clusterName)
-			require.NoError(t, err)
-
-			t.Logf("Installed sink cluster after %s", time.Since(start))
 			start = time.Now()
-			t.Log("Setting up clients for test...")
-			err = framework.InstallNamespace(ctx, source, crdName, testNamespace)
+			_, err = framework.CreateClusterAndWait(t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(wsClusterName), sink)
+			require.NoError(t, err)
+			t.Logf("Installed sink cluster after %s", time.Since(start))
+
+			t.Log("Creating namespace in source cluster...")
+			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
+			}, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			runningServers := map[string]runningServer{}
-			for _, name := range []string{sourceClusterName, sinkClusterName} {
-				cfg, err := f.Servers[name].Config()
-				require.NoError(t, err)
-
-				clusterName, err := framework.DetectClusterName(cfg, ctx, crdName)
-				require.NoError(t, err, "failed to detect cluster name")
-
-				wildwestClients, err := wildwestclientset.NewClusterForConfig(cfg)
-				require.NoError(t, err, "failed to construct client for server")
-
-				wildwestClient := wildwestClients.Cluster(clusterName)
-				expect, err := ExpectCowboys(ctx, t, wildwestClient)
-				require.NoError(t, err, "failed to start expecter")
-
-				coreClients, err := kubernetes.NewClusterForConfig(cfg)
-				require.NoError(t, err, "failed to construct client for server")
-
-				coreClient := coreClients.Cluster(clusterName)
-
-				runningServers[name] = runningServer{
-					RunningServer: f.Servers[name],
-					client:        wildwestClient.WildwestV1alpha1(),
-					coreClient:    coreClient.CoreV1(),
-					expect:        expect,
-				}
+			runningServers := map[string]runningServer{
+				sourceClusterName: {
+					RunningServer: f.Servers[sourceClusterName],
+					client:        sourceWildwestClient.WildwestV1alpha1(),
+					coreClient:    sourceKubeClient.CoreV1(),
+				},
+				sinkClusterName: {
+					RunningServer: f.Servers[sinkClusterName],
+					client:        sinkWildwestClient.WildwestV1alpha1(),
+					coreClient:    sinkKubeClient.CoreV1(),
+				},
 			}
-			t.Logf("Set up clients for test after %s", time.Since(start))
+
 			t.Log("Starting test...")
 			testCase.work(ctx, t, runningServers)
-		},
-		)
+		})
 	}
-}
-
-// RegisterCowboyExpectation registers an expectation about the future state of the seed.
-type RegisterCowboyExpectation func(seed *wildwestv1alpha1.Cowboy, expectation CowboyExpectation) error
-
-// CowboyExpectation evaluates an expectation about the object.
-type CowboyExpectation func(*wildwestv1alpha1.Cowboy) error
-
-// ExpectCowboys sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectCowboys(ctx context.Context, t *testing.T, client wildwestclientset.Interface) (RegisterCowboyExpectation, error) {
-	sharedInformerFactory := wildwestexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
-	informer := sharedInformerFactory.Wildwest().V1alpha1().Cowboys()
-	expecter := framework.NewExpecter(informer.Informer())
-	sharedInformerFactory.Start(ctx.Done())
-	if !cache.WaitForNamedCacheSync(t.Name(), ctx.Done(), informer.Informer().HasSynced) {
-		return nil, errors.New("failed to wait for caches to sync")
-	}
-	return func(seed *wildwestv1alpha1.Cowboy, expectation CowboyExpectation) error {
-		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
-			// we are using a seed from one kcp to expect something about an object in
-			// another kcp, so the cluster names will not match - this is fine, just do
-			// client-side filtering for what we know
-			all, err := informer.Lister().Cowboys(seed.Namespace).List(labels.Everything())
-			if err != nil {
-				return !apierrors.IsNotFound(err), err
-			}
-			var current *wildwestv1alpha1.Cowboy
-			for i := range all {
-				if all[i].Namespace == seed.Namespace && all[i].Name == seed.Name {
-					current = all[i]
-				}
-			}
-			if current == nil {
-				return false, apierrors.NewNotFound(schema.GroupResource{
-					Group:    wildwest.GroupName,
-					Resource: "cowboys",
-				}, seed.Name)
-			}
-			expectErr := expectation(current.DeepCopy())
-			return expectErr == nil, expectErr
-		}, 30*time.Second)
-	}, nil
 }
