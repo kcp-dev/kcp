@@ -58,20 +58,20 @@ const (
 func NewController(
 	kcpClient kcpclient.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	workspaceShardInformer tenancyinformer.WorkspaceShardInformer,
+	rootWorkspaceShardInformer tenancyinformer.WorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
-		queue:                 queue,
-		kcpClient:             kcpClient,
-		workspaceIndexer:      workspaceInformer.Informer().GetIndexer(),
-		workspaceLister:       workspaceInformer.Lister(),
-		workspaceShardIndexer: workspaceShardInformer.Informer().GetIndexer(),
-		workspaceShardLister:  workspaceShardInformer.Lister(),
+		queue:                     queue,
+		kcpClient:                 kcpClient,
+		workspaceIndexer:          workspaceInformer.Informer().GetIndexer(),
+		workspaceLister:           workspaceInformer.Lister(),
+		rootWorkspaceShardIndexer: rootWorkspaceShardInformer.Informer().GetIndexer(),
+		rootWorkspaceShardLister:  rootWorkspaceShardInformer.Lister(),
 		syncChecks: []cache.InformerSynced{
 			workspaceInformer.Informer().HasSynced,
-			workspaceShardInformer.Informer().HasSynced,
+			rootWorkspaceShardInformer.Informer().HasSynced,
 		},
 	}
 
@@ -98,7 +98,7 @@ func NewController(
 		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
 	}
 
-	workspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	rootWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAddedShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueDeletedShard(obj) },
 	})
@@ -115,8 +115,8 @@ type Controller struct {
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancylister.ClusterWorkspaceLister
 
-	workspaceShardIndexer cache.Indexer
-	workspaceShardLister  tenancylister.WorkspaceShardLister
+	rootWorkspaceShardIndexer cache.Indexer
+	rootWorkspaceShardLister  tenancylister.WorkspaceShardLister
 
 	syncChecks []cache.InformerSynced
 }
@@ -289,9 +289,9 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	var shard *tenancyv1alpha1.WorkspaceShard
 	if currentShardName := workspace.Status.Location.Current; currentShardName != "" {
 		// make sure current shard still exists
-		currentShard, err := c.workspaceShardLister.Get(clusters.ToClusterAwareKey(workspace.ClusterName, currentShardName))
+		currentShard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyhelper.RootCluster, currentShardName))
 		if errors.IsNotFound(err) {
-			klog.Infof("de-scheduling workspace %q|%q from nonexistent shard %q", workspace.ClusterName, workspace.Name, currentShardName)
+			klog.Infof("de-scheduling workspace %q|%q from nonexistent shard %q", tenancyhelper.RootCluster, workspace.Name, currentShardName)
 			workspace.Status.Location.Current = ""
 		} else if err != nil {
 			return err
@@ -299,25 +299,22 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		shard = currentShard
 	}
 	if workspace.Status.Location.Current == "" {
-		// find a shard for this workspace
-		shards, err := c.workspaceShardLister.List(labels.Everything())
+		// find a shard for this workspace, randomly
+		shards, err := c.rootWorkspaceShardLister.List(labels.Everything())
 		if err != nil {
 			return err
 		}
-		// TODO: do we need to handle cross-cluster shard assignment? if so, we need shard name for the shard objects...
-		var filtered []*tenancyv1alpha1.WorkspaceShard
-		for i := range shards {
-			if shards[i].ClusterName == workspace.ClusterName {
-				filtered = append(filtered, shards[i])
-			}
-		}
-		if len(filtered) != 0 {
-			targetShard := filtered[rand.Intn(len(filtered))]
+
+		if len(shards) > 0 {
+			targetShard := shards[rand.Intn(len(shards))]
 			workspace.Status.Location.Target = targetShard.Name
 			shard = targetShard
 			klog.Infof("scheduling workspace %q|%q to %q|%q", workspace.ClusterName, workspace.Name, targetShard.ClusterName, targetShard.Name)
+		} else {
+			klog.Infof("no shards found for workspace %q|%q", workspace.ClusterName, workspace.Name)
 		}
 	}
+
 	if workspace.Status.Location.Target != "" && workspace.Status.Location.Current != workspace.Status.Location.Target {
 		klog.Infof("moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
 		workspace.Status.Location.Current = workspace.Status.Location.Target
@@ -362,7 +359,9 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	}
 
 	// expose the correct base URL given our current shard
-	if shard == nil || !conditions.IsTrue(shard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
+	if shard == nil {
+		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonMissing, conditionsv1alpha1.ConditionSeverityError, "Not scheduled.")
+	} else if !conditions.IsTrue(shard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
 		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceURLValid, tenancyv1alpha1.WorkspaceURLReasonMissing, conditionsv1alpha1.ConditionSeverityError, "No connection information on target WorkspaceShard.")
 	} else {
 		u, err := url.Parse(shard.Status.ConnectionInfo.Host)

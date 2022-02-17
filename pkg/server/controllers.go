@@ -38,6 +38,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
@@ -178,16 +179,16 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 	workspaceController, err := workspace.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 	)
 	if err != nil {
 		return err
 	}
 
 	workspaceShardController, err := workspaceshard.NewController(
-		kcpClusterClient,
-		s.kubeSharedInformerFactory.Core().V1().Secrets(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		kcpClusterClient.Cluster(helper.RootCluster),
+		s.rootKubeSharedInformerFactory.Core().V1().Secrets(),
+		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 	)
 	if err != nil {
 		return err

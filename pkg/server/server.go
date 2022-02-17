@@ -73,7 +73,9 @@ type Server struct {
 	syncedCh chan struct{}
 
 	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
+	rootKcpSharedInformerFactory       kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
+	rootKubeSharedInformerFactory      coreexternalversions.SharedInformerFactory
 	apiextensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
 }
 
@@ -167,6 +169,10 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	apiextensionsCrossClusterClient := apiextensionsClusterClient.Cluster(crossCluster)
 	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsCrossClusterClient, resyncPeriod)
+
+	// Setup root informers
+	s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(helper.RootCluster), resyncPeriod)
+	s.rootKubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClusterClient.Cluster(helper.RootCluster), resyncPeriod)
 
 	// Setup dynamic client
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(genericConfig.LoopbackClientConfig)
@@ -278,6 +284,8 @@ func (s *Server) Run(ctx context.Context) error {
 		s.kubeSharedInformerFactory.Start(ctx.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
 		s.kcpSharedInformerFactory.Start(ctx.StopCh)
+		s.rootKubeSharedInformerFactory.Start(ctx.StopCh)
+		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
 
 		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		// wait for CRD inheritance work through the custom informer
@@ -311,6 +319,8 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.rootKubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
 		klog.Infof("Bootstrapped CRDs and synced all informers. Ready to start controllers")
 		close(s.syncedCh)
