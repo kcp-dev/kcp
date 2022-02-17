@@ -59,8 +59,8 @@ func TestAPIInheritance(t *testing.T) {
 		},
 		{
 			name:                  "transitively inherit from some other org workspace",
-			orgPrefix:             "myorg",
-			orglogicalClusterName: "root_myorg",
+			orgPrefix:             "default",
+			orglogicalClusterName: "root:default",
 		},
 	}
 
@@ -136,10 +136,10 @@ func TestAPIInheritance(t *testing.T) {
 				return orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "target", metav1.GetOptions{})
 			})
 
-			// These are the cluster name paths (i.e. /clusters/$org_$workspace) for our two workspaces.
+			// These are the cluster name paths (i.e. /clusters/$org:$workspace) for our two workspaces.
 			var (
-				sourceWorkspaceClusterName = testCase.orgPrefix + "_source"
-				targetWorkspaceClusterName = testCase.orgPrefix + "_target"
+				sourceWorkspaceClusterName = testCase.orgPrefix + ":source"
+				targetWorkspaceClusterName = testCase.orgPrefix + ":target"
 			)
 
 			t.Logf("Install a clusters CRD into \"source\" workspace")
