@@ -14,12 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package helpers
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"embed"
+	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -28,8 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/errors"
+	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
@@ -80,7 +85,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 			errs = append(errs, err)
 		}
 	}
-	return errors.NewAggregate(errs)
+	return apimachineryerrors.NewAggregate(errs)
 }
 
 // CreateResourceFromFS creates given resource file.
@@ -94,18 +99,39 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return nil // ignore empty files
 	}
 
+	d := kubeyaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(raw)))
+	var errs []error
+	for {
+		doc, err := d.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+		if len(bytes.TrimSpace(doc)) == 0 {
+			continue
+		}
+
+		if err := createResourceFromFS(ctx, client, mapper, doc); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return apimachineryerrors.NewAggregate(errs)
+}
+
+func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte) error {
 	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(raw, nil, &unstructured.Unstructured{})
 	if err != nil {
-		return fmt.Errorf("could not decode raw %s: %w", filename, err)
+		return fmt.Errorf("could not decode raw: %w", err)
 	}
 	u, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("decoded %s into incorrect type, got %T, wanted %T", filename, obj, &unstructured.Unstructured{})
+		return fmt.Errorf("decoded into incorrect type, got %T, wanted %T", obj, &unstructured.Unstructured{})
 	}
 
 	m, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
-		return fmt.Errorf("could not get REST mapping for %s: %w", filename, err)
+		return fmt.Errorf("could not get REST mapping for %s: %w", gvk, err)
 	}
 
 	if _, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Create(ctx, u, metav1.CreateOptions{}); err != nil {
@@ -116,16 +142,16 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			}
 			u.SetResourceVersion(existing.GetResourceVersion())
 			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("could not update %s: %w", filename, err)
+				return fmt.Errorf("could not update %s %s/%s: %w", gvk.Kind, u.GetNamespace(), u.GetName(), err)
 			} else {
-				klog.Infof("Updated %s", filename)
+				klog.Infof("Updated %s %s/%s", gvk, u.GetNamespace(), u.GetName())
 				return nil
 			}
 		}
 		return err
 	}
 
-	klog.Infof("Bootstrapped %s", filename)
+	klog.Infof("Bootstrapped %s %s/%s", gvk.Kind, u.GetNamespace(), u.GetName())
 
 	return nil
 }
