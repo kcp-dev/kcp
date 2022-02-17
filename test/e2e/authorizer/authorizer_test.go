@@ -17,30 +17,24 @@ limitations under the License.
 package authorizer
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"embed"
-	"errors"
-	"fmt"
-	"io"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 
+	confighelpers "github.com/kcp-dev/kcp/config/helpers"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcp "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -48,56 +42,15 @@ import (
 //go:embed *.yaml
 var embeddedResources embed.FS
 
-func createResources(ctx context.Context, filename string, client dynamic.Interface, decoder runtime.Decoder) error {
-	f, err := embeddedResources.Open(filename)
-	if err != nil {
-		return fmt.Errorf("failed to read resources: %w", err)
-	}
-
-	d := kubeyaml.NewYAMLReader(bufio.NewReader(f))
-	for {
-		doc, err := d.Read()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		if len(bytes.TrimSpace(doc)) == 0 {
-			continue
-		}
-		u := &unstructured.Unstructured{}
-		_, gvk, err := decoder.Decode(doc, nil, u)
-		if err != nil {
-			return fmt.Errorf("error decoding %s: %w", filename, err)
-		}
-
-		resource := gvk.Kind
-		resource = strings.ToLower(resource)
-		resource += "s"
-
-		gvr := schema.GroupVersionResource{
-			Group:    gvk.Group,
-			Version:  gvk.Version,
-			Resource: resource,
-		}
-
-		if _, err := client.Resource(gvr).Create(ctx, u, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("error creating %s: %w", gvr, err)
-		}
-	}
-
-	return nil
-}
-
 type clients struct {
 	KubeClient kubernetes.Interface
 	KcpClient  kcp.Interface
 	Dynamic    dynamic.Interface
 }
 
-func newUserClient(t *testing.T, username, orgWorkspace, workspace string, cfg *rest.Config) *clients {
+func newUserClient(t *testing.T, username, clusterName string, cfg *rest.Config) *clients {
 	cfgCopy := rest.CopyConfig(cfg)
-	cfgCopy.Host = cfg.Host + "/clusters/" + orgWorkspace + "_" + workspace
+	cfgCopy.Host = cfg.Host + "/clusters/" + clusterName
 	cfgCopy.BearerToken = username + "-token"
 	kubeClient, err := kubernetes.NewForConfig(cfgCopy)
 	require.NoError(t, err)
@@ -151,32 +104,43 @@ func TestAuthorizer(t *testing.T) {
 	require.Equal(t, len(f.Servers), 1, "incorrect number of servers")
 
 	server := f.Servers["main"]
+
 	kcpCfg, err := server.Config()
 	require.NoError(t, err)
-	clusterName, err := framework.DetectClusterName(kcpCfg, ctx, "workspaces.tenancy.kcp.dev")
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpCfg)
 	require.NoError(t, err)
-	kubeClients, err := kubernetes.NewClusterForConfig(kcpCfg)
+	kcpClusterClient, err := kcp.NewClusterForConfig(kcpCfg)
 	require.NoError(t, err)
-	kcpClients, err := kcp.NewClusterForConfig(kcpCfg)
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(kcpCfg)
 	require.NoError(t, err)
-	kcpClient := kcpClients.Cluster(clusterName)
+
+	orgClusterName := "admin"
+	_, org, err := helper.ParseLogicalClusterName(orgClusterName)
 	require.NoError(t, err)
-	dynamicClient, err := dynamic.NewForConfig(kcpCfg)
-	require.NoError(t, err)
+
+	orgKubeClient := kubeClusterClient.Cluster(orgClusterName)
+	orgKcpClient := kcpClusterClient.Cluster(orgClusterName)
+	orgDynamicClient := dynamicClusterClient.Cluster(orgClusterName)
 
 	clients := map[string]*clients{
-		"admin": {
-			KubeClient: kubeClients.Cluster(clusterName),
-			KcpClient:  kcpClient,
-			Dynamic:    dynamicClient,
+		"org": {
+			KubeClient: orgKubeClient,
+			KcpClient:  orgKcpClient,
+			Dynamic:    orgDynamicClient,
 		},
-		"user-1": newUserClient(t, "user-1", "admin", "workspace1", kcpCfg),
-		"user-2": newUserClient(t, "user-2", "admin", "workspace1", kcpCfg),
-		"user-3": newUserClient(t, "user-3", "admin", "workspace1", kcpCfg),
+		"user-1": newUserClient(t, "user-1", helper.EncodeOrganizationAndWorkspace(org, "workspace1"), kcpCfg),
+		"user-2": newUserClient(t, "user-2", helper.EncodeOrganizationAndWorkspace(org, "workspace1"), kcpCfg),
+		"user-3": newUserClient(t, "user-3", helper.EncodeOrganizationAndWorkspace(org, "workspace1"), kcpCfg),
 	}
 
-	err = createResources(ctx, "resources.yaml", clients["admin"].Dynamic, serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer())
-	require.NoError(t, err)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgKcpClient.Discovery()))
+	require.Eventually(t, func() bool {
+		if err := confighelpers.CreateResourcesFromFS(ctx, clients["org"].Dynamic, mapper, embeddedResources); err != nil {
+			t.Logf("failed to create resources: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create resources")
 
 	_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
 		ctx,
