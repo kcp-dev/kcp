@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/kcp-dev/kcp/config"
+	configcrds "github.com/kcp-dev/kcp/config/crds"
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
@@ -78,7 +78,7 @@ func resolveRunningServer(ctx context.Context, t *testing.T, server framework.Ru
 			{Group: tenancyapi.GroupName, Resource: "workspaceshards"},
 		}
 		crdClient := extensionsClient.ApiextensionsV1().CustomResourceDefinitions()
-		if err := config.BootstrapCustomResourceDefinitions(ctx, crdClient, requiredCrds); err != nil {
+		if err := configcrds.Create(ctx, crdClient, requiredCrds...); err != nil {
 			return runningServer{}, err
 		}
 	}

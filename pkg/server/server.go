@@ -27,17 +27,17 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/webhook"
+	"k8s.io/client-go/dynamic"
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
+	configadmin "github.com/kcp-dev/kcp/config/admin"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -163,8 +163,14 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	apiextensionsClient := apiextensionsClusterClient.Cluster(crossCluster)
-	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsClient, resyncPeriod)
+	apiextensionsCrossClusterClient := apiextensionsClusterClient.Cluster(crossCluster)
+	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsCrossClusterClient, resyncPeriod)
+
+	// Setup dynamic client
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(genericConfig.LoopbackClientConfig)
+	if err != nil {
+		return err
+	}
 
 	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister()); err != nil {
 		return err
@@ -271,13 +277,7 @@ func (s *Server) Run(ctx context.Context) error {
 		// TODO: merge with upper s.apiextensionsSharedInformerFactory
 		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
 
-		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
-			if err := s.bootstrapCRDs(ctx, apiextensionsClusterClient.Cluster(helper.OrganizationCluster).ApiextensionsV1().CustomResourceDefinitions()); err != nil {
-				klog.Errorf("failed to bootstrap CRDs: %v", err)
-				return false, nil // keep going
-			}
-			return true, nil
-		}); err != nil {
+		if err := configadmin.Bootstrap(goContext(ctx), apiextensionsClusterClient.Cluster(genericcontrolplane.RootClusterName), dynamicClusterClient.Cluster(genericcontrolplane.RootClusterName)); err != nil {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
