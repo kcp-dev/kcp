@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/clusters"
@@ -38,28 +40,35 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-const clusterLabel = "kcp.dev/cluster"
+const (
+	clusterLabel          = "kcp.dev/cluster"
+	ScheduleDisabledLabel = "experimental.scheduling.kcp.dev/disabled"
+)
 
 var (
-	unscheduledSelector        labels.Selector
-	scheduledToNothingSelector labels.Selector
+	scheduleRequirement           labels.Requirement
+	scheduleEmptyLabelRequirement labels.Requirement
+	unscheduledRequirement        labels.Requirement
 )
 
 func init() {
-	var err error
-
-	// This matches namespaces without the label
-	unscheduled := "!" + clusterLabel
-	unscheduledSelector, err = labels.Parse(unscheduled)
-	if err != nil {
-		klog.Fatalf("error parsing label selector %q: %v", unscheduled, err)
+	// This matches namespaces that haven't been scheduled yet
+	if req, err := labels.NewRequirement(clusterLabel, selection.DoesNotExist, []string{}); err != nil {
+		klog.Fatalf("error creating the cluster label requirement: %v", err)
+	} else {
+		unscheduledRequirement = *req
 	}
-
-	// This matches namespaces with the label set to ""
-	scheduledToNothing := clusterLabel + "="
-	scheduledToNothingSelector, err = labels.Parse(scheduledToNothing)
-	if err != nil {
-		klog.Fatalf("error parsing label selector %q: %v", scheduledToNothing, err)
+	// This matches namespaces with the cluster label set to ""
+	if req, err := labels.NewRequirement(clusterLabel, selection.Equals, []string{""}); err != nil {
+		klog.Fatalf("error creating the cluster label requirement: %v", err)
+	} else {
+		scheduleEmptyLabelRequirement = *req
+	}
+	// This matches namespaces that should be scheduled automatically by the namespace controller
+	if req, err := labels.NewRequirement(ScheduleDisabledLabel, selection.DoesNotExist, []string{}); err != nil {
+		klog.Fatalf("error creating the schedule label requirement: %v", err)
+	} else {
+		scheduleRequirement = *req
 	}
 }
 
@@ -88,6 +97,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 		return err
 	}
 
+	if !scheduleRequirement.Matches(labels.Set(ns.Labels)) {
+		// Do not schedule the resource transitively, and let external controllers
+		// or users be responsible for it, consistently with the scheduling of the
+		// namespace.
+		return nil
+	}
+
 	lbls := unstr.GetLabels()
 	if lbls == nil {
 		lbls = map[string]string{}
@@ -100,10 +116,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 	}
 
 	// Update the resource's assignment.
-	klog.Infof("Patching to update cluster assignment for %s %s/%s: %q -> %q", gvr, ns.Name, unstr.GetName(), old, new)
-	if _, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).Patch(ctx, unstr.GetName(), types.MergePatchType, clusterLabelPatchBytes(new), metav1.PatchOptions{}); err != nil {
+	patchType, patchBytes := ClusterLabelPatchBytes(new)
+	if _, err = c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
+		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
+	klog.Infof("Patched cluster assignment for %s %s/%s: %q -> %q", gvr, ns.Name, unstr.GetName(), old, new)
+
 	return nil
 }
 
@@ -112,7 +131,7 @@ func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionRe
 	listers, _ := c.ddsif.Listers()
 	lister, found := listers[gvr]
 	if !found {
-		return fmt.Errorf("Informer for %s is not synced; re-enqueueing", gvr)
+		return fmt.Errorf("informer for %s is not synced; re-enqueueing", gvr)
 	}
 
 	// Enqueue workqueue items to reconcile every resource of this type, in
@@ -132,25 +151,35 @@ func (c *Controller) patchStatus(ctx context.Context, ns *corev1.Namespace, upda
 	if err != nil {
 		return err
 	}
-	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
+		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		return fmt.Errorf("failed to patch status on namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
 	}
 	return nil
 }
 
-// Set the schedulable condition on namespaces and not the resources it
+// Set the scheduled condition on namespaces and not the resources it
 // contains. Not all native types support status conditions (e.g. configmaps
 // and secrets) and there is no guarantee that arbitrary CRDs will support
 // conditions.
-func (c *Controller) updateSchedulableCondition(ctx context.Context, ns *corev1.Namespace, schedulable bool) error {
-	klog.Infof("Patching namespace %q|%q status to indicate schedulable=%t", ns.ClusterName, ns.Name, schedulable)
+func (c *Controller) updateScheduledCondition(ctx context.Context, ns *corev1.Namespace, scheduled, disabled bool) error {
+	klog.Infof("Patching namespace %q|%q status to indicate scheduled=%t", ns.ClusterName, ns.Name, scheduled)
 
-	if schedulable {
+	if scheduled {
 		return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
 			conditions.MarkTrue(conditionsSetter, NamespaceScheduled)
 		})
 	}
+
+	if disabled {
+		return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
+			conditions.MarkFalse(conditionsSetter, NamespaceScheduled, NamespaceReasonSchedulingDisabled,
+				conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
+				"Automatic scheduling is deactivated and can be performed by setting the cluster label manually.")
+		})
+	}
+
 	return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
 		conditions.MarkFalse(conditionsSetter, NamespaceScheduled, NamespaceReasonUnschedulable,
 			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
@@ -199,10 +228,12 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 
 	oldClusterName := ns.Labels[clusterLabel]
 	if oldClusterName != newClusterName {
-		if _, err := c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().Patch(ctx, ns.Name, types.MergePatchType, clusterLabelPatchBytes(newClusterName), metav1.PatchOptions{}); err != nil {
+		patchType, patchBytes := ClusterLabelPatchBytes(newClusterName)
+		if _, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
+			Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
-		klog.Infof("Patched to update cluster assignment for namespace %q|%q: %q -> %q", ns.ClusterName, ns.Name, oldClusterName, newClusterName)
+		klog.Infof("Patched cluster assignment for namespace %q|%q: %q -> %q", ns.ClusterName, ns.Name, oldClusterName, newClusterName)
 	}
 
 	return nil
@@ -253,24 +284,34 @@ func (c *Controller) ensureScheduled(ctx context.Context, lclusterName string, n
 			return err
 		}
 		if !isValidCluster {
-			// Currently assigned cluster no longer exists or is not ready.
+			// The currently assigned cluster no longer exists or is not ready.
 			if err := c.assignCluster(ctx, ns); err != nil {
 				return err
 			}
 		}
 	}
+
 	return nil
 }
 
 // ensureScheduledStatus ensures the status of the given namespace reflects whether the
 // namespace has been assigned to a cluster.
 func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Namespace) error {
-	scheduled := (ns.Labels[clusterLabel] != "")
-	statusChangeRequired := scheduled != IsScheduled(ns)
-	if statusChangeRequired {
-		return c.updateSchedulableCondition(ctx, ns, scheduled)
+	scheduled := ns.Labels[clusterLabel] != ""
+	disabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
+
+	if condition := conditions.Get(&NamespaceConditionsAdapter{ns}, NamespaceScheduled); condition != nil {
+		conditionStatusChanged := scheduled != (condition.Status == corev1.ConditionTrue)
+		conditionReasonChanged := disabled && condition.Reason != NamespaceReasonSchedulingDisabled ||
+			!disabled && condition.Reason != NamespaceReasonUnschedulable
+		statusChangeRequired := conditionStatusChanged || conditionReasonChanged
+		if statusChangeRequired {
+			return c.updateScheduledCondition(ctx, ns, scheduled, disabled)
+		}
+		return nil
 	}
-	return nil
+
+	return c.updateScheduledCondition(ctx, ns, scheduled, disabled)
 }
 
 // reconcileNamespace is responsible for assigning a namespace to a cluster, if
@@ -283,6 +324,12 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 
 	if ns.Labels == nil {
 		ns.Labels = map[string]string{}
+	}
+
+	schedulingDisabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
+	if schedulingDisabled {
+		klog.Infof("Skipping placement for namespace %q|%q", lclusterName, ns.Name)
+		return c.ensureScheduledStatus(ctx, ns)
 	}
 
 	if err := c.ensureScheduled(ctx, lclusterName, ns); err != nil {
@@ -323,10 +370,16 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 	return nil
 }
 
-// clusterLabelPatchBytes returns JSON patch bytes expressing an operation to
-// add or replace the cluster assignment label to the given value.
-func clusterLabelPatchBytes(val string) []byte {
-	return []byte(fmt.Sprintf(`
+// ClusterLabelPatchBytes returns JSON patch bytes expressing an operation to
+// add, replace to the given value, or delete the cluster assignment label.
+func ClusterLabelPatchBytes(val string) (types.PatchType, []byte) {
+	if val == "" {
+		return types.JSONPatchType,
+			[]byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/labels/%s"}]`, strings.ReplaceAll(clusterLabel, "/", "~1")))
+	}
+
+	return types.MergePatchType,
+		[]byte(fmt.Sprintf(`
 {
   "metadata":{
     "labels":{
@@ -337,7 +390,8 @@ func clusterLabelPatchBytes(val string) []byte {
 }
 
 // observeCluster is responsible for watching to see if the Cluster is happy;
-// if it's not, any namespace assigned to that cluster will be unassigned.
+// if it's not, any namespace assigned to that cluster with automatic scheduling
+// will be unassigned.
 //
 // After the namespace is unassigned, it will be picked up by
 // reconcileNamespace above and assigned to another happy cluster if one can be
@@ -352,8 +406,10 @@ func (c *Controller) observeCluster(ctx context.Context, cl *clusterv1alpha1.Clu
 	if conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition) && !cl.Spec.Unschedulable && !evicted {
 		// Revisit any unscheduled namespaces
 		var errs []error
-		errs = append(errs, c.enqueueNamespaces(ctx, unscheduledSelector))
-		errs = append(errs, c.enqueueNamespaces(ctx, scheduledToNothingSelector))
+		errs = append(errs, c.enqueueNamespaces(ctx, labels.NewSelector().
+			Add(unscheduledRequirement).Add(scheduleRequirement)))
+		errs = append(errs, c.enqueueNamespaces(ctx, labels.NewSelector().
+			Add(scheduleEmptyLabelRequirement).Add(scheduleRequirement)))
 		return errors.NewAggregate(errs)
 	}
 
@@ -364,10 +420,10 @@ func (c *Controller) observeCluster(ctx context.Context, cl *clusterv1alpha1.Clu
 
 	// An unhealthy cluster requires revisiting the scheduling for all namespaces to
 	// ensure rescheduling is performed if needed.
-	return c.enqueueNamespaces(ctx, labels.Everything())
+	return c.enqueueNamespaces(ctx, labels.NewSelector().Add(scheduleRequirement))
 }
 
-// enqueueNamespaces adds all namespaces matching selector to the queue to allow for scheduliing.
+// enqueueNamespaces adds all namespaces matching selector to the queue to allow for scheduling.
 func (c *Controller) enqueueNamespaces(ctx context.Context, selector labels.Selector) error {
 	namespaces, err := c.namespaceLister.ListWithContext(ctx, selector)
 	if err != nil {
