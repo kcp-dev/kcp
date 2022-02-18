@@ -43,10 +43,34 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 )
 
+// TransformFileFunc transforms a resource file before being applied to the cluster.
+type TransformFileFunc func(bs []byte) ([]byte, error)
+
+// Option allows to customize the bootstrap process.
+type Option struct {
+	// TransformFileFunc is a function that transforms a resource file before being applied to the cluster.
+	TransformFile TransformFileFunc
+}
+
+// ReplaceOption allows to customize the bootstrap process.
+func ReplaceOption(pairs ...string) Option {
+	return Option{
+		TransformFile: func(bs []byte) ([]byte, error) {
+			if len(pairs)%2 != 0 {
+				return nil, fmt.Errorf("odd number of arguments: %v", pairs)
+			}
+			for i := 0; i < len(pairs); i += 2 {
+				bs = bytes.ReplaceAll(bs, []byte(pairs[i]), []byte(pairs[i+1]))
+			}
+			return bs, nil
+		},
+	}
+}
+
 // Bootstrap creates a list of CRDs and then the resources in a package's fs by
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dynamicClient dynamic.Interface, fs embed.FS, crds []metav1.GroupResource) error {
+func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dynamicClient dynamic.Interface, fs embed.FS, crds []metav1.GroupResource, opts ...Option) error {
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(crdClient.Discovery()))
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
@@ -60,9 +84,13 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dyn
 	}
 
 	// bootstrap non-crd resources
+	var transformers []TransformFileFunc
+	for _, opt := range opts {
+		transformers = append(transformers, opt.TransformFile)
+	}
 	return wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		// +lint:noerrcheck
-		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, fs); err != nil {
+		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, fs, transformers...); err != nil {
 			klog.Infof("Failed to bootstrap resources, retrying: %v", err)
 			return false, nil
 		}
@@ -70,7 +98,8 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dyn
 	})
 }
 
-func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, fs embed.FS) error {
+// CreateResourcesFromFS creates all resources from a filesystem.
+func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, fs embed.FS, transformers ...TransformFileFunc) error {
 	files, err := fs.ReadDir(".")
 	if err != nil {
 		return err
@@ -81,7 +110,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 		if f.IsDir() {
 			continue
 		}
-		if err := CreateResourceFromFS(ctx, client, mapper, f.Name(), fs); err != nil {
+		if err := CreateResourceFromFS(ctx, client, mapper, f.Name(), fs, transformers...); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -89,7 +118,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 }
 
 // CreateResourceFromFS creates given resource file.
-func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, filename string, fs embed.FS) error {
+func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, filename string, fs embed.FS, transformers ...TransformFileFunc) error {
 	raw, err := fs.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("could not read %s: %w", filename, err)
@@ -110,6 +139,13 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		}
 		if len(bytes.TrimSpace(doc)) == 0 {
 			continue
+		}
+
+		for _, transformer := range transformers {
+			doc, err = transformer(doc)
+			if err != nil {
+				return err
+			}
 		}
 
 		if err := createResourceFromFS(ctx, client, mapper, doc); err != nil {
