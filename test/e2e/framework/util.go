@@ -34,6 +34,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -401,4 +402,14 @@ func GetClientForServer(ctx context.Context, server RunningServer, crdName strin
 	}
 	client := clients.Cluster(sourceClusterName)
 	return client, nil
+}
+
+func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
+	diff := cmp.Diff(x, y)
+	require.NotEmpty(t, diff, msgAndArgs...)
+}
+
+func RequireNoDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
+	diff := cmp.Diff(x, y)
+	require.Empty(t, diff, msgAndArgs...)
 }
