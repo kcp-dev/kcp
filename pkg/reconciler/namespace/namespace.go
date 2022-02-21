@@ -71,12 +71,12 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 		return nil
 	}
 
-	klog.Infof("Reconciling %s %s/%s", gvr.String(), unstr.GetNamespace(), unstr.GetName())
+	klog.Infof("Reconciling %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
 	if unstr.GetNamespace() == "" {
-		klog.Infof("%s %s had no namespace; ignoring", gvr.String(), unstr.GetName())
+		klog.V(5).Infof("%s %s had no namespace; ignoring", gvr.String(), unstr.GetName())
 		return nil
 	}
 
@@ -170,7 +170,7 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 	for i := range allClusters {
 		// Only include Clusters that are in the same logical cluster as ns
 		if allClusters[i].ClusterName != ns.ClusterName {
-			klog.V(2).InfoS("assignCluster: excluding cluster with different metadata.clusterName", "ns.clusterName", ns.ClusterName, "check", allClusters[i].ClusterName)
+			klog.V(6).InfoS("assignCluster: excluding cluster with different metadata.clusterName", "ns.clusterName", ns.ClusterName, "check", allClusters[i].ClusterName)
 			continue
 		}
 		if allClusters[i].Spec.Unschedulable {
@@ -199,11 +199,10 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 
 	oldClusterName := ns.Labels[clusterLabel]
 	if oldClusterName != newClusterName {
-		klog.Infof("Patching to update cluster assignment for namespace %q|%q: %q -> %q", ns.ClusterName, ns.Name, oldClusterName, newClusterName)
 		if _, err := c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().Patch(ctx, ns.Name, types.MergePatchType, clusterLabelPatchBytes(newClusterName), metav1.PatchOptions{}); err != nil {
 			return err
 		}
-
+		klog.Infof("Patched to update cluster assignment for namespace %q|%q: %q -> %q", ns.ClusterName, ns.Name, oldClusterName, newClusterName)
 	}
 
 	return nil
@@ -296,7 +295,6 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 
 	// Update all resources in the namespace with the cluster assignment.
 	//
-	// TODO: This will happen any time a namespace update is observed,
 	// including updates that don't affect cluster assignment (e.g.,
 	// annotation). This will be especially painful at startup, since all
 	// resources are already enqueued and reconciled separately. Add some
@@ -304,6 +302,7 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 	// enqueueing items here if they're not already enqueued.
 	listers, notSynced := c.ddsif.Listers()
 	for gvr, lister := range listers {
+		klog.Infof("Enqueuing resources in namespace %q|%q for GVR %q", lclusterName, ns.Name, gvr)
 		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			return err

@@ -63,6 +63,7 @@ func NewClusterReconciler(
 	name string,
 	reconciler ClusterReconcileImpl,
 	kcpClient kcpclient.Interface,
+	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer clusterinformer.ClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 ) (*ClusterReconciler, error) {
@@ -72,6 +73,7 @@ func NewClusterReconciler(
 		name:                     name,
 		reconciler:               reconciler,
 		kcpClient:                kcpClient,
+		kcpClusterClient:         kcpClusterClient,
 		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
 		queue:                    queue,
@@ -122,7 +124,8 @@ func NewClusterReconciler(
 type ClusterReconciler struct {
 	name                     string
 	reconciler               ClusterReconcileImpl
-	kcpClient                kcpclient.Interface
+	kcpClient                kcpclient.Interface // TODO(sttts): get rid of this. Doesn't make sense. Use kcpClusterClient.
+	kcpClusterClient         *kcpclient.Cluster
 	clusterIndexer           cache.Indexer
 	apiresourceImportIndexer cache.Indexer
 
@@ -218,7 +221,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.kcpClient.ClusterV1alpha1().Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClusterClient.Cluster(current.ClusterName).ClusterV1alpha1().Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 

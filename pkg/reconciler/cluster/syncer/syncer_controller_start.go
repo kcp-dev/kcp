@@ -104,9 +104,19 @@ func (c *Config) New() (*Controller, error) {
 	apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
 	kcpClient := kcpclient.NewForConfigOrDie(adminConfig)
 
+	neutralConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(neutralConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return NewController(
 		apiExtensionsClient,
 		kcpClient,
+		kcpClusterClient,
 		c.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		c.kubeconfig,
