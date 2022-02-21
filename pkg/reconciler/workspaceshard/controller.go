@@ -45,6 +45,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -273,7 +274,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
 	secret, err := c.secretLister.Secrets(workspaceShard.Spec.Credentials.Namespace).Get(clusters.ToClusterAwareKey(workspaceShard.ClusterName, workspaceShard.Spec.Credentials.Name))
 	if errors.IsNotFound(err) {
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing, "Referenced secret %s/%s could not be found.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name)
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing, conditionsapi.ConditionSeverityWarning, "Referenced secret %s/%s could not be found.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name)
 		return nil
 	} else if err != nil {
 		return err
@@ -281,20 +282,20 @@ func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alp
 
 	data, ok := secret.Data[tenancyv1alpha1.WorkspaceShardCredentialsKey]
 	if !ok {
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, "Referenced secret %s/%s did not contain key %s.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name, tenancyv1alpha1.WorkspaceShardCredentialsKey)
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced secret %s/%s did not contain key %s.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name, tenancyv1alpha1.WorkspaceShardCredentialsKey)
 		return nil
 	}
 
 	cfg, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, "Referenced credentials invalid: %v.", err.Error())
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced credentials invalid: %v.", err.Error())
 		return nil
 	}
 
 	hash := sha256.New()
 	if _, err := hash.Write(data); err != nil {
 		// TODO: our hash cannot ever return an error on Write, but the interface makes it possible, do we care to do something better?
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, "Referenced credentials could not be hashed: %v.", err.Error())
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced credentials could not be hashed: %v.", err.Error())
 		return nil
 	}
 
