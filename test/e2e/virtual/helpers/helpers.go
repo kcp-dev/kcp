@@ -36,6 +36,8 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/scheme"
 )
 
+// TODO: get rid of this package and move back into virtual_workspace_test.go
+
 type VirtualWorkspaceClientContext struct {
 	Prefix string
 	User   framework.User

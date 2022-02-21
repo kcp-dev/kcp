@@ -16,6 +16,9 @@ limitations under the License.
 
 package framework
 
+// TODO: move non-e2e tests out of e2e package
+
+/*
 import (
 	"context"
 	"encoding/json"
@@ -532,3 +535,4 @@ func sortAPIResourceList(list []*metav1.APIResourceList) []*metav1.APIResourceLi
 	}
 	return list
 }
+*/
