@@ -44,7 +44,7 @@ const (
 	kcpPreviousWorkspaceContextKey string = "workspace.kcp.dev/-"
 )
 
-var defaultWorkspaceDirectoryApiServerPath = workspacebuilder.DefaultRootPathPrefix + "/" + workspaceregistry.PersonalScope
+var defaultWorkspaceDirectoryApiServerPath = workspacebuilder.DefaultRootPathPrefix + "/addsupportfororgs/" + workspaceregistry.PersonalScope
 
 // KubeConfig contains a config loaded from a Kubeconfig
 // and allows modifications on it through workspace-related

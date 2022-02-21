@@ -42,11 +42,11 @@ type VirtualWorkspaceClientContext struct {
 }
 
 type VirtualWorkspace struct {
-	BuildSubCommandOtions func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions
-	ClientContexts        []VirtualWorkspaceClientContext
+	BuildSubCommandOptions func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions
+	ClientContexts         []VirtualWorkspaceClientContext
 }
 
-func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer framework.RunningServer) ([]*rest.Config, error) {
+func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer framework.RunningServer, orgClusterName string) ([]*rest.Config, error) {
 	kcpKubeconfigPath := kcpServer.KubeconfigPath()
 	kcpDataDir := filepath.Dir(kcpKubeconfigPath)
 
@@ -74,7 +74,7 @@ func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer fr
 		Output:            os.Stdout,
 		SecureServing:     secureOptions,
 		Authentication:    authenticationOptions,
-		SubCommandOptions: vw.BuildSubCommandOtions(kcpServer),
+		SubCommandOptions: vw.BuildSubCommandOptions(kcpServer),
 	}
 
 	virtualWorkspaceContext, stopVirtualWorkspace := context.WithCancel(ctx)
@@ -137,7 +137,7 @@ func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer fr
 	}
 	for _, vwClientContext := range vw.ClientContexts {
 		vwCfg := rest.CopyConfig(mainRestConfig)
-		vwCfg.Host = "https://" + vwCfg.Host + vwClientContext.Prefix
+		vwCfg.Host = "https://" + vwCfg.Host + "/" + orgClusterName + vwClientContext.Prefix
 		if authInfo, exists := kcpRawConfig.AuthInfos[vwClientContext.User.Name]; exists && vwClientContext.User.Token == "" {
 			vwCfg.BearerToken = authInfo.Token
 		} else {

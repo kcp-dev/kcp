@@ -41,8 +41,8 @@ import (
 type KubeconfigSubresourceREST struct {
 	mainRest *REST
 
-	// coreClient is useful to get secrets
-	coreClient corev1client.CoreV1Interface
+	// rootCoreClient is useful to get secrets
+	rootCoreClient corev1client.CoreV1Interface
 	// workspaceShardClient can get KCP workspace shards
 	workspaceShardClient tenancyclient.WorkspaceShardInterface
 }
@@ -76,7 +76,7 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 	if err != nil {
 		return nil, wrapError(err)
 	}
-	secret, err := s.coreClient.Secrets(shard.Spec.Credentials.Namespace).Get(ctx, shard.Spec.Credentials.Name, metav1.GetOptions{})
+	secret, err := s.rootCoreClient.Secrets(shard.Spec.Credentials.Namespace).Get(ctx, shard.Spec.Credentials.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, wrapError(err)
 	}

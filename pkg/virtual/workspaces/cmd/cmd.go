@@ -17,22 +17,19 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -70,7 +67,7 @@ func (o *WorkspacesSubCommandOptions) AddFlags(flags *pflag.FlagSet) {
 
 	flags.StringVar(&o.RootPathPrefix, "workspaces:root-path-prefix", builder.DefaultRootPathPrefix, ""+
 		"The prefix of the workspaces API server root path.\n"+
-		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/personal|organization|global")
+		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/workspaces/<org-name>/personal|all")
 }
 
 func (o *WorkspacesSubCommandOptions) Validate() []error {
@@ -100,47 +97,46 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 		return nil, nil, err
 	}
 
-	apiExtensionsClient, err := apiextensionsclient.NewForConfig(kubeClientConfig)
+	// HACK HACK HACK
+	// for now we pass a /cluster/<org> config to the virtual workspace apiserver. We take the
+	// org workspace name from the host, and then reset it to be a cluster-less config.
+	// TODO(david): have a multi-org workspace auth cache.
+	u, err := url.Parse(kubeClientConfig.Host)
 	if err != nil {
 		return nil, nil, err
 	}
+	segments := strings.Split(u.Path, "/")
+	orgClusterName := segments[len(segments)-1]
+	u.Path = ""
+	kubeClientConfig.Host = u.String()
 
-	clusterWorkspacesCRD, err := apiExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "clusterworkspaces."+tenancyv1alpha1.SchemeGroupVersion.Group, metav1.GetOptions{})
-	if kerrors.IsNotFound(err) {
-		return nil, nil, errors.New("the ClusterWorkspaces CRD should be registered in the cluster providing the workspaces")
-	}
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(kubeClientConfig)
 	if err != nil {
 		return nil, nil, err
 	}
+	orgKubeClient := kubeClusterClient.Cluster(orgClusterName)
+	kubeInformers := informers.NewSharedInformerFactory(orgKubeClient, 10*time.Minute)
+	rootKubeClient := kubeClusterClient.Cluster(helper.RootCluster)
 
-	adminLogicalClusterName := clusterWorkspacesCRD.ClusterName
-
-	kubeClientClusterChooser, err := kubernetes.NewClusterForConfig(kubeClientConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	kubeClient := kubeClientClusterChooser.Cluster(adminLogicalClusterName)
+	orgKcpClient := kcpClusterClient.Cluster(orgClusterName)
+	kcpInformer := kcpinformer.NewSharedInformerFactory(orgKcpClient, 10*time.Minute)
+	rootKcpClient := kcpClusterClient.Cluster(helper.RootCluster)
 
-	kubeInformers := informers.NewSharedInformerFactory(kubeClient, 10*time.Minute)
-
-	kcpClientClusterChooser, err := kcpclient.NewClusterForConfig(kubeClientConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-	kcpClient := kcpClientClusterChooser.Cluster(adminLogicalClusterName)
-
-	kcpInformer := kcpinformer.NewSharedInformerFactory(kcpClient, 10*time.Minute)
-
-	//	discoveryClient := cacheddiscovery.NewMemCacheClient(kubeClient.Discovery())
+	//	discoveryClient := cacheddiscovery.NewMemCacheClient(orgKubeClient.Discovery())
 	//	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
 
-	singleClusterRBACV1 := frameworkrbac.FilterPerCluster(adminLogicalClusterName, kubeInformers.Rbac().V1())
+	// TODO(david): support multiple orgs
+	singleClusterRBACV1 := frameworkrbac.FilterPerCluster(orgClusterName, kubeInformers.Rbac().V1())
 
 	subjectLocator := frameworkrbac.NewSubjectLocator(singleClusterRBACV1)
 	ruleResolver := frameworkrbac.NewRuleResolver(singleClusterRBACV1)
 
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(o.RootPathPrefix, kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces(), kcpClient, kubeClient, singleClusterRBACV1, subjectLocator, ruleResolver),
+		builder.BuildVirtualWorkspace(o.RootPathPrefix, kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces(), rootKcpClient, orgKcpClient, rootKubeClient, orgKubeClient, singleClusterRBACV1, subjectLocator, ruleResolver),
 	}
 	informerStarts := []rootapiserver.InformerStart{
 		kubeInformers.Start,

@@ -41,9 +41,9 @@ import (
 )
 
 const WorkspacesVirtualWorkspaceName string = "workspaces"
-const DefaultRootPathPrefix string = "/services/applications"
+const DefaultRootPathPrefix string = "/services/applications/workspaces"
 
-func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, kcpClient kcpclient.Interface, kubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, rootKcpClient kcpclient.Interface, orgKcpClient kcpclient.Interface, rootKubeClient, orgKubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
 	crbInformer := rbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
@@ -63,16 +63,20 @@ func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinf
 			completedContext = requestContext
 			if path := urlPath; strings.HasPrefix(path, rootPathPrefix) {
 				path = strings.TrimPrefix(path, rootPathPrefix)
-				i := strings.Index(path, "/")
-				if i == -1 {
+				segments := strings.SplitN(path, "/", 3)
+				if len(segments) < 2 {
 					return
 				}
-				workspacesScope := path[:i]
-				if !virtualworkspacesregistry.ScopeSets.Has(workspacesScope) {
+				org, scope := segments[0], segments[1]
+				if !virtualworkspacesregistry.ScopeSet.Has(scope) {
 					return
 				}
 
-				return true, rootPathPrefix + workspacesScope, context.WithValue(requestContext, virtualworkspacesregistry.WorkspacesScopeKey, workspacesScope)
+				return true, "/" + strings.Join(segments[:2], "/"),
+					context.WithValue(
+						context.WithValue(requestContext, virtualworkspacesregistry.WorkspacesScopeKey, scope),
+						virtualworkspacesregistry.WorkspacesOrgKey, org,
+					)
 			}
 			return
 		},
@@ -90,7 +94,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinf
 						rbacInformers,
 					)
 
-					workspaceClient := kcpClient.TenancyV1alpha1().ClusterWorkspaces()
+					workspaceClient := orgKcpClient.TenancyV1alpha1().ClusterWorkspaces()
 					clusterWorkspaceCache := workspacecache.NewClusterWorkspaceCache(
 						clusterWorkspaces.Informer(),
 						workspaceClient,
@@ -110,7 +114,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinf
 						return nil, err
 					}
 
-					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(kcpClient.TenancyV1alpha1(), kubeClient, crbInformer, reviewerProvider, workspaceAuthorizationCache)
+					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(rootKcpClient.TenancyV1alpha1(), orgKcpClient.TenancyV1alpha1(), rootKubeClient, orgKubeClient, crbInformer, reviewerProvider, workspaceAuthorizationCache)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 							return workspacesRest, nil

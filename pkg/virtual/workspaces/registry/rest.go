@@ -52,7 +52,7 @@ import (
 )
 
 const (
-	OrganizationScope string = "organization"
+	OrganizationScope string = "all"
 	PersonalScope     string = "personal"
 	PrettyNameLabel   string = "workspaces.kcp.dev/pretty-name"
 	InternalNameLabel string = "workspaces.kcp.dev/internal-name"
@@ -60,11 +60,14 @@ const (
 	InternalNameIndex string = "workspace-internal-name"
 )
 
-var ScopeSets sets.String = sets.NewString(PersonalScope, OrganizationScope)
+var ScopeSet sets.String = sets.NewString(PersonalScope, OrganizationScope)
 
 type WorkspacesScopeKeyType string
 
-const WorkspacesScopeKey WorkspacesScopeKeyType = "VirtualWorkspaceWorkspacesScope"
+const (
+	WorkspacesScopeKey WorkspacesScopeKeyType = "VirtualWorkspaceWorkspacesScope"
+	WorkspacesOrgKey   WorkspacesScopeKeyType = "VirtualWorkspaceWorkspacesOrg"
+)
 
 type REST struct {
 	// rbacClient can modify RBAC rules
@@ -115,14 +118,14 @@ var _ rest.GracefulDeleter = &REST{}
 
 // NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
 // org workspaces, projecting them to the Workspace type.
-func NewREST(tenancyClient tenancyclient.TenancyV1alpha1Interface, kubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, workspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
+func NewREST(rootTenancyClient, orgTenancyClient tenancyclient.TenancyV1alpha1Interface, rootKubeClient, orgKubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, orgWorkspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
-		rbacClient:                kubeClient.RbacV1(),
+		rbacClient:                orgKubeClient.RbacV1(),
 		crbInformer:               crbInformer,
 		crbLister:                 crbInformer.Lister(),
 		workspaceReviewerProvider: workspaceReviewerProvider,
-		clusterWorkspaceClient:    tenancyClient.ClusterWorkspaces(),
-		clusterWorkspaceLister:    workspaceLister,
+		clusterWorkspaceClient:    orgTenancyClient.ClusterWorkspaces(),
+		clusterWorkspaceLister:    orgWorkspaceLister,
 		createStrategy:            Strategy,
 		updateStrategy:            Strategy,
 
@@ -131,8 +134,8 @@ func NewREST(tenancyClient tenancyclient.TenancyV1alpha1Interface, kubeClient ku
 	return mainRest,
 		&KubeconfigSubresourceREST{
 			mainRest:             mainRest,
-			coreClient:           kubeClient.CoreV1(),
-			workspaceShardClient: tenancyClient.WorkspaceShards(),
+			rootCoreClient:       rootKubeClient.CoreV1(),
+			workspaceShardClient: rootTenancyClient.WorkspaceShards(),
 		}
 }
 
@@ -194,7 +197,7 @@ func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
 func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (runtime.Object, error) {
 	user, ok := apirequest.UserFrom(ctx)
 	if !ok {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
 
 	scope := ctx.Value(WorkspacesScopeKey).(string)

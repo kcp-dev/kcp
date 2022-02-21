@@ -39,7 +39,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
@@ -217,7 +216,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	}
 	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
 		mainRest:             &storage,
-		coreClient:           mockKubeClient.CoreV1(),
+		rootCoreClient:       mockKubeClient.CoreV1(),
 		workspaceShardClient: mockKCPClient.TenancyV1alpha1().WorkspaceShards(),
 	}
 	ctx = apirequest.WithUser(ctx, test.user)
@@ -1467,12 +1466,4 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 		},
 	}
 	applyTest(t, test)
-}
-
-func clusterWorkspacesToWorkspaces(list []tenancyv1alpha1.ClusterWorkspace) []tenancyv1beta1.Workspace {
-	ret := make([]tenancyv1beta1.Workspace, len(list))
-	for i, cws := range list {
-		projection.ProjectClusterWorkspaceToWorkspace(&cws, &ret[i])
-	}
-	return ret
 }

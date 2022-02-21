@@ -463,6 +463,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 			Args: []string{
 				"--run-controllers=false",
 			},
+			RunInProcess: true,
 		},
 	)
 
@@ -483,7 +484,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 			}
 
 			vw := helpers.VirtualWorkspace{
-				BuildSubCommandOtions: func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions {
+				BuildSubCommandOptions: func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions {
 					return &compositecmd.CompositeSubCommandOptions{
 						StoragesPerPrefix:              testCase.virtualWorkspaces.ToRestStorages(),
 						GetOpenAPIDefinitionsPerPrefix: testCase.virtualWorkspaces.GetOpenAPIDefinitions(),
@@ -492,7 +493,7 @@ func TestCompositeVirtualWorkspace(t *testing.T) {
 				ClientContexts: testCase.virtualWorkspaceClientContexts,
 			}
 
-			vwConfigs, err := vw.Setup(t, ctx, server)
+			vwConfigs, err := vw.Setup(t, ctx, server, "kljdslfkjaslkdjflasdjflkasdjflk")
 			require.NoError(t, err)
 
 			virtualWorkspaceClients := []kubernetes.Interface{}
