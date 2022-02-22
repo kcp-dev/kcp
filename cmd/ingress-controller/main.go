@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/logs"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	envoycontrolplane "github.com/kcp-dev/kcp/pkg/envoy-controlplane"
@@ -55,6 +56,10 @@ func main() {
 				`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := genericapiserver.SetupSignalContext()
+
+			if err := options.Logs.ValidateAndApply(); err != nil {
+				return err
+			}
 
 			var overrides clientcmd.ConfigOverrides
 			if options.Context != "" {
@@ -115,6 +120,7 @@ type Options struct {
 	EnvoyXDSPort      uint
 	EnvoyListenerPort uint
 	Domain            string
+	Logs              *logs.Options
 }
 
 func NewDefaultOptions() *Options {
@@ -124,6 +130,7 @@ func NewDefaultOptions() *Options {
 		EnvoyXDSPort:      18000,
 		EnvoyListenerPort: 80,
 		Domain:            "kcp-apps.127.0.0.1.nip.io",
+		Logs:              logs.NewOptions(),
 	}
 }
 
@@ -133,4 +140,6 @@ func (o *Options) BindFlags(fs *pflag.FlagSet) {
 	fs.UintVar(&o.EnvoyXDSPort, "envoy-xds-port", o.EnvoyXDSPort, "Envoy control plane port. Set to 0 to disable")
 	fs.UintVar(&o.EnvoyListenerPort, "envoy-listener-port", o.EnvoyListenerPort, "Envoy listener port")
 	fs.StringVar(&o.Domain, "domain", o.Domain, "The domain to use to expose ingresses")
+
+	o.Logs.AddFlags(fs)
 }
