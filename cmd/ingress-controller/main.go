@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/informers"
@@ -39,6 +40,8 @@ const resyncPeriod = 10 * time.Hour
 func main() {
 	help.FitTerminal()
 
+	options := NewDefaultOptions()
+
 	cmd := &cobra.Command{
 		Use:   "ingress-controller",
 		Short: "KCP ingress controller",
@@ -53,17 +56,17 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := genericapiserver.SetupSignalContext()
 
-			kubeconfig := cmd.Flag("kubeconfig").Value.String()
-			kubecontext := cmd.Flag("context").Value.String()
-
 			var overrides clientcmd.ConfigOverrides
-			if kubecontext != "" {
-				overrides.CurrentContext = kubecontext
+			if options.Context != "" {
+				overrides.CurrentContext = options.Context
 			}
 
-			configLoader, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-				&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
-				&overrides).ClientConfig()
+			// Supports standard env vars for e.g. KUBECONFIG
+			loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+			// Use the user-supplied kubeconfig, if specified
+			loadingRules.ExplicitPath = options.Kubeconfig
+
+			configLoader, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &overrides).ClientConfig()
 			if err != nil {
 				return err
 			}
@@ -78,20 +81,12 @@ func main() {
 			serviceInformer := kubeInformerFactory.Core().V1().Services()
 
 			var ecp *envoycontrolplane.EnvoyControlPlane
-			if cmd.Flag("envoyxds").Value.String() == "true" {
-				envoyXDSPort, err := cmd.Flags().GetUint("envoyxds-port")
-				if err != nil {
-					return err
-				}
-				envoyListenPort, err := cmd.Flags().GetUint("envoy-listener-port")
-				if err != nil {
-					return err
-				}
-				ecp = envoycontrolplane.NewEnvoyControlPlane(envoyXDSPort, envoyListenPort, ingressInformer.Lister(), nil)
+			if options.EnvoyXDSPort > 0 && options.EnvoyListenerPort > 0 {
+				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister(), nil)
 			}
 
-			domain := cmd.Flag("domain").Value.String()
-			ic := ingress.NewController(kubeClient, ingressInformer, serviceInformer, ecp, domain)
+			ic := ingress.NewController(kubeClient, ingressInformer, serviceInformer, ecp, options.Domain)
+
 			kubeInformerFactory.Start(ctx.Done())
 			kubeInformerFactory.WaitForCacheSync(ctx.Done())
 
@@ -103,15 +98,35 @@ func main() {
 		},
 	}
 
-	//TODO(jmprusi): Use and options struct and use xyzVar() type for flag binding.
-	cmd.Flags().String("kubeconfig", ".kubeconfig", "kubeconfig file used to contact the cluster.")
-	cmd.Flags().String("context", "", "Context to use in the kubeconfig file, instead of the current context.")
-	cmd.Flags().Bool("envoyxds", false, "Start an Envoy control plane")
-	cmd.Flags().Uint("envoyxds-port", 18000, "Envoy control plane port")
-	cmd.Flags().Uint("envoy-listener-port", 80, "Envoy default listener port")
-	cmd.Flags().String("domain", "kcp-apps.127.0.0.1.nip.io", "The domain to use to expose ingresses")
+	options.BindFlags(cmd.Flags())
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
+}
+
+type Options struct {
+	Kubeconfig        string
+	Context           string
+	EnvoyXDSPort      uint
+	EnvoyListenerPort uint
+	Domain            string
+}
+
+func NewDefaultOptions() *Options {
+	return &Options{
+		Kubeconfig:        "",
+		Context:           "",
+		EnvoyXDSPort:      18000,
+		EnvoyListenerPort: 80,
+		Domain:            "kcp-apps.127.0.0.1.nip.io",
+	}
+}
+
+func (o *Options) BindFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "kubeconfig file used to contact the cluster")
+	fs.StringVar(&o.Context, "context", o.Context, "Context to use in the kubeconfig file, instead of the current context")
+	fs.UintVar(&o.EnvoyXDSPort, "envoy-xds-port", o.EnvoyXDSPort, "Envoy control plane port. Set to 0 to disable")
+	fs.UintVar(&o.EnvoyListenerPort, "envoy-listener-port", o.EnvoyListenerPort, "Envoy listener port")
+	fs.StringVar(&o.Domain, "domain", o.Domain, "The domain to use to expose ingresses")
 }
