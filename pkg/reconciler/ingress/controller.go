@@ -19,7 +19,6 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +33,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -71,7 +71,30 @@ func NewController(
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
+		DeleteFunc: func(obj interface{}) {
+			ingress, ok := obj.(*networkingv1.Ingress)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
+					return
+				}
+
+				ingress, ok = tombstone.Obj.(*networkingv1.Ingress)
+				if !ok {
+					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
+				}
+			}
+
+			// If it's a deleted leaf, enqueue the root
+			if rootIngressKey := rootIngressKeyFor(ingress); rootIngressKey != "" {
+				c.queue.Add(rootIngressKey)
+				return
+			}
+
+			// Otherwise, enqueue the leaf itself
+			c.enqueue(ingress)
+		},
 	})
 
 	// Watch for events related to Services
@@ -165,40 +188,16 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	if !exists {
 		klog.Infof("Object with key %q was deleted", key)
 
-		// An Ingress was deleted. But if it was a Leaf, we need to reconcile the root ingress
-		// We remove the last segment of the key to get the root ingress key.
-		//
-		// Ex leaf key: default/admin#$#httpecho-vljrm
-		// By removing the last segment, we get the "possible" key of the root ingress: default/admin#$#httpecho
-		//
-		splittedKey := strings.Split(key, "-")
-		rootIngressKey := strings.Join(splittedKey[:len(splittedKey)-1], "-")
-
-		rootIngress, exists, err := c.ingressIndexer.GetByKey(rootIngressKey)
-		if err != nil {
-			//TODO(jmprusi): Surface error to user.
-			klog.Errorf("Error getting root ingress %q: %v", rootIngressKey, err)
-			return nil
-		}
-
-		if exists {
-			// We have the rootIngress object, we need to reconcile it.
-			klog.Infof("Object with key %q was deleted, but root ingress %q still exists", key, rootIngressKey)
-			obj = rootIngress
-
-		} else {
-			if c.envoycontrolplane != nil {
-				// if EnvoyXDS is enabled, the new snaphost.
-				err := c.envoycontrolplane.UpdateEnvoyConfig(ctx)
-				if err != nil {
-					klog.Errorf("Error setting snapshot: %v", err)
-				}
+		if c.envoycontrolplane != nil {
+			if err := c.envoycontrolplane.UpdateEnvoyConfig(ctx); err != nil {
+				klog.Errorf("Error setting Envoy snapshot: %v", err)
 			}
-
-			// The ingress has been deleted, so we remove any ingress to service tracking.
-			c.tracker.deleteIngress(key)
-			return nil
 		}
+
+		// The ingress has been deleted, so we remove any ingress to service tracking.
+		c.tracker.deleteIngress(key)
+
+		return nil
 	}
 
 	current := obj.(*networkingv1.Ingress)
@@ -220,13 +219,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 
 	if c.envoycontrolplane != nil {
-		err = c.envoycontrolplane.UpdateEnvoyConfig(ctx)
-		if err != nil {
+		if err = c.envoycontrolplane.UpdateEnvoyConfig(ctx); err != nil {
+			klog.Errorf("Error setting Envoy snapshot: %v", err)
 			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
 // ingressesFromService enqueues all the related ingresses for a given service.
@@ -251,4 +250,12 @@ func (c *Controller) ingressesFromService(obj interface{}) {
 		klog.Infof("tracked service %q triggered Ingress %q reconciliation", service.Name, ingress.Name)
 		c.enqueue(ingress)
 	}
+}
+
+func rootIngressKeyFor(ingress metav1.Object) string {
+	if ingress.GetLabels()[ownedByCluster] != "" && ingress.GetLabels()[ownedByNamespace] != "" && ingress.GetLabels()[ownedByIngress] != "" {
+		return ingress.GetLabels()[ownedByNamespace] + "/" + clusters.ToClusterAwareKey(ingress.GetLabels()[ownedByCluster], ingress.GetLabels()[ownedByIngress])
+	}
+
+	return ""
 }

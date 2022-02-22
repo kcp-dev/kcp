@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 )
 
@@ -115,7 +114,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 		}
 
 		// Create the Root Ingress key and get it.
-		ingressRootKey := ingress.Labels[ownedByNamespace] + "/" + clusters.ToClusterAwareKey(ingress.ClusterName, ingress.Name)
+		ingressRootKey := rootIngressKeyFor(ingress)
 		rootIf, exists, err := c.ingressIndexer.GetByKey(ingressRootKey)
 		if err != nil {
 			klog.Errorf("failed to get root ingress: %v", err)
