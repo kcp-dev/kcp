@@ -204,9 +204,6 @@ func TestIngressController(t *testing.T) {
 				}
 			}
 
-			cfg, err := source.RawConfig()
-			require.NoError(t, err, "failed to load raw config for source")
-
 			envoyListenerPort, err := framework.GetFreePort(t)
 			require.NoError(t, err, "failed to pick envoy listener port")
 
@@ -218,10 +215,9 @@ func TestIngressController(t *testing.T) {
 
 			ingressController := framework.NewAccessory(t, artifactDir,
 				"ingress-controller",
-				"--kubeconfig="+cfg.Clusters[cfg.CurrentContext].LocationOfOrigin,
-				"--envoyxds",
+				"--kubeconfig="+source.KubeconfigPath(),
 				"--envoy-listener-port="+envoyListenerPort,
-				"--envoyxds-port="+xdsListenerPort,
+				"--envoy-xds-port="+xdsListenerPort,
 			)
 
 			err = ingressController.Run(ctx)
