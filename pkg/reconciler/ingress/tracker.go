@@ -29,7 +29,7 @@ import (
 // It is used to determine which ingresses are affected by a service change and
 // trigger a reconciliation of the affected ingresses.
 type tracker struct {
-	mu               sync.Mutex
+	lock             sync.Mutex
 	ingress2services map[string]map[string]*networkingv1.Ingress
 }
 
@@ -43,8 +43,8 @@ func newTracker() tracker {
 // getIngress returns the list of ingresses that are related to a given service, or
 // an empty list, and a boolean, false, indicating if the list is empty.
 func (t *tracker) getIngress(key string) ([]*networkingv1.Ingress, bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.lock.Lock()
+	defer t.lock.Unlock()
 
 	ingresses, ok := convertMap(t.ingress2services)[key]
 	return ingresses, ok
@@ -52,8 +52,8 @@ func (t *tracker) getIngress(key string) ([]*networkingv1.Ingress, bool) {
 
 // Adds a service to an ingress (key) to be tracked.
 func (t *tracker) add(ingress *networkingv1.Ingress, s *corev1.Service) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	klog.Infof("tracking service %q for ingress %q", s.Name, ingress.Name)
 
 	ingressKey, err := k8scache.MetaNamespaceKeyFunc(ingress)
@@ -77,8 +77,8 @@ func (t *tracker) add(ingress *networkingv1.Ingress, s *corev1.Service) {
 
 // deleteIngress deletes an ingress from all the tracked services
 func (t *tracker) deleteIngress(ingressKey string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.lock.Lock()
+	defer t.lock.Unlock()
 
 	delete(t.ingress2services, ingressKey)
 }
