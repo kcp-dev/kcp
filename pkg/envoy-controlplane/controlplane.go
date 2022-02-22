@@ -62,7 +62,6 @@ var envoyReadySelector labels.Selector
 // EnvoyControlPlane is an envoy control plane that handles configuration update
 // and the management of the xDS server.
 type EnvoyControlPlane struct {
-	xdsServer      *xds.Server
 	ingressLister  v1.IngressLister
 	translator     *translator
 	managementPort uint
@@ -87,9 +86,7 @@ func NewEnvoyControlPlane(managementPort, envoyListenPort uint, ingressLister v1
 
 // Start starts the envoy XDS server
 func (ecp *EnvoyControlPlane) Start(ctx context.Context) error {
-
-	server := xds.NewServer(ctx, ecp.snapshotCache, ecp.callbacks)
-	ecp.xdsServer = &server
+	xdsServer := xds.NewServer(ctx, ecp.snapshotCache, ecp.callbacks)
 
 	grpcServer := grpc.NewServer(grpc.MaxConcurrentStreams(grpcMaxConcurrentStreams))
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", ecp.managementPort))
@@ -98,11 +95,11 @@ func (ecp *EnvoyControlPlane) Start(ctx context.Context) error {
 	}
 
 	// register services
-	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, *ecp.xdsServer)
+	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, xdsServer)
 	health.RegisterHealthServer(grpcServer, healthServer{})
-	cluster.RegisterClusterDiscoveryServiceServer(grpcServer, *ecp.xdsServer)
-	listener.RegisterListenerDiscoveryServiceServer(grpcServer, *ecp.xdsServer)
-	route.RegisterRouteDiscoveryServiceServer(grpcServer, *ecp.xdsServer)
+	cluster.RegisterClusterDiscoveryServiceServer(grpcServer, xdsServer)
+	listener.RegisterListenerDiscoveryServiceServer(grpcServer, xdsServer)
+	route.RegisterRouteDiscoveryServiceServer(grpcServer, xdsServer)
 
 	errCh := make(chan error)
 	go func() {
