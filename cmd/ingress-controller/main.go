@@ -38,19 +38,18 @@ const resyncPeriod = 10 * time.Hour
 
 func main() {
 	help.FitTerminal()
+
 	cmd := &cobra.Command{
-		Use:        "ingress-controller",
-		Aliases:    []string{},
-		SuggestFor: []string{},
-		Short:      "KCP ingress controller for local development.",
+		Use:   "ingress-controller",
+		Short: "KCP ingress controller",
 		Long: help.Doc(`
-					KCP ingress controller for local development.
-					Creates leafs copies of ingresses and schedules those based on the
-					cluster of the destination service.
-					An Envoy control plane can be enabled, it will translate the ingress
-					objects to envoy configuration, and expose the envoy XDS apis.
+					KCP ingress controller.
+
+					Transparently synchronizes ingresses from kcp to physical clusters.
+
+					Has an optional Envoy XDS control plane that programs Envoy based on
+					ingresses in kcp.
 				`),
-		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := genericapiserver.SetupSignalContext()
 
