@@ -55,6 +55,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			Name: serverName,
 			Args: []string{
 				"--discovery-poll-interval=2s",
+				"--push-mode=true", // Required to ensure clusters are ready for scheduling
 			},
 		},
 		// this is a kcp acting as a physical cluster

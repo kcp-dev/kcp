@@ -74,10 +74,9 @@ func NewController(
 	kcpClient kcpclient.Interface,
 	clusterInformer clusterinformer.ClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
-	syncerImage string,
 	kubeconfig clientcmdapi.Config,
 	resourcesToSync []string,
-	syncerMode SyncerMode,
+	syncerManager syncerManager,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-cluster")
 
@@ -91,12 +90,10 @@ func NewController(
 			clusterInformer.Informer().HasSynced,
 			apiResourceImportInformer.Informer().HasSynced,
 		},
-		syncerImage:       syncerImage,
-		kubeconfig:        kubeconfig,
-		resourcesToSync:   resourcesToSync,
-		syncerMode:        syncerMode,
-		syncerCancelFuncs: map[string]func(){},
-		apiImporters:      map[string]*APIImporter{},
+		kubeconfig:      kubeconfig,
+		resourcesToSync: resourcesToSync,
+		syncerManager:   syncerManager,
+		apiImporters:    map[string]*APIImporter{},
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -140,11 +137,9 @@ type Controller struct {
 	clusterIndexer               cache.Indexer
 	apiresourceImportIndexer     cache.Indexer
 	syncChecks                   []cache.InformerSynced
-	syncerImage                  string
 	kubeconfig                   clientcmdapi.Config
 	resourcesToSync              []string
-	syncerMode                   SyncerMode
-	syncerCancelFuncs            map[string]func()
+	syncerManager                syncerManager
 	apiImporters                 map[string]*APIImporter
 	genericControlPlaneResources []schema.GroupVersionResource
 }
