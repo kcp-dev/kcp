@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	envoyroutev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
@@ -36,6 +37,7 @@ import (
 	health "google.golang.org/grpc/health/grpc_health_v1"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 	v1 "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/klog/v2"
 )
@@ -84,8 +86,10 @@ func NewEnvoyControlPlane(managementPort, envoyListenPort uint, ingressLister v1
 	return &ecp
 }
 
-// Start starts the envoy XDS server
+// Start starts the envoy XDS server in a separate goroutine.
 func (ecp *EnvoyControlPlane) Start(ctx context.Context) error {
+	klog.Info("Starting Envoy control plane")
+
 	xdsServer := xds.NewServer(ctx, ecp.snapshotCache, ecp.callbacks)
 
 	grpcServer := grpc.NewServer(grpc.MaxConcurrentStreams(grpcMaxConcurrentStreams))
@@ -101,21 +105,25 @@ func (ecp *EnvoyControlPlane) Start(ctx context.Context) error {
 	listener.RegisterListenerDiscoveryServiceServer(grpcServer, xdsServer)
 	route.RegisterRouteDiscoveryServiceServer(grpcServer, xdsServer)
 
-	errCh := make(chan error)
+	// Goroutine to gracefully shutdown the grpc server
 	go func() {
-		defer close(errCh)
-		if err = grpcServer.Serve(lis); err != nil {
-			errCh <- err
-		}
+		// Wait for shutdown signal
+		<-ctx.Done()
+
+		klog.Infof("Shutting down grpc server")
+		grpcServer.GracefulStop()
 	}()
 
-	select {
-	case <-ctx.Done():
-		grpcServer.GracefulStop()
-		return nil
-	case err := <-errCh:
-		return fmt.Errorf("failed to serve: %w", err)
+	runServer := func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			klog.Errorf("grpcServer serving error: %v", err)
+		}
 	}
+
+	// Goroutine to run the grpc server
+	go wait.Until(runServer, time.Second, ctx.Done())
+
+	return nil
 }
 
 // UpdateEnvoyConfig creates a new envoy config snapshot and updates the xDS server

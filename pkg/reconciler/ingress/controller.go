@@ -118,17 +118,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	// If enabled, starts the envoy control plane.
-	if c.envoycontrolplane != nil {
-		go func() {
-			err := c.envoycontrolplane.Start(ctx)
-			if err != nil {
-				// TODO(jmprusi): Report state in a /readyz endpoint?
-				panic(err)
-			}
-		}()
-	}
-
 	klog.InfoS("Starting workers", "controller", controllerName)
 	defer klog.InfoS("Stopping workers", "controller", controllerName)
 

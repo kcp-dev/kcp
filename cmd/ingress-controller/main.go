@@ -83,6 +83,10 @@ func main() {
 			var ecp *envoycontrolplane.EnvoyControlPlane
 			if options.EnvoyXDSPort > 0 && options.EnvoyListenerPort > 0 {
 				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister(), nil)
+
+				if err := ecp.Start(ctx); err != nil {
+					return err
+				}
 			}
 
 			ic := ingress.NewController(kubeClient, ingressInformer, serviceInformer, ecp, options.Domain)
