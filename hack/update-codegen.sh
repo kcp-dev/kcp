@@ -31,9 +31,9 @@ ${CONTROLLER_GEN} \
     rbac:roleName=manager-role \
     webhook \
     paths="./pkg/apis/..." \
-    output:crd:artifacts:config=config/
+    output:crd:artifacts:config=config/crds
 
-for F in ./config/*.yaml; do
+for F in ./config/crds/*.yaml; do
     if [ -f "${F}-patch" ]; then
         echo "Applying ${F}"
         ${YAML_PATCH} -o "${F}-patch" < "${F}" > "${F}.patched"

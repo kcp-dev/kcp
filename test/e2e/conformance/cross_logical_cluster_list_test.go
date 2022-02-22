@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
-	"github.com/kcp-dev/kcp/config"
+	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -85,7 +85,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 				{Group: tenancy.GroupName, Resource: "workspaces"},
 			}
 
-			err = config.BootstrapCustomResourceDefinitions(ctx, crdClient, workspaceCRDs)
+			err = configcrds.Create(ctx, crdClient, workspaceCRDs...)
 			require.NoError(t, err, "failed to bootstrap CRDs")
 
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
