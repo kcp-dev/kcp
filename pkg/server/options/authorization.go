@@ -98,15 +98,15 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreex
 	}
 
 	// kcp authorizers
-	orgAuth, orgResolver := authorization.NewOrgWorkspaceAuthorizer(informer)
+	bootstrapAuth, bootstrapRules := authorization.NewBootstrapPolicyAuthorizer(informer)
 	localAuth, localResolver := authorization.NewLocalAuthorizer(informer)
 	authorizers = append(authorizers, authorization.NewWorkspaceContentAuthorizer(
 		informer,
 		workspaceLister,
-		union.New(orgAuth, localAuth),
+		union.New(bootstrapAuth, localAuth),
 	))
 
-	config.RuleResolver = union.NewRuleResolvers(orgResolver, localResolver)
+	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 	config.Authorization.Authorizer = union.New(authorizers...)
 	return nil
 }
