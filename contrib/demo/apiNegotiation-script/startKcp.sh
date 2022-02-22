@@ -24,7 +24,11 @@ setupTraps "$0"
 "${DEMOS_DIR}"/startKcp.sh \
     --push-mode \
     --auto-publish-apis=false \
-    --resources-to-sync deployments.apps
+    --resources-to-sync deployments.apps &
+
+wait_command "test -f ${KCP_DATA_DIR}/kcp-started"
+
+touch "${KCP_DATA_DIR}/servers-ready"
 
 echo ""
 echo "Use ctrl-C to stop all components"

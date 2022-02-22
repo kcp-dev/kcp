@@ -14,14 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEMO_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
+DEMO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../.setupEnv
 source "${DEMO_DIR}"/../.setupEnv
 # shellcheck source=../.startUtils
 source "${DEMOS_DIR}"/.startUtils
 setupTraps "$0"
 
-if ! command -v envoy 2>/dev/null; then
+if ! command -v envoy &> /dev/null; then
     echo "envoy is required - please install and try again"
     exit 1
 fi
@@ -29,16 +29,19 @@ fi
 CURRENT_DIR="$(pwd)"
 
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
+
 "${DEMOS_DIR}"/startKcp.sh \
     --token-auth-file "${DEMO_DIR}"/kcp-tokens \
     --auto-publish-apis \
     --push-mode \
     --discovery-poll-interval 3s \
-    --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services "${CURRENT_DIR}"/start-kcp.log &
+    --profiler-address localhost:6060 \
+    --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services \
+    -v 2 &
 
 wait_command "ls ${KUBECONFIG}"
 echo "Waiting for KCP to be ready ..."
-wait_command "kubectl --kubeconfig=${KUBECONFIG} --raw /readyz"
+wait_command "kubectl --kubeconfig=${KUBECONFIG} get --raw /readyz"
 
 echo ""
 echo "Starting Ingress Controller"
@@ -57,11 +60,13 @@ echo "Starting Virtual Workspace"
 "${KCP_DIR}"/bin/virtual-workspaces workspaces \
     --workspaces:kubeconfig "${KUBECONFIG}" \
     --authentication-kubeconfig "${KUBECONFIG}" \
-    --secure-port 6444 \
-    --authentication-skip-lookup \
-    --cert-dir "${KCP_DATA_DIR}"/.kcp/secrets/ca &> "${CURRENT_DIR}"/virtual-workspace.log &
+    --tls-cert-file "${KCP_DATA_DIR}"/.kcp/apiserver.crt \
+    --tls-private-key-file "${KCP_DATA_DIR}"/.kcp/apiserver.key \
+    &> "${CURRENT_DIR}"/virtual-workspace.log &
 SPLIT_PID=$!
 echo "Virtual Workspace started: $SPLIT_PID"
+
+touch "${KCP_DATA_DIR}/servers-ready"
 
 echo ""
 echo "Use ctrl-C to stop all components"

@@ -30,6 +30,8 @@ KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
     --resources-to-sync deployments.apps \
     --token-auth-file "${DEMO_DIR}"/kcp-tokens
 
+wait_command "test -f ${KCP_DATA_DIR}/kcp-started"
+
 echo ""
 echo "Starting Virtual Workspace"
 "${KCP_DIR}"/bin/virtual-workspaces workspaces \
@@ -40,6 +42,8 @@ echo "Starting Virtual Workspace"
     --cert-dir "${KCP_DATA_DIR}"/.kcp/secrets/ca &> virtual-workspace.log &
 SPLIT_PID=$!
 echo "Virtual Workspace started: $SPLIT_PID"
+
+touch "${KCP_DATA_DIR}/servers-ready"
 
 echo ""
 echo "Use ctrl-C to stop all components"

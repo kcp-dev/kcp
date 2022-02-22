@@ -21,7 +21,7 @@ set -o xtrace
 
 if [[ -z "${CLUSTERS_DIR:-}" ]]; then
     echo CLUSTERS_DIR is required
-    eixt 1
+    exit 1
 fi
 
 DEMO_ROOT="$(dirname "${BASH_SOURCE[0]}")/../.."
@@ -79,9 +79,32 @@ CLUSTERS=(
     us-west1
 )
 
+EXISTING_CLUSTERS=$(kind get clusters 2>/dev/null)
+
+IMAGE_FLAG=()
+if [[ -n "${KIND_IMAGE:-}" ]]; then
+    IMAGE_FLAG=(--image "${KIND_IMAGE}")
+fi
+
 for cluster in "${CLUSTERS[@]}"; do
-    kind create cluster --config "${DEMO_ROOT}/clusters/kind/${cluster}.config" --kubeconfig "${DEMO_ROOT}/clusters/kind/${cluster}.kubeconfig"
-    sed -e 's/^/    /' "${DEMO_ROOT}/clusters/kind/${cluster}.kubeconfig" | cat "${DEMO_ROOT}/clusters/${cluster}.yaml" - > "${DEMO_ROOT}/clusters/kind/${cluster}.yaml"
+    clusterExists=""
+    if echo "${EXISTING_CLUSTERS}" | grep "$cluster"; then
+        clusterExists="1"
+    fi
+
+    # Only create if we're not reusing existing clusters, or the cluster doesn't exist
+    if [[ -z "${REUSE_KIND_CLUSTERS:-}" || -z "${clusterExists}" ]]; then
+        kind create cluster \
+            --config "${CLUSTERS_DIR}/${cluster}.config" \
+            --kubeconfig "${CLUSTERS_DIR}/${cluster}.kubeconfig" \
+            "${IMAGE_FLAG[@]}"
+    fi
+
+    if [[ ! -f "${CLUSTERS_DIR}/${cluster}.yaml" ]]; then
+        clusterKubeconfig=$(kind get kubeconfig --name "${cluster}")
+
+        echo "${clusterKubeconfig}" | sed -e 's/^/    /' | cat "${DEMO_ROOT}/clusters/${cluster}.yaml" - > "${CLUSTERS_DIR}/${cluster}.yaml"
+    fi
 
     if [[ -n "${PODMAN_MAC_SSH_WORKAROUND:-}" ]]; then
         clusterPort=$(get_cluster_port "${cluster}")

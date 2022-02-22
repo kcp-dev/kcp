@@ -31,6 +31,8 @@ echo "Waiting for KCP server to be ready..."
 wait_command "grep 'Serving securely' ${CURRENT_DIR}/kcp.log"
 wait_command "grep 'Ready to start controllers' ${CURRENT_DIR}/kcp.log"
 
+touch "${KCP_DATA_DIR}/kcp-started"
+
 echo "Server is ready. Press <ctrl>-C to terminate."
 
 wait
