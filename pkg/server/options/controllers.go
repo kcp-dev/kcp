@@ -19,6 +19,7 @@ package options
 import (
 	"github.com/spf13/pflag"
 
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
@@ -26,15 +27,18 @@ type Controllers struct {
 	EnableAll           bool
 	IndividuallyEnabled []string
 	Cluster             ClusterController
+	ApiResource         ApiResourceController
 }
 
 type ClusterController = cluster.Options
+type ApiResourceController = apiresource.Options
 
 func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		Cluster: *cluster.DefaultOptions(),
+		Cluster:     *cluster.DefaultOptions(),
+		ApiResource: *apiresource.DefaultOptions(),
 	}
 }
 
@@ -45,6 +49,7 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
 	cluster.BindOptions(&c.Cluster, fs)
+	apiresource.BindOptions(&c.ApiResource, fs)
 }
 
 func (c *Controllers) Validate() []error {

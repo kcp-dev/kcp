@@ -32,6 +32,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
@@ -39,7 +40,8 @@ const resyncPeriod = 10 * time.Hour
 
 func bindOptions(fs *pflag.FlagSet) *options {
 	o := options{
-		Options: cluster.BindOptions(cluster.DefaultOptions(), fs),
+		ClusterOptions:     cluster.BindOptions(cluster.DefaultOptions(), fs),
+		ApiResourceOptions: apiresource.BindOptions(apiresource.DefaultOptions(), fs),
 	}
 	fs.StringVar(&o.kubeconfigPath, "kubeconfig", "", "Path to kubeconfig")
 	return &o
@@ -49,14 +51,19 @@ type options struct {
 	// in the all-in-one startup, client credentials already exist; in this
 	// standalone startup, we need to load credentials ourselves
 	kubeconfigPath string
-	*cluster.Options
+
+	ClusterOptions     *cluster.Options
+	ApiResourceOptions *apiresource.Options
 }
 
 func (o *options) Validate() error {
 	if o.kubeconfigPath == "" {
 		return errors.New("--kubeconfig is required")
 	}
-	return o.Options.Validate()
+	if err := o.ClusterOptions.Validate(); err != nil {
+		return err
+	}
+	return o.ApiResourceOptions.Validate()
 }
 
 func main() {
@@ -91,8 +98,15 @@ func main() {
 	}
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(r), resyncPeriod)
 	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(r), resyncPeriod)
-	c := options.Options.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
-	cluster, apiresource, err := c.New()
+	clusterOptions := options.ClusterOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
+	cluster, err := clusterOptions.New()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	apiResourceOptions := options.ApiResourceOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
+	apiresource, err := apiResourceOptions.New()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -110,7 +124,7 @@ func main() {
 		os.Exit(1)
 	}
 	go prepared.Start(ctx)
-	go apiresource.Start(ctx, c.NumThreads)
+	go apiresource.Start(ctx, apiResourceOptions.NumThreads)
 
 	<-ctx.Done()
 }

@@ -210,7 +210,7 @@ func (s *Server) installClusterController(ctx context.Context, clientConfig clie
 	}
 
 	c := s.options.Controllers.Cluster.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
-	cluster, apiresource, err := c.New()
+	cluster, err := c.New()
 	if err != nil {
 		return err
 	}
@@ -227,6 +227,38 @@ func (s *Server) installClusterController(ctx context.Context, clientConfig clie
 			return err
 		}
 		go cluster.Start(goContext(hookContext))
+
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) installApiResourceController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+	kubeconfig := clientConfig.DeepCopy()
+	for _, cluster := range kubeconfig.Clusters {
+		hostURL, err := url.Parse(cluster.Server)
+		if err != nil {
+			return err
+		}
+		hostURL.Host = server.ExternalAddress
+		cluster.Server = hostURL.String()
+	}
+
+	c := s.options.Controllers.ApiResource.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
+	apiresource, err := c.New()
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-api-resource-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
 		go apiresource.Start(goContext(hookContext), c.NumThreads)
 
 		return nil
