@@ -18,6 +18,8 @@ package framework
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -55,8 +57,15 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 	t.Log("Starting kcp servers...")
 	wg := sync.WaitGroup{}
 	wg.Add(len(servers))
-	for _, srv := range servers {
-		err := srv.Run(ctx)
+	for i, srv := range servers {
+		var opts []RunOption
+		if cfgs[i].LogToConsole {
+			opts = append(opts, WithLogStreaming)
+		}
+		if InProcessEnvSet() || cfgs[i].RunInProcess {
+			opts = append(opts, RunInProcess)
+		}
+		err := srv.Run(ctx, opts...)
 		require.NoError(t, err)
 
 		// Wait for the server to become ready
@@ -75,4 +84,9 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 	t.Logf("Started kcp servers after %s", time.Since(start))
 
 	return f
+}
+
+func InProcessEnvSet() bool {
+	inProcess, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
+	return inProcess
 }

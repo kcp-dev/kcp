@@ -349,6 +349,7 @@ func TestWorkspaceIndex(t *testing.T) {
 			require.NoError(t, err, "failed to create artifact dir for shard-proxy")
 
 			proxy := framework.NewAccessory(t, artifactDir,
+				"shard-proxy", // name
 				"shard-proxy",
 				"--port="+port,
 				"--root-kubeconfig="+cfg.Clusters[cfg.CurrentContext].LocationOfOrigin,

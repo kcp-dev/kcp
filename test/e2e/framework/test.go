@@ -36,4 +36,7 @@ type RunningServer interface {
 type KcpConfig struct {
 	Name string
 	Args []string
+
+	LogToConsole bool
+	RunInProcess bool
 }

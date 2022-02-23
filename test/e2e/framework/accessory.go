@@ -31,14 +31,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egymgmbh/go-prefix-writer/prefixer"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // NewAccessory creates a new accessory process.
-func NewAccessory(t *testing.T, artifactDir string, cmd string, args ...string) *Accessory {
+func NewAccessory(t *testing.T, artifactDir string, cmd string, name string, args ...string) *Accessory {
 	return &Accessory{
 		t:           t,
 		artifactDir: artifactDir,
+		name:        name,
 		cmd:         cmd,
 		args:        args,
 	}
@@ -49,11 +52,20 @@ type Accessory struct {
 	ctx         context.Context
 	t           *testing.T
 	artifactDir string
+	name        string
 	cmd         string
 	args        []string
 }
 
-func (a *Accessory) Run(parentCtx context.Context) error {
+func (a *Accessory) Run(parentCtx context.Context, opts ...RunOption) error {
+	runOpts := runOptions{}
+	for _, opt := range opts {
+		opt(&runOpts)
+	}
+	if runOpts.runInProcess {
+		return fmt.Errorf("cannot run arbitrary accessories in process")
+	}
+
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	if deadline, ok := a.t.Deadline(); ok {
@@ -79,6 +91,10 @@ func (a *Accessory) Run(parentCtx context.Context) error {
 	}
 	log := bytes.Buffer{}
 	writers := []io.Writer{&log, logFile}
+	if runOpts.streamLogs {
+		prefix := fmt.Sprintf("%s: ", a.name)
+		writers = append(writers, prefixer.New(os.Stdout, func() string { return prefix }))
+	}
 	mw := io.MultiWriter(writers...)
 	cmd.Stdout = mw
 	cmd.Stderr = mw
