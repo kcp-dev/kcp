@@ -19,21 +19,15 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
 	"time"
 
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
@@ -41,16 +35,6 @@ import (
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-)
-
-type SyncerMode int
-
-const (
-	SyncerModePull SyncerMode = iota
-	SyncerModePush
-	SyncerModeNone
-
-	controllerName = "cluster"
 )
 
 const GVRForLocationInLogicalClusterIndexName = "GVRForLocationInLogicalCluster"
@@ -65,35 +49,32 @@ func GetLocationInLogicalClusterIndexKey(location, clusterName string) string {
 	return location + "/" + clusterName
 }
 
-// NewController returns a new Controller which reconciles Cluster resources in the API
-// server it reaches using the REST client.
-//
-// When new Clusters are found, the syncer will be run there using the given image.
-func NewController(
-	apiExtensionsClient apiextensionsclient.Interface,
+// ClusterReconcileImpl defines the methods that ClusterReconciler
+// will call in response to changes to Cluster resources.
+type ClusterReconcileImpl interface {
+	Reconcile(ctx context.Context, cluster *clusterv1alpha1.Cluster) error
+	Cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster)
+}
+
+// NewClusterReconciler returns a new controller which reconciles
+// Cluster resources in the API server it reaches using the REST
+// client.
+func NewClusterReconciler(
+	name string,
+	reconciler ClusterReconcileImpl,
 	kcpClient kcpclient.Interface,
 	clusterInformer clusterinformer.ClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
-	kubeconfig clientcmdapi.Config,
-	resourcesToSync []string,
-	syncerManager syncerManager,
-) (*Controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-cluster")
+) (*ClusterReconciler, error) {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
 
-	c := &Controller{
-		queue:                    queue,
-		apiExtensionsClient:      apiExtensionsClient,
+	c := &ClusterReconciler{
+		name:                     name,
+		reconciler:               reconciler,
 		kcpClient:                kcpClient,
 		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
-		syncChecks: []cache.InformerSynced{
-			clusterInformer.Informer().HasSynced,
-			apiResourceImportInformer.Informer().HasSynced,
-		},
-		kubeconfig:      kubeconfig,
-		resourcesToSync: resourcesToSync,
-		syncerManager:   syncerManager,
-		apiImporters:    map[string]*APIImporter{},
+		queue:                    queue,
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -101,7 +82,6 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.deletedCluster(obj) },
 	})
-
 	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueAPIResourceImportRelatedCluster(obj)
@@ -110,7 +90,8 @@ func NewController(
 			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
 	})
-	if err := c.apiresourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
+
+	indexers := map[string]cache.IndexFunc{
 		GVRForLocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
 				return []string{GetGVRForLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, apiResourceImport.ClusterName, apiResourceImport.GVR())}, nil
@@ -123,28 +104,32 @@ func NewController(
 			}
 			return []string{}, nil
 		},
-	}); err != nil {
-		return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %w", err)
+	}
+
+	// Ensure the indexers are only added if not already present.
+	for indexName := range c.apiresourceImportIndexer.GetIndexers() {
+		delete(indexers, indexName)
+	}
+	if len(indexers) > 0 {
+		if err := c.apiresourceImportIndexer.AddIndexers(indexers); err != nil {
+			return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %w", err)
+		}
 	}
 
 	return c, nil
 }
 
-type Controller struct {
-	queue                        workqueue.RateLimitingInterface
-	apiExtensionsClient          apiextensionsclient.Interface
-	kcpClient                    kcpclient.Interface
-	clusterIndexer               cache.Indexer
-	apiresourceImportIndexer     cache.Indexer
-	syncChecks                   []cache.InformerSynced
-	kubeconfig                   clientcmdapi.Config
-	resourcesToSync              []string
-	syncerManager                syncerManager
-	apiImporters                 map[string]*APIImporter
-	genericControlPlaneResources []schema.GroupVersionResource
+type ClusterReconciler struct {
+	name                     string
+	reconciler               ClusterReconcileImpl
+	kcpClient                kcpclient.Interface
+	clusterIndexer           cache.Indexer
+	apiresourceImportIndexer cache.Indexer
+
+	queue workqueue.RateLimitingInterface
 }
 
-func (c *Controller) enqueue(obj interface{}) {
+func (c *ClusterReconciler) enqueue(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -153,7 +138,7 @@ func (c *Controller) enqueue(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
+func (c *ClusterReconciler) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
 	var apiResourceImport *apiresourcev1alpha1.APIResourceImport
 	switch typedObj := obj.(type) {
 	case *apiresourcev1alpha1.APIResourceImport:
@@ -174,67 +159,26 @@ func (c *Controller) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
 	}
 }
 
-type preparedController struct {
-	Controller
-}
-
-type PreparedController struct {
-	*preparedController
-}
-
-func (c *Controller) Prepare() (PreparedController, error) {
-	// TODO(ncdc): does this need a per-cluster client?
-	// TODO(sttts): make resilient to errors
-	discoveryClient := c.apiExtensionsClient.Discovery()
-	serverGroups, err := discoveryClient.ServerGroups()
-	if err != nil {
-		return PreparedController{}, err
-	}
-	for _, apiGroup := range serverGroups.Groups {
-		if genericcontrolplanescheme.Scheme.IsGroupRegistered(apiGroup.Name) {
-			for _, version := range apiGroup.Versions {
-				gv := schema.GroupVersion{
-					Group:   apiGroup.Name,
-					Version: version.Version,
-				}
-				if genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
-					apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(gv.String())
-					if err != nil {
-						return PreparedController{}, err
-					}
-					for _, apiResource := range apiResourceList.APIResources {
-						gvk := gv.WithKind(apiResource.Kind)
-						if !strings.Contains(apiResource.Name, "/") && genericcontrolplanescheme.Scheme.Recognizes(gvk) {
-							c.genericControlPlaneResources = append(c.genericControlPlaneResources, gv.WithResource(apiResource.Name))
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return PreparedController{&preparedController{
-		Controller: *c,
-	}}, nil
-}
-
-// TODO(sttts): fix the many races due to unprotected field access and then increase worker count
-func (c *PreparedController) Start(ctx context.Context) {
-	defer runtime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	klog.Info("Starting Cluster controller")
-	defer klog.Info("Shutting down Cluster controller")
-
-	wait.Until(func() { c.startWorker(ctx) }, time.Millisecond*10, ctx.Done())
-}
-
-func (c *Controller) startWorker(ctx context.Context) {
+func (c *ClusterReconciler) startWorker(ctx context.Context) {
 	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *Controller) processNextWorkItem(ctx context.Context) bool {
+func (c *ClusterReconciler) Start(ctx context.Context) {
+	defer runtime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	klog.Infof("Starting %s controller", c.name)
+	defer klog.Infof("Shutting down %s controller", c.name)
+
+	wait.Until(func() { c.startWorker(ctx) }, time.Millisecond*10, ctx.Done())
+}
+
+func (c *ClusterReconciler) ShutDown() {
+	c.queue.ShutDown()
+}
+
+func (c *ClusterReconciler) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	k, quit := c.queue.Get()
 	if quit {
@@ -247,7 +191,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", c.name, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -255,20 +199,20 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) process(ctx context.Context, key string) error {
+func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 	obj, exists, err := c.clusterIndexer.GetByKey(key)
 	if err != nil {
 		return err
 	}
 
 	if !exists {
-		klog.Errorf("Object with key %q was deleted", key)
+		klog.Errorf("%s: Object with key %q was deleted", c.name, key)
 		return nil
 	}
 	current := obj.(*clusterv1alpha1.Cluster).DeepCopy()
 	previous := current.DeepCopy()
 
-	if err := c.reconcile(ctx, current); err != nil {
+	if err := c.reconciler.Reconcile(ctx, current); err != nil {
 		return err
 	}
 
@@ -281,33 +225,21 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) deletedCluster(obj interface{}) {
+func (c *ClusterReconciler) deletedCluster(obj interface{}) {
 	castObj, ok := obj.(*clusterv1alpha1.Cluster)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			klog.Errorf("Couldn't get object from tombstone %#v", obj)
+			klog.Errorf("%s: Couldn't get object from tombstone %#v", c.name, obj)
 			return
 		}
 		castObj, ok = tombstone.Obj.(*clusterv1alpha1.Cluster)
 		if !ok {
-			klog.Errorf("Tombstone contained object that is not expected %#v", obj)
+			klog.Errorf("%s: Tombstone contained object that is not expected %#v", c.name, obj)
 			return
 		}
 	}
-	klog.V(4).Infof("Deleting cluster %q", castObj.Name)
+	klog.V(4).Infof("%s: Responding to deletion of cluster %q", c.name, castObj.Name)
 	ctx := context.TODO()
-	c.cleanup(ctx, castObj)
-}
-
-var clusterKind = reflect.TypeOf(clusterv1alpha1.Cluster{}).Name()
-
-func ClusterAsOwnerReference(obj *clusterv1alpha1.Cluster, controller bool) metav1.OwnerReference {
-	return metav1.OwnerReference{
-		APIVersion: apiresourcev1alpha1.SchemeGroupVersion.String(),
-		Kind:       clusterKind,
-		Name:       obj.Name,
-		UID:        obj.UID,
-		Controller: &controller,
-	}
+	c.reconciler.Cleanup(ctx, castObj)
 }

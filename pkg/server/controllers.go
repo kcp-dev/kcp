@@ -198,7 +198,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 	return nil
 }
 
-func (s *Server) installClusterController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installApiImportController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
 	kubeconfig := clientConfig.DeepCopy()
 	for _, cluster := range kubeconfig.Clusters {
 		hostURL, err := url.Parse(cluster.Server)
@@ -209,24 +209,20 @@ func (s *Server) installClusterController(ctx context.Context, clientConfig clie
 		cluster.Server = hostURL.String()
 	}
 
-	c := s.options.Controllers.Cluster.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
-	cluster, err := c.New()
+	c := s.options.Controllers.ApiImporter.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
+	apiimporter, err := c.New()
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook("kcp-install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	if err := server.AddPostStartHook("kcp-install-api-importer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			klog.Errorf("failed to finish post-start-hook kcp-install-cluster-controller: %v", err)
+			klog.Errorf("failed to finish post-start-hook kcp-install-api-importer-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		cluster, err := cluster.Prepare()
-		if err != nil {
-			return err
-		}
-		go cluster.Start(goContext(hookContext))
+		go apiimporter.Start(goContext(hookContext))
 
 		return nil
 	}); err != nil {
@@ -260,6 +256,53 @@ func (s *Server) installApiResourceController(ctx context.Context, clientConfig 
 		}
 
 		go apiresource.Start(goContext(hookContext), c.NumThreads)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) installSyncerController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+	kubeconfig := clientConfig.DeepCopy()
+	for _, cluster := range kubeconfig.Clusters {
+		hostURL, err := url.Parse(cluster.Server)
+		if err != nil {
+			return err
+		}
+		hostURL.Host = server.ExternalAddress
+		cluster.Server = hostURL.String()
+	}
+
+	c := s.options.Controllers.Syncer.Complete(
+		*kubeconfig,
+		s.kcpSharedInformerFactory,
+		s.apiextensionsSharedInformerFactory,
+		s.options.Controllers.ApiImporter.ResourcesToSync,
+	)
+	syncer, err := c.New()
+	if err != nil {
+		return err
+	}
+	if syncer == nil {
+		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
+		return nil
+	}
+
+	if err := server.AddPostStartHook("kcp-install-syncer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-syncer-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		syncer, err := syncer.Prepare()
+		if err != nil {
+			return err
+		}
+
+		go syncer.Start(goContext(hookContext))
 
 		return nil
 	}); err != nil {

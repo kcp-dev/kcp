@@ -312,7 +312,10 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
 		// TODO(marun) Consider enabling each controller via a separate flag
 
-		if err := s.installClusterController(ctx, *loopbackKubeConfig, server); err != nil {
+		if err := s.installApiImportController(ctx, *loopbackKubeConfig, server); err != nil {
+			return err
+		}
+		if err := s.installSyncerController(ctx, *loopbackKubeConfig, server); err != nil {
 			return err
 		}
 		if err := s.installApiResourceController(ctx, *loopbackKubeConfig, server); err != nil {

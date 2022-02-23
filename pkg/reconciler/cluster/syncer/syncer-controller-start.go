@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package syncer
 
 import (
 	"errors"
@@ -46,7 +46,9 @@ func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
 	fs.StringVar(&o.SyncerImage, "syncer-image", o.SyncerImage, "Syncer image to install on clusters")
 	fs.BoolVar(&o.PullMode, "pull-mode", o.PullMode, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	fs.BoolVar(&o.PushMode, "push-mode", o.PushMode, "If true, run syncer for each cluster from inside cluster controller")
-	fs.StringSliceVar(&o.ResourcesToSync, "resources-to-sync", o.ResourcesToSync, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
+	// TODO(marun) --resources-to-sync is currently defined in options for the api importer
+	// controller. How to best to define the option once for reuse by both api importer and
+	// sync controllers?
 	return o
 }
 
@@ -65,7 +67,8 @@ func (o *Options) Validate() error {
 	return nil
 }
 
-func (o *Options) Complete(kubeconfig clientcmdapi.Config, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory, crdSharedInformerFactory crdexternalversions.SharedInformerFactory) *Config {
+func (o *Options) Complete(kubeconfig clientcmdapi.Config, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory, crdSharedInformerFactory crdexternalversions.SharedInformerFactory, resourcesToSync []string) *Config {
+	o.ResourcesToSync = resourcesToSync
 	return &Config{
 		Options:                  o,
 		kubeconfig:               kubeconfig,
@@ -82,12 +85,14 @@ type Config struct {
 }
 
 func (c *Config) New() (*Controller, error) {
-	syncerMode := SyncerModeNone
+	var syncerManagerImpl syncerManagerImpl
 	if c.PullMode {
-		syncerMode = SyncerModePull
-	}
-	if c.PushMode {
-		syncerMode = SyncerModePush
+		syncerManagerImpl = newPullSyncerManager(c.SyncerImage)
+	} else if c.PushMode {
+		syncerManagerImpl = newPushSyncerManager()
+	} else {
+		// No mode, no controller required
+		return nil, nil
 	}
 
 	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
@@ -104,9 +109,8 @@ func (c *Config) New() (*Controller, error) {
 		kcpClient,
 		c.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		c.SyncerImage,
 		c.kubeconfig,
 		c.ResourcesToSync,
-		syncerMode,
+		syncerManagerImpl,
 	)
 }

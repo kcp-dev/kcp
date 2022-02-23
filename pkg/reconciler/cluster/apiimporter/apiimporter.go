@@ -14,26 +14,43 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package apiimporter
 
 import (
 	"context"
-	"time"
+	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
+	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
+var clusterKind = reflect.TypeOf(clusterv1alpha1.Cluster{}).Name()
+
+func ClusterAsOwnerReference(obj *clusterv1alpha1.Cluster, controller bool) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion: apiresourcev1alpha1.SchemeGroupVersion.String(),
+		Kind:       clusterKind,
+		Name:       obj.Name,
+		UID:        obj.UID,
+		Controller: &controller,
+	}
+}
+
 type APIImporter struct {
-	c                  *Controller
+	kcpClient                kcpclient.Interface
+	resourcesToSync          []string
+	apiresourceImportIndexer cache.Indexer
+	clusterIndexer           cache.Indexer
+
 	location           string
 	logicalClusterName string
 	schemaPuller       crdpuller.SchemaPuller
@@ -42,48 +59,19 @@ type APIImporter struct {
 	context            context.Context
 }
 
-func (c *Controller) StartAPIImporter(config *rest.Config, location string, logicalClusterName string, pollInterval time.Duration) (*APIImporter, error) {
-	apiImporter := APIImporter{
-		c:                  c,
-		location:           location,
-		logicalClusterName: logicalClusterName,
-		context:            request.WithCluster(context.Background(), request.Cluster{Name: logicalClusterName}),
-	}
-
-	ticker := time.NewTicker(pollInterval)
-	apiImporter.done = make(chan bool)
-
-	var err error
-	apiImporter.schemaPuller, err = crdpuller.NewSchemaPuller(config)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		apiImporter.ImportAPIs()
-		for {
-			select {
-			case <-apiImporter.done:
-				return
-			case <-ticker.C:
-				apiImporter.ImportAPIs()
-			}
-		}
-	}()
-
-	return &apiImporter, nil
-}
-
 func (i *APIImporter) Stop() {
 	i.done <- true
 
-	objs, err := i.c.apiresourceImportIndexer.ByIndex(LocationInLogicalClusterIndexName, GetLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName))
+	objs, err := i.apiresourceImportIndexer.ByIndex(
+		clusterctl.LocationInLogicalClusterIndexName,
+		clusterctl.GetLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName),
+	)
 	if err != nil {
 		klog.Errorf("error trying to list APIResourceImport objects for location %s in logical cluster %s: %v", i.location, i.logicalClusterName, err)
 	}
 	for _, obj := range objs {
 		apiResourceImportToDelete := obj.(*apiresourcev1alpha1.APIResourceImport)
-		err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(request.WithCluster(context.Background(), request.Cluster{Name: i.logicalClusterName}), apiResourceImportToDelete.Name, metav1.DeleteOptions{})
+		err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(request.WithCluster(context.Background(), request.Cluster{Name: i.logicalClusterName}), apiResourceImportToDelete.Name, metav1.DeleteOptions{})
 		if err != nil {
 			klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToDelete.Name, err)
 		}
@@ -91,7 +79,7 @@ func (i *APIImporter) Stop() {
 }
 
 func (i *APIImporter) ImportAPIs() {
-	crds, err := i.schemaPuller.PullCRDs(i.context, i.c.resourcesToSync...)
+	crds, err := i.schemaPuller.PullCRDs(i.context, i.resourcesToSync...)
 	if err != nil {
 		klog.Errorf("error pulling CRDs: %v", err)
 	}
@@ -105,7 +93,10 @@ func (i *APIImporter) ImportAPIs() {
 			Resource: groupResource.Resource,
 		}
 
-		objs, err := i.c.apiresourceImportIndexer.ByIndex(GVRForLocationInLogicalClusterIndexName, GetGVRForLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName, gvr))
+		objs, err := i.apiresourceImportIndexer.ByIndex(
+			clusterctl.GVRForLocationInLogicalClusterIndexName,
+			clusterctl.GetGVRForLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName, gvr),
+		)
 		if err != nil {
 			klog.Errorf("error pulling CRDs: %v", err)
 			continue
@@ -121,7 +112,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+			if _, err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -143,7 +134,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImportName, err)
 				continue
 			}
-			clusterObj, exists, err := i.c.clusterIndexer.GetByKey(clusterKey)
+			clusterObj, exists, err := i.clusterIndexer.GetByKey(clusterKey)
 			if err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImportName, err)
 				continue
@@ -191,7 +182,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
+			if _, err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -202,7 +193,10 @@ func (i *APIImporter) ImportAPIs() {
 	gvrsToRemove := sets.StringKeySet(i.SyncedGVRs).Difference(sets.StringKeySet(gvrsToSync))
 	for _, gvrToRemove := range gvrsToRemove.UnsortedList() {
 		gvr := i.SyncedGVRs[gvrToRemove]
-		objs, err := i.c.apiresourceImportIndexer.ByIndex(GVRForLocationInLogicalClusterIndexName, GetGVRForLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName, gvr))
+		objs, err := i.apiresourceImportIndexer.ByIndex(
+			clusterctl.GVRForLocationInLogicalClusterIndexName,
+			clusterctl.GetGVRForLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName, gvr),
+		)
 		if err != nil {
 			klog.Errorf("error pulling CRDs: %v", err)
 			continue
@@ -213,7 +207,7 @@ func (i *APIImporter) ImportAPIs() {
 		}
 		if len(objs) == 1 {
 			apiResourceImportToRemove := objs[0].(*apiresourcev1alpha1.APIResourceImport)
-			err := i.c.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(i.context, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
+			err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(i.context, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToRemove.Name, err)
 				continue

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package syncer
 
 import (
 	"context"
@@ -34,91 +34,20 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-type syncerManager interface {
-	needsUpdate(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error)
-	update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error)
-	checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool
-	cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster)
-}
-
-type pullSyncerManager struct {
-	syncerImage string
-}
-
-func newPullSyncerManager(syncerImage string) syncerManager {
-	return &pullSyncerManager{
-		syncerImage: syncerImage,
-	}
-}
-
-func (m *pullSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error) {
-	logicalCluster := cluster.GetClusterName()
-	upToDate, err := isSyncerInstalledAndUpToDate(ctx, client, logicalCluster, m.syncerImage)
-	if err != nil {
-		klog.Errorf("error checking if syncer needs to be installed: %v", err)
-		return false, err
-	}
-	return !upToDate && groupResources.Len() > 0, nil
-}
-
-func (m *pullSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
-	kubeConfig.CurrentContext = "admin"
-	bytes, err := clientcmd.Write(*kubeConfig)
-	if err != nil {
-		klog.Errorf("error writing kubeconfig for syncer: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())
-		return false, nil // Don't retry.
-	}
-	logicalCluster := cluster.GetClusterName()
-	if err := installSyncer(ctx, client, m.syncerImage, string(bytes), cluster.Name, logicalCluster, groupResources.List()); err != nil {
-		klog.Errorf("error installing syncer: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error installing syncer: %v", err.Error())
-		return false, nil // Don't retry.
-	}
-
-	klog.Info("syncer installing...")
-	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
-
-	return true, nil
-}
-
-func (m *pullSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool {
-	logicalCluster := cluster.GetClusterName()
-	if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
-		klog.Error("syncer not yet ready")
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityInfo, "Syncer not yet ready")
-	} else {
-		klog.Infof("started pull mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
-		conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
-	}
-	return true
-}
-
-// TODO(marun) Consider using a finalizer to guarantee removal
-func (m *pullSyncerManager) cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster) {
-	// Get client from kubeconfig
-	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(deletedCluster.Spec.KubeConfig))
-	if err != nil {
-		klog.Errorf("invalid kubeconfig: %v", err)
-		return
-	}
-	client, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf("error creating client: %v", err)
-		return
-	}
-
-	uninstallSyncer(ctx, client)
-}
+const numSyncerThreads = 2
 
 type pushSyncerManager struct {
 	syncerCancelFuncs map[string]func()
 }
 
-func newPushSyncerManager() syncerManager {
+func newPushSyncerManager() syncerManagerImpl {
 	return &pushSyncerManager{
 		syncerCancelFuncs: map[string]func(){},
 	}
+}
+
+func (m *pushSyncerManager) name() string {
+	return "kcp-push-syncer-manager"
 }
 
 func (m *pushSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error) {
