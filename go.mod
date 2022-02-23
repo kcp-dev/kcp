@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/emicklei/go-restful v2.9.5+incompatible
+	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
@@ -17,6 +18,8 @@ require (
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0
 	go.etcd.io/etcd/server/v3 v3.5.0
 	go.uber.org/multierr v1.7.0
+	google.golang.org/grpc v1.40.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0

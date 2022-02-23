@@ -83,7 +83,7 @@ func TestIngressController(t *testing.T) {
 				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 
 				expectedIngress := ingress.DeepCopy()
-				expectedIngress.Name = expectedIngress.Name + "--" + clusterName
+				expectedIngress.GenerateName = ingress.Name + "-"
 				expectedIngress.Namespace = targetNamespace
 				err = servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
 					if diff := cmp.Diff(expectedIngress.Spec, object.Spec); diff != "" {
@@ -108,9 +108,9 @@ func TestIngressController(t *testing.T) {
 				})
 				require.NoError(t, err, "failed updating the ingress object in the source cluster")
 
-				ingress.Name = ingress.Name + "--" + clusterName
-				ingress.Namespace = targetNamespace
-				err = servers[sinkClusterName].expect(ingress, func(object *v1.Ingress) error {
+				expectedIngress.GenerateName = ingress.Name + "-"
+				expectedIngress.Namespace = targetNamespace
+				err = servers[sinkClusterName].expect(expectedIngress, func(object *v1.Ingress) error {
 					if ingress.Spec.Rules[0].Host != object.Spec.Rules[0].Host {
 						return fmt.Errorf("saw incorrect spec on sink cluster, expected host %s, got %s", ingress.Spec.Rules[0].Host, object.Spec.Rules[0].Host)
 					}
@@ -204,9 +204,6 @@ func TestIngressController(t *testing.T) {
 				}
 			}
 
-			cfg, err := source.RawConfig()
-			require.NoError(t, err, "failed to load raw config for source")
-
 			envoyListenerPort, err := framework.GetFreePort(t)
 			require.NoError(t, err, "failed to pick envoy listener port")
 
@@ -218,10 +215,9 @@ func TestIngressController(t *testing.T) {
 
 			ingressController := framework.NewAccessory(t, artifactDir,
 				"ingress-controller",
-				"-kubeconfig="+cfg.Clusters[cfg.CurrentContext].LocationOfOrigin,
-				"-envoyxds",
-				"-envoy-listener-port="+envoyListenerPort,
-				"-envoyxds-port="+xdsListenerPort,
+				"--kubeconfig="+source.KubeconfigPath(),
+				"--envoy-listener-port="+envoyListenerPort,
+				"--envoy-xds-port="+xdsListenerPort,
 			)
 
 			err = ingressController.Run(ctx)
@@ -290,7 +286,7 @@ func ExpectIngresses(ctx context.Context, t *testing.T, client kubernetesclients
 			}
 			var current *v1.Ingress
 			for i := range all {
-				if all[i].Namespace == seed.Namespace && all[i].Name == seed.Name {
+				if all[i].Namespace == seed.Namespace && all[i].GenerateName == seed.GenerateName {
 					current = all[i]
 				}
 			}

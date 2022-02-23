@@ -1,0 +1,150 @@
+/*
+Copyright 2022 The KCP Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/logs"
+
+	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	"github.com/kcp-dev/kcp/pkg/localenvoy/controllers/ingress"
+	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
+	"github.com/kcp-dev/kcp/pkg/reconciler/ingresssplitter"
+)
+
+const numThreads = 2
+const resyncPeriod = 10 * time.Hour
+
+func main() {
+	help.FitTerminal()
+
+	options := NewDefaultOptions()
+
+	cmd := &cobra.Command{
+		Use:   "ingress-controller",
+		Short: "KCP ingress controller",
+		Long: help.Doc(`
+					KCP ingress controller.
+
+					Transparently synchronizes ingresses from kcp to physical clusters.
+
+					Has an optional Envoy XDS control plane that programs Envoy based on
+					ingresses in kcp.
+				`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := genericapiserver.SetupSignalContext()
+
+			if err := options.Logs.ValidateAndApply(); err != nil {
+				return err
+			}
+
+			var overrides clientcmd.ConfigOverrides
+			if options.Context != "" {
+				overrides.CurrentContext = options.Context
+			}
+
+			// Supports standard env vars for e.g. KUBECONFIG
+			loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+			// Use the user-supplied kubeconfig, if specified
+			loadingRules.ExplicitPath = options.Kubeconfig
+
+			configLoader, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &overrides).ClientConfig()
+			if err != nil {
+				return err
+			}
+
+			kubeClient, err := kubernetes.NewClusterForConfig(configLoader)
+			if err != nil {
+				return err
+			}
+
+			kubeInformerFactory := informers.NewSharedInformerFactory(kubeClient.Cluster("*"), resyncPeriod)
+			ingressInformer := kubeInformerFactory.Networking().V1().Ingresses()
+			serviceInformer := kubeInformerFactory.Core().V1().Services()
+
+			var ecp *envoycontrolplane.EnvoyControlPlane
+			aggregateLeavesStatus := true
+			if options.EnvoyXDSPort > 0 && options.EnvoyListenerPort > 0 {
+				aggregateLeavesStatus = false
+
+				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister(), nil)
+				isr := ingress.NewController(kubeClient, ingressInformer, ecp, options.Domain)
+				go isr.Start(ctx, numThreads)
+				if err := ecp.Start(ctx); err != nil {
+					return err
+				}
+			}
+
+			ic := ingresssplitter.NewController(kubeClient, ingressInformer, serviceInformer, options.Domain, aggregateLeavesStatus)
+
+			kubeInformerFactory.Start(ctx.Done())
+			kubeInformerFactory.WaitForCacheSync(ctx.Done())
+
+			ic.Start(ctx, numThreads)
+
+			<-ctx.Done()
+
+			return nil
+		},
+	}
+
+	options.BindFlags(cmd.Flags())
+
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+	}
+}
+
+type Options struct {
+	Kubeconfig        string
+	Context           string
+	EnvoyXDSPort      uint
+	EnvoyListenerPort uint
+	Domain            string
+	Logs              *logs.Options
+}
+
+func NewDefaultOptions() *Options {
+	return &Options{
+		Kubeconfig:        "",
+		Context:           "",
+		EnvoyXDSPort:      18000,
+		EnvoyListenerPort: 80,
+		Domain:            "kcp-apps.127.0.0.1.nip.io",
+		Logs:              logs.NewOptions(),
+	}
+}
+
+func (o *Options) BindFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "kubeconfig file used to contact the cluster")
+	fs.StringVar(&o.Context, "context", o.Context, "Context to use in the kubeconfig file, instead of the current context")
+	fs.UintVar(&o.EnvoyXDSPort, "envoy-xds-port", o.EnvoyXDSPort, "Envoy control plane port. Set to 0 to disable")
+	fs.UintVar(&o.EnvoyListenerPort, "envoy-listener-port", o.EnvoyListenerPort, "Envoy listener port")
+	fs.StringVar(&o.Domain, "domain", o.Domain, "The domain to use to expose ingresses")
+
+	o.Logs.AddFlags(fs)
+}

@@ -43,27 +43,13 @@ build: ## Build the project
 	go build -o bin ./cmd/...
 .PHONY: build
 
-install: install-ingress-controller
+install:
 	go install ./cmd/...
 .PHONY: install
 
 lint:
 	golangci-lint run ./...
 .PHONY: lint
-
-INGRESS_CONTROLLER_DIR = ./build/kcp-ingress
-
-clone-ingress-controller:
-	test ! -d $(INGRESS_CONTROLLER_DIR) \
-	&& mkdir -p $(INGRESS_CONTROLLER_DIR) \
-	&& git clone https://github.com/jmprusi/kcp-ingress $(INGRESS_CONTROLLER_DIR) || true
-
-install-ingress-controller: clone-ingress-controller
-	cd $(INGRESS_CONTROLLER_DIR) \
-	&& git pull \
-	&& go install ./cmd/...
-
-.PHONY: install-ingress-controller
 
 vendor: ## Vendor the dependencies
 	go mod tidy
