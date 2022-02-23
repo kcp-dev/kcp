@@ -19,22 +19,30 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
 )
 
 type Controllers struct {
 	EnableAll           bool
 	IndividuallyEnabled []string
-	Cluster             ClusterController
+	ApiImporter         ApiImporterController
+	ApiResource         ApiResourceController
+	Syncer              SyncerController
 }
 
-type ClusterController = cluster.Options
+type ApiImporterController = apiimporter.Options
+type ApiResourceController = apiresource.Options
+type SyncerController = syncer.Options
 
 func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		Cluster: *cluster.DefaultOptions(),
+		ApiImporter: *apiimporter.DefaultOptions(),
+		ApiResource: *apiresource.DefaultOptions(),
+		Syncer:      *syncer.DefaultOptions(),
 	}
 }
 
@@ -44,13 +52,21 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&c.IndividuallyEnabled, "unsupported-run-individual-controllers", c.IndividuallyEnabled, "Run individual controllers in-process. The controller names can change at any time.")
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
-	cluster.BindOptions(&c.Cluster, fs)
+	apiimporter.BindOptions(&c.ApiImporter, fs)
+	apiresource.BindOptions(&c.ApiResource, fs)
+	syncer.BindOptions(&c.Syncer, fs)
 }
 
 func (c *Controllers) Validate() []error {
 	var errs []error
 
-	if err := c.Cluster.Validate(); err != nil {
+	if err := c.ApiImporter.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.ApiResource.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Syncer.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 

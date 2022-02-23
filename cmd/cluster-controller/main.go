@@ -32,14 +32,18 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
 )
 
 const resyncPeriod = 10 * time.Hour
 
 func bindOptions(fs *pflag.FlagSet) *options {
 	o := options{
-		Options: cluster.BindOptions(cluster.DefaultOptions(), fs),
+		ApiImporterOptions: apiimporter.BindOptions(apiimporter.DefaultOptions(), fs),
+		ApiResourceOptions: apiresource.BindOptions(apiresource.DefaultOptions(), fs),
+		SyncerOptions:      syncer.BindOptions(syncer.DefaultOptions(), fs),
 	}
 	fs.StringVar(&o.kubeconfigPath, "kubeconfig", "", "Path to kubeconfig")
 	return &o
@@ -49,14 +53,24 @@ type options struct {
 	// in the all-in-one startup, client credentials already exist; in this
 	// standalone startup, we need to load credentials ourselves
 	kubeconfigPath string
-	*cluster.Options
+
+	ApiImporterOptions *apiimporter.Options
+	ApiResourceOptions *apiresource.Options
+	SyncerOptions      *syncer.Options
 }
 
 func (o *options) Validate() error {
 	if o.kubeconfigPath == "" {
 		return errors.New("--kubeconfig is required")
 	}
-	return o.Options.Validate()
+	if err := o.ApiImporterOptions.Validate(); err != nil {
+		return err
+	}
+	if err := o.ApiResourceOptions.Validate(); err != nil {
+		return err
+	}
+
+	return o.SyncerOptions.Validate()
 }
 
 func main() {
@@ -91,8 +105,23 @@ func main() {
 	}
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(r), resyncPeriod)
 	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(r), resyncPeriod)
-	c := options.Options.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
-	cluster, apiresource, err := c.New()
+
+	apiImporterOptions := options.ApiImporterOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
+	apiImporter, err := apiImporterOptions.New()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	apiResourceOptions := options.ApiResourceOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
+	apiresource, err := apiResourceOptions.New()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	syncerOptions := options.SyncerOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory, apiImporterOptions.ResourcesToSync)
+	syncer, err := syncerOptions.New()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -104,13 +133,17 @@ func main() {
 	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
-	prepared, err := cluster.Prepare()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	go apiImporter.Start(ctx)
+	go apiresource.Start(ctx, apiResourceOptions.NumThreads)
+
+	if syncer != nil {
+		prepared, err := syncer.Prepare()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		go prepared.Start(ctx)
 	}
-	go prepared.Start(ctx)
-	go apiresource.Start(ctx, c.NumThreads)
 
 	<-ctx.Done()
 }
