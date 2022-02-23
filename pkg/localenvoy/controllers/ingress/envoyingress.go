@@ -36,12 +36,19 @@ const (
 	ownedByNamespace = "ingress.kcp.dev/owned-by-namespace"
 )
 
-// reconcile is triggered on every change to an ingress resource, or it's associated services (by tracker).
+// reconcile is triggered on every change to an ingress resource.
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
 	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	if ingress.Labels[clusterLabel] == "" {
 		// this is the root. Ignore.
+		return nil
+	}
+
+	// If the Ingress has no status, that means that the ingress controller on the pcluster has
+	// not picked up this leaf yet, so we should skip it.
+	if ingress.Status.LoadBalancer.Ingress == nil || len(ingress.Status.LoadBalancer.Ingress) == 0 {
+		klog.Infof("Ingress %s - %s/%s has no loadbalancer status set, skipping.", ingress.ClusterName, ingress.Namespace, ingress.Name)
 		return nil
 	}
 
