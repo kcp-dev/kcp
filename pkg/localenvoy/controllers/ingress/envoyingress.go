@@ -24,7 +24,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -41,43 +40,31 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	if ingress.Labels[clusterLabel] == "" {
-		// this is the root. Ignore.
+		// Root
+		if len(ingress.Status.LoadBalancer.Ingress) > 0 && ingress.Status.LoadBalancer.Ingress[0].Hostname != "" {
+			// Already set - never changes - do nothing
+			return nil
+		}
+
+		ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
+			Hostname: generateStatusHost(c.domain, ingress),
+		}}
+
 		return nil
 	}
 
+	// Leaf:
+
 	// If the Ingress has no status, that means that the ingress controller on the pcluster has
 	// not picked up this leaf yet, so we should skip it.
-	if ingress.Status.LoadBalancer.Ingress == nil || len(ingress.Status.LoadBalancer.Ingress) == 0 {
+	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
 		klog.Infof("Ingress %s - %s/%s has no loadbalancer status set, skipping.", ingress.ClusterName, ingress.Namespace, ingress.Name)
 		return nil
 	}
 
-	ingressRootKey := rootIngressKeyFor(ingress)
-	obj, exists, err := c.ingressIndexer.GetByKey(ingressRootKey)
-	if err != nil {
-		klog.Warningf("failed to get root ingress: %v", err)
-		return nil
-	}
-	if !exists {
-		// TODO(jmprusi): A leaf without rootIngress? use OwnerRefs to avoid this.
-		// TODO(jmprusi): Add user-facing condition to leaf.
-		klog.Warningf("root Ingress not found %s", ingressRootKey)
-		return nil
-	}
-
-	rootIngress := obj.(*networkingv1.Ingress).DeepCopy()
-	rootIngress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
-		Hostname: generateStatusHost(c.domain, rootIngress),
-	}}
-
 	// Label the received ingress for envoy, as we want the controlplane to use this leaf
 	// for updating the envoy config.
 	ingress.Labels[toEnvoyLabel] = "true"
-
-	// Update the rootIngress status with our desired LB.
-	if _, err := c.client.Cluster(rootIngress.ClusterName).NetworkingV1().Ingresses(rootIngress.Namespace).UpdateStatus(ctx, rootIngress, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to update root ingress status: %w", err)
-	}
 
 	return nil
 }

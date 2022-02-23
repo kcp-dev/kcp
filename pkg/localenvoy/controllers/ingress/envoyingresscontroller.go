@@ -61,30 +61,7 @@ func NewController(
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
-		DeleteFunc: func(obj interface{}) {
-			ingress, ok := obj.(*networkingv1.Ingress)
-			if !ok {
-				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-				if !ok {
-					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
-					return
-				}
-
-				ingress, ok = tombstone.Obj.(*networkingv1.Ingress)
-				if !ok {
-					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
-				}
-			}
-
-			// If it's a deleted leaf, enqueue the root
-			if rootIngressKey := rootIngressKeyFor(ingress); rootIngressKey != "" {
-				c.queue.Add(rootIngressKey)
-				return
-			}
-
-			// Otherwise, enqueue the leaf itself
-			c.enqueue(ingress)
-		},
+		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
 	return c
@@ -108,6 +85,27 @@ type Controller struct {
 }
 
 func (c *Controller) enqueue(obj interface{}) {
+	ingress, ok := obj.(*networkingv1.Ingress)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
+			return
+		}
+
+		ingress, ok = tombstone.Obj.(*networkingv1.Ingress)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
+			return
+		}
+	}
+
+	// If it's a leaf, also enqueue the root
+	if rootIngressKey := rootIngressKeyFor(ingress); rootIngressKey != "" {
+		c.queue.Add(rootIngressKey)
+	}
+
+	// Enqueue the key from obj (could be root or leaf)
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -186,10 +184,20 @@ func (c *Controller) process(ctx context.Context, key string) (requeue bool, err
 		return false, err
 	}
 	if !equality.Semantic.DeepEqual(previous, current) {
-		//TODO(jmprusi): Move to patch instead of Update.
-		_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
-		if err != nil {
-			return false, err
+		if current.Labels[toEnvoyLabel] == "" {
+			// If it's a root, we need to patch only status
+			//TODO(jmprusi): Move to patch instead of Update.
+			_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
+			if err != nil {
+				return false, err
+			}
+		} else {
+			// If it's a leaf, we need to patch only non-status (to set labels)
+			//TODO(jmprusi): Move to patch instead of Update.
+			_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 
