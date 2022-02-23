@@ -150,7 +150,6 @@ func TestIngressController(t *testing.T) {
 			)
 			source, sink := f.Servers[sourceServerName], f.Servers[sinkServerName]
 
-			start := time.Now()
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)
@@ -206,7 +205,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Log("Installing sink cluster...")
-			start = time.Now()
+			start := time.Now()
 			_, err = framework.CreateClusterAndWait(t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
 			require.NoError(t, err)
 			t.Logf("Installed sink cluster after %s", time.Since(start))
