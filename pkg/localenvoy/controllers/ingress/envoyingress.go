@@ -30,10 +30,7 @@ import (
 )
 
 const (
-	clusterLabel     = "kcp.dev/cluster"
-	ownedByCluster   = "ingress.kcp.dev/owned-by-cluster"
-	ownedByIngress   = "ingress.kcp.dev/owned-by-ingress"
-	ownedByNamespace = "ingress.kcp.dev/owned-by-namespace"
+	clusterLabel = "kcp.dev/cluster"
 )
 
 // reconcile is triggered on every change to an ingress resource.

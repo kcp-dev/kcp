@@ -19,6 +19,7 @@ package ingresssplitter
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -31,9 +32,9 @@ import (
 
 const (
 	clusterLabel     = "kcp.dev/cluster"
-	ownedByCluster   = "ingress.kcp.dev/owned-by-cluster"
-	ownedByIngress   = "ingress.kcp.dev/owned-by-ingress"
-	ownedByNamespace = "ingress.kcp.dev/owned-by-namespace"
+	OwnedByCluster   = "ingress.kcp.dev/owned-by-cluster"
+	OwnedByIngress   = "ingress.kcp.dev/owned-by-ingress"
+	OwnedByNamespace = "ingress.kcp.dev/owned-by-namespace"
 )
 
 // reconcile is triggered on every change to an ingress resource, or it's associated services (by tracker).
@@ -103,7 +104,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 
 func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress *networkingv1.Ingress) error {
 	// Create a selector based on the ingress labels, in order to find all the related leaves.
-	ownedBySelector, err := createOwnedBySelector(ingress.Labels[ownedByCluster], ingress.Labels[ownedByIngress], ingress.Labels[ownedByNamespace])
+	ownedBySelector, err := createOwnedBySelector(UnescapeClusterNameLabel(ingress.Labels[OwnedByCluster]), ingress.Labels[OwnedByIngress], ingress.Labels[OwnedByNamespace])
 	if err != nil {
 		return err
 	}
@@ -225,9 +226,9 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 
 		// Label the leaf with the rootIngress information, so we can construct the ingress key
 		// from it.
-		vd.Labels[ownedByCluster] = root.ClusterName
-		vd.Labels[ownedByIngress] = root.Name
-		vd.Labels[ownedByNamespace] = root.Namespace
+		vd.Labels[OwnedByCluster] = LabelEscapeClusterName(root.ClusterName)
+		vd.Labels[OwnedByIngress] = root.Name
+		vd.Labels[OwnedByNamespace] = root.Namespace
 
 		// Cleanup all the other owner references.
 		// TODO(jmprusi): Right now the syncer is syncing the OwnerReferences causing the ingresses to be deleted.
@@ -258,15 +259,15 @@ func (c *Controller) getServices(ctx context.Context, ingress *networkingv1.Ingr
 }
 
 func createOwnedBySelector(clusterName, name, namespace string) (labels.Selector, error) {
-	ownedClusterReq, err := labels.NewRequirement(ownedByCluster, selection.Equals, []string{clusterName})
+	ownedClusterReq, err := labels.NewRequirement(OwnedByCluster, selection.Equals, []string{LabelEscapeClusterName(clusterName)})
 	if err != nil {
 		return nil, err
 	}
-	ownedIngressReq, err := labels.NewRequirement(ownedByIngress, selection.Equals, []string{name})
+	ownedIngressReq, err := labels.NewRequirement(OwnedByIngress, selection.Equals, []string{name})
 	if err != nil {
 		return nil, err
 	}
-	ownedNamespaceReq, err := labels.NewRequirement(ownedByNamespace, selection.Equals, []string{namespace})
+	ownedNamespaceReq, err := labels.NewRequirement(OwnedByNamespace, selection.Equals, []string{namespace})
 	if err != nil {
 		return nil, err
 	}
@@ -274,4 +275,12 @@ func createOwnedBySelector(clusterName, name, namespace string) (labels.Selector
 	ownedBySelector := labels.NewSelector().Add(*ownedClusterReq, *ownedIngressReq, *ownedNamespaceReq)
 
 	return ownedBySelector, nil
+}
+
+func LabelEscapeClusterName(s string) string {
+	return strings.ReplaceAll(s, ":", "_")
+}
+
+func UnescapeClusterNameLabel(s string) string {
+	return strings.ReplaceAll(s, "_", ":")
 }

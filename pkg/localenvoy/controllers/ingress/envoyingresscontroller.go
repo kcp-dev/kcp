@@ -35,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
+	"github.com/kcp-dev/kcp/pkg/reconciler/ingresssplitter"
 )
 
 const controllerName = "kcp-envoy-ingress-status-aggregator"
@@ -210,8 +211,8 @@ func (c *Controller) process(ctx context.Context, key string) (requeue bool, err
 }
 
 func rootIngressKeyFor(ingress metav1.Object) string {
-	if ingress.GetLabels()[ownedByCluster] != "" && ingress.GetLabels()[ownedByNamespace] != "" && ingress.GetLabels()[ownedByIngress] != "" {
-		return ingress.GetLabels()[ownedByNamespace] + "/" + clusters.ToClusterAwareKey(ingress.GetLabels()[ownedByCluster], ingress.GetLabels()[ownedByIngress])
+	if ingress.GetLabels()[ingresssplitter.OwnedByCluster] != "" && ingress.GetLabels()[ingresssplitter.OwnedByNamespace] != "" && ingress.GetLabels()[ingresssplitter.OwnedByIngress] != "" {
+		return ingress.GetLabels()[ingresssplitter.OwnedByNamespace] + "/" + clusters.ToClusterAwareKey(ingresssplitter.UnescapeClusterNameLabel(ingress.GetLabels()[ingresssplitter.OwnedByCluster]), ingress.GetLabels()[ingresssplitter.OwnedByIngress])
 	}
 
 	return ""
