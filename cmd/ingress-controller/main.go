@@ -31,8 +31,9 @@ import (
 	"k8s.io/component-base/logs"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
-	envoycontrolplane "github.com/kcp-dev/kcp/pkg/envoy-controlplane"
-	"github.com/kcp-dev/kcp/pkg/reconciler/ingress"
+	"github.com/kcp-dev/kcp/pkg/localenvoy/controllers/ingress"
+	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
+	"github.com/kcp-dev/kcp/pkg/reconciler/ingresssplitter"
 )
 
 const numThreads = 2
@@ -86,15 +87,19 @@ func main() {
 			serviceInformer := kubeInformerFactory.Core().V1().Services()
 
 			var ecp *envoycontrolplane.EnvoyControlPlane
+			aggregateLeavesStatus := true
 			if options.EnvoyXDSPort > 0 && options.EnvoyListenerPort > 0 {
-				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister(), nil)
+				aggregateLeavesStatus = false
 
+				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister(), nil)
+				isr := ingress.NewController(kubeClient, ingressInformer, ecp, options.Domain)
+				isr.Start(ctx, numThreads)
 				if err := ecp.Start(ctx); err != nil {
 					return err
 				}
 			}
 
-			ic := ingress.NewController(kubeClient, ingressInformer, serviceInformer, ecp, options.Domain)
+			ic := ingresssplitter.NewController(kubeClient, ingressInformer, serviceInformer, options.Domain, aggregateLeavesStatus)
 
 			kubeInformerFactory.Start(ctx.Done())
 			kubeInformerFactory.WaitForCacheSync(ctx.Done())
