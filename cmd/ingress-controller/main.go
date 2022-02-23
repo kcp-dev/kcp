@@ -93,7 +93,7 @@ func main() {
 
 				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister(), nil)
 				isr := ingress.NewController(kubeClient, ingressInformer, ecp, options.Domain)
-				isr.Start(ctx, numThreads)
+				go isr.Start(ctx, numThreads)
 				if err := ecp.Start(ctx); err != nil {
 					return err
 				}
