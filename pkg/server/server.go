@@ -179,7 +179,12 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash); err != nil {
+	servingOpts := s.options.GenericControlPlane.SecureServing
+	externalAddress, err := servingOpts.DefaultExternalAddress()
+	if err != nil {
+		return err
+	}
+	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash, externalAddress.String(), servingOpts.BindPort); err != nil {
 		return err
 	}
 

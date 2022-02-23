@@ -107,16 +107,9 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newToken
 	return newTokenOrEmpty, tokenHash, nil
 }
 
-func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte) error {
+func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte, externalAddress string, servingPort int) error {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
-	servingHostName, servingPort, err := config.SecureServing.HostPort()
-	if err != nil {
-		return err
-	}
-	if servingHostName == "0.0.0.0" || servingHostName == "::" {
-		servingHostName = "localhost"
-	}
-	externalKubeConfigHost := fmt.Sprintf("https://%s:%d", servingHostName, servingPort)
+	externalKubeConfigHost := fmt.Sprintf("https://%s:%d", externalAddress, servingPort)
 
 	externalAdminUserName := "admin"
 	if newToken == "" {
