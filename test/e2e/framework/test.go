@@ -28,7 +28,7 @@ type RunningServer interface {
 	Name() string
 	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
-	Config() (*rest.Config, error)
+	Config(context string) (*rest.Config, error)
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 

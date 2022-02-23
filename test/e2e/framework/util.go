@@ -165,7 +165,7 @@ func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, erro
 		gvk := gvks[0]
 		data.GetObjectKind().SetGroupVersionKind(gvk)
 
-		cfg, err := c.Config()
+		cfg, err := c.Config("system:admin") // TODO(sttts): this doesn't make sense: discovery from a random workspace
 		require.NoError(t, err, "could not get config for server %q", c.name)
 
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)

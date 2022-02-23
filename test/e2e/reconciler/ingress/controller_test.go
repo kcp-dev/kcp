@@ -160,7 +160,7 @@ func TestIngressController(t *testing.T) {
 			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 
 			// clients
-			sourceConfig, err := source.Config()
+			sourceConfig, err := source.Config("system:admin")
 			require.NoError(t, err)
 			sourceKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestIngressController(t *testing.T) {
 			sourceCrdClient := sourceCrdClusterClient.Cluster(wsClusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 
-			sinkConfig, err := sink.Config()
+			sinkConfig, err := sink.Config("system:admin")
 			require.NoError(t, err)
 			sinkKubeClient, err := kubernetesclientset.NewForConfig(sinkConfig)
 			require.NoError(t, err)

@@ -89,7 +89,7 @@ func TestAPIInheritance(t *testing.T) {
 			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
 			server := f.Servers[serverName]
 
-			cfg, err := server.Config()
+			cfg, err := server.Config("system:admin")
 			require.NoError(t, err)
 
 			apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)

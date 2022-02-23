@@ -187,7 +187,7 @@ func TestClusterController(t *testing.T) {
 			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 
 			// clients
-			sourceConfig, err := source.Config()
+			sourceConfig, err := source.Config("system:admin")
 			require.NoError(t, err)
 			sourceKubeClusterClient, err := kubernetesclient.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
@@ -202,7 +202,7 @@ func TestClusterController(t *testing.T) {
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
 
-			sinkConfig, err := sink.Config()
+			sinkConfig, err := sink.Config("system:admin")
 			require.NoError(t, err)
 			sinkKubeClient, err := kubernetesclient.NewForConfig(sinkConfig)
 			require.NoError(t, err)

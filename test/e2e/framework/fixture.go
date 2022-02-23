@@ -102,7 +102,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cfg, err := server.Config()
+	cfg, err := server.Config("system:admin")
 	if err != nil {
 		t.Fatalf("failed to get kcp server config: %v", err)
 	}
@@ -156,7 +156,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName stri
 		t.Fatalf("expected an org cluster name, i.e. with \"%s:\" prefix, got: %s", helper.RootCluster, orgClusterName)
 	}
 
-	cfg, err := server.Config()
+	cfg, err := server.Config("system:admin")
 	if err != nil {
 		t.Fatalf("failed to get server config: %v", err)
 	}

@@ -62,8 +62,6 @@ type kcpServer struct {
 	lock           *sync.Mutex
 	cfg            clientcmd.ClientConfig
 	kubeconfigPath string
-	// TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
-	rawCfg *clientcmdapi.Config
 
 	t *testing.T
 }
@@ -272,18 +270,19 @@ func (c *kcpServer) KubeconfigPath() string {
 }
 
 // Config exposes a copy of the client config for this server.
-func (c *kcpServer) Config() (*rest.Config, error) {
+func (c *kcpServer) Config(context string) (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
 		return nil, fmt.Errorf("programmer error: kcpServer.Config() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
-	// TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
-	r, e := c.cfg.ClientConfig()
-	if e != nil {
-		c.t.Logf("%#v", c.rawCfg)
+	raw, err := c.cfg.RawConfig()
+	if err != nil {
+		return nil, err
 	}
-	return r, e
+
+	config := clientcmd.NewNonInteractiveClientConfig(raw, context, nil, nil)
+	return config.ClientConfig()
 }
 
 // RawConfig exposes a copy of the client config for this server.
@@ -308,7 +307,7 @@ func (c *kcpServer) Ready(keepMonitoring bool) error {
 		// main Ready() body, so we check before continuing that we are live
 		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
 	}
-	cfg, err := c.Config()
+	cfg, err := c.Config("system:admin")
 	if err != nil {
 		return fmt.Errorf("failed to read client configuration: %w", err)
 	}
@@ -364,7 +363,6 @@ func (c *kcpServer) loadCfg() error {
 
 		c.lock.Lock()
 		c.cfg = config
-		c.rawCfg = rawConfig // TODO: remove once https://github.com/kcp-dev/kcp/issues/301 is fixed
 		c.lock.Unlock()
 
 		return true, nil
