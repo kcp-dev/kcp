@@ -36,35 +36,36 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-
-	envoycontrolplane "github.com/kcp-dev/kcp/pkg/envoy-controlplane"
 )
 
-const controllerName = "kcp-ingress-controller"
+const controllerName = "kcp-ingress-splitter"
 
 // NewController returns a new Controller which splits new Ingress objects
 // into N virtual Ingresses labeled for each Cluster that exists at the time
 // the Ingress is created.
-// This controller can start an envoy control plane that exposes a XDS Server in
-// a local port, and is used by an external Envoy proxy to get its configuration.
+//
+// The controller can optionally aggregate the leave's status into the root
+// ingress. This makes sense if the envoy side is disabled.
 func NewController(
 	kubeClient kubernetes.ClusterInterface,
 	ingressInformer networkinginformers.IngressInformer,
 	serviceInformer coreinformers.ServiceInformer,
-	envoycontrolplane *envoycontrolplane.EnvoyControlPlane, domain string) *Controller {
+	domain string,
+	aggregateLeaveStatus bool) *Controller {
 
 	c := &Controller{
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		client:            kubeClient,
-		envoycontrolplane: envoycontrolplane,
-		domain:            domain,
-		tracker:           newTracker(),
+		queue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		client:  kubeClient,
+		domain:  domain,
+		tracker: newTracker(),
 
 		ingressIndexer: ingressInformer.Informer().GetIndexer(),
 		ingressLister:  ingressInformer.Lister(),
 
 		serviceIndexer: serviceInformer.Informer().GetIndexer(),
 		serviceLister:  serviceInformer.Lister(),
+
+		aggregateLeavesStatus: aggregateLeaveStatus,
 	}
 
 	// Watch for events related to Ingresses
@@ -122,9 +123,10 @@ type Controller struct {
 	serviceIndexer cache.Indexer
 	serviceLister  corelisters.ServiceLister
 
-	envoycontrolplane *envoycontrolplane.EnvoyControlPlane
-	domain            string
-	tracker           tracker
+	domain  string
+	tracker tracker
+
+	aggregateLeavesStatus bool
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -187,14 +189,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	if !exists {
 		klog.Infof("Object with key %q was deleted", key)
-
-		if c.envoycontrolplane != nil {
-			if err := c.envoycontrolplane.UpdateEnvoyConfig(ctx); err != nil {
-				klog.Errorf("Error setting Envoy snapshot: %v", err)
-			}
-		}
-
-		// The ingress has been deleted, so we remove any ingress to service tracking.
 		c.tracker.deleteIngress(key)
 
 		return nil
@@ -214,13 +208,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		//TODO(jmprusi): Move to patch instead of Update.
 		_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
 		if err != nil {
-			return err
-		}
-	}
-
-	if c.envoycontrolplane != nil {
-		if err = c.envoycontrolplane.UpdateEnvoyConfig(ctx); err != nil {
-			klog.Errorf("Error setting Envoy snapshot: %v", err)
 			return err
 		}
 	}

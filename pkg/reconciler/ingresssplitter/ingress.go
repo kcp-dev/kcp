@@ -19,8 +19,6 @@ package ingresssplitter
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -33,7 +31,6 @@ import (
 
 const (
 	clusterLabel     = "kcp.dev/cluster"
-	toEnvoyLabel     = "ingress.kcp.dev/envoy"
 	ownedByCluster   = "ingress.kcp.dev/owned-by-cluster"
 	ownedByIngress   = "ingress.kcp.dev/owned-by-ingress"
 	ownedByNamespace = "ingress.kcp.dev/owned-by-namespace"
@@ -43,121 +40,108 @@ const (
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
 	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
-	// If the Ingress has no clusterLabel, it's a Root Ingress, and we will need reconcile the leafs.
 	if ingress.Labels[clusterLabel] == "" {
-		// Create the selector based on the received ingress.
-		ownedBySelector, err := createOwnedBySelector(ingress.ClusterName, ingress.Name, ingress.Namespace)
-		if err != nil {
+		// we have a root ingress here
+		if err := c.reconcileLeaves(ctx, ingress); err != nil {
 			return err
 		}
-
-		// Get the current Leaves of the ingress
-		currentLeaves, err := c.ingressLister.List(ownedBySelector)
-		if err != nil {
-			klog.Errorf("failed to list leaves: %v", err)
-			return nil
-		}
-
-		// Generate the desired leaves
-		desiredLeaves, err := c.desiredLeaves(ctx, ingress)
-		if err != nil {
-			return err
-		}
-
-		// Clean the Ingress status field and mark the ingress not to be pushed to envoy config if there are no leaves.
-		if len(desiredLeaves) == 0 {
-			ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{}
-		}
-
-		// Update the leafs and get missing ones to create and the ones be deleted.
-		toCreate, toDelete, err := c.updateLeafs(ctx, currentLeaves, desiredLeaves)
-		if err != nil {
-			return err
-		}
-
-		// Create the new leaves
-		for _, leaf := range toCreate {
-			klog.InfoS("Creating leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
-
-			if _, err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil {
-				//TODO(jmprusi): Surface as user-facing condition.
-				klog.Errorf("failed to create leaf: %v", err)
-				return err
-			}
-		}
-
-		// Delete the old leaves
-		for _, leaf := range toDelete {
-			klog.InfoS("Deleting leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
-
-			if err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil {
-				//TODO(jmprusi): Surface as user-facing condition.
-				klog.Errorf("failed to delete leaf: %v", err)
-				return err
-			}
-		}
-
-	} else {
-		// If the ingress has the clusterLabel set, that means that it is a leaf and it's synced with
-		// a cluster.
-
-		// Create a selector based on the ingress labels, in order to find all the related leaves.
-		ownedBySelector, err := createOwnedBySelector(ingress.Labels[ownedByCluster], ingress.Labels[ownedByIngress], ingress.Labels[ownedByNamespace])
-		if err != nil {
-			return err
-		}
-
-		// Get all the leaves
-		others, err := c.ingressLister.List(ownedBySelector)
-		if err != nil {
-			return err
-		}
-
-		// Create the Root Ingress key and get it.
-		ingressRootKey := rootIngressKeyFor(ingress)
-		rootIf, exists, err := c.ingressIndexer.GetByKey(ingressRootKey)
-		if err != nil {
-			klog.Errorf("failed to get root ingress: %v", err)
-			return nil
-		}
-
-		// TODO(jmprusi): A leaf without rootIngress? use OwnerRefs to avoid this.
-		if !exists {
-			//TODO(jmprusi): Add user-facing condition to leaf.
-			klog.Errorf("root Ingress not found %s", ingressRootKey)
-			return nil
-		}
-
-		// Deepcopy as we are going to modify the ingress and comes from a shared informer.
-		rootIngress := rootIf.(*networkingv1.Ingress).DeepCopy()
-
-		// Clean the current rootIngress, and then recreate it from the other leafs.
-		rootIngress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{}
-		for _, o := range others {
-			rootIngress.Status.LoadBalancer.Ingress = append(rootIngress.Status.LoadBalancer.Ingress, o.Status.LoadBalancer.Ingress...)
-		}
-
-		// If the envoy controlplane is enabled, we update the cache and generate and send to envoy a new snapshot.
-		if c.envoycontrolplane != nil {
-			// Generate the status hostname.
-			statusHost := generateStatusHost(c.domain, rootIngress)
-			// Now overwrite the Status of the rootIngress with our desired LB
-			rootIngress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
-				Hostname: statusHost,
-			}}
-
-			// Label the received ingress for envoy, as we want the controlplane to use this leaf
-			// for updating the envoy config.
-			ingress.Labels[toEnvoyLabel] = "true"
-		}
-
-		// Update the rootIngress status with our desired LB.
-		// TODO(jmprusi): Use patch (safer) instead of update.
-		if _, err := c.client.Cluster(rootIngress.ClusterName).NetworkingV1().Ingresses(rootIngress.Namespace).UpdateStatus(ctx, rootIngress, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("failed to update root ingress status: %v", err)
+	} else if c.aggregateLeavesStatus {
+		// we have a leave ingress here and have to reconcile the root status
+		if err := c.reconcileRootStatusFromLeaves(ctx, ingress); err != nil {
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.Ingress) error {
+	ownedByRootIngressSelector, err := createOwnedBySelector(ingress.ClusterName, ingress.Name, ingress.Namespace)
+	if err != nil {
+		return err
+	}
+	currentLeaves, err := c.ingressLister.List(ownedByRootIngressSelector)
+	if err != nil {
+		klog.Errorf("failed to list leaves: %v", err)
+		return nil
+	}
+
+	// Generate the desired leaves
+	desiredLeaves, err := c.desiredLeaves(ctx, ingress)
+	if err != nil {
+		return err
+	}
+
+	// Update the leafs and get missing ones to create and the ones be deleted.
+	toCreate, toDelete, err := c.updateLeafs(ctx, currentLeaves, desiredLeaves)
+	if err != nil {
+		return err
+	}
+
+	// Create the new leaves
+	for _, leaf := range toCreate {
+		klog.InfoS("Creating leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
+
+		if _, err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil {
+			//TODO(jmprusi): Surface as user-facing condition.
+			return fmt.Errorf("failed to create leaf: %w", err)
+		}
+	}
+
+	// Delete the old leaves
+	for _, leaf := range toDelete {
+		klog.InfoS("Deleting leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
+
+		if err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil {
+			//TODO(jmprusi): Surface as user-facing condition.
+			return fmt.Errorf("failed to delete leaf: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress *networkingv1.Ingress) error {
+	// Create a selector based on the ingress labels, in order to find all the related leaves.
+	ownedBySelector, err := createOwnedBySelector(ingress.Labels[ownedByCluster], ingress.Labels[ownedByIngress], ingress.Labels[ownedByNamespace])
+	if err != nil {
+		return err
+	}
+
+	// Get all the leaves
+	others, err := c.ingressLister.List(ownedBySelector)
+	if err != nil {
+		return err
+	}
+
+	// Create the Root Ingress key and get it.
+	ingressRootKey := rootIngressKeyFor(ingress)
+	rootIf, exists, err := c.ingressIndexer.GetByKey(ingressRootKey)
+	if err != nil {
+		klog.Warningf("failed to get root ingress: %v", err)
+		return nil
+	}
+
+	// TODO(jmprusi): A leaf without rootIngress? use OwnerRefs to avoid this.
+	if !exists {
+		//TODO(jmprusi): Add user-facing condition to leaf.
+		klog.Warningf("root ingress not found %s", ingressRootKey)
+		return nil
+	}
+
+	// Clean the current rootIngress, and then recreate it from the other leafs.
+	rootIngress := rootIf.(*networkingv1.Ingress).DeepCopy()
+	rootIngress.Status.LoadBalancer.Ingress = make([]corev1.LoadBalancerIngress, 0, len(others))
+	for _, o := range others {
+		rootIngress.Status.LoadBalancer.Ingress = append(rootIngress.Status.LoadBalancer.Ingress, o.Status.LoadBalancer.Ingress...)
+	}
+
+	// Update the rootIngress status with our desired LB.
+	// TODO(jmprusi): Use patch (safer) instead of update.
+	if _, err := c.client.Cluster(rootIngress.ClusterName).NetworkingV1().Ingresses(rootIngress.Namespace).UpdateStatus(ctx, rootIngress, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update root ingress status: %w", err)
+	}
+
 	return nil
 }
 
@@ -256,34 +240,6 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 	return desiredLeaves, nil
 }
 
-// TODO(jmprusi): Inline, or change to a more proper name, and review the hash algorithm.
-func domainHashString(s string) string {
-	h := fnv.New32a()
-	h.Write([]byte(s))
-	return fmt.Sprint(h.Sum32())
-}
-
-// generateStatusHost returns a string that represent the desired status hostname for the ingress.
-// If the host is part of the same domain, it will be preserved as the status hostname, if not
-// a new one will be generated based on a hash of the ingress name, namespace and clusterName.
-func generateStatusHost(domain string, ingress *networkingv1.Ingress) string {
-	// TODO(jmprusi): using "contains" is a bad idea as it could be abused by crafting a malicious hostname, but for a PoC it should be good enough?
-	allRulesAreDomain := true
-	for _, rule := range ingress.Spec.Rules {
-		if !strings.Contains(rule.Host, domain) {
-			allRulesAreDomain = false
-			break
-		}
-	}
-
-	//TODO(jmprusi): Hardcoded to the first one...
-	if allRulesAreDomain {
-		return ingress.Spec.Rules[0].Host
-	}
-
-	return domainHashString(ingress.Name+ingress.Namespace+ingress.ClusterName) + "." + domain
-}
-
 // getServices will parse the ingress object and return a list of the services.
 func (c *Controller) getServices(ctx context.Context, ingress *networkingv1.Ingress) ([]*corev1.Service, error) {
 	var services []*corev1.Service
@@ -301,9 +257,8 @@ func (c *Controller) getServices(ctx context.Context, ingress *networkingv1.Ingr
 	return services, nil
 }
 
-func createOwnedBySelector(clustername, name, namespace string) (labels.Selector, error) {
-
-	ownedClusterReq, err := labels.NewRequirement(ownedByCluster, selection.Equals, []string{clustername})
+func createOwnedBySelector(clusterName, name, namespace string) (labels.Selector, error) {
+	ownedClusterReq, err := labels.NewRequirement(ownedByCluster, selection.Equals, []string{clusterName})
 	if err != nil {
 		return nil, err
 	}
