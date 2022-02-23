@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package envoycontrolplane
+package controlplane
 
 import (
 	"context"
@@ -158,8 +158,7 @@ func (ecp *EnvoyControlPlane) UpdateEnvoyConfig(ctx context.Context) error {
 		res,
 	)
 	if err != nil {
-		klog.Errorf("failed to create snapshot: %v", err)
-		return err
+		return fmt.Errorf("failed to create snapshot: %w", err)
 	}
 
 	return ecp.snapshotCache.SetSnapshot(ctx, NodeID, newSnapshot)
