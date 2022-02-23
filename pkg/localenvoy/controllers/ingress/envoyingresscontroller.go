@@ -21,50 +21,40 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	envoycontrolplane "github.com/kcp-dev/kcp/pkg/envoy-controlplane"
+	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
 )
 
-const controllerName = "kcp-ingress-controller"
+const controllerName = "kcp-envoy-ingress-status-aggregator"
 
-// NewController returns a new Controller which splits new Ingress objects
-// into N virtual Ingresses labeled for each Cluster that exists at the time
-// the Ingress is created.
-// This controller can start an envoy control plane that exposes a XDS Server in
-// a local port, and is used by an external Envoy proxy to get its configuration.
+// NewController returns a new Controller which aggregates the status of the
+// root ingress object and calls out to the envoy controlplane to update its
+// state.
 func NewController(
 	kubeClient kubernetes.ClusterInterface,
 	ingressInformer networkinginformers.IngressInformer,
-	serviceInformer coreinformers.ServiceInformer,
-	envoycontrolplane *envoycontrolplane.EnvoyControlPlane, domain string) *Controller {
+	ecp *envoycontrolplane.EnvoyControlPlane, domain string) *Controller {
 
 	c := &Controller{
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		client:            kubeClient,
-		envoycontrolplane: envoycontrolplane,
-		domain:            domain,
-		tracker:           newTracker(),
+		queue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		client: kubeClient,
+		ecp:    ecp,
+		domain: domain,
 
 		ingressIndexer: ingressInformer.Informer().GetIndexer(),
 		ingressLister:  ingressInformer.Lister(),
-
-		serviceIndexer: serviceInformer.Informer().GetIndexer(),
-		serviceLister:  serviceInformer.Lister(),
 	}
 
 	// Watch for events related to Ingresses
@@ -97,13 +87,6 @@ func NewController(
 		},
 	})
 
-	// Watch for events related to Services
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.ingressesFromService(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.ingressesFromService(obj) },
-		DeleteFunc: func(obj interface{}) { c.ingressesFromService(obj) },
-	})
-
 	return c
 }
 
@@ -119,12 +102,9 @@ type Controller struct {
 	ingressIndexer cache.Indexer
 	ingressLister  networkinglisters.IngressLister
 
-	serviceIndexer cache.Indexer
-	serviceLister  corelisters.ServiceLister
+	domain string
 
-	envoycontrolplane *envoycontrolplane.EnvoyControlPlane
-	domain            string
-	tracker           tracker
+	ecp *envoycontrolplane.EnvoyControlPlane
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -168,9 +148,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("failed to sync %q: %w", key, err))
 		c.queue.AddRateLimited(key)
+		return true
+	} else if requeue {
+		c.queue.AddAfter(key, time.Minute)
 		return true
 	}
 
@@ -178,74 +161,44 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) process(ctx context.Context, key string) error {
+func (c *Controller) process(ctx context.Context, key string) (requeue bool, err error) {
 	obj, exists, err := c.ingressIndexer.GetByKey(key)
 	if err != nil {
 		klog.Errorf("Failed to get Ingress with key %q because: %v", key, err)
-		return nil
+		return true, nil
 	}
 
 	if !exists {
 		klog.Infof("Object with key %q was deleted", key)
 
-		if c.envoycontrolplane != nil {
-			if err := c.envoycontrolplane.UpdateEnvoyConfig(ctx); err != nil {
-				klog.Errorf("Error setting Envoy snapshot: %v", err)
-			}
+		if err := c.ecp.UpdateEnvoyConfig(ctx); err != nil {
+			klog.Errorf("Error setting Envoy snapshot: %v", err)
+			return true, nil
 		}
 
-		// The ingress has been deleted, so we remove any ingress to service tracking.
-		c.tracker.deleteIngress(key)
-
-		return nil
+		return false, nil
 	}
 
 	current := obj.(*networkingv1.Ingress)
 	previous := current.DeepCopy()
 
-	klog.Infof("Processing ingress %q", key)
-
 	if err := c.reconcile(ctx, current); err != nil {
-		return err
+		return false, err
 	}
-
-	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous, current) {
 		//TODO(jmprusi): Move to patch instead of Update.
 		_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	if c.envoycontrolplane != nil {
-		if err = c.envoycontrolplane.UpdateEnvoyConfig(ctx); err != nil {
-			klog.Errorf("Error setting Envoy snapshot: %v", err)
-			return err
-		}
+	if err = c.ecp.UpdateEnvoyConfig(ctx); err != nil {
+		klog.Errorf("failed setting Envoy snapshot: %w", err)
+		return true, nil
 	}
 
-	return nil
-}
-
-// ingressesFromService enqueues all the related ingresses for a given service.
-func (c *Controller) ingressesFromService(obj interface{}) {
-	service := obj.(*corev1.Service)
-
-	serviceKey, err := cache.MetaNamespaceKeyFunc(service)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	// Does that Service has any Ingress associated to?
-	ingresses := c.tracker.getIngressesForService(serviceKey)
-
-	// One Service can be referenced by 0..n Ingresses, so we need to enqueue all the related ingreses.
-	for _, ingress := range ingresses {
-		klog.Infof("tracked service %q triggered Ingress %q reconciliation", service.Name, ingress)
-		c.queue.Add(ingress)
-	}
+	return false, nil
 }
 
 func rootIngressKeyFor(ingress metav1.Object) string {
