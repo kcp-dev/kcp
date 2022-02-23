@@ -19,7 +19,6 @@ package framework
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,8 +35,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -45,9 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -298,58 +293,6 @@ func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactF
 	}
 
 	return cluster, nil
-}
-
-// InstallNamespace creates a new namespace into the desired server.
-func InstallNamespace(ctx context.Context, server RunningServer, crdName, testNamespace string) error {
-	client, err := GetClientForServer(ctx, server, crdName)
-	if err != nil {
-		return err
-	}
-	_, err = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
-	}, metav1.CreateOptions{})
-	return err
-}
-
-// DetectClusterName returns the name of the cluster that contains the desired CRD.
-// TODO: we need to undo the prefixing and get normal sharding behavior in soon ... ?
-func DetectClusterName(cfg *rest.Config, ctx context.Context, crdName string) (string, error) {
-	crdClient, err := apiextensionsclientset.NewClusterForConfig(cfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	crds, err := crdClient.Cluster("*").ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to list crds: %w", err)
-	}
-	if len(crds.Items) == 0 {
-		return "", errors.New("found no crds, cannot detect cluster name")
-	}
-	for _, crd := range crds.Items {
-		if crd.ObjectMeta.Name == crdName {
-			return crd.ObjectMeta.ClusterName, nil
-		}
-	}
-	return "", errors.New("detected no root cluster")
-}
-
-// GetClientForServer returns a kubernetes clientset for a given server.
-func GetClientForServer(ctx context.Context, server RunningServer, crdName string) (kubernetesclientset.Interface, error) {
-	cfg, err := server.Config()
-	if err != nil {
-		return nil, err
-	}
-	sourceClusterName, err := DetectClusterName(cfg, ctx, crdName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect cluster name: %w", err)
-	}
-	clients, err := kubernetesclientset.NewClusterForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	client := clients.Cluster(sourceClusterName)
-	return client, nil
 }
 
 func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
