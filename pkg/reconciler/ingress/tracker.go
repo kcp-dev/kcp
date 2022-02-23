@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
@@ -29,31 +30,37 @@ import (
 // It is used to determine which ingresses are affected by a service change and
 // trigger a reconciliation of the affected ingresses.
 type tracker struct {
-	lock             sync.Mutex
-	ingress2services map[string]map[string]*networkingv1.Ingress
+	lock               sync.Mutex
+	serviceToIngresses map[string]sets.String
+	ingressToServices  map[string]sets.String
 }
 
 // newTracker creates a new tracker.
 func newTracker() tracker {
 	return tracker{
-		ingress2services: make(map[string]map[string]*networkingv1.Ingress),
+		serviceToIngresses: make(map[string]sets.String),
+		ingressToServices:  make(map[string]sets.String),
 	}
 }
 
-// getIngress returns the list of ingresses that are related to a given service, or
-// an empty list, and a boolean, false, indicating if the list is empty.
-func (t *tracker) getIngress(key string) ([]*networkingv1.Ingress, bool) {
+// getIngressesForService returns the list of ingresses that are related to a given service.
+func (t *tracker) getIngressesForService(key string) sets.String {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	ingresses, ok := convertMap(t.ingress2services)[key]
-	return ingresses, ok
+	ingresses, ok := t.serviceToIngresses[key]
+	if !ok {
+		return sets.String{}
+	}
+
+	return ingresses
 }
 
 // Adds a service to an ingress (key) to be tracked.
 func (t *tracker) add(ingress *networkingv1.Ingress, s *corev1.Service) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
+
 	klog.Infof("tracking service %q for ingress %q", s.Name, ingress.Name)
 
 	ingressKey, err := k8scache.MetaNamespaceKeyFunc(ingress)
@@ -68,11 +75,17 @@ func (t *tracker) add(ingress *networkingv1.Ingress, s *corev1.Service) {
 		return
 	}
 
-	if _, ok := t.ingress2services[ingressKey]; !ok {
-		t.ingress2services[ingressKey] = make(map[string]*networkingv1.Ingress)
+	if t.serviceToIngresses[serviceKey] == nil {
+		t.serviceToIngresses[serviceKey] = sets.NewString()
 	}
 
-	t.ingress2services[ingressKey][serviceKey] = ingress
+	t.serviceToIngresses[serviceKey].Insert(ingressKey)
+
+	if t.ingressToServices[ingressKey] == nil {
+		t.ingressToServices[ingressKey] = sets.NewString()
+	}
+
+	t.ingressToServices[ingressKey].Insert(serviceKey)
 }
 
 // deleteIngress deletes an ingress from all the tracked services
@@ -80,15 +93,14 @@ func (t *tracker) deleteIngress(ingressKey string) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	delete(t.ingress2services, ingressKey)
-}
-
-func convertMap(m map[string]map[string]*networkingv1.Ingress) map[string][]*networkingv1.Ingress {
-	inv := make(map[string][]*networkingv1.Ingress)
-	for _, v := range m {
-		for k2, v2 := range v {
-			inv[k2] = append(inv[k2], v2)
-		}
+	services, ok := t.ingressToServices[ingressKey]
+	if !ok {
+		return
 	}
-	return inv
+
+	for _, serviceKey := range services.List() {
+		t.serviceToIngresses[serviceKey].Delete(ingressKey)
+	}
+
+	delete(t.ingressToServices, ingressKey)
 }

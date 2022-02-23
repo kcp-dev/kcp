@@ -239,16 +239,12 @@ func (c *Controller) ingressesFromService(obj interface{}) {
 	}
 
 	// Does that Service has any Ingress associated to?
-	ingresses, ok := c.tracker.getIngress(serviceKey)
-	if !ok {
-		klog.Info("Ignoring non-tracked service: ", service.Name)
-		return
-	}
+	ingresses := c.tracker.getIngressesForService(serviceKey)
 
 	// One Service can be referenced by 0..n Ingresses, so we need to enqueue all the related ingreses.
 	for _, ingress := range ingresses {
-		klog.Infof("tracked service %q triggered Ingress %q reconciliation", service.Name, ingress.Name)
-		c.enqueue(ingress)
+		klog.Infof("tracked service %q triggered Ingress %q reconciliation", service.Name, ingress)
+		c.queue.Add(ingress)
 	}
 }
 
