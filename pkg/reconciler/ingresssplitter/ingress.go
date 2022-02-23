@@ -162,48 +162,50 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 }
 
 func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkingv1.Ingress, desiredLeaves []*networkingv1.Ingress) ([]*networkingv1.Ingress, []*networkingv1.Ingress, error) {
-	// Let's iterate over the current leaves and remove the ones that are not in the desired leaves, and update the ones that match.
-	var toDelete []*networkingv1.Ingress
-	for _, currentleaf := range currentLeaves {
+	var toDelete, toCreate []*networkingv1.Ingress
+
+	for _, currentLeaf := range currentLeaves {
 		found := false
+		for _, desiredLeaf := range desiredLeaves {
+			if desiredLeaf.GenerateName != currentLeaf.GenerateName || desiredLeaf.Labels[clusterLabel] != currentLeaf.Labels[clusterLabel] {
+				continue
+			}
+			found = true
 
-		// We will iterate over the desired leaves and remove the ones that have been updated or found.
-		for i, rlen := 0, len(desiredLeaves); i < rlen; i++ {
-			j := i - (rlen - len(desiredLeaves))
+			if equality.Semantic.DeepEqual(currentLeaf.Spec, desiredLeaf.Spec) {
+				klog.InfoS("Leaf is up to date", "ClusterName", currentLeaf.ClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
+				continue
+			}
 
-			// check if the current leaf matches the desired leaf GenerateName and ClusterLabel
-			if desiredLeaves[i].GenerateName == currentleaf.GenerateName &&
-				desiredLeaves[i].Labels[clusterLabel] == currentleaf.Labels[clusterLabel] {
+			klog.InfoS("Updating leaf", "ClusterName", currentLeaf.ClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
+			updated := currentLeaf.DeepCopy()
+			updated.Spec = desiredLeaf.Spec
+			if _, err := c.client.Cluster(currentLeaf.ClusterName).NetworkingV1().Ingresses(currentLeaf.Namespace).Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
+				//TODO(jmprusi): Update root Ingress condition to reflect the error.
+				return nil, nil, err
+			}
+			break
+		}
+		if !found {
+			toDelete = append(toDelete, currentLeaf)
+		}
+	}
 
-				klog.InfoS("Found a matching leaf", "ClusterName", currentleaf.ClusterName, "Namespace", currentleaf.Namespace, "Name", currentleaf.Name)
-				// The currentLeaf exists in the desired leaves, let's see if we need to update it
+	for _, desiredLeaf := range desiredLeaves {
+		found := false
+		for _, currentLeaf := range currentLeaves {
+			if desiredLeaf.GenerateName == currentLeaf.GenerateName && desiredLeaf.Labels[clusterLabel] == currentLeaf.Labels[clusterLabel] {
 				found = true
-
-				// Compare the current leaf spec with the desired leaf spec, if those are different, update the leaf
-				if equality.Semantic.DeepEqual(currentleaf.Spec, desiredLeaves[i].Spec) {
-					klog.InfoS("Leaf is up to date", "ClusterName", currentleaf.ClusterName, "Namespace", currentleaf.Namespace, "Name", currentleaf.Name)
-
-				} else {
-					klog.InfoS("Updating leaf", "ClusterName", currentleaf.ClusterName, "Namespace", currentleaf.Namespace, "Name", currentleaf.Name)
-					currentleaf.Spec = desiredLeaves[i].Spec
-
-					if _, err := c.client.Cluster(currentleaf.ClusterName).NetworkingV1().Ingresses(currentleaf.Namespace).Update(ctx, currentleaf, metav1.UpdateOptions{}); err != nil {
-						//TODO(jmprusi): Update root Ingress condition to reflect the error.
-						return nil, nil, err
-					}
-				}
-
-				// Remove the leaf from desired leaves to avoid creating them later.
-				desiredLeaves = append(desiredLeaves[:j], desiredLeaves[j+1:]...)
 				break
 			}
 		}
 
 		if !found {
-			toDelete = append(toDelete, currentleaf)
+			toCreate = append(toCreate, desiredLeaf)
 		}
 	}
-	return desiredLeaves, toDelete, nil
+
+	return toCreate, toDelete, nil
 }
 
 // desiredLeaves returns a list of leaves (ingresses) to be created based on an ingress.
