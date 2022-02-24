@@ -69,11 +69,11 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 		require.NoError(t, err)
 
 		// Wait for the server to become ready
-		go func(s *kcpServer) {
+		go func(s *kcpServer, i int) {
 			defer wg.Done()
-			err := s.Ready()
+			err := s.Ready(!cfgs[i].RunInProcess)
 			require.NoError(t, err, "kcp server %s never became ready: %v", s.name, err)
-		}(srv)
+		}(srv, i)
 	}
 	wg.Wait()
 

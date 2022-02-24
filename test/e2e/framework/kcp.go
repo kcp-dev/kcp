@@ -299,7 +299,7 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 // Ready blocks until the server is healthy and ready. Before returning,
 // goroutines are started to ensure that the test is failed if the server
 // does not remain so.
-func (c *kcpServer) Ready() error {
+func (c *kcpServer) Ready(keepMonitoring bool) error {
 	if err := c.loadCfg(); err != nil {
 		return err
 	}
@@ -330,10 +330,12 @@ func (c *kcpServer) Ready() error {
 	}
 	wg.Wait()
 
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		go func(endpoint string) {
-			c.monitorEndpoint(client, endpoint)
-		}(endpoint)
+	if keepMonitoring {
+		for _, endpoint := range []string{"/livez", "/readyz"} {
+			go func(endpoint string) {
+				c.monitorEndpoint(client, endpoint)
+			}(endpoint)
+		}
 	}
 	return nil
 }
