@@ -323,7 +323,7 @@ func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 func (c *Controller) process(ctx context.Context, h holder) error {
 	klog.V(2).InfoS("Processing", "gvr", h.gvr, "clusterName", h.clusterName, "namespace", h.namespace, "name", h.name)
 
-	if h.namespace == "" || h.namespace == c.syncerNamespace {
+	if h.namespace == "" {
 		// skipping cluster-level objects and those in syncer namespace
 		// TODO: why do we watch cluster level objects?!
 		return nil
@@ -355,6 +355,11 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 			return nil
 		}
 	} else {
+		if h.namespace == c.syncerNamespace {
+			// skip syncer namespace
+			return nil
+		}
+
 		nsInformer := c.fromInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
 
 		nsKey := fromNamespace
