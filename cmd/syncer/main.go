@@ -36,11 +36,11 @@ import (
 const numThreads = 2
 
 var (
-	fromKubeconfig = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster.")
-	fromCluster    = flag.String("from_cluster", "", "Name of the -from logical cluster.")
-	toKubeconfig   = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
-	toContext      = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
-	clusterID      = flag.String("cluster", "", "ID of the -to cluster. Resources with this ID set in the 'kcp.dev/cluster' label will be synced.")
+	fromKubeconfig  = flag.String("from_kubeconfig", "", "Kubeconfig file for -from cluster.")
+	fromClusterName = flag.String("from_cluster", "", "Name of the -from logical cluster.")
+	toKubeconfig    = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
+	toContext       = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
+	pclusterID      = flag.String("cluster", "", "ID of the -to cluster. Resources with this ID set in the 'kcp.dev/cluster' label will be synced.")
 )
 
 func main() {
@@ -57,7 +57,7 @@ func main() {
 	klog.Infof("Syncing the following resource types: %s", syncedResourceTypes)
 
 	// Create a client to dynamically watch "from".
-	if *fromCluster == "" {
+	if *fromClusterName == "" {
 		klog.Fatal("--from_cluster is required")
 	}
 
@@ -91,7 +91,7 @@ func main() {
 	defer cancel()
 
 	klog.Infoln("Starting workers")
-	if err := syncer.StartSyncer(ctx, fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *clusterID, *fromCluster, numThreads); err != nil {
+	if err := syncer.StartSyncer(ctx, fromConfig, toConfig, sets.NewString(syncedResourceTypes...), *fromClusterName, *pclusterID, numThreads); err != nil {
 		klog.Fatal(err)
 	}
 

@@ -62,24 +62,26 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 
 const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
-func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, clusterID, logicalClusterID string) (*Controller, error) {
+func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName, pclusterID string) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = specSyncerAgent
 	to = rest.CopyConfig(to)
 	to.UserAgent = specSyncerAgent
 
+	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", kcpClusterName, pclusterID, syncedResourceTypes)
+
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(from)
 	if err != nil {
 		return nil, err
 	}
-	fromDiscovery := discoveryClient.WithCluster(logicalClusterID)
+	fromDiscovery := discoveryClient.WithCluster(kcpClusterName)
 	fromClients, err := dynamic.NewClusterForConfig(from)
 	if err != nil {
 		return nil, err
 	}
-	fromClient := fromClients.Cluster(logicalClusterID)
+	fromClient := fromClients.Cluster(kcpClusterName)
 	toClient := dynamic.NewForConfigOrDie(to)
-	return New(clusterID, logicalClusterID, fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, clusterID)
+	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, pclusterID)
 }
 
 func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
@@ -93,7 +95,7 @@ const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"
 
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
 //       In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
-func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string, obj *unstructured.Unstructured) error {
+func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
 	namespaces := c.toClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
@@ -103,13 +105,13 @@ func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string
 	newNamespace := &unstructured.Unstructured{}
 	newNamespace.SetAPIVersion("v1")
 	newNamespace.SetKind("Namespace")
-	newNamespace.SetName(namespace)
+	newNamespace.SetName(downstreamNamespace)
 
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
 	l := NamespaceLocator{
-		LogicalCluster: obj.GetClusterName(),
-		Namespace:      obj.GetNamespace(),
+		LogicalCluster: upstreamObj.GetClusterName(),
+		Namespace:      upstreamObj.GetNamespace(),
 	}
 	b, err := json.Marshal(l)
 	if err != nil {
@@ -119,10 +121,10 @@ func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string
 		namespaceLocatorAnnotation: string(b),
 	})
 
-	if obj.GetLabels() != nil {
+	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			"kcp.dev/cluster": obj.GetLabels()["kcp.dev/cluster"],
+			"kcp.dev/cluster": upstreamObj.GetLabels()["kcp.dev/cluster"],
 		})
 	}
 
@@ -131,48 +133,50 @@ func (c *Controller) ensureNamespaceExists(ctx context.Context, namespace string
 		if !k8serrors.IsAlreadyExists(err) {
 			// Any other error is not good, though.
 			// TODO bubble this up as a condition somewhere.
-			klog.Errorf("Error while creating namespace %q: %v", namespace, err)
+			klog.Errorf("Error while creating namespace %q: %v", downstreamNamespace, err)
 			return err
 		}
 	}
+	klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetName())
 
 	return nil
 }
 
-func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace string, obj *unstructured.Unstructured) error {
-	if err := c.ensureNamespaceExists(ctx, namespace, obj); err != nil {
+func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+	if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
 		return err
 	}
 
-	obj = obj.DeepCopy()
-	obj.SetUID("")
-	obj.SetResourceVersion("")
-	obj.SetNamespace(namespace)
-	obj.SetManagedFields(nil)
+	downstreamObj := upstreamObj.DeepCopy()
+	downstreamObj.SetUID("")
+	downstreamObj.SetResourceVersion("")
+	downstreamObj.SetNamespace(downstreamNamespace)
+	downstreamObj.SetManagedFields(nil)
+	downstreamObj.SetClusterName("")
 
-	ownedByLabel := obj.GetLabels()["kcp.dev/owned-by"]
+	ownedByLabel := downstreamObj.GetLabels()["kcp.dev/owned-by"]
 	var ownerReferences []metav1.OwnerReference
-	for _, reference := range obj.GetOwnerReferences() {
+	for _, reference := range downstreamObj.GetOwnerReferences() {
 		if reference.Name == ownedByLabel {
 			continue
 		}
 		ownerReferences = append(ownerReferences, reference)
 	}
-	obj.SetOwnerReferences(ownerReferences)
+	downstreamObj.SetOwnerReferences(ownerReferences)
 
 	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
 	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
 
-	data, err := json.Marshal(obj)
+	data, err := json.Marshal(downstreamObj)
 	if err != nil {
 		return err
 	}
 
-	if _, err := c.toClient.Resource(gvr).Namespace(namespace).Patch(ctx, obj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
-		klog.Errorf("Applying resource %s/%s to cluster %q: %v", namespace, obj.GetName(), obj.GetClusterName(), err)
+	if _, err := c.toClient.Resource(gvr).Namespace(downstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
+		klog.Infof("Error upserting %s %s/%s from upstream %s|%s/%s: %v", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
 		return err
 	}
-	klog.Infof("Applied object %s/%s to cluster %q", gvr.Resource, obj.GetName(), obj.GetClusterName())
+	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName())
 
 	return nil
 }

@@ -57,12 +57,12 @@ const KcpToPhysicalCluster Direction = "kcpToPhysicalCluster"
 // PhysicalClusterToKcp indicates a syncer watches resources on the target cluster and applies the status to KCP
 const PhysicalClusterToKcp Direction = "physicalClusterToKcp"
 
-func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, cluster, logicalCluster string, numSyncerThreads int) error {
-	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), cluster, logicalCluster)
+func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName, pcluster string, numSyncerThreads int) error {
+	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster)
 	if err != nil {
 		return err
 	}
-	statusSyncer, err := NewStatusSyncer(downstream, upstream, resources.List(), cluster, logicalCluster)
+	statusSyncer, err := NewStatusSyncer(downstream, upstream, resources.List(), kcpClusterName, pcluster)
 	if err != nil {
 		return err
 	}
@@ -87,20 +87,22 @@ type Controller struct {
 	deleteFn  DeleteFunc
 	direction Direction
 
-	syncerNamespace string
+	upstreamClusterName string
+	syncerNamespace     string
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(cluster, logicalCluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, clusterID string) (*Controller, error) {
-	controllerName := string(direction) + "-" + logicalCluster + "-" + cluster
+func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, pclusterID string) (*Controller, error) {
+	controllerName := string(direction) + "-" + kcpClusterName + "-" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
 	c := Controller{
-		name:            controllerName,
-		queue:           queue,
-		toClient:        toClient,
-		direction:       direction,
-		syncerNamespace: os.Getenv(SyncerNamespaceKey),
+		name:                controllerName,
+		queue:               queue,
+		toClient:            toClient,
+		direction:           direction,
+		upstreamClusterName: kcpClusterName,
+		syncerNamespace:     os.Getenv(SyncerNamespaceKey),
 	}
 
 	if direction == KcpToPhysicalCluster {
@@ -111,7 +113,7 @@ func New(cluster, logicalCluster string, fromDiscovery discovery.DiscoveryInterf
 	}
 
 	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", clusterID)
+		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", pclusterID)
 	})
 
 	// Get all types the upstream API server knows about.
@@ -138,7 +140,7 @@ func New(cluster, logicalCluster string, fromDiscovery discovery.DiscoveryInterf
 			},
 			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
 		})
-		klog.InfoS("Set up informer", "direction", c.direction, "clusterName", cluster, "logicalCluster", logicalCluster, "gvr", gvr)
+		klog.InfoS("Set up informer", "direction", c.direction, "clusterName", kcpClusterName, "pcluster", pcluster, "gvr", gvr)
 	}
 
 	c.fromInformers = fromInformers
@@ -246,6 +248,8 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 		return
 	}
 
+	klog.Infof("Syncer %s: adding %s %s|%s/%s to queue", c.name, gvr, metaObj.GetClusterName(), metaObj.GetNamespace(), metaObj.GetName())
+
 	c.queue.Add(
 		holder{
 			gvr:         gvr,
@@ -337,8 +341,6 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 
 		// We do need to map the namespace in which we are creating or updating an object
 		toNamespace string
-
-		err error
 	)
 
 	// Determine toNamespace
@@ -349,6 +351,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 			Namespace:      h.namespace,
 		}
 
+		var err error
 		toNamespace, err = PhysicalClusterNamespaceName(l)
 		if err != nil {
 			klog.Errorf("%s: error hashing namespace: %v", c.name, err)
@@ -404,7 +407,6 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 
 	obj, exists, err := c.fromInformers.ForResource(h.gvr).Informer().GetIndexer().GetByKey(key)
 	if err != nil {
-		klog.Error(err)
 		return err
 	}
 
@@ -418,9 +420,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 
 	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
 	if !isUnstructured {
-		err := fmt.Errorf("%s: object to synchronize is expected to be Unstructured, but is %T", c.name, obj)
-		klog.Error(err)
-		return err
+		return fmt.Errorf("%s: object to synchronize is expected to be Unstructured, but is %T", c.name, obj)
 	}
 
 	if c.upsertFn != nil {
