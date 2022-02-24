@@ -120,6 +120,10 @@ demo-kubecon: build ## Run the KubeCon demo.
 demo-ingress: build ## Run the Ingress demo.
 	cd contrib/demo && ./runDemoScripts.sh ingress
 
+.PHONY: demo-prototype2
+demo-prototype2: build ## Run the Prototype2 demo.
+	cd contrib/demo && ./runDemoScripts.sh prototype2
+
 .PHONY: help
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
