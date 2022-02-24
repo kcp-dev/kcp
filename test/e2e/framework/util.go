@@ -50,6 +50,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
@@ -247,10 +248,26 @@ type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
 // CreateClusterAndWait creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
 func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*clusterv1alpha1.Cluster, error) {
-	pclusterConfig, err := pcluster.RawConfig()
+	config, err := pcluster.RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server config: %w", err)
 	}
+	pclusterConfig := clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"pcluster": config.Clusters["system:admin"],
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			"pcluster": {
+				Cluster:  "pcluster",
+				AuthInfo: "admin",
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"admin": config.AuthInfos["admin"],
+		},
+		CurrentContext: "pcluster",
+	}
+
 	bs, err := clientcmd.Write(pclusterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize server config: %w", err)
