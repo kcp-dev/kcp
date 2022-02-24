@@ -55,6 +55,7 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *clusterv1al
 	}
 
 	if m.apiImporters[cluster.Name] == nil {
+		// TODO(sttts): make polling interval configurable for testing. This might flake otherwise.
 		apiImporter, err := m.startAPIImporter(cfg, cluster.Name, logicalCluster, time.Minute)
 		if err != nil {
 			klog.Errorf("error starting the API importer: %v", err)
