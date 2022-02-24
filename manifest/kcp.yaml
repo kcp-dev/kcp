@@ -135,15 +135,18 @@ spec:
         ports:
         - containerPort: 6444
         command:
-        - /virtual-workspaces
-        args:
-        - workspaces
-        - --workspaces:kubeconfig=/tmp/kcp/admin.kubeconfig
-        - --authentication-kubeconfig=/tmp/kcp/admin.kubeconfig
-        - --authentication-skip-lookup
-        - --tls-private-key-file=/etc/kcp/tls/server/tls.key
-        - --tls-cert-file=/etc/kcp/tls/server/tls.crt
-        - --secure-port=6444
+        - sh
+        - -c
+        - >
+          cat /tmp/kcp/admin.kubeconfig | sed -e 's|https://\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}|https://localhost|' > /tmp/kcp/localhost.kubeconfig &&
+          /virtual-workspaces
+          workspaces
+          --workspaces:kubeconfig=/tmp/kcp/localhost.kubeconfig
+          --authentication-kubeconfig=/tmp/kcp/localhost.kubeconfig
+          --authentication-skip-lookup
+          --tls-private-key-file=/etc/kcp/tls/server/tls.key
+          --tls-cert-file=/etc/kcp/tls/server/tls.crt
+          --secure-port=6444
         livenessProbe:
           failureThreshold: 3
           httpGet:
