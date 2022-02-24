@@ -74,18 +74,26 @@ type Config struct {
 }
 
 func (c *Config) New() (*Controller, error) {
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "root", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		return nil, err
 	}
 	clientutils.EnableMultiCluster(adminConfig, nil, true, "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 
 	apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
-	kcpClient := kcpclient.NewForConfigOrDie(adminConfig)
+
+	neutralConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(neutralConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	return NewController(
 		apiExtensionsClient,
-		kcpClient,
+		kcpClusterClient,
 		c.AutoPublishAPIs,
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),

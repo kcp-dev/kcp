@@ -48,7 +48,7 @@ func GetClusterNameAndGVRIndexKey(clusterName string, gvr metav1.GroupVersionRes
 
 func NewController(
 	apiExtensionsClient apiextensionsclient.Interface,
-	kcpClient kcpclient.Interface,
+	kcpClusterClient *kcpclient.Cluster,
 	autoPublishNegotiatedAPIResource bool,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
@@ -59,7 +59,7 @@ func NewController(
 	c := &Controller{
 		queue:                            queue,
 		apiExtensionsClient:              apiExtensionsClient,
-		kcpClient:                        kcpClient,
+		kcpClusterClient:                 kcpClusterClient,
 		AutoPublishNegotiatedAPIResource: autoPublishNegotiatedAPIResource,
 		negotiatedApiResourceIndexer:     negotiatedAPIResourceInformer.Informer().GetIndexer(),
 		negotiatedApiResourceLister:      negotiatedAPIResourceInformer.Lister(),
@@ -131,7 +131,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClient                    kcpclient.Interface
+	kcpClusterClient             *kcpclient.Cluster
 	negotiatedApiResourceIndexer cache.Indexer
 	negotiatedApiResourceLister  apiresourcelister.NegotiatedAPIResourceLister
 
