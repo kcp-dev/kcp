@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
@@ -221,9 +222,15 @@ func TestNamespaceScheduler(t *testing.T) {
 				require.NoError(t, err, "did not see namespace marked with scheduling disabled")
 
 				t.Log("Assign a cluster to the namespace manually")
-				patchType, patchBytes := nscontroller.ClusterLabelPatchBytes(cluster.Name)
-				namespace, err = server.client.CoreV1().Namespaces().
-					Patch(ctx, namespace.Name, patchType, patchBytes, metav1.PatchOptions{})
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					ns.Labels[clusterLabel] = cluster.Name
+					_, err = server.client.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
+					return err
+				})
 				require.NoError(t, err, "failed to update namespace")
 
 				err = server.expect(namespace, scheduledMatcher(cluster.Name))
@@ -325,6 +332,9 @@ func unscheduledMatcher(reason string) namespaceExpectation {
 			}
 			if condition.Reason != reason {
 				return fmt.Errorf("expected an unscheduled namespace with reason %s, got status.conditions: %#v", reason, object.Status.Conditions)
+			}
+			if object.Labels[clusterLabel] != "" {
+				return fmt.Errorf("expected cluster assignment to be empty, got %q", object.Labels[clusterLabel])
 			}
 			return nil
 		} else {

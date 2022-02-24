@@ -116,7 +116,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 	}
 
 	// Update the resource's assignment.
-	patchType, patchBytes := ClusterLabelPatchBytes(new)
+	patchType, patchBytes := clusterLabelPatchBytes(new)
 	if _, err = c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
@@ -228,7 +228,7 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 
 	oldClusterName := ns.Labels[clusterLabel]
 	if oldClusterName != newClusterName {
-		patchType, patchBytes := ClusterLabelPatchBytes(newClusterName)
+		patchType, patchBytes := clusterLabelPatchBytes(newClusterName)
 		if _, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
 			Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
@@ -370,9 +370,9 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 	return nil
 }
 
-// ClusterLabelPatchBytes returns JSON patch bytes expressing an operation to
+// clusterLabelPatchBytes returns JSON patch bytes expressing an operation to
 // add, replace to the given value, or delete the cluster assignment label.
-func ClusterLabelPatchBytes(val string) (types.PatchType, []byte) {
+func clusterLabelPatchBytes(val string) (types.PatchType, []byte) {
 	if val == "" {
 		return types.JSONPatchType,
 			[]byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/labels/%s"}]`, strings.ReplaceAll(clusterLabel, "/", "~1")))
