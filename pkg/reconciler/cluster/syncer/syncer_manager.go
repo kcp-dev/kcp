@@ -127,20 +127,18 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *clusterv1alpha1.
 		)
 	}
 
-	if !needsUpdate {
-		return nil
+	if needsUpdate {
+		klog.V(2).Infof("%s: Need to create/update syncer", m.name)
+		kubeConfig := m.kubeconfig.DeepCopy()
+
+		if updateSucceeded, err := m.syncerManagerImpl.update(ctx, cluster, client, groupResources, kubeConfig); err != nil {
+			return err
+		} else if !updateSucceeded {
+			return nil
+		}
+
+		cluster.Status.SyncedResources = groupResources.List()
 	}
-
-	klog.V(2).Infof("%s: Need to create/update syncer", m.name)
-	kubeConfig := m.kubeconfig.DeepCopy()
-
-	if updateSucceeded, err := m.syncerManagerImpl.update(ctx, cluster, client, groupResources, kubeConfig); err != nil {
-		return err
-	} else if !updateSucceeded {
-		return nil
-	}
-
-	cluster.Status.SyncedResources = groupResources.List()
 
 	checkSucceeded := m.syncerManagerImpl.checkHealth(ctx, cluster, client)
 	if !checkSucceeded {
