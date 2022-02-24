@@ -45,7 +45,7 @@ wait_command "kubectl --kubeconfig=${KUBECONFIG} get --raw /readyz"
 
 echo ""
 echo "Starting Ingress Controller"
-ingress-controller --kubeconfig="${KUBECONFIG}" --envoyxds --envoy-listener-port=8181 &> "${CURRENT_DIR}"/ingress-controller.log &
+"${KCP_DIR}"/bin/ingress-controller --kubeconfig="${KUBECONFIG}" --envoy-listener-port=8181 --envoy-xds-port=18000 &> "${CURRENT_DIR}"/ingress-controller.log &
 INGRESS_CONTROLLER_PID=$!
 echo "Ingress Controller started: ${INGRESS_CONTROLLER_PID}"
 
