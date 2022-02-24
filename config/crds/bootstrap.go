@@ -39,16 +39,16 @@ import (
 //go:embed *.yaml
 var raw embed.FS
 
-// Create creates the given CRDs using the target client and waits
-// for all of them to become established in parallel. This call is blocking.
-func Create(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) error {
+// CreateFromFS creates the given CRDs using the target client from the
+// provided filesystem and waits for it to become established. This call is blocking.
+func CreateFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, fs embed.FS, grs ...metav1.GroupResource) error {
 	wg := sync.WaitGroup{}
 	bootstrapErrChan := make(chan error, len(grs))
 	for _, gk := range grs {
 		wg.Add(1)
 		go func(gr metav1.GroupResource) {
 			defer wg.Done()
-			bootstrapErrChan <- CreateFromFS(ctx, client, gr, raw)
+			bootstrapErrChan <- createSingleFromFS(ctx, client, gr, fs)
 		}(gk)
 	}
 	wg.Wait()
@@ -63,9 +63,15 @@ func Create(ctx context.Context, client apiextensionsv1client.CustomResourceDefi
 	return nil
 }
 
+// Create creates the given CRDs using the target client and waits
+// for all of them to become established in parallel. This call is blocking.
+func Create(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) error {
+	return CreateFromFS(ctx, client, raw, grs...)
+}
+
 // CreateFromFS creates the given CRD using the target client from the
-// provided filesystem handle and waits for it to become established. This call is blocking.
-func CreateFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gr metav1.GroupResource, fs embed.FS) error {
+// provided filesystem and waits for it to become established. This call is blocking.
+func createSingleFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gr metav1.GroupResource, fs embed.FS) error {
 	start := time.Now()
 	klog.Infof("Bootstrapping %v", gr.String())
 	defer func() {

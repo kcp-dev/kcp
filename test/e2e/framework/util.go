@@ -266,7 +266,7 @@ func InstallCrd(ctx context.Context, gr metav1.GroupResource, servers map[string
 				bootstrapErrChan <- fmt.Errorf("failed to construct client for server: %w", err)
 				return
 			}
-			bootstrapErrChan <- configcrds.CreateFromFS(ctx, crdClient.CustomResourceDefinitions(), gr, embeddedResources)
+			bootstrapErrChan <- configcrds.CreateFromFS(ctx, crdClient.CustomResourceDefinitions(), embeddedResources, gr)
 		}(server)
 	}
 	wg.Wait()
