@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,7 +49,7 @@ func (m *pullSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1a
 	logicalCluster := cluster.GetClusterName()
 	upToDate, err := isSyncerInstalledAndUpToDate(ctx, client, logicalCluster, m.syncerImage)
 	if err != nil {
-		klog.Errorf("error checking if syncer needs to be installed: %v", err)
+		klog.Errorf("error checking if syncer needs to be installed for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		return false, err
 	}
 	return !upToDate && groupResources.Len() > 0, nil
@@ -58,33 +59,31 @@ func (m *pullSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 	kubeConfig.CurrentContext = "admin"
 	bytes, err := clientcmd.Write(*kubeConfig)
 	if err != nil {
-		klog.Errorf("error writing kubeconfig for syncer: %v", err)
+		klog.Errorf("error writing kubeconfig for syncer in cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 	logicalCluster := cluster.GetClusterName()
 	if err := installSyncer(ctx, client, m.syncerImage, string(bytes), cluster.Name, logicalCluster, groupResources.List()); err != nil {
-		klog.Errorf("error installing syncer: %v", err)
+		klog.Errorf("error installing syncer for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error installing syncer: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 
-	klog.Info("syncer installing...")
+	klog.Infof("syncer installing for cluster %s|%s...", cluster.ClusterName, cluster.Name)
 	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 
 	return true, nil
 }
 
-func (m *pullSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool {
-	logicalCluster := cluster.GetClusterName()
-	if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
-		klog.Error("syncer not yet ready")
+func (m *pullSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) {
+	if err := healthcheckSyncer(ctx, client, cluster.ClusterName); err != nil {
+		klog.Error("syncer not yet ready for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityInfo, "Syncer not yet ready")
 	} else {
-		klog.Infof("started pull mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
+		klog.Infof("started pull mode syncer for cluster %s|%s !", cluster.ClusterName, cluster.Name)
 		conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 	}
-	return true
 }
 
 // TODO(marun) Consider using a finalizer to guarantee removal
@@ -92,14 +91,17 @@ func (m *pullSyncerManager) cleanup(ctx context.Context, deletedCluster *cluster
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(deletedCluster.Spec.KubeConfig))
 	if err != nil {
-		klog.Errorf("invalid kubeconfig: %v", err)
+		klog.Errorf("invalid kubeconfig for cluster %s|%s: %v", deletedCluster.ClusterName, deletedCluster.Name, err)
 		return
 	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("error creating client: %v", err)
+		klog.Errorf("error creating client for cluster %s|%s: %v", deletedCluster.ClusterName, deletedCluster.Name, err)
 		return
 	}
 
-	uninstallSyncer(ctx, client)
+	if err := client.CoreV1().Namespaces().Delete(ctx, syncerNS, metav1.DeleteOptions{}); err != nil {
+		klog.Errorf("Deleting syncer namespace %q from cluster %s|%s: %v",
+			syncerNS, deletedCluster.ClusterName, deletedCluster.Name, err)
+	}
 }

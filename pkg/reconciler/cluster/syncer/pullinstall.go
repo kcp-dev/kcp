@@ -235,7 +235,7 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 		if k8serrors.IsAlreadyExists(err) {
 			// Update Deployment
 			if _, err := client.AppsV1().Deployments(syncerNS).Update(ctx, deployment, metav1.UpdateOptions{}); err != nil {
-				klog.Error(err)
+				klog.Error("error updating syncer deployment for cluster %s|%s: %v", logicalCluster, clusterID, err)
 				return err
 			}
 		} else {
@@ -243,13 +243,6 @@ func installSyncer(ctx context.Context, client kubernetes.Interface, syncerImage
 		}
 	}
 	return nil
-}
-
-// uninstallSyncer uninstalls the syncer from the target cluster by deleting the syncer namespace.
-func uninstallSyncer(ctx context.Context, client kubernetes.Interface) {
-	if err := client.CoreV1().Namespaces().Delete(ctx, syncerNS, metav1.DeleteOptions{}); err != nil {
-		klog.Errorf("Deleting namespace %q: %v", syncerNS, err)
-	}
 }
 
 func healthcheckSyncer(ctx context.Context, client kubernetes.Interface, logicalCluster string) error {

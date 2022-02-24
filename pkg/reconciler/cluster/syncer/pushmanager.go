@@ -65,15 +65,14 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 
 	downstream, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
-		klog.Errorf("error getting cluster kubeconfig: %v", err)
+		klog.Errorf("error getting kubeconfig for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 
-	logicalCluster := cluster.GetClusterName()
 	syncerCtx, syncerCancel := context.WithCancel(ctx)
-	if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads); err != nil {
-		klog.Errorf("error starting syncer in push mode: %v", err)
+	if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, cluster.Name, cluster.ClusterName, numSyncerThreads); err != nil {
+		klog.Errorf("error starting syncer in push mode for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error starting syncer in push mode: %v", err.Error())
 
 		syncerCancel()
@@ -87,48 +86,46 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 		oldSyncerCancel()
 	}
 
-	klog.Infof("started push mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
+	klog.Infof("started push mode syncer for cluster %s|%s !", cluster.ClusterName, cluster.Name)
 	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 
 	return true, nil
 }
 
-func (m *pushSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool {
+func (m *pushSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) {
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
-		klog.Errorf("error getting cluster kubeconfig: %v", err)
+		klog.Errorf("error getting kubeconfig for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
-		return false // Don't retry.
+		return
 	}
 
 	cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	restClient, err := rest.UnversionedRESTClientFor(cfg)
 	if err != nil {
-		klog.Errorf("error getting rest client: %v", err)
+		klog.Errorf("error getting rest client for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting rest client: %v", err.Error())
-		return false // Don't retry.
+		return
 	}
 
 	_, err = restClient.Get().AbsPath("/readyz").Timeout(5 * time.Second).DoRaw(ctx)
 	if err != nil {
+		klog.Errorf("error getting /readyz for cluster %s|%s: %v", cluster.ClusterName, cluster.Name, err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityError, "Error getting /readyz: %v", err.Error())
-		return false // Don't retry.
+		return
 	}
 
-	logicalCluster := cluster.GetClusterName()
-	klog.Infof("healthy push mode syncer running for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
+	klog.Infof("healthy push mode syncer running for cluster %s|%s !", cluster.ClusterName, cluster.Name)
 	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
-
-	return true
 }
 
 func (m *pushSyncerManager) cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster) {
 	syncerCancel, ok := m.syncerCancelFuncs[deletedCluster.Name]
 	if !ok {
-		klog.Errorf("could not find syncer for cluster %q", deletedCluster.Name)
+		klog.Errorf("could not find syncer for cluster %s|%s", deletedCluster.ClusterName, deletedCluster.Name)
 		return
 	}
-	klog.Infof("stopping syncer for cluster %q", deletedCluster.Name)
+	klog.Infof("stopping syncer for cluster %s|%s", deletedCluster.ClusterName, deletedCluster.Name)
 	syncerCancel()
 	delete(m.syncerCancelFuncs, deletedCluster.Name)
 }

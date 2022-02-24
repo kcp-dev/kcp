@@ -41,7 +41,7 @@ type syncerManagerImpl interface {
 	name() string
 	needsUpdate(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error)
 	update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error)
-	checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool
+	checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset)
 	cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster)
 }
 
@@ -140,10 +140,7 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *clusterv1alpha1.
 		cluster.Status.SyncedResources = groupResources.List()
 	}
 
-	checkSucceeded := m.syncerManagerImpl.checkHealth(ctx, cluster, client)
-	if !checkSucceeded {
-		return nil
-	}
+	m.syncerManagerImpl.checkHealth(ctx, cluster, client)
 
 	return nil
 }
