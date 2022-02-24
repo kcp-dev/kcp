@@ -32,7 +32,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 )
 
@@ -48,7 +50,9 @@ func CreateFromFS(ctx context.Context, client apiextensionsv1client.CustomResour
 		wg.Add(1)
 		go func(gr metav1.GroupResource) {
 			defer wg.Done()
-			bootstrapErrChan <- createSingleFromFS(ctx, client, gr, fs)
+			bootstrapErrChan <- retryRetryableErrors(func() error {
+				return createSingleFromFS(ctx, client, gr, fs)
+			})
 		}(gk)
 	}
 	wg.Wait()
@@ -108,7 +112,7 @@ func createSingleFromFS(ctx context.Context, client apiextensionsv1client.Custom
 		rawCrd.ResourceVersion = crdResource.ResourceVersion
 		_, err = client.Update(ctx, rawCrd, metav1.UpdateOptions{})
 		if err != nil {
-			return fmt.Errorf("error updating CRD %s: %w", gr.String(), err)
+			return err
 		}
 	}
 
@@ -123,4 +127,10 @@ func createSingleFromFS(ctx context.Context, client apiextensionsv1client.Custom
 
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
 	})
+}
+
+func retryRetryableErrors(f func() error) error {
+	return retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		return utilnet.IsConnectionRefused(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err)
+	}, f)
 }
