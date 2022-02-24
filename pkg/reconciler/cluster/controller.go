@@ -62,7 +62,6 @@ type ClusterReconcileImpl interface {
 func NewClusterReconciler(
 	name string,
 	reconciler ClusterReconcileImpl,
-	kcpClient kcpclient.Interface,
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer clusterinformer.ClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
@@ -72,7 +71,6 @@ func NewClusterReconciler(
 	c := &ClusterReconciler{
 		name:                     name,
 		reconciler:               reconciler,
-		kcpClient:                kcpClient,
 		kcpClusterClient:         kcpClusterClient,
 		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
@@ -124,7 +122,6 @@ func NewClusterReconciler(
 type ClusterReconciler struct {
 	name                     string
 	reconciler               ClusterReconcileImpl
-	kcpClient                kcpclient.Interface // TODO(sttts): get rid of this. Doesn't make sense. Use kcpClusterClient.
 	kcpClusterClient         *kcpclient.Cluster
 	clusterIndexer           cache.Indexer
 	apiresourceImportIndexer cache.Indexer

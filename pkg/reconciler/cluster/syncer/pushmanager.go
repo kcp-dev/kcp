@@ -56,7 +56,25 @@ func (m *pushSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1a
 }
 
 func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
-	upstream, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, "root", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
+	var upstreamCluster = *kubeConfig.Clusters["system:admin"] // shallow copy
+	upstreamKubeConfig := clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"upstream": &upstreamCluster,
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			"upstream": {
+				Cluster:  "upstream",
+				AuthInfo: "syncer",
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"syncer": kubeConfig.AuthInfos["loopback"],
+		},
+		CurrentContext: "upstream",
+	}
+
+	upstream, err := clientcmd.NewNonInteractiveClientConfig(upstreamKubeConfig, "upstream", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		klog.Errorf("error getting kcp kubeconfig: %v", err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting kcp kubeconfig: %v", err.Error())
@@ -71,6 +89,7 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 	}
 
 	logicalCluster := cluster.GetClusterName()
+	klog.Infof("Starting syncer for cluster %s|%s, resources %v", logicalCluster, cluster.Name, groupResources)
 	syncerCtx, syncerCancel := context.WithCancel(ctx)
 	if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, cluster.Name, logicalCluster, numSyncerThreads); err != nil {
 		klog.Errorf("error starting syncer in push mode: %v", err)

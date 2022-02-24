@@ -55,8 +55,25 @@ func (m *pullSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1a
 }
 
 func (m *pullSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
-	kubeConfig.CurrentContext = "root"
-	bytes, err := clientcmd.Write(*kubeConfig)
+	// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
+	var upstreamCluster = *kubeConfig.Clusters["system:admin"] // shallow copy
+	upstreamKubeConfig := clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"upstream": &upstreamCluster,
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			"upstream": {
+				Cluster:  "upstream",
+				AuthInfo: "syncer",
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"syncer": kubeConfig.AuthInfos["loopback"],
+		},
+		CurrentContext: "upstream",
+	}
+
+	bytes, err := clientcmd.Write(upstreamKubeConfig)
 	if err != nil {
 		klog.Errorf("error writing kubeconfig for syncer: %v", err)
 		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())

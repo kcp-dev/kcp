@@ -41,7 +41,6 @@ type Controller struct {
 
 func NewController(
 	apiExtensionsClient apiextensionsclient.Interface,
-	kcpClient kcpclient.Interface,
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer clusterinformer.ClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
@@ -53,7 +52,6 @@ func NewController(
 	sm := &syncerManager{
 		name:                     syncerManagerImpl.name(),
 		apiExtensionsClient:      apiExtensionsClient,
-		kcpClient:                kcpClient,
 		kubeconfig:               kubeconfig,
 		resourcesToSync:          resourcesToSync,
 		syncerManagerImpl:        syncerManagerImpl,
@@ -63,7 +61,6 @@ func NewController(
 	cr, err := clusterctl.NewClusterReconciler(
 		syncerManagerImpl.name(),
 		sm,
-		kcpClient,
 		kcpClusterClient,
 		clusterInformer,
 		apiResourceImportInformer,

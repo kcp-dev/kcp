@@ -31,7 +31,6 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
@@ -49,7 +48,6 @@ type syncerManager struct {
 	name string
 
 	apiExtensionsClient      apiextensionsclient.Interface
-	kcpClient                kcpclient.Interface
 	kubeconfig               clientcmdapi.Config
 	resourcesToSync          []string
 	syncerManagerImpl        syncerManagerImpl

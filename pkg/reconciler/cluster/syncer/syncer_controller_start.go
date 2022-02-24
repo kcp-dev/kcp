@@ -102,7 +102,6 @@ func (c *Config) New() (*Controller, error) {
 	clientutils.EnableMultiCluster(adminConfig, nil, true, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 
 	apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
-	kcpClient := kcpclient.NewForConfigOrDie(adminConfig)
 
 	neutralConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
@@ -115,7 +114,6 @@ func (c *Config) New() (*Controller, error) {
 
 	return NewController(
 		apiExtensionsClient,
-		kcpClient,
 		kcpClusterClient,
 		c.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
