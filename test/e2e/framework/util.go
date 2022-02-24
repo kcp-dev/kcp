@@ -148,6 +148,7 @@ func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, erro
 		require.True(t, ok, "artifact has no object meta: %#v", data)
 
 		dir := path.Join(artifactDir, accessor.GetClusterName())
+		dir = strings.ReplaceAll(dir, ":", "_") // github actions don't like colon because NTFS is unhappy with it in path names
 		if accessor.GetNamespace() != "" {
 			dir = path.Join(dir, accessor.GetNamespace())
 		}
