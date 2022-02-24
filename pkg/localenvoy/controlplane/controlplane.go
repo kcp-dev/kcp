@@ -45,15 +45,16 @@ import (
 const (
 	grpcMaxConcurrentStreams = 1000000
 
-	NodeID       = "kcp-ingress"
-	toEnvoyLabel = "ingress-controller/envoy"
+	NodeID = "kcp-ingress"
+
+	ToEnvoyLabel = "ingress.kcp.dev/envoy"
 )
 
 func init() {
 	var err error
 
 	// Create the selector
-	envoyReadySelector, err = labels.Parse(toEnvoyLabel + "=" + "true")
+	envoyReadySelector, err = labels.Parse(ToEnvoyLabel + "=" + "true")
 	if err != nil {
 		klog.Fatalf("failed to parse selector: %v", err)
 	}
@@ -127,7 +128,7 @@ func (ecp *EnvoyControlPlane) Start(ctx context.Context) error {
 }
 
 // UpdateEnvoyConfig creates a new envoy config snapshot and updates the xDS server
-// using the information from the ingresses that are labeled with the toEnvoyLabel.
+// using the information from the ingresses that are labeled with the ToEnvoyLabel.
 func (ecp *EnvoyControlPlane) UpdateEnvoyConfig(ctx context.Context) error {
 	clustersResources := make([]cachetypes.Resource, 0)
 	virtualhosts := make([]*envoyroutev3.VirtualHost, 0)

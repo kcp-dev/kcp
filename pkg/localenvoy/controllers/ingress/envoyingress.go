@@ -25,11 +25,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/klog/v2"
+
+	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
 )
 
 const (
 	clusterLabel     = "kcp.dev/cluster"
-	toEnvoyLabel     = "ingress.kcp.dev/envoy"
 	ownedByCluster   = "ingress.kcp.dev/owned-by-cluster"
 	ownedByIngress   = "ingress.kcp.dev/owned-by-ingress"
 	ownedByNamespace = "ingress.kcp.dev/owned-by-namespace"
@@ -64,7 +65,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 
 	// Label the received ingress for envoy, as we want the controlplane to use this leaf
 	// for updating the envoy config.
-	ingress.Labels[toEnvoyLabel] = "true"
+	ingress.Labels[envoycontrolplane.ToEnvoyLabel] = "true"
 
 	return nil
 }
@@ -90,7 +91,7 @@ func generateStatusHost(domain string, ingress *networkingv1.Ingress) string {
 		}
 	}
 
-	//TODO(jmprusi): Hardcoded to the first one...
+	// TODO(jmprusi): Hardcoded to the first one...
 	if allRulesAreDomain {
 		return ingress.Spec.Rules[0].Host
 	}

@@ -184,16 +184,16 @@ func (c *Controller) process(ctx context.Context, key string) (requeue bool, err
 		return false, err
 	}
 	if !equality.Semantic.DeepEqual(previous, current) {
-		if current.Labels[toEnvoyLabel] == "" {
+		if current.Labels[envoycontrolplane.ToEnvoyLabel] == "" {
 			// If it's a root, we need to patch only status
-			//TODO(jmprusi): Move to patch instead of Update.
+			// TODO(jmprusi): Move to patch instead of Update.
 			_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err
 			}
 		} else {
 			// If it's a leaf, we need to patch only non-status (to set labels)
-			//TODO(jmprusi): Move to patch instead of Update.
+			// TODO(jmprusi): Move to patch instead of Update.
 			_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err
