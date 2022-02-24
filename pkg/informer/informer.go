@@ -198,6 +198,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	}
 
 	for _, logicalClusterName := range logicalClusterNames.List() {
+		klog.Infof("Discovering types for logical cluster %q", logicalClusterName)
 		rs, err := d.disco.WithCluster(logicalClusterName).ServerPreferredResources()
 		if err != nil {
 			return err
@@ -231,6 +232,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	newGVRs := latest.Difference(d.gvrs)
 	var merr error
 	for _, gvrstr := range newGVRs.UnsortedList() {
+		klog.Infof("Adding informer for %q in %s", gvrstr, logicalClusterNames)
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 		if gvr == nil {
 			// TODO(ncdc): consider tracking where each gvrstr came from (which workspace) so we can include that in the error.
