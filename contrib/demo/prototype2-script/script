@@ -53,6 +53,8 @@ if ! kubectl get namespaces &>/dev/null; then
   exit 1
 fi
 
+clear
+
 c "Install nginx-based ingress into both kind clusters"
 
 # TODO(ncdc): trying to get ingress working on mac+podman+kind
@@ -151,10 +153,13 @@ c "And create an ingress"
 pe "cat ${DEMO_DIR}/ingress-kuard.yaml"
 pe "kubectl apply -f ${DEMO_DIR}/ingress-kuard.yaml"
 
-# TODO show that you can access it
+c "Wait for the ingress to be accepted by the ingress controller in the us-east1 cluster"
+pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
 
-wait
-clear
+c "Now let's access our application with curl - we should get a 200 status code"
+pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
+
+wait;clear
 
 c "Now let's register our kind cluster us-west1 with kcp"
 
@@ -175,11 +180,21 @@ pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-west1.yaml"
 c "Let's delete kind-us-east1 and see what happens"
 pe "kind delete clusters us-east1"
 
+c "Force the cluster healthcheck to run (we'll be improving this so it's not manual in the next prototype!)"
+pe "kubectl label cluster/kind-us-east1 --overwrite now=\"$(date +%s)\""
+c "Show the cluster's status - us-east1 should be not ready"
+pe "kubectl get clusters -o wide"
+
 wait
 clear
 
 c "Let's see if the deployment got rescheduled"
 pe "kubectl describe deployment/kuard"
+
+c "Let's wait for the ingress to be accepted by the ingress controller in the us-west1 cluster"
+pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
+c "And now, lets make an http request to our application again"
+pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
 
 #### Section 3 Policy/Orgs
 wait
