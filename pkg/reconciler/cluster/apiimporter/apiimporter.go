@@ -46,7 +46,7 @@ func ClusterAsOwnerReference(obj *clusterv1alpha1.Cluster, controller bool) meta
 }
 
 type APIImporter struct {
-	kcpClient                kcpclient.Interface
+	kcpClusterClient         *kcpclient.Cluster
 	resourcesToSync          []string
 	apiresourceImportIndexer cache.Indexer
 	clusterIndexer           cache.Indexer
@@ -60,6 +60,8 @@ type APIImporter struct {
 }
 
 func (i *APIImporter) Stop() {
+	klog.Infof("Stopping API Importer for location %s in cluster %s", i.location, i.logicalClusterName)
+
 	i.done <- true
 
 	objs, err := i.apiresourceImportIndexer.ByIndex(
@@ -71,7 +73,7 @@ func (i *APIImporter) Stop() {
 	}
 	for _, obj := range objs {
 		apiResourceImportToDelete := obj.(*apiresourcev1alpha1.APIResourceImport)
-		err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(request.WithCluster(context.Background(), request.Cluster{Name: i.logicalClusterName}), apiResourceImportToDelete.Name, metav1.DeleteOptions{})
+		err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Delete(request.WithCluster(context.Background(), request.Cluster{Name: i.logicalClusterName}), apiResourceImportToDelete.Name, metav1.DeleteOptions{})
 		if err != nil {
 			klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToDelete.Name, err)
 		}
@@ -79,9 +81,11 @@ func (i *APIImporter) Stop() {
 }
 
 func (i *APIImporter) ImportAPIs() {
+	klog.Infof("Importing APIs from location %s in logical cluster %s", i.location, i.logicalClusterName)
 	crds, err := i.schemaPuller.PullCRDs(i.context, i.resourcesToSync...)
 	if err != nil {
 		klog.Errorf("error pulling CRDs: %v", err)
+		return
 	}
 
 	gvrsToSync := map[string]metav1.GroupVersionResource{}
@@ -102,17 +106,16 @@ func (i *APIImporter) ImportAPIs() {
 			continue
 		}
 		if len(objs) > 1 {
-			klog.Errorf("There should be only one APIResourceImport of GVR %s for location %s in logical cluster %s, but there was %d", gvr.String(), i.location, i.logicalClusterName, len(objs))
+			klog.Errorf("There should be only one APIResourceImport of GVR %s for location %s in logical cluster %s, but where was %d", gvr.String(), i.location, i.logicalClusterName, len(objs))
 			continue
 		}
 		if len(objs) == 1 {
-			apiResourceImport := objs[0].(*apiresourcev1alpha1.APIResourceImport)
-			apiResourceImport.ClusterName = i.logicalClusterName
+			apiResourceImport := objs[0].(*apiresourcev1alpha1.APIResourceImport).DeepCopy()
 			if err := apiResourceImport.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema); err != nil {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -182,7 +185,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
+			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -207,7 +210,7 @@ func (i *APIImporter) ImportAPIs() {
 		}
 		if len(objs) == 1 {
 			apiResourceImportToRemove := objs[0].(*apiresourcev1alpha1.APIResourceImport)
-			err := i.kcpClient.ApiresourceV1alpha1().APIResourceImports().Delete(i.context, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
+			err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Delete(i.context, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToRemove.Name, err)
 				continue

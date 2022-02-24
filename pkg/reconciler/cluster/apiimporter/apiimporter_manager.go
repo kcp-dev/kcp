@@ -34,7 +34,7 @@ import (
 )
 
 type apiImporterManager struct {
-	kcpClient                kcpclient.Interface
+	kcpClusterClient         *kcpclient.Cluster
 	resourcesToSync          []string
 	clusterIndexer           cache.Indexer
 	apiresourceImportIndexer cache.Indexer
@@ -78,7 +78,7 @@ func (m *apiImporterManager) Cleanup(ctx context.Context, deletedCluster *cluste
 
 func (m *apiImporterManager) startAPIImporter(config *rest.Config, location string, logicalClusterName string, pollInterval time.Duration) (*APIImporter, error) {
 	apiImporter := APIImporter{
-		kcpClient:                m.kcpClient,
+		kcpClusterClient:         m.kcpClusterClient,
 		resourcesToSync:          m.resourcesToSync,
 		apiresourceImportIndexer: m.apiresourceImportIndexer,
 		clusterIndexer:           m.clusterIndexer,
