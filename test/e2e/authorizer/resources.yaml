@@ -1,26 +1,13 @@
-# create workspace shard and workspace1
-apiVersion: tenancy.kcp.dev/v1alpha1
-kind: WorkspaceShard
-metadata:
-  name: boston
-spec:
-  credentials:
-    namespace: default
-    name: kubeconfig
----
+# workspaces
 apiVersion: tenancy.kcp.dev/v1alpha1
 kind: Workspace
 metadata:
   name: workspace1
-spec:
-  inheritFrom: admin
 ---
 apiVersion: tenancy.kcp.dev/v1alpha1
 kind: Workspace
 metadata:
   name: workspace2
-spec:
-  inheritFrom: admin
 ---
 
 # declare user-1 to be editor
