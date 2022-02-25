@@ -24,10 +24,10 @@ DEMO_PROMPT="☸️ $ "
 
 TYPE_SPEED=150
 #TYPE_SPEED=999
-#NO_WAIT=1
+#NO_WAIT=true
 
 function pause() {
-  if [[ -n "${NO_WAIT}" ]]; then
+  if [[ "${NO_WAIT}" = "true" ]]; then
     sleep 2
   else
     if [[ -n "${1-}" ]]; then
