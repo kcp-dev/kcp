@@ -7,7 +7,7 @@
 ## Prototype 2 demo
 Check out our latest demo recording showing workspaces, transparent multi-cluster, and API inheritance!
 
-[![asciicast](https://asciinema.org/a/471485.svg)](https://asciinema.org/a/471485)
+[![asciicast](https://gist.githubusercontent.com/jmprusi/c00a762118a6200e00608dc479b19aff/raw/7f300c8f82b425282f56ade35f53966b188de0ae/kcp-prototype2-demo.svg)](https://asciinema.org/a/471485)
 
 By default, `kcp` only knows about:
 
