@@ -109,41 +109,19 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				vwUser2Client := server.virtualWorkspaceClients[1]
 				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace1")
-
+				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
 				workspace2, err := vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace2")
-
+				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{})
+				require.NoError(t, err, "expected to see workspace2 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
 				})
-
-				err = wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (done bool, err error) {
-					if _, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{}); err != nil {
-						if apierrors.IsNotFound(err) {
-							return false, nil
-						}
-						return false, err
-					}
-					return true, nil
-				})
-				require.NoError(t, err, "did not see the workspace1 created and valid in KCP")
-
-				if err := wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (done bool, err error) {
-					if _, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{}); err != nil {
-						if apierrors.IsNotFound(err) {
-							return false, nil
-						}
-						return false, err
-					}
-					return true, nil
-				}); err != nil {
-					t.Errorf("did not see the workspace1 created and valid in KCP: %v", err)
-					return
-				}
 
 				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {

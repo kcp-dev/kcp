@@ -68,10 +68,8 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be unschedulable")
-				if err := server.orgExpect(workspace, unschedulable); err != nil {
-					t.Errorf("did not see workspace marked unschedulable: %v", err)
-					return
-				}
+				err = server.orgExpect(workspace, unschedulable)
+				require.NoError(t, err, "did not see workspace marked unschedulable")
 			},
 		},
 		{

@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/klog/v2"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -147,6 +148,7 @@ func TestAuthorizer(t *testing.T) {
 		require.Eventually(t, func() bool {
 			ws, err := orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "workspace1", metav1.GetOptions{})
 			if err != nil {
+				klog.Errorf("failed to get workspace: %v", err)
 				return false
 			}
 			return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady

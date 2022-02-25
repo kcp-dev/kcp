@@ -76,7 +76,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
 	if unstr.GetNamespace() == "" {
-		klog.V(5).Infof("%s %s had no namespace; ignoring", gvr.String(), unstr.GetName())
+		klog.V(5).Infof("%s %s|%s had no namespace; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
 		return nil
 	}
 
@@ -294,6 +294,8 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 	}
 
 	// Update all resources in the namespace with the cluster assignment.
+	//
+	// TODO(sttts): don't requeue all gvr just because of a tiny update on a namespace
 	//
 	// including updates that don't affect cluster assignment (e.g.,
 	// annotation). This will be especially painful at startup, since all

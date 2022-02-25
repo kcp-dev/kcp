@@ -148,7 +148,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(ctx context.Context) {
 	// TODO: Feed any failure to discover types into /readyz, instead of
 	// panicking.
 	if err := d.discoverTypes(ctx); err != nil {
-		// TODO(sttts): don't do this
+		// TODO(sttts): don't klog.Fatal, but return an error
 		klog.Fatalf("Error discovering initial types: %v", err)
 	}
 

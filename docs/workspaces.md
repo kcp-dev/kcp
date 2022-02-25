@@ -47,9 +47,14 @@ components can use initializers to customize ClusterWorkspaces on creation, e.g.
 to bootstrap resources inside the workspace, or to set up permission in its parent.
 
 An organization is a ClusterWorkspace of type `Organization`. A cluster workspace of
-type `Universal` is a workspace without further initialization or special properties.
+type `Universal` is a workspace without further initialization or special properties
+by default, and it can be used without a corresponding ClusterWorkspaceType object
+(though one can be added and its initializers will be applied).
 
-ClusterWorkspaces persisted in etcd on a shard have disjoint etcd prefix ranges.
+ClusterWorkspaces persisted in etcd on a shard have disjoint etcd prefix ranges, i.e.
+they have independent behaviour and no cluster workspace sees objects from other
+cluster workspaces. In contrast to namespace in Kubernetes, this includes non-namespaced
+objects, e.g. like CRDs where each workspace can have its own set of CRDs installed.
 
 ## Organization Workspaces
 
@@ -63,7 +68,7 @@ organization workspace initialization.
 ## Root Workspace
 
 The root workspace is a singleton in the system accessible under `/clusters/root`.
-It is not represented by a ClusterWorkspace anywhere, but shared the same properties.
+It is not represented by a ClusterWorkspace anywhere, but shares the same properties.
 
 Inside the root workspace at least the following resources are bootstrapped on
 kcp startup:
@@ -79,7 +84,7 @@ ClusterWorkspace is to be persisted.
 ## System Workspaces
 
 System workspaces are local to a shard and are named in the pattern `system:<system-workspace-name>`.
-They are only accessible via a shard-local admin user, and there is neither a definition 
+They are only accessible to a shard-local admin user, and there is neither a definition 
 via a ClusterWorkspace, nor is there any validation of requests that thet system 
 workspace exists.
 

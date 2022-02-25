@@ -35,6 +35,7 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/klog/v2"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
@@ -106,8 +107,7 @@ func TestClusterController(t *testing.T) {
 						if apierrors.IsNotFound(err) {
 							return false
 						}
-						require.NoError(t, err, "Error getting cowboy %q in sink", cowboy.Name)
-
+						klog.Errorf("Error getting cowboy %q in sink: %v", cowboy.Name, err)
 						return false
 					} else if diff := cmp.Diff(cowboy.Spec, got.Spec); diff != "" {
 						require.Errorf(t, nil, "Spec mismatch on sink cluster: %s", diff)
@@ -125,7 +125,7 @@ func TestClusterController(t *testing.T) {
 						if apierrors.IsNotFound(err) {
 							return false
 						}
-						require.NoError(t, err, "Error getting cowboy %q in source", cowboy.Name)
+						klog.Errorf("Error getting cowboy %q in source: %v", cowboy.Name, err)
 						return false
 					} else if diff := cmp.Diff(updated.Status, got.Status); diff != "" {
 						require.Errorf(t, nil, "Status mismatch on source cluster: %s", diff)

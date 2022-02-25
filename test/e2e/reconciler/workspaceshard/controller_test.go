@@ -69,7 +69,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					workspaceShard, err = server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace shard")
 					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) == tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing
-				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
+				}, wait.ForeverTestTimeout, time.Second, "expected workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
 			},
 		},
 		{

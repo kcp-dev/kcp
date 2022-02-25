@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
@@ -66,7 +67,7 @@ func TestIngressController(t *testing.T) {
 		{
 			name: "ingress lifecycle",
 			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer) {
-				// We create a root ingress. Ingress is excluded (through a hack) in namespace controller to be labelled.
+				// We create a root ingress. Ingress is excluded (through a hack) in namespace controller to be labeled.
 				// The ingress-controller will take over the labelling of the leaves. After that the normal syncer will
 				// sync the leaves into the physical cluster.
 
@@ -87,6 +88,7 @@ func TestIngressController(t *testing.T) {
 				require.Eventually(t, func() bool {
 					got, err := servers[sinkServerName].client.Ingresses(targetNamespace).List(ctx, metav1.ListOptions{})
 					if err != nil {
+						klog.Errorf("failed to list ingresses in sink cluster: %v", err)
 						return false
 					}
 					if len(got.Items) != 1 {
@@ -112,6 +114,7 @@ func TestIngressController(t *testing.T) {
 				require.Eventually(t, func() bool {
 					got, err := servers[sinkServerName].client.Ingresses(targetNamespace).List(ctx, metav1.ListOptions{})
 					if err != nil {
+						klog.Errorf("failed to list ingresses in sink cluster: %v", err)
 						return false
 					}
 					if len(got.Items) != 1 {

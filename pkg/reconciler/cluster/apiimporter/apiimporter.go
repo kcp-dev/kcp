@@ -106,7 +106,7 @@ func (i *APIImporter) ImportAPIs() {
 			continue
 		}
 		if len(objs) > 1 {
-			klog.Errorf("There should be only one APIResourceImport of GVR %s for location %s in logical cluster %s, but where was %d", gvr.String(), i.location, i.logicalClusterName, len(objs))
+			klog.Errorf("There should be only one APIResourceImport of GVR %s for location %s in logical cluster %s, but there was %d", gvr.String(), i.location, i.logicalClusterName, len(objs))
 			continue
 		}
 		if len(objs) == 1 {
