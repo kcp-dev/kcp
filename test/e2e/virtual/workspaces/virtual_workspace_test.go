@@ -107,16 +107,23 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
 				vwUser2Client := server.virtualWorkspaceClients[1]
+
+				t.Logf("Create Workspace workspace1 in the virtual workspace")
 				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace1")
+
+				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
 				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
+				t.Logf("Create Workspace workspace2 in the virtual workspace")
 				workspace2, err := vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace2")
+
+				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
 				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{})
 				require.NoError(t, err, "expected to see workspace2 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
