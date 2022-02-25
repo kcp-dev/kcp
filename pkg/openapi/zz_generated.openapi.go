@@ -714,7 +714,7 @@ func schema_pkg_apis_tenancy_v1beta1_Workspace(ref common.ReferenceCallback) com
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.\n\nA workspace can be backed by different concrete types of workspace implementation, depending on access pattern. All workspace implementations share the characteristic that the URL that serves it can be used with standard Kubernetes API machinery and client libraries and command line tools.",
+				Description: "Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.\n\nA workspace can be backed by different concrete types of workspace implementation, depending on access pattern. All workspace implementations share the characteristic that the URL that serves a given workspace can be used with standard Kubernetes API machinery and client libraries and command line tools.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

@@ -27,8 +27,8 @@ import (
 //
 // A workspace can be backed by different concrete types of workspace implementation,
 // depending on access pattern. All workspace implementations share the characteristic
-// that the URL that serves it can be used with standard Kubernetes API machinery and
-// client libraries and command line tools.
+// that the URL that serves a given workspace can be used with standard Kubernetes
+// API machinery and client libraries and command line tools.
 //
 // +crd
 // +genclient
