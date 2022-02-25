@@ -66,17 +66,32 @@ pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-west1.kubeconfig apply -f ${DEMOS_DI
 wait
 clear
 
-c "Start with some basic setup. Start by creating the 'default' namespace, which kcp does not currently precreate for you, like Kubernetes does"
+c "First let's explore a little about the kcp server and the workspaces."
+pe "kubectl config current-context"
+c "We are now in the default organization, created on kcp startup. There is not much in here, not even a namespace. But we can create it."
 pe "kubectl create namespace default"
 
-c "We have to do some prep work for kcp's new Workspaces feature. First, store a copy of the kubeconfig in a secret."
-pe "kubectl create secret generic kubeconfig --from-file=kubeconfig=${KUBECONFIG}"
+c "We can switch over to the root workspace to see all organizations on this kcp."
+pe "kubectl config use-context root"
+pe "kubectl get clusterworkspaces"
+c "We are alone. Let's create an organization called demo, to not use the default organization as playground."
+cat <<EOF > "${KCP_DATA_DIR}/demo-org.yaml"
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: ClusterWorkspace
+metadata:
+  name: demo
+spec:
+  type: Organization
+EOF
+pe "cat ${KCP_DATA_DIR}/demo-org.yaml"
+pe "kubectl create -f ${KCP_DATA_DIR}/demo-org.yaml"
+c "Let's check that it is created and becoming ready."
+pe "kubectl get clusterworkspaces"
 
-c "Next, create a WorkspaceShard that represents this kcp instance that looks like this:"
-pe "cat ${DEMO_DIR}/workspace-shard.yaml"
-pe "kubectl apply -f ${DEMO_DIR}/workspace-shard.yaml"
+c "We can switch over to the demo organization. For this, we could add the URL to our kubeconfig. But this far too complicate. We have this awesome kcp kubectl plugin:"
+pe "kubectl kcp workspace use demo"
 
-c "Let's start by creating a workspace and using it."
+c "Let's start by creating a \"real\" workspace and using it. That's what organization workspace are for, to hold the actual application workspaces."
 pe "kubectl kcp workspace --token user-1-token create workspace1 --use"
 
 c "Because KCP doesn’t include Deployments by default, and we haven’t registered any Clusters yet, we need to teach KCP about Deployments"
