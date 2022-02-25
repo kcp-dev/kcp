@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	controllerName = "clusterworkspacetype_organization"
+	controllerName = "kcp-clusterworkspacetype-organization"
 )
 
 func NewController(
@@ -74,8 +74,8 @@ func NewController(
 	return c, nil
 }
 
-// controller watches Workspaces and WorkspaceShards in order to make sure every ClusterWorkspace
-// is scheduled to a valid WorkspaceShard.
+// controller watches ClusterWorkspaces of type "Organization" in initializing
+// state and bootstrap resources from the configs/organization package.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 

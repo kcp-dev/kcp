@@ -164,3 +164,50 @@ func TestWorkspaceKey(t *testing.T) {
 		})
 	}
 }
+
+func TestParentClusterName(t *testing.T) {
+	tests := []struct {
+		clusterName string
+		want        string
+		wantErr     bool
+	}{
+		{
+			"root",
+			"",
+			true,
+		},
+		{
+			"",
+			"",
+			true,
+		},
+		{
+			"root:foo",
+			"root",
+			false,
+		},
+		{
+			"org:foo",
+			"root:org",
+			false,
+		},
+		{
+			"org:foo:bar",
+			"",
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.clusterName, func(t *testing.T) {
+			got, err := ParentClusterName(tt.clusterName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParentClusterName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ParentClusterName() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
