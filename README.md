@@ -4,6 +4,11 @@
 
 `kcp` is a generic [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRD) apiserver that is divided into multiple "[logical clusters](docs/investigations/logical-clusters.md)" that enable multitenancy of cluster-scoped resources such as CRDs and Namespaces. Each logical cluster is independent: the available APIs and data are separate from one logical cluster to another.
 
+## Prototype 2 demo
+Check out our latest demo recording showing workspaces, transparent multi-cluster, and API inheritance!
+
+[![asciicast](https://asciinema.org/a/471485.svg)](https://asciinema.org/a/471485)
+
 By default, `kcp` only knows about:
 
 - [`Namespace`](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)s
