@@ -56,6 +56,18 @@ var _ conditions.Setter = &Cluster{}
 // ClusterSpec holds the desired state of the Cluster (from the client).
 type ClusterSpec struct {
 	KubeConfig string `json:"kubeconfig"`
+
+	// Unschedulable controls cluster schedulability of new workloads. By
+	// default, cluster is schedulable.
+	// +optional
+	// +kubebuilder:default=false
+	Unschedulable bool `json:"unschedulable"`
+
+	// EvictAfter controls cluster schedulability of new and existing workloads.
+	// After the EvictAfter time, any workload scheduled to the cluster
+	// will be unassigned from the cluster.
+	// By default, workloads scheduled to the cluster are not evicted.
+	EvictAfter *metav1.Time `json:"evictAfter,omitempty"`
 }
 
 // ClusterStatus communicates the observed state of the Cluster (from the controller).

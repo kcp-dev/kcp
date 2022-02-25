@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -172,6 +173,14 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 			klog.V(2).InfoS("assignCluster: excluding cluster with different metadata.clusterName", "ns.clusterName", ns.ClusterName, "check", allClusters[i].ClusterName)
 			continue
 		}
+		if allClusters[i].Spec.Unschedulable {
+			klog.V(2).InfoS("assignCluster: excluding unschedulable cluster", "metadata.name", allClusters[i].Name)
+			continue
+		}
+		if evictAfter := allClusters[i].Spec.EvictAfter; evictAfter != nil && evictAfter.Time.Before(time.Now()) {
+			klog.V(2).InfoS("assignCluster: excluding cluster with evictAfter value that has passed", "metadata.name", allClusters[i].Name)
+			continue
+		}
 		if !conditions.IsTrue(allClusters[i], clusterv1alpha1.ClusterReadyCondition) {
 			klog.V(2).InfoS("assignCluster: excluding not-ready cluster", "metadata.name", allClusters[i].Name)
 			continue
@@ -200,8 +209,13 @@ func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) er
 	return nil
 }
 
-// isValidCluster checks whether the given cluster name exists and is valid for the
-// purposes of scheduling a namespace to it.
+// isValidCluster checks whether the given cluster name exists and is valid for
+// the purposes of any namespace already scheduled to it (i.e., if it reports
+// as Ready, and any evictAfter value, if specified, has not yet passed).
+//
+// It doesn't take into account Unschedulable, and should only be used when
+// determining if a cluster that a namespace has already been assigned to
+// should keep having that namespace.
 func (c *Controller) isValidCluster(ctx context.Context, lclusterName, clusterName string) (bool, error) {
 	cluster, err := c.clusterLister.Get(clusters.ToClusterAwareKey(lclusterName, clusterName))
 	if apierrors.IsNotFound(err) {
@@ -211,11 +225,15 @@ func (c *Controller) isValidCluster(ctx context.Context, lclusterName, clusterNa
 	if err != nil {
 		return false, err
 	}
-	isReady := conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
-	if !isReady {
+	if ready := conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition); !ready {
 		klog.Infof("Cluster %q|%q is not reporting ready", lclusterName, clusterName)
+		return false, nil
 	}
-	return isReady, nil
+	if evictAfter := cluster.Spec.EvictAfter; evictAfter != nil && evictAfter.Time.Before(time.Now()) {
+		klog.Infof("Cluster %q|%q is evicted", lclusterName, clusterName)
+		return false, nil
+	}
+	return true, nil
 }
 
 // ensureScheduled attempts to ensure the namespace is assigned to a viable cluster. This
@@ -326,12 +344,21 @@ func clusterLabelPatchBytes(val string) []byte {
 func (c *Controller) observeCluster(ctx context.Context, cl *clusterv1alpha1.Cluster) error {
 	klog.Infof("Observing Cluster %s", cl.Name)
 
-	if conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition) {
+	evicted := cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.Time.Before(time.Now())
+
+	// If cluster is Ready and not unschedulable or evicting, revisit any
+	// unscheduled namespaces.
+	if conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition) && !cl.Spec.Unschedulable && !evicted {
 		// Revisit any unscheduled namespaces
 		var errs []error
 		errs = append(errs, c.enqueueNamespaces(ctx, unscheduledSelector))
 		errs = append(errs, c.enqueueNamespaces(ctx, scheduledToNothingSelector))
 		return errors.NewAggregate(errs)
+	}
+
+	if cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.After(time.Now()) {
+		dur := time.Until(cl.Spec.EvictAfter.Time)
+		c.enqueueClusterAfter(cl, dur)
 	}
 
 	// An unhealthy cluster requires revisiting the scheduling for all namespaces to

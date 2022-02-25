@@ -50,8 +50,20 @@ spec:
           spec:
             description: Spec holds the desired state.
             properties:
+              evictAfter:
+                description: EvictAfter controls cluster schedulability of new and
+                  existing workloads. After the EvictAfter time, any workload scheduled
+                  to the cluster will be unassigned from the cluster. By default,
+                  workloads scheduled to the cluster are not evicted.
+                format: date-time
+                type: string
               kubeconfig:
                 type: string
+              unschedulable:
+                default: false
+                description: Unschedulable controls cluster schedulability of new
+                  workloads. By default, cluster is schedulable.
+                type: boolean
             required:
             - kubeconfig
             type: object
