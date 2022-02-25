@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacetype
+package clusterworkspacetypeexists
 
 import (
 	"context"
@@ -256,7 +256,7 @@ func TestAdmit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterworkspacetypeExists{
+			o := &clusterWorkspaceTypeExists{
 				Handler:    admission.NewHandler(admission.Create, admission.Update),
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
 			}
@@ -569,7 +569,7 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterworkspacetypeExists{
+			o := &clusterWorkspaceTypeExists{
 				Handler:    admission.NewHandler(admission.Create, admission.Update),
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
 			}

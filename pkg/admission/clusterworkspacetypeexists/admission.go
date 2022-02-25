@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacetype
+package clusterworkspacetypeexists
 
 import (
 	"context"
@@ -51,13 +51,13 @@ const (
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
-			return &clusterworkspacetypeExists{
+			return &clusterWorkspaceTypeExists{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}, nil
 		})
 }
 
-type clusterworkspacetypeExists struct {
+type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister    tenancyv1alpha1lister.ClusterWorkspaceTypeLister
 	cachesToSync  []cache.InformerSynced
@@ -65,13 +65,13 @@ type clusterworkspacetypeExists struct {
 }
 
 // Ensure that the required admission interfaces are implemented.
-var _ = admission.ValidationInterface(&clusterworkspacetypeExists{})
-var _ = kcpinitializers.WantsKcpInformers(&clusterworkspacetypeExists{})
-var _ = admission.MutationInterface(&clusterworkspacetypeExists{})
-var _ = admission.ValidationInterface(&clusterworkspacetypeExists{})
+var _ = admission.ValidationInterface(&clusterWorkspaceTypeExists{})
+var _ = kcpinitializers.WantsKcpInformers(&clusterWorkspaceTypeExists{})
+var _ = admission.MutationInterface(&clusterWorkspaceTypeExists{})
+var _ = admission.ValidationInterface(&clusterWorkspaceTypeExists{})
 
 // Admit adds type initializer on transition to initializing phase.
-func (o *clusterworkspacetypeExists) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
 		return nil
 	}
@@ -151,7 +151,7 @@ func (o *clusterworkspacetypeExists) Admit(ctx context.Context, a admission.Attr
 // Validate ensures that
 // - has a valid type
 // - has valid initializers when transitioning to initializing
-func (o *clusterworkspacetypeExists) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
 		return nil
 	}
@@ -243,7 +243,7 @@ func (o *clusterworkspacetypeExists) Validate(ctx context.Context, a admission.A
 
 // waitForSyncedStore calls cache.WaitForCacheSync, which will wait up to timeToWaitForCacheSync
 // for the cachesToSync to synchronize.
-func (o *clusterworkspacetypeExists) waitForSyncedStore(ctx context.Context) bool {
+func (o *clusterWorkspaceTypeExists) waitForSyncedStore(ctx context.Context) bool {
 	syncCtx, cancelFn := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelFn()
 	if !o.cacheSyncLock.hasSynced() {
@@ -255,7 +255,7 @@ func (o *clusterworkspacetypeExists) waitForSyncedStore(ctx context.Context) boo
 	return true
 }
 
-func (o *clusterworkspacetypeExists) ValidateInitialization() error {
+func (o *clusterWorkspaceTypeExists) ValidateInitialization() error {
 	if o.typeLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs an ClusterWorkspaceType lister")
 	}
@@ -265,7 +265,7 @@ func (o *clusterworkspacetypeExists) ValidateInitialization() error {
 	return nil
 }
 
-func (o *clusterworkspacetypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	o.cachesToSync = append(o.cachesToSync, informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced)
 	o.typeLister = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Lister()
 }
