@@ -107,6 +107,8 @@ spec:
         - --root-directory=/tmp/kcp
         - --oidc-issuer-url=https://sso.redhat.com/auth/realms/redhat-external
         - --oidc-client-id=rhoas-cli-prod
+        - --oidc-groups-claim=org_id
+        - "--oidc-groups-prefix=org:"
         livenessProbe:
           failureThreshold: 3
           httpGet:
