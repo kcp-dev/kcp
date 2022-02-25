@@ -45,7 +45,7 @@ import (
 // creation.
 
 const (
-	PluginName = "tenancy.kcp.dev/ClusterWorkspaceType"
+	PluginName = "tenancy.kcp.dev/ClusterWorkspaceTypeExists"
 )
 
 func Register(plugins *admission.Plugins) {
@@ -70,6 +70,7 @@ var _ = kcpinitializers.WantsKcpInformers(&clusterworkspacetypeExists{})
 var _ = admission.MutationInterface(&clusterworkspacetypeExists{})
 var _ = admission.ValidationInterface(&clusterworkspacetypeExists{})
 
+// Admit adds type initializer on transition to initializing phase.
 func (o *clusterworkspacetypeExists) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
 		return nil
@@ -95,7 +96,7 @@ func (o *clusterworkspacetypeExists) Admit(ctx context.Context, a admission.Attr
 
 	obj, err = kcpadmissionhelpers.NativeObject(a.GetOldObject())
 	if err != nil {
-		return fmt.Errorf("unexpected unknown old object, got %v, expected CLusterWorkspace", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
+		return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
 	}
 	old, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
 	if !ok {
@@ -147,8 +148,9 @@ func (o *clusterworkspacetypeExists) Admit(ctx context.Context, a admission.Attr
 	return nil
 }
 
-// Validate ensures that routes specify required annotations, and returns nil if valid.
-// The admission handler ensures this is only called for Create/Update operations.
+// Validate ensures that
+// - has a valid type
+// - has valid initializers when transitioning to initializing
 func (o *clusterworkspacetypeExists) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
 		return nil
@@ -165,13 +167,16 @@ func (o *clusterworkspacetypeExists) Validate(ctx context.Context, a admission.A
 		return nil // only work on unstructured ClusterWorkspaces
 	}
 
+	// first all steps where we need no lister
 	var old *tenancyv1alpha1.ClusterWorkspace
 	var transitioningToInitializing bool
-	if a.GetOperation() == admission.Update {
+	switch a.GetOperation() {
+	case admission.Update:
 		obj, err = kcpadmissionhelpers.NativeObject(a.GetOldObject())
 		if err != nil {
-			return fmt.Errorf("unexpected unknown old object, got %v, expected CLusterWorkspace", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
+			return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
 		}
+
 		old, ok = obj.(*tenancyv1alpha1.ClusterWorkspace)
 		if !ok {
 			return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", obj.GetObjectKind().GroupVersionKind().Kind)
@@ -179,6 +184,10 @@ func (o *clusterworkspacetypeExists) Validate(ctx context.Context, a admission.A
 
 		transitioningToInitializing = old.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing &&
 			cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+	}
+
+	if cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady && len(cw.Status.Initializers) > 0 {
+		return admission.NewForbidden(a, fmt.Errorf("spec.initializers must be empty for phase %s", cw.Status.Phase))
 	}
 
 	if !o.waitForSyncedStore(ctx) {
@@ -207,28 +216,23 @@ func (o *clusterworkspacetypeExists) Validate(ctx context.Context, a admission.A
 		}
 
 		if a.GetOperation() == admission.Update {
-			// this is a trnasition to initializing. Check that all initializers are there
+			// this is a transition to initializing. Check that all initializers are there
 			// (no other admission plugin removed any).
 			existing := sets.NewString()
-			for _, i := range cw.Status.Initializers {
-				existing.Insert(string(i))
+			for _, initializer := range cw.Status.Initializers {
+				existing.Insert(string(initializer))
 			}
-			for _, i := range cwt.Spec.Initializers {
-				if !existing.Has(string(i)) {
-					return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", i))
+			for _, initializer := range cwt.Spec.Initializers {
+				if !existing.Has(string(initializer)) {
+					return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
 				}
 			}
 		}
 	}
 
-	// Determine if there are HSTS changes in this update
 	if a.GetOperation() == admission.Update {
 		if old.Spec.Type != cw.Spec.Type {
 			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
-		}
-
-		if transitioningToInitializing {
-			return nil
 		}
 	}
 
