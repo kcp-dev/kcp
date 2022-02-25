@@ -74,7 +74,7 @@ type ClusterWorkspaceSpec struct {
 	//
 	// The type is a reference to a ClusterWorkspaceType in the same workspace
 	// with the same name, but lower-cased. The ClusterWorkspaceType existence is
-	// validated during admission during creation, with the exception of the
+	// validated at admission during creation, with the exception of the
 	// "Universal" type whose existence is not required but respected if it exists.
 	// The type is immutable after creation. The use of a type is gated via
 	// the RBAC clusterworkspacetypes/use resource permission.

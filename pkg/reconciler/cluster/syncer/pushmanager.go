@@ -106,7 +106,7 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 		oldSyncerCancel()
 	}
 
-	klog.Infof("Started push mode syncer from clusterName %s to for pcluster %s", kcpClusterName, cluster.Name)
+	klog.Infof("Started push mode syncer from clusterName %s for pcluster %s", kcpClusterName, cluster.Name)
 	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
 
 	return true, nil

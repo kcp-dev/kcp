@@ -26,9 +26,9 @@ import (
 // discovery APIs, OpenAPI and resource API endpoints.
 //
 // A workspace can be backed by different concrete types of workspace implementation,
-// depending on access pattern. All of them have in common, that the resulting workspace under
-// the URL where it is served can be used with standard Kubernetes API machinery and client
-// libraries and command line tools.
+// depending on access pattern. All workspace implementations share the characteristic
+// that the URL that serves it can be used with standard Kubernetes API machinery and
+// client libraries and command line tools.
 //
 // +crd
 // +genclient
@@ -56,7 +56,7 @@ type WorkspaceSpec struct {
 	//
 	// The type is a reference to a ClusterWorkspaceType in the same workspace
 	// with the same name, but lower-cased. The ClusterWorkspaceType existence is
-	// validated during admission during creation, with the exception of the
+	// validated at admission during creation, with the exception of the
 	// "Universal" type whose existence is not required but respected if it exists.
 	// The type is immutable after creation. The use of a type is gated via
 	// the RBAC clusterworkspacetypes/use resource permission.

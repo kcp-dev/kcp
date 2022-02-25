@@ -74,8 +74,8 @@ func TestAdmit(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			"adds initializers during transition to initializing",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "adds initializers during transition to initializing",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
@@ -85,7 +85,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 			},
-			updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -111,7 +111,7 @@ func TestAdmit(t *testing.T) {
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
 					},
 				}),
-			&tenancyv1alpha1.ClusterWorkspace{
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -125,11 +125,10 @@ func TestAdmit(t *testing.T) {
 					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-			false,
 		},
 		{
-			"does not add initializers during transition not to initializing",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "does not add initializers during transition not to initializing",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
@@ -139,7 +138,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 			},
-			updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -165,7 +164,7 @@ func TestAdmit(t *testing.T) {
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
 					},
 				}),
-			&tenancyv1alpha1.ClusterWorkspace{
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -179,12 +178,10 @@ func TestAdmit(t *testing.T) {
 					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-			false,
 		},
 		{
-			"does nothing for universal type",
-			nil,
-			updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			name: "does nothing for universal type",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -210,7 +207,7 @@ func TestAdmit(t *testing.T) {
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
 					},
 				}),
-			&tenancyv1alpha1.ClusterWorkspace{
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -224,12 +221,10 @@ func TestAdmit(t *testing.T) {
 					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-			false,
 		},
 		{
-			"ignors different resources",
-			nil,
-			admission.NewAttributesRecord(
+			name: "ignors different resources",
+			a: admission.NewAttributesRecord(
 				&tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
@@ -246,12 +241,11 @@ func TestAdmit(t *testing.T) {
 				false,
 				&user.DefaultInfo{},
 			),
-			&tenancyv1alpha1.WorkspaceShard{
+			expectedObj: &tenancyv1alpha1.WorkspaceShard{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
 			},
-			false,
 		},
 	}
 	for _, tt := range tests {
@@ -262,8 +256,9 @@ func TestAdmit(t *testing.T) {
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			} else if !reflect.DeepEqual(tt.expectedObj, tt.a.GetObject()) {
+				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(tt.expectedObj, tt.a.GetObject()) {
 				t.Errorf("unexpected result (A expected, B got): %s", diff.ObjectReflectDiff(tt.expectedObj, tt.a.GetObject()))
 			}
 		})
@@ -274,19 +269,19 @@ func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		types   []*tenancyv1alpha1.ClusterWorkspaceType
-		a       admission.Attributes
+		attr    admission.Attributes
 		wantErr bool
 	}{
 		{
-			"passes create if type exists",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "passes create if type exists",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
 					},
 				},
 			},
-			createAttr(&tenancyv1alpha1.ClusterWorkspace{
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -294,12 +289,10 @@ func TestValidate(t *testing.T) {
 					Type: "Foo",
 				},
 			}),
-			false,
 		},
 		{
-			"fails if type does not exists",
-			nil,
-			createAttr(&tenancyv1alpha1.ClusterWorkspace{
+			name: "fails if type does not exists",
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -307,18 +300,18 @@ func TestValidate(t *testing.T) {
 					Type: "Foo",
 				},
 			}),
-			true,
+			wantErr: true,
 		},
 		{
-			"fails if type only exists in different workspace",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "fails if type only exists in different workspace",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:bigcorp#$#foo",
 					},
 				},
 			},
-			createAttr(&tenancyv1alpha1.ClusterWorkspace{
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -326,12 +319,11 @@ func TestValidate(t *testing.T) {
 					Type: "Foo",
 				},
 			}),
-			true,
+			wantErr: true,
 		},
 		{
-			"Universal always exists implicitly",
-			nil,
-			createAttr(&tenancyv1alpha1.ClusterWorkspace{
+			name: "Universal always exists implicitly",
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -339,18 +331,17 @@ func TestValidate(t *testing.T) {
 					Type: "Universal",
 				},
 			}),
-			false,
 		},
 		{
-			"Universal works too when it exists",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "Universal works too when it exists",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#universal",
 					},
 				},
 			},
-			createAttr(&tenancyv1alpha1.ClusterWorkspace{
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -358,18 +349,17 @@ func TestValidate(t *testing.T) {
 					Type: "Universal",
 				},
 			}),
-			false,
 		},
 		{
-			"rejects type mutations",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "rejects type mutations",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
 					},
 				},
 			},
-			updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			attr: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -385,11 +375,11 @@ func TestValidate(t *testing.T) {
 						Type: "Universal",
 					},
 				}),
-			true,
+			wantErr: true,
 		},
 		{
-			"validates initializers on phase transition",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "validates initializers on phase transition",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
@@ -399,7 +389,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 			},
-			updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			attr: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -422,11 +412,11 @@ func TestValidate(t *testing.T) {
 						Phase: tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
 					},
 				}),
-			true,
+			wantErr: true,
 		},
 		{
-			"passes with all initializers or more on phase transition",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "passes with all initializers or more on phase transition",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
@@ -436,7 +426,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 			},
-			updateAttr(
+			attr: updateAttr(
 				&tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
@@ -462,11 +452,10 @@ func TestValidate(t *testing.T) {
 						Phase: tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
 					},
 				}),
-			false,
 		},
 		{
-			"rejects transition from Initializing with non-empty initializers",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "rejects transition from Initializing with non-empty initializers",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
@@ -476,7 +465,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 			},
-			updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			attr: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -500,11 +489,11 @@ func TestValidate(t *testing.T) {
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
 					},
 				}),
-			true,
+			wantErr: true,
 		},
 		{
-			"allows transition from Initializing with empty initializers",
-			[]*tenancyv1alpha1.ClusterWorkspaceType{
+			name: "allows transition from Initializing with empty initializers",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root:org#$#foo",
@@ -514,7 +503,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 			},
-			updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			attr: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -542,12 +531,10 @@ func TestValidate(t *testing.T) {
 						BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 					},
 				}),
-			false,
 		},
 		{
-			"ignors different resources",
-			nil,
-			admission.NewAttributesRecord(
+			name: "ignors different resources",
+			attr: admission.NewAttributesRecord(
 				&tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
@@ -564,7 +551,6 @@ func TestValidate(t *testing.T) {
 				false,
 				&user.DefaultInfo{},
 			),
-			false,
 		},
 	}
 	for _, tt := range tests {
@@ -574,8 +560,8 @@ func TestValidate(t *testing.T) {
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
-			if err := o.Validate(ctx, tt.a, nil); (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
+				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

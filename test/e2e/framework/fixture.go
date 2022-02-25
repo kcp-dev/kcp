@@ -125,7 +125,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
 		}
-		require.NoErrorf(t, err, "failed to delete organization workspace %s: %v", org.Name, err)
+		require.NoErrorf(t, err, "failed to delete organization workspace %s", org.Name)
 	})
 
 	require.Eventuallyf(t, func() bool {

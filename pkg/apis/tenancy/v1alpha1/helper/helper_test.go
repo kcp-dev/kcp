@@ -202,8 +202,7 @@ func TestParentClusterName(t *testing.T) {
 		t.Run(tt.clusterName, func(t *testing.T) {
 			got, err := ParentClusterName(tt.clusterName)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParentClusterName() error = %v, wantErr %v", err, tt.wantErr)
-				return
+				t.Fatalf("ParentClusterName() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if got != tt.want {
 				t.Errorf("ParentClusterName() got = %v, want %v", got, tt.want)
