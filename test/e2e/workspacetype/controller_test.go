@@ -86,6 +86,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 				t.Logf("Create workspace with explicit type Foo again")
 				require.Eventually(t, func() bool {
+					// note: admission is informer based and hence would race with this create call
 					workspace, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: "Foo"},
@@ -114,6 +115,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				t.Logf("Create workspace with explicit type Foo again")
 				var workspace *tenancyv1alpha1.ClusterWorkspace
 				require.Eventually(t, func() bool {
+					// note: admission is informer based and hence would race with this create call
 					workspace, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: "Foo"},
