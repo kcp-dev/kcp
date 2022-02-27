@@ -69,12 +69,8 @@ func NewController(
 		workspaceLister:       workspaceInformer.Lister(),
 		workspaceShardIndexer: workspaceShardInformer.Informer().GetIndexer(),
 		workspaceShardLister:  workspaceShardInformer.Lister(),
-		syncChecks: []cache.InformerSynced{
-			workspaceInformer.Informer().HasSynced,
-			workspaceShardInformer.Informer().HasSynced,
-		},
-		shardInformers: map[string]map[string]organizationInformer{},
-		index:          index,
+		shardInformers:        map[string]map[string]organizationInformer{},
+		index:                 index,
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -132,8 +128,6 @@ type Controller struct {
 
 	workspaceShardIndexer cache.Indexer
 	workspaceShardLister  tenancylister.WorkspaceShardLister
-
-	syncChecks []cache.InformerSynced
 
 	shardInformersLock sync.RWMutex
 	// shardInformers are the set of informers we manage for each shard that orgs are on
@@ -193,11 +187,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting WorkspaceIndex orchestrator")
 	defer klog.Info("Shutting down WorkspaceIndex orchestrator")
-
-	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.syncChecks...) {
-		klog.Warning("Failed to wait for caches to sync")
-		return
-	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startOrgWorker(ctx) }, time.Second, ctx.Done())

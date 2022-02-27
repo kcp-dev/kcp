@@ -103,6 +103,8 @@ func main() {
 	server := workspaceindex.NewServer(o.port, kcpSharedInformerFactory, index, controller.Stable)
 
 	kcpSharedInformerFactory.Start(ctx.Done())
+	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+
 	go controller.Start(ctx, o.numThreads)
 	go server.ListenAndServe(ctx)
 

@@ -82,11 +82,6 @@ func NewController(
 		namespaceLister: namespaceLister,
 		kubeClient:      kubeClient,
 		gvkTrans:        gvkTrans,
-
-		syncChecks: []cache.InformerSynced{
-			namespaceInformer.Informer().HasSynced,
-			clusterInformer.Informer().HasSynced,
-		},
 	}
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueCluster(obj) },
@@ -125,8 +120,6 @@ type Controller struct {
 	kubeClient      kubernetes.ClusterInterface
 	ddsif           informer.DynamicDiscoverySharedInformerFactory
 	gvkTrans        *gvk.GVKTranslator
-
-	syncChecks []cache.InformerSynced
 }
 
 func filterResource(obj interface{}) bool {
@@ -213,11 +206,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting Namespace scheduler")
 	defer klog.Info("Shutting down Namespace scheduler")
-
-	if !cache.WaitForNamedCacheSync("namespace-scheduler", ctx.Done(), c.syncChecks...) {
-		klog.Warning("Failed to wait for caches to sync")
-		return
-	}
 
 	c.ddsif.Start(ctx)
 

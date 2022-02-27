@@ -69,10 +69,6 @@ func NewController(
 		workspaceLister:           workspaceInformer.Lister(),
 		rootWorkspaceShardIndexer: rootWorkspaceShardInformer.Informer().GetIndexer(),
 		rootWorkspaceShardLister:  rootWorkspaceShardInformer.Lister(),
-		syncChecks: []cache.InformerSynced{
-			workspaceInformer.Informer().HasSynced,
-			rootWorkspaceShardInformer.Informer().HasSynced,
-		},
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -117,8 +113,6 @@ type Controller struct {
 
 	rootWorkspaceShardIndexer cache.Indexer
 	rootWorkspaceShardLister  tenancylister.WorkspaceShardLister
-
-	syncChecks []cache.InformerSynced
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -191,11 +185,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting ClusterWorkspace controller")
 	defer klog.Info("Shutting down ClusterWorkspace controller")
-
-	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.syncChecks...) {
-		klog.Warning("Failed to wait for caches to sync")
-		return
-	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
