@@ -48,7 +48,7 @@ import (
 )
 
 var (
-	reClusterName = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,78}[a-z0-9]_)?[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$`)
+	reClusterName = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,30}[a-z0-9]:)?[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$`)
 
 	errorScheme = runtime.NewScheme()
 	errorCodecs = serializer.NewCodecFactory(errorScheme)
@@ -98,7 +98,7 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 			cluster.Wildcard = true
 			fallthrough
 		case "":
-			cluster.Name = genericcontrolplane.RootClusterName
+			cluster.Name = genericcontrolplane.LocalAdminCluster
 		default:
 			if !reClusterName.MatchString(clusterName) {
 				responsewriters.ErrorNegotiated(

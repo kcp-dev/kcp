@@ -41,8 +41,8 @@ import (
 
 // Lister enforces ability to enumerate a resource based on role
 type Lister interface {
-	// List returns the list of Workspace items that the user can access
-	List(user user.Info, selector labels.Selector) (*workspaceapi.WorkspaceList, error)
+	// List returns the list of ClusterWorkspace items that the user can access
+	List(user user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error)
 }
 
 // subjectRecord is a cache record for the set of workspaces a subject can access
@@ -159,7 +159,7 @@ type AuthorizationCache struct {
 	// allKnownWorkspaces we track all the known workspaces, so we can detect deletes.
 	// TODO remove this in favor of a list/watch mechanism for projects
 	allKnownWorkspaces        sets.String
-	workspaceLister           workspacelisters.WorkspaceLister
+	workspaceLister           workspacelisters.ClusterWorkspaceLister
 	lastSyncResourceVersioner LastSyncResourceVersioner
 
 	clusterRoleLister             SyncedClusterRoleLister
@@ -185,7 +185,7 @@ type AuthorizationCache struct {
 
 // NewAuthorizationCache creates a new AuthorizationCache
 func NewAuthorizationCache(
-	workspaceLister workspacelisters.WorkspaceLister,
+	workspaceLister workspacelisters.ClusterWorkspaceLister,
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
 	reviewer Reviewer,
 	informers rbacv1informers.Interface,
@@ -390,7 +390,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 }
 
 // List returns the set of workspace names the user has access to view
-func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector) (*workspaceapi.WorkspaceList, error) {
+func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
 	ac.rwMutex.RLock()
 	defer ac.rwMutex.RUnlock()
 
@@ -412,7 +412,7 @@ func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector)
 		}
 	}
 
-	workspaceList := &workspaceapi.WorkspaceList{}
+	workspaceList := &workspaceapi.ClusterWorkspaceList{}
 	for _, key := range keys.List() {
 		workspace, err := ac.workspaceLister.Get(key)
 		if apierrors.IsNotFound(err) {

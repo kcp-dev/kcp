@@ -110,8 +110,8 @@ func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.
 }
 
 func TestSyncWorkspace(t *testing.T) {
-	workspaceList := workspaceapi.WorkspaceList{
-		Items: []workspaceapi.Workspace{
+	workspaceList := workspaceapi.ClusterWorkspaceList{
+		Items: []workspaceapi.ClusterWorkspace{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", ResourceVersion: "1"},
 			},
@@ -146,11 +146,11 @@ func TestSyncWorkspace(t *testing.T) {
 	kubeInformers := informers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
 	kcpInformers := tenancyInformers.NewSharedInformerFactory(mockKCPClient, controller.NoResyncPeriodFunc())
 	wsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	wsLister := workspacelisters.NewWorkspaceLister(wsIndexer)
+	wsLister := workspacelisters.NewClusterWorkspaceLister(wsIndexer)
 
 	authorizationCache := NewAuthorizationCache(
 		wsLister,
-		kcpInformers.Tenancy().V1alpha1().Workspaces().Informer(),
+		kcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
 		reviewer,
 		kubeInformers.Rbac().V1(),
 	)

@@ -80,7 +80,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreexternalversions.SharedInformerFactory, workspaceLister v1alpha1.WorkspaceLister) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreexternalversions.SharedInformerFactory, workspaceLister v1alpha1.ClusterWorkspaceLister) error {
 	var authorizers []authorizer.Authorizer
 
 	// group authorizer

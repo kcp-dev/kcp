@@ -1,5 +1,3 @@
-
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -18,10 +16,24 @@ spec:
     singular: workspace
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: Type of the workspace
+      jsonPath: .spec.type
+      name: Type
+      type: string
+    - description: The current phase (e.g. Scheduling, Initializing, Ready)
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: Workspace describes how clients access (kubelike) APIs
+        description: "Workspace defines a generic Kubernetes-cluster-like endpoint,
+          with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.
+          \n A workspace can be backed by different concrete types of workspace implementation,
+          depending on access pattern. All workspace implementations share the characteristic
+          that the URL that serves a given workspace can be used with standard Kubernetes
+          API machinery and client libraries and command line tools."
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -34,109 +46,51 @@ spec:
               submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
+            properties:
+              name:
+                maxLength: 31
+                minLength: 1
+                not:
+                  enum:
+                  - root
+                  - org
+                  - system
+                pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+                type: string
             type: object
           spec:
-            description: WorkspaceSpec holds the desired state of the Workspace.
+            default: {}
+            description: WorkspaceSpec holds the desired state of the ClusterWorkspace.
             properties:
-              inheritFrom:
+              type:
+                default: Universal
+                description: "type defines properties of the workspace both on creation
+                  (e.g. initial resources and initially installed APIs) and during
+                  runtime (e.g. permissions). \n The type is a reference to a ClusterWorkspaceType
+                  in the same workspace with the same name, but lower-cased. The ClusterWorkspaceType
+                  existence is validated at admission during creation, with the exception
+                  of the \"Universal\" type whose existence is not required but respected
+                  if it exists. The type is immutable after creation. The use of a
+                  type is gated via the RBAC clusterworkspacetypes/use resource permission."
                 type: string
-              readOnly:
-                type: boolean
             type: object
           status:
             description: WorkspaceStatus communicates the observed state of the Workspace.
             properties:
-              baseURL:
-                description: 'Base URL where this Workspace can be targeted. This
-                  will generally be of the form: https://<workspace shard server>/cluster/<workspace
-                  name>. But a workspace could also be targetable by a unique hostname
-                  in the future.'
+              URL:
+                description: url is the address under which the Kubernetes-cluster-like
+                  endpoint can be found. This URL can be used to access the workspace
+                  with standard Kubernetes client libraries and command line tools.
                 type: string
-              conditions:
-                description: Current processing state of the Workspace.
-                items:
-                  description: Condition defines an observation of a object operational
-                    state.
-                  properties:
-                    lastTransitionTime:
-                      description: Last time the condition transitioned from one status
-                        to another. This should be when the underlying condition changed.
-                        If that is not known, then using the time when the API field
-                        changed is acceptable.
-                      format: date-time
-                      type: string
-                    message:
-                      description: A human readable message indicating details about
-                        the transition. This field may be empty.
-                      type: string
-                    reason:
-                      description: The reason for the condition's last transition
-                        in CamelCase. The specific API may choose whether or not this
-                        field is considered a guaranteed API. This field may not be
-                        empty.
-                      type: string
-                    severity:
-                      description: Severity provides an explicit classification of
-                        Reason code, so the users or machines can immediately understand
-                        the current situation and act accordingly. The Severity field
-                        MUST be set only when Status=False.
-                      type: string
-                    status:
-                      description: Status of the condition, one of True, False, Unknown.
-                      type: string
-                    type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important.
-                      type: string
-                  required:
-                  - lastTransitionTime
-                  - status
-                  - type
-                  type: object
-                type: array
-              location:
-                description: Contains workspace placement information.
-                properties:
-                  current:
-                    description: Current workspace placement (shard).
-                    type: string
-                  history:
-                    description: Historical placement details (including current and
-                      target).
-                    items:
-                      description: ShardStatus contains details for the current status
-                        of a workspace shard.
-                      properties:
-                        liveAfterResourceVersion:
-                          description: Resource version after which writes can be
-                            accepted on this shard.
-                          type: string
-                        liveBeforeResourceVersion:
-                          description: Resource version at which writes to this shard
-                            should not be accepted.
-                          type: string
-                        name:
-                          description: Name of an active WorkspaceShard.
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    type: array
-                    x-kubernetes-list-map-keys:
-                    - name
-                    x-kubernetes-list-type: map
-                  target:
-                    description: Target workspace placement (shard).
-                    type: string
-                type: object
               phase:
-                description: Phase of the workspace  (Initializing / Active / Terminating)
+                description: Phase of the workspace (Initializing / Active / Terminating).
+                  This field is ALPHA.
                 type: string
+            required:
+            - URL
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

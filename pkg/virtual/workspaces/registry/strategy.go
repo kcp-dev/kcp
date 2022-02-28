@@ -23,13 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/storage/names"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 var typerSchema = runtime.NewScheme()
 
 func init() {
-	_ = tenancyv1alpha1.AddToScheme(typerSchema)
+	_ = tenancyv1beta1.AddToScheme(typerSchema)
 }
 
 // workspaceStrategy implements behavior for workspaces

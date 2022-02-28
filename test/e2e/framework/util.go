@@ -19,8 +19,6 @@ package framework
 import (
 	"bytes"
 	"context"
-	"embed"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -37,25 +35,18 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -157,6 +148,7 @@ func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, erro
 		require.True(t, ok, "artifact has no object meta: %#v", data)
 
 		dir := path.Join(artifactDir, accessor.GetClusterName())
+		dir = strings.ReplaceAll(dir, ":", "_") // github actions don't like colon because NTFS is unhappy with it in path names
 		if accessor.GetNamespace() != "" {
 			dir = path.Join(dir, accessor.GetNamespace())
 		}
@@ -169,7 +161,7 @@ func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, erro
 		gvk := gvks[0]
 		data.GetObjectKind().SetGroupVersionKind(gvk)
 
-		cfg, err := c.Config()
+		cfg, err := c.Config("system:admin") // TODO(sttts): this doesn't make sense: discovery from a random workspace
 		require.NoError(t, err, "could not get config for server %q", c.name)
 
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
@@ -248,160 +240,60 @@ func GetFreePort(t *testing.T) (string, error) {
 	}
 }
 
-// InstallCrd installs a CRD on one or multiple servers.
-func InstallCrd(ctx context.Context, gr metav1.GroupResource, servers map[string]RunningServer, embeddedResources embed.FS) error {
-	wg := sync.WaitGroup{}
-	bootstrapErrChan := make(chan error, len(servers))
-	for _, server := range servers {
-		wg.Add(1)
-		go func(server RunningServer) {
-			defer wg.Done()
-			cfg, err := server.Config()
-			if err != nil {
-				bootstrapErrChan <- err
-				return
-			}
-			crdClient, err := apiextensionsv1client.NewForConfig(cfg)
-			if err != nil {
-				bootstrapErrChan <- fmt.Errorf("failed to construct client for server: %w", err)
-				return
-			}
-			bootstrapErrChan <- configcrds.CreateFromFS(ctx, crdClient.CustomResourceDefinitions(), embeddedResources, gr)
-		}(server)
-	}
-	wg.Wait()
-	close(bootstrapErrChan)
-	var bootstrapErrors []error
-	for err := range bootstrapErrChan {
-		bootstrapErrors = append(bootstrapErrors, err)
-	}
-	if err := kerrors.NewAggregate(bootstrapErrors); err != nil {
-		return fmt.Errorf("could not bootstrap CRDs: %w", err)
-	}
-	return nil
-}
+type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
-// InstallCluster creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
-func InstallCluster(t *testing.T, ctx context.Context, source, server RunningServer, crdName, clusterName string) error {
-	sourceCfg, err := source.Config()
+// CreateClusterAndWait creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
+func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*clusterv1alpha1.Cluster, error) {
+	config, err := pcluster.RawConfig()
 	if err != nil {
-		return fmt.Errorf("failed to get source config: %w", err)
+		return nil, fmt.Errorf("failed to get server config: %w", err)
 	}
-	rawServerCfg, err := server.RawConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get server config: %w", err)
-	}
-	sourceClusterName, err := DetectClusterName(sourceCfg, ctx, crdName)
-	if err != nil {
-		return fmt.Errorf("failed to detect cluster name: %w", err)
-	}
-	sourceKcpClients, err := kcpclientset.NewClusterForConfig(sourceCfg)
-	if err != nil {
-		return fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	rawSinkCfgBytes, err := clientcmd.Write(rawServerCfg)
-	if err != nil {
-		return fmt.Errorf("failed to serialize server config: %w", err)
+	pclusterConfig := clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"pcluster": config.Clusters["system:admin"],
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			"pcluster": {
+				Cluster:  "pcluster",
+				AuthInfo: "admin",
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"admin": config.AuthInfos["admin"],
+		},
+		CurrentContext: "pcluster",
 	}
 
-	sourceKcpClient := sourceKcpClients.Cluster(sourceClusterName)
-	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer func() {
-		cancel()
-	}()
-	watcher, err := sourceKcpClient.ClusterV1alpha1().Clusters().Watch(ctx, metav1.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.name", clusterName).String(),
-	})
+	bs, err := clientcmd.Write(pclusterConfig)
 	if err != nil {
-		return fmt.Errorf("failed to watch cluster in source kcp: %w", err)
+		return nil, fmt.Errorf("failed to serialize server config: %w", err)
 	}
 
-	cluster, err := sourceKcpClient.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{
-		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
-		Spec:       clusterv1alpha1.ClusterSpec{KubeConfig: string(rawSinkCfgBytes)},
+	cluster, err := kcpClient.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{Name: pcluster.Name()},
+		Spec:       clusterv1alpha1.ClusterSpec{KubeConfig: string(bs)},
 	}, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to create cluster on source kcp: %w", err)
+		return nil, fmt.Errorf("failed to create cluster: %w", err)
 	}
-	source.Artifact(t, func() (runtime.Object, error) {
-		return sourceKcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+	artifacts(t, func() (runtime.Object, error) {
+		return kcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	})
 
-	for {
-		select {
-		case <-waitCtx.Done():
-			return fmt.Errorf("failed to wait for cluster in source kcp to be ready: %w", waitCtx.Err())
-		case event := <-watcher.ResultChan():
-			switch event.Type {
-			case watch.Added, watch.Bookmark:
-				continue
-			case watch.Modified:
-				updated, ok := event.Object.(*clusterv1alpha1.Cluster)
-				if !ok {
-					continue
-				}
-				if conditions.IsTrue(updated, clusterv1alpha1.ClusterReadyCondition) {
-					return nil
-				}
-			case watch.Deleted:
-				return fmt.Errorf("cluster %s was deleted before being ready", cluster.Name)
-			case watch.Error:
-				return fmt.Errorf("encountered error while watching cluster %s: %#v", cluster.Name, event.Object)
-			}
+	if err := wait.PollImmediateWithContext(ctx, time.Millisecond*500, wait.ForeverTestTimeout, func(ctx context.Context) (done bool, err error) {
+		cluster, err = kcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
 		}
-	}
-}
-
-// InstallNamespace creates a new namespace into the desired server.
-func InstallNamespace(ctx context.Context, server RunningServer, crdName, testNamespace string) error {
-	client, err := GetClientForServer(ctx, server, crdName)
-	if err != nil {
-		return err
-	}
-	_, err = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
-	}, metav1.CreateOptions{})
-	return err
-}
-
-// DetectClusterName returns the name of the cluster that contains the desired CRD.
-// TODO: we need to undo the prefixing and get normal sharding behavior in soon ... ?
-func DetectClusterName(cfg *rest.Config, ctx context.Context, crdName string) (string, error) {
-	crdClient, err := apiextensionsclientset.NewClusterForConfig(cfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	crds, err := crdClient.Cluster("*").ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to list crds: %w", err)
-	}
-	if len(crds.Items) == 0 {
-		return "", errors.New("found no crds, cannot detect cluster name")
-	}
-	for _, crd := range crds.Items {
-		if crd.ObjectMeta.Name == crdName {
-			return crd.ObjectMeta.ClusterName, nil
+		if conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition) {
+			return true, nil
 		}
-	}
-	return "", errors.New("detected no admin cluster")
-}
-
-// GetClientForServer returns a kubernetes clientset for a given server.
-func GetClientForServer(ctx context.Context, server RunningServer, crdName string) (kubernetesclientset.Interface, error) {
-	cfg, err := server.Config()
-	if err != nil {
+		return false, nil
+	}); err != nil {
 		return nil, err
 	}
-	sourceClusterName, err := DetectClusterName(cfg, ctx, crdName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect cluster name: %w", err)
-	}
-	clients, err := kubernetesclientset.NewClusterForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct client for server: %w", err)
-	}
-	client := clients.Cluster(sourceClusterName)
-	return client, nil
+
+	return cluster, nil
 }
 
 func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {

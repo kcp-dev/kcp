@@ -48,7 +48,7 @@ type ShardAssignment struct {
 }
 
 type Index interface {
-	Record(workspace *tenancyv1alpha1.Workspace) error
+	Record(workspace *tenancyv1alpha1.ClusterWorkspace) error
 	Get(organization, workspace string) ([]ShardAssignment, error)
 	json.Marshaler
 }
@@ -61,7 +61,7 @@ type index struct {
 	workspaceMapping map[string]map[string][]ShardAssignment
 }
 
-func (i *index) Record(workspace *tenancyv1alpha1.Workspace) error {
+func (i *index) Record(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled) {
 		klog.Infof("workspace %s/%s not scheduled, skipping...", workspace.ClusterName, workspace.Name)
 		return nil
@@ -72,13 +72,13 @@ func (i *index) Record(workspace *tenancyv1alpha1.Workspace) error {
 	}
 	// TODO: how to handle the root itself?
 	org := workspace.ClusterName
-	if workspace.ClusterName != helper.OrganizationCluster {
+	if workspace.ClusterName != helper.RootCluster {
 		orgName, workspaceName, err := helper.ParseLogicalClusterName(workspace.ClusterName)
 		if err != nil {
 			klog.Errorf("failed to determine org for cluster: %v", err)
 			return nil
 		}
-		if orgName != helper.OrganizationCluster {
+		if orgName != helper.RootCluster {
 			klog.Errorf("invalid org %q, only one level of nesting allowed", orgName)
 			return nil
 		}

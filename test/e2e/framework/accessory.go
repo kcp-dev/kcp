@@ -106,7 +106,7 @@ func (a *Accessory) Run(parentCtx context.Context, opts ...RunOption) error {
 		defer func() { cleanupCancel() }()
 		err := cmd.Wait()
 		if err != nil && ctx.Err() == nil {
-			a.t.Errorf("`%s` failed: %v output: %v", a.cmd, err, log)
+			a.t.Errorf("`%s` failed: %v output: %s", a.cmd, err, log.String())
 		}
 	}()
 	return nil

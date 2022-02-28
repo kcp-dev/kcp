@@ -24,8 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// Workspaces returns a WorkspaceInformer.
-	Workspaces() WorkspaceInformer
+	// ClusterWorkspaces returns a ClusterWorkspaceInformer.
+	ClusterWorkspaces() ClusterWorkspaceInformer
+	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
+	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
 	// WorkspaceShards returns a WorkspaceShardInformer.
 	WorkspaceShards() WorkspaceShardInformer
 }
@@ -41,9 +43,14 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Workspaces returns a WorkspaceInformer.
-func (v *version) Workspaces() WorkspaceInformer {
-	return &workspaceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterWorkspaces returns a ClusterWorkspaceInformer.
+func (v *version) ClusterWorkspaces() ClusterWorkspaceInformer {
+	return &clusterWorkspaceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
+func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer {
+	return &clusterWorkspaceTypeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // WorkspaceShards returns a WorkspaceShardInformer.

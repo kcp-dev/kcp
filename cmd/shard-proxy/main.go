@@ -93,7 +93,7 @@ func main() {
 	index := workspaceindex.NewIndex()
 	controller, err := workspaceindex.NewController(
 		rootKubeClient,
-		kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 		index,
 	)

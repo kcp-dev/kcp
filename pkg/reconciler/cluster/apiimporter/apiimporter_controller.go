@@ -24,14 +24,14 @@ import (
 )
 
 func NewController(
-	kcpClient kcpclient.Interface,
+	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer clusterinformer.ClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	resourcesToSync []string,
 ) (*clusterctl.ClusterReconciler, error) {
 
 	am := &apiImporterManager{
-		kcpClient:                kcpClient,
+		kcpClusterClient:         kcpClusterClient,
 		resourcesToSync:          resourcesToSync,
 		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
@@ -41,7 +41,7 @@ func NewController(
 	return clusterctl.NewClusterReconciler(
 		"kcp-api-importer",
 		am,
-		kcpClient,
+		kcpClusterClient,
 		clusterInformer,
 		apiResourceImportInformer,
 	)

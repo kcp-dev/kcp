@@ -26,19 +26,19 @@ import (
 )
 
 const (
-	separator = "_"
+	separator = ":"
 
-	// OrganizationCluster is the name of the logical cluster we expect to find
-	// organization inside.
-	OrganizationCluster = "admin"
+	// RootCluster is the name of the logical cluster containing the organizations.
+	RootCluster              = "root"
+	LocalSystemClusterPrefix = "system:"
 )
 
 // EncodeLogicalClusterName determines the logical cluster name for a workspace.
 // We assume that the organization that this workspace resides in is the cluster
 // it lives in.
-func EncodeLogicalClusterName(workspace *tenancyapi.Workspace) (string, error) {
+func EncodeLogicalClusterName(workspace *tenancyapi.ClusterWorkspace) (string, error) {
 	orgName := workspace.ClusterName
-	if workspace.ClusterName != OrganizationCluster {
+	if workspace.ClusterName != RootCluster && !strings.HasPrefix(workspace.ClusterName, LocalSystemClusterPrefix) {
 		_, name, err := ParseLogicalClusterName(workspace.ClusterName)
 		if err != nil {
 			return "", err
@@ -54,16 +54,16 @@ func EncodeOrganizationAndWorkspace(organization, workspace string) string {
 	return organization + separator + workspace
 }
 
-// WorkspaceKey returns a key to use when looking up a Workspace in a lister or indexer.
+// WorkspaceKey returns a key to use when looking up a ClusterWorkspace in a lister or indexer.
 // If org is the value of OrganizationCluster, the key will be of the format
 // <OrganizationCluster>#$#<ws>. Otherwise, the key will be of the format
 // <OrganizationClsuter>_<org>#$#<ws>.
 func WorkspaceKey(org, ws string) string {
-	if org == OrganizationCluster {
+	if org == RootCluster || strings.HasPrefix(org, LocalSystemClusterPrefix) {
 		return clusters.ToClusterAwareKey(org, ws)
 	}
 
-	return clusters.ToClusterAwareKey(EncodeOrganizationAndWorkspace(OrganizationCluster, org), ws)
+	return clusters.ToClusterAwareKey(EncodeOrganizationAndWorkspace(RootCluster, org), ws)
 }
 
 // ParseLogicalClusterName determines the organization and workspace name from a
@@ -72,13 +72,28 @@ func ParseLogicalClusterName(name string) (string, string, error) {
 	parts := strings.Split(name, separator)
 	switch len(parts) {
 	case 1:
-		if name != OrganizationCluster {
-			return "", "", fmt.Errorf("expected logical cluster name to be %s or in org_name format, got %s", OrganizationCluster, name)
+		if name == RootCluster || strings.HasPrefix(name, LocalSystemClusterPrefix) {
+			return "", name, nil
 		}
-		return OrganizationCluster, name, nil
+		return "", "", fmt.Errorf("expected logical cluster name to be %s, system:* or in org:name format, got %s", RootCluster, name)
 	case 2:
 		return parts[0], parts[1], nil
 	default:
-		return "", "", fmt.Errorf("expected logical cluster name to be %s or in org_name format, got %s", OrganizationCluster, name)
+		return "", "", fmt.Errorf("expected logical cluster name to be %s, system:* or in org:name format, got %s", RootCluster, name)
 	}
+}
+
+// ParentClusterName returns the cluster name of the parent workspace.
+func ParentClusterName(name string) (string, error) {
+	if name == RootCluster {
+		return "", fmt.Errorf("cannot get parent cluster name of root cluster")
+	}
+	parent, _, err := ParseLogicalClusterName(name)
+	if err != nil {
+		return "", err
+	}
+	if parent == RootCluster {
+		return RootCluster, nil
+	}
+	return EncodeOrganizationAndWorkspace(RootCluster, parent), nil
 }

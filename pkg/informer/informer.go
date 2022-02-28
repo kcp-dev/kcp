@@ -49,7 +49,7 @@ type clusterDiscovery interface {
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
 type DynamicDiscoverySharedInformerFactory struct {
-	workspaceLister tenancylisters.WorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 	disco           clusterDiscovery
 	dsif            dynamicinformer.DynamicSharedInformerFactory
 	handler         GVREventHandler
@@ -94,7 +94,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.Gr
 // informers that discovers new types and informs on updates to resources of
 // those types.
 func NewDynamicDiscoverySharedInformerFactory(
-	workspaceLister tenancylisters.WorkspaceLister,
+	workspaceLister tenancylisters.ClusterWorkspaceLister,
 	disco clusterDiscovery,
 	dynClient dynamic.Interface,
 	filterFunc func(obj interface{}) bool,
@@ -148,6 +148,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(ctx context.Context) {
 	// TODO: Feed any failure to discover types into /readyz, instead of
 	// panicking.
 	if err := d.discoverTypes(ctx); err != nil {
+		// TODO(sttts): don't klog.Fatal, but return an error
 		klog.Fatalf("Error discovering initial types: %v", err)
 	}
 
@@ -194,10 +195,11 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 		}
 	} else {
 		// If we don't have the workspaceLister, only check the root logical cluster.
-		logicalClusterNames.Insert(helper.OrganizationCluster)
+		logicalClusterNames.Insert(helper.RootCluster)
 	}
 
 	for _, logicalClusterName := range logicalClusterNames.List() {
+		klog.Infof("Discovering types for logical cluster %q", logicalClusterName)
 		rs, err := d.disco.WithCluster(logicalClusterName).ServerPreferredResources()
 		if err != nil {
 			return err
@@ -231,10 +233,11 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	newGVRs := latest.Difference(d.gvrs)
 	var merr error
 	for _, gvrstr := range newGVRs.UnsortedList() {
+		klog.Infof("Adding informer for %q in %s", gvrstr, logicalClusterNames)
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 		if gvr == nil {
 			// TODO(ncdc): consider tracking where each gvrstr came from (which workspace) so we can include that in the error.
-			multierr.AppendInto(&merr, fmt.Errorf("Unable to parse %q to a GroupVersionResource", gvrstr))
+			multierr.AppendInto(&merr, fmt.Errorf("unable to parse %q to a GroupVersionResource", gvrstr))
 			continue
 		}
 

@@ -67,58 +67,56 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
 		server := f.Servers[serverName]
 
-		cfg, err := server.Config()
+		cfg, err := server.Config("system:admin")
 		require.NoError(t, err)
 
 		// Until we get rid of the multiClusterClientConfigRoundTripper and replace it with scoping,
 		// make sure we don't break cross-logical cluster client listing.
 		clientutils.EnableMultiCluster(cfg, nil, true)
 
-		logicalClusters := []string{"admin_one", "admin_two", "admin_three"}
+		logicalClusters := []string{"root:one", "root:two", "root:three"}
 		for i, logicalCluster := range logicalClusters {
+			t.Logf("Bootstrapping ClusterWorkspace CRDs in logical cluster %s", logicalCluster)
 			apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct apiextensions client for server")
-
 			crdClient := apiExtensionsClients.Cluster(logicalCluster).ApiextensionsV1().CustomResourceDefinitions()
-
 			workspaceCRDs := []metav1.GroupResource{
-				{Group: tenancy.GroupName, Resource: "workspaces"},
+				{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
 			}
-
 			err = configcrds.Create(ctx, crdClient, workspaceCRDs...)
 			require.NoError(t, err, "failed to bootstrap CRDs")
-
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp client for server")
 
+			t.Logf("Creating ClusterWorkspace CRs in logical cluster %s", logicalCluster)
 			kcpClient := kcpClients.Cluster(logicalCluster)
-
-			sourceWorkspace := &tenancyapi.Workspace{
+			sourceWorkspace := &tenancyapi.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("ws-%d", i),
 				},
 			}
-			_, err = kcpClient.TenancyV1alpha1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
+			_, err = kcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating source workspace")
 
 			server.Artifact(t, func() (runtime.Object, error) {
-				return kcpClient.TenancyV1alpha1().Workspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
+				return kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
 			})
 		}
 
+		t.Logf("Listing ClusterWorkspace CRs across logical clusters")
 		kcpClients, err := clientset.NewClusterForConfig(cfg)
 		require.NoError(t, err, "failed to construct kcp client for server")
-
 		kcpClient := kcpClients.Cluster("*")
-		workspaces, err := kcpClient.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+		workspaces, err := kcpClient.TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing workspaces")
-		require.Equal(t, 3, len(workspaces.Items), "unexpected number of workspaces")
 
+		t.Logf("Expecting at least those ClusterWorkspaces we created above")
+		require.True(t, len(workspaces.Items) >= 3, "expected at least 3 workspaces")
 		got := sets.NewString()
 		for _, ws := range workspaces.Items {
 			got.Insert(ws.ClusterName + "/" + ws.Name)
 		}
-		expected := sets.NewString("admin_one/ws-0", "admin_two/ws-1", "admin_three/ws-2")
-		require.Empty(t, expected.Difference(got), "unexpected workspaces detected")
+		expected := sets.NewString("root:one/ws-0", "root:two/ws-1", "root:three/ws-2")
+		require.True(t, got.IsSuperset(expected), "unexpected workspaces detected")
 	})
 }

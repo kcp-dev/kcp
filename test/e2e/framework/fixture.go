@@ -25,6 +25,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
+
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 // KcpFixture manages the lifecycle of a set of kcp servers.
@@ -89,4 +98,90 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 func InProcessEnvSet() bool {
 	inProcess, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
 	return inProcess
+}
+
+func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName string) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	cfg, err := server.Config("system:admin")
+	require.NoError(t, err, "failed to get kcp server config")
+
+	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to create kcp cluster client")
+
+	org, err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-org-",
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: "Organization",
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create organization workspace")
+
+	t.Cleanup(func() {
+		err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+		if apierrors.IsNotFound(err) {
+			return // ignore not found error
+		}
+		require.NoErrorf(t, err, "failed to delete organization workspace %s", org.Name)
+	})
+
+	require.Eventuallyf(t, func() bool {
+		ws, err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
+		if err != nil {
+			klog.Errorf("failed to get workspace %s: %v", org.Name, err)
+			return false
+		}
+		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
+
+	return helper.EncodeOrganizationAndWorkspace(helper.RootCluster, org.Name)
+}
+
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName string, workspaceType string) (clusterName string) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	rootOrg, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
+	require.NoErrorf(t, err, "failed to parse organization cluster name %q", orgClusterName)
+	require.Equalf(t, rootOrg, helper.RootCluster, "expected an org cluster name, i.e. with \"%s:\" prefix", helper.RootCluster)
+
+	cfg, err := server.Config("system:admin")
+	require.NoError(t, err)
+
+	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct client for server")
+
+	ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-workspace-",
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: workspaceType,
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create workspace")
+
+	t.Cleanup(func() {
+		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
+		if apierrors.IsNotFound(err) {
+			return // ignore not found error
+		}
+		require.NoErrorf(t, err, "failed to delete workspace %s", ws.Name)
+	})
+
+	require.Eventuallyf(t, func() bool {
+		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
+		if err != nil {
+			klog.Errorf("failed to get workspace %s: %v", ws.Name, err)
+			return false
+		}
+		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s:%s to become ready", orgName, ws.Name)
+
+	return helper.EncodeOrganizationAndWorkspace(orgName, ws.Name)
 }

@@ -32,8 +32,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/klog/v2"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcp "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -105,7 +107,7 @@ func TestAuthorizer(t *testing.T) {
 
 	server := f.Servers["main"]
 
-	kcpCfg, err := server.Config()
+	kcpCfg, err := server.Config("system:admin")
 	require.NoError(t, err)
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpCfg)
 	require.NoError(t, err)
@@ -114,7 +116,7 @@ func TestAuthorizer(t *testing.T) {
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(kcpCfg)
 	require.NoError(t, err)
 
-	orgClusterName := "admin"
+	orgClusterName := framework.NewOrganizationFixture(t, f.Servers["main"])
 	_, org, err := helper.ParseLogicalClusterName(orgClusterName)
 	require.NoError(t, err)
 
@@ -141,6 +143,17 @@ func TestAuthorizer(t *testing.T) {
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create resources")
+
+	for _, wsName := range []string{"workspace1", "workspace2"} {
+		require.Eventually(t, func() bool {
+			ws, err := orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "workspace1", metav1.GetOptions{})
+			if err != nil {
+				klog.Errorf("failed to get workspace: %v", err)
+				return false
+			}
+			return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace %s didn't get ready", wsName)
+	}
 
 	_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
 		ctx,

@@ -34,7 +34,7 @@ import (
 )
 
 type apiImporterManager struct {
-	kcpClient                kcpclient.Interface
+	kcpClusterClient         *kcpclient.Cluster
 	resourcesToSync          []string
 	clusterIndexer           cache.Indexer
 	apiresourceImportIndexer cache.Indexer
@@ -55,6 +55,7 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *clusterv1al
 	}
 
 	if m.apiImporters[cluster.Name] == nil {
+		// TODO(sttts): make polling interval configurable for testing. This might flake otherwise.
 		apiImporter, err := m.startAPIImporter(cfg, cluster.Name, logicalCluster, time.Minute)
 		if err != nil {
 			klog.Errorf("error starting the API importer: %v", err)
@@ -78,7 +79,7 @@ func (m *apiImporterManager) Cleanup(ctx context.Context, deletedCluster *cluste
 
 func (m *apiImporterManager) startAPIImporter(config *rest.Config, location string, logicalClusterName string, pollInterval time.Duration) (*APIImporter, error) {
 	apiImporter := APIImporter{
-		kcpClient:                m.kcpClient,
+		kcpClusterClient:         m.kcpClusterClient,
 		resourcesToSync:          m.resourcesToSync,
 		apiresourceImportIndexer: m.apiresourceImportIndexer,
 		clusterIndexer:           m.clusterIndexer,

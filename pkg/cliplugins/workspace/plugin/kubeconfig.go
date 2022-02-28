@@ -32,8 +32,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
@@ -44,7 +44,7 @@ const (
 	kcpPreviousWorkspaceContextKey string = "workspace.kcp.dev/-"
 )
 
-var defaultWorkspaceDirectoryApiServerPath = workspacebuilder.DefaultRootPathPrefix + "/" + workspaceregistry.PersonalScope
+var defaultWorkspaceDirectoryApiServerPath = workspacebuilder.DefaultRootPathPrefix + "/addsupportfororgs/" + workspaceregistry.PersonalScope
 
 // KubeConfig contains a config loaded from a Kubeconfig
 // and allows modifications on it through workspace-related
@@ -152,7 +152,7 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options) (*rest.Conf
 }
 
 // UseWorkspace switch the current workspace to the given workspace.
-// To do so it retrieves the Workspace minimal KubeConfig (mainly cluster infos)
+// To do so it retrieves the ClusterWorkspace minimal KubeConfig (mainly cluster infos)
 // from the `workspaces` virtual workspace `workspaces/kubeconfig` sube-resources,
 // and adds it (along with the Auth info that is currently used) to the Kubeconfig.
 // Then it make this new context the current context.
@@ -250,8 +250,8 @@ func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (scope string, name str
 
 // checkWorkspaceExists checks whether this workspace exsts in the
 // user workspace directory, by requesting the `workspaces` virtual workspace.
-func checkWorkspaceExists(ctx context.Context, workspaceName string, tenancyClient *tenancyclient.TenancyV1alpha1Client) error {
-	_, err := tenancyClient.Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+func checkWorkspaceExists(ctx context.Context, workspaceName string, tenancyClient tenancyclient.Interface) error {
+	_, err := tenancyClient.TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
 	return err
 }
 
@@ -340,7 +340,7 @@ func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
 
 // CreateWorkspace creates a workspace owned by the the current user
 // (kubeconfig user possibly overridden by CLI options).
-func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, workspaceName string, useAfterCreation bool, inheritFrom string) error {
+func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, workspaceName string, useAfterCreation bool) error {
 	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts)
 	if err != nil {
 		return err
@@ -351,13 +351,11 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, worksp
 		return err
 	}
 
-	if _, err := tenancyClient.Workspaces().Create(ctx, &v1alpha1.Workspace{
+	if _, err := tenancyClient.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: workspaceName,
 		},
-		Spec: v1alpha1.WorkspaceSpec{
-			InheritFrom: inheritFrom,
-		},
+		Spec: tenancyv1beta1.WorkspaceSpec{},
 	}, metav1.CreateOptions{}); err != nil {
 		return err
 	}
@@ -388,7 +386,7 @@ func (kc *KubeConfig) DeleteWorkspace(ctx context.Context, opts *Options, worksp
 		return err
 	}
 
-	if err := tenancyClient.Workspaces().Delete(ctx, workspaceName, metav1.DeleteOptions{}); err != nil {
+	if err := tenancyClient.TenancyV1beta1().Workspaces().Delete(ctx, workspaceName, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
 

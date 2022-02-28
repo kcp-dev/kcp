@@ -32,6 +32,8 @@ import (
 	fakeclusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1/fake"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	faketenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1/fake"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
+	faketenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -97,4 +99,9 @@ func (c *Clientset) ClusterV1alpha1() clusterv1alpha1.ClusterV1alpha1Interface {
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
 func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 	return &faketenancyv1alpha1.FakeTenancyV1alpha1{Fake: &c.Fake}
+}
+
+// TenancyV1beta1 retrieves the TenancyV1beta1Client
+func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
+	return &faketenancyv1beta1.FakeTenancyV1beta1{Fake: &c.Fake}
 }

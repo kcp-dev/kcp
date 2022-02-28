@@ -29,7 +29,8 @@ import (
 
 type TenancyV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	WorkspacesGetter
+	ClusterWorkspacesGetter
+	ClusterWorkspaceTypesGetter
 	WorkspaceShardsGetter
 }
 
@@ -39,8 +40,12 @@ type TenancyV1alpha1Client struct {
 	cluster    string
 }
 
-func (c *TenancyV1alpha1Client) Workspaces() WorkspaceInterface {
-	return newWorkspaces(c)
+func (c *TenancyV1alpha1Client) ClusterWorkspaces() ClusterWorkspaceInterface {
+	return newClusterWorkspaces(c)
+}
+
+func (c *TenancyV1alpha1Client) ClusterWorkspaceTypes() ClusterWorkspaceTypeInterface {
+	return newClusterWorkspaceTypes(c)
 }
 
 func (c *TenancyV1alpha1Client) WorkspaceShards() WorkspaceShardInterface {

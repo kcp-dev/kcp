@@ -42,6 +42,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -55,36 +56,36 @@ const (
 )
 
 func NewController(
-	kcpClient kcpclient.ClusterInterface,
-	secretInformer coreinformer.SecretInformer,
-	workspaceShardInformer tenancyinformer.WorkspaceShardInformer,
+	rootKcpClient kcpclient.Interface,
+	rootSecretInformer coreinformer.SecretInformer,
+	rootWorkspaceShardInformer tenancyinformer.WorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspaceshard")
 
 	c := &Controller{
-		queue:                 queue,
-		kcpClient:             kcpClient,
-		secretIndexer:         secretInformer.Informer().GetIndexer(),
-		secretLister:          secretInformer.Lister(),
-		workspaceShardIndexer: workspaceShardInformer.Informer().GetIndexer(),
-		workspaceShardLister:  workspaceShardInformer.Lister(),
+		queue:                     queue,
+		kcpClient:                 rootKcpClient,
+		rootSecretIndexer:         rootSecretInformer.Informer().GetIndexer(),
+		rootSecretLister:          rootSecretInformer.Lister(),
+		rootWorkspaceShardIndexer: rootWorkspaceShardInformer.Informer().GetIndexer(),
+		rootWorkspaceShardLister:  rootWorkspaceShardInformer.Lister(),
 		syncChecks: []cache.InformerSynced{
-			secretInformer.Informer().HasSynced,
-			workspaceShardInformer.Informer().HasSynced,
+			rootSecretInformer.Informer().HasSynced,
+			rootWorkspaceShardInformer.Informer().HasSynced,
 		},
 	}
 
-	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	rootSecretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueForSecret(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueForSecret(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueForSecret(obj) },
 	})
 
-	workspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	rootWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
-	if err := c.workspaceShardIndexer.AddIndexers(map[string]cache.IndexFunc{
+	if err := c.rootWorkspaceShardIndexer.AddIndexers(map[string]cache.IndexFunc{
 		secretIndex: func(obj interface{}) ([]string, error) {
 			if shard, ok := obj.(*tenancyv1alpha1.WorkspaceShard); ok {
 				key, err := cache.MetaNamespaceKeyFunc(&metav1.ObjectMeta{
@@ -111,12 +112,12 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClient     kcpclient.ClusterInterface
-	secretIndexer cache.Indexer
-	secretLister  corelister.SecretLister
+	kcpClient         kcpclient.Interface
+	rootSecretIndexer cache.Indexer
+	rootSecretLister  corelister.SecretLister
 
-	workspaceShardIndexer cache.Indexer
-	workspaceShardLister  tenancylister.WorkspaceShardLister
+	rootWorkspaceShardIndexer cache.Indexer
+	rootWorkspaceShardLister  tenancylister.WorkspaceShardLister
 
 	syncChecks []cache.InformerSynced
 }
@@ -151,7 +152,7 @@ func (c *Controller) enqueueForSecret(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	workspaceShards, err := c.workspaceShardIndexer.ByIndex(secretIndex, key)
+	workspaceShards, err := c.rootWorkspaceShardIndexer.ByIndex(secretIndex, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -215,7 +216,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("invalid key: %q: %v", key, err)
 		return nil
@@ -224,9 +225,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		klog.Errorf("namespace %q found in key for cluster-wide WorkspaceShard object", namespace)
 		return nil
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.workspaceShardLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.rootWorkspaceShardLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -246,7 +246,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: previous.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for workspace shard %q|%q/%q: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal old data for workspace shard %q|%q/%q: %w", helper.RootCluster, namespace, name, err)
 		}
 
 		newData, err := json.Marshal(tenancyv1alpha1.WorkspaceShard{
@@ -257,14 +257,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for workspace shard %q|%q/%q: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal new data for workspace shard %q|%q/%q: %w", helper.RootCluster, namespace, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for workspace shard %q|%q/%q: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to create patch for workspace shard %q|%q/%q: %w", helper.RootCluster, namespace, name, err)
 		}
-		_, uerr := c.kcpClient.Cluster(clusterName).TenancyV1alpha1().WorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClient.TenancyV1alpha1().WorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
@@ -272,7 +272,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
-	secret, err := c.secretLister.Secrets(workspaceShard.Spec.Credentials.Namespace).Get(clusters.ToClusterAwareKey(workspaceShard.ClusterName, workspaceShard.Spec.Credentials.Name))
+	secret, err := c.rootSecretLister.Secrets(workspaceShard.Spec.Credentials.Namespace).Get(clusters.ToClusterAwareKey(workspaceShard.ClusterName, workspaceShard.Spec.Credentials.Name))
 	if errors.IsNotFound(err) {
 		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing, conditionsapi.ConditionSeverityWarning, "Referenced secret %s/%s could not be found.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name)
 		return nil

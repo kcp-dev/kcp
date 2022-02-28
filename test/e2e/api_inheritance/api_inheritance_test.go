@@ -53,14 +53,14 @@ func TestAPIInheritance(t *testing.T) {
 		orgPrefix             string
 	}{
 		{
-			name:                  "transitively inherit from admin root workspace",
-			orgPrefix:             helper.OrganizationCluster,
-			orglogicalClusterName: helper.OrganizationCluster,
+			name:                  "transitively inherit from root workspace",
+			orgPrefix:             helper.RootCluster,
+			orglogicalClusterName: helper.RootCluster,
 		},
 		{
 			name:                  "transitively inherit from some other org workspace",
-			orgPrefix:             "myorg",
-			orglogicalClusterName: "admin_myorg",
+			orgPrefix:             "default",
+			orglogicalClusterName: "root:default",
 		},
 	}
 
@@ -89,7 +89,7 @@ func TestAPIInheritance(t *testing.T) {
 			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
 			server := f.Servers[serverName]
 
-			cfg, err := server.Config()
+			cfg, err := server.Config("system:admin")
 			require.NoError(t, err)
 
 			apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
@@ -98,7 +98,7 @@ func TestAPIInheritance(t *testing.T) {
 			t.Logf("Bootstrapping workspace CRD into org lcluster %s", testCase.orglogicalClusterName)
 			orgCRDClient := apiExtensionsClients.Cluster(testCase.orglogicalClusterName).ApiextensionsV1().CustomResourceDefinitions()
 			workspaceCRDs := []metav1.GroupResource{
-				{Group: tenancy.GroupName, Resource: "workspaces"},
+				{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
 			}
 			err = configcrds.Create(ctx, orgCRDClient, workspaceCRDs...)
 			require.NoError(t, err, "failed to bootstrap CRDs")
@@ -106,40 +106,40 @@ func TestAPIInheritance(t *testing.T) {
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp client for server")
 
-			t.Logf("Creating \"source\" workspaces in org lcluster %s, inheriting from %q", testCase.orglogicalClusterName, helper.OrganizationCluster)
+			t.Logf("Creating \"source\" workspaces in org lcluster %s, inheriting from %q", testCase.orglogicalClusterName, helper.RootCluster)
 			orgKcpClient := kcpClients.Cluster(testCase.orglogicalClusterName)
-			sourceWorkspace := &tenancyv1alpha1.Workspace{
+			sourceWorkspace := &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "source",
 				},
-				Spec: tenancyv1alpha1.WorkspaceSpec{
-					InheritFrom: helper.OrganizationCluster,
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					InheritFrom: helper.RootCluster,
 				},
 			}
-			_, err = orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
+			_, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating source workspace")
 
 			server.Artifact(t, func() (runtime.Object, error) {
-				return orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, "source", metav1.GetOptions{})
+				return orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "source", metav1.GetOptions{})
 			})
 
 			t.Logf("Creating \"target\" workspace in org lcluster %s, not inheriting from any workspace", testCase.orglogicalClusterName)
-			targetWorkspace := &tenancyv1alpha1.Workspace{
+			targetWorkspace := &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "target",
 				},
 			}
-			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, targetWorkspace, metav1.CreateOptions{})
+			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, targetWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating target workspace")
 
 			server.Artifact(t, func() (runtime.Object, error) {
-				return orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, "target", metav1.GetOptions{})
+				return orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "target", metav1.GetOptions{})
 			})
 
-			// These are the cluster name paths (i.e. /clusters/$org_$workspace) for our two workspaces.
+			// These are the cluster name paths (i.e. /clusters/$org:$workspace) for our two workspaces.
 			var (
-				sourceWorkspaceClusterName = testCase.orgPrefix + "_source"
-				targetWorkspaceClusterName = testCase.orgPrefix + "_target"
+				sourceWorkspaceClusterName = testCase.orgPrefix + ":source"
+				targetWorkspaceClusterName = testCase.orgPrefix + ":target"
 			)
 
 			t.Logf("Install a clusters CRD into \"source\" workspace")
@@ -201,11 +201,11 @@ func TestAPIInheritance(t *testing.T) {
 				"should not have seen cluster API group in target workspace group discovery")
 
 			t.Logf("Update \"target\" workspace to inherit from \"source\" workspace")
-			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, targetWorkspace.GetName(), metav1.GetOptions{})
+			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, targetWorkspace.GetName(), metav1.GetOptions{})
 			require.NoError(t, err, "error retrieving target workspace")
 
 			targetWorkspace.Spec.InheritFrom = "source"
-			if _, err = orgKcpClient.TenancyV1alpha1().Workspaces().Update(ctx, targetWorkspace, metav1.UpdateOptions{}); err != nil {
+			if _, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Update(ctx, targetWorkspace, metav1.UpdateOptions{}); err != nil {
 				t.Errorf("error updating target workspace to inherit from source: %v", err)
 				return
 			}

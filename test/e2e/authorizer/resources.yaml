@@ -1,11 +1,11 @@
 # workspaces
 apiVersion: tenancy.kcp.dev/v1alpha1
-kind: Workspace
+kind: ClusterWorkspace
 metadata:
   name: workspace1
 ---
 apiVersion: tenancy.kcp.dev/v1alpha1
-kind: Workspace
+kind: ClusterWorkspace
 metadata:
   name: workspace2
 ---

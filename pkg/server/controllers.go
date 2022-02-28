@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
@@ -37,9 +38,11 @@ import (
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
+	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetype_organization"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
@@ -109,7 +112,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 	return nil
 }
 
-func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister tenancylisters.WorkspaceLister, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister tenancylisters.ClusterWorkspaceLister, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
 	kubeClient, err := kubernetes.NewClusterForConfig(server.LoopbackClientConfig)
 	if err != nil {
 		return err
@@ -153,29 +156,49 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister 
 
 func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
 	kubeconfig := clientConfig.DeepCopy()
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	kcpClient, err := kcpclient.NewClusterForConfig(adminConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(adminConfig)
+	if err != nil {
+		return err
+	}
+
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(adminConfig)
+	if err != nil {
+		return err
+	}
+
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(adminConfig)
 	if err != nil {
 		return err
 	}
 
 	workspaceController, err := workspace.NewController(
-		kcpClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 	)
 	if err != nil {
 		return err
 	}
 
 	workspaceShardController, err := workspaceshard.NewController(
-		kcpClient,
-		s.kubeSharedInformerFactory.Core().V1().Secrets(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		kcpClusterClient.Cluster(helper.RootCluster),
+		s.rootKubeSharedInformerFactory.Core().V1().Secrets(),
+		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+	)
+	if err != nil {
+		return err
+	}
+
+	organizationController, err := clusterworkspacetype_organization.NewController(
+		dynamicClusterClient,
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 	)
 	if err != nil {
 		return err
@@ -190,6 +213,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 
 		go workspaceController.Start(ctx, 2)
 		go workspaceShardController.Start(ctx, 2)
+		go organizationController.Start(ctx, 2)
 
 		return nil
 	}); err != nil {

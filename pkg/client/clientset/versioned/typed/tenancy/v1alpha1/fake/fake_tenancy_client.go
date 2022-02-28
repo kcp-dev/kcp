@@ -29,8 +29,12 @@ type FakeTenancyV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeTenancyV1alpha1) Workspaces() v1alpha1.WorkspaceInterface {
-	return &FakeWorkspaces{c}
+func (c *FakeTenancyV1alpha1) ClusterWorkspaces() v1alpha1.ClusterWorkspaceInterface {
+	return &FakeClusterWorkspaces{c}
+}
+
+func (c *FakeTenancyV1alpha1) ClusterWorkspaceTypes() v1alpha1.ClusterWorkspaceTypeInterface {
+	return &FakeClusterWorkspaceTypes{c}
 }
 
 func (c *FakeTenancyV1alpha1) WorkspaceShards() v1alpha1.WorkspaceShardInterface {

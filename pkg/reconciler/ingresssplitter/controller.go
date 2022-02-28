@@ -236,8 +236,8 @@ func (c *Controller) ingressesFromService(obj interface{}) {
 }
 
 func rootIngressKeyFor(ingress metav1.Object) string {
-	if ingress.GetLabels()[ownedByCluster] != "" && ingress.GetLabels()[ownedByNamespace] != "" && ingress.GetLabels()[ownedByIngress] != "" {
-		return ingress.GetLabels()[ownedByNamespace] + "/" + clusters.ToClusterAwareKey(ingress.GetLabels()[ownedByCluster], ingress.GetLabels()[ownedByIngress])
+	if ingress.GetLabels()[OwnedByCluster] != "" && ingress.GetLabels()[OwnedByNamespace] != "" && ingress.GetLabels()[OwnedByIngress] != "" {
+		return ingress.GetLabels()[OwnedByNamespace] + "/" + clusters.ToClusterAwareKey(UnescapeClusterNameLabel(ingress.GetLabels()[OwnedByCluster]), ingress.GetLabels()[OwnedByIngress])
 	}
 
 	return ""
