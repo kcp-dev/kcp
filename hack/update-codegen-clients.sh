@@ -26,7 +26,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
-  "workload:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1 tenancy:v1beta1 apis:v1alpha1" \
+  "workload:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1 tenancy:v1beta1 apis:v1alpha1 exports:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
@@ -52,6 +52,7 @@ go install "${CODEGEN_PKG}"/cmd/openapi-gen
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1 \
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1 \
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/pkg/apis/exports/v1alpha1 \
 --input-dirs github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1 \
 --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
 --output-package github.com/kcp-dev/kcp/pkg/openapi -O zz_generated.openapi \
