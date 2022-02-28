@@ -18,12 +18,14 @@ package clusterworkspacetypeexists
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -80,28 +82,28 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return nil
 	}
 
-	u, ok := a.GetObject().(*unstructured.Unstructured)
-	if !ok {
+	if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1") {
 		return nil
 	}
-	obj, err := kcpadmissionhelpers.DecodeUnstructured(u)
-	if err != nil {
-		// nolint: nilerr
-		return nil // only work on unstructured ClusterWorkspaces
-	}
-	cw, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
-		// nolint: nilerr
-		return nil // only work on unstructured ClusterWorkspaces
+		return fmt.Errorf("unexpected type %T", a.GetObject())
+	}
+	cw := &tenancyv1alpha1.ClusterWorkspace{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
+		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
 
-	obj, err = kcpadmissionhelpers.NativeObject(a.GetOldObject())
-	if err != nil {
-		return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
+	if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1") {
+		return nil
 	}
-	old, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	oldU, ok := a.GetOldObject().(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", obj.GetObjectKind().GroupVersionKind().Kind)
+		return fmt.Errorf("unexpected type %T", a.GetOldObject())
+	}
+	old := &tenancyv1alpha1.ClusterWorkspace{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldU.Object, old); err != nil {
+		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
 
 	// we only admit at state transition to initializing
@@ -142,9 +144,11 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		}
 	}
 
-	if err := kcpadmissionhelpers.EncodeIntoUnstructured(u, cw); err != nil {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
+	if err != nil {
 		return err
 	}
+	u.Object = raw
 
 	return nil
 }
@@ -157,15 +161,16 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		return nil
 	}
 
-	obj, err := kcpadmissionhelpers.NativeObject(a.GetObject())
-	if err != nil {
-		// nolint: nilerr
-		return nil // only work on unstructured ClusterWorkspaces
+	if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1") {
+		return nil
 	}
-	cw, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
-		// nolint: nilerr
-		return nil // only work on unstructured ClusterWorkspaces
+		return fmt.Errorf("unexpected type %T", a.GetObject())
+	}
+	cw := &tenancyv1alpha1.ClusterWorkspace{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
+		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
 
 	// first all steps where we need no lister
@@ -173,13 +178,16 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 	var transitioningToInitializing bool
 	switch a.GetOperation() {
 	case admission.Update:
-		obj, err = kcpadmissionhelpers.NativeObject(a.GetOldObject())
-		if err != nil {
-			return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
+		if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1") {
+			return nil
 		}
-		old, ok = obj.(*tenancyv1alpha1.ClusterWorkspace)
+		u, ok = a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
-			return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", obj.GetObjectKind().GroupVersionKind().Kind)
+			return fmt.Errorf("unexpected type %T", a.GetOldObject())
+		}
+		old = &tenancyv1alpha1.ClusterWorkspace{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
+			return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 		}
 
 		transitioningToInitializing = old.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing &&
@@ -190,6 +198,13 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 	}
 
+	if a.GetOperation() == admission.Update {
+		if old.Spec.Type != cw.Spec.Type {
+			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+		}
+	}
+
+	// check type on create and on state transition
 	// TODO(sttts): there is a race that the type can be deleted between scheduling and initializing
 	//              but we cannot add initializers in status on create. A controller doing that wouldn't fix
 	//		        the race either. So, ¯\_(ツ)_/¯. Chance is low. Object can be deleted, or a condition could should

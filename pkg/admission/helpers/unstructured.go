@@ -21,47 +21,26 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/json"
 
-	kcpclientscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 )
 
-// DecodeUnstructured decodes an unstructured KCP object into the Golang type.
-func DecodeUnstructured(u *unstructured.Unstructured) (runtime.Object, error) {
-	bs, err := json.Marshal(u)
+func ToUnstructuredOrDie(obj runtime.Object) *unstructured.Unstructured {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	newObj, err := runtime.Decode(kcpclientscheme.Codecs.UniversalDecoder(u.GroupVersionKind().GroupVersion()), bs)
-	if err != nil {
-		return nil, err
-	}
-	return newObj, nil
-}
+	u := &unstructured.Unstructured{Object: raw}
 
-func EncodeIntoUnstructured(u *unstructured.Unstructured, obj runtime.Object) error {
-	if u == nil {
-		return fmt.Errorf("unstructured object is nil") // programming error
-	}
-
-	bs, err := runtime.Encode(kcpclientscheme.Codecs.LegacyCodec(u.GroupVersionKind().GroupVersion()), obj)
+	kinds, _, err := kcpscheme.Scheme.ObjectKinds(obj)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	err = json.Unmarshal(bs, &u.Object)
-	if err != nil {
-		return err
+	if len(kinds) == 0 {
+		panic(fmt.Errorf("unable to determine kind for %T", obj))
 	}
-	return nil
-}
+	u.SetKind(kinds[0].Kind)
+	u.SetAPIVersion(kinds[0].GroupVersion().String())
 
-// NativeObject returns the native Golang object from the unstructured object.
-func NativeObject(obj runtime.Object) (runtime.Object, error) {
-	if obj == nil {
-		return nil, nil
-	}
-	if unstructuredObj, ok := obj.(*unstructured.Unstructured); ok {
-		return DecodeUnstructured(unstructuredObj)
-	}
-	return obj, nil
+	return u
 }

@@ -19,13 +19,15 @@ package clusterworkspacetype
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
-	kcpadmissionhelpers "github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
@@ -58,15 +60,13 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 		return nil
 	}
 
-	obj, err := kcpadmissionhelpers.NativeObject(a.GetObject())
-	if err != nil {
-		// nolint: nilerr
-		return nil // only work on unstructured ClusterWorkspaces
-	}
-	cwt, ok := obj.(*tenancyv1alpha1.ClusterWorkspaceType)
+	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
-		// nolint: nilerr
-		return nil // only work on unstructured ClusterWorkspaces
+		return fmt.Errorf("unexpected type %T", a.GetOldObject())
+	}
+	cwt := &tenancyv1alpha1.ClusterWorkspaceType{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cwt); err != nil {
+		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
 	}
 
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
