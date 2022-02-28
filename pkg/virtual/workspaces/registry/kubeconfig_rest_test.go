@@ -153,7 +153,7 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -237,7 +237,7 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -321,7 +321,7 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -405,7 +405,7 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -492,7 +492,7 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -578,7 +578,7 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -664,7 +664,7 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -747,7 +747,7 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -822,7 +822,7 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 						},
 						Conditions: conditionsv1alpha1.Conditions{
 							{
-								Type:   tenancyv1alpha1.WorkspaceURLValid,
+								Type:   tenancyv1alpha1.WorkspaceShardValid,
 								Status: corev1.ConditionTrue,
 							},
 						},

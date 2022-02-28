@@ -173,14 +173,17 @@ const (
 	// can't schedule the workspace right now, for example due to insufficient resources in the cluster.
 	WorkspaceReasonUnschedulable = "Unschedulable"
 
-	// WorkspaceURLValid represents status of the connection process for this workspace.
-	WorkspaceURLValid conditionsv1alpha1.ConditionType = "WorkspaceURLValid"
-	// WorkspaceURLReasonMissing reason in WorkspaceURLValid condition means that the
+	// WorkspaceShardValid represents status of the connection process for this workspace.
+	WorkspaceShardValid conditionsv1alpha1.ConditionType = "WorkspaceShardValid"
+	// WorkspaceShardValidReasonMissingCredentials reason in WorkspaceShardValid condition means that the
 	// connection information in the referenced WorkspaceShard could not be found.
-	WorkspaceURLReasonMissing = "Missing"
-	// WorkspaceURLReasonInvalid reason in WorkspaceURLValid condition means that the
+	WorkspaceShardValidReasonMissingCredentials = "MissingShardCredentials"
+	// WorkspaceShardValidReasonURLInvalid reason in WorkspaceShardValid condition means that the
 	// connection information in the referenced WorkspaceShard were invalid.
-	WorkspaceURLReasonInvalid = "Invalid"
+	WorkspaceShardValidReasonURLInvalid = "InvalidShardURL"
+	// WorkspaceShardValidReasonShardNotFound reason in WorkspaceShardValid condition means that the
+	// referenced WorkspaceShard object got deleted.
+	WorkspaceShardValidReasonShardNotFound = "ShardNotFound"
 )
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and

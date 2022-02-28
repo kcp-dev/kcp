@@ -251,8 +251,8 @@ func TestWorkspaceController(t *testing.T) {
 					if err := scheduled(workspaceShard.Name)(workspace); err != nil {
 						return err
 					}
-					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
-						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceURLValid))
+					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
+						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceShardValid))
 					}
 					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix/clusters/"+workspaceClusterName); diff != "" {
 						return fmt.Errorf("got incorrect base URL on workspace: %v", diff)
