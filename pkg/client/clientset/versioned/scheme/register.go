@@ -27,6 +27,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	exportsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/exports/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -38,6 +39,7 @@ var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	apiresourcev1alpha1.AddToScheme,
 	apisv1alpha1.AddToScheme,
+	exportsv1alpha1.AddToScheme,
 	tenancyv1alpha1.AddToScheme,
 	tenancyv1beta1.AddToScheme,
 	workloadv1alpha1.AddToScheme,

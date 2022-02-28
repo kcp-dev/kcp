@@ -40,6 +40,43 @@ spec:
           spec:
             description: Spec holds the desired state.
             properties:
+              conversions:
+                description: Conversions are conversions from one version to the new
+                  versions. The map must be exhaustive, i.e. it must contain a mapping
+                  for every possible version to every possible version.
+                items:
+                  description: APIResourceVersionConversion is a conversion from one
+                    version to another version.
+                  properties:
+                    CEL:
+                      description: CEL defines a CEL based conversion function.
+                      properties:
+                        expression:
+                          description: expression is the CEL expression to be used.
+                            The old object is accessible through the variable “old”.
+                            The new object is accessible through the variable "self".
+                          minLength: 1
+                          type: string
+                      required:
+                      - expression
+                      type: object
+                    from:
+                      description: from is the source version for the conversion.
+                      minLength: 1
+                      type: string
+                    to:
+                      description: from is the source version for the conversion.
+                      minLength: 1
+                      type: string
+                  required:
+                  - from
+                  - to
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - from
+                - to
+                x-kubernetes-list-type: map
               group:
                 description: group is the API group of the defined custom resource.
                   The custom resources are served under `/apis/<group>/...`.
@@ -87,6 +124,96 @@ spec:
                 - kind
                 - plural
                 type: object
+              predecessors:
+                description: "predecessors are references to APIResourceSchemas this
+                  one is an evolution of. Predecessors are required when 1. an APIExport
+                  spec sets another schema as latest schema available. The new    schemas
+                  must be (transitively) evolutions of the previous schemas    (if
+                  the old schema is used in at least one APIBinding in another workspace).
+                  2. an APIBinding is bound to a new schema. The new schema must be
+                  (transitively)    an evolution of the previously bound schema. \n
+                  Note: (2) follows from (1) if APIBindings can only be bound to the
+                  latest schema       of APIExports. \n A schema is an evolution of
+                  another schema if - it has the same group, resource, scopes, names,
+                  and - it serves the same versions, and - for every version:   -
+                  the status subresource is either served in both or in none, and
+                  \  - it has not less non-status subresources than the predecessor,
+                  and   - it has an OpenAPI v3 schema that is a compatible evolution
+                  of the     predecessor schema. \n These rules are meant to protect
+                  the API author from accidentally introducing breaking API changes.
+                  Overrides can be set for some rules by the API author to opt-out
+                  of the checks, as a conscious decision during API design."
+                items:
+                  description: PredecessorSchema references a APIResourceSchema that
+                    this schema is an evolution of.
+                  properties:
+                    name:
+                      description: name is the name of another APIResourceSchema in
+                        the same workspace.
+                      minLength: 1
+                      type: string
+                    overrides:
+                      description: "overrides are acknowledgement by the API author
+                        that the formally breaking API changes are acceptable. \n
+                        WARNING: overriding the API breakage checks can lead to objects
+                        that cannot be updated anymore, or to clients that do not
+                        work anymore after the schema change."
+                      type: object
+                    versionOverrides:
+                      description: "versionOverrides are acknowledgements by the API
+                        author that the formally breaking API changes of the given
+                        versions are acceptable. \n WARNING: overriding the API breakage
+                        checks can lead to objects that cannot be updated anymore,
+                        or to clients that do not work anymore after the schema change."
+                      items:
+                        description: PredecessorPerVersionOverrides is a list of acknowledgments
+                          by the API author of formally breaking API changes of given
+                          given version.
+                        properties:
+                          addedStatusSubresource:
+                            description: overrideAddedStatusSubresource acknowledges
+                              that the predecessor schema has no status subresource,
+                              but the new one has. This is a breaking API change.
+                            type: boolean
+                          incompatibleSchema:
+                            description: "overrideIncompatibleSchema acknowledges
+                              that the predecessor schema is incompatible with the
+                              new one. This is a breaking API change. \n It might
+                              be acceptable to do these kind of schema changes if
+                              additional considerations show no or low risk that objects
+                              exists in workspaces that are not compatible with the
+                              new schema, but have been with the old."
+                            type: boolean
+                          name:
+                            description: name is the version name, e.g. “v1”, “v2beta1”,
+                              etc.
+                            minLength: 1
+                            type: string
+                          notServedAnymore:
+                            description: notServedAnymore acknowledges that the predecessor
+                              schema served this API version, but the new one does
+                              not. The old HTTP API will not work anymore and client
+                              might fail.
+                            type: boolean
+                          removedStatusSubresource:
+                            description: overrideRemovedStatusSubresource acknowledges
+                              that the predecessor schema has a status subresource,
+                              but the new one does not. This is a breaking API change.
+                            type: boolean
+                        required:
+                        - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               scope:
                 description: scope indicates whether the defined custom resource is
                   cluster- or namespace-scoped. Allowed values are `Cluster` and `Namespaced`.

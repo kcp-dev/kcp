@@ -28,6 +28,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	exportsv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/exports/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
@@ -64,6 +65,7 @@ type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface
+	ExportsV1alpha1() exportsv1alpha1.ExportsV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface
 	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface
@@ -82,6 +84,7 @@ type scopedClientset struct {
 	*discovery.DiscoveryClient
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1Client
 	apisV1alpha1        *apisv1alpha1.ApisV1alpha1Client
+	exportsV1alpha1     *exportsv1alpha1.ExportsV1alpha1Client
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1Client
 	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1Client
 	workloadV1alpha1    *workloadv1alpha1.WorkloadV1alpha1Client
@@ -95,6 +98,11 @@ func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
 func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
 	return apisv1alpha1.NewWithCluster(c.apisV1alpha1.RESTClient(), c.cluster)
+}
+
+// ExportsV1alpha1 retrieves the ExportsV1alpha1Client
+func (c *Clientset) ExportsV1alpha1() exportsv1alpha1.ExportsV1alpha1Interface {
+	return exportsv1alpha1.NewWithCluster(c.exportsV1alpha1.RESTClient(), c.cluster)
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
@@ -160,6 +168,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.exportsV1alpha1, err = exportsv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -195,6 +207,7 @@ func New(c rest.Interface) *Clientset {
 	var cs scopedClientset
 	cs.apiresourceV1alpha1 = apiresourcev1alpha1.New(c)
 	cs.apisV1alpha1 = apisv1alpha1.New(c)
+	cs.exportsV1alpha1 = exportsv1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 	cs.tenancyV1beta1 = tenancyv1beta1.New(c)
 	cs.workloadV1alpha1 = workloadv1alpha1.New(c)

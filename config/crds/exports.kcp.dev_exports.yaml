@@ -1,0 +1,103 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: exports.exports.kcp.dev
+spec:
+  group: exports.kcp.dev
+  names:
+    categories:
+    - kcp
+    kind: Export
+    listKind: ExportList
+    plural: exports
+    singular: export
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .reference.resource
+      name: Resource
+      priority: 1
+      type: string
+    - jsonPath: .reference.workspace
+      name: Workspace
+      priority: 2
+      type: string
+    - jsonPath: .reference.name
+      name: Name
+      priority: 3
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "Export is a reference to an object in a workspace to be exposed
+          to workspaces below. E.g. - an Export in the root workspace references any
+          object in any workspace and   exposes it to all other workspaces. - an Export
+          in an org workspace references any object in the same org and   exposes
+          it to all other workspaces in the org. - an Export in a non-org, non-root
+          workspace references any object in the same   workspace and exposes it to
+          the same workspace. \n An export can be bound by binding objects in the
+          workspaces that the Export is exposed to. A binding object is identified
+          by its name and its fully qualified workspace name (e.g. root, root:org
+          or org:workspace). \n Binding to an export is only protected by RBAC in
+          the same workspace the Export exists in through the exports resource and
+          bind verb. During binding this permission is checked through a SubjectAccessReview
+          against that workspace. There is no need for a binding to be able to access
+          the export object directly in any way. \n The name of the export must be
+          of the shape `idenfier.resource.group` where identifier is a valid DNS 1123
+          segment, and resource and group match the values in spec.reference."
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          reference:
+            description: Spec holds the desired state.
+            properties:
+              group:
+                description: "group is the group of the referenced object. \n kubebuilder:validation:MinLength=1"
+                type: string
+              name:
+                description: "name is the name of the referenced object in the given
+                  workspace. \n The name is defaulted to the first segment of the
+                  object's name. \n kubebuilder:validation:MinLength=1"
+                type: string
+              resource:
+                description: "resource is the resource of the referenced object. \n
+                  kubebuilder:validation:MinLength=1"
+                type: string
+              workspace:
+                description: "workspace is the workspace the referenced object is
+                  in. \n If the workspace is empty, the referenced object is in the
+                  same workspace. \n kubebuilder:validation:MinLength=1"
+                type: string
+            required:
+            - group
+            - name
+            - resource
+            - workspace
+            type: object
+        required:
+        - reference
+        type: object
+    served: true
+    storage: true
+    subresources: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

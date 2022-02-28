@@ -43,7 +43,25 @@ spec:
                 oneOf:
                 - required:
                   - workspace
+                - required:
+                  - export
                 properties:
+                  export:
+                    description: export is a reference to an exports.kcp.dev/v1alpha1
+                      Export object uniquely identifying the APIExport to bind to.
+                    properties:
+                      name:
+                        description: name is the name of the referenced object in
+                          the given workspace. kubebuilder:validation:MinLength=1
+                        type: string
+                      workspace:
+                        description: "workspace is the workspace the referenced object
+                          is in. \n If workspace is empty, this is a reference to
+                          an object in the same workspace."
+                        type: string
+                    required:
+                    - name
+                    type: object
                   workspace:
                     description: workspace is a reference to an APIExport in the same
                       organization. The creator of the APIBinding needs to have access
@@ -71,6 +89,22 @@ spec:
                   is what gives the APIExport visibility into the objects in this
                   workspace."
                 properties:
+                  export:
+                    description: export is a reference to an exports.kcp.dev/v1alpha1
+                      Export object uniquely identifying the APIExport to bind to.
+                    properties:
+                      name:
+                        description: name is the name of the referenced object in
+                          the given workspace. kubebuilder:validation:MinLength=1
+                        type: string
+                      workspace:
+                        description: "workspace is the workspace the referenced object
+                          is in. \n If workspace is empty, this is a reference to
+                          an object in the same workspace."
+                        type: string
+                    required:
+                    - name
+                    type: object
                   workspace:
                     description: workspace is a reference to an APIExport in the same
                       organization. The creator of the APIBinding needs to have access
