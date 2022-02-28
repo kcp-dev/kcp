@@ -41,8 +41,7 @@ import (
 )
 
 // Validate ClusterWorkspace creation and updates for valid use of spec.type, i.e. the
-// ClusterWorkspaceType must exist in the same workspace and the field is immutable after
-// creation.
+// ClusterWorkspaceType must exist in the same workspace.
 
 const (
 	PluginName = "tenancy.kcp.dev/ClusterWorkspaceTypeExists"
@@ -176,7 +175,6 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		if err != nil {
 			return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
 		}
-
 		old, ok = obj.(*tenancyv1alpha1.ClusterWorkspace)
 		if !ok {
 			return fmt.Errorf("unexpected unknown old object, got %v, expected ClusterWorkspace", obj.GetObjectKind().GroupVersionKind().Kind)
@@ -184,10 +182,6 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 
 		transitioningToInitializing = old.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing &&
 			cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing
-	}
-
-	if cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady && len(cw.Status.Initializers) > 0 {
-		return admission.NewForbidden(a, fmt.Errorf("spec.initializers must be empty for phase %s", cw.Status.Phase))
 	}
 
 	if !o.waitForSyncedStore(ctx) {
@@ -227,12 +221,6 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 					return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
 				}
 			}
-		}
-	}
-
-	if a.GetOperation() == admission.Update {
-		if old.Spec.Type != cw.Spec.Type {
-			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
 		}
 	}
 
