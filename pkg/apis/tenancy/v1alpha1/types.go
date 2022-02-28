@@ -172,6 +172,9 @@ const (
 	// WorkspaceReasonUnschedulable reason in WorkspaceScheduled WorkspaceCondition means that the scheduler
 	// can't schedule the workspace right now, for example due to insufficient resources in the cluster.
 	WorkspaceReasonUnschedulable = "Unschedulable"
+	// WorkspaceReasonReasonUnknown reason in WorkspaceScheduled means that scheduler has failed for
+	// some unexpected reason.
+	WorkspaceReasonReasonUnknown = "Unknown"
 
 	// WorkspaceShardValid represents status of the connection process for this workspace.
 	WorkspaceShardValid conditionsv1alpha1.ConditionType = "WorkspaceShardValid"
@@ -184,6 +187,9 @@ const (
 	// WorkspaceShardValidReasonShardNotFound reason in WorkspaceShardValid condition means that the
 	// referenced WorkspaceShard object got deleted.
 	WorkspaceShardValidReasonShardNotFound = "ShardNotFound"
+	// WorkspaceShardValidReasonMissingConnectionInfo reason in WorkspaceShardValid condition means that the
+	// referenced WorkspaceShard object lacks connection info.
+	WorkspaceShardValidReasonMissingConnectionInfo = "MissingConnectionInfo"
 )
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
