@@ -36,6 +36,10 @@ const (
 	// means that the scheduler can't schedule the namespace right now, e.g. due to a
 	// lack of ready clusters being available.
 	NamespaceReasonUnschedulable = "Unschedulable"
+	// NamespaceReasonSchedulingDisabled reason in NamespaceScheduled Namespace Condition
+	// means that the automated scheduling for this namespace is disabled, e.g., when it's
+	// labelled with ScheduleDisabledLabel.
+	NamespaceReasonSchedulingDisabled = "SchedulingDisabled"
 )
 
 // NamespaceConditionsAdapter enables the use of the conditions helper
@@ -113,10 +117,8 @@ func statusPatchBytes(ns *corev1.Namespace, updateConditions updateConditionsFun
 // IsScheduled returns whether the given namespace's status indicates
 // it is scheduled.
 func IsScheduled(ns *corev1.Namespace) bool {
-	for _, condition := range ns.Status.Conditions {
-		if condition.Type == corev1.NamespaceConditionType(NamespaceScheduled) {
-			return condition.Status == corev1.ConditionTrue
-		}
+	if condition := conditions.Get(&NamespaceConditionsAdapter{ns}, NamespaceScheduled); condition != nil {
+		return condition.Status == corev1.ConditionTrue
 	}
 	return false
 }
