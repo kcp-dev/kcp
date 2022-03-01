@@ -5,18 +5,18 @@ permissions:
 
 on:
   push:
-    branches: ['main']
+    branches: ["main"]
 
 jobs:
   syncer-image:
     name: Build Syncer Image
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-go@v2
-      with:
-        go-version: v1.17
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: v1.17
 
-    # Build and push a syncer image, tagged with the commit SHA.
-    - uses: imjasonh/setup-ko@v0.4
-    - run: ko publish ./cmd/syncer -t $(git rev-parse --short "$GITHUB_SHA")
+      # Build and push a syncer image, tagged with the commit SHA.
+      - uses: imjasonh/setup-ko@v0.4
+      - run: ko publish ./cmd/syncer -t $(git rev-parse --short "$GITHUB_SHA")
