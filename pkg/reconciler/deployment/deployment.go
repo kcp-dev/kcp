@@ -27,10 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 )
 
 const (
-	clusterLabel = "kcp.dev/cluster"
+	clusterLabel = nscontroller.ClusterLabel
 	ownedByLabel = "kcp.dev/owned-by"
 )
 

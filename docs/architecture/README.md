@@ -49,7 +49,7 @@ In reality, these control loops could be compiled in and embedded into the same 
 
 The Syncer (`./cmd/syncer`) maintains a connection to the `kcp`, and to a Kubernetes cluster's API server.
 
-After initial type negotiation, the Syncer watches for resources of all types that are scheduled to that cluster, using the `kcp.dev/cluster` label, and copies those resources to the Kubernetes cluster.
+After initial type negotiation, the Syncer watches for resources of all types that are scheduled to that cluster, using the `workloads.kcp.dev/cluster` label, and copies those resources to the Kubernetes cluster.
 
 It also watches for updates to resources in its cluster, and mirrors any updates to `.status` to the `kcp`'s API.
 
@@ -73,7 +73,7 @@ It watches for `Deployment` resources in the `kcp`, and determines how many of t
 
 It currently does this very _very_ simply, by dividing the number of `replicas` evenly across available clusters.
 
-When the Deployment Splitter splits a Deployment, it creates N new Deployment resources, each labeled for an available cluster (i.e., it labels each with `kcp.dev/cluster: my-cluster-name`).
+When the Deployment Splitter splits a Deployment, it creates N new Deployment resources, each labeled for an available cluster (i.e., it labels each with `workloads.kcp.dev/cluster: my-cluster-name`).
 This in turn instructs the [Syncer](#syncer) for that cluster to see the Deployment shard and sync it down to the cluster.
 
 <img alt="Diagram of kcp, Cluster Controller, Syncer and Deployment Splitter" src="./deployment-splitter.png"></img>

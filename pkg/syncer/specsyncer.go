@@ -32,6 +32,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
+
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 )
 
 func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
@@ -124,7 +126,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			"kcp.dev/cluster": upstreamObj.GetLabels()["kcp.dev/cluster"],
+			nscontroller.ClusterLabel: upstreamObj.GetLabels()[nscontroller.ClusterLabel],
 		})
 	}
 

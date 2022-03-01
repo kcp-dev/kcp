@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
@@ -40,7 +41,8 @@ var (
 	fromClusterName = flag.String("from_cluster", "", "Name of the -from logical cluster.")
 	toKubeconfig    = flag.String("to_kubeconfig", "", "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
 	toContext       = flag.String("to_context", "", "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
-	pclusterID      = flag.String("cluster", "", "ID of the -to cluster. Resources with this ID set in the 'kcp.dev/cluster' label will be synced.")
+	pclusterID      = flag.String("cluster", "",
+		fmt.Sprintf("ID of the -to cluster. Resources with this ID set in the '%s' label will be synced.", nscontroller.ClusterLabel))
 )
 
 func main() {

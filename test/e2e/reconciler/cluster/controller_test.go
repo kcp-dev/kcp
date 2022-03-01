@@ -41,6 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest"
@@ -79,7 +80,7 @@ func TestClusterController(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
-							"kcp.dev/cluster": sinkClusterName,
+							nscontroller.ClusterLabel: sinkClusterName,
 						},
 					},
 					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},

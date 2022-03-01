@@ -28,10 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/klog/v2"
+
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 )
 
 const (
-	clusterLabel     = "kcp.dev/cluster"
+	clusterLabel     = nscontroller.ClusterLabel
 	OwnedByCluster   = "ingress.kcp.dev/owned-by-cluster"
 	OwnedByIngress   = "ingress.kcp.dev/owned-by-ingress"
 	OwnedByNamespace = "ingress.kcp.dev/owned-by-namespace"
