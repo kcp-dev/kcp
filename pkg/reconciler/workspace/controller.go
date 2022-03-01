@@ -100,7 +100,8 @@ func NewController(
 	}
 
 	rootWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAddedShard(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueUpsertedShard(obj, "add") },
+		UpdateFunc: func(obj, _ interface{}) { c.enqueueUpsertedShard(obj, "update") },
 		DeleteFunc: func(obj interface{}) { c.enqueueDeletedShard(obj) },
 	})
 
@@ -128,17 +129,17 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	klog.Infof("queueing workspace %q", key)
+	klog.Infof("Queueing workspace %q", key)
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueAddedShard(obj interface{}) {
+func (c *Controller) enqueueUpsertedShard(obj interface{}, verb string) {
 	shard, ok := obj.(*tenancyv1alpha1.WorkspaceShard)
 	if !ok {
 		runtime.HandleError(fmt.Errorf("got %T when handling added WorkspaceShard", obj))
 		return
 	}
-	klog.Infof("handling added shard %q", shard.Name)
+	klog.Infof("Handling %sed shard %q", verb, shard.Name)
 	workspaces, err := c.workspaceIndexer.ByIndex(unschedulableIndex, "true")
 	if err != nil {
 		runtime.HandleError(err)
@@ -150,7 +151,7 @@ func (c *Controller) enqueueAddedShard(obj interface{}) {
 			runtime.HandleError(err)
 			return
 		}
-		klog.Infof("queuing unschedulable workspace %q", key)
+		klog.Infof("Queuing unschedulable workspace %q", key)
 		c.queue.Add(key)
 	}
 }
