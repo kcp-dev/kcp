@@ -30,12 +30,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
@@ -57,7 +57,6 @@ func TestNamespaceScheduler(t *testing.T) {
 	const (
 		serverName           = "main"
 		physicalCluster1Name = "pcluster1"
-		physicalCluster2Name = "pcluster2"
 	)
 
 	type runningServer struct {
@@ -114,108 +113,35 @@ func TestNamespaceScheduler(t *testing.T) {
 				err = server.expect(namespace, scheduledMatcher(cluster1.Name))
 				require.NoError(t, err, "did not see namespace marked scheduled for cluster1 %q", cluster1.Name)
 
-				t.Log("Create a new cordoned cluster")
+				t.Log("Cordon the cluster and expect the namespace to end up unscheduled")
 
-				server2RawConfig, err := f.Servers[physicalCluster2Name].RawConfig()
-				require.NoError(t, err, "failed to get server 2 raw config")
-
-				server2Kubeconfig, err := clientcmd.Write(server2RawConfig)
-				require.NoError(t, err, "failed to get server 2 kubeconfig")
-
-				cluster2, err := server.clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "e2e-nss-2-",
-					},
-					Spec: clusterv1alpha1.ClusterSpec{
-						KubeConfig:    string(server2Kubeconfig),
-						Unschedulable: true, // cordoned.
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create cluster2")
-
-				t.Log("Delete the old cluster and expect the namespace to end up unschedulable (since the new cluster is cordoned).")
-
-				err = server.clusterClient.Delete(ctx, cluster1.Name, metav1.DeleteOptions{})
-				require.NoError(t, err, "failed to delete cluster1 %q", cluster1.Name)
-
-				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonUnschedulable))
-				require.NoError(t, err, "did not see namespace marked unschedulable")
-
-				t.Log("Uncordon the new cluster and expect the namespace to end up scheduled to it.")
-
-				schedulablePatchBytes := []byte(`[{"op":"replace","path":"/spec/unschedulable","value":false}]`) // uncordoned.
-				cluster2, err = server.clusterClient.Patch(ctx, cluster2.Name, types.JSONPatchType, schedulablePatchBytes, metav1.PatchOptions{})
-				require.NoError(t, err, "failed to uncordon cluster2")
-
-				err = server.expect(namespace, scheduledMatcher(cluster2.Name))
-				require.NoError(t, err, "did not see namespace marked scheduled for cluster2 %q", cluster2.Name)
-
-				t.Log("Mark the new cluster for immediate eviction, and see the namespace get unschedulable.")
-
-				anHourAgo := metav1.NewTime(time.Now().Add(-time.Hour))
-				evictPatchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/evictAfter","value":%q}]`, anHourAgo.Format(time.RFC3339)))
-				cluster2, err = server.clusterClient.Patch(ctx, cluster2.Name, types.JSONPatchType, evictPatchBytes, metav1.PatchOptions{})
-				require.NoError(t, err, "failed to evict cluster2")
-
-				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonUnschedulable))
-				require.NoError(t, err, "did not see namespace marked unschedulable")
-
-				t.Log("Unevict the new cluster and see the namespace scheduled to it.")
-
-				unevictPatchBytes := []byte(`[{"op":"replace","path":"/spec/evictAfter","value":null}]`)
-				cluster2, err = server.clusterClient.Patch(ctx, cluster2.Name, types.JSONPatchType, unevictPatchBytes, metav1.PatchOptions{})
-				require.NoError(t, err, "failed to unevict cluster2")
-
-				waitForClusterReadiness(t, ctx, server.clusterClient, cluster2.Name)
-
-				err = server.expect(namespace, scheduledMatcher(cluster2.Name))
-				require.NoError(t, err, "did not see namespace marked scheduled for cluster2 %q", cluster2.Name)
-
-				t.Log("Delete the remaining cluster and expect the namespace to be marked unschedulable.")
-
-				err = server.clusterClient.Delete(ctx, cluster2.Name, metav1.DeleteOptions{})
-				require.NoError(t, err, "failed to delete cluster2 %q", cluster2.Name)
-
-				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonUnschedulable))
-				require.NoError(t, err, "did not see namespace marked unschedulable")
-			},
-		},
-		{
-			name: "validate namespace with manual scheduling",
-			work: func(ctx context.Context, t *testing.T, f *framework.KcpFixture, server runningServer) {
-				t.Log("Create a cluster and expect the namespace not to be scheduled to it")
-
-				server1RawConfig, err := f.Servers[physicalCluster1Name].RawConfig()
-				require.NoError(t, err, "failed to get server 1 raw config")
-
-				server1Kubeconfig, err := clientcmd.Write(server1RawConfig)
-				require.NoError(t, err, "failed to marshal server 1 kubeconfig")
-
-				_, err = server.clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "e2e-nss-",
-					},
-					Spec: clusterv1alpha1.ClusterSpec{
-						KubeConfig: string(server1Kubeconfig),
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create cluster1")
-
-				t.Log("Create a namespace with manual scheduling and expect it to be marked unscheduled")
-
-				namespace, err := server.client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "e2e-nss-",
-						Labels: map[string]string{
-							nscontroller.SchedulingDisabledLabel: "",
-						},
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create namespace")
-
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
+				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+					cluster, err := server.clusterClient.Get(ctx, cluster1.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					anHourAgo := metav1.NewTime(time.Now().Add(-1 * time.Hour))
+					cluster.Spec.EvictAfter = &anHourAgo
+					_, err = server.clusterClient.Update(ctx, cluster, metav1.UpdateOptions{})
+					return err
 				})
+				require.NoError(t, err, "failed to update cluster1")
+
+				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonUnschedulable))
+				require.NoError(t, err, "did not see namespace marked unschedulable")
+
+				t.Log("Disable the scheduling for the namespace and expect it to be marked unscheduled")
+
+				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					ns.Labels[nscontroller.SchedulingDisabledLabel] = ""
+					_, err = server.client.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
+					return err
+				})
+				require.NoError(t, err, "failed to update namespace")
 
 				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonSchedulingDisabled))
 				require.NoError(t, err, "did not see namespace marked with scheduling disabled")
@@ -252,16 +178,9 @@ func TestNamespaceScheduler(t *testing.T) {
 						"--run-controllers=false",
 					},
 				},
-				// this is a kcp acting as a physical cluster
-				framework.KcpConfig{
-					Name: physicalCluster2Name,
-					Args: []string{
-						"--run-controllers=false",
-					},
-				},
 			)
 
-			require.Equal(t, 3, len(f.Servers), "incorrect number of servers")
+			require.Equal(t, 2, len(f.Servers), "incorrect number of servers")
 			server := f.Servers[serverName]
 
 			cfg, err := server.Config("system:admin")
