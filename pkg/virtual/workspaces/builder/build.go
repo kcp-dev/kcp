@@ -41,7 +41,7 @@ import (
 )
 
 const WorkspacesVirtualWorkspaceName string = "workspaces"
-const DefaultRootPathPrefix string = "/services/applications/workspaces"
+const DefaultRootPathPrefix string = "/services/workspaces"
 
 func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, rootKcpClient kcpclient.Interface, orgKcpClient kcpclient.Interface, rootKubeClient, orgKubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
 	crbInformer := rbacInformers.ClusterRoleBindings()

@@ -61,13 +61,13 @@ func (o *WorkspacesSubCommandOptions) AddFlags(flags *pflag.FlagSet) {
 	}
 
 	flags.StringVar(&o.KubeconfigFile, "workspaces:kubeconfig", "", ""+
-		"The kubeconfig file of the organizational cluster that provides the workspaces and related RBAC rules.")
+		"The kubeconfig file whose default context points to the root organization workspace.")
 
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 
 	flags.StringVar(&o.RootPathPrefix, "workspaces:root-path-prefix", builder.DefaultRootPathPrefix, ""+
 		"The prefix of the workspaces API server root path.\n"+
-		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/workspaces/<org-name>/personal|all")
+		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/<org-name>/personal|all")
 }
 
 func (o *WorkspacesSubCommandOptions) Validate() []error {
