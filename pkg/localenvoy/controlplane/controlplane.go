@@ -148,7 +148,7 @@ func (ecp *EnvoyControlPlane) UpdateEnvoyConfig(ctx context.Context) error {
 	hcm := ecp.translator.newHTTPConnectionManager(routeConfig.Name)
 	listener, _ := ecp.translator.newHTTPListener(hcm)
 
-	res := make(map[resource.Type][]cachetypes.Resource, 0)
+	res := make(map[resource.Type][]cachetypes.Resource)
 
 	res[resource.RouteType] = []cachetypes.Resource{routeConfig}
 	res[resource.ListenerType] = []cachetypes.Resource{listener}
