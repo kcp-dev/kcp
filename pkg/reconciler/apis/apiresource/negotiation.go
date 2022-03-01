@@ -637,20 +637,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		}
 	}
 
-	var crColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition
-	for _, columDefinition := range negotiatedApiResource.Spec.ColumnDefinitions {
-		if columDefinition.JSONPath == nil {
-			continue
-		}
-		crColumnDefinitions = append(crColumnDefinitions, apiextensionsv1.CustomResourceColumnDefinition{
-			Name:        columDefinition.Name,
-			Type:        columDefinition.Type,
-			Format:      columDefinition.Format,
-			Description: columDefinition.Description,
-			Priority:    columDefinition.Priority,
-			JSONPath:    *columDefinition.JSONPath,
-		})
-	}
+	crColumnDefinitions := negotiatedApiResource.Spec.ColumnDefinitions.ToCustomResourceColumnDefinitions()
 
 	crdVersion := apiextensionsv1.CustomResourceDefinitionVersion{
 		Name:    gvr.Version,

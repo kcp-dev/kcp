@@ -62,6 +62,24 @@ func (cd *ColumnDefinitions) ImportFromCRDVersion(crdVersion *apiextensionsv1.Cu
 	return cd
 }
 
+func (cds *ColumnDefinitions) ToCustomResourceColumnDefinitions() []apiextensionsv1.CustomResourceColumnDefinition {
+	var crdcds []apiextensionsv1.CustomResourceColumnDefinition
+	for _, cd := range *cds {
+		if cd.JSONPath == nil {
+			continue
+		}
+		crdcds = append(crdcds, apiextensionsv1.CustomResourceColumnDefinition{
+			Name:        cd.Name,
+			Type:        cd.Type,
+			Format:      cd.Format,
+			Description: cd.Description,
+			Priority:    cd.Priority,
+			JSONPath:    *cd.JSONPath,
+		})
+	}
+	return crdcds
+}
+
 type SubResource struct {
 	Name string `json:"name"`
 }
@@ -98,6 +116,15 @@ func (sr *SubResources) ImportFromCRDVersion(crdVersion *apiextensionsv1.CustomR
 		}
 	}
 	return sr
+}
+
+func (sr *SubResources) Contains(name string) bool {
+	for _, r := range *sr {
+		if r.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 type GroupVersion struct {
