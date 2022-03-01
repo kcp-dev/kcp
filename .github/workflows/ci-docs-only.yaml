@@ -1,0 +1,53 @@
+name: CI
+
+# To satisfy required status checks for docs-only changes, configure jobs that match those in ci.yaml that
+# always return true.
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "docs/**"
+      - "**/*.md"
+
+jobs:
+  boilerplate:
+    name: boilerplate
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
+  imports:
+    name: imports
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
+  codegen:
+    name: codegen
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
+  e2e-multiple-runs:
+    name: e2e-multiple-runs
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
