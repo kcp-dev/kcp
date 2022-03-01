@@ -9,6 +9,12 @@ on:
       - "docs/**"
       - "**/*.md"
 
+# NOTE!!!
+#
+# If you add a job here that is a REQUIRED status check in GitHub, you MUST add a job with the same name to ci-docs-only.yaml
+#
+# NOTE!!!
+
 jobs:
   boilerplate:
     name: boilerplate
