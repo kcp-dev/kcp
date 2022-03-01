@@ -114,7 +114,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 	}
 
 	// Update the resource's assignment.
-	patchType, patchBytes := assignedClusterPatchBytes(new)
+	patchType, patchBytes := clusterLabelPatchBytes(new)
 	if _, err = c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
@@ -283,9 +283,9 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 	return nil
 }
 
-// assignedClusterPatchBytes returns JSON patch bytes expressing an operation
+// clusterLabelPatchBytes returns JSON patch bytes expressing an operation
 // to add, replace to the given value, or delete the cluster assignment label.
-func assignedClusterPatchBytes(val string) (types.PatchType, []byte) {
+func clusterLabelPatchBytes(val string) (types.PatchType, []byte) {
 	if val == "" {
 		return types.JSONPatchType,
 			[]byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/labels/%s"}]`, strings.ReplaceAll(ClusterLabel, "/", "~1")))
