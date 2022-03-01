@@ -167,7 +167,7 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 		return nil
 	}
 
-	klog.Infof("Patching to update cluster assignment for namespace %q|%q: %q -> %q",
+	klog.Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
 		ns.ClusterName, ns.Name, oldPClusterName, newPClusterName)
 	patchType, patchBytes := clusterLabelPatchBytes(newPClusterName)
 	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
@@ -192,7 +192,7 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
-		return fmt.Errorf("failed to patch status on namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
+		return fmt.Errorf("failed to patch status on namespace %s|%s: %w", ns.ClusterName, ns.Name, err)
 	}
 
 	return nil
@@ -204,7 +204,7 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 // After assigning (or if it's already assigned), this also updates all
 // resources in the namespace to be assigned to the namespace's cluster.
 func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string, ns *corev1.Namespace) error {
-	klog.Infof("Reconciling namespace %q|%q", lclusterName, ns.Name)
+	klog.Infof("Reconciling namespace %s|%s", lclusterName, ns.Name)
 
 	if ns.Labels == nil {
 		ns.Labels = map[string]string{}
@@ -229,7 +229,7 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 	// enqueueing items here if they're not already enqueued.
 	listers, notSynced := c.ddsif.Listers()
 	for gvr, lister := range listers {
-		klog.Infof("Enqueuing resources in namespace %q|%q for GVR %q", lclusterName, ns.Name, gvr)
+		klog.Infof("Enqueuing resources in namespace %s|%s for GVR %q", lclusterName, ns.Name, gvr)
 		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			return err

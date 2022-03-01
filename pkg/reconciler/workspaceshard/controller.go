@@ -235,7 +235,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: previous.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for workspace shard %q|%q/%q: %w", helper.RootCluster, namespace, name, err)
+			return fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", helper.RootCluster, namespace, name, err)
 		}
 
 		newData, err := json.Marshal(tenancyv1alpha1.WorkspaceShard{
@@ -246,12 +246,12 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for workspace shard %q|%q/%q: %w", helper.RootCluster, namespace, name, err)
+			return fmt.Errorf("failed to Marshal new data for workspace shard %s|%s/%s: %w", helper.RootCluster, namespace, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for workspace shard %q|%q/%q: %w", helper.RootCluster, namespace, name, err)
+			return fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", helper.RootCluster, namespace, name, err)
 		}
 		_, uerr := c.kcpClient.TenancyV1alpha1().WorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
