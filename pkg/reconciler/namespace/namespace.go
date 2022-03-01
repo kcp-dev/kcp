@@ -18,11 +18,15 @@ package namespace
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -34,7 +38,6 @@ import (
 	"k8s.io/klog/v2"
 
 	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -144,47 +147,6 @@ func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionRe
 	return nil
 }
 
-func (c *Controller) patchStatus(ctx context.Context, ns *corev1.Namespace, updateConditions updateConditionsFunc) error {
-	patchBytes, err := statusPatchBytes(ns, updateConditions)
-	if err != nil {
-		return err
-	}
-	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
-		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-	if err != nil {
-		return fmt.Errorf("failed to patch status on namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
-	}
-	return nil
-}
-
-// Set the scheduled condition on namespaces and not the resources it
-// contains. Not all native types support status conditions (e.g. configmaps
-// and secrets) and there is no guarantee that arbitrary CRDs will support
-// conditions.
-func (c *Controller) updateScheduledCondition(ctx context.Context, ns *corev1.Namespace, scheduled, disabled bool) error {
-	klog.Infof("Patching namespace %q|%q status to indicate scheduled=%t", ns.ClusterName, ns.Name, scheduled)
-
-	if scheduled {
-		return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
-			conditions.MarkTrue(conditionsSetter, NamespaceScheduled)
-		})
-	}
-
-	if disabled {
-		return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
-			conditions.MarkFalse(conditionsSetter, NamespaceScheduled, NamespaceReasonSchedulingDisabled,
-				conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
-				"Automatic scheduling is deactivated and can be performed by setting the cluster label manually.")
-		})
-	}
-
-	return c.patchStatus(ctx, ns, func(conditionsSetter conditions.Setter) {
-		conditions.MarkFalse(conditionsSetter, NamespaceScheduled, NamespaceReasonUnschedulable,
-			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
-			"No clusters are available to schedule Namespaces to.")
-	})
-}
-
 // ensureScheduled attempts to ensure the namespace is assigned to a viable cluster. This
 // will succeed without error if a cluster is assigned or if there are no viable clusters
 // to assign to. The condition of not being scheduled to a cluster will be reflected in
@@ -213,24 +175,27 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 	return err
 }
 
-// ensureScheduledStatus ensures the status of the given namespace reflects whether the
-// namespace has been assigned to a cluster.
+// ensureScheduledStatus ensures the status of the given namespace reflects the
+// namespace's scheduled state.
 func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Namespace) error {
-	scheduled := ns.Labels[ClusterLabel] != ""
-	disabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
+	updatedNs := setScheduledCondition(ns)
 
-	if condition := conditions.Get(&NamespaceConditionsAdapter{ns}, NamespaceScheduled); condition != nil {
-		conditionStatusChanged := scheduled != (condition.Status == corev1.ConditionTrue)
-		conditionReasonChanged := disabled && condition.Reason != NamespaceReasonSchedulingDisabled ||
-			!disabled && condition.Reason != NamespaceReasonUnschedulable
-		statusChangeRequired := conditionStatusChanged || conditionReasonChanged
-		if statusChangeRequired {
-			return c.updateScheduledCondition(ctx, ns, scheduled, disabled)
-		}
+	if equality.Semantic.DeepEqual(ns.Status, updatedNs.Status) {
 		return nil
 	}
 
-	return c.updateScheduledCondition(ctx, ns, scheduled, disabled)
+	patchBytes, err := statusPatchBytes(ns, updatedNs)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
+		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	if err != nil {
+		return fmt.Errorf("failed to patch status on namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
+	}
+
+	return nil
 }
 
 // reconcileNamespace is responsible for assigning a namespace to a cluster, if
@@ -398,4 +363,32 @@ func enqueueStrategyForCluster(cl *clusterv1alpha1.Cluster) (strategy clusterEnq
 	// The cluster is schedulable and not cordoned. Enqueue unscheduled
 	// namespaces to allow them to schedule to the cluster.
 	return enqueueUnscheduled, pendingCordon
+}
+
+// statusPatchBytes returns the bytes required to patch status for the
+// provided namespace from its old to new state.
+func statusPatchBytes(old, new *corev1.Namespace) ([]byte, error) {
+	oldData, err := json.Marshal(corev1.Namespace{
+		Status: old.Status,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal existing status for namespace %s|%s: %w", new.ClusterName, new.Name, err)
+	}
+
+	newData, err := json.Marshal(corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			UID:             new.UID,
+			ResourceVersion: new.ResourceVersion,
+		}, // to ensure they appear in the patch as preconditions
+		Status: new.Status,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal new status for namespace %s|%s: %w", new.ClusterName, new.Name, err)
+	}
+
+	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create status patch for namespace %s|%s: %w", new.ClusterName, new.Name, err)
+	}
+	return patchBytes, nil
 }

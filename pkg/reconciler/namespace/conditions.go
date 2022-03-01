@@ -17,15 +17,11 @@ limitations under the License.
 package namespace
 
 import (
-	"encoding/json"
-	"fmt"
-
-	jsonpatch "github.com/evanphx/json-patch"
-
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -81,39 +77,6 @@ func (ca *NamespaceConditionsAdapter) SetConditions(conditions conditionsapi.Con
 
 type updateConditionsFunc func(conditionsSetter conditions.Setter)
 
-// statusPatchBytes returns the bytes required to patch status for the
-// provided namespace from its original state to the state after it
-// has been mutated by the provided function.
-func statusPatchBytes(ns *corev1.Namespace, updateConditions updateConditionsFunc) ([]byte, error) {
-	oldData, err := json.Marshal(corev1.Namespace{
-		Status: ns.Status,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal existing status for namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
-	}
-
-	// Mutation is assumed safe
-	conditionsAdapter := &NamespaceConditionsAdapter{ns}
-	updateConditions(conditionsAdapter)
-
-	newData, err := json.Marshal(corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:             ns.UID,
-			ResourceVersion: ns.ResourceVersion,
-		}, // to ensure they appear in the patch as preconditions
-		Status: ns.Status,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal new status for namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create status patch for namespace %q|%q: %w", ns.ClusterName, ns.Name, err)
-	}
-	return patchBytes, nil
-}
-
 // IsScheduled returns whether the given namespace's status indicates
 // it is scheduled.
 func IsScheduled(ns *corev1.Namespace) bool {
@@ -121,4 +84,25 @@ func IsScheduled(ns *corev1.Namespace) bool {
 		return condition.Status == corev1.ConditionTrue
 	}
 	return false
+}
+
+func setScheduledCondition(ns *corev1.Namespace) *corev1.Namespace {
+	updatedNs := ns.DeepCopy()
+	conditionsAdapter := &NamespaceConditionsAdapter{updatedNs}
+
+	if !scheduleRequirement.Matches(labels.Set(ns.Labels)) {
+		// Scheduling disabled
+		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonSchedulingDisabled,
+			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
+			"Automatic scheduling is deactivated and can be performed by setting the cluster label manually.")
+	} else if ns.Labels[ClusterLabel] == "" {
+		// Unschedulable
+		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonUnschedulable,
+			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
+			"No clusters are available to schedule Namespaces to.")
+	} else {
+		conditions.MarkTrue(conditionsAdapter, NamespaceScheduled)
+	}
+
+	return updatedNs
 }
