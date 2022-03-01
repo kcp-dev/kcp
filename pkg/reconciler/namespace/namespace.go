@@ -399,28 +399,37 @@ func ClusterLabelPatchBytes(val string) (types.PatchType, []byte) {
 func (c *Controller) observeCluster(ctx context.Context, cl *clusterv1alpha1.Cluster) error {
 	klog.Infof("Observing Cluster %s", cl.Name)
 
-	evicted := cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.Time.Before(time.Now())
+	strategy, pendingCordon := enqueueStrategyForCluster(cl)
 
-	// If cluster is Ready and not unschedulable or evicting, revisit any
-	// unscheduled namespaces.
-	if conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition) && !cl.Spec.Unschedulable && !evicted {
-		// Revisit any unscheduled namespaces
+	if pendingCordon {
+		dur := time.Until(cl.Spec.EvictAfter.Time)
+		c.enqueueClusterAfter(cl, dur)
+	}
+
+	switch strategy {
+	case enqueueUnscheduled:
 		var errs []error
 		errs = append(errs, c.enqueueNamespaces(ctx, labels.NewSelector().
 			Add(unscheduledRequirement).Add(scheduleRequirement)))
 		errs = append(errs, c.enqueueNamespaces(ctx, labels.NewSelector().
 			Add(scheduleEmptyLabelRequirement).Add(scheduleRequirement)))
 		return errors.NewAggregate(errs)
+
+	case enqueueScheduled:
+		scheduledToCluster, err := labels.NewRequirement(clusterLabel, selection.Equals, []string{cl.Name})
+		if err != nil {
+			return err
+		}
+		return c.enqueueNamespaces(ctx, labels.NewSelector().Add(*scheduledToCluster))
+
+	case enqueueNothing:
+		break
+
+	default:
+		return fmt.Errorf("unexpected enqueue strategy: %d", strategy)
 	}
 
-	if cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.After(time.Now()) {
-		dur := time.Until(cl.Spec.EvictAfter.Time)
-		c.enqueueClusterAfter(cl, dur)
-	}
-
-	// An unhealthy cluster requires revisiting the scheduling for all namespaces to
-	// ensure rescheduling is performed if needed.
-	return c.enqueueNamespaces(ctx, labels.NewSelector().Add(scheduleRequirement))
+	return nil
 }
 
 // enqueueNamespaces adds all namespaces matching selector to the queue to allow for scheduling.
@@ -438,4 +447,42 @@ func (c *Controller) enqueueNamespaces(ctx context.Context, selector labels.Sele
 	}
 
 	return nil
+}
+
+type clusterEnqueueStrategy int
+
+const (
+	enqueueScheduled clusterEnqueueStrategy = iota
+	enqueueUnscheduled
+	enqueueNothing
+)
+
+// enqueueStrategyForCluster determines what namespace enqueueing strategy
+// should be used in response to a given cluster state. Also returns a boolean
+// indication of whether to enqueue the cluster in the future to respond to a
+// impending cordon event.
+func enqueueStrategyForCluster(cl *clusterv1alpha1.Cluster) (strategy clusterEnqueueStrategy, pendingCordon bool) {
+	ready := conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition)
+	cordoned := cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.Time.Before(time.Now())
+	if !ready || cordoned {
+		// An unready or cordoned cluster requires revisiting the scheduling
+		// for the namespaces currently scheduled to the cluster to ensure
+		// rescheduling is performed.
+		return enqueueScheduled, false
+	}
+
+	// For ready clusters, a future cordon event requires enqueueing the
+	// cluster for processing at the time of the event.
+	pendingCordon = cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.After(time.Now())
+
+	if cl.Spec.Unschedulable {
+		// A ready cluster marked unschedulable doesn't allow new
+		// assignments and doesn't need rescheduling of existing
+		// assignments.
+		return enqueueNothing, pendingCordon
+	}
+
+	// The cluster is schedulable and not cordoned. Enqueue unscheduled
+	// namespaces to allow them to schedule to the cluster.
+	return enqueueUnscheduled, pendingCordon
 }
