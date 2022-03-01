@@ -58,6 +58,35 @@ For a given issue or pull request, its milestone may be:
 - **assigned to a named milestone**
 - **assigned to `TBD`** - we have looked at this, decided that it is important and we eventually would like to do it, but we aren't sure exactly when
 
+If you are confident about the target milestone for your issue or PR, please set it. If you don’t have permissions, please ask & we’ll set it for you.
+
+
+## Epics
+
+We use the [epic label](https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3Aepic+) to track large features that typically involve multiple stories. When creating a new epic, please use the [epic issue template](https://github.com/kcp-dev/kcp/issues/new?assignees=&labels=epic&template=epic.md&title=).
+
+Please make sure that you fill in all the sections of the template (it's ok if some of this is done later, after creating the issue). If you need help with anything, please let us know.
+
+### Story tasks
+
+Story tasks in an epic should generally represent an independent chunk of work that can be implemented. These don't necessarily need to be copied to standalone GitHub issues; it's ok if we just track the story in the epic as a task. On a case by case basis, if a story seems large enough that it warrants its own issue, we can discuss creating one.
+
+Please tag yourself using your GitHub handle next to a story task you plan to work on. If you don't have permission to do this, please let us know by either commenting on the issue, or reaching out in Slack, and we'll assist you.
+
+When you open a PR for a story task, please edit the epic description and add a link to the PR next to your task.
+
+When the PR has been merged, please make sure the task is checked off in the epic.
+
+
+## Tracking work
+
+### in-progress label
+
+Please make every effort possible to set the `in-progress` label on any issues you are actively working on.
+
+### Unplanned/untracked work
+If you find yourself working on something that is unplanned and/or untracked (i.e., not an open GitHub issue or story task in an epic), that's 100% ok, but we'd like to track this type of work too! Please file a new issue for it, and when you have a PR ready, mark the PR as fixing the issue.
+
 
 ## Coding guidelines & conventions
 
