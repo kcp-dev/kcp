@@ -40,6 +40,8 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 )
 
 const (
@@ -113,7 +115,7 @@ func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInter
 	}
 
 	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("kcp.dev/cluster=%s", pclusterID)
+		o.LabelSelector = fmt.Sprintf("%s=%s", nscontroller.ClusterLabel, pclusterID)
 	})
 
 	// Get all types the upstream API server knows about.

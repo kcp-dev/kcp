@@ -111,7 +111,7 @@ For all types the Syncer knows about, it will watch for creations/updates/deleti
 ```
 metadata:
   labels:
-    kcp.dev/cluster: my-cluster
+    workloads.kcp.dev/cluster: my-cluster
 ```
 
 This label identifies an object as being intended for the cluster `my-cluster`.

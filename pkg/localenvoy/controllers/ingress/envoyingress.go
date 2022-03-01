@@ -27,17 +27,14 @@ import (
 	"k8s.io/klog/v2"
 
 	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
-)
-
-const (
-	clusterLabel = "kcp.dev/cluster"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 )
 
 // reconcile is triggered on every change to an ingress resource.
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
 	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
-	if ingress.Labels[clusterLabel] == "" {
+	if ingress.Labels[nscontroller.ClusterLabel] == "" {
 		// Root
 		if len(ingress.Status.LoadBalancer.Ingress) > 0 && ingress.Status.LoadBalancer.Ingress[0].Hostname != "" {
 			// Already set - never changes - do nothing

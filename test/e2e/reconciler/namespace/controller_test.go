@@ -50,7 +50,7 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-const clusterLabel = "kcp.dev/cluster"
+const clusterLabel = nscontroller.ClusterLabel
 
 func TestNamespaceScheduler(t *testing.T) {
 	t.Parallel()
@@ -208,7 +208,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "e2e-nss-",
 						Labels: map[string]string{
-							nscontroller.ScheduleDisabledLabel: "",
+							nscontroller.SchedulingDisabledLabel: "",
 						},
 					},
 				}, metav1.CreateOptions{})
@@ -328,7 +328,7 @@ func unscheduledMatcher(reason string) namespaceExpectation {
 	return func(object *corev1.Namespace) error {
 		if condition := conditions.Get(&nscontroller.NamespaceConditionsAdapter{Namespace: object}, nscontroller.NamespaceScheduled); condition != nil {
 			if condition.Status == corev1.ConditionTrue {
-				return fmt.Errorf("expected an unscheduled namespace, got cluster=%q; status.conditions: %#v", object.Labels["kcp.dev/cluster"], object.Status.Conditions)
+				return fmt.Errorf("expected an unscheduled namespace, got cluster=%q; status.conditions: %#v", object.Labels[clusterLabel], object.Status.Conditions)
 			}
 			if condition.Reason != reason {
 				return fmt.Errorf("expected an unscheduled namespace with reason %s, got status.conditions: %#v", reason, object.Status.Conditions)
