@@ -285,7 +285,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					cfg.Clusters[clusterName].Server = url.String()
 
 					// write kubeconfig to disk, next to kcp kubeconfig
-					cfgPath := filepath.Join(filepath.Base(kcpServer.KubeconfigPath()), "virtualworkspace.kubeconfig")
+					cfgPath := filepath.Join(filepath.Dir(kcpServer.KubeconfigPath()), "virtualworkspace.kubeconfig")
 					err = clientcmd.WriteToFile(*cfg, cfgPath)
 					require.NoError(t, err)
 
