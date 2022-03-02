@@ -251,7 +251,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: previous.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for workspace %q|%q/%q: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal old data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
 
 		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
@@ -262,12 +262,12 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for workspace %q|%q/%q: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal new data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for workspace %q|%q/%q: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to create patch for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
 		_, uerr := c.kcpClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
@@ -283,13 +283,13 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		if current := workspace.Status.Location.Current; current != "" {
 			// make sure current shard still exists
 			if shard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyhelper.RootCluster, current)); errors.IsNotFound(err) {
-				klog.Infof("De-scheduling workspace %q|%q from nonexistent shard %q", tenancyhelper.RootCluster, workspace.Name, current)
+				klog.Infof("De-scheduling workspace %s|%s from nonexistent shard %q", tenancyhelper.RootCluster, workspace.Name, current)
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
 			} else if err != nil {
 				return err
 			} else if valid, _, _ := isValidShard(shard); !valid {
-				klog.Infof("De-scheduling workspace %q|%q from invalid shard %q", tenancyhelper.RootCluster, workspace.Name, current)
+				klog.Infof("De-scheduling workspace %s|%s from invalid shard %q", tenancyhelper.RootCluster, workspace.Name, current)
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
 			}
@@ -340,14 +340,14 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 				workspace.Status.Location.Current = targetShard.Name
 
 				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-				klog.Infof("Scheduled workspace %q|%q to %q|%q", workspace.ClusterName, workspace.Name, targetShard.ClusterName, targetShard.Name)
+				klog.Infof("Scheduled workspace %s|%s to %s|%s", workspace.ClusterName, workspace.Name, targetShard.ClusterName, targetShard.Name)
 			} else {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No available shards to schedule the workspace.")
 				failures := make([]string, 0, len(invalidShards))
 				for name, x := range invalidShards {
 					failures = append(failures, fmt.Sprintf("  %s: reason %q, message %q", name, x.reason, x.message))
 				}
-				klog.Infof("No valid shards found for workspace %q|%q, skipped:\n%s", workspace.ClusterName, workspace.Name, strings.Join(failures, "\n"))
+				klog.Infof("No valid shards found for workspace %s|%s, skipped:\n%s", workspace.ClusterName, workspace.Name, strings.Join(failures, "\n"))
 			}
 		}
 

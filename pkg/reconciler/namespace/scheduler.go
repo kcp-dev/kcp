@@ -60,7 +60,7 @@ func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error)
 			return assignedCluster, nil
 		}
 		// A new cluster needs to be assigned
-		klog.V(5).Infof("Cluster %q|%q %s", ns.ClusterName, assignedCluster, invalidMsg)
+		klog.V(5).Infof("Cluster %s|%s %s", ns.ClusterName, assignedCluster, invalidMsg)
 	}
 
 	allClusters, err := s.listClusters(labels.Everything())
