@@ -28,12 +28,12 @@ import (
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
 	fakeapiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1/fake"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
-	fakeclusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1/fake"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	faketenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1/fake"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
 	faketenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1/fake"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
+	fakeworkloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -91,11 +91,6 @@ func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha
 	return &fakeapiresourcev1alpha1.FakeApiresourceV1alpha1{Fake: &c.Fake}
 }
 
-// ClusterV1alpha1 retrieves the ClusterV1alpha1Client
-func (c *Clientset) ClusterV1alpha1() clusterv1alpha1.ClusterV1alpha1Interface {
-	return &fakeclusterv1alpha1.FakeClusterV1alpha1{Fake: &c.Fake}
-}
-
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
 func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 	return &faketenancyv1alpha1.FakeTenancyV1alpha1{Fake: &c.Fake}
@@ -104,4 +99,9 @@ func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 // TenancyV1beta1 retrieves the TenancyV1beta1Client
 func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
 	return &faketenancyv1beta1.FakeTenancyV1beta1{Fake: &c.Fake}
+}
+
+// WorkloadV1alpha1 retrieves the WorkloadV1alpha1Client
+func (c *Clientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface {
+	return &fakeworkloadv1alpha1.FakeWorkloadV1alpha1{Fake: &c.Fake}
 }

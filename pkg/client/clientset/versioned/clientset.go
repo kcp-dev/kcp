@@ -27,9 +27,9 @@ import (
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 )
 
 type ClusterInterface interface {
@@ -62,9 +62,9 @@ func NewClusterForConfig(c *rest.Config) (*Cluster, error) {
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface
-	ClusterV1alpha1() clusterv1alpha1.ClusterV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface
+	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -79,19 +79,14 @@ type Clientset struct {
 type scopedClientset struct {
 	*discovery.DiscoveryClient
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1Client
-	clusterV1alpha1     *clusterv1alpha1.ClusterV1alpha1Client
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1Client
 	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1Client
+	workloadV1alpha1    *workloadv1alpha1.WorkloadV1alpha1Client
 }
 
 // ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client
 func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface {
 	return apiresourcev1alpha1.NewWithCluster(c.apiresourceV1alpha1.RESTClient(), c.cluster)
-}
-
-// ClusterV1alpha1 retrieves the ClusterV1alpha1Client
-func (c *Clientset) ClusterV1alpha1() clusterv1alpha1.ClusterV1alpha1Interface {
-	return clusterv1alpha1.NewWithCluster(c.clusterV1alpha1.RESTClient(), c.cluster)
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
@@ -102,6 +97,11 @@ func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 // TenancyV1beta1 retrieves the TenancyV1beta1Client
 func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
 	return tenancyv1beta1.NewWithCluster(c.tenancyV1beta1.RESTClient(), c.cluster)
+}
+
+// WorkloadV1alpha1 retrieves the WorkloadV1alpha1Client
+func (c *Clientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface {
+	return workloadv1alpha1.NewWithCluster(c.workloadV1alpha1.RESTClient(), c.cluster)
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -148,15 +148,15 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.clusterV1alpha1, err = clusterv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
 	cs.tenancyV1beta1, err = tenancyv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.workloadV1alpha1, err = workloadv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -182,9 +182,9 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs scopedClientset
 	cs.apiresourceV1alpha1 = apiresourcev1alpha1.New(c)
-	cs.clusterV1alpha1 = clusterv1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 	cs.tenancyV1beta1 = tenancyv1beta1.New(c)
+	cs.workloadV1alpha1 = workloadv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &Clientset{scopedClientset: &cs}

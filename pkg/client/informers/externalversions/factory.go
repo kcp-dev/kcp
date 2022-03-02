@@ -30,9 +30,9 @@ import (
 
 	versioned "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresource "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource"
-	cluster "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster"
 	internalinterfaces "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	tenancy "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy"
+	workload "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.
@@ -176,18 +176,18 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Apiresource() apiresource.Interface
-	Cluster() cluster.Interface
 	Tenancy() tenancy.Interface
+	Workload() workload.Interface
 }
 
 func (f *sharedInformerFactory) Apiresource() apiresource.Interface {
 	return apiresource.New(f, f.namespace, f.tweakListOptions)
 }
 
-func (f *sharedInformerFactory) Cluster() cluster.Interface {
-	return cluster.New(f, f.namespace, f.tweakListOptions)
-}
-
 func (f *sharedInformerFactory) Tenancy() tenancy.Interface {
 	return tenancy.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Workload() workload.Interface {
+	return workload.New(f, f.namespace, f.tweakListOptions)
 }

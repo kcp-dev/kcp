@@ -27,64 +27,64 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	versioned "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/cluster/v1alpha1"
+	v1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 )
 
-// ClusterInformer provides access to a shared informer and lister for
-// Clusters.
-type ClusterInformer interface {
+// WorkloadClusterInformer provides access to a shared informer and lister for
+// WorkloadClusters.
+type WorkloadClusterInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ClusterLister
+	Lister() v1alpha1.WorkloadClusterLister
 }
 
-type clusterInformer struct {
+type workloadClusterInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewClusterInformer constructs a new informer for Cluster type.
+// NewWorkloadClusterInformer constructs a new informer for WorkloadCluster type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterInformer(client, resyncPeriod, indexers, nil)
+func NewWorkloadClusterInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredWorkloadClusterInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredClusterInformer constructs a new informer for Cluster type.
+// NewFilteredWorkloadClusterInformer constructs a new informer for WorkloadCluster type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredWorkloadClusterInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ClusterV1alpha1().Clusters().List(context.TODO(), options)
+				return client.WorkloadV1alpha1().WorkloadClusters().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ClusterV1alpha1().Clusters().Watch(context.TODO(), options)
+				return client.WorkloadV1alpha1().WorkloadClusters().Watch(context.TODO(), options)
 			},
 		},
-		&clusterv1alpha1.Cluster{},
+		&workloadv1alpha1.WorkloadCluster{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *clusterInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *workloadClusterInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredWorkloadClusterInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *clusterInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&clusterv1alpha1.Cluster{}, f.defaultInformer)
+func (f *workloadClusterInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&workloadv1alpha1.WorkloadCluster{}, f.defaultInformer)
 }
 
-func (f *clusterInformer) Lister() v1alpha1.ClusterLister {
-	return v1alpha1.NewClusterLister(f.Informer().GetIndexer())
+func (f *workloadClusterInformer) Lister() v1alpha1.WorkloadClusterLister {
+	return v1alpha1.NewWorkloadClusterLister(f.Informer().GetIndexer())
 }
