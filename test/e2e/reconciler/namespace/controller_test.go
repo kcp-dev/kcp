@@ -36,7 +36,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
@@ -192,7 +191,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				server1Kubeconfig, err := clientcmd.Write(server1RawConfig)
 				require.NoError(t, err, "failed to marshal server 1 kubeconfig")
 
-				cluster, err := server.clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+				_, err = server.clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "e2e-nss-",
 					},
@@ -220,21 +219,6 @@ func TestNamespaceScheduler(t *testing.T) {
 
 				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonSchedulingDisabled))
 				require.NoError(t, err, "did not see namespace marked with scheduling disabled")
-
-				t.Log("Assign a cluster to the namespace manually")
-				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					ns.Labels[clusterLabel] = cluster.Name
-					_, err = server.client.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
-					return err
-				})
-				require.NoError(t, err, "failed to update namespace")
-
-				err = server.expect(namespace, scheduledMatcher(cluster.Name))
-				require.NoError(t, err, "did not see namespace marked scheduled for cluster %q", cluster.Name)
 			},
 		},
 	}
