@@ -25,7 +25,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -44,7 +44,7 @@ func (m *pullSyncerManager) name() string {
 	return "kcp-pull-syncer-manager"
 }
 
-func (m *pullSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error) {
+func (m *pullSyncerManager) needsUpdate(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error) {
 	logicalCluster := cluster.GetClusterName()
 	upToDate, err := isSyncerInstalledAndUpToDate(ctx, client, logicalCluster, m.syncerImage)
 	if err != nil {
@@ -54,7 +54,7 @@ func (m *pullSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1a
 	return !upToDate && groupResources.Len() > 0, nil
 }
 
-func (m *pullSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
+func (m *pullSyncerManager) update(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
 	// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
 	var upstreamCluster = *kubeConfig.Clusters["system:admin"] // shallow copy
 	upstreamKubeConfig := clientcmdapi.Config{
@@ -76,36 +76,36 @@ func (m *pullSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 	bytes, err := clientcmd.Write(upstreamKubeConfig)
 	if err != nil {
 		klog.Errorf("error writing kubeconfig for syncer: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 	logicalCluster := cluster.GetClusterName()
 	if err := installSyncer(ctx, client, m.syncerImage, string(bytes), cluster.Name, logicalCluster, groupResources.List()); err != nil {
 		klog.Errorf("error installing syncer: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error installing syncer: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error installing syncer: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 
 	klog.Info("syncer installing...")
-	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
+	conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 
 	return true, nil
 }
 
-func (m *pullSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool {
+func (m *pullSyncerManager) checkHealth(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset) bool {
 	logicalCluster := cluster.GetClusterName()
 	if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
 		klog.Error("syncer not yet ready")
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityInfo, "Syncer not yet ready")
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.WorkloadClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityInfo, "Syncer not yet ready")
 	} else {
 		klog.Infof("started pull mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
-		conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
+		conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 	}
 	return true
 }
 
 // TODO(marun) Consider using a finalizer to guarantee removal
-func (m *pullSyncerManager) cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster) {
+func (m *pullSyncerManager) cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster) {
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(deletedCluster.Spec.KubeConfig))
 	if err != nil {

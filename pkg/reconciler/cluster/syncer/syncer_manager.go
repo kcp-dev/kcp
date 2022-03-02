@@ -30,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
@@ -38,10 +38,10 @@ import (
 
 type syncerManagerImpl interface {
 	name() string
-	needsUpdate(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error)
-	update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error)
-	checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool
-	cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster)
+	needsUpdate(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error)
+	update(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error)
+	checkHealth(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset) bool
+	cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster)
 }
 
 type syncerManager struct {
@@ -56,7 +56,7 @@ type syncerManager struct {
 	genericControlPlaneResources []schema.GroupVersionResource
 }
 
-func (m *syncerManager) Reconcile(ctx context.Context, cluster *clusterv1alpha1.Cluster) error {
+func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
 	klog.Infof("%s: reconciling cluster %q", m.name, cluster.Name)
 
 	logicalCluster := cluster.GetClusterName()
@@ -100,14 +100,14 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *clusterv1alpha1.
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("%s: invalid kubeconfig: %v", m.name, err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
 		return nil
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Errorf("%s: error creating client: %v", m.name, err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorCreatingClientReason, conditionsv1alpha1.ConditionSeverityError, "Error creating client: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorCreatingClientReason, conditionsv1alpha1.ConditionSeverityError, "Error creating client: %v", err.Error())
 		return nil
 	}
 
@@ -146,7 +146,7 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *clusterv1alpha1.
 	return nil
 }
 
-func (m *syncerManager) Cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster) {
+func (m *syncerManager) Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster) {
 	klog.Infof("%s: cleanup resources for cluster %q", m.name, deletedCluster.Name)
 	m.syncerManagerImpl.cleanup(ctx, deletedCluster)
 }

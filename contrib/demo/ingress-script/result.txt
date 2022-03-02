@@ -3,13 +3,13 @@ Error from server (NotFound): Unable to list "networking.k8s.io/v1, Resource=ing
 ingress-demo $ [1;37mkubectl get cluster -o wide[0m
 No resources found
 ingress-demo $ [1;37mkubectl apply -f /home/jmprusi/go/src/github.com/jmprusi/kcp/contrib/demo/clusters/kind/us-west1.yaml[0m
-cluster.cluster.example.dev/us-west1 created
+workloadcluster.workload.kcp.dev/us-west1 created
 ingress-demo $ [1;37mkubectl wait cluster/us-west1 --for condition=Ready --timeout=60s[0m
-cluster.cluster.example.dev/us-west1 condition met
+workloadcluster.workload.kcp.dev/us-west1 condition met
 ingress-demo $ [1;37mkubectl apply -f /home/jmprusi/go/src/github.com/jmprusi/kcp/contrib/demo/clusters/kind/us-east1.yaml[0m
-cluster.cluster.example.dev/us-east1 created
+workloadcluster.workload.kcp.dev/us-east1 created
 ingress-demo $ [1;37mkubectl wait cluster/us-east1 --for condition=Ready --timeout=60s[0m
-cluster.cluster.example.dev/us-east1 condition met
+workloadcluster.workload.kcp.dev/us-east1 condition met
 ingress-demo $ [1;37mkubectl get clusters -o wide[0m
 NAME       LOCATION   READY   SYNCED API RESOURCES
 us-east1   us-east1   True    ["deployments.apps","ingresses.networking.k8s.io","services"]

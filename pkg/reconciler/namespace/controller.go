@@ -39,9 +39,9 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
-	clusterlisters "github.com/kcp-dev/kcp/pkg/client/listers/cluster/v1alpha1"
+	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	"github.com/kcp-dev/kcp/pkg/informer"
 )
@@ -57,8 +57,8 @@ func NewController(
 	workspaceLister tenancylisters.ClusterWorkspaceLister,
 	dynClient dynamic.ClusterInterface,
 	disco clusterDiscovery,
-	clusterInformer clusterinformer.ClusterInformer,
-	clusterLister clusterlisters.ClusterLister,
+	clusterInformer workloadinformer.WorkloadClusterInformer,
+	clusterLister workloadlisters.WorkloadClusterLister,
 	namespaceInformer coreinformers.NamespaceInformer,
 	namespaceLister corelisters.NamespaceLister,
 	kubeClient kubernetes.ClusterInterface,
@@ -115,7 +115,7 @@ type Controller struct {
 	clusterQueue   workqueue.RateLimitingInterface
 
 	dynClient       dynamic.ClusterInterface
-	clusterLister   clusterlisters.ClusterLister
+	clusterLister   workloadlisters.WorkloadClusterLister
 	namespaceLister corelisters.NamespaceLister
 	kubeClient      kubernetes.ClusterInterface
 	ddsif           informer.DynamicDiscoverySharedInformerFactory

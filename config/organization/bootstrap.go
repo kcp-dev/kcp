@@ -26,8 +26,8 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/cluster"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
 )
 
 //go:embed *.yaml
@@ -42,6 +42,6 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dyn
 		{Group: tenancy.GroupName, Resource: "clusterworkspacetypes"},
 		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
 		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-		{Group: cluster.GroupName, Resource: "clusters"},
+		{Group: workload.GroupName, Resource: "workloadclusters"},
 	})
 }

@@ -26,12 +26,12 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-type getClusterFunc func(name string) (*clusterv1alpha1.Cluster, error)
-type listClustersFunc func(selector labels.Selector) ([]*clusterv1alpha1.Cluster, error)
+type getClusterFunc func(name string) (*workloadv1alpha1.WorkloadCluster, error)
+type listClustersFunc func(selector labels.Selector) ([]*workloadv1alpha1.WorkloadCluster, error)
 
 type namespaceScheduler struct {
 	getCluster   getClusterFunc
@@ -88,7 +88,7 @@ func (s *namespaceScheduler) isValidCluster(lclusterName, clusterName string) (
 		return false, "", err
 	}
 	// TODO(marun) Stop duplicating these checks here and in pickCluster
-	if ready := conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition); !ready {
+	if ready := conditions.IsTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition); !ready {
 		return false, "is not reporting ready", nil
 	}
 	if evictAfter := cluster.Spec.EvictAfter; evictAfter != nil && evictAfter.Time.Before(time.Now()) {
@@ -101,8 +101,8 @@ func (s *namespaceScheduler) isValidCluster(lclusterName, clusterName string) (
 // cluster to assign to a namespace. If a suitable cluster is
 // identified, its name will be returned. Otherwise, an empty string
 // will be returned.
-func pickCluster(allClusters []*clusterv1alpha1.Cluster, lclusterName string) string {
-	var clusters []*clusterv1alpha1.Cluster
+func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName string) string {
+	var clusters []*workloadv1alpha1.WorkloadCluster
 	for i := range allClusters {
 		// Only include Clusters that are in the logical cluster
 		if allClusters[i].ClusterName != lclusterName {
@@ -119,7 +119,7 @@ func pickCluster(allClusters []*clusterv1alpha1.Cluster, lclusterName string) st
 				"metadata.name", allClusters[i].Name)
 			continue
 		}
-		if !conditions.IsTrue(allClusters[i], clusterv1alpha1.ClusterReadyCondition) {
+		if !conditions.IsTrue(allClusters[i], workloadv1alpha1.WorkloadClusterReadyCondition) {
 			klog.V(2).InfoS("pickCluster: excluding not-ready cluster", "metadata.name", allClusters[i].Name)
 			continue
 		}

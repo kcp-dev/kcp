@@ -23,7 +23,7 @@ import (
 
 	rest "k8s.io/client-go/rest"
 
-	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 )
 

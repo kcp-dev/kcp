@@ -15,5 +15,5 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package,register
-// +groupName=cluster.example.dev
+// +groupName=workload.kcp.dev
 package v1alpha1

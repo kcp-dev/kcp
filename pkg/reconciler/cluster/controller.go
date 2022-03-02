@@ -30,10 +30,10 @@ import (
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
+	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 )
 
@@ -52,8 +52,8 @@ func GetLocationInLogicalClusterIndexKey(location, clusterName string) string {
 // ClusterReconcileImpl defines the methods that ClusterReconciler
 // will call in response to changes to Cluster resources.
 type ClusterReconcileImpl interface {
-	Reconcile(ctx context.Context, cluster *clusterv1alpha1.Cluster) error
-	Cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster)
+	Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error
+	Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster)
 }
 
 // NewClusterReconciler returns a new controller which reconciles
@@ -63,7 +63,7 @@ func NewClusterReconciler(
 	name string,
 	reconciler ClusterReconcileImpl,
 	kcpClusterClient *kcpclient.Cluster,
-	clusterInformer clusterinformer.ClusterInformer,
+	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 ) (*ClusterReconciler, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
@@ -209,7 +209,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 		klog.Errorf("%s: Object with key %q was deleted", c.name, key)
 		return nil
 	}
-	current := obj.(*clusterv1alpha1.Cluster).DeepCopy()
+	current := obj.(*workloadv1alpha1.WorkloadCluster).DeepCopy()
 	previous := current.DeepCopy()
 
 	if err := c.reconciler.Reconcile(ctx, current); err != nil {
@@ -218,7 +218,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.kcpClusterClient.Cluster(current.ClusterName).ClusterV1alpha1().Clusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClusterClient.Cluster(current.ClusterName).WorkloadV1alpha1().WorkloadClusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 
@@ -226,14 +226,14 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 }
 
 func (c *ClusterReconciler) deletedCluster(obj interface{}) {
-	castObj, ok := obj.(*clusterv1alpha1.Cluster)
+	castObj, ok := obj.(*workloadv1alpha1.WorkloadCluster)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			klog.Errorf("%s: Couldn't get object from tombstone %#v", c.name, obj)
 			return
 		}
-		castObj, ok = tombstone.Obj.(*clusterv1alpha1.Cluster)
+		castObj, ok = tombstone.Obj.(*workloadv1alpha1.WorkloadCluster)
 		if !ok {
 			klog.Errorf("%s: Tombstone contained object that is not expected %#v", c.name, obj)
 			return

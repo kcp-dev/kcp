@@ -27,7 +27,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	clusterinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/cluster/v1alpha1"
+	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
@@ -42,7 +42,7 @@ type Controller struct {
 func NewController(
 	apiExtensionsClient apiextensionsclient.Interface,
 	kcpClusterClient *kcpclient.Cluster,
-	clusterInformer clusterinformer.ClusterInformer,
+	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	kubeconfig clientcmdapi.Config,
 	resourcesToSync []string,

@@ -27,15 +27,15 @@ import (
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
-var clusterKind = reflect.TypeOf(clusterv1alpha1.Cluster{}).Name()
+var clusterKind = reflect.TypeOf(workloadv1alpha1.WorkloadCluster{}).Name()
 
-func ClusterAsOwnerReference(obj *clusterv1alpha1.Cluster, controller bool) metav1.OwnerReference {
+func ClusterAsOwnerReference(obj *workloadv1alpha1.WorkloadCluster, controller bool) metav1.OwnerReference {
 	return metav1.OwnerReference{
 		APIVersion: apiresourcev1alpha1.SchemeGroupVersion.String(),
 		Kind:       clusterKind,
@@ -146,7 +146,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("error creating APIResourceImport %s: the cluster object should exist in the index for location %s in logical cluster %s", apiResourceImportName, i.location, i.logicalClusterName)
 				continue
 			}
-			cluster, isCluster := clusterObj.(*clusterv1alpha1.Cluster)
+			cluster, isCluster := clusterObj.(*workloadv1alpha1.WorkloadCluster)
 			if !isCluster {
 				klog.Errorf("error creating APIResourceImport %s: the object retrieved from the cluster index for location %s in logical cluster %s should be a cluster object, but is of type: %T", apiResourceImportName, i.location, i.logicalClusterName, clusterObj)
 				continue

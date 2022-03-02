@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
-	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 // ClusterLister helps list Clusters.

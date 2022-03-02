@@ -31,7 +31,7 @@ kubectl config use-context admin  &>/dev/null
 
 kubectl apply -f ${KCP_DIR}/config &> /dev/null
 crds=(
-  crd/clusters.cluster.example.dev
+  crd/workloadclusters.workload.kcp.dev
   crd/negotiatedapiresources.apiresource.kcp.dev
   crd/apiresourceimports.apiresource.kcp.dev
 )

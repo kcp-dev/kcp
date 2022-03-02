@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -274,7 +274,7 @@ func clusterLabelPatchBytes(val string) (types.PatchType, []byte) {
 // After the namespace is unassigned, it will be picked up by
 // reconcileNamespace above and assigned to another happy cluster if one can be
 // found.
-func (c *Controller) observeCluster(ctx context.Context, cl *clusterv1alpha1.Cluster) error {
+func (c *Controller) observeCluster(ctx context.Context, cl *workloadv1alpha1.WorkloadCluster) error {
 	klog.Infof("Observing Cluster %s", cl.Name)
 
 	strategy, pendingCordon := enqueueStrategyForCluster(cl)
@@ -339,8 +339,8 @@ const (
 // should be used in response to a given cluster state. Also returns a boolean
 // indication of whether to enqueue the cluster in the future to respond to a
 // impending cordon event.
-func enqueueStrategyForCluster(cl *clusterv1alpha1.Cluster) (strategy clusterEnqueueStrategy, pendingCordon bool) {
-	ready := conditions.IsTrue(cl, clusterv1alpha1.ClusterReadyCondition)
+func enqueueStrategyForCluster(cl *workloadv1alpha1.WorkloadCluster) (strategy clusterEnqueueStrategy, pendingCordon bool) {
+	ready := conditions.IsTrue(cl, workloadv1alpha1.WorkloadClusterReadyCondition)
 	cordoned := cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.Time.Before(time.Now())
 	if !ready || cordoned {
 		// An unready or cordoned cluster requires revisiting the scheduling

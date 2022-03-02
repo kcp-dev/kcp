@@ -18,7 +18,7 @@ kubectl config use-context admin
 Run Cluster Controller
 
 ```
-kubectl apply -f config/cluster.example.dev_clusters.yaml
+kubectl apply -f config/workload.kcp.dev_workloadclusters.yaml
 bin/cluster-controller --kubeconfig=.kcp/admin.kubeconfig
 ```
 

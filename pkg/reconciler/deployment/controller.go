@@ -37,7 +37,7 @@ import (
 
 	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	clusterlisters "github.com/kcp-dev/kcp/pkg/client/listers/cluster/v1alpha1"
+	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -57,7 +57,7 @@ func NewController(cfg *rest.Config) *Controller {
 	c := &Controller{
 		queue:         queue,
 		client:        client,
-		clusterLister: csif.Cluster().V1alpha1().Clusters().Lister(),
+		clusterLister: csif.Workload().V1alpha1().WorkloadClusters().Lister(),
 		kubeClient:    kubeClient,
 		stopCh:        stopCh,
 	}
@@ -81,7 +81,7 @@ func NewController(cfg *rest.Config) *Controller {
 type Controller struct {
 	queue         workqueue.RateLimitingInterface
 	client        *appsv1client.AppsV1Client
-	clusterLister clusterlisters.ClusterLister
+	clusterLister workloadlisters.WorkloadClusterLister
 	kubeClient    kubernetes.Interface
 	stopCh        chan struct{}
 	indexer       cache.Indexer
