@@ -157,7 +157,7 @@ func (l syncedClusterRoleBindingLister) LastSyncResourceVersion() string {
 // AuthorizationCache maintains a cache on the set of workspaces a user or group can access.
 type AuthorizationCache struct {
 	// allKnownWorkspaces we track all the known workspaces, so we can detect deletes.
-	// TODO remove this in favor of a list/watch mechanism for projects
+	// TODO remove this in favor of a list/watch mechanism for workspaces
 	allKnownWorkspaces        sets.String
 	workspaceLister           workspacelisters.ClusterWorkspaceLister
 	lastSyncResourceVersioner LastSyncResourceVersioner
@@ -181,6 +181,9 @@ type AuthorizationCache struct {
 	syncHandler func(request *reviewRequest, userSubjectRecordStore cache.Store, groupSubjectRecordStore cache.Store, reviewRecordStore cache.Store) error
 
 	rwMutex sync.RWMutex
+
+	watchers    []CacheWatcher
+	watcherLock sync.Mutex
 }
 
 // NewAuthorizationCache creates a new AuthorizationCache
@@ -215,6 +218,8 @@ func NewAuthorizationCache(
 
 		reviewer: reviewer,
 		skip:     &neverSkipSynchronizer{},
+
+		watchers: []CacheWatcher{},
 	}
 	ac.lastSyncResourceVersioner = workspaceLastSyncResourceVersioner
 	ac.syncHandler = ac.syncRequest
@@ -227,6 +232,30 @@ func (ac *AuthorizationCache) Run(period time.Duration) {
 	ac.skip = &statelessSkipSynchronizer{}
 
 	go utilwait.Forever(func() { ac.synchronize() }, period)
+}
+
+func (ac *AuthorizationCache) AddWatcher(watcher CacheWatcher) {
+	ac.watcherLock.Lock()
+	defer ac.watcherLock.Unlock()
+
+	ac.watchers = append(ac.watchers, watcher)
+}
+
+func (ac *AuthorizationCache) RemoveWatcher(watcher CacheWatcher) {
+	ac.watcherLock.Lock()
+	defer ac.watcherLock.Unlock()
+
+	lastIndex := len(ac.watchers) - 1
+	for i := 0; i < len(ac.watchers); i++ {
+		if ac.watchers[i] == watcher {
+			if i < lastIndex {
+				// if we're not the last element, shift
+				copy(ac.watchers[i:], ac.watchers[i+1:])
+			}
+			ac.watchers = ac.watchers[:lastIndex]
+			break
+		}
+	}
 }
 
 func (ac *AuthorizationCache) GetClusterRoleLister() SyncedClusterRoleLister {
@@ -269,6 +298,10 @@ func (ac *AuthorizationCache) purgeDeletedWorkspaces(oldWorkspaces, newWorkspace
 			deleteWorkspaceFromSubjects(groupSubjectRecordStore, reviewRecord.groups, reviewRecord.workspace)
 			_ = reviewRecordStore.Delete(reviewRecord)
 		}
+	}
+
+	for workspace := range oldWorkspaces.Difference(newWorkspaces) {
+		ac.notifyWatchers(workspace, nil, sets.String{}, sets.String{})
 	}
 }
 
@@ -382,6 +415,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	addSubjectsToWorkspace(userSubjectRecordStore, review.Users(), workspace)
 	addSubjectsToWorkspace(groupSubjectRecordStore, review.Groups(), workspace)
 	cacheReviewRecord(request, lastKnownValue, review, reviewRecordStore)
+	ac.notifyWatchers(workspace, lastKnownValue, sets.NewString(review.Users()...), sets.NewString(review.Groups()...))
 
 	if errMsg := review.EvaluationError(); len(errMsg) > 0 {
 		klog.V(5).Info(errMsg)
@@ -504,6 +538,15 @@ func addSubjectsToWorkspace(subjectRecordStore cache.Store, subjects []string, w
 			_ = subjectRecordStore.Add(item)
 		}
 		item.workspaces.Insert(workspace)
+	}
+}
+
+func (ac *AuthorizationCache) notifyWatchers(workspaceKey string, exists *reviewRecord, users, groups sets.String) {
+	_, workspaceName := clusters.SplitClusterAwareKey(workspaceKey)
+	ac.watcherLock.Lock()
+	defer ac.watcherLock.Unlock()
+	for _, watcher := range ac.watchers {
+		watcher.GroupMembershipChanged(workspaceName, users, groups)
 	}
 }
 

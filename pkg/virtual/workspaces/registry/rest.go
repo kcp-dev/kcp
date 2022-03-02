@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -48,7 +49,9 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
+	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceprinters "github.com/kcp-dev/kcp/pkg/virtual/workspaces/printers"
+	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
 
 const (
@@ -89,6 +92,9 @@ type REST struct {
 	// Allows extended behavior during updates, required
 	updateStrategy rest.RESTUpdateStrategy
 
+	authCache             *workspaceauth.AuthorizationCache
+	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
+
 	rest.TableConvertor
 }
 
@@ -112,13 +118,14 @@ func AddNameIndexers(crbInformer rbacinformers.ClusterRoleBindingInformer) error
 }
 
 var _ rest.Lister = &REST{}
+var _ rest.Watcher = &REST{}
 var _ rest.Scoper = &REST{}
 var _ rest.Creater = &REST{}
 var _ rest.GracefulDeleter = &REST{}
 
 // NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
 // org workspaces, projecting them to the Workspace type.
-func NewREST(rootTenancyClient, orgTenancyClient tenancyclient.TenancyV1alpha1Interface, rootKubeClient, orgKubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, orgWorkspaceLister workspaceauth.Lister) (*REST, *KubeconfigSubresourceREST) {
+func NewREST(rootTenancyClient, orgTenancyClient tenancyclient.TenancyV1alpha1Interface, rootKubeClient, orgKubeClient kubernetes.Interface, crbInformer rbacinformers.ClusterRoleBindingInformer, workspaceReviewerProvider workspaceauth.ReviewerProvider, orgWorkspaceLister workspaceauth.Lister, authCache *workspaceauth.AuthorizationCache, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
 		rbacClient:                orgKubeClient.RbacV1(),
 		crbInformer:               crbInformer,
@@ -128,6 +135,9 @@ func NewREST(rootTenancyClient, orgTenancyClient tenancyclient.TenancyV1alpha1In
 		clusterWorkspaceLister:    orgWorkspaceLister,
 		createStrategy:            Strategy,
 		updateStrategy:            Strategy,
+
+		authCache:             authCache,
+		clusterWorkspaceCache: clusterWorkspaceCache,
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(workspaceprinters.AddWorkspacePrintHandlers)},
 	}
@@ -233,6 +243,25 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 	}
 
 	return workspaceList, nil
+}
+
+func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (watch.Interface, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("Context is nil")
+	}
+	userInfo, exists := apirequest.UserFrom(ctx)
+	if !exists {
+		return nil, fmt.Errorf("no user")
+	}
+
+	includeAllExistingProjects := (options != nil) && options.ResourceVersion == "0"
+
+	m := workspaceutil.MatchWorkspace(InternalListOptionsToSelectors(options))
+	watcher := workspaceauth.NewUserWorkspaceWatcher(userInfo, s.clusterWorkspaceCache, s.authCache, includeAllExistingProjects, m)
+	s.authCache.AddWatcher(watcher)
+
+	go watcher.Watch()
+	return watcher, nil
 }
 
 var _ = rest.Getter(&REST{})
