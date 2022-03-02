@@ -110,7 +110,7 @@ spec:
         - --oidc-groups-claim=org_id
         - --oidc-username-claim=preferred_username
         - "--oidc-username-prefix=rh-sso:"
-        - "--oidc-groups-prefix=org:"
+        - "--oidc-groups-prefix=rh-sso:"
         livenessProbe:
           failureThreshold: 3
           httpGet:
