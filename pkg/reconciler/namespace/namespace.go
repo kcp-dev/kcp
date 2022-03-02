@@ -19,12 +19,10 @@ package namespace
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -116,7 +114,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName string,
 	}
 
 	// Update the resource's assignment.
-	patchType, patchBytes := assignedClusterPatchBytes(new)
+	patchType, patchBytes := clusterLabelPatchBytes(new)
 	if _, err = c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
@@ -187,111 +185,32 @@ func (c *Controller) updateScheduledCondition(ctx context.Context, ns *corev1.Na
 	})
 }
 
-// assignCluster attempts to schedule a namespace to a random cluster. If no cluster is
-// available, any existing cluster assignment will be cleared.
-func (c *Controller) assignCluster(ctx context.Context, ns *corev1.Namespace) error {
-	allClusters, err := c.clusterLister.List(labels.Everything())
-	if err != nil {
-		return err
-	}
-
-	var clusters []*clusterv1alpha1.Cluster
-	for i := range allClusters {
-		// Only include Clusters that are in the same logical cluster as ns
-		if allClusters[i].ClusterName != ns.ClusterName {
-			klog.V(6).InfoS("assignCluster: excluding cluster with different metadata.clusterName", "ns.clusterName", ns.ClusterName, "check", allClusters[i].ClusterName)
-			continue
-		}
-		if allClusters[i].Spec.Unschedulable {
-			klog.V(2).InfoS("assignCluster: excluding unschedulable cluster", "metadata.name", allClusters[i].Name)
-			continue
-		}
-		if evictAfter := allClusters[i].Spec.EvictAfter; evictAfter != nil && evictAfter.Time.Before(time.Now()) {
-			klog.V(2).InfoS("assignCluster: excluding cluster with evictAfter value that has passed", "metadata.name", allClusters[i].Name)
-			continue
-		}
-		if !conditions.IsTrue(allClusters[i], clusterv1alpha1.ClusterReadyCondition) {
-			klog.V(2).InfoS("assignCluster: excluding not-ready cluster", "metadata.name", allClusters[i].Name)
-			continue
-		}
-
-		klog.V(2).InfoS("assignCluster: found a ready candidate", "metadata.name", allClusters[i].Name)
-		clusters = append(clusters, allClusters[i])
-	}
-
-	newClusterName := ""
-	if len(clusters) > 0 {
-		// Select a cluster at random.
-		cluster := clusters[rand.Intn(len(clusters))]
-		newClusterName = cluster.Name
-	}
-
-	oldClusterName := ns.Labels[ClusterLabel]
-	if oldClusterName != newClusterName {
-		patchType, patchBytes := assignedClusterPatchBytes(newClusterName)
-		if _, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
-			Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{}); err != nil {
-			return err
-		}
-		klog.Infof("Patched cluster assignment for namespace %q|%q: %q -> %q", ns.ClusterName, ns.Name, oldClusterName, newClusterName)
-	}
-
-	return nil
-}
-
-// isValidCluster checks whether the given cluster name exists and is valid for
-// the purposes of any namespace already scheduled to it (i.e., if it reports
-// as Ready, and any evictAfter value, if specified, has not yet passed).
-//
-// It doesn't take into account Unschedulable, and should only be used when
-// determining if a cluster that a namespace has already been assigned to
-// should keep having that namespace.
-func (c *Controller) isValidCluster(ctx context.Context, lclusterName, clusterName string) (bool, error) {
-	cluster, err := c.clusterLister.Get(clusters.ToClusterAwareKey(lclusterName, clusterName))
-	if apierrors.IsNotFound(err) {
-		klog.Infof("Cluster %q|%q does not exist", lclusterName, clusterName)
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if ready := conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition); !ready {
-		klog.Infof("Cluster %q|%q is not reporting ready", lclusterName, clusterName)
-		return false, nil
-	}
-	if evictAfter := cluster.Spec.EvictAfter; evictAfter != nil && evictAfter.Time.Before(time.Now()) {
-		klog.Infof("Cluster %q|%q is evicted", lclusterName, clusterName)
-		return false, nil
-	}
-	return true, nil
-}
-
 // ensureScheduled attempts to ensure the namespace is assigned to a viable cluster. This
 // will succeed without error if a cluster is assigned or if there are no viable clusters
 // to assign to. The condition of not being scheduled to a cluster will be reflected in
 // the namespace's status rather than by returning an error.
-func (c *Controller) ensureScheduled(ctx context.Context, lclusterName string, ns *corev1.Namespace) error {
-	clusterName := ns.Labels[ClusterLabel]
+func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) error {
+	oldPClusterName := ns.Labels[ClusterLabel]
 
-	noClusterScheduled := clusterName == ""
-	if noClusterScheduled {
-		if err := c.assignCluster(ctx, ns); err != nil {
-			return err
-		}
-	} else {
-		isValidCluster, err := c.isValidCluster(ctx, lclusterName, clusterName)
-		if err != nil {
-			return err
-		}
-		if !isValidCluster {
-			// The currently assigned cluster no longer exists or is not ready.
-			if err := c.assignCluster(ctx, ns); err != nil {
-				return err
-			}
-		}
+	scheduler := namespaceScheduler{
+		getCluster:   c.clusterLister.Get,
+		listClusters: c.clusterLister.List,
+	}
+	newPClusterName, err := scheduler.AssignCluster(ns)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	if oldPClusterName == newPClusterName {
+		return nil
+	}
+
+	klog.Infof("Patching to update cluster assignment for namespace %q|%q: %q -> %q",
+		ns.ClusterName, ns.Name, oldPClusterName, newPClusterName)
+	patchType, patchBytes := clusterLabelPatchBytes(newPClusterName)
+	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
+		Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{})
+	return err
 }
 
 // ensureScheduledStatus ensures the status of the given namespace reflects whether the
@@ -326,13 +245,7 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 		ns.Labels = map[string]string{}
 	}
 
-	schedulingDisabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
-	if schedulingDisabled {
-		klog.Infof("Skipping placement for namespace %q|%q", lclusterName, ns.Name)
-		return c.ensureScheduledStatus(ctx, ns)
-	}
-
-	if err := c.ensureScheduled(ctx, lclusterName, ns); err != nil {
+	if err := c.ensureScheduled(ctx, ns); err != nil {
 		return err
 	}
 
@@ -370,9 +283,9 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string
 	return nil
 }
 
-// assignedClusterPatchBytes returns JSON patch bytes expressing an operation
+// clusterLabelPatchBytes returns JSON patch bytes expressing an operation
 // to add, replace to the given value, or delete the cluster assignment label.
-func assignedClusterPatchBytes(val string) (types.PatchType, []byte) {
+func clusterLabelPatchBytes(val string) (types.PatchType, []byte) {
 	if val == "" {
 		return types.JSONPatchType,
 			[]byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/labels/%s"}]`, strings.ReplaceAll(ClusterLabel, "/", "~1")))
