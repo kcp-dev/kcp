@@ -182,8 +182,8 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 							return false, nil
 						}
 						return false, err
-					} else if !conditions.IsTrue(cw, tenancyv1alpha1.WorkspaceURLValid) {
-						return false, fmt.Errorf("ClusterWorkspace %s is not valid: %s", cw.Name, conditions.GetMessage(cw, tenancyv1alpha1.WorkspaceURLValid))
+					} else if !conditions.IsTrue(cw, tenancyv1alpha1.WorkspaceShardValid) {
+						return false, fmt.Errorf("ClusterWorkspace %s is not valid: %s", cw.Name, conditions.GetMessage(cw, tenancyv1alpha1.WorkspaceShardValid))
 					}
 					workspaceURL = cw.Status.BaseURL
 					return true, nil

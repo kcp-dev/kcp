@@ -223,7 +223,7 @@ func TestAdmit(t *testing.T) {
 			},
 		},
 		{
-			name: "ignors different resources",
+			name: "ignores different resources",
 			a: admission.NewAttributesRecord(
 				&tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
@@ -351,33 +351,6 @@ func TestValidate(t *testing.T) {
 			}),
 		},
 		{
-			name: "rejects type mutations",
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
-					},
-				},
-			},
-			attr: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
-				},
-			},
-				&tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Universal",
-					},
-				}),
-			wantErr: true,
-		},
-		{
 			name: "validates initializers on phase transition",
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
@@ -454,86 +427,8 @@ func TestValidate(t *testing.T) {
 				}),
 		},
 		{
-			name: "rejects transition from Initializing with non-empty initializers",
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
-					},
-				},
-			},
-			attr: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
-				},
-			},
-				&tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
-					},
-				}),
-			wantErr: true,
-		},
-		{
-			name: "allows transition from Initializing with empty initializers",
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
-					},
-				},
-			},
-			attr: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
-				},
-			},
-				&tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
-						Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-						BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
-					},
-				}),
-		},
-		{
-			name: "ignors different resources",
+			name:  "ignores different resources",
+			types: nil,
 			attr: admission.NewAttributesRecord(
 				&tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{

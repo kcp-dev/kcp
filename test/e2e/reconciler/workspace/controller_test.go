@@ -30,6 +30,7 @@ import (
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
@@ -54,22 +55,19 @@ func TestWorkspaceController(t *testing.T) {
 		work func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
-			name: "create a workspace without shards, expect it to be unschedulable",
+			name: "create a workspace with a shard, expect it to be scheduled",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
-				require.NoError(t, err)
+				// note that the root shard always exists if not deleted
 
-				t.Logf("Create a workspace without shards")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}, Status: tenancyv1alpha1.ClusterWorkspaceStatus{}}, metav1.CreateOptions{})
+				t.Logf("Create a workspace with a shard")
+				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("Expect workspace to be unschedulable")
-				err = server.orgExpect(workspace, unschedulable)
-				require.NoError(t, err, "did not see workspace marked unschedulable")
+				err = server.orgExpect(workspace, scheduled("root"))
+				require.NoError(t, err, "did not see workspace scheduled")
 			},
 		},
 		{
@@ -90,113 +88,6 @@ func TestWorkspaceController(t *testing.T) {
 				err = server.orgExpect(workspace, unschedulable)
 				require.NoError(t, err, "did not see workspace marked unschedulable")
 
-				t.Logf("Add a shard")
-				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace shard")
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
-				})
-
-				t.Logf("Expect workspace to be scheduled")
-				err = server.orgExpect(workspace, scheduled(bostonShard.Name))
-				require.NoError(t, err, "did not see workspace scheduled")
-			},
-		},
-		{
-			name: "create a workspace with a shard, expect it to be scheduled",
-			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("Create a workspace with a shard")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				})
-
-				err = server.orgExpect(workspace, scheduled("root"))
-				require.NoError(t, err, "did not see workspace scheduled")
-			},
-		},
-		{
-			name: "delete a shard that a workspace is scheduled to, expect it to move to another shard",
-			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
-				require.NoError(t, err)
-
-				t.Logf("Create two shards: boston and atlanta")
-				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "boston"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create first workspace shard")
-				atlantaShard, err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "atlanta"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create second workspace shard")
-
-				t.Logf("Create a workspace")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				})
-
-				t.Logf("Expect workspace to be scheduled to some shard")
-				var currentShard, otherShard string
-				err = server.orgExpect(workspace, func(current *tenancyv1alpha1.ClusterWorkspace) error {
-					expectationErr := scheduledAnywhere(current)
-					if expectationErr == nil {
-						currentShard = current.Status.Location.Current
-						for _, name := range []string{bostonShard.Name, atlantaShard.Name} {
-							if name != currentShard {
-								otherShard = name
-								break
-							}
-						}
-					}
-					return expectationErr
-				})
-				require.NoError(t, err, "did not see workspace scheduled")
-
-				// Only collect the other shard - the current shard won't be available after deletion.
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, otherShard, metav1.GetOptions{})
-				})
-
-				t.Logf("Delete the current shard")
-				err = server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
-				require.NoError(t, err, "failed to delete workspace shard")
-
-				t.Logf("Expect workspace to be scheduled to the other shard")
-				err = server.orgExpect(workspace, scheduled(otherShard))
-				require.NoError(t, err, "did not see workspace rescheduled")
-			},
-		},
-		{
-			name: "delete all shards, expect workspace to be unschedulable",
-			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("Create workspace with a shard")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				})
-
-				t.Logf("Expect workspace to be scheduled to some shard")
-				err = server.orgExpect(workspace, scheduled("root"))
-				require.NoError(t, err, "did not see workspace scheduled")
-
-				t.Logf("Delete all shards")
-				err = server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
-				require.NoError(t, err, "failed to delete workspace shard")
-
-				t.Logf("Expect workspace to be unschedulable")
-				err = server.orgExpect(workspace, unschedulable)
-				require.NoError(t, err, "did not see workspace marked unschedulable")
-			},
-		},
-		{
-			name: "create a workspace with a shard that has credentials, expect workspace to have base URL",
-			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
-				require.NoError(t, err)
-
 				t.Logf("Create a kubeconfig secret for a workspace shard in the root workspace")
 				_, err = server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create credentials namespace")
@@ -216,31 +107,17 @@ func TestWorkspaceController(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create credentials secret")
 
-				t.Logf("Create a workspace with a shard that references those credentials")
-				workspaceShard, err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
+				t.Logf("Add a shard, pointing to the credentials/credentials kubeconfig secret")
+				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+					ObjectMeta: metav1.ObjectMeta{Name: "boston"},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
 						Name:      "kubeconfig",
 						Namespace: "credentials",
 					}},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
-
-				t.Logf("Expect the shard to show valid credentials")
-				err = server.rootExpectShard(workspaceShard, func(shard *tenancyv1alpha1.WorkspaceShard) error {
-					if !utilconditions.IsTrue(shard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
-						return fmt.Errorf("workspace shard %s does not have valid credentials, conditions: %#v", shard.Name, shard.GetConditions())
-					}
-					return nil
-				})
-				require.NoError(t, err, "did not see workspace shard get valid credentials")
-
-				t.Logf("Create a workspace")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
-
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard with the base URL stored in the credentials")
@@ -248,11 +125,11 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err, "failed to parse logical cluster name of workspace")
 				workspaceClusterName := helper.EncodeOrganizationAndWorkspace(orgName, workspace.Name)
 				err = server.orgExpect(workspace, func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
-					if err := scheduled(workspaceShard.Name)(workspace); err != nil {
+					if err := scheduled(bostonShard.Name)(workspace); err != nil {
 						return err
 					}
-					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
-						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceURLValid))
+					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
+						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceShardValid))
 					}
 					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix/clusters/"+workspaceClusterName); diff != "" {
 						return fmt.Errorf("got incorrect base URL on workspace: %v", diff)
@@ -260,6 +137,36 @@ func TestWorkspaceController(t *testing.T) {
 					return nil
 				})
 				require.NoError(t, err, "did not see workspace updated")
+			},
+		},
+		{
+			name: "delete a shard that a workspace is scheduled to, expect WorkspaceShardValid condition to turn false",
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Logf("Create a workspace")
+				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create workspace")
+				server.Artifact(t, func() (runtime.Object, error) {
+					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				})
+
+				t.Logf("Expect workspace to be scheduled to some shard")
+				var currentShard string
+				err = server.orgExpect(workspace, func(current *tenancyv1alpha1.ClusterWorkspace) error {
+					expectationErr := scheduledAnywhere(current)
+					if expectationErr == nil {
+						currentShard = current.Status.Location.Current
+					}
+					return expectationErr
+				})
+				require.NoError(t, err, "did not see workspace scheduled")
+
+				t.Logf("Delete the current shard")
+				err = server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
+				require.NoError(t, err, "failed to delete workspace shard")
+
+				t.Logf("Expect WorkspaceShardValid condition to turn false")
+				err = server.orgExpect(workspace, invalidShard)
+				require.NoError(t, err, "did not see WorkspaceShardValid condition to turn false")
 			},
 		},
 	}
@@ -323,6 +230,7 @@ func isUnschedulable(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 
 func unschedulable(object *tenancyv1alpha1.ClusterWorkspace) error {
 	if !isUnschedulable(object) {
+		klog.Infof("Workspace is not unscheduled: %v", utilconditions.Get(object, tenancyv1alpha1.WorkspaceScheduled))
 		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
 	return nil
@@ -331,13 +239,22 @@ func unschedulable(object *tenancyv1alpha1.ClusterWorkspace) error {
 func scheduled(target string) func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	return func(object *tenancyv1alpha1.ClusterWorkspace) error {
 		if isUnschedulable(object) {
+			klog.Infof("Workspace %s is unschedulable", object.Name)
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		if object.Status.Location.Current != target {
+			klog.Infof("Workspace %s is scheduled to %s, expected %s", object.Name, object.Status.Location.Current, target)
 			return fmt.Errorf("expected workspace.status.location.current to be %q, got %q", target, object.Status.Location.Current)
 		}
 		return nil
 	}
+}
+
+func invalidShard(workspace *tenancyv1alpha1.ClusterWorkspace) error {
+	if !utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceShardValid) {
+		return fmt.Errorf("expected invalid shard, got status.conditions: %#v", workspace.Status.Conditions)
+	}
+	return nil
 }
 
 func scheduledAnywhere(object *tenancyv1alpha1.ClusterWorkspace) error {

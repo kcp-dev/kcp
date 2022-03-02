@@ -249,7 +249,7 @@ func (c *Controller) processOrg(ctx context.Context, key string) error {
 // latest credentials available for the Shard on which the Organization is held
 func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled) ||
-		!conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
+		!conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
 		klog.Infof("org workspace %s/%s not ready, skipping...", workspace.ClusterName, workspace.Name)
 		return nil // not ready yet
 	}

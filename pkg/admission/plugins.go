@@ -39,11 +39,13 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageclass/setdefault"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageobjectinuseprotection"
 
+	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
 var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
+	clusterworkspace.PluginName,
 	clusterworkspacetypeexists.PluginName,
 )
 
@@ -62,6 +64,7 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 // The order of registration is irrelevant, see AllOrderedPlugins for execution order.
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
+	clusterworkspace.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
 }
 
@@ -75,6 +78,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	certsubjectrestriction.PluginName, // CertificateSubjectRestriction
 
 	// KCP
+	clusterworkspace.PluginName,
 	clusterworkspacetypeexists.PluginName,
 )
 

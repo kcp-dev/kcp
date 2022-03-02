@@ -69,7 +69,7 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 		return nil, err
 	}
 	scope := ctx.Value(WorkspacesScopeKey).(string)
-	if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceURLValid) {
+	if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
 		return nil, wrapError(errors.New("ClusterWorkspace URL is not valid"))
 	}
 	shard, err := s.workspaceShardClient.Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
