@@ -8,6 +8,7 @@ on:
     paths:
       - "docs/**"
       - "**/*.md"
+      - ".github/ISSUE_TEMPLATE/*"
 
 jobs:
   boilerplate:
