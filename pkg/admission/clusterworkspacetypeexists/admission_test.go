@@ -223,7 +223,7 @@ func TestAdmit(t *testing.T) {
 			},
 		},
 		{
-			name: "ignors different resources",
+			name: "ignores different resources",
 			a: admission.NewAttributesRecord(
 				&tenancyv1alpha1.WorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
@@ -427,7 +427,7 @@ func TestValidate(t *testing.T) {
 				}),
 		},
 		{
-			name:  "ignors different resources",
+			name:  "ignores different resources",
 			types: nil,
 			attr: admission.NewAttributesRecord(
 				&tenancyv1alpha1.WorkspaceShard{
