@@ -2,3 +2,11 @@
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/reference/oneOf
   value:
   - required: ["workspace"]
+  - required: ["export"]
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/reference/properties/export/oneOf
+  value:
+  - required: ["local"]
+  - required: ["workspace"]
+  - required: ["organization"]
+  - required: ["global"]
