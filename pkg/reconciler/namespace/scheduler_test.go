@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	clustertools "k8s.io/client-go/tools/clusters"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -41,12 +41,12 @@ const (
 )
 
 type clusterFixture struct {
-	cluster *clusterv1alpha1.Cluster
+	cluster *workloadv1alpha1.WorkloadCluster
 }
 
 func newClusterFixture(lclusterName, clusterName string) *clusterFixture {
 	f := &clusterFixture{
-		cluster: &clusterv1alpha1.Cluster{
+		cluster: &workloadv1alpha1.WorkloadCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        clusterName,
 				ClusterName: lclusterName,
@@ -65,7 +65,7 @@ func otherClusterFixture() *clusterFixture {
 }
 
 func (f *clusterFixture) withReady() *clusterFixture {
-	conditions.MarkTrue(f.cluster, clusterv1alpha1.ClusterReadyCondition)
+	conditions.MarkTrue(f.cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 	return f
 }
 
@@ -86,17 +86,17 @@ func (f *clusterFixture) withPassedEvictionTime() *clusterFixture {
 	return f
 }
 
-func newTestScheduler(clusters []*clusterv1alpha1.Cluster) namespaceScheduler {
+func newTestScheduler(clusters []*workloadv1alpha1.WorkloadCluster) namespaceScheduler {
 	return namespaceScheduler{
-		getCluster: func(name string) (*clusterv1alpha1.Cluster, error) {
+		getCluster: func(name string) (*workloadv1alpha1.WorkloadCluster, error) {
 			for _, cluster := range clusters {
 				if clustertools.ToClusterAwareKey(cluster.ClusterName, cluster.Name) == name {
 					return cluster, nil
 				}
 			}
-			return nil, apierrors.NewNotFound(clusterv1alpha1.Resource("cluster"), name)
+			return nil, apierrors.NewNotFound(workloadv1alpha1.Resource("workloadcluster"), name)
 		},
-		listClusters: func(selector labels.Selector) ([]*clusterv1alpha1.Cluster, error) {
+		listClusters: func(selector labels.Selector) ([]*workloadv1alpha1.WorkloadCluster, error) {
 			return clusters, nil
 		},
 	}
@@ -141,7 +141,7 @@ func TestAssignCluster(t *testing.T) {
 	}
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			clusters := []*clusterv1alpha1.Cluster{
+			clusters := []*workloadv1alpha1.WorkloadCluster{
 				defaultClusterFixture().withReady().cluster,
 			}
 			scheduler := newTestScheduler(clusters)
@@ -181,7 +181,7 @@ func TestIsValidCluster(t *testing.T) {
 	}
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			clusters := []*clusterv1alpha1.Cluster{}
+			clusters := []*workloadv1alpha1.WorkloadCluster{}
 			if testCase.cluster != nil {
 				clusters = append(clusters, testCase.cluster.cluster)
 			}
@@ -241,7 +241,7 @@ func TestPickCluster(t *testing.T) {
 	}
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			clusters := []*clusterv1alpha1.Cluster{}
+			clusters := []*workloadv1alpha1.WorkloadCluster{}
 			for _, fixture := range testCase.clusters {
 				clusters = append(clusters, fixture.cluster)
 			}

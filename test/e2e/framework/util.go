@@ -48,8 +48,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -125,7 +125,7 @@ func ScratchDirs(t *testing.T) (string, string, error) {
 var localSchemeBuilder = runtime.SchemeBuilder{
 	apiresourcev1alpha1.AddToScheme,
 	tenancyv1alpha1.AddToScheme,
-	clusterv1alpha1.AddToScheme,
+	workloadv1alpha1.AddToScheme,
 }
 
 func init() {
@@ -243,7 +243,7 @@ func GetFreePort(t *testing.T) (string, error) {
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
 // CreateClusterAndWait creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
-func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*clusterv1alpha1.Cluster, error) {
+func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
 	config, err := pcluster.RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server config: %w", err)
@@ -269,23 +269,23 @@ func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactF
 		return nil, fmt.Errorf("failed to serialize server config: %w", err)
 	}
 
-	cluster, err := kcpClient.ClusterV1alpha1().Clusters().Create(ctx, &clusterv1alpha1.Cluster{
+	cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, &workloadv1alpha1.WorkloadCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: pcluster.Name()},
-		Spec:       clusterv1alpha1.ClusterSpec{KubeConfig: string(bs)},
+		Spec:       workloadv1alpha1.WorkloadClusterSpec{KubeConfig: string(bs)},
 	}, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
 	}
 	artifacts(t, func() (runtime.Object, error) {
-		return kcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+		return kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	})
 
 	if err := wait.PollImmediateWithContext(ctx, time.Millisecond*500, wait.ForeverTestTimeout, func(ctx context.Context) (done bool, err error) {
-		cluster, err = kcpClient.ClusterV1alpha1().Clusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+		cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
-		if conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition) {
+		if conditions.IsTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition) {
 			return true, nil
 		}
 		return false, nil

@@ -40,7 +40,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	clusterapi "github.com/kcp-dev/kcp/pkg/apis/cluster"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -184,7 +184,7 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Installing test CRDs into source cluster...")
 			err = configcrds.Create(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: clusterapi.GroupName, Resource: "clusters"},
+				metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "apiresourceimports"},
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
 			)

@@ -27,7 +27,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
@@ -50,12 +50,12 @@ func (m *pushSyncerManager) name() string {
 	return "kcp-push-syncer-manager"
 }
 
-func (m *pushSyncerManager) needsUpdate(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error) {
+func (m *pushSyncerManager) needsUpdate(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error) {
 	_, running := m.syncerCancelFuncs[cluster.Name]
 	return !running || !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources), nil
 }
 
-func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
+func (m *pushSyncerManager) update(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
 	// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
 	var upstreamCluster = *kubeConfig.Clusters["system:admin"] // shallow copy
 	upstreamKubeConfig := clientcmdapi.Config{
@@ -77,14 +77,14 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 	upstream, err := clientcmd.NewNonInteractiveClientConfig(upstreamKubeConfig, "upstream", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		klog.Errorf("error getting kcp kubeconfig: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting kcp kubeconfig: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting kcp kubeconfig: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 
 	downstream, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("error getting cluster kubeconfig: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 
@@ -93,7 +93,7 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 	syncerCtx, syncerCancel := context.WithCancel(ctx)
 	if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, kcpClusterName, cluster.Name, numSyncerThreads); err != nil {
 		klog.Errorf("error starting syncer in push mode: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error starting syncer in push mode: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error starting syncer in push mode: %v", err.Error())
 
 		syncerCancel()
 
@@ -107,16 +107,16 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *clusterv1alpha1
 	}
 
 	klog.Infof("Started push mode syncer from clusterName %s for pcluster %s", kcpClusterName, cluster.Name)
-	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
+	conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 
 	return true, nil
 }
 
-func (m *pushSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1alpha1.Cluster, client *kubernetes.Clientset) bool {
+func (m *pushSyncerManager) checkHealth(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset) bool {
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("error getting cluster kubeconfig: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.WorkloadClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting cluster kubeconfig: %v", err.Error())
 		return false // Don't retry.
 	}
 
@@ -124,24 +124,24 @@ func (m *pushSyncerManager) checkHealth(ctx context.Context, cluster *clusterv1a
 	restClient, err := rest.UnversionedRESTClientFor(cfg)
 	if err != nil {
 		klog.Errorf("error getting rest client: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting rest client: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.WorkloadClusterUnknownReason, conditionsv1alpha1.ConditionSeverityError, "Error getting rest client: %v", err.Error())
 		return false // Don't retry.
 	}
 
 	_, err = restClient.Get().AbsPath("/readyz").Timeout(5 * time.Second).DoRaw(ctx)
 	if err != nil {
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityError, "Error getting /readyz: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.WorkloadClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityError, "Error getting /readyz: %v", err.Error())
 		return false // Don't retry.
 	}
 
 	logicalCluster := cluster.GetClusterName()
 	klog.Infof("healthy push mode syncer running for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
-	conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
+	conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 
 	return true
 }
 
-func (m *pushSyncerManager) cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster) {
+func (m *pushSyncerManager) cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster) {
 	syncerCancel, ok := m.syncerCancelFuncs[deletedCluster.Name]
 	if !ok {
 		klog.Errorf("could not find syncer for cluster %q", deletedCluster.Name)

@@ -69,7 +69,7 @@ func (c *Config) New() (*clusterctl.ClusterReconciler, error) {
 	if err != nil {
 		return nil, err
 	}
-	clientutils.EnableMultiCluster(adminConfig, nil, true, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
+	clientutils.EnableMultiCluster(adminConfig, nil, true, "workloadclusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 
 	neutralConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
@@ -82,7 +82,7 @@ func (c *Config) New() (*clusterctl.ClusterReconciler, error) {
 
 	return NewController(
 		kcpClusterClient,
-		c.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
+		c.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		c.ResourcesToSync,
 	)

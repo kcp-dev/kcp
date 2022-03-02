@@ -99,7 +99,7 @@ func (c *Config) New() (*Controller, error) {
 	if err != nil {
 		return nil, err
 	}
-	clientutils.EnableMultiCluster(adminConfig, nil, true, "clusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
+	clientutils.EnableMultiCluster(adminConfig, nil, true, "workloadclusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
 
 	apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
 
@@ -115,7 +115,7 @@ func (c *Config) New() (*Controller, error) {
 	return NewController(
 		apiExtensionsClient,
 		kcpClusterClient,
-		c.kcpSharedInformerFactory.Cluster().V1alpha1().Clusters(),
+		c.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		c.kubeconfig,
 		c.ResourcesToSync,

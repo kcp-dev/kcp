@@ -29,8 +29,8 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/cluster"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
 )
 
 //go:embed *.yaml
@@ -51,7 +51,7 @@ func Bootstrap(ctx context.Context, rootCrdClient apiextensionsclient.Interface,
 		{Group: tenancy.GroupName, Resource: "workspaceshards"},
 		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
 		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-		{Group: cluster.GroupName, Resource: "clusters"},
+		{Group: workload.GroupName, Resource: "workloadclusters"},
 	}, confighelpers.ReplaceOption(
 		"SHARD_NAME", shardName,
 		"SHARD_KUBECONFIG", base64.StdEncoding.EncodeToString(kubeconfigRaw),

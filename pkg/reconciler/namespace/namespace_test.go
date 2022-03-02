@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -83,16 +83,16 @@ func TestEnqueueStrategyForCluster(t *testing.T) {
 	}
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			cluster := &clusterv1alpha1.Cluster{
+			cluster := &workloadv1alpha1.WorkloadCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster",
 				},
-				Spec: clusterv1alpha1.ClusterSpec{
+				Spec: workloadv1alpha1.WorkloadClusterSpec{
 					Unschedulable: testCase.unschedulable,
 				},
 			}
 			if testCase.ready {
-				conditions.MarkTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
+				conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 			}
 			if testCase.evictAfter != nil {
 				evictAfter := metav1.NewTime(*testCase.evictAfter)

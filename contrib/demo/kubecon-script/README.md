@@ -27,8 +27,8 @@ To be able to connect multiple "physical" clusters, we define a `Cluster` CRD ty
 This effectively includes a kubeconfig to locate and authenticate with the cluster.
 
 ```yaml
-apiVersion: cluster.example.dev/v1alpha1
-kind: Cluster
+apiVersion: workload.kcp.dev/v1alpha1
+kind: WorkloadCluster
 metadata:
   name: my-cluster
 spec:

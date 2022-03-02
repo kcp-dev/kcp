@@ -24,7 +24,7 @@ The rest of this doc describes additional components you can run with `kcp` to a
 
 ## Cluster CRD and Cluster Controller
 
-The example [Cluster](../../config/cluster.example.dev_clusters.yaml) CRD type holds information to reach and authenticate to another Kubernetes cluster's API server.
+The example [Cluster](../../config/workload.kcp.dev_clusters.yaml) CRD type holds information to reach and authenticate to another Kubernetes cluster's API server.
 To do this, its `.spec.kubeconfig` field defines a YAML serialized [kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) file.
 
 **NB:** A kubeconfig contains sensitive information to authenticate with a cluster's API server.

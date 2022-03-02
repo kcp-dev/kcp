@@ -1,10 +1,10 @@
 [3J[H[2J☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/config
 customresourcedefinition.apiextensions.k8s.io/apiresourceimports.apiresource.kcp.dev created
 customresourcedefinition.apiextensions.k8s.io/negotiatedapiresources.apiresource.kcp.dev created
-customresourcedefinition.apiextensions.k8s.io/clusters.cluster.example.dev created
+customresourcedefinition.apiextensions.k8s.io/workloadclusters.workload.kcp.dev created
 ☸️ $ kubectl api-resources | grep deployments
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-east1.yaml
-cluster.cluster.example.dev/us-east1 created
+workloadcluster.workload.kcp.dev/us-east1 created
 ☸️ $ kubectl get clusters -o wide
 NAME       LOCATION   READY   SYNCED API RESOURCES
 us-east1   us-east1           
@@ -32,7 +32,7 @@ deployments.v1.apps   true      apps/v1       deployments    True        False
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-west1.yaml
-cluster.cluster.example.dev/us-west1 created
+workloadcluster.workload.kcp.dev/us-west1 created
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
@@ -50,7 +50,7 @@ deployments.us-west1.v1.apps   us-west1   UpdatePublished          apps/v1      
 ☸️ $ kubectl get crds deployments.apps -o yaml | grep ephemeralContainers
                       ephemeralContainers:
 ☸️ $ kubectl delete clusters us-west1
-cluster.cluster.example.dev "us-west1" deleted
+workloadcluster.workload.kcp.dev "us-west1" deleted
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
@@ -59,7 +59,7 @@ deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1      
 ☸️ $ kubectl get crds deployments.apps -o yaml | grep ephemeralContainers
                       ephemeralContainers:
 ☸️ $ kubectl delete clusters us-east1
-cluster.cluster.example.dev "us-east1" deleted
+workloadcluster.workload.kcp.dev "us-east1" deleted
 ☸️ $ kubectl get apiresourceimports -o wide
 No resources found
 ☸️ $ kubectl get negotiatedapiresources -o wide
@@ -68,7 +68,7 @@ No resources found
 [3J[H[2J☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/crds/apps/apps_deployments.yaml
 customresourcedefinition.apiextensions.k8s.io/deployments.apps created
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-west1.yaml
-cluster.cluster.example.dev/us-west1 created
+workloadcluster.workload.kcp.dev/us-west1 created
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-west1.v1.apps   us-west1   UpdateUnpublished        apps/v1       deployments    False        True
@@ -84,7 +84,7 @@ deployments.us-west1.v1.apps   us-west1   UpdatePublished          apps/v1      
 NAME                  PUBLISH   API VERSION   API RESOURCE   PUBLISHED   ENFORCED
 deployments.v1.apps   true      apps/v1       deployments    True        True
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-east1.yaml
-cluster.cluster.example.dev/us-east1 created
+workloadcluster.workload.kcp.dev/us-east1 created
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    False        

@@ -39,11 +39,11 @@ import (
 
 	"github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/cluster"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
-	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/cluster/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
+	workloadclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
@@ -62,7 +62,7 @@ func TestNamespaceScheduler(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		client        kubernetes.Interface
-		clusterClient v1alpha1.ClusterInterface
+		clusterClient v1alpha1.WorkloadClusterInterface
 		expect        registerNamespaceExpectation
 	}
 
@@ -97,11 +97,11 @@ func TestNamespaceScheduler(t *testing.T) {
 				server1Kubeconfig, err := clientcmd.Write(server1RawConfig)
 				require.NoError(t, err, "failed to marshal server 1 kubeconfig")
 
-				cluster1, err := server.clusterClient.Create(ctx, &clusterv1alpha1.Cluster{
+				cluster1, err := server.clusterClient.Create(ctx, &workloadv1alpha1.WorkloadCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "e2e-nss-1-",
 					},
-					Spec: clusterv1alpha1.ClusterSpec{
+					Spec: workloadv1alpha1.WorkloadClusterSpec{
 						KubeConfig: string(server1Kubeconfig),
 					},
 				}, metav1.CreateOptions{})
@@ -196,7 +196,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			err = crds.Create(ctx, apiextensionClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "apiresourceimports"},
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-				metav1.GroupResource{Group: cluster.GroupName, Resource: "clusters"},
+				metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
 			)
 			require.NoError(t, err)
 
@@ -204,7 +204,7 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			clients, err := clientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
-			clusterClient := clients.Cluster(clusterName).ClusterV1alpha1().Clusters()
+			clusterClient := clients.Cluster(clusterName).WorkloadV1alpha1().WorkloadClusters()
 
 			expect, err := expectNamespaces(ctx, t, client)
 			require.NoError(t, err, "failed to start expecter")
@@ -285,7 +285,7 @@ func expectNamespaces(ctx context.Context, t *testing.T, client kubernetes.Inter
 	}, nil
 }
 
-func waitForClusterReadiness(t *testing.T, ctx context.Context, client clusterclient.ClusterInterface, clusterName string) {
+func waitForClusterReadiness(t *testing.T, ctx context.Context, client workloadclient.WorkloadClusterInterface, clusterName string) {
 	t.Logf("Waiting for cluster %q to become ready", clusterName)
 	require.Eventually(t, func() bool {
 		cluster, err := client.Get(ctx, clusterName, metav1.GetOptions{})
@@ -296,7 +296,7 @@ func waitForClusterReadiness(t *testing.T, ctx context.Context, client clustercl
 			t.Errorf("Error getting cluster %q: %v", clusterName, err)
 			return false
 		}
-		return conditions.IsTrue(cluster, clusterv1alpha1.ClusterReadyCondition)
+		return conditions.IsTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 	t.Logf("Cluster %q confirmed ready", clusterName)
 }

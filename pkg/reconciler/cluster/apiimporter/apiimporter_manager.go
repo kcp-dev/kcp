@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
@@ -41,7 +41,7 @@ type apiImporterManager struct {
 	apiImporters             map[string]*APIImporter
 }
 
-func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *clusterv1alpha1.Cluster) error {
+func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
 	klog.Infof("reconciling cluster %q", cluster.Name)
 
 	logicalCluster := cluster.GetClusterName()
@@ -50,7 +50,7 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *clusterv1al
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("invalid kubeconfig: %v", err)
-		conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
 		return nil // Don't retry.
 	}
 
@@ -59,7 +59,7 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *clusterv1al
 		apiImporter, err := m.startAPIImporter(cfg, cluster.Name, logicalCluster, time.Minute)
 		if err != nil {
 			klog.Errorf("error starting the API importer: %v", err)
-			conditions.MarkFalse(cluster, clusterv1alpha1.ClusterReadyCondition, clusterv1alpha1.ErrorStartingAPIImporterReason, conditionsv1alpha1.ConditionSeverityError, "Error starting the API importer: %v", err.Error())
+			conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingAPIImporterReason, conditionsv1alpha1.ConditionSeverityError, "Error starting the API importer: %v", err.Error())
 			return nil // Don't retry.
 		}
 		m.apiImporters[cluster.Name] = apiImporter
@@ -68,7 +68,7 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *clusterv1al
 	return nil
 }
 
-func (m *apiImporterManager) Cleanup(ctx context.Context, deletedCluster *clusterv1alpha1.Cluster) {
+func (m *apiImporterManager) Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster) {
 	klog.Infof("cleanup resources for cluster %q", deletedCluster.Name)
 
 	if apiImporter := m.apiImporters[deletedCluster.Name]; apiImporter != nil {

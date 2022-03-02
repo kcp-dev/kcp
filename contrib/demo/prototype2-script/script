@@ -115,8 +115,8 @@ clear
 c "Now let's register our kind cluster us-east1 with kcp"
 
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
-apiVersion: cluster.example.dev/v1alpha1
-kind: Cluster
+apiVersion: workload.kcp.dev/v1alpha1
+kind: WorkloadCluster
 metadata:
   name: kind-us-east1
 spec:
@@ -164,8 +164,8 @@ wait;clear
 c "Now let's register our kind cluster us-west1 with kcp"
 
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-west1.yaml"
-apiVersion: cluster.example.dev/v1alpha1
-kind: Cluster
+apiVersion: workload.kcp.dev/v1alpha1
+kind: WorkloadCluster
 metadata:
   name: kind-us-west1
 spec:

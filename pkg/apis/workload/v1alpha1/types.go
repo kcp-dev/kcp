@@ -24,7 +24,7 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-// Cluster describes a member cluster.
+// WorkloadCluster describes a member cluster capable of running workloads.
 //
 // +crd
 // +genclient
@@ -36,25 +36,25 @@ import (
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`,priority=2
 // +kubebuilder:printcolumn:name="Synced API resources",type="string",JSONPath=`.status.syncedResources`,priority=3
 
-type Cluster struct {
+type WorkloadCluster struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state.
 	// +optional
-	Spec ClusterSpec `json:"spec,omitempty"`
+	Spec WorkloadClusterSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state.
 	// +optional
-	Status ClusterStatus `json:"status,omitempty"`
+	Status WorkloadClusterStatus `json:"status,omitempty"`
 }
 
-var _ conditions.Getter = &Cluster{}
-var _ conditions.Setter = &Cluster{}
+var _ conditions.Getter = &WorkloadCluster{}
+var _ conditions.Setter = &WorkloadCluster{}
 
-// ClusterSpec holds the desired state of the Cluster (from the client).
-type ClusterSpec struct {
+// WorkloadClusterSpec holds the desired state of the WorkloadCluster (from the client).
+type WorkloadClusterSpec struct {
 	KubeConfig string `json:"kubeconfig"`
 
 	// Unschedulable controls cluster schedulability of new workloads. By
@@ -70,8 +70,8 @@ type ClusterSpec struct {
 	EvictAfter *metav1.Time `json:"evictAfter,omitempty"`
 }
 
-// ClusterStatus communicates the observed state of the Cluster (from the controller).
-type ClusterStatus struct {
+// WorkloadClusterStatus communicates the observed state of the WorkloadCluster (from the controller).
+type WorkloadClusterStatus struct {
 
 	// Allocatable represents the resources that are available for scheduling.
 	// +optional
@@ -81,40 +81,40 @@ type ClusterStatus struct {
 	// +optional
 	Capacity *corev1.ResourceList `json:"capacity,omitempty"`
 
-	// Current processing state of the Cluster.
+	// Current processing state of the WorkloadCluster.
 	// +optional
-	Conditions ClusterConditions `json:"conditions,omitempty"`
+	Conditions WorkloadClusterConditions `json:"conditions,omitempty"`
 
 	// +optional
 	SyncedResources []string `json:"syncedResources,omitempty"`
 }
 
-// ClusterList is a list of Cluster resources
+// WorkloadClusterList is a list of WorkloadCluster resources
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterList struct {
+type WorkloadClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []Cluster `json:"items"`
+	Items []WorkloadCluster `json:"items"`
 }
 
-// Conditions and ConditionReasons for the kcp Cluster object.
+// Conditions and ConditionReasons for the kcp WorkloadCluster object.
 const (
-	// ClusterReadyCondition means the Cluster is available.
-	ClusterReadyCondition conditionsv1alpha1.ConditionType = "Ready"
+	// WorkloadClusterReadyCondition means the WorkloadCluster is available.
+	WorkloadClusterReadyCondition conditionsv1alpha1.ConditionType = "Ready"
 
-	// ClusterUnknownReason documents a Cluster which readyness is unknown.
-	ClusterUnknownReason = "ClusterStatusUnknown"
+	// WorkloadClusterUnknownReason documents a WorkloadCluster which readyness is unknown.
+	WorkloadClusterUnknownReason = "WorkloadClusterStatusUnknown"
 
-	// ClusterReadyReason documents a Cluster that is ready.
-	ClusterReadyReason = "ClusterReady"
+	// WorkloadClusterReadyReason documents a WorkloadCluster that is ready.
+	WorkloadClusterReadyReason = "WorkloadClusterReady"
 
-	// ClusterNotReadyReason documents a Cluster is not ready, when the "readyz" check returns false.
-	ClusterNotReadyReason = "ClusterNotReady"
+	// WorkloadClusterNotReadyReason documents a WorkloadCluster is not ready, when the "readyz" check returns false.
+	WorkloadClusterNotReadyReason = "WorkloadClusterNotReady"
 
-	// ClusterUnreachableReason documents the Cluster state when the Syncer is unable to reach the Cluster "readyz" API endpoint
-	ClusterUnreachableReason = "ClusterUnreachable"
+	// WorkloadClusterUnreachableReason documents the WorkloadCluster state when the Syncer is unable to reach the WorkloadCluster "readyz" API endpoint
+	WorkloadClusterUnreachableReason = "WorkloadClusterUnreachable"
 
 	// ErrorStartingSyncerReason indicates that the Syncer failed to start.
 	ErrorStartingSyncerReason = "ErrorStartingSyncer"
@@ -132,11 +132,11 @@ const (
 	ErrorStartingAPIImporterReason = "ErrorStartingAPIImporter"
 )
 
-func (in *Cluster) SetConditions(c conditionsv1alpha1.Conditions) {
-	cc := ClusterConditions{}
+func (in *WorkloadCluster) SetConditions(c conditionsv1alpha1.Conditions) {
+	cc := WorkloadClusterConditions{}
 
 	for _, c := range c {
-		condition := ClusterCondition{
+		condition := WorkloadClusterCondition{
 			Condition: &conditionsv1alpha1.Condition{
 				Type:               c.Type,
 				Status:             c.Status,
@@ -147,7 +147,7 @@ func (in *Cluster) SetConditions(c conditionsv1alpha1.Conditions) {
 			},
 			LastHeartbeatTime: metav1.Time{},
 		}
-		if c.Type == ClusterReadyCondition && c.Status == corev1.ConditionTrue {
+		if c.Type == WorkloadClusterReadyCondition && c.Status == corev1.ConditionTrue {
 			condition.LastHeartbeatTime = metav1.Now()
 		}
 		cc = append(cc, condition)
@@ -156,7 +156,7 @@ func (in *Cluster) SetConditions(c conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = cc
 }
 
-func (in *Cluster) GetConditions() conditionsv1alpha1.Conditions {
+func (in *WorkloadCluster) GetConditions() conditionsv1alpha1.Conditions {
 	cond := conditionsv1alpha1.Conditions{}
 
 	for _, condition := range in.Status.Conditions {
@@ -173,7 +173,7 @@ func (in *Cluster) GetConditions() conditionsv1alpha1.Conditions {
 	return cond
 }
 
-type ClusterCondition struct {
+type WorkloadClusterCondition struct {
 	*conditionsv1alpha1.Condition `json:",inline"`
 
 	// Last time the condition got an update.
@@ -182,4 +182,4 @@ type ClusterCondition struct {
 	LastHeartbeatTime metav1.Time `json:"lastHeartbeatTime,omitempty"`
 }
 
-type ClusterConditions []ClusterCondition
+type WorkloadClusterConditions []WorkloadClusterCondition

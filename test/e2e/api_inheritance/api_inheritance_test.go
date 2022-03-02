@@ -31,11 +31,11 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/cluster"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -144,7 +144,7 @@ func TestAPIInheritance(t *testing.T) {
 
 			t.Logf("Install a clusters CRD into \"source\" workspace")
 			crdsForWorkspaces := []metav1.GroupResource{
-				{Group: cluster.GroupName, Resource: "clusters"},
+				{Group: workload.GroupName, Resource: "workloadclusters"},
 			}
 			sourceCrdClient := apiExtensionsClients.Cluster(sourceWorkspaceClusterName).ApiextensionsV1().CustomResourceDefinitions()
 
@@ -171,22 +171,22 @@ func TestAPIInheritance(t *testing.T) {
 			err = expectGroupInDiscovery(sourceWorkspaceClusterName, apiresourceapi.GroupName)
 			require.NoError(t, err)
 
-			t.Logf("Make sure %q API group shows up in \"source\" workspace group discovery, inherited from org", cluster.GroupName)
-			err = expectGroupInDiscovery(sourceWorkspaceClusterName, cluster.GroupName)
+			t.Logf("Make sure %q API group shows up in \"source\" workspace group discovery, inherited from org", workload.GroupName)
+			err = expectGroupInDiscovery(sourceWorkspaceClusterName, workload.GroupName)
 			require.NoError(t, err)
 
 			t.Logf("Make sure \"clusters\" API resource shows up in \"source\" workspace group version discovery")
-			resources, err := kcpClients.Cluster(sourceWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(clusterv1alpha1.SchemeGroupVersion.String())
+			resources, err := kcpClients.Cluster(sourceWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(workloadv1alpha1.SchemeGroupVersion.String())
 			require.NoError(t, err, "error retrieving source workspace cluster API discovery")
-			require.True(t, resourceExists(resources, "clusters"), "source workspace discovery is missing clusters resource")
+			require.True(t, resourceExists(resources, "workloadclusters"), "source workspace discovery is missing clusters resource")
 
 			t.Logf("Creating cluster CR in \"source\" workspace, and later make sure CRs are not inherited by the \"target\" workspace")
-			sourceWorkspaceCluster := &clusterv1alpha1.Cluster{
+			sourceWorkspaceCluster := &workloadv1alpha1.WorkloadCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "source-cluster",
 				},
 			}
-			sourceClusterClient := kcpClients.Cluster(sourceWorkspaceClusterName).ClusterV1alpha1().Clusters()
+			sourceClusterClient := kcpClients.Cluster(sourceWorkspaceClusterName).WorkloadV1alpha1().WorkloadClusters()
 			_, err = sourceClusterClient.Create(ctx, sourceWorkspaceCluster, metav1.CreateOptions{})
 			require.NoError(t, err, "Error creating sourceWorkspaceCluster inside source")
 
@@ -194,11 +194,11 @@ func TestAPIInheritance(t *testing.T) {
 				return sourceClusterClient.Get(ctx, "source-cluster", metav1.GetOptions{})
 			})
 
-			t.Logf("Make sure %s API group does NOT show up yet in \"target\" workspace group discovery", cluster.GroupName)
+			t.Logf("Make sure %s API group does NOT show up yet in \"target\" workspace group discovery", workload.GroupName)
 			groups, err := kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerGroups()
 			require.NoError(t, err, "error retrieving target workspace group discovery")
-			require.False(t, groupExists(groups, cluster.GroupName),
-				"should not have seen cluster API group in target workspace group discovery")
+			require.False(t, groupExists(groups, workload.GroupName),
+				"should not have seen %s API group in target workspace group discovery", workload.GroupName)
 
 			t.Logf("Update \"target\" workspace to inherit from \"source\" workspace")
 			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, targetWorkspace.GetName(), metav1.GetOptions{})
@@ -211,24 +211,24 @@ func TestAPIInheritance(t *testing.T) {
 			}
 
 			t.Logf("Make sure API group from inheritance shows up in target workspace group discovery")
-			err = expectGroupInDiscovery(targetWorkspaceClusterName, cluster.GroupName)
+			err = expectGroupInDiscovery(targetWorkspaceClusterName, workload.GroupName)
 			require.NoError(t, err)
 
 			t.Logf("Make sure \"clusters\" resource inherited from \"source\" shows up in \"target\" workspace group version discovery")
-			resources, err = kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(clusterv1alpha1.SchemeGroupVersion.String())
+			resources, err = kcpClients.Cluster(targetWorkspaceClusterName).Discovery().ServerResourcesForGroupVersion(workloadv1alpha1.SchemeGroupVersion.String())
 			require.NoError(t, err, "error retrieving target workspace cluster API discovery")
-			require.True(t, resourceExists(resources, "clusters"), "target workspace discovery is missing clusters resource")
+			require.True(t, resourceExists(resources, "workloadclusters"), "target workspace discovery is missing clusters resource")
 
 			t.Logf("Make sure we can perform CRUD operations in the \"target\" cluster for the inherited API")
 
 			t.Logf("Make sure list shows nothing to start")
-			targetClusterClient := kcpClients.Cluster(targetWorkspaceClusterName).ClusterV1alpha1().Clusters()
+			targetClusterClient := kcpClients.Cluster(targetWorkspaceClusterName).WorkloadV1alpha1().WorkloadClusters()
 			clusters, err := targetClusterClient.List(ctx, metav1.ListOptions{})
 			require.NoError(t, err, "error listing clusters inside target")
 			require.Zero(t, len(clusters.Items), "expected 0 clusters inside target")
 
 			t.Logf("Create a cluster CR in the \"target\" workspace")
-			targetWorkspaceCluster := &clusterv1alpha1.Cluster{
+			targetWorkspaceCluster := &workloadv1alpha1.WorkloadCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "target-cluster",
 				},

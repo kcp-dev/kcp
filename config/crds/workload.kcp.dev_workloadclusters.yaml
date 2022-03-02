@@ -6,16 +6,16 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: clusters.cluster.example.dev
+  name: workloadclusters.workload.kcp.dev
 spec:
-  group: cluster.example.dev
+  group: workload.kcp.dev
   names:
     categories:
     - kcp
-    kind: Cluster
-    listKind: ClusterList
-    plural: clusters
-    singular: cluster
+    kind: WorkloadCluster
+    listKind: WorkloadClusterList
+    plural: workloadclusters
+    singular: workloadcluster
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -90,7 +90,7 @@ spec:
                 description: Capacity represents the total resources of the cluster.
                 type: object
               conditions:
-                description: Current processing state of the Cluster.
+                description: Current processing state of the WorkloadCluster.
                 items:
                   properties:
                     lastHeartbeatTime:

@@ -75,8 +75,6 @@ func (ca *NamespaceConditionsAdapter) SetConditions(conditions conditionsapi.Con
 	ca.Status.Conditions = nsConditions
 }
 
-type updateConditionsFunc func(conditionsSetter conditions.Setter)
-
 // IsScheduled returns whether the given namespace's status indicates
 // it is scheduled.
 func IsScheduled(ns *corev1.Namespace) bool {

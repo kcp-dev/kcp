@@ -25,9 +25,9 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	clusterv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/cluster/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	v1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -62,10 +62,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()}, nil
 
-		// Group=cluster.example.dev, Version=v1alpha1
-	case clusterv1alpha1.SchemeGroupVersion.WithResource("clusters"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Cluster().V1alpha1().Clusters().Informer()}, nil
-
 		// Group=tenancy.kcp.dev, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaces().Informer()}, nil
@@ -77,6 +73,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=tenancy.kcp.dev, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("workspaces"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1beta1().Workspaces().Informer()}, nil
+
+		// Group=workload.kcp.dev, Version=v1alpha1
+	case workloadv1alpha1.SchemeGroupVersion.WithResource("workloadclusters"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().WorkloadClusters().Informer()}, nil
 
 	}
 
