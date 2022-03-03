@@ -50,6 +50,11 @@ or special properties by default, and it can be used without a corresponding
 ClusterWorkspaceType object (though one can be added and its initializers will be 
 applied). ClusterWorkSpaces of type `Organization` are described in the next section.
 
+Note: in order to create cluster workspaces of a given type (including `Universal`) 
+you must have `use` permissions against the `clusterworkspacetypes` resources with the 
+lower-case name of the cluster workspace type (e.g. `universal`). All `system:authenticated`
+users inherit this permission automatically for type `Universal`.
+
 ClusterWorkspaces persisted in etcd on a shard have disjoint etcd prefix ranges, i.e.
 they have independent behaviour and no cluster workspace sees objects from other
 cluster workspaces. In contrast to namespace in Kubernetes, this includes non-namespaced
@@ -59,6 +64,9 @@ objects, e.g. like CRDs where each workspace can have its own set of CRDs instal
 
 Organization workspaces are ClusterWorkspaces of type `Organization`, defined in the
 root workspace. Organization workspaces are accessible at `/clusters/root:<org-name>`.
+
+Note: the organization ClusterWorkspaceType can only be created in the root workspace
+verified through admission.
 
 Organization workspaces have standard resources (on-top of `Universal` workspaces) 
 which include the `ClusterWorkspace` API defined through an CRD deployed during
@@ -93,3 +101,4 @@ that the system workspace exists.
 
 The `system:admin` system workspace is special as it is also accessible through `/`
 of the shard, and at `/cluster/system:admin` at the same time.
+
