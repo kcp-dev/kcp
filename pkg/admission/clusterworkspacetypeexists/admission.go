@@ -38,9 +38,6 @@ import (
 	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-// Validate ClusterWorkspace creation and updates for valid use of spec.type, i.e. the
-// ClusterWorkspaceType must exist in the same workspace.
-
 const (
 	PluginName = "tenancy.kcp.dev/ClusterWorkspaceTypeExists"
 )
@@ -55,6 +52,10 @@ func Register(plugins *admission.Plugins) {
 		})
 }
 
+// clusterWorkspaceTypeExists  does the following
+// - it checks existence of ClusterWorkspaceType in the same workspace,
+// - it applies the ClusterWorkspaceType initializers to the ClusterWorkspace when it
+//   transitions to the Initializing state.
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister        tenancyv1alpha1lister.ClusterWorkspaceTypeLister
