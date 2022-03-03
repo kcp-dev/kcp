@@ -18,7 +18,9 @@ package initializers
 
 import (
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/kubernetes"
 
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
@@ -39,5 +41,45 @@ type kcpInformersInitializer struct {
 func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsKcpInformers); ok {
 		wants.SetKcpInformers(i.kcpInformers)
+	}
+}
+
+// NewKubeClusterClientInitializer returns an admission plugin initializer that injects
+// a kube cluster client into admission plugins.
+func NewKubeClusterClientInitializer(
+	kubeClusterClient *kubernetes.Cluster,
+) *kubeClusterClientInitializer {
+	return &kubeClusterClientInitializer{
+		kubeClusterClient: kubeClusterClient,
+	}
+}
+
+type kubeClusterClientInitializer struct {
+	kubeClusterClient *kubernetes.Cluster
+}
+
+func (i *kubeClusterClientInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsKubeClusterClient); ok {
+		wants.SetKubeClusterClient(i.kubeClusterClient)
+	}
+}
+
+// NewKcpClusterClientInitializer returns an admission plugin initializer that injects
+// a kcp cluster client into admission plugins.
+func NewKcpClusterClientInitializer(
+	kcpClusterClient *kcpclientset.Cluster,
+) *kcpClusterClientInitializer {
+	return &kcpClusterClientInitializer{
+		kcpClusterClient: kcpClusterClient,
+	}
+}
+
+type kcpClusterClientInitializer struct {
+	kcpClusterClient *kcpclientset.Cluster
+}
+
+func (i *kcpClusterClientInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsKcpClusterClient); ok {
+		wants.SetKcpClusterClient(i.kcpClusterClient)
 	}
 }

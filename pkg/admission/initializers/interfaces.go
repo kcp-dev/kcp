@@ -17,6 +17,9 @@ limitations under the License.
 package initializers
 
 import (
+	"k8s.io/client-go/kubernetes"
+
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
@@ -24,4 +27,16 @@ import (
 // that want to have an kcp informer factory injected.
 type WantsKcpInformers interface {
 	SetKcpInformers(informers kcpinformers.SharedInformerFactory)
+}
+
+// WantsKubeClusterClient interface should be implemented by admission plugins
+// that want to have a kube cluster client injected.
+type WantsKubeClusterClient interface {
+	SetKubeClusterClient(kubeClusterClient *kubernetes.Cluster)
+}
+
+// WantsKcpClusterClient interface should be implemented by admission plugins
+// that want to have a kcp cluster client injected.
+type WantsKcpClusterClient interface {
+	SetKcpClusterClient(kubeClusterClient *kcpclientset.Cluster)
 }
