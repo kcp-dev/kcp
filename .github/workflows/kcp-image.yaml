@@ -45,7 +45,7 @@ jobs:
           password: ${{ github.token }}
       - name: Set up kubectl and kustomize
         run: |-
-          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv4.5.1/kustomize_v4.5.1_linux_amd64.tar.gz" | tar xzf -
+          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv4.5.2/kustomize_v4.5.2_linux_amd64.tar.gz" | tar xzf -
           curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod u+x ./kubectl
           chmod u+x ./kustomize
