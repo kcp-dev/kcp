@@ -40,12 +40,14 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageobjectinuseprotection"
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
+	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
 var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	clusterworkspace.PluginName,
+	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
 )
 
@@ -65,6 +67,7 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
 	clusterworkspace.Register(plugins)
+	clusterworkspacetype.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
 }
 
@@ -79,6 +82,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 
 	// KCP
 	clusterworkspace.PluginName,
+	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
 )
 
