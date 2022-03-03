@@ -325,7 +325,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 			vw := helpers.VirtualWorkspace{
 				BuildSubCommandOptions: func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions {
-					kcpAdminConfig, err := kcpServer.RawConfig()
+					kcpAdminConfig, _ := kcpServer.RawConfig()
 					var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
 					virtualWorkspaceKubeConfig := clientcmdapi.Config{
 						Clusters: map[string]*clientcmdapi.Cluster{

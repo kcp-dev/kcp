@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
@@ -128,8 +129,9 @@ func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups
 			return
 		}
 		l.knownWorkspaces.Insert(workspaceName)
-		l.AddOrg(orgName)
-
+		if err := l.AddOrg(orgName); err != nil {
+			klog.Errorf("Failed adding org: %s: %v", orgName, err)
+		}
 	}
 
 }
