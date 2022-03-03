@@ -201,7 +201,7 @@ func NewAuthorizationCache(
 		informers.ClusterRoleBindings().Lister(),
 		informers.ClusterRoleBindings().Informer(),
 	}
-	ac := &AuthorizationCache{
+	ac := AuthorizationCache{
 		allKnownWorkspaces: sets.String{},
 		workspaceLister:    workspaceLister,
 
@@ -224,14 +224,13 @@ func NewAuthorizationCache(
 	ac.lastSyncResourceVersioner = workspaceLastSyncResourceVersioner
 	ac.syncHandler = ac.syncRequest
 	ac.rwMutex = sync.RWMutex{}
-	return ac
+	return &ac
 }
 
 // Run begins watching and synchronizing the cache
-func (ac *AuthorizationCache) Run(period time.Duration) {
+func (ac *AuthorizationCache) Run(period time.Duration, stopCh <-chan struct{}) {
 	ac.skip = &statelessSkipSynchronizer{}
-
-	go utilwait.Forever(func() { ac.synchronize() }, period)
+	go utilwait.Until(func() { ac.synchronize() }, period, stopCh)
 }
 
 func (ac *AuthorizationCache) AddWatcher(watcher CacheWatcher) {
