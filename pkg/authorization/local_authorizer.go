@@ -26,7 +26,7 @@ import (
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
-	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
+	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 type LocalAuthorizer struct {
@@ -66,7 +66,7 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 	}
 
 	reqScope := cluster.Name
-	filteredInformer := frameworkrbac.FilterPerCluster(reqScope, a.versionedInformers.Rbac().V1())
+	filteredInformer := rbacwrapper.FilterInformers(reqScope, a.versionedInformers.Rbac().V1())
 
 	scopedAuth := rbac.New(
 		&rbac.RoleGetter{Lister: filteredInformer.Roles().Lister()},
