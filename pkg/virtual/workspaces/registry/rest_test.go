@@ -106,6 +106,7 @@ type TestData struct {
 	user                kuser.Info
 	scope               string
 	reviewerProvider    workspaceauth.ReviewerProvider
+	orgName             string
 }
 
 type TestDescription struct {
@@ -227,6 +228,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	}
 	ctx = apirequest.WithUser(ctx, test.user)
 	ctx = apirequest.WithValue(ctx, WorkspacesScopeKey, test.scope)
+	ctx = apirequest.WithValue(ctx, WorkspacesOrgKey, test.orgName)
 
 	test.apply(t, &storage, &kubeconfigSubresourceStorage, ctx, mockKubeClient, mockKCPClient, clusterWorkspaceLister.CheckedUsers, test.TestData)
 }
@@ -239,8 +241,9 @@ func TestListPersonalWorkspaces(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -253,7 +256,8 @@ func TestListPersonalWorkspaces(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -298,8 +302,9 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -312,7 +317,8 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -361,8 +367,9 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: OrganizationScope,
+			user:    user,
+			scope:   OrganizationScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -375,7 +382,8 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -416,8 +424,9 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: OrganizationScope,
+			user:    user,
+			scope:   OrganizationScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -430,7 +439,8 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -471,8 +481,9 @@ func TestGetPersonalWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -485,7 +496,8 @@ func TestGetPersonalWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -529,8 +541,9 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -543,7 +556,8 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -587,8 +601,9 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -611,7 +626,8 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -653,8 +669,9 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: OrganizationScope,
+			user:    user,
+			scope:   OrganizationScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -684,8 +701,9 @@ func TestCreateWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -795,8 +813,9 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -809,7 +828,8 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", anotherUser),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -980,8 +1000,9 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -994,7 +1015,8 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1090,8 +1112,9 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -1104,7 +1127,8 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1183,8 +1207,9 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get":    mockReviewer{},
 				"delete": mockReviewer{},
@@ -1197,7 +1222,8 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1276,8 +1302,9 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get": mockReviewer{
 					"foo": mockReview{
@@ -1300,7 +1327,8 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1379,8 +1407,9 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: PersonalScope,
+			user:    user,
+			scope:   PersonalScope,
+			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				"get": mockReviewer{
 					"foo--1": mockReview{
@@ -1403,7 +1432,8 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
