@@ -18,19 +18,15 @@ package clusterworkspacetypeexists
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
-	"sync"
-	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 
 	kcpadmissionhelpers "github.com/kcp-dev/kcp/pkg/admission/helpers"
@@ -58,9 +54,7 @@ func Register(plugins *admission.Plugins) {
 
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
-	typeLister    tenancyv1alpha1lister.ClusterWorkspaceTypeLister
-	cachesToSync  []cache.InformerSynced
-	cacheSyncLock cacheSync
+	typeLister tenancyv1alpha1lister.ClusterWorkspaceTypeLister
 }
 
 // Ensure that the required admission interfaces are implemented.
@@ -110,8 +104,8 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return nil
 	}
 
-	if !o.waitForSyncedStore(ctx) {
-		return admission.NewForbidden(a, errors.New(PluginName+": caches not synchronized"))
+	if !o.WaitForReady() {
+		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 	}
 
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
@@ -184,8 +178,8 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 			cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing
 	}
 
-	if !o.waitForSyncedStore(ctx) {
-		return admission.NewForbidden(a, errors.New(PluginName+": caches not synchronized"))
+	if !o.WaitForReady() {
+		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 	}
 
 	// check type on create and on state transition
@@ -229,49 +223,14 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 	return nil
 }
 
-// waitForSyncedStore calls cache.WaitForCacheSync, which will wait up to timeToWaitForCacheSync
-// for the cachesToSync to synchronize.
-func (o *clusterWorkspaceTypeExists) waitForSyncedStore(ctx context.Context) bool {
-	syncCtx, cancelFn := context.WithTimeout(ctx, 30*time.Second)
-	defer cancelFn()
-	if !o.cacheSyncLock.hasSynced() {
-		if !cache.WaitForCacheSync(syncCtx.Done(), o.cachesToSync...) {
-			return false
-		}
-		o.cacheSyncLock.setSynced()
-	}
-	return true
-}
-
 func (o *clusterWorkspaceTypeExists) ValidateInitialization() error {
 	if o.typeLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs an ClusterWorkspaceType lister")
-	}
-	if len(o.cachesToSync) < 1 {
-		return fmt.Errorf(PluginName + " plugin missing informer synced functions")
 	}
 	return nil
 }
 
 func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	o.cachesToSync = append(o.cachesToSync, informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced)
+	o.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced)
 	o.typeLister = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Lister()
-}
-
-// cacheSync guards the isSynced variable
-// Once isSynced is true, we don't care about setting it anymore
-type cacheSync struct {
-	isSyncedLock sync.RWMutex
-	isSynced     bool
-}
-
-func (cs *cacheSync) hasSynced() bool {
-	cs.isSyncedLock.RLock()
-	defer cs.isSyncedLock.RUnlock()
-	return cs.isSynced
-}
-func (cs *cacheSync) setSynced() {
-	cs.isSyncedLock.Lock()
-	defer cs.isSyncedLock.Unlock()
-	cs.isSynced = true
 }
