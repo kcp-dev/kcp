@@ -215,6 +215,8 @@ func (s *Server) Run(ctx context.Context) error {
 
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(s.kcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKubeClusterClientInitializer(kubeClusterClient),
+		kcpadmissioninitializers.NewKcpClusterClientInitializer(kcpClusterClient),
 	}
 
 	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, admissionPluginInitializers, storageFactory)

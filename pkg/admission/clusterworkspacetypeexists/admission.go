@@ -26,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
 
 	kcpadmissionhelpers "github.com/kcp-dev/kcp/pkg/admission/helpers"
@@ -47,21 +49,26 @@ func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
 			return &clusterWorkspaceTypeExists{
-				Handler: admission.NewHandler(admission.Create, admission.Update),
+				Handler:          admission.NewHandler(admission.Create, admission.Update),
+				createAuthorizer: kcpadmissionhelpers.NewAdmissionAuthorizer,
 			}, nil
 		})
 }
 
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
-	typeLister tenancyv1alpha1lister.ClusterWorkspaceTypeLister
+	typeLister        tenancyv1alpha1lister.ClusterWorkspaceTypeLister
+	kubeClusterClient *kubernetes.Cluster
+
+	createAuthorizer kcpadmissionhelpers.AdmissionAuthorizerFactory
 }
 
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&clusterWorkspaceTypeExists{})
 var _ = kcpinitializers.WantsKcpInformers(&clusterWorkspaceTypeExists{})
+var _ = kcpinitializers.WantsKubeClusterClient(&clusterWorkspaceTypeExists{})
 var _ = admission.MutationInterface(&clusterWorkspaceTypeExists{})
-var _ = admission.ValidationInterface(&clusterWorkspaceTypeExists{})
+var _ = admission.InitializationValidator(&clusterWorkspaceTypeExists{})
 
 // Admit adds type initializer on transition to initializing phase.
 func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
@@ -182,18 +189,18 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 	}
 
-	// check type on create and on state transition
 	// TODO(sttts): there is a race that the type can be deleted between scheduling and initializing
 	//              but we cannot add initializers in status on create. A controller doing that wouldn't fix
 	//		        the race either. So, ¯\_(ツ)_/¯. Chance is low. Object can be deleted, or a condition could should
 	//              show it failing.
+	var cwt *tenancyv1alpha1.ClusterWorkspaceType
 	if (a.GetOperation() == admission.Update && transitioningToInitializing) || a.GetOperation() == admission.Create {
 		clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 		if err != nil {
 			return apierrors.NewInternalError(err)
 		}
 
-		cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
+		cwt, err = o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
 		if err != nil && apierrors.IsNotFound(err) {
 			if cw.Spec.Type == "Universal" {
 				return nil // Universal is always valid
@@ -202,23 +209,45 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		} else if err != nil {
 			return admission.NewForbidden(a, err)
 		}
+	}
 
-		if a.GetOperation() == admission.Update {
-			// this is a transition to initializing. Check that all initializers are there
-			// (no other admission plugin removed any).
-			existing := sets.NewString()
-			for _, initializer := range cw.Status.Initializers {
-				existing.Insert(string(initializer))
-			}
-			for _, initializer := range cwt.Spec.Initializers {
-				if !existing.Has(string(initializer)) {
-					return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
-				}
+	// add initializers from type to workspace
+	if a.GetOperation() == admission.Update && transitioningToInitializing {
+		// this is a transition to initializing. Check that all initializers are there
+		// (no other admission plugin removed any).
+		existing := sets.NewString()
+		for _, initializer := range cw.Status.Initializers {
+			existing.Insert(string(initializer))
+		}
+		for _, initializer := range cwt.Spec.Initializers {
+			if !existing.Has(string(initializer)) {
+				return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
 			}
 		}
 	}
 
-	// TODO: add SubjectAccessReview against clusterworkspacetypes/use.
+	// verify that the type can be used by the given user
+	if a.GetOperation() == admission.Create {
+		authz, err := o.createAuthorizer(cwt.ClusterName, o.kubeClusterClient)
+		if err != nil {
+			return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q: %w", cw.Spec.Type, err))
+		}
+
+		useAttr := authorizer.AttributesRecord{
+			User:            a.GetUserInfo(),
+			Verb:            "use",
+			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+			Resource:        "clusterworkspacetypes",
+			Name:            cwt.Name,
+			ResourceRequest: true,
+		}
+		if decision, _, err := authz.Authorize(ctx, useAttr); err != nil {
+			return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type: %w", err))
+		} else if decision != authorizer.DecisionAllow {
+			return admission.NewForbidden(a, fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", cw.Spec.Type))
+		}
+	}
 
 	return nil
 }
@@ -233,4 +262,8 @@ func (o *clusterWorkspaceTypeExists) ValidateInitialization() error {
 func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	o.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced)
 	o.typeLister = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Lister()
+}
+
+func (o *clusterWorkspaceTypeExists) SetKubeClusterClient(kubeClusterClient *kubernetes.Cluster) {
+	o.kubeClusterClient = kubeClusterClient
 }

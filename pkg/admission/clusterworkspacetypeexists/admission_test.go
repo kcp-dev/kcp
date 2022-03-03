@@ -18,16 +18,19 @@ package clusterworkspacetypeexists
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/diff"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -267,9 +270,13 @@ func TestAdmit(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name    string
-		types   []*tenancyv1alpha1.ClusterWorkspaceType
-		attr    admission.Attributes
+		name  string
+		types []*tenancyv1alpha1.ClusterWorkspaceType
+		attr  admission.Attributes
+
+		authzDecision authorizer.Decision
+		authzError    error
+
 		wantErr bool
 	}{
 		{
@@ -289,6 +296,7 @@ func TestValidate(t *testing.T) {
 					Type: "Foo",
 				},
 			}),
+			authzDecision: authorizer.DecisionAllow,
 		},
 		{
 			name: "fails if type does not exists",
@@ -322,7 +330,46 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Universal always exists implicitly",
+			name: "fails if not allowed",
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: "Foo",
+				},
+			}),
+			authzDecision: authorizer.DecisionNoOpinion,
+			wantErr:       true,
+		},
+		{
+			name: "fails if denied",
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: "Foo",
+				},
+			}),
+			authzDecision: authorizer.DecisionDeny,
+			wantErr:       true,
+		},
+		{
+			name: "fails if authz error",
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: "Foo",
+				},
+			}),
+			authzError: errors.New("authorizer error"),
+			wantErr:    true,
+		},
+		{
+			name: "Universal always exists implicitly if authorized",
 			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -331,6 +378,19 @@ func TestValidate(t *testing.T) {
 					Type: "Universal",
 				},
 			}),
+			authzDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "Universal fails if not authorized",
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: "Universal",
+				},
+			}),
+			authzDecision: authorizer.DecisionNoOpinion,
 		},
 		{
 			name: "Universal works too when it exists",
@@ -349,6 +409,7 @@ func TestValidate(t *testing.T) {
 					Type: "Universal",
 				},
 			}),
+			authzDecision: authorizer.DecisionAllow,
 		},
 		{
 			name: "validates initializers on phase transition",
@@ -453,6 +514,12 @@ func TestValidate(t *testing.T) {
 			o := &clusterWorkspaceTypeExists{
 				Handler:    admission.NewHandler(admission.Create, admission.Update),
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
+				createAuthorizer: func(clusterName string, client *kubernetes.Cluster) (authorizer.Authorizer, error) {
+					return &fakeAuthorizer{
+						tt.authzDecision,
+						tt.authzError,
+					}, nil
+				},
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
@@ -482,5 +549,14 @@ func (l fakeClusterWorkspaceTypeLister) GetWithContext(ctx context.Context, name
 			return t, nil
 		}
 	}
-	return nil, errors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetype"), name)
+	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetype"), name)
+}
+
+type fakeAuthorizer struct {
+	authorized authorizer.Decision
+	err        error
+}
+
+func (a *fakeAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+	return a.authorized, "reason", a.err
 }
