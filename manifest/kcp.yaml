@@ -4,7 +4,7 @@ kind: Certificate
 metadata:
   name: kcp-virtual-workspaces
 spec:
-  secretName: kcp-virtual-workspaces-secret
+  secretName: kcp-virtual-workspaces-cert
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   subject:
@@ -31,7 +31,7 @@ kind: Certificate
 metadata:
   name: kcp
 spec:
-  secretName: kcp-secret
+  secretName: kcp-cert
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   subject:
@@ -175,12 +175,12 @@ spec:
       volumes:
       - name: etcd-certs
         secret:
-          secretName: etcd-secret
+          secretName: etcd-cert
       - name: kcp-certs
         secret:
-          secretName: kcp-secret
+          secretName: kcp-cert
       - name: virtual-workspaces-certs
         secret:
-          secretName: kcp-virtual-workspaces-secret
+          secretName: kcp-virtual-workspaces-cert
       - name: kubeconfig
         emptyDir: {}

@@ -4,7 +4,7 @@ kind: Certificate
 metadata:
   name: etcd
 spec:
-  secretName: etcd-secret
+  secretName: etcd-cert
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   subject:
@@ -36,7 +36,7 @@ kind: Certificate
 metadata:
   name: etcd-peer
 spec:
-  secretName: etcd-peer-secret
+  secretName: etcd-peer-cert
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   subject:
@@ -134,10 +134,10 @@ spec:
       volumes:
       - name: peer-certs
         secret:
-          secretName: etcd-peer-secret
+          secretName: etcd-peer-cert
       - name: server-certs
         secret:
-          secretName: etcd-secret
+          secretName: etcd-cert
   volumeClaimTemplates:
     - metadata:
         name: etcd-data
