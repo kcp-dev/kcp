@@ -15,14 +15,25 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/kubernetes/pkg/controller"
 
+	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workspaceapiv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	tenancyfake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
-
-	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyfake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
+
+type mockClusterClient struct {
+	mockClient kcpclient.Interface
+}
+
+func (m *mockClusterClient) Cluster(name string) kcpclient.Interface {
+	return m.mockClient
+}
+
+var _ kcpclient.ClusterInterface = (*mockClusterClient)(nil)
 
 func newTestWatcher(username string, groups []string, predicate storage.SelectionPredicate, workspaces ...*workspaceapi.ClusterWorkspace) (*userWorkspaceWatcher, *fakeAuthCache, chan struct{}) {
 	objects := []runtime.Object{}
@@ -34,7 +45,7 @@ func newTestWatcher(username string, groups []string, predicate storage.Selectio
 	informers := tenancyInformers.NewSharedInformerFactory(mockClient, controller.NoResyncPeriodFunc())
 	workspaceCache := workspacecache.NewClusterWorkspaceCache(
 		informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
-		mockClient.TenancyV1alpha1().ClusterWorkspaces(),
+		func(orgName string) tenancyv1alpha1.TenancyV1alpha1Interface { return mockClient.TenancyV1alpha1() },
 		"",
 	)
 	fakeAuthCache := &fakeAuthCache{}
@@ -42,7 +53,7 @@ func newTestWatcher(username string, groups []string, predicate storage.Selectio
 	stopCh := make(chan struct{})
 	go workspaceCache.Run(stopCh)
 
-	return NewUserWorkspaceWatcher(&user.DefaultInfo{Name: username, Groups: groups}, workspaceCache, fakeAuthCache, false, predicate), fakeAuthCache, stopCh
+	return NewUserWorkspaceWatcher(&user.DefaultInfo{Name: username, Groups: groups}, "lclusterName", workspaceCache, fakeAuthCache, false, predicate), fakeAuthCache, stopCh
 }
 
 type fakeAuthCache struct {

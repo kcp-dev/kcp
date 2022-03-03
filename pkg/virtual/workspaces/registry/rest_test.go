@@ -207,12 +207,18 @@ func applyTest(t *testing.T, test TestDescription) {
 	}
 
 	storage := REST{
-		rbacClient:                mockKubeClient.RbacV1(),
-		crbInformer:               crbInformer,
-		clusterWorkspaceClient:    mockKCPClient.TenancyV1alpha1().ClusterWorkspaces(),
-		crbLister:                 kubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		clusterWorkspaceLister:    clusterWorkspaceLister,
-		workspaceReviewerProvider: test.reviewerProvider,
+		getOrg: func(orgName string) (Org, error) {
+			return Org{
+				rbacClient:                mockKubeClient.RbacV1(),
+				crbInformer:               crbInformer,
+				clusterWorkspaceClient:    mockKCPClient.TenancyV1alpha1().ClusterWorkspaces(),
+				crbLister:                 kubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+				clusterWorkspaceLister:    clusterWorkspaceLister,
+				workspaceReviewerProvider: test.reviewerProvider,
+			}, nil
+		},
+		crbInformer:           crbInformer,
+		clusterWorkspaceCache: nil,
 	}
 	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
 		mainRest:             &storage,

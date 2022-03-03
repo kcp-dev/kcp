@@ -4,8 +4,6 @@ import (
 	"errors"
 	"sync"
 
-	"k8s.io/klog/v2"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -13,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kstorage "k8s.io/apiserver/pkg/storage"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -62,6 +61,8 @@ type userWorkspaceWatcher struct {
 	initialClusterWorkspaces []workspaceapi.ClusterWorkspace
 	// knownWorkspaces maps name to resourceVersion
 	knownWorkspaces map[string]string
+
+	lclusterName string
 }
 
 var (
@@ -70,7 +71,7 @@ var (
 	watchChannelHWM kstorage.HighWaterMark
 )
 
-func NewUserWorkspaceWatcher(user user.Info, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, authCache WatchableCache, includeAllExistingWorkspaces bool, predicate kstorage.SelectionPredicate) *userWorkspaceWatcher {
+func NewUserWorkspaceWatcher(user user.Info, lclusterName string, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, authCache WatchableCache, includeAllExistingWorkspaces bool, predicate kstorage.SelectionPredicate) *userWorkspaceWatcher {
 	workspaces, _ := authCache.List(user, labels.Everything())
 	knownWorkspaces := map[string]string{}
 	for _, workspace := range workspaces.Items {
@@ -95,6 +96,8 @@ func NewUserWorkspaceWatcher(user user.Info, clusterWorkspaceCache *workspacecac
 		authCache:                authCache,
 		initialClusterWorkspaces: initialWorkspaces,
 		knownWorkspaces:          knownWorkspaces,
+
+		lclusterName: lclusterName,
 	}
 	w.emit = func(e watch.Event) {
 		// if dealing with workspace events, ensure that we only emit events for workspaces
@@ -117,7 +120,7 @@ func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, user
 	hasAccess := users.Has(w.user.GetName()) || groups.HasAny(w.user.GetGroups()...)
 	_, known := w.knownWorkspaces[workspaceName]
 	var workspace workspaceapibeta1.Workspace
-	projection.ProjectClusterWorkspaceToWorkspace(&workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName}}, &workspace)
+	projection.ProjectClusterWorkspaceToWorkspace(&workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ClusterName: w.lclusterName}}, &workspace)
 	switch {
 	// this means that we were removed from the workspace
 	case !hasAccess && known:
@@ -135,7 +138,7 @@ func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, user
 		}
 
 	case hasAccess:
-		clusterWorkspace, err := w.clusterWorkspaceCache.GetWorkspace(workspaceName)
+		clusterWorkspace, err := w.clusterWorkspaceCache.GetWorkspace(w.lclusterName, workspaceName)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
