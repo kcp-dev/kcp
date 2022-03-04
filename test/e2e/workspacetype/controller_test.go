@@ -135,11 +135,11 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					require.NoError(t, err)
 					for i, initializer := range workspace.Status.Initializers {
 						if initializer == "a" {
-							workspace.Status.Initializers = append(workspace.Status.Initializers[:i], workspace.Status.Initializers[i:]...)
+							workspace.Status.Initializers = append(workspace.Status.Initializers[:i], workspace.Status.Initializers[i+1:]...)
 							break
 						}
 					}
-					_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Update(ctx, workspace, metav1.UpdateOptions{})
+					_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().UpdateStatus(ctx, workspace, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err)
@@ -156,17 +156,18 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					require.NoError(t, err)
 					for i, initializer := range workspace.Status.Initializers {
 						if initializer == "b" {
-							workspace.Status.Initializers = append(workspace.Status.Initializers[:i], workspace.Status.Initializers[i:]...)
+							workspace.Status.Initializers = append(workspace.Status.Initializers[:i], workspace.Status.Initializers[i+1:]...)
 							break
 						}
 					}
-					_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Update(ctx, workspace, metav1.UpdateOptions{})
+					_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().UpdateStatus(ctx, workspace, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err)
 
 				t.Logf("Expect workspace to become ready after initializers are done")
 				err = server.orgExpect(workspace, ready)
+				require.NoError(t, err, "workspace did not become ready")
 			},
 		},
 	}
