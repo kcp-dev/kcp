@@ -1,10 +1,10 @@
-# `kcp` provides a true multi-tenant Kubernetes control plane for workloads on many clusters
+# `kcp` provides a multi-tenant Kubernetes API service and a transparent multi-cluster workload service
 
 ![build status badge](https://github.com/kcp-dev/kcp/actions/workflows/ci.yaml/badge.svg)
 
-`kcp` is a generic [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRD) apiserver that is divided into multiple "[logical clusters](docs/investigations/logical-clusters.md)" that enable multitenancy of cluster-scoped resources such as CRDs and Namespaces. Each of these logical clusters is fully isolated from the others, allowing different teams, workloads, and use cases to live side by side.
+`kcp` has two layers.  The lower layer is a generic [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRD) apiserver that is divided into multiple "[logical clusters](docs/investigations/logical-clusters.md)" that enable multitenancy of cluster-scoped resources such as CRDs and Namespaces. Each of these logical clusters is fully isolated from the others, allowing different teams, workloads, and use cases to live side by side.
 
-By default, `kcp` only knows about:
+By default, this layer of `kcp` only knows about:
 
 - [`Namespace`](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)s
 - [`ServiceAccount`](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/)s and [role-based access control](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) types like [`Role`](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#role-and-clusterrole) and [`RoleBinding`](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#rolebinding-and-clusterrolebinding)
@@ -16,12 +16,13 @@ By default, `kcp` only knows about:
 
 Any other resources, including standard Kubernetes resources like [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)s and the rest, can be added as CRDs and be replicated onto one or more Kubernetes clusters.
 
+The upper layer of `kcp` is a transparent multi-cluster workload service.  This service keeps track of backend "physical clusters" and syncs API resources defined in `kcp` to those physical clusters.
 
 ## Why would I want that?
 
 Kubernetes is mainly known as a container orchestration platform today, but we believe it can be even more.
 
-With the power of CRDs, Kubernetes provides a flexible platform for declarative APIs of _all types_, and the reconciliation pattern common to Kubernetes controllers is a powerful tool in building robust, expressive systems.
+Kubernetes itself can be seen as having two layers: (1) an extensible API service, and (2) a control plane built using that API service to keep track of worker nodes and manage containerized workloads on those worker nodes.  The API service of Kubernetes is extensible through two mechanisms: (i) aggregation of custom external apiservers (which _may_ be built in the same style as the `kube-apiserver` by building on [k/apiserver](github.com/kubernetes/apiserver)) and (ii) addition of CRDs.  `kcp` focuses on CRDs.  With its extensible API service, Kubernetes provides a flexible platform for declarative APIs of _all types_ --- and the reconciliation pattern common to Kubernetes controllers is a powerful tool in building robust, expressive systems.
 
 At the same time, a diverse and creative community of tools and services has sprung up around Kubernetes APIs.
 
