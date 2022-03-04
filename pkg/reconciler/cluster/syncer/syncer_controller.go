@@ -18,12 +18,9 @@ package syncer
 
 import (
 	"context"
-	"strings"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
@@ -33,14 +30,14 @@ import (
 )
 
 type Controller struct {
-	name                string
-	apiExtensionsClient apiextensionsclient.Interface
-	syncerManager       *syncerManager
-	clusterReconciler   *cluster.ClusterReconciler
+	name              string
+	crdClusterClient  *apiextensionsclient.Cluster
+	syncerManager     *syncerManager
+	clusterReconciler *cluster.ClusterReconciler
 }
 
 func NewController(
-	apiExtensionsClient apiextensionsclient.Interface,
+	crdClusterClient *apiextensionsclient.Cluster,
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
@@ -51,7 +48,6 @@ func NewController(
 
 	sm := &syncerManager{
 		name:                     syncerManagerImpl.name(),
-		apiExtensionsClient:      apiExtensionsClient,
 		kubeconfig:               kubeconfig,
 		resourcesToSync:          resourcesToSync,
 		syncerManagerImpl:        syncerManagerImpl,
@@ -70,10 +66,10 @@ func NewController(
 	}
 
 	return &Controller{
-		name:                syncerManagerImpl.name(),
-		apiExtensionsClient: apiExtensionsClient,
-		syncerManager:       sm,
-		clusterReconciler:   cr,
+		name:              syncerManagerImpl.name(),
+		crdClusterClient:  crdClusterClient,
+		syncerManager:     sm,
+		clusterReconciler: cr,
 	}, nil
 }
 

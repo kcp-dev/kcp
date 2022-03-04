@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
@@ -47,7 +46,6 @@ type syncerManagerImpl interface {
 type syncerManager struct {
 	name string
 
-	apiExtensionsClient      apiextensionsclient.Interface
 	kubeconfig               clientcmdapi.Config
 	resourcesToSync          []string
 	syncerManagerImpl        syncerManagerImpl
