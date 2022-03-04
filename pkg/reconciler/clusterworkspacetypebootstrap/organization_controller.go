@@ -44,26 +44,32 @@ import (
 )
 
 const (
-	controllerName = "kcp-clusterworkspacetypes-bootstrap"
+	controllerNameBase = "kcp-clusterworkspacetypes-bootstrap"
 )
 
 func NewController(
 	dynamicCLient dynamic.ClusterInterface,
-	crdClient apiextensionclientset.ClusterInterface,
-	kcpClient kcpclient.ClusterInterface,
+	crdClusterClient apiextensionclientset.ClusterInterface,
+	kcpClusterClient kcpclient.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
+	workspaceType string,
+	bootstrap func(context.Context, apiextensionclientset.Interface, dynamic.Interface) error,
 ) (*controller, error) {
+	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
+		controllerName:  controllerName,
 		queue:           queue,
 		dynamicClient:   dynamicCLient,
-		crdClient:       crdClient,
-		kcpClient:       kcpClient,
+		crdClient:       crdClusterClient,
+		kcpClient:       kcpClusterClient,
 		workspaceLister: workspaceInformer.Lister(),
 		syncChecks: []cache.InformerSynced{
 			workspaceInformer.Informer().HasSynced,
 		},
+		workspaceType: workspaceType,
+		bootstrap:     bootstrap,
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -77,6 +83,8 @@ func NewController(
 // controller watches ClusterWorkspaces of type "Organization" in initializing
 // state and bootstrap resources from the configs/organization package.
 type controller struct {
+	controllerName string
+
 	queue workqueue.RateLimitingInterface
 
 	dynamicClient dynamic.ClusterInterface
@@ -86,6 +94,9 @@ type controller struct {
 	workspaceLister tenancylister.ClusterWorkspaceLister
 
 	syncChecks []cache.InformerSynced
+
+	workspaceType string
+	bootstrap     func(context.Context, apiextensionclientset.Interface, dynamic.Interface) error
 }
 
 func (c *controller) enqueue(obj interface{}) {
@@ -102,10 +113,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting ClusterWorkspaceType organization controller")
-	defer klog.Info("Shutting down ClusterWorkspaceType organization controller")
+	klog.Infof("Starting ClusterWorkspaceTypeBootstrap%s controller", c.workspaceType)
+	defer klog.Infof("Shutting down ClusterWorkspaceTypeBootstrap%s controller", c.workspaceType)
 
-	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.syncChecks...) {
+	if !cache.WaitForNamedCacheSync(c.controllerName, ctx.Done(), c.syncChecks...) {
 		klog.Warning("Failed to wait for caches to sync")
 		return
 	}
@@ -137,7 +148,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

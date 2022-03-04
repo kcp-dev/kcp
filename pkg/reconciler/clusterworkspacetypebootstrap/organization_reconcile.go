@@ -18,31 +18,32 @@ package clusterworkspacetypebootstrap
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
 
-	configorganization "github.com/kcp-dev/kcp/config/organization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 const (
-	OrganizationTypeInitializer = "initializers.tenancy.kcp.dev/organization"
+	typeInitializerKey = "initializers.tenancy.kcp.dev"
 )
 
 func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	if workspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing {
 		return nil
 	}
-	if workspace.Spec.Type != "Organization" {
+	if workspace.Spec.Type != c.workspaceType {
 		return nil
 	}
 
 	// have we done our work before?
 	found := false
+	initializerName := tenancyv1alpha1.ClusterWorkspaceInitializer(typeInitializerKey + "/" + strings.ToLower(c.workspaceType))
 	for _, i := range workspace.Status.Initializers {
-		if i == OrganizationTypeInitializer {
+		if i == initializerName {
 			found = true
 			break
 		}
@@ -56,14 +57,14 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	klog.Infof("Bootstrapping resources for org workspace %s, logical cluster %s", workspace.Name, wsClusterName)
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
-	if err := configorganization.Bootstrap(bootstrapCtx, c.crdClient.Cluster(wsClusterName), c.dynamicClient.Cluster(wsClusterName)); err != nil {
+	if err := c.bootstrap(bootstrapCtx, c.crdClient.Cluster(wsClusterName), c.dynamicClient.Cluster(wsClusterName)); err != nil {
 		return err // requeue
 	}
 
 	// we are done. remove our initializer
 	newInitializers := make([]tenancyv1alpha1.ClusterWorkspaceInitializer, 0, len(workspace.Status.Initializers))
 	for _, i := range workspace.Status.Initializers {
-		if i != OrganizationTypeInitializer {
+		if i != typeInitializerKey {
 			newInitializers = append(newInitializers, i)
 		}
 	}

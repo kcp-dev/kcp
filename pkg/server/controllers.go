@@ -38,6 +38,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 
+	configorganization "github.com/kcp-dev/kcp/config/organization"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -199,6 +200,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		"Organization",
+		configorganization.Bootstrap,
 	)
 	if err != nil {
 		return err
