@@ -321,11 +321,6 @@ func (s *Server) installSyncerController(ctx context.Context, clientConfig clien
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		syncer, err := syncer.Prepare()
-		if err != nil {
-			return err
-		}
-
 		go syncer.Start(goContext(hookContext))
 
 		return nil

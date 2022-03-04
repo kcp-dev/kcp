@@ -77,51 +77,7 @@ func NewController(
 	}, nil
 }
 
-type preparedController struct {
-	Controller
-}
-
-type PreparedController struct {
-	*preparedController
-}
-
-func (c *Controller) Prepare() (PreparedController, error) {
-	// TODO(ncdc): does this need a per-cluster client?
-	// TODO(sttts): make resilient to errors
-	discoveryClient := c.apiExtensionsClient.Discovery()
-	serverGroups, err := discoveryClient.ServerGroups()
-	if err != nil {
-		return PreparedController{}, err
-	}
-	for _, apiGroup := range serverGroups.Groups {
-		if genericcontrolplanescheme.Scheme.IsGroupRegistered(apiGroup.Name) {
-			for _, version := range apiGroup.Versions {
-				gv := schema.GroupVersion{
-					Group:   apiGroup.Name,
-					Version: version.Version,
-				}
-				if genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
-					apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(gv.String())
-					if err != nil {
-						return PreparedController{}, err
-					}
-					for _, apiResource := range apiResourceList.APIResources {
-						gvk := gv.WithKind(apiResource.Kind)
-						if !strings.Contains(apiResource.Name, "/") && genericcontrolplanescheme.Scheme.Recognizes(gvk) {
-							c.syncerManager.genericControlPlaneResources = append(c.syncerManager.genericControlPlaneResources, gv.WithResource(apiResource.Name))
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return PreparedController{&preparedController{
-		Controller: *c,
-	}}, nil
-}
-
 // TODO(sttts): fix the many races due to unprotected field access and then increase worker count
-func (c *PreparedController) Start(ctx context.Context) {
+func (c *Controller) Start(ctx context.Context) {
 	c.clusterReconciler.Start(ctx)
 }

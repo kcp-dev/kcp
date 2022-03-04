@@ -135,15 +135,7 @@ func main() {
 
 	go apiImporter.Start(ctx)
 	go apiresource.Start(ctx, apiResourceOptions.NumThreads)
-
-	if syncer != nil {
-		prepared, err := syncer.Prepare()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		go prepared.Start(ctx)
-	}
+	go syncer.Start(ctx)
 
 	<-ctx.Done()
 }

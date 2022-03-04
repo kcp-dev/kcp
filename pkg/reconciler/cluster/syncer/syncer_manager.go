@@ -52,8 +52,6 @@ type syncerManager struct {
 	resourcesToSync          []string
 	syncerManagerImpl        syncerManagerImpl
 	apiresourceImportIndexer cache.Indexer
-
-	genericControlPlaneResources []schema.GroupVersionResource
 }
 
 func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
@@ -80,21 +78,6 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1
 				Resource: apiResourceImport.Spec.Plural,
 			}.String())
 		}
-	}
-
-	resourcesToPull := sets.NewString(m.resourcesToSync...)
-	for _, kcpResource := range m.genericControlPlaneResources {
-		if !resourcesToPull.Has(kcpResource.GroupResource().String()) && !resourcesToPull.Has(kcpResource.Resource) {
-			continue
-		}
-		groupVersion := apiresourcev1alpha1.GroupVersion{
-			Group:   kcpResource.Group,
-			Version: kcpResource.Version,
-		}
-		groupResources.Insert(schema.GroupResource{
-			Group:    groupVersion.APIGroup(),
-			Resource: kcpResource.Resource,
-		}.String())
 	}
 
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
