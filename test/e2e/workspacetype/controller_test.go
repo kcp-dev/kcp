@@ -101,13 +101,13 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			},
 		},
 		{
-			name: "create a workspace with a type that has initializers",
+			name: "create a workspace with a type that an initializer",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("Create type Foo with initializers")
+				t.Logf("Create type Foo with an initializer")
 				_, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
@@ -129,33 +129,12 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, workspace.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseInitializing)
 
-				t.Logf("Remove first initializer")
+				t.Logf("Remove initializer")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 					workspace, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err)
 					for i, initializer := range workspace.Status.Initializers {
 						if initializer == "a" {
-							workspace.Status.Initializers = append(workspace.Status.Initializers[:i], workspace.Status.Initializers[i+1:]...)
-							break
-						}
-					}
-					_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().UpdateStatus(ctx, workspace, metav1.UpdateOptions{})
-					return err
-				})
-				require.NoError(t, err)
-
-				t.Logf("Expect workspace to be stuck in initializing phase because intializer b still exists")
-				time.Sleep(5 * time.Second)
-				workspace, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				require.NoError(t, err)
-				require.Equal(t, workspace.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseInitializing)
-
-				t.Logf("Remove second initializer")
-				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					workspace, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-					require.NoError(t, err)
-					for i, initializer := range workspace.Status.Initializers {
-						if initializer == "b" {
 							workspace.Status.Initializers = append(workspace.Status.Initializers[:i], workspace.Status.Initializers[i+1:]...)
 							break
 						}
