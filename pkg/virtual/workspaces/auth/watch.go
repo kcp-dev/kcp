@@ -48,7 +48,8 @@ type WatchableCache interface {
 	List(userInfo user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error)
 }
 
-// userWorkspaceWatcher converts a native etcd watch to a watch.Interface.
+// userWorkspaceWatcher converts notifications received from the WorkspaceAuthCache to
+// watch events sent through a watch.Interface.
 type userWorkspaceWatcher struct {
 	user user.Info
 

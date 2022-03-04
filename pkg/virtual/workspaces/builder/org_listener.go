@@ -41,12 +41,21 @@ type orgListener struct {
 
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
-	knownWorkspaces   sets.String
+	knownWorkspaces sets.String
+
+	// orgListerUserInfo defines the userInfo that will be used to retrieve all the
+	// organizations from the root workspace.
+	// We expect this user to have view permissions on clusterworkspace resources
+	// in the root logical cluster.
+	// Currently we use a dummy user with the system:masters group, since this group
+	// can see everything.
+	// But this could be changed in the future of course.
 	orgListerUserInfo user.Info
 
-	ready    func() bool
-	orgs     map[string]virtualworkspacesregistry.Org
+	ready func() bool
+
 	orgMutex sync.RWMutex
+	orgs     map[string]virtualworkspacesregistry.Org
 }
 
 func NewOrgListener(orgListerUserInfo user.Info, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg virtualworkspacesregistry.Org, newOrg func(orgName string) virtualworkspacesregistry.Org) *orgListener {

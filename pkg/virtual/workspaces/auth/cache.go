@@ -182,8 +182,8 @@ type AuthorizationCache struct {
 
 	rwMutex sync.RWMutex
 
-	watchers    []CacheWatcher
 	watcherLock sync.Mutex
+	watchers    []CacheWatcher
 }
 
 // NewAuthorizationCache creates a new AuthorizationCache
