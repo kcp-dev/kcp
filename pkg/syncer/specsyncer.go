@@ -86,11 +86,13 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClust
 	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, pclusterID)
 }
 
-func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
-	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
-	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
-
-	return c.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace, name string, downstreamUID string) error {
+	if err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Delete(ctx, name, metav1.DeleteOptions{
+		Preconditions: metav1.NewUIDPreconditions(downstreamUID),
+	}); err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsConflict(err) {
+		return err
+	}
+	return nil
 }
 
 const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"

@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,6 +87,24 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 			Force:        pointer.Bool(true),
 		}, "status"); err != nil {
 		klog.Errorf("Failed updating status of resource %s|%s/%s from pcluster namespace %s: %v", c.upstreamClusterName, upstreamNamespace, downstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+		return err
+	}
+
+	return c.updateStatusAnnotationsInUpstream(ctx, gvr, upstreamNamespace, downstreamObj)
+}
+
+func (c *Controller) updateStatusAnnotationsInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
+	patch := []byte(fmt.Sprintf(`
+{
+  "metadata":{
+    "annotations":{
+      %q: %q
+    }
+  }
+}`, targetUIDAnnotation, downstreamObj.GetUID()))
+
+	if _, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		klog.Errorf("Failed updating status annotations of resource %s|%s/%s from pcluster namespace %s: %v", c.upstreamClusterName, upstreamNamespace, downstreamObj.GetName(), downstreamObj.GetNamespace(), err)
 		return err
 	}
 

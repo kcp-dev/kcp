@@ -45,9 +45,10 @@ import (
 )
 
 const (
-	resyncPeriod       = 10 * time.Hour
-	SyncerNamespaceKey = "SYNCER_NAMESPACE"
-	syncerApplyManager = "syncer"
+	resyncPeriod        = 10 * time.Hour
+	SyncerNamespaceKey  = "SYNCER_NAMESPACE"
+	syncerApplyManager  = "syncer"
+	targetUIDAnnotation = "workload.kcp.dev/target.uid"
 )
 
 // Direction indicates which direction data is flowing for this particular syncer
@@ -75,7 +76,7 @@ func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resourc
 }
 
 type UpsertFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
-type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
+type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name, downstreamUID string) error
 type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
 
 type Controller struct {
@@ -230,10 +231,11 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 }
 
 type holder struct {
-	gvr         schema.GroupVersionResource
-	clusterName string
-	namespace   string
-	name        string
+	gvr           schema.GroupVersionResource
+	clusterName   string
+	namespace     string
+	name          string
+	downstreamUID string
 }
 
 func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
@@ -252,12 +254,17 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 
 	klog.Infof("Syncer %s: adding %s %s|%s/%s to queue", c.name, gvr, metaObj.GetClusterName(), metaObj.GetNamespace(), metaObj.GetName())
 
+	metaUID := ""
+	if metaAnnotations := metaObj.GetAnnotations(); metaAnnotations != nil {
+		metaUID = metaAnnotations[targetUIDAnnotation]
+	}
 	c.queue.Add(
 		holder{
-			gvr:         gvr,
-			clusterName: metaObj.GetClusterName(),
-			namespace:   metaObj.GetNamespace(),
-			name:        metaObj.GetName(),
+			gvr:           gvr,
+			clusterName:   metaObj.GetClusterName(),
+			namespace:     metaObj.GetNamespace(),
+			name:          metaObj.GetName(),
+			downstreamUID: metaUID,
 		},
 	)
 }
@@ -415,7 +422,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 	if !exists {
 		klog.InfoS("Object doesn't exist:", "direction", c.direction, "clusterName", h.clusterName, "namespace", fromNamespace, "name", h.name)
 		if c.deleteFn != nil {
-			return c.deleteFn(ctx, h.gvr, toNamespace, h.name)
+			return c.deleteFn(ctx, h.gvr, toNamespace, h.name, h.downstreamUID)
 		}
 		return nil
 	}
