@@ -112,7 +112,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 		}
 	}
 
-	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.ClusterWorkspacePhaseReady] && len(cw.Status.Initializers) > 0 {
+	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.ClusterWorkspacePhaseInitializing] && len(cw.Status.Initializers) > 0 {
 		return admission.NewForbidden(a, fmt.Errorf("spec.initializers must be empty for phase %s", cw.Status.Phase))
 	}
 

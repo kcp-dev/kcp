@@ -151,6 +151,8 @@ func TestValidate(t *testing.T) {
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
+					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
 				&tenancyv1alpha1.ClusterWorkspace{
