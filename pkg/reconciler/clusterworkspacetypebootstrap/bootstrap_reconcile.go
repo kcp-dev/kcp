@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	typeInitializerKey = "initializers.tenancy.kcp.dev"
+	typeInitializerKeyDomain = "initializers.tenancy.kcp.dev"
 )
 
 func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
@@ -41,7 +41,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 
 	// have we done our work before?
 	found := false
-	initializerName := tenancyv1alpha1.ClusterWorkspaceInitializer(typeInitializerKey + "/" + strings.ToLower(c.workspaceType))
+	initializerName := tenancyv1alpha1.ClusterWorkspaceInitializer(typeInitializerKeyDomain + "/" + strings.ToLower(c.workspaceType))
 	for _, i := range workspace.Status.Initializers {
 		if i == initializerName {
 			found = true
@@ -53,7 +53,11 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	}
 
 	// bootstrap resources
-	wsClusterName := helper.EncodeOrganizationAndWorkspace(workspace.ClusterName, workspace.Name)
+	_, org, err := helper.ParseLogicalClusterName(workspace.ClusterName)
+	if err != nil {
+		return err
+	}
+	wsClusterName := helper.EncodeOrganizationAndWorkspace(org, workspace.Name)
 	klog.Infof("Bootstrapping resources for org workspace %s, logical cluster %s", workspace.Name, wsClusterName)
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
@@ -64,7 +68,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	// we are done. remove our initializer
 	newInitializers := make([]tenancyv1alpha1.ClusterWorkspaceInitializer, 0, len(workspace.Status.Initializers))
 	for _, i := range workspace.Status.Initializers {
-		if i != typeInitializerKey {
+		if i != initializerName {
 			newInitializers = append(newInitializers, i)
 		}
 	}

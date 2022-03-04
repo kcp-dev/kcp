@@ -80,8 +80,8 @@ func NewController(
 	return c, nil
 }
 
-// controller watches ClusterWorkspaces of type "Organization" in initializing
-// state and bootstrap resources from the configs/organization package.
+// controller watches ClusterWorkspaces of a given type in initializing
+// state and bootstrap resources from the configs/<lower-case-type> package.
 type controller struct {
 	controllerName string
 

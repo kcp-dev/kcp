@@ -37,9 +37,14 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
+	configcrds "github.com/kcp-dev/kcp/config/crds"
 	configorganization "github.com/kcp-dev/kcp/config/organization"
+	configuniversal "github.com/kcp-dev/kcp/config/universal"
+	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
@@ -207,6 +212,18 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
+	universalController, err := clusterworkspacetypebootstrap.NewController(
+		dynamicClusterClient,
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		"Universal",
+		configuniversal.Bootstrap,
+	)
+	if err != nil {
+		return err
+	}
+
 	if err := server.AddPostStartHook("kcp-install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-workspace-scheduler: %v", err)
@@ -217,6 +234,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		go workspaceController.Start(ctx, 2)
 		go workspaceShardController.Start(ctx, 2)
 		go organizationController.Start(ctx, 2)
+		go universalController.Start(ctx, 2)
 
 		return nil
 	}); err != nil {
@@ -258,7 +276,7 @@ func (s *Server) installApiImportController(ctx context.Context, clientConfig cl
 	return nil
 }
 
-func (s *Server) installApiResourceController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installApiResourceController(ctx context.Context, crdClusterClient apiextensionsclient.ClusterInterface, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
 	kubeconfig := clientConfig.DeepCopy()
 	for _, cluster := range kubeconfig.Clusters {
 		hostURL, err := url.Parse(cluster.Server)
@@ -276,6 +294,17 @@ func (s *Server) installApiResourceController(ctx context.Context, clientConfig 
 	}
 
 	if err := server.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		// HACK HACK HACK
+		// TODO(sttts): these CRDs can go away when when we don't need a CRD in some workspace for "*" informers to work
+		err = configcrds.Create(ctx, crdClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).ApiextensionsV1().CustomResourceDefinitions(),
+			metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
+			metav1.GroupResource{Group: apiresourceapi.GroupName, Resource: "apiresourceimports"},
+			metav1.GroupResource{Group: apiresourceapi.GroupName, Resource: "negotiatedapiresources"},
+		)
+		if err != nil {
+			return err
+		}
+
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-api-resource-controller: %v", err)
 			// nolint:nilerr
