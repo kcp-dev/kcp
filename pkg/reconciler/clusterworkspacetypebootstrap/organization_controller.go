@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacetype_organization
+package clusterworkspacetypebootstrap
 
 import (
 	"context"
@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	controllerName = "kcp-clusterworkspacetype-organization"
+	controllerName = "kcp-clusterworkspacetypes-bootstrap"
 )
 
 func NewController(

@@ -42,7 +42,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
-	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetype_organization"
+	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
@@ -194,7 +194,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
-	organizationController, err := clusterworkspacetype_organization.NewController(
+	organizationController, err := clusterworkspacetypebootstrap.NewController(
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
