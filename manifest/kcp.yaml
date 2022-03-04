@@ -1,0 +1,186 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kcp-virtual-workspaces
+spec:
+  secretName: kcp-virtual-workspaces-cert
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  subject:
+    organizations:
+      - redhat
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - kcp
+    - "*openshiftapps.com"
+  ipAddresses:
+    - 0.0.0.0
+  issuerRef:
+    name: kcp
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kcp
+spec:
+  secretName: kcp-cert
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  subject:
+    organizations:
+      - redhat
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - kcp
+    - localhost
+    - "*openshiftapps.com"
+  ipAddresses:
+    - 0.0.0.0
+  issuerRef:
+    name: kcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kcp
+spec:
+  ports:
+    - protocol: TCP
+      name: kcp
+      port: 6443
+      targetPort: 6443
+    - protocol: TCP
+      name: virtual-workspaces
+      port: 6444
+      targetPort: 6444
+  selector:
+    app: kcp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kcp
+  labels:
+    app: kcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kcp
+  template:
+    metadata:
+      labels:
+        app: kcp
+    spec:
+      containers:
+      - name: kcp
+        image: ghcr.io/kcp-dev/kcp:latest
+        ports:
+        - containerPort: 6443
+        command:
+        - /kcp
+        args:
+        - start
+        - --auto-publish-apis
+        - --push-mode
+        - --etcd-servers=https://etcd:2379
+        - --etcd-keyfile=/etc/etcd/tls/server/tls.key
+        - --etcd-certfile=/etc/etcd/tls/server/tls.crt
+        - --etcd-cafile=/etc/etcd/tls/server/ca.crt
+        - --tls-private-key-file=/etc/kcp/tls/server/tls.key
+        - --tls-cert-file=/etc/kcp/tls/server/tls.crt
+        - --root-directory=/tmp/kcp
+        - --oidc-issuer-url=https://sso.redhat.com/auth/realms/redhat-external
+        - --oidc-client-id=rhoas-cli-prod
+        - --oidc-groups-claim=org_id
+        - --oidc-username-claim=preferred_username
+        - "--oidc-username-prefix=rh-sso:"
+        - "--oidc-groups-prefix=rh-sso:"
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: livez
+            port: 6443
+            scheme: HTTPS
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: readyz
+            port: 6443
+            scheme: HTTPS
+        volumeMounts:
+        - name: etcd-certs
+          mountPath: /etc/etcd/tls/server
+        - name: kcp-certs
+          mountPath: /etc/kcp/tls/server
+        - name: kubeconfig
+          mountPath: /tmp/kcp
+      - name: virtual-workspaces
+        image: ghcr.io/kcp-dev/kcp:latest
+        ports:
+        - containerPort: 6444
+        command:
+        - sh
+        - -c
+        - >
+          cat /tmp/kcp/admin.kubeconfig | sed -e 's|https://\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}|https://localhost|' > /tmp/kcp/localhost.kubeconfig &&
+          /virtual-workspaces
+          workspaces
+          --workspaces:kubeconfig=/tmp/kcp/localhost.kubeconfig
+          --authentication-kubeconfig=/tmp/kcp/localhost.kubeconfig
+          --authentication-skip-lookup
+          --tls-private-key-file=/etc/kcp/tls/server/tls.key
+          --tls-cert-file=/etc/kcp/tls/server/tls.crt
+          --secure-port=6444
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: livez
+            port: 6444
+            scheme: HTTPS
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: readyz
+            port: 6444
+            scheme: HTTPS
+        volumeMounts:
+        - name: virtual-workspaces-certs
+          mountPath: /etc/kcp/tls/server
+        - name: kubeconfig
+          mountPath: /tmp/kcp
+      volumes:
+      - name: etcd-certs
+        secret:
+          secretName: etcd-cert
+      - name: kcp-certs
+        secret:
+          secretName: kcp-cert
+      - name: virtual-workspaces-certs
+        secret:
+          secretName: kcp-virtual-workspaces-cert
+      - name: kubeconfig
+        emptyDir: {}
