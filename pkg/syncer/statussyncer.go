@@ -18,15 +18,18 @@ package syncer
 
 import (
 	"context"
+	"encoding/json"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 )
 
 func deepEqualStatus(oldObj, newObj interface{}) bool {
@@ -66,26 +69,25 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClu
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
-	upstreamObj := downstreamObj.DeepCopy()
-	upstreamObj.SetUID("")
-	upstreamObj.SetResourceVersion("")
-	upstreamObj.SetNamespace(upstreamNamespace)
+	upstreamStatus := unstructured.Unstructured{}
+	upstreamStatus.SetAPIVersion(downstreamObj.GetAPIVersion())
+	upstreamStatus.SetKind(downstreamObj.GetKind())
+	upstreamStatus.Object["status"] = downstreamObj.Object["status"]
 
-	existing, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, upstreamObj.GetName(), metav1.GetOptions{})
+	// Marshalling the unstructured object is good enough as SSA patch
+	data, err := json.Marshal(upstreamStatus.Object)
 	if err != nil {
-		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, upstreamObj.GetName(), err)
 		return err
 	}
 
-	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.
-	//       I believe to remember that we had resources where that happened.
-
-	upstreamObj.SetResourceVersion(existing.GetResourceVersion())
-	if _, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Failed updating status of resource %s|%s/%s from pcluster namespace %s: %v", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+	if _, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).
+		Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: syncerApplyManager,
+			Force:        pointer.Bool(true),
+		}, "status"); err != nil {
+		klog.Errorf("Failed updating status of resource %s|%s/%s from pcluster namespace %s: %v", c.upstreamClusterName, upstreamNamespace, downstreamObj.GetName(), downstreamObj.GetNamespace(), err)
 		return err
 	}
-	klog.Infof("Updated status of resource %s|%s/%s from pcluster namespace %s", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
 
 	return nil
 }
