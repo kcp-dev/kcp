@@ -144,7 +144,7 @@ wait;clear
 pe "kubectl apply -f ${KCP_DATA_DIR}/cluster-us-east1.yaml"
 
 c "Let's wait for kcp to have the cluster syncing ready"
-pe "kubectl wait --for condition=Ready cluster/kind-us-east1"
+pe "kubectl wait --for condition=Ready workloadcluster/kind-us-east1"
 
 c "Let's wait for the deployment to be running in kind"
 pe "while ! kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'workloads.kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments; do
@@ -196,7 +196,7 @@ c "Let's delete kind-us-east1 and see what happens"
 pe "kind delete clusters us-east1"
 
 c "Force the cluster healthcheck to run (we'll be improving this so it's not manual in the next prototype!)"
-pe "kubectl label cluster/kind-us-east1 --overwrite now=\"$(date +%s)\""
+pe "kubectl label workloadcluster/kind-us-east1 --overwrite now=\"$(date +%s)\""
 c "Show the cluster's status - us-east1 should be not ready"
 pe "kubectl get clusters -o wide"
 
