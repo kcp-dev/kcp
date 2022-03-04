@@ -93,6 +93,11 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 					return
 				}
 
+				// Do not allow the personal scope when accessing orgs as workspaces in the root logical cluster
+				if scope == virtualworkspacesregistry.PersonalScope && org == helper.RootCluster {
+					return
+				}
+
 				return true, rootPathPrefix + strings.Join(segments[:2], "/"),
 					context.WithValue(
 						context.WithValue(requestContext, virtualworkspacesregistry.WorkspacesScopeKey, scope),
