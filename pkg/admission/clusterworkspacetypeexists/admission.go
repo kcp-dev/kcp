@@ -65,11 +65,11 @@ type clusterWorkspaceTypeExists struct {
 }
 
 // Ensure that the required admission interfaces are implemented.
+var _ = admission.MutationInterface(&clusterWorkspaceTypeExists{})
 var _ = admission.ValidationInterface(&clusterWorkspaceTypeExists{})
+var _ = admission.InitializationValidator(&clusterWorkspaceTypeExists{})
 var _ = kcpinitializers.WantsKcpInformers(&clusterWorkspaceTypeExists{})
 var _ = kcpinitializers.WantsKubeClusterClient(&clusterWorkspaceTypeExists{})
-var _ = admission.MutationInterface(&clusterWorkspaceTypeExists{})
-var _ = admission.InitializationValidator(&clusterWorkspaceTypeExists{})
 
 // Admit adds type initializer on transition to initializing phase.
 func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
