@@ -60,7 +60,7 @@ func (o *WorkspacesSubCommandOptions) AddFlags(flags *pflag.FlagSet) {
 	}
 
 	flags.StringVar(&o.KubeconfigFile, "workspaces:kubeconfig", "", ""+
-		"The kubeconfig file whose default context points to the root organization workspace.")
+		"The kubeconfig file of the KCP instance that hosts workspaces.")
 
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 
