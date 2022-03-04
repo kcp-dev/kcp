@@ -1,8 +1,8 @@
-# `kcp` provides a Kubernetes-like control plane with true multitenancy, with flexible compute powered by real Kubernetes clusters.
+# `kcp` provides a true multi-tenant Kubernetes control plane for workloads on many clusters
 
 ![build status badge](https://github.com/kcp-dev/kcp/actions/workflows/ci.yaml/badge.svg)
 
-`kcp` is a generic [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRD) apiserver that is divided into multiple "[logical clusters](docs/investigations/logical-clusters.md)" that enable multitenancy of cluster-scoped resources such as CRDs and Namespaces. Each logical cluster is independent: the available APIs and data are separate from one logical cluster to another.
+`kcp` is a generic [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRD) apiserver that is divided into multiple "[logical clusters](docs/investigations/logical-clusters.md)" that enable multitenancy of cluster-scoped resources such as CRDs and Namespaces. Each of these logical clusters is fully isolated from the others, allowing different teams, workloads, and use cases to live side by side.
 
 By default, `kcp` only knows about:
 
@@ -14,7 +14,7 @@ By default, `kcp` only knows about:
 
 ![kubectl api-resources showing kcp's API resources](./docs/images/kubectl-api-resources.png)
 
-Any other resources, including standard Kubernetes resources like [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)s and the rest, can be added as CRDs and optionally reconciled using the standard controllers launched against the `kcp` API, or via two-way replication into a Kubernetes cluster.
+Any other resources, including standard Kubernetes resources like [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)s and the rest, can be added as CRDs and be replicated onto one or more Kubernetes clusters.
 
 
 ## Why would I want that?
@@ -26,6 +26,10 @@ With the power of CRDs, Kubernetes provides a flexible platform for declarative 
 At the same time, a diverse and creative community of tools and services has sprung up around Kubernetes APIs.
 
 Imagine a declarative Kubernetes-style API for _anything_, supported by an ecosystem of Kubernetes-aware tooling, separate from Kubernetes-the-container-orchestrator.
+
+But even a generic control plane is only as good as the use cases it enables. We want to give existing Kubernetes users a new superpower - take your existing applications and allow them to move or spread across clusters without having to change a single line of YAML. We believe moving a workload between clusters should be as easy as moving a pod between nodes.
+
+Take a multi-tenant control plane for everything, and add to it most of the world's cloud-native workloads happily cruising across clouds, datacenters, and out to the edge...
 
 That's **`kcp`**.
 
