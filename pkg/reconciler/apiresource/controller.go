@@ -22,7 +22,7 @@ import (
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinfomer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	crdlister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -47,7 +47,7 @@ func GetClusterNameAndGVRIndexKey(clusterName string, gvr metav1.GroupVersionRes
 }
 
 func NewController(
-	apiExtensionsClient apiextensionsclient.Interface,
+	crdClusterClient *apiextensionsclientset.Cluster,
 	kcpClusterClient *kcpclient.Cluster,
 	autoPublishNegotiatedAPIResource bool,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
@@ -58,7 +58,7 @@ func NewController(
 
 	c := &Controller{
 		queue:                            queue,
-		apiExtensionsClient:              apiExtensionsClient,
+		crdClusterClient:                 crdClusterClient,
 		kcpClusterClient:                 kcpClusterClient,
 		AutoPublishNegotiatedAPIResource: autoPublishNegotiatedAPIResource,
 		negotiatedApiResourceIndexer:     negotiatedAPIResourceInformer.Informer().GetIndexer(),
@@ -126,6 +126,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
+	crdClusterClient             *apiextensionsclientset.Cluster
 	kcpClusterClient             *kcpclient.Cluster
 	negotiatedApiResourceIndexer cache.Indexer
 	negotiatedApiResourceLister  apiresourcelister.NegotiatedAPIResourceLister
@@ -133,9 +134,8 @@ type Controller struct {
 	apiResourceImportIndexer cache.Indexer
 	apiResourceImportLister  apiresourcelister.APIResourceImportLister
 
-	apiExtensionsClient apiextensionsclient.Interface
-	crdIndexer          cache.Indexer
-	crdLister           crdlister.CustomResourceDefinitionLister
+	crdIndexer cache.Indexer
+	crdLister  crdlister.CustomResourceDefinitionLister
 
 	AutoPublishNegotiatedAPIResource bool
 }
