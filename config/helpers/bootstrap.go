@@ -129,7 +129,7 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 
 	d := kubeyaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(raw)))
 	var errs []error
-	for {
+	for i := 1; ; i++ {
 		doc, err := d.Read()
 		if errors.Is(err, io.EOF) {
 			break
@@ -148,7 +148,7 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		}
 
 		if err := createResourceFromFS(ctx, client, mapper, doc); err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("failed to create resource %s doc %d: %w", filename, i, err))
 		}
 	}
 	return apimachineryerrors.NewAggregate(errs)
@@ -169,24 +169,25 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return fmt.Errorf("could not get REST mapping for %s: %w", gvk, err)
 	}
 
-	if _, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Create(ctx, u, metav1.CreateOptions{}); err != nil {
+	upserted, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Create(ctx, u, metav1.CreateOptions{})
+	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			existing, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Get(ctx, u.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			u.SetResourceVersion(existing.GetResourceVersion())
-			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
+			if upserted, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("could not update %s %s/%s: %w", gvk.Kind, u.GetNamespace(), u.GetName(), err)
 			} else {
-				klog.Infof("Updated %s %s/%s", gvk, u.GetNamespace(), u.GetName())
+				klog.Infof("Updated %s %s|%s", gvk, upserted.GetClusterName(), upserted.GetName())
 				return nil
 			}
 		}
 		return err
 	}
 
-	klog.Infof("Bootstrapped %s %s/%s", gvk.Kind, u.GetNamespace(), u.GetName())
+	klog.Infof("Bootstrapped %s %s|%s", gvk.Kind, upserted.GetClusterName(), upserted.GetName())
 
 	return nil
 }

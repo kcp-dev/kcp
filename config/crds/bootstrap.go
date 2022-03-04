@@ -77,10 +77,7 @@ func Create(ctx context.Context, client apiextensionsv1client.CustomResourceDefi
 // provided filesystem and waits for it to become established. This call is blocking.
 func createSingleFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gr metav1.GroupResource, fs embed.FS) error {
 	start := time.Now()
-	klog.Infof("Bootstrapping %v", gr.String())
-	defer func() {
-		klog.Infof("Bootstrapped %v after %s", gr.String(), time.Since(start).String())
-	}()
+	klog.V(4).Infof("Bootstrapping %v", gr.String())
 	raw, err := fs.ReadFile(fmt.Sprintf("%s_%s.yaml", gr.Group, gr.Resource))
 	if err != nil {
 		return fmt.Errorf("could not read CRD %s: %w", gr.String(), err)
@@ -101,19 +98,21 @@ func createSingleFromFS(ctx context.Context, client apiextensionsv1client.Custom
 	crdResource, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			_, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
+			crd, err := client.Create(ctx, rawCrd, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("error creating CRD %s: %w", gr.String(), err)
 			}
+			klog.Infof("Bootstrapped CRD %s|%v after %s", crd.GetClusterName(), gr.String(), time.Since(start).String())
 		} else {
 			return fmt.Errorf("error fetching CRD %s: %w", gr.String(), err)
 		}
 	} else {
 		rawCrd.ResourceVersion = crdResource.ResourceVersion
-		_, err = client.Update(ctx, rawCrd, metav1.UpdateOptions{})
+		crd, err := client.Update(ctx, rawCrd, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
+		klog.Infof("Updated CRD %s|%v after %s", crd.GetClusterName(), gr.String(), time.Since(start).String())
 	}
 
 	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
