@@ -68,7 +68,7 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 	// Check for API inheritance
 	inheriting := false
 	inheritFrom := ""
-	org, ws, err := helper.ParseLogicalClusterName(cluster.Name)
+	orgName, ws, err := helper.ParseLogicalClusterName(cluster.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 	// exist, we'll never be able to create it. Only check if the target workspace exists for
 	// non-default keys.
 	if cluster.Name != helper.RootCluster && c.workspaceLister != nil {
-		targetWorkspaceKey := helper.WorkspaceKey(org, ws)
+		targetWorkspaceKey := helper.WorkspaceKey(orgName, ws)
 		workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 		if err != nil && !apierrors.IsNotFound(err) {
 			// Only return errors other than not-found. If we couldn't find the workspace, let's continue
@@ -98,12 +98,24 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 				inheritFrom = helper.RootCluster
 			} else {
 				// Make sure the source workspace exists
-				sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
+				wsName := workspace.Spec.InheritFrom
+				orgClusterName := orgName
+				if strings.ContainsRune(workspace.Spec.InheritFrom, ':') {
+					orgClusterName, err = helper.ParentClusterName(workspace.Spec.InheritFrom)
+					if err != nil {
+						return nil, err
+					}
+					orgName, wsName, err = helper.ParseLogicalClusterName(workspace.Spec.InheritFrom)
+					if err != nil {
+						return nil, err
+					}
+				}
+				sourceWorkspaceKey := helper.WorkspaceKey(orgClusterName, wsName)
 				_, err := c.workspaceLister.Get(sourceWorkspaceKey)
 				switch {
 				case err == nil:
 					inheriting = true
-					inheritFrom = helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom)
+					inheritFrom = helper.EncodeOrganizationAndWorkspace(orgName, wsName)
 				case apierrors.IsNotFound(err):
 					// A NotFound error is ok. It means we can't inherit but we should still proceed below to list.
 				default:
