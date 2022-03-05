@@ -24,18 +24,27 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-
 	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
+)
+<<<<<<< HEAD
 	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
+||||||| parent of 0fc8b6ef (virtual-workspaces: make options composable)
+	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
+	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
+	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
+=======
+	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
+	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
+>>>>>>> 0fc8b6ef (virtual-workspaces: make options composable)
 )
 
 const (
@@ -133,7 +142,7 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 			port = fmt.Sprintf(":%s", currentServerURL.Port())
 		}
 	}
-	workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s%s%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), port, workspacebuilder.DefaultRootPathPrefix, orgClusterName, kc.scope)
+	workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s%s%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), port, workspacesoptions.DefaultRootPathPrefix, orgClusterName, kc.scope)
 
 	kubectlOverrides := options.KubectlOverrides
 

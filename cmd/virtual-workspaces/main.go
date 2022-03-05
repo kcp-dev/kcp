@@ -23,13 +23,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	virtualgenericcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
-	virtualworkspacescmd "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cmd"
+	virtualworkspacecommand "github.com/kcp-dev/kcp/cmd/virtual-workspaces/command"
 )
 
 func main() {
@@ -39,25 +37,9 @@ func main() {
 
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
-	command := NewVirtualWorkspaceApiServerCommand(ctx.Done())
+	command := virtualworkspacecommand.NewCommand(os.Stdout, os.Stderr, ctx.Done())
 	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-}
-
-func NewVirtualWorkspaceApiServerCommand(stopCh <-chan struct{}) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "virtual-workspaces",
-		Short: "Command for virtual workspaces API Servers",
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = cmd.Help()
-			os.Exit(1)
-		},
-	}
-	workspacesAPIServerSubCommandOptions := &virtualworkspacescmd.WorkspacesSubCommandOptions{}
-	workspacesAPIServerSubCommand := virtualgenericcmd.APIServerCommand(os.Stdout, os.Stderr, stopCh, workspacesAPIServerSubCommandOptions)
-	cmd.AddCommand(workspacesAPIServerSubCommand)
-
-	return cmd
 }

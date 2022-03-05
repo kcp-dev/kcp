@@ -126,6 +126,7 @@ var (
 		"push-mode",                              // If true, run syncer for each cluster from inside cluster controller
 		"resources-to-sync",                      // Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters
 		"run-controllers",                        // Run the controllers in-process
+		"run-virtual-workspaces",                 // Run the virtual workspaces apiservers in-process
 		"syncer-image",                           // Syncer image to install on clusters
 		"unsupported-run-individual-controllers", // Run individual controllers in-process. The controller names can change at any time.
 

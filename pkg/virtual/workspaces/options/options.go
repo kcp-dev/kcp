@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package options
 
 import (
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"strings"
 	"time"
@@ -28,33 +28,41 @@ import (
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	virtualframeworkcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
-	rootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
 
-var _ virtualframeworkcmd.SubCommandOptions = (*WorkspacesSubCommandOptions)(nil)
+const DefaultRootPathPrefix string = "/services/workspaces"
 
-type WorkspacesSubCommandOptions struct {
+type Workspaces struct {
 	RootPathPrefix string
 	KubeconfigFile string
 }
 
-func (o *WorkspacesSubCommandOptions) Description() virtualframeworkcmd.SubCommandDescription {
-	return virtualframeworkcmd.SubCommandDescription{
-		Name:  "workspaces",
-		Use:   "workspaces",
-		Short: "Launch workspaces virtual workspace apiserver",
-		Long:  "Start a virtual workspace apiserver to managing personal, organizational or global workspaces",
+func NewWorkspaces() *Workspaces {
+	return &Workspaces{
+		RootPathPrefix: DefaultRootPathPrefix,
 	}
 }
 
-func (o *WorkspacesSubCommandOptions) AddFlags(flags *pflag.FlagSet) {
+func (o *Workspaces) AddGenericFlags(flags *pflag.FlagSet, prefix string) {
+	if o == nil {
+		return
+	}
+
+	flags.StringVar(&o.RootPathPrefix, prefix+"workspaces-base-path", o.RootPathPrefix, ""+
+		"The prefix of the workspaces API server root path.\n"+
+		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/<org-name>/personal|all")
+}
+
+func (o *Workspaces) AddStandaloneFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
@@ -63,31 +71,27 @@ func (o *WorkspacesSubCommandOptions) AddFlags(flags *pflag.FlagSet) {
 		"The kubeconfig file of the KCP instance that hosts workspaces.")
 
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
-
-	flags.StringVar(&o.RootPathPrefix, "workspaces:root-path-prefix", builder.DefaultRootPathPrefix, ""+
-		"The prefix of the workspaces API server root path.\n"+
-		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/<org-name>/personal|all")
 }
 
-func (o *WorkspacesSubCommandOptions) Validate() []error {
+func (o *Workspaces) Validate(prefix string) []error {
 	if o == nil {
 		return nil
 	}
 	errs := []error{}
 
 	if len(o.KubeconfigFile) == 0 {
-		errs = append(errs, errors.New("--workspaces:kubeconfig is required for this command"))
+		errs = append(errs, fmt.Errorf("--%s-workspaces:kubeconfig is required for this command", prefix))
 	}
 
 	if !strings.HasPrefix(o.RootPathPrefix, "/") {
-		errs = append(errs, fmt.Errorf("--workspaces:root-path-prefix %v should start with /", o.RootPathPrefix))
+		errs = append(errs, fmt.Errorf("--%s-workspaces-base-path %v should start with /", prefix, o.RootPathPrefix))
 	}
 
 	return errs
 }
 
-func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserver.InformerStart, []framework.VirtualWorkspace, error) {
-	kubeConfig, err := virtualframeworkcmd.ReadKubeConfig(o.KubeconfigFile)
+func (o *Workspaces) NewVirtualWorkspaces() ([]rootapiserver.InformerStart, []framework.VirtualWorkspace, error) {
+	kubeConfig, err := readKubeConfig(o.KubeconfigFile)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -127,4 +131,22 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 		wildcardKcpInformers.Start,
 	}
 	return informerStarts, virtualWorkspaces, nil
+}
+
+func readKubeConfig(kubeConfigFile string) (clientcmd.ClientConfig, error) {
+	// Resolve relative to CWD
+	absoluteKubeConfigFile, err := api.MakeAbs(kubeConfigFile, "")
+	if err != nil {
+		return nil, err
+	}
+
+	kubeConfigBytes, err := ioutil.ReadFile(absoluteKubeConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	kubeConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConfig, nil
 }

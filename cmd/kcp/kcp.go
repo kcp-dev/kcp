@@ -136,6 +136,7 @@ func main() {
 	setPartialUsageAndHelpFunc(cmd, namedStartFlagSets, cols, []string{
 		"etcd-servers",
 		"run-controllers",
+		"run-virtual-workspaces",
 	})
 
 	if err := cmd.Execute(); err != nil {
