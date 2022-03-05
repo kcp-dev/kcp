@@ -36,6 +36,10 @@ OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
 OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
 export OPENSHIFT_GOIMPORTS # so hack scripts can use it
 
+GOLANGCI_LINT_VER := v1.44.2
+GOLANGCI_LINT_BIN := golangci-lint
+GOLANGCI_LINT := $(GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
+
 all: build
 .PHONY: all
 
@@ -47,8 +51,11 @@ install:
 	go install ./cmd/...
 .PHONY: install
 
-lint:
-	golangci-lint run ./...
+$(GOLANGCI_LINT):
+	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
+
+lint: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run --timeout=10m ./...
 .PHONY: lint
 
 vendor: ## Vendor the dependencies
