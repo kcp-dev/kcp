@@ -28,9 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
@@ -211,34 +209,24 @@ func (c completedConfig) NewRequestInfo(req *http.Request) (*genericapirequest.R
 	return defaultResolver.NewRequestInfo(req)
 }
 
-func NewRootAPIConfig(secureServing *genericapiserveroptions.SecureServingOptions, authenticationOptions *genericapiserveroptions.DelegatingAuthenticationOptions, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
-	genericConfig := genericapiserver.NewRecommendedConfig(legacyscheme.Codecs)
-
+func NewRootAPIConfig(recommendedConfig *genericapiserver.RecommendedConfig, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
 	// TODO: genericConfig.ExternalAddress = ... allow a command line flag or it to be overridden by a top-level multiroot apiServer
-
-	if err := secureServing.ApplyTo(&genericConfig.Config.SecureServing); err != nil {
-		return nil, err
-	}
 
 	// Loopback is not wired for now, since virtual workspaces are expected to delegate to
 	// some APIServer.
 	// The RootAPISrver is just a proxy to the various virtual workspaces.
 	// We might consider a giving a special meaning to a global loopback config, in the future
 	// but that's not the case for now.
-	genericConfig.Config.LoopbackClientConfig = &rest.Config{
+	recommendedConfig.Config.LoopbackClientConfig = &rest.Config{
 		Host: "loopback-config-not-wired-for-now",
-	}
-
-	if err := authenticationOptions.ApplyTo(&genericConfig.Authentication, genericConfig.SecureServing, genericConfig.OpenAPIConfig); err != nil {
-		return nil, err
 	}
 
 	// TODO: in the future it would probably be a mix between a delegated authorizer (delegating to some KCP instance)
 	// and a specific authorizer whose rules would be defined by each prefix-based virtual workspace.
-	genericConfig.Authorization.Authorizer = authorizerfactory.NewAlwaysAllowAuthorizer()
+	recommendedConfig.Authorization.Authorizer = authorizerfactory.NewAlwaysAllowAuthorizer()
 
 	ret := &RootAPIConfig{
-		GenericConfig: genericConfig,
+		GenericConfig: recommendedConfig,
 		ExtraConfig: RootAPIExtraConfig{
 			informerStart: func(stopCh <-chan struct{}) {
 				for _, informerStart := range informerStarts {

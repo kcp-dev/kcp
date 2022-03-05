@@ -36,6 +36,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/kubernetes/pkg/api/legacyscheme"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -117,7 +118,14 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(&o.SecureServing, &o.Authentication, append(extraInformerStarts,
+	recommendedConfig := genericapiserver.NewRecommendedConfig(legacyscheme.Codecs)
+	if err := o.SecureServing.ApplyTo(&recommendedConfig.Config.SecureServing); err != nil {
+		return err
+	}
+	if err := o.Authentication.ApplyTo(&recommendedConfig.Authentication, recommendedConfig.SecureServing, recommendedConfig.OpenAPIConfig); err != nil {
+		return err
+	}
+	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, append(extraInformerStarts,
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
 	), virtualWorkspaces...)
