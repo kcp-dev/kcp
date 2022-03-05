@@ -18,18 +18,13 @@ package options
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/url"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -90,63 +85,17 @@ func (o *Workspaces) Validate(prefix string) []error {
 	return errs
 }
 
-func (o *Workspaces) NewVirtualWorkspaces() ([]rootapiserver.InformerStart, []framework.VirtualWorkspace, error) {
-	kubeConfig, err := readKubeConfig(o.KubeconfigFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	kubeClientConfig, err := kubeConfig.ClientConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	u, err := url.Parse(kubeClientConfig.Host)
-	if err != nil {
-		return nil, nil, err
-	}
-	u.Path = ""
-	kubeClientConfig.Host = u.String()
-
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(kubeClientConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-	wildcardKubeClient := kubeClusterClient.Cluster("*")
-	wildcardKubeInformers := informers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
+func (o *Workspaces) NewVirtualWorkspaces(
+	kubeClusterClient kubernetes.ClusterInterface,
+	kcpClusterClient kcpclient.ClusterInterface,
+	wildcardKubeInformers informers.SharedInformerFactory,
+	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	rootKubeClient := kubeClusterClient.Cluster(helper.RootCluster)
-
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-	wildcardKcpClient := kcpClusterClient.Cluster("*")
-	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 	rootKcpClient := kcpClusterClient.Cluster(helper.RootCluster)
 
 	virtualWorkspaces := []framework.VirtualWorkspace{
 		builder.BuildVirtualWorkspace(o.RootPathPrefix, wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), rootKcpClient, rootKubeClient, kcpClusterClient, kubeClusterClient),
 	}
-	informerStarts := []rootapiserver.InformerStart{
-		wildcardKubeInformers.Start,
-		wildcardKcpInformers.Start,
-	}
-	return informerStarts, virtualWorkspaces, nil
-}
-
-func readKubeConfig(kubeConfigFile string) (clientcmd.ClientConfig, error) {
-	// Resolve relative to CWD
-	absoluteKubeConfigFile, err := api.MakeAbs(kubeConfigFile, "")
-	if err != nil {
-		return nil, err
-	}
-
-	kubeConfigBytes, err := ioutil.ReadFile(absoluteKubeConfigFile)
-	if err != nil {
-		return nil, err
-	}
-	kubeConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
-	if err != nil {
-		return nil, err
-	}
-	return kubeConfig, nil
+	return nil, virtualWorkspaces, nil
 }

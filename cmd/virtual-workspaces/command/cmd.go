@@ -20,17 +20,26 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/url"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
@@ -73,12 +82,45 @@ func NewCommand(out, errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 
 // Run takes the options, starts the API server and waits until stopCh is closed or initial listening fails.
 func Run(o *options.Options, stopCh <-chan struct{}) error {
-	informerStarts, virtualWorkspaces, err := o.Workspaces.NewVirtualWorkspaces()
+	// parse kubeconfig
+	kubeConfig, err := readKubeConfig(o.Workspaces.KubeconfigFile)
 	if err != nil {
 		return err
 	}
+	kubeClientConfig, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
+	u, err := url.Parse(kubeClientConfig.Host)
+	if err != nil {
+		return err
+	}
+	u.Path = ""
+	kubeClientConfig.Host = u.String()
 
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(&o.SecureServing, &o.Authentication, informerStarts, virtualWorkspaces...)
+	// create clients and informers
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(kubeClientConfig)
+	if err != nil {
+		return err
+	}
+	wildcardKubeClient := kubeClusterClient.Cluster("*")
+	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
+	if err != nil {
+		return err
+	}
+	wildcardKcpClient := kcpClusterClient.Cluster("*")
+	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
+
+	// create apiserver
+	extraInformerStarts, virtualWorkspaces, err := o.Workspaces.NewVirtualWorkspaces(kubeClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	if err != nil {
+		return err
+	}
+	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(&o.SecureServing, &o.Authentication, append(extraInformerStarts,
+		wildcardKubeInformers.Start,
+		wildcardKcpInformers.Start,
+	), virtualWorkspaces...)
 	if err != nil {
 		return err
 	}
@@ -98,4 +140,22 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	klog.Infof("Starting virtual workspace apiserver on %s (%s)", rootAPIServerConfig.GenericConfig.ExternalAddress, version.Get().String())
 
 	return preparedRootAPIServer.Run(stopCh)
+}
+
+func readKubeConfig(kubeConfigFile string) (clientcmd.ClientConfig, error) {
+	// Resolve relative to CWD
+	absoluteKubeConfigFile, err := clientcmdapi.MakeAbs(kubeConfigFile, "")
+	if err != nil {
+		return nil, err
+	}
+
+	kubeConfigBytes, err := ioutil.ReadFile(absoluteKubeConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	kubeConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConfig, nil
 }
