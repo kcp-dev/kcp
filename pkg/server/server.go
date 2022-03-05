@@ -196,6 +196,10 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
+	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
+	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
+	// to give handlers below one mux.Handle func to call.
+	var preHandlerChainMux handlerChainMuxes
 	genericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
 		// we want a request to hit the chain like:
 		// - lcluster handler (this package's ServeHTTP)
@@ -210,7 +214,11 @@ func (s *Server) Run(ctx context.Context) error {
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
 
-		return apiHandler
+		// add a mux before the chain, for other handlers with their own handler chain to hook in
+		mux := http.NewServeMux()
+		mux.Handle("/", apiHandler)
+		preHandlerChainMux = append(preHandlerChainMux, mux)
+		return mux
 	}
 
 	admissionPluginInitializers := []admission.PluginInitializer{
@@ -374,6 +382,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.options.Virtual.Enabled {
+		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, preHandlerChainMux); err != nil {
+			return err
+		}
+	}
+
 	// Add our custom hooks to the underlying api server
 	for _, entry := range s.postStartHooks {
 		err := server.AddPostStartHook(entry.name, entry.hook)
@@ -421,4 +435,12 @@ func goContext(parent genericapiserver.PostStartHookContext) context.Context {
 		cancel()
 	}(parent.StopCh)
 	return ctx
+}
+
+type handlerChainMuxes []*http.ServeMux
+
+func (mxs handlerChainMuxes) Handle(pattern string, handler http.Handler) {
+	for _, mx := range mxs {
+		mx.Handle(pattern, handler)
+	}
 }

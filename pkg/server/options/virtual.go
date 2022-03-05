@@ -43,7 +43,7 @@ func (v *Virtual) Validate() []error {
 }
 
 func (v *Virtual) AddFlags(fs *pflag.FlagSet) {
-	v.Workspaces.AddGenericFlags(fs, virtualWorkspacesFlagPrefix)
+	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 
 	fs.BoolVar(&v.Enabled, "run-virtual-workspaces", v.Enabled, "Run the virtual workspace apiservers in-process")
 }
