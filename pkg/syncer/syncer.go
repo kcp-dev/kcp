@@ -54,10 +54,10 @@ const (
 type Direction string
 
 // KcpToPhysicalCluster indicates a syncer watches resources on KCP and applies the spec to the target cluster
-const KcpToPhysicalCluster Direction = "kcpToPhysicalCluster"
+const KcpToPhysicalCluster Direction = "down"
 
 // PhysicalClusterToKcp indicates a syncer watches resources on the target cluster and applies the status to KCP
-const PhysicalClusterToKcp Direction = "physicalClusterToKcp"
+const PhysicalClusterToKcp Direction = "up"
 
 func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName, pcluster string, numSyncerThreads int) error {
 	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster)
@@ -95,7 +95,7 @@ type Controller struct {
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
 func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, pclusterID string) (*Controller, error) {
-	controllerName := string(direction) + "-" + kcpClusterName + "-" + pcluster
+	controllerName := string(direction) + "--" + kcpClusterName + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
 	c := Controller{
@@ -252,7 +252,14 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 		return
 	}
 
-	klog.Infof("Syncer %s: adding %s %s|%s/%s to queue", c.name, gvr, metaObj.GetClusterName(), metaObj.GetNamespace(), metaObj.GetName())
+	qualifiedName := metaObj.GetName()
+	if len(metaObj.GetNamespace()) > 0 {
+		qualifiedName = metaObj.GetNamespace() + "/" + qualifiedName
+	}
+	if c.direction == KcpToPhysicalCluster {
+		qualifiedName = metaObj.GetClusterName() + "|" + qualifiedName
+	}
+	klog.Infof("Syncer %s: adding %s %s to queue", c.name, gvr, qualifiedName)
 
 	c.queue.Add(
 		holder{
@@ -378,7 +385,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 
 		nsObj, err := nsInformer.Lister().Get(nsKey)
 		if err != nil {
-			klog.Errorf("%s: error listing namespace %q from physical cluster: %v", c.name, nsKey, err)
+			klog.Errorf("%s: error retrieving namespace %q from physical cluster lister: %v", c.name, nsKey, err)
 			return err
 		}
 

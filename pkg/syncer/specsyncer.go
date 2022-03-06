@@ -139,7 +139,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 			return err
 		}
 	}
-	klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetName())
+	klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetNamespace())
 
 	return nil
 }
