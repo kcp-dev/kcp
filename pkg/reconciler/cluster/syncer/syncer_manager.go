@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
@@ -47,13 +46,10 @@ type syncerManagerImpl interface {
 type syncerManager struct {
 	name string
 
-	apiExtensionsClient      apiextensionsclient.Interface
 	kubeconfig               clientcmdapi.Config
 	resourcesToSync          []string
 	syncerManagerImpl        syncerManagerImpl
 	apiresourceImportIndexer cache.Indexer
-
-	genericControlPlaneResources []schema.GroupVersionResource
 }
 
 func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
@@ -82,18 +78,24 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1
 		}
 	}
 
+	// some types are not negotiated, but we possibly want them synced as well
+	nativeTypesPossiblyToSync := []schema.GroupVersionResource{
+		{Group: "", Resource: "configmaps", Version: "v1"},
+		{Group: "", Resource: "secrets", Version: "v1"},
+		{Group: "", Resource: "serviceaccounts", Version: "v1"},
+	}
 	resourcesToPull := sets.NewString(m.resourcesToSync...)
-	for _, kcpResource := range m.genericControlPlaneResources {
-		if !resourcesToPull.Has(kcpResource.GroupResource().String()) && !resourcesToPull.Has(kcpResource.Resource) {
+	for _, gvr := range nativeTypesPossiblyToSync {
+		if !resourcesToPull.Has(gvr.GroupResource().String()) && !resourcesToPull.Has(gvr.Resource) {
 			continue
 		}
 		groupVersion := apiresourcev1alpha1.GroupVersion{
-			Group:   kcpResource.Group,
-			Version: kcpResource.Version,
+			Group:   gvr.Group,
+			Version: gvr.Version,
 		}
 		groupResources.Insert(schema.GroupResource{
 			Group:    groupVersion.APIGroup(),
-			Resource: kcpResource.Resource,
+			Resource: gvr.Resource,
 		}.String())
 	}
 

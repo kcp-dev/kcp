@@ -39,7 +39,7 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   --trim-path-prefix github.com/kcp-dev/kcp
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
-  github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis \
+  github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis \
   "wildwest:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \

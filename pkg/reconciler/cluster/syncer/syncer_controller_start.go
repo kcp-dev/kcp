@@ -25,7 +25,6 @@ import (
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -84,7 +83,7 @@ type Config struct {
 	crdSharedInformerFactory crdexternalversions.SharedInformerFactory
 }
 
-func (c *Config) New() (*Controller, error) {
+func (c *Config) NewOrNil() (*Controller, error) {
 	var syncerManagerImpl syncerManagerImpl
 	if c.PullMode {
 		syncerManagerImpl = newPullSyncerManager(c.SyncerImage)
@@ -95,14 +94,6 @@ func (c *Config) New() (*Controller, error) {
 		return nil, nil
 	}
 
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "root", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	clientutils.EnableMultiCluster(adminConfig, nil, true, "workloadclusters", "customresourcedefinitions", "apiresourceimports", "negotiatedapiresources")
-
-	apiExtensionsClient := apiextensionsclient.NewForConfigOrDie(adminConfig)
-
 	neutralConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		return nil, err
@@ -111,9 +102,13 @@ func (c *Config) New() (*Controller, error) {
 	if err != nil {
 		return nil, err
 	}
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(neutralConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	return NewController(
-		apiExtensionsClient,
+		crdClusterClient,
 		kcpClusterClient,
 		c.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),

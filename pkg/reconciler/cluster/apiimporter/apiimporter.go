@@ -35,7 +35,7 @@ import (
 
 var clusterKind = reflect.TypeOf(workloadv1alpha1.WorkloadCluster{}).Name()
 
-func ClusterAsOwnerReference(obj *workloadv1alpha1.WorkloadCluster, controller bool) metav1.OwnerReference {
+func clusterAsOwnerReference(obj *workloadv1alpha1.WorkloadCluster, controller bool) metav1.OwnerReference {
 	return metav1.OwnerReference{
 		APIVersion: apiresourcev1alpha1.SchemeGroupVersion.String(),
 		Kind:       clusterKind,
@@ -160,7 +160,7 @@ func (i *APIImporter) ImportAPIs() {
 					Name:        apiResourceImportName,
 					ClusterName: i.logicalClusterName,
 					OwnerReferences: []metav1.OwnerReference{
-						ClusterAsOwnerReference(cluster, true),
+						clusterAsOwnerReference(cluster, true),
 					},
 					Annotations: map[string]string{
 						apiresourcev1alpha1.APIVersionAnnotation: groupVersion.APIVersion(),

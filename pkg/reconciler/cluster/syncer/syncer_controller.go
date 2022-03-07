@@ -18,12 +18,9 @@ package syncer
 
 import (
 	"context"
-	"strings"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
@@ -33,14 +30,14 @@ import (
 )
 
 type Controller struct {
-	name                string
-	apiExtensionsClient apiextensionsclient.Interface
-	syncerManager       *syncerManager
-	clusterReconciler   *cluster.ClusterReconciler
+	name              string
+	crdClusterClient  *apiextensionsclient.Cluster
+	syncerManager     *syncerManager
+	clusterReconciler *cluster.ClusterReconciler
 }
 
 func NewController(
-	apiExtensionsClient apiextensionsclient.Interface,
+	crdClusterClient *apiextensionsclient.Cluster,
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
@@ -51,7 +48,6 @@ func NewController(
 
 	sm := &syncerManager{
 		name:                     syncerManagerImpl.name(),
-		apiExtensionsClient:      apiExtensionsClient,
 		kubeconfig:               kubeconfig,
 		resourcesToSync:          resourcesToSync,
 		syncerManagerImpl:        syncerManagerImpl,
@@ -70,58 +66,14 @@ func NewController(
 	}
 
 	return &Controller{
-		name:                syncerManagerImpl.name(),
-		apiExtensionsClient: apiExtensionsClient,
-		syncerManager:       sm,
-		clusterReconciler:   cr,
+		name:              syncerManagerImpl.name(),
+		crdClusterClient:  crdClusterClient,
+		syncerManager:     sm,
+		clusterReconciler: cr,
 	}, nil
 }
 
-type preparedController struct {
-	Controller
-}
-
-type PreparedController struct {
-	*preparedController
-}
-
-func (c *Controller) Prepare() (PreparedController, error) {
-	// TODO(ncdc): does this need a per-cluster client?
-	// TODO(sttts): make resilient to errors
-	discoveryClient := c.apiExtensionsClient.Discovery()
-	serverGroups, err := discoveryClient.ServerGroups()
-	if err != nil {
-		return PreparedController{}, err
-	}
-	for _, apiGroup := range serverGroups.Groups {
-		if genericcontrolplanescheme.Scheme.IsGroupRegistered(apiGroup.Name) {
-			for _, version := range apiGroup.Versions {
-				gv := schema.GroupVersion{
-					Group:   apiGroup.Name,
-					Version: version.Version,
-				}
-				if genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
-					apiResourceList, err := discoveryClient.ServerResourcesForGroupVersion(gv.String())
-					if err != nil {
-						return PreparedController{}, err
-					}
-					for _, apiResource := range apiResourceList.APIResources {
-						gvk := gv.WithKind(apiResource.Kind)
-						if !strings.Contains(apiResource.Name, "/") && genericcontrolplanescheme.Scheme.Recognizes(gvk) {
-							c.syncerManager.genericControlPlaneResources = append(c.syncerManager.genericControlPlaneResources, gv.WithResource(apiResource.Name))
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return PreparedController{&preparedController{
-		Controller: *c,
-	}}, nil
-}
-
 // TODO(sttts): fix the many races due to unprotected field access and then increase worker count
-func (c *PreparedController) Start(ctx context.Context) {
+func (c *Controller) Start(ctx context.Context) {
 	c.clusterReconciler.Start(ctx)
 }

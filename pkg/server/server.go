@@ -357,7 +357,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installSyncerController(ctx, *loopbackKubeConfig, server); err != nil {
 			return err
 		}
-		if err := s.installApiResourceController(ctx, *loopbackKubeConfig, server); err != nil {
+		if err := s.installApiResourceController(ctx, apiextensionsClusterClient, *loopbackKubeConfig, server); err != nil {
 			return err
 		}
 	}

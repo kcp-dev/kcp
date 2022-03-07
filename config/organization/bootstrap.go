@@ -25,9 +25,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
-	"github.com/kcp-dev/kcp/pkg/apis/workload"
 )
 
 //go:embed *.yaml
@@ -40,8 +38,5 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dyn
 	return confighelpers.Bootstrap(ctx, crdClient, dynamicClient, fs, []metav1.GroupResource{
 		{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
 		{Group: tenancy.GroupName, Resource: "clusterworkspacetypes"},
-		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
-		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-		{Group: workload.GroupName, Resource: "workloadclusters"},
 	})
 }
