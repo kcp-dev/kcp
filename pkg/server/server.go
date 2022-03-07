@@ -393,6 +393,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.options.Controllers.EnableAll || enabled.Has("apibinding") {
+		if err := s.installAPIBindingController(ctx, controllerConfig, server); err != nil {
+			return err
+		}
+	}
+
 	if s.options.Virtual.Enabled {
 		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, preHandlerChainMux); err != nil {
 			return err
