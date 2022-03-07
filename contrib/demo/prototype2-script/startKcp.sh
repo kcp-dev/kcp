@@ -23,7 +23,13 @@ source "${DEMO_DIR}"/../.setupEnv
 source "${DEMOS_DIR}"/.startUtils
 setupTraps "$0"
 
-trap cleanup EXIT 1 2 3 6 15
+for sig in INT QUIT HUP TERM; do
+  trap "
+    cleanup
+    trap - $sig EXIT
+    kill -s $sig "'"$$"' "$sig"
+done
+trap "cleanup" EXIT
 
 cleanup() {
   echo "Killing Envoy container"
