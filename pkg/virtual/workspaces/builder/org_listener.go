@@ -77,10 +77,6 @@ func (l *orgListener) Initialize(authCache *workspaceauth.AuthorizationCache) {
 	l.orgMutex.Lock()
 	defer l.orgMutex.Unlock()
 
-	var mutex sync.Mutex
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	readys := []func() bool{}
 
 	workspaces, _ := authCache.ListAllWorkspaces(labels.Everything())
@@ -92,9 +88,6 @@ func (l *orgListener) Initialize(authCache *workspaceauth.AuthorizationCache) {
 		l.orgs[orgName] = org
 	}
 	l.ready = func() bool {
-		mutex.Lock()
-		defer mutex.Unlock()
-
 		for _, r := range readys {
 			if !r() {
 				return false
