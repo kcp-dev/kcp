@@ -39,6 +39,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageclass/setdefault"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageobjectinuseprotection"
 
+	"github.com/kcp-dev/kcp/pkg/admission/apibinding"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
@@ -51,6 +52,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	clusterworkspace.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
+	apibinding.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -72,6 +74,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	clusterworkspacetype.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
 	apiresourceschema.Register(plugins)
+	apibinding.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.NewString(
@@ -88,6 +91,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
 	apiresourceschema.PluginName,
+	apibinding.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.
