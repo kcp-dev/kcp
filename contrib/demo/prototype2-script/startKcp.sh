@@ -23,10 +23,36 @@ source "${DEMO_DIR}"/../.setupEnv
 source "${DEMOS_DIR}"/.startUtils
 setupTraps "$0"
 
+trap cleanup EXIT 1 2 3 6 15
+
+cleanup() {
+  echo "Killing Envoy container"
+  "${CONTAINER_ENGINE}" kill "${ENVOY_CID}"
+}
+
 if ! command -v envoy &> /dev/null; then
     echo "envoy is required - please install and try again"
     exit 1
 fi
+
+detect_container_engine() {
+    if ! command -v podman; then
+        CONTAINER_ENGINE=docker
+        return
+    fi
+    if [[ "$OSTYPE" == "darwin"* && -z "$(podman ps)" ]]; then
+        # Podman machine is not started
+        CONTAINER_ENGINE=docker
+        return
+    fi
+    if [[ -z "$(podman system connection ls --format=json)" ]]; then
+        CONTAINER_ENGINE=docker
+        return
+    fi
+    CONTAINER_ENGINE=podman
+}
+
+detect_container_engine
 
 CURRENT_DIR="$(pwd)"
 
@@ -59,9 +85,17 @@ echo "Ingress Controller started: ${INGRESS_CONTROLLER_PID}"
 
 echo ""
 echo "Starting envoy"
-envoy --config-path "${KCP_DIR}"/build/kcp-ingress/utils/envoy/bootstrap.yaml &> "${CURRENT_DIR}"/envoy.log &
-ENVOY_PID=$!
-echo "Envoy started: ${ENVOY_PID}"
+bootstrapAddress="host.docker.internal"
+if [[ "${CONTAINER_ENGINE}" == "podman" ]]; then
+  bootstrapAddress="host.containers.internal"
+fi
+sed "s/BOOTSTRAP_ADDRESS/$bootstrapAddress/" "${KCP_DIR}"/contrib/envoy/bootstrap.yaml > "${KCP_DATA_DIR}"/envoy-bootstrap.yaml
+"${CONTAINER_ENGINE}" create --rm -t --net=kind -p 8181:8181 envoyproxy/envoy-dev:d803505d919aff1c4207b353c3b430edfa047010
+ENVOY_CID=$("${CONTAINER_ENGINE}" ps -q -n1)
+"${CONTAINER_ENGINE}" cp "${KCP_DATA_DIR}"/envoy-bootstrap.yaml "${ENVOY_CID}":/etc/envoy/envoy.yaml
+"${CONTAINER_ENGINE}" start "${ENVOY_CID}"
+"${CONTAINER_ENGINE}" logs -f "${ENVOY_CID}" &> "${CURRENT_DIR}"/envoy.log &
+echo "Envoy started in container: ${ENVOY_CID}"
 
 if [ "${STANDALONE_VIRTUAL_WORKSPACE}" = "true" ]; then
   echo ""

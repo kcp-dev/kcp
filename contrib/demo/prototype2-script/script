@@ -56,9 +56,6 @@ clear
 
 c "Install nginx-based ingress into both kind clusters"
 
-# TODO(ncdc): trying to get ingress working on mac+podman+kind
-#pe "sed -e 's,hostPort: 80,hostPort: 8080,' -e 's,hostPort: 443,hostPort: 8443,' ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml | kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig apply -f -"
-#pe "sed -e 's,hostPort: 80,hostPort: 9080,' -e 's,hostPort: 443,hostPort: 9443,' ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml | kubectl --kubeconfig ${CLUSTERS_DIR}/us-west1.kubeconfig apply -f -"
 pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
 pe "kubectl --kubeconfig ${CLUSTERS_DIR}/us-west1.kubeconfig apply -f ${DEMOS_DIR}/ingress-script/nginx-ingress.yaml"
 
@@ -100,7 +97,7 @@ pe "kubectl apply --context root -f ${DEMO_DIR}/user-rbac.yaml"
 c "Let's start by creating a \"real\" workspace and using it. That's what organization workspace are for, to hold the actual application workspaces."
 pe "kubectl kcp workspace --token user-1-token create workspace1 --use"
 
-c "Because KCP doesn’t include Deployments by default, and we haven’t registered any Clusters yet, we need to teach KCP about Deployments"
+c "Because KCP doesn't include Deployments by default, and we haven't registered any Clusters yet, we need to teach KCP about Deployments"
 
 c "First grab the schema for deployments from one of our kind clusters"
 pe "(cd ${KCP_DATA_DIR} && go run ${KCP_DIR}/cmd/crd-puller/pull-crds.go --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig deployments.apps)"

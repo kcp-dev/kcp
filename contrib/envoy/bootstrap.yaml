@@ -27,7 +27,7 @@ static_resources:
             endpoint:
               address:
                 socket_address:
-                  address: "localhost"
+                  address: BOOTSTRAP_ADDRESS
                   port_value: 18000
       http2_protocol_options: {}
 admin:
