@@ -5,7 +5,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:universal-clusterworkspacetype-use
+  name: system:kcp:universal-clusterworkspacetype-use
 subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: Group
