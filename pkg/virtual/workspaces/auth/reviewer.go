@@ -51,17 +51,18 @@ func (r *defaultReview) EvaluationError() string {
 }
 
 type ReviewerProvider interface {
-	ForVerb(checkedVerb string) Reviewer
+	Create(checkedVerb, checkedResource string) Reviewer
 }
 
 type authorizerReviewerProvider struct {
 	policyChecker rbac.SubjectLocator
 }
 
-func (arp *authorizerReviewerProvider) ForVerb(checkedVerb string) Reviewer {
+func (arp *authorizerReviewerProvider) Create(checkedVerb, checkedResource string) Reviewer {
 	return &authorizerReviewer{
-		checkedVerb:   checkedVerb,
-		policyChecker: arp.policyChecker,
+		checkedVerb:     checkedVerb,
+		checkedResource: checkedResource,
+		policyChecker:   arp.policyChecker,
 	}
 }
 
@@ -71,8 +72,8 @@ type Reviewer interface {
 }
 
 type authorizerReviewer struct {
-	checkedVerb   string
-	policyChecker rbac.SubjectLocator
+	checkedVerb, checkedResource string
+	policyChecker                rbac.SubjectLocator
 }
 
 func NewAuthorizerReviewerProvider(policyChecker rbac.SubjectLocator) ReviewerProvider {
@@ -87,7 +88,7 @@ func (r *authorizerReviewer) Review(workspaceName string) (Review, error) {
 		Namespace:       "",
 		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
 		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-		Resource:        "workspaces",
+		Resource:        r.checkedResource,
 		Name:            workspaceName,
 		ResourceRequest: true,
 	}

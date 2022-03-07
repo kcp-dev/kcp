@@ -616,7 +616,7 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		}
 	}
 
-	review, err := org.workspaceReviewerProvider.ForVerb("delete").Review(internalName)
+	review, err := org.workspaceReviewerProvider.Create("delete", "workspaces").Review(internalName)
 	if err != nil {
 		return nil, false, err
 	}

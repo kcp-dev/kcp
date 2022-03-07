@@ -90,10 +90,12 @@ func (m mockReviewer) Review(name string) (workspaceauth.Review, error) {
 
 var _ workspaceauth.ReviewerProvider = mockReviewerProvider{}
 
-type mockReviewerProvider map[string]mockReviewer
+type verbAndResource [2]string
 
-func (m mockReviewerProvider) ForVerb(checkedVerb string) workspaceauth.Reviewer {
-	return m[checkedVerb]
+type mockReviewerProvider map[verbAndResource]mockReviewer
+
+func (m mockReviewerProvider) Create(checkedVerb, checkedResource string) workspaceauth.Reviewer {
+	return m[[2]string{checkedVerb, checkedResource}]
 }
 
 type TestData struct {
@@ -245,8 +247,8 @@ func TestPrettyNameIndex(t *testing.T) {
 			scope:   OrganizationScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -312,8 +314,8 @@ func TestInternalNameIndex(t *testing.T) {
 			scope:   OrganizationScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -379,8 +381,8 @@ func TestListPersonalWorkspaces(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -440,8 +442,8 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -505,8 +507,8 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 			scope:   OrganizationScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -562,8 +564,8 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 			scope:   OrganizationScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -619,8 +621,8 @@ func TestGetPersonalWorkspace(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -679,8 +681,8 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -739,8 +741,8 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -807,8 +809,8 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 			scope:   OrganizationScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
@@ -839,8 +841,8 @@ func TestCreateWorkspace(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
@@ -951,8 +953,8 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -1138,8 +1140,8 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -1250,8 +1252,8 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -1345,8 +1347,8 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -1440,13 +1442,13 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get": mockReviewer{
+				[2]string{"get", "workspaces"}: mockReviewer{
 					"foo": mockReview{
 						users:  []string{"test-user"},
 						groups: []string{""},
 					},
 				},
-				"delete": mockReviewer{
+				[2]string{"delete", "workspaces"}: mockReviewer{
 					"foo": mockReview{
 						users:  []string{"test-user"},
 						groups: []string{""},
@@ -1545,13 +1547,13 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				"get": mockReviewer{
+				[2]string{"get", "workspaces"}: mockReviewer{
 					"foo--1": mockReview{
 						users:  []string{"test-user"},
 						groups: []string{""},
 					},
 				},
-				"delete": mockReviewer{
+				[2]string{"delete", "workspaces"}: mockReviewer{
 					"foo--1": mockReview{
 						users:  []string{"test-user"},
 						groups: []string{""},

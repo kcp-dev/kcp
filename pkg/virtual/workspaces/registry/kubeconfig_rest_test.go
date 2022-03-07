@@ -140,8 +140,8 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 			user:  user,
 			scope: "personal",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -224,8 +224,8 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 			user:  user,
 			scope: "personal",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -308,8 +308,8 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			user:  user,
 			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -390,10 +390,10 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:  user,
-			scope: "oganization",
+			scope: "organization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -479,8 +479,8 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			user:  user,
 			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -565,8 +565,8 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 			user:  user,
 			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -651,8 +651,8 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 			user:  user,
 			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -734,8 +734,8 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 			user:  user,
 			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -809,8 +809,8 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 			user:  user,
 			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
@@ -871,8 +871,8 @@ func TestKubeconfigFailBecauseWorkspaceNotFound(t *testing.T) {
 			user:  user,
 			scope: "oganization",
 			reviewerProvider: mockReviewerProvider{
-				"get":    mockReviewer{},
-				"delete": mockReviewer{},
+				[2]string{"get", "workspaces"}:    mockReviewer{},
+				[2]string{"delete", "workspaces"}: mockReviewer{},
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
