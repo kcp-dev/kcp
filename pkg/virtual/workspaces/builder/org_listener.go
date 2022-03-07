@@ -41,6 +41,11 @@ type orgListener struct {
 
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
+	knownWorkspacesMutex sync.Mutex
+	// knownWorkspaces keeps the list of the workspaces that are currently known to exist,
+	// so that when a notification comes from the workspaceAuthCache for a workspace
+	// (through the GroupMembershipChanged method being called), we can conclude
+	// whether the workspace has been deleted, added or modified.
 	knownWorkspaces sets.String
 
 	ready func() bool
@@ -66,6 +71,9 @@ func NewOrgListener(clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 }
 
 func (l *orgListener) Initialize(authCache *workspaceauth.AuthorizationCache) {
+	l.knownWorkspacesMutex.Lock()
+	defer l.knownWorkspacesMutex.Unlock()
+
 	l.orgMutex.Lock()
 	defer l.orgMutex.Unlock()
 
@@ -107,6 +115,9 @@ func (l *orgListener) Stop() {
 }
 
 func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups sets.String) {
+	l.knownWorkspacesMutex.Lock()
+	defer l.knownWorkspacesMutex.Unlock()
+
 	orgName := helper.RootCluster + ":" + workspaceName
 	// All the workspace objects are accessible to the "system:masters" group
 	// and we want to track changes to all workspaces here
