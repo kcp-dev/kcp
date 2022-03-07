@@ -422,6 +422,37 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	return nil
 }
 
+// List returns the set of workspace names for all workspaces that match the given selector
+func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
+	ac.rwMutex.RLock()
+	defer ac.rwMutex.RUnlock()
+
+	keys := sets.String{}
+	// All the workspace objects are accessible to the "system:masters" group
+	obj, exists, _ := ac.groupSubjectRecordStore.GetByKey(user.SystemPrivilegedGroup)
+	if exists {
+		subjectRecord := obj.(*subjectRecord)
+		keys.Insert(subjectRecord.workspaces.List()...)
+	}
+
+	workspaceList := &workspaceapi.ClusterWorkspaceList{}
+	for _, key := range keys.List() {
+		workspace, err := ac.workspaceLister.Get(key)
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		// only match selected labels
+		if !selector.Matches(labels.Set(workspace.Labels)) {
+			continue
+		}
+		workspaceList.Items = append(workspaceList.Items, *workspace)
+	}
+	return workspaceList, nil
+}
+
 // List returns the set of workspace names the user has access to view
 func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
 	ac.rwMutex.RLock()

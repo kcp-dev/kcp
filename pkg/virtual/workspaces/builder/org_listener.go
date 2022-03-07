@@ -43,25 +43,15 @@ type orgListener struct {
 
 	knownWorkspaces sets.String
 
-	// orgListerUserInfo defines the userInfo that will be used to retrieve all the
-	// organizations from the root workspace.
-	// We expect this user to have view permissions on clusterworkspace resources
-	// in the root logical cluster.
-	// Currently we use a dummy user with the system:masters group, since this group
-	// can see everything.
-	// But this could be changed in the future of course.
-	orgListerUserInfo user.Info
-
 	ready func() bool
 
 	orgMutex sync.RWMutex
 	orgs     map[string]virtualworkspacesregistry.Org
 }
 
-func NewOrgListener(orgListerUserInfo user.Info, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg virtualworkspacesregistry.Org, newOrg func(orgName string) virtualworkspacesregistry.Org) *orgListener {
+func NewOrgListener(clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg virtualworkspacesregistry.Org, newOrg func(orgName string) virtualworkspacesregistry.Org) *orgListener {
 	w := &orgListener{
-		orgListerUserInfo: orgListerUserInfo,
-		newOrg:            newOrg,
+		newOrg: newOrg,
 		orgs: map[string]virtualworkspacesregistry.Org{
 			helper.RootCluster: rootOrg,
 		},
@@ -84,7 +74,8 @@ func (l *orgListener) Initialize(authCache *workspaceauth.AuthorizationCache) {
 	defer mutex.Unlock()
 
 	readys := []func() bool{}
-	workspaces, _ := authCache.List(l.orgListerUserInfo, labels.Everything())
+
+	workspaces, _ := authCache.ListAllWorkspaces(labels.Everything())
 	for _, workspace := range workspaces.Items {
 		orgName := helper.RootCluster + ":" + workspace.Name
 		org := l.newOrg(orgName)
@@ -117,10 +108,12 @@ func (l *orgListener) Stop() {
 
 func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups sets.String) {
 	orgName := helper.RootCluster + ":" + workspaceName
-	hasAccess := users.Has(l.orgListerUserInfo.GetName()) || groups.HasAny(l.orgListerUserInfo.GetGroups()...)
+	// All the workspace objects are accessible to the "system:masters" group
+	// and we want to track changes to all workspaces here
+	hasAccess := groups.Has(user.SystemPrivilegedGroup)
 	known := l.knownWorkspaces.Has(workspaceName)
 	switch {
-	// this means that we were removed from the workspace
+	// this means that the workspace has been deleted
 	case !hasAccess && known:
 		l.knownWorkspaces.Delete(workspaceName)
 

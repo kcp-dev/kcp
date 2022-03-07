@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
@@ -136,15 +135,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 						rootRBACInformers,
 					)
 
-					adminUser := &user.DefaultInfo{
-						Name:   "dummyOne",
-						UID:    "dummyOne",
-						Groups: []string{user.SystemPrivilegedGroup},
-						Extra:  map[string][]string{},
-					}
-
 					rootOrg := virtualworkspacesregistry.NewOrg(rootRBACClient, rootTenancyClient.ClusterWorkspaces(), rootRBACInformers, rbacwrapper.FilterClusterRoleBindingInformer(helper.RootCluster, crbInformer), rootClusterWorkspaceInformer)
-					orgListener = NewOrgListener(adminUser, globalClusterWorkspaceCache, rootOrg, func(orgName string) virtualworkspacesregistry.Org {
+					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgName string) virtualworkspacesregistry.Org {
 						return virtualworkspacesregistry.NewOrg(
 							rbacv1client.NewWithCluster(rootRBACClient.RESTClient(), orgName),
 							tenancyclient.NewWithCluster(rootTenancyClient.RESTClient(), orgName).ClusterWorkspaces(),
