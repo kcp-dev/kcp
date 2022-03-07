@@ -44,6 +44,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	opts := plugin.NewOptions(streams)
 
 	cmd := &cobra.Command{
+		Aliases:          []string{"ws"},
 		Use:              "workspace [--workspace-directory-server=] <current|use|list>",
 		Short:            "Manages KCP workspaces",
 		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
