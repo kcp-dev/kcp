@@ -18,8 +18,8 @@ package registry
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -158,20 +157,19 @@ func (s *REST) NamespaceScoped() bool {
 	return false
 }
 
-func (s *REST) reviewForUser(user user.Info, name string, groupResource schema.GroupResource, action string, reviewer workspaceauth.Reviewer) error {
+func (s *REST) isUserAllowed(user user.Info, name string, reviewer workspaceauth.Reviewer) (bool, error) {
 	review, err := reviewer.Review(name)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if review.EvaluationError() != "" {
-		return kerrors.NewForbidden(groupResource, "", errors.New(review.EvaluationError()))
+	if review.EvaluationError() != nil {
+		return false, review.EvaluationError()
 	}
-	if !sets.NewString(user.GetGroups()...).HasAny(review.Groups()...) &&
-		!sets.NewString(review.Users()...).Has(user.GetName()) {
-		return kerrors.NewForbidden(groupResource, "", fmt.Errorf("User %s doesn't have the permission to %s workspace %s", user.GetName(), action, name))
+	if !sets.NewString(user.GetGroups()...).HasAny(review.Groups()...) && !sets.NewString(review.Users()...).Has(user.GetName()) {
+		return false, nil
 	}
 
-	return nil
+	return true, nil
 }
 
 func (s *REST) getPrettyNameFromInternalName(user kuser.Info, orgClusterName, internalName string) (string, error) {
@@ -224,7 +222,7 @@ func (s *REST) extractOrg(user user.Info, ctx context.Context) (orgClusterName s
 	//  if err != nil {
 	//  	return "", nil, err
 	//  }
-	//  if err := s.reviewForUser(user, orgName, tenancyv1beta1.Resource("workspace"), "get", s.rootReviewerProvider.Create("get", "workspaces")); err != nil {
+	//  if err := s.isUserAllowed(user, orgName, tenancyv1beta1.Resource("workspace"), "get", s.rootReviewerProvider.Create("get", "workspaces")); err != nil {
 	//  	return "", nil, err
 	//  }
 	//
@@ -494,6 +492,20 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	if !isWorkspace {
 		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
+
+	reviewer := s.rootReviewerProvider.Create("access", "clusterworkspaces", "content")
+	// TODO this needs to come from a function - shouldn't be calling ctx.Value() directly
+	orgClusterName := ctx.Value(WorkspacesOrgKey).(string)
+	_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
+	if err != nil {
+		return nil, kerrors.NewBadRequest("unable to determine organization")
+	}
+	if allowed, err := s.isUserAllowed(user, orgName, reviewer); err != nil {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", err)
+	} else if !allowed {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", fmt.Errorf("user %q is not allowed to create personal workspaces in organization %q", user.GetName(), orgName))
+	}
+
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, user)
 	listerRoleBindingName := getRoleBindingName(ListerRoleType, workspace.Name, user)
 
@@ -650,7 +662,7 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		}
 	}
 
-	if err := s.reviewForUser(user, internalName, tenancyv1beta1.Resource("workspace"), "delete", org.workspaceReviewerProvider.Create("delete", "workspaces")); err != nil {
+	if err := s.isUserAllowed(user, internalName, tenancyv1beta1.Resource("workspace"), "delete", org.workspaceReviewerProvider.Create("delete", "workspaces")); err != nil {
 		return nil, false, err
 	}
 

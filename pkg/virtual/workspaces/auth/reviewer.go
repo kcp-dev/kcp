@@ -20,6 +20,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kauthorizer "k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
+	"path"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
@@ -28,13 +29,13 @@ import (
 type Review interface {
 	Users() []string
 	Groups() []string
-	EvaluationError() string
+	EvaluationError() error
 }
 
 type defaultReview struct {
 	users           []string
 	groups          []string
-	evaluationError string
+	evaluationError error
 }
 
 func (r *defaultReview) Users() []string {
@@ -46,23 +47,24 @@ func (r *defaultReview) Groups() []string {
 	return r.groups
 }
 
-func (r *defaultReview) EvaluationError() string {
+func (r *defaultReview) EvaluationError() error {
 	return r.evaluationError
 }
 
 type ReviewerProvider interface {
-	Create(checkedVerb, checkedResource string) Reviewer
+	Create(checkedVerb, checkedResource string, subresources ...string) Reviewer
 }
 
 type authorizerReviewerProvider struct {
 	policyChecker rbac.SubjectLocator
 }
 
-func (arp *authorizerReviewerProvider) Create(checkedVerb, checkedResource string) Reviewer {
+func (arp *authorizerReviewerProvider) Create(checkedVerb, checkedResource string, subresources ...string) Reviewer {
 	return &authorizerReviewer{
 		checkedVerb:     checkedVerb,
 		checkedResource: checkedResource,
 		policyChecker:   arp.policyChecker,
+		subresources:    subresources,
 	}
 }
 
@@ -73,6 +75,7 @@ type Reviewer interface {
 
 type authorizerReviewer struct {
 	checkedVerb, checkedResource string
+	subresources                 []string
 	policyChecker                rbac.SubjectLocator
 }
 
@@ -89,6 +92,7 @@ func (r *authorizerReviewer) Review(workspaceName string) (Review, error) {
 		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
 		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
 		Resource:        r.checkedResource,
+		Subresource:     path.Join(r.subresources...),
 		Name:            workspaceName,
 		ResourceRequest: true,
 	}
@@ -97,7 +101,7 @@ func (r *authorizerReviewer) Review(workspaceName string) (Review, error) {
 	review := &defaultReview{}
 	review.users, review.groups = RBACSubjectsToUsersAndGroups(subjects)
 	if err != nil {
-		review.evaluationError = err.Error()
+		review.evaluationError = err
 	}
 	return review, nil
 }
