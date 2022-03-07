@@ -38,7 +38,7 @@ func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWork
 	orgWorkspaceAuthorizationCache := workspaceauth.NewAuthorizationCache(
 		orgClusterWorkspaceInformer.Lister(),
 		orgClusterWorkspaceInformer.Informer(),
-		orgReviewerProvider.Create("get", "workspaces"), // TODO: decide what we put here.
+		orgReviewerProvider.Create("get", "workspaces"),
 		orgRBACInformers,
 	)
 
