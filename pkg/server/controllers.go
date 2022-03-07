@@ -49,11 +49,13 @@ import (
 	configorganization "github.com/kcp-dev/kcp/config/organization"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
@@ -460,6 +462,9 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 			metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
 			metav1.GroupResource{Group: apiresourceapi.GroupName, Resource: "apiresourceimports"},
 			metav1.GroupResource{Group: apiresourceapi.GroupName, Resource: "negotiatedapiresources"},
+			metav1.GroupResource{Group: apis.GroupName, Resource: "apiresourceschemas"},
+			metav1.GroupResource{Group: apis.GroupName, Resource: "apiexports"},
+			metav1.GroupResource{Group: apis.GroupName, Resource: "apibindings"},
 		)
 		if err != nil {
 			return err
@@ -552,6 +557,47 @@ func (s *Server) installWorkloadClusterHeartbeatController(ctx context.Context, 
 	})
 	return nil
 
+}
+
+func (s *Server) installAPIBindingController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-apibinding-controller")
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := apibinding.NewController(
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook("kcp-install-apibinding-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) waitForSync(stop <-chan struct{}) error {
