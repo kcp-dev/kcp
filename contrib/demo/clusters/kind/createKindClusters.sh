@@ -109,7 +109,7 @@ for cluster in "${CLUSTERS[@]}"; do
         KIND_EXPERIMENTAL_PROVIDER=${KIND_EXPERIMENTAL_PROVIDER:-} kind create cluster \
             --config "${CLUSTERS_DIR}/${cluster}.config" \
             --kubeconfig "${CLUSTERS_DIR}/${cluster}.kubeconfig" \
-            "${IMAGE_FLAG[@]}"
+            "${IMAGE_FLAG[@]:[]}"
     fi
 
     if [[ ! -f "${CLUSTERS_DIR}/${cluster}.yaml" ]]; then
