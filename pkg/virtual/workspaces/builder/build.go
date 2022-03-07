@@ -51,8 +51,6 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
-	// TODO: include the clusterName in the indexers, with a function to get the key.
-
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}

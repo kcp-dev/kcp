@@ -31,14 +31,14 @@ import (
 )
 
 // NewClusterWorkspaceCache returns a non-initialized ClusterWorkspaceCache. The cache needs to be run to begin functioning
-func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterInterface kcpclient.ClusterInterface, defaultNodeSelector string) *ClusterWorkspaceCache {
+func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterClient kcpclient.ClusterInterface, defaultNodeSelector string) *ClusterWorkspaceCache {
 	if err := workspaces.GetIndexer().AddIndexers(cache.Indexers{
 		"requester": indexWorkspaceByRequester,
 	}); err != nil {
 		panic(err)
 	}
 	return &ClusterWorkspaceCache{
-		ClusterInterface:    kcpClusterInterface,
+		kcpClusterClient:    kcpClusterClient,
 		Store:               workspaces.GetIndexer(),
 		HasSynced:           workspaces.GetController().HasSynced,
 		DefaultNodeSelector: defaultNodeSelector,
@@ -46,7 +46,7 @@ func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterIn
 }
 
 type ClusterWorkspaceCache struct {
-	ClusterInterface    kcpclient.ClusterInterface
+	kcpClusterClient    kcpclient.ClusterInterface
 	Store               cache.Indexer
 	HasSynced           cache.InformerSynced
 	DefaultNodeSelector string
@@ -78,7 +78,7 @@ func (c *ClusterWorkspaceCache) GetWorkspace(lclusterName, workspaceName string)
 		clusterWorkspace = clusterWorkspaceObj.(*workspaceapi.ClusterWorkspace)
 	} else {
 		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
-		clusterWorkspace, err = c.ClusterInterface.Cluster(lclusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
+		clusterWorkspace, err = c.kcpClusterClient.Cluster(lclusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
 		// the workspace does not exist, so prevent create and update in that workspace
 		if err != nil {
 			return nil, fmt.Errorf("workspace %s does not exist", workspaceName)
