@@ -50,6 +50,14 @@ type APIBinding struct {
 	Status APIBindingStatus `json:"status,omitempty"`
 }
 
+func (in *APIBinding) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+func (in *APIBinding) SetConditions(conditions conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = conditions
+}
+
 // APIBindingSpec records the APIs and implementations that are to be bound.
 type APIBindingSpec struct {
 	// reference uniquely identifies an API to bind to.
@@ -141,6 +149,33 @@ type APIBindingStatus struct {
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
+
+// These are valid conditions of APIBinding.
+const (
+	// APIExportValid is a condition for APIBinding that reflects that validity of the referenced APIExport.
+	APIExportValid conditionsv1alpha1.ConditionType = "APIExportValid"
+
+	// APIExportInvalidReference is a reason for APIExportValid condition of APIBinding that the referenced APIExport reference is invalid.
+	APIExportInvalidReference = "APIExportInvalidReference"
+	// APIExportNotFoundReason is a reason for APIExportValid condition that the referenced APIExport is not found.
+	APIExportNotFoundReason = "APIExportNotFound"
+	// GetErrorReason is a reason for APIExportValid condition that the referenced APIExport cannot be retrieved.
+	GetErrorReason = "GetError"
+
+	// CRDReady is a condition for APIBinding that reflects that the referenced CRDs are ready.
+	CRDReady conditionsv1alpha1.ConditionType = "CRDReady"
+
+	// GetAPIResourceSchemaError is a reason for CRDReady condition that the referenced CRDs cannot be retrieved.
+	GetAPIResourceSchemaError = "GetAPIResourceSchemaError"
+	// InvalidSchemaReason is a reason for CRDReady condition that the referenced APIResoureSchema cannot be converted to a CRD.
+	InvalidSchemaReason = "InvalidSchema"
+	// CreateErrorReason is a reason for CRDReady condition that the referenced CRDs cannot be created.
+	CreateErrorReason = "CreateError"
+	// UpdateErrorReason is a reason for CRDReady condition that the referenced CRDs cannot be updated.
+	UpdateErrorReason = "UpdateError"
+	// WaitingForEstablishedReason is a reason for CRDReady condition that the referenced CRDs are not ready.
+	WaitingForEstablishedReason = "WaitingForEstablished"
+)
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..
 type BoundAPIResource struct {
