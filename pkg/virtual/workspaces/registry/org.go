@@ -29,7 +29,7 @@ import (
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 )
 
-func NewOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, orgRBACInformers rbacinformers.Interface, orgCRBInformer rbacinformers.ClusterRoleBindingInformer, orgClusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer) Org {
+func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, orgRBACInformers rbacinformers.Interface, orgCRBInformer rbacinformers.ClusterRoleBindingInformer, orgClusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer) Org {
 	orgSubjectLocator := frameworkrbac.NewSubjectLocator(orgRBACInformers)
 	orgReviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(orgSubjectLocator)
 
@@ -40,31 +40,28 @@ func NewOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWorkspaceClient
 		orgRBACInformers,
 	)
 
-	var stopCh chan struct{}
-
-	orgWorkspaceAuthorizationCache.Run(1*time.Second, stopCh)
-
-	return Org{
+	newOrg := Org{
 		rbacClient:                orgRBACClient,
 		crbInformer:               orgCRBInformer,
 		crbLister:                 orgCRBInformer.Lister(),
 		workspaceReviewerProvider: orgReviewerProvider,
 		clusterWorkspaceClient:    orgClusteWorkspaceClient,
 		clusterWorkspaceLister:    orgWorkspaceAuthorizationCache,
-		stopCh:                    stopCh,
+		stopCh:                    make(chan struct{}),
 		authCache:                 orgWorkspaceAuthorizationCache,
 	}
+
+	newOrg.authCache.Run(1*time.Second, newOrg.stopCh)
+
+	return newOrg
 }
 
 type Org struct {
-	// rbacClient can modify RBAC rules
-	rbacClient rbacv1client.RbacV1Interface
-	// crbInformer allows listing or seaching for RBAC cluster role bindings
-	crbInformer rbacinformers.ClusterRoleBindingInformer
-	// crbLister allows listing RBAC cluster role bindings
-	crbLister rbacv1listers.ClusterRoleBindingLister
-	// clusterWorkspaceClient can modify KCP workspaces
+	rbacClient             rbacv1client.RbacV1Interface
+	crbInformer            rbacinformers.ClusterRoleBindingInformer
+	crbLister              rbacv1listers.ClusterRoleBindingLister
 	clusterWorkspaceClient tenancyclient.ClusterWorkspaceInterface
+
 	// workspaceReviewerProvider allow getting a reviewer that checks
 	// permissions for a given verb to workspaces
 	workspaceReviewerProvider workspaceauth.ReviewerProvider
@@ -76,7 +73,7 @@ type Org struct {
 	stopCh chan struct{}
 }
 
-func (o Org) ReadyForAccess() bool {
+func (o Org) Ready() bool {
 	return o.authCache.ReadyForAccess()
 }
 
