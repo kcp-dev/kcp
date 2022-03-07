@@ -34,7 +34,6 @@ import (
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualframeworkcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
-	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 	rootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
@@ -61,13 +60,13 @@ func (o *WorkspacesSubCommandOptions) AddFlags(flags *pflag.FlagSet) {
 	}
 
 	flags.StringVar(&o.KubeconfigFile, "workspaces:kubeconfig", "", ""+
-		"The kubeconfig file of the organizational cluster that provides the workspaces and related RBAC rules.")
+		"The kubeconfig file of the KCP instance that hosts workspaces.")
 
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 
 	flags.StringVar(&o.RootPathPrefix, "workspaces:root-path-prefix", builder.DefaultRootPathPrefix, ""+
 		"The prefix of the workspaces API server root path.\n"+
-		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/workspaces/<org-name>/personal|all")
+		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/<org-name>/personal|all")
 }
 
 func (o *WorkspacesSubCommandOptions) Validate() []error {
@@ -97,16 +96,10 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 		return nil, nil, err
 	}
 
-	// HACK HACK HACK
-	// for now we pass a /cluster/<org> config to the virtual workspace apiserver. We take the
-	// org workspace name from the host, and then reset it to be a cluster-less config.
-	// TODO(david): have a multi-org workspace auth cache.
 	u, err := url.Parse(kubeClientConfig.Host)
 	if err != nil {
 		return nil, nil, err
 	}
-	segments := strings.Split(u.Path, "/")
-	orgClusterName := segments[len(segments)-1]
 	u.Path = ""
 	kubeClientConfig.Host = u.String()
 
@@ -114,33 +107,24 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 	if err != nil {
 		return nil, nil, err
 	}
-	orgKubeClient := kubeClusterClient.Cluster(orgClusterName)
-	kubeInformers := informers.NewSharedInformerFactory(orgKubeClient, 10*time.Minute)
+	wildcardKubeClient := kubeClusterClient.Cluster("*")
+	wildcardKubeInformers := informers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
 	rootKubeClient := kubeClusterClient.Cluster(helper.RootCluster)
 
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	orgKcpClient := kcpClusterClient.Cluster(orgClusterName)
-	kcpInformer := kcpinformer.NewSharedInformerFactory(orgKcpClient, 10*time.Minute)
+	wildcardKcpClient := kcpClusterClient.Cluster("*")
+	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 	rootKcpClient := kcpClusterClient.Cluster(helper.RootCluster)
 
-	//	discoveryClient := cacheddiscovery.NewMemCacheClient(orgKubeClient.Discovery())
-	//	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-
-	// TODO(david): support multiple orgs
-	singleClusterRBACV1 := frameworkrbac.FilterPerCluster(orgClusterName, kubeInformers.Rbac().V1())
-
-	subjectLocator := frameworkrbac.NewSubjectLocator(singleClusterRBACV1)
-	ruleResolver := frameworkrbac.NewRuleResolver(singleClusterRBACV1)
-
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(o.RootPathPrefix, kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces(), rootKcpClient, orgKcpClient, rootKubeClient, orgKubeClient, singleClusterRBACV1, subjectLocator, ruleResolver),
+		builder.BuildVirtualWorkspace(o.RootPathPrefix, wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), rootKcpClient, rootKubeClient, kcpClusterClient, kubeClusterClient),
 	}
 	informerStarts := []rootapiserver.InformerStart{
-		kubeInformers.Start,
-		kcpInformer.Start,
+		wildcardKubeInformers.Start,
+		wildcardKcpInformers.Start,
 	}
 	return informerStarts, virtualWorkspaces, nil
 }

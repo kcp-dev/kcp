@@ -48,7 +48,7 @@ type VirtualWorkspace struct {
 	ClientContexts         []VirtualWorkspaceClientContext
 }
 
-func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer framework.RunningServer, orgClusterName string) ([]*rest.Config, error) {
+func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer framework.RunningServer) ([]*rest.Config, error) {
 	kcpKubeconfigPath := kcpServer.KubeconfigPath()
 	kcpDataDir := filepath.Dir(kcpKubeconfigPath)
 
@@ -139,7 +139,7 @@ func (vw VirtualWorkspace) Setup(t *testing.T, ctx context.Context, kcpServer fr
 	}
 	for _, vwClientContext := range vw.ClientContexts {
 		vwCfg := rest.CopyConfig(mainRestConfig)
-		vwCfg.Host = "https://" + vwCfg.Host + "/" + orgClusterName + vwClientContext.Prefix
+		vwCfg.Host = "https://" + vwCfg.Host + vwClientContext.Prefix
 		if authInfo, exists := kcpRawConfig.AuthInfos[vwClientContext.User.Name]; exists && vwClientContext.User.Token == "" {
 			vwCfg.BearerToken = authInfo.Token
 		} else {

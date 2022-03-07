@@ -33,7 +33,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
-	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
+	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
@@ -83,7 +83,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
-	orgWorkspaceKubeInformer := frameworkrbac.FilterPerCluster(parentClusterName, a.versionedInformers.Rbac().V1())
+	orgWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.versionedInformers.Rbac().V1())
 	orgAuthorizer := rbac.New(
 		&rbac.RoleGetter{Lister: orgWorkspaceKubeInformer.Roles().Lister()},
 		&rbac.RoleBindingLister{Lister: orgWorkspaceKubeInformer.RoleBindings().Lister()},

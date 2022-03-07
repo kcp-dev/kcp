@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
@@ -43,8 +44,6 @@ const (
 	kcpWorkspaceContextNamePrefix  string = "workspace.kcp.dev/"
 	kcpPreviousWorkspaceContextKey string = "workspace.kcp.dev/-"
 )
-
-var defaultWorkspaceDirectoryApiServerPath = workspacebuilder.DefaultRootPathPrefix + "/addsupportfororgs/" + workspaceregistry.PersonalScope
 
 // KubeConfig contains a config loaded from a Kubeconfig
 // and allows modifications on it through workspace-related
@@ -109,7 +108,18 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*
 			if err != nil {
 				return nil, err
 			}
-			workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, defaultWorkspaceDirectoryApiServerPath)
+			orgClusterName := helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, "default")
+			clusterIndex := strings.Index(currentServerURL.Path, "/clusters/")
+			if clusterIndex >= 0 {
+				orgClusterName = currentServerURL.Path[clusterIndex+10:]
+			}
+
+			scope := workspaceregistry.PersonalScope
+			if orgClusterName == helper.RootCluster {
+				scope = workspaceregistry.OrganizationScope
+			}
+
+			workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, workspacebuilder.DefaultRootPathPrefix, orgClusterName, scope)
 		}
 		if workspaceDirectoryOverrides.ClusterInfo.CertificateAuthority != "" {
 			workspaceDirectoryCluster.CertificateAuthority = workspaceDirectoryOverrides.ClusterInfo.CertificateAuthority
@@ -183,7 +193,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 		}
 	}
 
-	workspaceKubeConfigBytes, err := tenancyClient.RESTClient().Get().Resource("workspaces").SubResource("kubeconfig").Name(workspaceName).Do(ctx).Raw()
+	workspaceKubeConfigBytes, err := tenancyClient.TenancyV1beta1().RESTClient().Get().Resource("workspaces").SubResource("kubeconfig").Name(workspaceName).Do(ctx).Raw()
 	if err != nil {
 		return err
 	}
@@ -307,7 +317,7 @@ func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
 		return err
 	}
 
-	result := tenancyClient.RESTClient().Get().Resource("workspaces").SetHeader("Accept", strings.Join([]string{
+	result := tenancyClient.TenancyV1beta1().RESTClient().Get().Resource("workspaces").SetHeader("Accept", strings.Join([]string{
 		fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1.SchemeGroupVersion.Version, metav1.GroupName),
 		fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1beta1.SchemeGroupVersion.Version, metav1beta1.GroupName),
 		"application/json",

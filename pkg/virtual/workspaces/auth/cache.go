@@ -157,7 +157,7 @@ func (l syncedClusterRoleBindingLister) LastSyncResourceVersion() string {
 // AuthorizationCache maintains a cache on the set of workspaces a user or group can access.
 type AuthorizationCache struct {
 	// allKnownWorkspaces we track all the known workspaces, so we can detect deletes.
-	// TODO remove this in favor of a list/watch mechanism for projects
+	// TODO remove this in favor of a list/watch mechanism for workspaces
 	allKnownWorkspaces        sets.String
 	workspaceLister           workspacelisters.ClusterWorkspaceLister
 	lastSyncResourceVersioner LastSyncResourceVersioner
@@ -181,6 +181,9 @@ type AuthorizationCache struct {
 	syncHandler func(request *reviewRequest, userSubjectRecordStore cache.Store, groupSubjectRecordStore cache.Store, reviewRecordStore cache.Store) error
 
 	rwMutex sync.RWMutex
+
+	watcherLock sync.Mutex
+	watchers    []CacheWatcher
 }
 
 // NewAuthorizationCache creates a new AuthorizationCache
@@ -198,7 +201,7 @@ func NewAuthorizationCache(
 		informers.ClusterRoleBindings().Lister(),
 		informers.ClusterRoleBindings().Informer(),
 	}
-	ac := &AuthorizationCache{
+	ac := AuthorizationCache{
 		allKnownWorkspaces: sets.String{},
 		workspaceLister:    workspaceLister,
 
@@ -215,18 +218,43 @@ func NewAuthorizationCache(
 
 		reviewer: reviewer,
 		skip:     &neverSkipSynchronizer{},
+
+		watchers: []CacheWatcher{},
 	}
 	ac.lastSyncResourceVersioner = workspaceLastSyncResourceVersioner
 	ac.syncHandler = ac.syncRequest
 	ac.rwMutex = sync.RWMutex{}
-	return ac
+	return &ac
 }
 
 // Run begins watching and synchronizing the cache
-func (ac *AuthorizationCache) Run(period time.Duration) {
+func (ac *AuthorizationCache) Run(period time.Duration, stopCh <-chan struct{}) {
 	ac.skip = &statelessSkipSynchronizer{}
+	go utilwait.Until(func() { ac.synchronize() }, period, stopCh)
+}
 
-	go utilwait.Forever(func() { ac.synchronize() }, period)
+func (ac *AuthorizationCache) AddWatcher(watcher CacheWatcher) {
+	ac.watcherLock.Lock()
+	defer ac.watcherLock.Unlock()
+
+	ac.watchers = append(ac.watchers, watcher)
+}
+
+func (ac *AuthorizationCache) RemoveWatcher(watcher CacheWatcher) {
+	ac.watcherLock.Lock()
+	defer ac.watcherLock.Unlock()
+
+	lastIndex := len(ac.watchers) - 1
+	for i := 0; i < len(ac.watchers); i++ {
+		if ac.watchers[i] == watcher {
+			if i < lastIndex {
+				// if we're not the last element, shift
+				copy(ac.watchers[i:], ac.watchers[i+1:])
+			}
+			ac.watchers = ac.watchers[:lastIndex]
+			break
+		}
+	}
 }
 
 func (ac *AuthorizationCache) GetClusterRoleLister() SyncedClusterRoleLister {
@@ -269,6 +297,10 @@ func (ac *AuthorizationCache) purgeDeletedWorkspaces(oldWorkspaces, newWorkspace
 			deleteWorkspaceFromSubjects(groupSubjectRecordStore, reviewRecord.groups, reviewRecord.workspace)
 			_ = reviewRecordStore.Delete(reviewRecord)
 		}
+	}
+
+	for workspace := range oldWorkspaces.Difference(newWorkspaces) {
+		ac.notifyWatchers(workspace, nil, sets.String{}, sets.String{})
 	}
 }
 
@@ -382,11 +414,43 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	addSubjectsToWorkspace(userSubjectRecordStore, review.Users(), workspace)
 	addSubjectsToWorkspace(groupSubjectRecordStore, review.Groups(), workspace)
 	cacheReviewRecord(request, lastKnownValue, review, reviewRecordStore)
+	ac.notifyWatchers(workspace, lastKnownValue, sets.NewString(review.Users()...), sets.NewString(review.Groups()...))
 
 	if errMsg := review.EvaluationError(); len(errMsg) > 0 {
 		klog.V(5).Info(errMsg)
 	}
 	return nil
+}
+
+// List returns the set of workspace names for all workspaces that match the given selector
+func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
+	ac.rwMutex.RLock()
+	defer ac.rwMutex.RUnlock()
+
+	keys := sets.String{}
+	// All the workspace objects are accessible to the "system:masters" group
+	obj, exists, _ := ac.groupSubjectRecordStore.GetByKey(user.SystemPrivilegedGroup)
+	if exists {
+		subjectRecord := obj.(*subjectRecord)
+		keys.Insert(subjectRecord.workspaces.List()...)
+	}
+
+	workspaceList := &workspaceapi.ClusterWorkspaceList{}
+	for _, key := range keys.List() {
+		workspace, err := ac.workspaceLister.Get(key)
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		// only match selected labels
+		if !selector.Matches(labels.Set(workspace.Labels)) {
+			continue
+		}
+		workspaceList.Items = append(workspaceList.Items, *workspace)
+	}
+	return workspaceList, nil
 }
 
 // List returns the set of workspace names the user has access to view
@@ -504,6 +568,15 @@ func addSubjectsToWorkspace(subjectRecordStore cache.Store, subjects []string, w
 			_ = subjectRecordStore.Add(item)
 		}
 		item.workspaces.Insert(workspace)
+	}
+}
+
+func (ac *AuthorizationCache) notifyWatchers(workspaceKey string, exists *reviewRecord, users, groups sets.String) {
+	_, workspaceName := clusters.SplitClusterAwareKey(workspaceKey)
+	ac.watcherLock.Lock()
+	defer ac.watcherLock.Unlock()
+	for _, watcher := range ac.watchers {
+		watcher.GroupMembershipChanged(workspaceName, users, groups)
 	}
 }
 

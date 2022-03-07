@@ -22,40 +22,55 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
-	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
-	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
+	"k8s.io/client-go/tools/cache"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
+	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
+	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
+	tenancywrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/tenancy"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	virtualworkspacesregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
 const WorkspacesVirtualWorkspaceName string = "workspaces"
-const DefaultRootPathPrefix string = "/services/applications/workspaces"
+const DefaultRootPathPrefix string = "/services/workspaces"
 
-func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, rootKcpClient kcpclient.Interface, orgKcpClient kcpclient.Interface, rootKubeClient, orgKubeClient kubernetes.Interface, rbacInformers rbacinformers.Interface, subjectLocator rbacauthorizer.SubjectLocator, ruleResolver rbacregistryvalidation.AuthorizationRuleResolver) framework.VirtualWorkspace {
-	crbInformer := rbacInformers.ClusterRoleBindings()
+func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, rootKcpClient kcpclient.Interface, rootKubeClient kubernetes.Interface, kcpClusterInterface kcpclient.ClusterInterface, kubeClusterInterface kubernetes.ClusterInterface) framework.VirtualWorkspace {
+	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
-	var workspaceAuthorizationCache *workspaceauth.AuthorizationCache
+	var rootWorkspaceAuthorizationCache *workspaceauth.AuthorizationCache
+	var globalClusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
+	var orgListener *orgListener
+
 	return &fixedgvs.FixedGroupVersionsVirtualWorkspace{
 		Name: WorkspacesVirtualWorkspaceName,
 		Ready: func() error {
-			if workspaceAuthorizationCache == nil || !workspaceAuthorizationCache.ReadyForAccess() {
+			if globalClusterWorkspaceCache == nil || !globalClusterWorkspaceCache.HasSynced() {
+				return errors.New("ClusterWorkspaceCache is not ready for access")
+			}
+
+			if rootWorkspaceAuthorizationCache == nil || !rootWorkspaceAuthorizationCache.ReadyForAccess() {
 				return errors.New("WorkspaceAuthorizationCache is not ready for access")
+			}
+
+			if orgListener == nil || !orgListener.Ready() {
+				return errors.New("Organization listener is not ready for access")
 			}
 			return nil
 		},
@@ -72,7 +87,12 @@ func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinf
 					return
 				}
 
-				return true, "/" + strings.Join(segments[:2], "/"),
+				// Do not allow the personal scope when accessing orgs as workspaces in the root logical cluster
+				if scope == virtualworkspacesregistry.PersonalScope && org == helper.RootCluster {
+					return
+				}
+
+				return true, rootPathPrefix + strings.Join(segments[:2], "/"),
 					context.WithValue(
 						context.WithValue(requestContext, virtualworkspacesregistry.WorkspacesScopeKey, scope),
 						virtualworkspacesregistry.WorkspacesOrgKey, org,
@@ -86,35 +106,69 @@ func BuildVirtualWorkspace(rootPathPrefix string, clusterWorkspaces workspaceinf
 				AddToScheme:        tenancyv1beta1.AddToScheme,
 				OpenAPIDefinitions: kcpopenapi.GetOpenAPIDefinitions,
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
-					reviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(subjectLocator)
-					workspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
-						clusterWorkspaces.Lister(),
-						clusterWorkspaces.Informer(),
-						reviewerProvider.ForVerb("get"),
-						rbacInformers,
-					)
 
-					workspaceClient := orgKcpClient.TenancyV1alpha1().ClusterWorkspaces()
-					clusterWorkspaceCache := workspacecache.NewClusterWorkspaceCache(
-						clusterWorkspaces.Informer(),
-						workspaceClient,
+					rootTenancyClient := rootKcpClient.TenancyV1alpha1()
+					rootRBACClient := rootKubeClient.RbacV1()
+
+					globalClusterWorkspaceCache = workspacecache.NewClusterWorkspaceCache(
+						wildcardsClusterWorkspaces.Informer(),
+						kcpClusterInterface,
 						"")
 
+					rootRBACInformers := rbacwrapper.FilterInformers(helper.RootCluster, wildcardsRbacInformers)
+					rootSubjectLocator := frameworkrbac.NewSubjectLocator(rootRBACInformers)
+					rootReviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(rootSubjectLocator)
+
+					rootClusterWorkspaceInformer := tenancywrapper.FilterClusterWorkspaceInformer(helper.RootCluster, wildcardsClusterWorkspaces)
+
+					rootWorkspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
+						rootClusterWorkspaceInformer.Lister(),
+						rootClusterWorkspaceInformer.Informer(),
+						rootReviewerProvider.ForVerb("get"),
+						rootRBACInformers,
+					)
+
+					rootOrg := virtualworkspacesregistry.CreateAndStartOrg(rootRBACClient, rootTenancyClient.ClusterWorkspaces(), rootRBACInformers, rbacwrapper.FilterClusterRoleBindingInformer(helper.RootCluster, crbInformer), rootClusterWorkspaceInformer)
+					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgClusterName string) *virtualworkspacesregistry.Org {
+						return virtualworkspacesregistry.CreateAndStartOrg(
+							kubeClusterInterface.Cluster(orgClusterName).RbacV1(),
+							kcpClusterInterface.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces(),
+							rbacwrapper.FilterInformers(orgClusterName, wildcardsRbacInformers),
+							rbacwrapper.FilterClusterRoleBindingInformer(orgClusterName, crbInformer),
+							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces))
+					})
+
 					if err := mainConfig.AddPostStartHook("clusterworkspaces.kcp.dev-workspacecache", func(context genericapiserver.PostStartHookContext) error {
-						go clusterWorkspaceCache.Run(context.StopCh)
+						go globalClusterWorkspaceCache.Run(context.StopCh)
 						return nil
 					}); err != nil {
 						return nil, err
 					}
 					if err := mainConfig.AddPostStartHook("clusterworkspaces.kcp.dev-workspaceauthorizationcache", func(context genericapiserver.PostStartHookContext) error {
-						period := 1 * time.Second
-						workspaceAuthorizationCache.Run(period)
+						for _, informer := range []cache.SharedIndexInformer{
+							wildcardsClusterWorkspaces.Informer(),
+							wildcardsRbacInformers.ClusterRoleBindings().Informer(),
+							wildcardsRbacInformers.RoleBindings().Informer(),
+							wildcardsRbacInformers.ClusterRoles().Informer(),
+							wildcardsRbacInformers.Roles().Informer(),
+						} {
+							if !cache.WaitForNamedCacheSync("workspaceauthorizationcache", context.StopCh, informer.HasSynced) {
+								return errors.New("informer not synced")
+							}
+						}
+						rootWorkspaceAuthorizationCache.Run(1*time.Second, context.StopCh)
+						go func() {
+							_ = wait.PollImmediateUntil(100*time.Millisecond, func() (done bool, err error) {
+								return rootWorkspaceAuthorizationCache.ReadyForAccess(), nil
+							}, context.StopCh)
+							orgListener.Initialize(rootWorkspaceAuthorizationCache)
+						}()
 						return nil
 					}); err != nil {
 						return nil, err
 					}
 
-					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(rootKcpClient.TenancyV1alpha1(), orgKcpClient.TenancyV1alpha1(), rootKubeClient, orgKubeClient, crbInformer, reviewerProvider, workspaceAuthorizationCache)
+					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(rootKcpClient.TenancyV1alpha1(), rootKubeClient, globalClusterWorkspaceCache, crbInformer, orgListener.GetOrg)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 							return workspacesRest, nil

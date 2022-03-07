@@ -27,18 +27,18 @@ import (
 	klog "k8s.io/klog/v2"
 
 	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceClient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 // NewClusterWorkspaceCache returns a non-initialized ClusterWorkspaceCache. The cache needs to be run to begin functioning
-func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, client workspaceClient.ClusterWorkspaceInterface, defaultNodeSelector string) *ClusterWorkspaceCache {
+func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterClient kcpclient.ClusterInterface, defaultNodeSelector string) *ClusterWorkspaceCache {
 	if err := workspaces.GetIndexer().AddIndexers(cache.Indexers{
 		"requester": indexWorkspaceByRequester,
 	}); err != nil {
 		panic(err)
 	}
 	return &ClusterWorkspaceCache{
-		Client:              client,
+		kcpClusterClient:    kcpClusterClient,
 		Store:               workspaces.GetIndexer(),
 		HasSynced:           workspaces.GetController().HasSynced,
 		DefaultNodeSelector: defaultNodeSelector,
@@ -46,17 +46,17 @@ func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, client works
 }
 
 type ClusterWorkspaceCache struct {
-	Client              workspaceClient.ClusterWorkspaceInterface
+	kcpClusterClient    kcpclient.ClusterInterface
 	Store               cache.Indexer
 	HasSynced           cache.InformerSynced
 	DefaultNodeSelector string
 }
 
-func (p *ClusterWorkspaceCache) GetWorkspace(name string) (*workspaceapi.ClusterWorkspace, error) {
-	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+func (c *ClusterWorkspaceCache) GetWorkspace(lclusterName, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
+	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ClusterName: lclusterName}}
 
 	// check for cluster workspace in the cache
-	clusterWorkspaceObj, exists, err := p.Store.Get(key)
+	clusterWorkspaceObj, exists, err := c.Store.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +64,12 @@ func (p *ClusterWorkspaceCache) GetWorkspace(name string) (*workspaceapi.Cluster
 	if !exists {
 		// give the cache time to observe a recent workspace creation
 		time.Sleep(50 * time.Millisecond)
-		clusterWorkspaceObj, exists, err = p.Store.Get(key)
+		clusterWorkspaceObj, exists, err = c.Store.Get(key)
 		if err != nil {
 			return nil, err
 		}
 		if exists {
-			klog.V(4).Infof("found %s in cache after waiting", name)
+			klog.V(4).Infof("found %s in cache after waiting", workspaceName)
 		}
 	}
 
@@ -78,12 +78,12 @@ func (p *ClusterWorkspaceCache) GetWorkspace(name string) (*workspaceapi.Cluster
 		clusterWorkspace = clusterWorkspaceObj.(*workspaceapi.ClusterWorkspace)
 	} else {
 		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
-		clusterWorkspace, err = p.Client.Get(context.TODO(), name, metav1.GetOptions{})
+		clusterWorkspace, err = c.kcpClusterClient.Cluster(lclusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
 		// the workspace does not exist, so prevent create and update in that workspace
 		if err != nil {
-			return nil, fmt.Errorf("workspace %s does not exist", name)
+			return nil, fmt.Errorf("workspace %s does not exist", workspaceName)
 		}
-		klog.V(4).Infof("found %s via storage lookup", name)
+		klog.V(4).Infof("found %s via storage lookup", workspaceName)
 	}
 	return clusterWorkspace, nil
 }
@@ -100,15 +100,6 @@ func (c *ClusterWorkspaceCache) Run(stopCh <-chan struct{}) {
 // Running determines if the cache is initialized and running
 func (c *ClusterWorkspaceCache) Running() bool {
 	return c.Store != nil
-}
-
-// NewFake is used for testing purpose only
-func NewFake(c workspaceClient.ClusterWorkspaceInterface, store cache.Indexer, defaultNodeSelector string) *ClusterWorkspaceCache {
-	return &ClusterWorkspaceCache{
-		Client:              c,
-		Store:               store,
-		DefaultNodeSelector: defaultNodeSelector,
-	}
 }
 
 // NewCacheStore creates an Indexer store with the given key function

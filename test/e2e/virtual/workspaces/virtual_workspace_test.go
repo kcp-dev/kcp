@@ -19,7 +19,6 @@ package workspaces
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -33,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
@@ -89,20 +88,22 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 	}
 	var testCases = []struct {
 		name                           string
-		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
+		virtualWorkspaceClientContexts func(orgName string) []helpers.VirtualWorkspaceClientContext
 		work                           func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "create a workspace in personal virtual workspace and have only its owner list it",
-			virtualWorkspaceClientContexts: []helpers.VirtualWorkspaceClientContext{
-				{
-					User:   testData.user1,
-					Prefix: "/personal",
-				},
-				{
-					User:   testData.user2,
-					Prefix: "/personal",
-				},
+			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
+				return []helpers.VirtualWorkspaceClientContext{
+					{
+						User:   testData.user1,
+						Prefix: "/" + orgName + "/personal",
+					},
+					{
+						User:   testData.user2,
+						Prefix: "/" + orgName + "/personal",
+					},
+				}
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
@@ -147,12 +148,63 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			},
 		},
 		{
+			name: "create a workspace in personal virtual workspace for an organization and don't see it in another organization",
+			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
+				return []helpers.VirtualWorkspaceClientContext{
+					{
+						User:   testData.user1,
+						Prefix: "/" + orgName + "/personal",
+					},
+					{
+						User:   testData.user1,
+						Prefix: "/root:default/personal",
+					},
+				}
+			},
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				testOrgClient := server.virtualWorkspaceClients[0]
+				defaultOrgClient := server.virtualWorkspaceClients[1]
+
+				t.Logf("Create Workspace workspace1 in test org")
+				workspace1, err := testOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create workspace1")
+
+				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
+				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
+				server.Artifact(t, func() (runtime.Object, error) {
+					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+				})
+
+				t.Logf("Create Workspace workspace2 in the virtual workspace")
+				workspace2, err := defaultOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create workspace2")
+
+				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
+					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
+						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
+					}
+					return nil
+				})
+				require.NoError(t, err, "did not see the workspace1 created in test org")
+				err = server.virtualWorkspaceExpectations[1](func(w *tenancyv1beta1.WorkspaceList) error {
+					if len(w.Items) != 1 || w.Items[0].Name != workspace2.Name {
+						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace2.Name, w)
+					}
+					return nil
+				})
+				require.NoError(t, err, "did not see workspace2 created in test org")
+			},
+		},
+		{
 			name: "create a workspace in personal virtual workspace and retrieve its kubeconfig",
-			virtualWorkspaceClientContexts: []helpers.VirtualWorkspaceClientContext{
-				{
-					User:   testData.user1,
-					Prefix: "/personal",
-				},
+			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
+				return []helpers.VirtualWorkspaceClientContext{
+					{
+						User:   testData.user1,
+						Prefix: "/" + orgName + "/personal",
+					},
+				}
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
@@ -210,14 +262,14 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 				expectedKubeconfigCluster := kcpConfigCurrentCluster.DeepCopy()
 				expectedKubeconfigCluster.Server = workspaceURL
-				expectedKubeconfig := &api.Config{
+				expectedKubeconfig := &clientcmdapi.Config{
 					CurrentContext: "personal/" + workspace1.Name,
-					Contexts: map[string]*api.Context{
+					Contexts: map[string]*clientcmdapi.Context{
 						"personal/" + workspace1.Name: {
 							Cluster: "personal/" + workspace1.Name,
 						},
 					},
-					Clusters: map[string]*api.Cluster{
+					Clusters: map[string]*clientcmdapi.Cluster{
 						"personal/" + workspace1.Name: expectedKubeconfigCluster,
 					},
 				}
@@ -240,7 +292,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			t.Parallel()
 
 			var users []framework.User
-			for _, vwClientContexts := range testCase.virtualWorkspaceClientContexts {
+			for _, vwClientContexts := range testCase.virtualWorkspaceClientContexts("") {
 				users = append(users, vwClientContexts.User)
 			}
 			usersKCPArgs, err := framework.Users(users).ArgsForKCP(t)
@@ -269,24 +321,31 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
+			clientContexts := testCase.virtualWorkspaceClientContexts(orgClusterName)
+
 			vw := helpers.VirtualWorkspace{
 				BuildSubCommandOptions: func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions {
-					// deepcopy kubeconfig and modify default context to point to orgClusterName
-					orig, err := kcpServer.RawConfig()
-					require.NoError(t, err)
-					bs, err := clientcmd.Write(orig)
-					require.NoError(t, err)
-					cfg, err := clientcmd.Load(bs)
-					require.NoError(t, err)
-					clusterName := cfg.Contexts[cfg.CurrentContext].Cluster
-					url, err := url.Parse(cfg.Clusters[clusterName].Server)
-					require.NoError(t, err)
-					url.Path = "/clusters/" + orgClusterName
-					cfg.Clusters[clusterName].Server = url.String()
+					kcpAdminConfig, _ := kcpServer.RawConfig()
+					var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
+					virtualWorkspaceKubeConfig := clientcmdapi.Config{
+						Clusters: map[string]*clientcmdapi.Cluster{
+							"shard": &baseCluster,
+						},
+						Contexts: map[string]*clientcmdapi.Context{
+							"shard": {
+								Cluster:  "shard",
+								AuthInfo: "virtualworkspace",
+							},
+						},
+						AuthInfos: map[string]*clientcmdapi.AuthInfo{
+							"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
+						},
+						CurrentContext: "shard",
+					}
 
 					// write kubeconfig to disk, next to kcp kubeconfig
 					cfgPath := filepath.Join(filepath.Dir(kcpServer.KubeconfigPath()), "virtualworkspace.kubeconfig")
-					err = clientcmd.WriteToFile(*cfg, cfgPath)
+					err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, cfgPath)
 					require.NoError(t, err)
 
 					return &workspacescmd.WorkspacesSubCommandOptions{
@@ -294,10 +353,10 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 						RootPathPrefix: "/",
 					}
 				},
-				ClientContexts: testCase.virtualWorkspaceClientContexts,
+				ClientContexts: clientContexts,
 			}
 
-			vwConfigs, err := vw.Setup(t, ctx, server, orgClusterName)
+			vwConfigs, err := vw.Setup(t, ctx, server)
 			require.NoError(t, err)
 
 			virtualWorkspaceClients := []clientset.Interface{}
@@ -328,7 +387,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				orgKubeClient:                  kubeClusterClient.Cluster(orgClusterName),
 				orgKcpClient:                   kcpClusterClient.Cluster(orgClusterName),
 				rootKcpClient:                  kcpClusterClient.Cluster(helper.RootCluster),
-				virtualWorkspaceClientContexts: testCase.virtualWorkspaceClientContexts,
+				virtualWorkspaceClientContexts: clientContexts,
 				virtualWorkspaceClients:        virtualWorkspaceClients,
 				virtualWorkspaceExpectations:   virtualWorkspaceExpectations,
 			})
