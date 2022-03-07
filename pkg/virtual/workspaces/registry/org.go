@@ -29,7 +29,7 @@ import (
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 )
 
-func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, orgRBACInformers rbacinformers.Interface, orgCRBInformer rbacinformers.ClusterRoleBindingInformer, orgClusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer) Org {
+func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, orgRBACInformers rbacinformers.Interface, orgCRBInformer rbacinformers.ClusterRoleBindingInformer, orgClusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer) *Org {
 	orgSubjectLocator := frameworkrbac.NewSubjectLocator(orgRBACInformers)
 	orgReviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(orgSubjectLocator)
 
@@ -40,7 +40,7 @@ func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWork
 		orgRBACInformers,
 	)
 
-	newOrg := Org{
+	newOrg := &Org{
 		rbacClient:                orgRBACClient,
 		crbInformer:               orgCRBInformer,
 		crbLister:                 orgCRBInformer.Lister(),

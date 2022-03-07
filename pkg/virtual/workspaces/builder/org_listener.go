@@ -37,7 +37,7 @@ import (
 // orgListener listens for changes in the root WorkspaceAuthCache,
 // in order to manage the list of orgs
 type orgListener struct {
-	newOrg func(orgName string) virtualworkspacesregistry.Org
+	newOrg func(orgName string) *virtualworkspacesregistry.Org
 
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
@@ -51,13 +51,13 @@ type orgListener struct {
 	ready func() bool
 
 	orgMutex sync.RWMutex
-	orgs     map[string]virtualworkspacesregistry.Org
+	orgs     map[string]*virtualworkspacesregistry.Org
 }
 
-func NewOrgListener(clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg virtualworkspacesregistry.Org, newOrg func(orgName string) virtualworkspacesregistry.Org) *orgListener {
+func NewOrgListener(clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg *virtualworkspacesregistry.Org, newOrg func(orgName string) *virtualworkspacesregistry.Org) *orgListener {
 	w := &orgListener{
 		newOrg: newOrg,
-		orgs: map[string]virtualworkspacesregistry.Org{
+		orgs: map[string]*virtualworkspacesregistry.Org{
 			helper.RootCluster: rootOrg,
 		},
 
@@ -183,13 +183,13 @@ func (l *orgListener) Ready() bool {
 	return l.ready()
 }
 
-func (l *orgListener) GetOrg(orgName string) (virtualworkspacesregistry.Org, error) {
+func (l *orgListener) GetOrg(orgName string) (*virtualworkspacesregistry.Org, error) {
 	l.orgMutex.RLock()
 	defer l.orgMutex.RUnlock()
 
 	org, exists := l.orgs[orgName]
 	if !exists {
-		return virtualworkspacesregistry.Org{}, fmt.Errorf("Unknown organization: %s", orgName)
+		return nil, fmt.Errorf("Unknown organization: %s", orgName)
 	}
 	return org, nil
 }

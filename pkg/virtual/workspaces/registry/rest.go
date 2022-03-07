@@ -73,7 +73,7 @@ const (
 type REST struct {
 	// getOrg retrieves an Org struct which contains all the org-related data (informers, clients, caches)
 	// required to perform the REST actions based on an orgClusterName.
-	getOrg func(orgClusterName string) (Org, error)
+	getOrg func(orgClusterName string) (*Org, error)
 
 	// crbInformer allows listing or seaching for RBAC cluster role bindings through all orgs
 	crbInformer rbacinformers.ClusterRoleBindingInformer
@@ -116,7 +116,7 @@ var _ rest.GracefulDeleter = &REST{}
 
 // NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
 // org workspaces, projecting them to the Workspace type.
-func NewREST(rootTenancyClient tenancyclient.TenancyV1alpha1Interface, rootKubeClient kubernetes.Interface, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer, getOrg func(orgClusterName string) (Org, error)) (*REST, *KubeconfigSubresourceREST) {
+func NewREST(rootTenancyClient tenancyclient.TenancyV1alpha1Interface, rootKubeClient kubernetes.Interface, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer, getOrg func(orgClusterName string) (*Org, error)) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
 		getOrg: getOrg,
 
@@ -192,7 +192,7 @@ func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
 	return user
 }
 
-func (s *REST) extractOrg(ctx context.Context) (orgClusterName string, org Org, err error) {
+func (s *REST) extractOrg(ctx context.Context) (orgClusterName string, org *Org, err error) {
 	orgClusterName = ctx.Value(WorkspacesOrgKey).(string)
 	org, err = s.getOrg(orgClusterName)
 	return
