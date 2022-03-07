@@ -168,7 +168,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 						return nil, err
 					}
 
-					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(rootKcpClient.TenancyV1alpha1(), rootKubeClient, globalClusterWorkspaceCache, crbInformer, orgListener.GetOrg)
+					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(rootKcpClient.TenancyV1alpha1(), rootKubeClient, globalClusterWorkspaceCache, crbInformer, orgListener.GetOrg, rootReviewerProvider)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 							return workspacesRest, nil

@@ -81,6 +81,8 @@ type REST struct {
 	// clusterWorkspaceCache is a global cache of cluster workspaces (for all orgs) used by the watcher.
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
+	rootReviewerProvider workspaceauth.ReviewerProvider
+
 	// Allows extended behavior during creation, required
 	createStrategy rest.RESTCreateStrategy
 	// Allows extended behavior during updates, required
@@ -120,12 +122,13 @@ var _ rest.GracefulDeleter = &REST{}
 
 // NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
 // org workspaces, projecting them to the Workspace type.
-func NewREST(rootTenancyClient tenancyclient.TenancyV1alpha1Interface, rootKubeClient kubernetes.Interface, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer, getOrg func(orgClusterName string) (*Org, error)) (*REST, *KubeconfigSubresourceREST) {
+func NewREST(rootTenancyClient tenancyclient.TenancyV1alpha1Interface, rootKubeClient kubernetes.Interface, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer, getOrg func(orgClusterName string) (*Org, error), rootReviewerProvider workspaceauth.ReviewerProvider) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
 		getOrg: getOrg,
 
 		crbInformer:           wilcardsCRBInformer,
 		clusterWorkspaceCache: clusterWorkspaceCache,
+		rootReviewerProvider:  rootReviewerProvider,
 
 		createStrategy: Strategy,
 		updateStrategy: Strategy,
@@ -194,8 +197,12 @@ func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
 	return user
 }
 
-func (s *REST) extractOrg(ctx context.Context) (orgClusterName string, org *Org, err error) {
+func (s *REST) extractOrg(user user.Info, ctx context.Context) (orgClusterName string, org *Org, err error) {
 	orgClusterName = ctx.Value(WorkspacesOrgKey).(string)
+
+	// TODO (DAVID) : use the rootReviewerProvider to check for get on workspaces in order to ensure that the user
+	// is part of the org.
+
 	org, err = s.getOrg(orgClusterName)
 	return
 }
@@ -206,7 +213,7 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 	if !ok {
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
-	orgClusterName, org, err := s.extractOrg(ctx)
+	orgClusterName, org, err := s.extractOrg(user, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +262,7 @@ func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (wa
 		return nil, fmt.Errorf("no user")
 	}
 
-	orgClusterName, org, err := s.extractOrg(ctx)
+	orgClusterName, org, err := s.extractOrg(userInfo, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +302,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
 
-	orgClusterName, org, err := s.extractOrg(ctx)
+	orgClusterName, org, err := s.extractOrg(user, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +454,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", fmt.Errorf("unable to create a workspace without a user on the context"))
 	}
 
-	_, org, err := s.extractOrg(ctx)
+	_, org, err := s.extractOrg(user, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -599,7 +606,7 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", fmt.Errorf("unable to delete a workspace without a user on the context"))
 	}
 
-	orgClusterName, org, err := s.extractOrg(ctx)
+	orgClusterName, org, err := s.extractOrg(user, ctx)
 	if err != nil {
 		return nil, false, err
 	}
