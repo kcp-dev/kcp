@@ -93,7 +93,7 @@ for demo in ${DEMOS} ; do
   if $DEMO_AS_TESTS ; then
     (export NO_COLORS="true" ; ${DEMO_DIR}/script -n &> demo.log)
   else
-    (${DEMO_DIR}/script |& tee demo.log)
+    (${DEMO_DIR}/script 2>&1 tee demo.log)
   fi
 
   echo "Dumping the admin logical cluster APIs for demo ${demo} to ${TEST_DIR}/apis.log..."
