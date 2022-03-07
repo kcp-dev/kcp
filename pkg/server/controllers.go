@@ -48,6 +48,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
@@ -359,6 +360,51 @@ func (s *Server) installSyncerController(ctx context.Context, clientConfig clien
 	}); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (s *Server) installAPIBindingController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
+	kubeconfig := clientConfig.DeepCopy()
+	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(adminConfig)
+	if err != nil {
+		return err
+	}
+
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(adminConfig)
+	if err != nil {
+		return err
+	}
+
+	c, err := apibinding.NewController(
+		crdClusterClient,
+		kcpClusterClient,
+		//s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook("kcp-install-apibinding-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
 

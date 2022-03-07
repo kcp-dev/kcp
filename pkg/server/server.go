@@ -374,6 +374,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.options.Controllers.EnableAll || enabled.Has("apibinding") {
+		if err := s.installAPIBindingController(ctx, *loopbackKubeConfig, server); err != nil {
+			return err
+		}
+	}
+
 	// Add our custom hooks to the underlying api server
 	for _, entry := range s.postStartHooks {
 		err := server.AddPostStartHook(entry.name, entry.hook)
