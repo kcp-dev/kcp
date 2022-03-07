@@ -57,7 +57,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	if err != nil {
 		return err
 	}
-	wsClusterName := helper.EncodeOrganizationAndWorkspace(org, workspace.Name)
+	wsClusterName := helper.EncodeOrganizationAndClusterWorkspace(org, workspace.Name)
 	klog.Infof("Bootstrapping resources for org workspace %s, logical cluster %s", workspace.Name, wsClusterName)
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()

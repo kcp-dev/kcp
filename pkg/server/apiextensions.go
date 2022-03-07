@@ -115,7 +115,7 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 				switch {
 				case err == nil:
 					inheriting = true
-					inheritFrom = helper.EncodeOrganizationAndWorkspace(orgName, wsName)
+					inheritFrom = helper.EncodeOrganizationAndClusterWorkspace(orgName, wsName)
 				case apierrors.IsNotFound(err):
 					// A NotFound error is ok. It means we can't inherit but we should still proceed below to list.
 				default:
@@ -246,7 +246,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 			return nil, err
 		}
 
-		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.EncodeOrganizationAndWorkspace(org, workspace.Spec.InheritFrom), name)
+		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.EncodeOrganizationAndClusterWorkspace(org, workspace.Spec.InheritFrom), name)
 	}
 	// Try to get the inherited CRD
 	crd, err = c.crdLister.Get(sourceWorkspaceCRDKey)

@@ -123,7 +123,7 @@ func TestWorkspaceController(t *testing.T) {
 				t.Logf("Expect workspace to be scheduled to the shard with the base URL stored in the credentials")
 				_, orgName, err := helper.ParseLogicalClusterName(workspace.ClusterName)
 				require.NoError(t, err, "failed to parse logical cluster name of workspace")
-				workspaceClusterName := helper.EncodeOrganizationAndWorkspace(orgName, workspace.Name)
+				workspaceClusterName := helper.EncodeOrganizationAndClusterWorkspace(orgName, workspace.Name)
 				err = server.orgExpect(workspace, func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 					if err := scheduled(bostonShard.Name)(workspace); err != nil {
 						return err
