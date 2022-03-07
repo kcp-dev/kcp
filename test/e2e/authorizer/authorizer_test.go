@@ -130,9 +130,9 @@ func TestAuthorizer(t *testing.T) {
 			KcpClient:  orgKcpClient,
 			Dynamic:    orgDynamicClient,
 		},
-		"user-1": newUserClient(t, "user-1", helper.EncodeOrganizationAndWorkspace(org, "workspace1"), kcpCfg),
-		"user-2": newUserClient(t, "user-2", helper.EncodeOrganizationAndWorkspace(org, "workspace1"), kcpCfg),
-		"user-3": newUserClient(t, "user-3", helper.EncodeOrganizationAndWorkspace(org, "workspace1"), kcpCfg),
+		"user-1": newUserClient(t, "user-1", helper.EncodeOrganizationAndClusterWorkspace(org, "workspace1"), kcpCfg),
+		"user-2": newUserClient(t, "user-2", helper.EncodeOrganizationAndClusterWorkspace(org, "workspace1"), kcpCfg),
+		"user-3": newUserClient(t, "user-3", helper.EncodeOrganizationAndClusterWorkspace(org, "workspace1"), kcpCfg),
 	}
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgKcpClient.Discovery()))

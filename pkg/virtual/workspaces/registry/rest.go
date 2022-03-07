@@ -317,7 +317,7 @@ var roleRules map[RoleType][]rbacv1.PolicyRule = map[RoleType][]rbacv1.PolicyRul
 			Resources: []string{"workspaces"},
 		},
 		{
-			Resources: []string{"workspaces/content"},
+			Resources: []string{"clusterworkspaces/content"},
 			Verbs:     []string{"view"},
 		},
 	},
@@ -327,7 +327,7 @@ var roleRules map[RoleType][]rbacv1.PolicyRule = map[RoleType][]rbacv1.PolicyRul
 			Resources: []string{"workspaces"},
 		},
 		{
-			Resources: []string{"workspaces/content"},
+			Resources: []string{"clusterworkspaces/content"},
 			Verbs:     []string{"view", "edit"},
 		},
 	},

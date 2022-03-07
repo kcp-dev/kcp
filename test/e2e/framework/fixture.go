@@ -138,7 +138,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
-	return helper.EncodeOrganizationAndWorkspace(helper.RootCluster, org.Name)
+	return helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, org.Name)
 }
 
 func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName string, workspaceType string) (clusterName string) {
@@ -183,5 +183,5 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName stri
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s:%s to become ready", orgName, ws.Name)
 
-	return helper.EncodeOrganizationAndWorkspace(orgName, ws.Name)
+	return helper.EncodeOrganizationAndClusterWorkspace(orgName, ws.Name)
 }

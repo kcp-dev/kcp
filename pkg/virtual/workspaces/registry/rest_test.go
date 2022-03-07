@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	informers "k8s.io/client-go/informers"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -743,7 +743,7 @@ func TestCreateWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"view"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -765,7 +765,7 @@ func TestCreateWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -835,7 +835,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -857,7 +857,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"view"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -922,7 +922,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"view"},
 							ResourceNames: []string{"foo--1"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -944,7 +944,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo--1"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1020,7 +1020,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 						{
 							Verbs:         []string{"view"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1042,7 +1042,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 						{
 							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces/content"},
+							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},

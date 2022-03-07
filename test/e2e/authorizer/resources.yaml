@@ -30,7 +30,7 @@ metadata:
   name: workspace1-editor
 rules:
   - apiGroups: ["tenancy.kcp.dev"]
-    resources: ["workspaces/content"]
+    resources: ["clusterworkspaces/content"]
     resourceNames: ["workspace1"]
     verbs: ["edit", "view"]
 ---
@@ -55,7 +55,7 @@ metadata:
   name: workspace1-viewer
 rules:
   - apiGroups: ["tenancy.kcp.dev"]
-    resources: ["workspaces/content"]
+    resources: ["clusterworkspaces/content"]
     resourceNames: ["workspace1"]
     verbs: ["view"]
 ---

@@ -45,12 +45,12 @@ func EncodeLogicalClusterName(workspace *tenancyapi.ClusterWorkspace) (string, e
 		}
 		orgName = name
 	}
-	return EncodeOrganizationAndWorkspace(orgName, workspace.Name), nil
+	return EncodeOrganizationAndClusterWorkspace(orgName, workspace.Name), nil
 }
 
-// EncodeOrganizationAndWorkspace determines the logical cluster name for
+// EncodeOrganizationAndClusterWorkspace determines the logical cluster name for
 // an organization and workspace.
-func EncodeOrganizationAndWorkspace(organization, workspace string) string {
+func EncodeOrganizationAndClusterWorkspace(organization, workspace string) string {
 	return organization + separator + workspace
 }
 
@@ -63,7 +63,7 @@ func WorkspaceKey(org, ws string) string {
 		return clusters.ToClusterAwareKey(org, ws)
 	}
 
-	return clusters.ToClusterAwareKey(EncodeOrganizationAndWorkspace(RootCluster, org), ws)
+	return clusters.ToClusterAwareKey(EncodeOrganizationAndClusterWorkspace(RootCluster, org), ws)
 }
 
 // ParseLogicalClusterName determines the organization and workspace name from a
@@ -95,5 +95,5 @@ func ParentClusterName(name string) (string, error) {
 	if parent == RootCluster {
 		return RootCluster, nil
 	}
-	return EncodeOrganizationAndWorkspace(RootCluster, parent), nil
+	return EncodeOrganizationAndClusterWorkspace(RootCluster, parent), nil
 }

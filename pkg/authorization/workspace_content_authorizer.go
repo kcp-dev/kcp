@@ -36,7 +36,7 @@ import (
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, workspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &OrgWorkspaceAuthorizer{
 		versionedInformers: versionedInformers,
 
@@ -44,7 +44,7 @@ func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedIn
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
 		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		workspaceLister:          workspaceLister,
+		clusterWorkspaceLister:   clusterWorkspaceLister,
 
 		delegate: delegate,
 	}
@@ -55,7 +55,7 @@ type OrgWorkspaceAuthorizer struct {
 	roleBindingLister        rbacv1listers.RoleBindingLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
 	clusterRoleLister        rbacv1listers.ClusterRoleLister
-	workspaceLister          tenancyv1.ClusterWorkspaceLister
+	clusterWorkspaceLister   tenancyv1.ClusterWorkspaceLister
 
 	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
 	versionedInformers clientgoinformers.SharedInformerFactory
@@ -78,7 +78,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
-	_, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
+	_, clusterWorkspace, err := helper.ParseLogicalClusterName(cluster.Name)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err
 	}
@@ -93,12 +93,12 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 
 	// TODO: decide if we want to require workspaces for all kcp variations. For now, only check if the workspace controllers are running,
 	// as that ensures the ClusterWorkspace CRD is installed, and that our shared informer factory can sync all its caches successfully.
-	if a.workspaceLister != nil {
+	if a.clusterWorkspaceLister != nil {
 		// check the workspace even exists
 		// TODO: using scoping when available
-		if ws, err := a.workspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, workspace)); err != nil {
+		if ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, clusterWorkspace)); err != nil {
 			if errors.IsNotFound(err) {
-				return authorizer.DecisionDeny, "WorkspaceDoesNotExist", nil
+				return authorizer.DecisionDeny, "ClusterWorkspaceDoesNotExist", nil
 			}
 			return authorizer.DecisionNoOpinion, "", err
 		} else if len(ws.Status.Initializers) > 0 {
@@ -107,9 +107,9 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 				Verb:            attr.GetVerb(),
 				APIGroup:        v1alpha1.SchemeGroupVersion.Group,
 				APIVersion:      v1alpha1.SchemeGroupVersion.Version,
-				Resource:        "workspaces",
+				Resource:        "clusterworkspaces",
 				Subresource:     "initialize",
-				Name:            workspace,
+				Name:            clusterWorkspace,
 				ResourceRequest: true,
 			}
 
@@ -124,9 +124,9 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	}
 
 	verbToGroupMembership := map[string]string{
-		"admin":  "system:kcp:workspace:admin",
-		"edit":   "system:kcp:workspace:edit",
-		"view":   "system:kcp:workspace:view",
+		"admin":  "system:kcp:clusterworkspace:admin",
+		"edit":   "system:kcp:clusterworkspace:edit",
+		"view":   "system:kcp:clusterworkspace:view",
 		"access": "system:kcp:authenticated",
 	}
 
@@ -141,9 +141,9 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 			Verb:            verb,
 			APIGroup:        v1alpha1.SchemeGroupVersion.Group,
 			APIVersion:      v1alpha1.SchemeGroupVersion.Version,
-			Resource:        "workspaces",
+			Resource:        "clusterworkspaces",
 			Subresource:     "content",
-			Name:            workspace,
+			Name:            clusterWorkspace,
 			ResourceRequest: true,
 		}
 
