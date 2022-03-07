@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -157,6 +158,22 @@ func (s *REST) NamespaceScoped() bool {
 	return false
 }
 
+func (s *REST) reviewForUser(user user.Info, name string, groupResource schema.GroupResource, action string, reviewer workspaceauth.Reviewer) error {
+	review, err := reviewer.Review(name)
+	if err != nil {
+		return err
+	}
+	if review.EvaluationError() != "" {
+		return kerrors.NewForbidden(groupResource, "", errors.New(review.EvaluationError()))
+	}
+	if !sets.NewString(user.GetGroups()...).HasAny(review.Groups()...) &&
+		!sets.NewString(review.Users()...).Has(user.GetName()) {
+		return kerrors.NewForbidden(groupResource, "", fmt.Errorf("User %s doesn't have the permission to %s workspace %s", user.GetName(), action, name))
+	}
+
+	return nil
+}
+
 func (s *REST) getPrettyNameFromInternalName(user kuser.Info, orgClusterName, internalName string) (string, error) {
 	list, err := s.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, lclusterAwareIndexValue(orgClusterName, internalName))
 	if err != nil {
@@ -202,6 +219,16 @@ func (s *REST) extractOrg(user user.Info, ctx context.Context) (orgClusterName s
 
 	// TODO (DAVID) : use the rootReviewerProvider to check for get on workspaces in order to ensure that the user
 	// is part of the org.
+	// Something like:
+	// 	_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
+	//  if err != nil {
+	//  	return "", nil, err
+	//  }
+	//  if err := s.reviewForUser(user, orgName, tenancyv1beta1.Resource("workspace"), "get", s.rootReviewerProvider.Create("get", "workspaces")); err != nil {
+	//  	return "", nil, err
+	//  }
+	//
+	// But to work this will require a named ClusterRole, and ClusterRoleBinding (with the group as subject) to be Created for each org.
 
 	org, err = s.getOrg(orgClusterName)
 	return
@@ -623,16 +650,8 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		}
 	}
 
-	review, err := org.workspaceReviewerProvider.Create("delete", "workspaces").Review(internalName)
-	if err != nil {
+	if err := s.reviewForUser(user, internalName, tenancyv1beta1.Resource("workspace"), "delete", org.workspaceReviewerProvider.Create("delete", "workspaces")); err != nil {
 		return nil, false, err
-	}
-	if review.EvaluationError() != "" {
-		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", errors.New(review.EvaluationError()))
-	}
-	if !sets.NewString(user.GetGroups()...).HasAny(review.Groups()...) &&
-		!sets.NewString(review.Users()...).Has(user.GetName()) {
-		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspace"), "", fmt.Errorf("User %s doesn't have the permission to delete workspace %s", user.GetName(), name))
 	}
 
 	errorToReturn := org.clusterWorkspaceClient.Delete(ctx, internalName, *options)
