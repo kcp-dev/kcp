@@ -84,7 +84,7 @@ func NewCommand(out, errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 // Run takes the options, starts the API server and waits until stopCh is closed or initial listening fails.
 func Run(o *options.Options, stopCh <-chan struct{}) error {
 	// parse kubeconfig
-	kubeConfig, err := readKubeConfig(o.Workspaces.KubeconfigFile)
+	kubeConfig, err := readKubeConfig(o.KubeconfigFile)
 	if err != nil {
 		return err
 	}

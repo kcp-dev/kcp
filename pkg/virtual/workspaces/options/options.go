@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/informers"
@@ -38,7 +37,6 @@ const DefaultRootPathPrefix string = "/services/workspaces"
 
 type Workspaces struct {
 	RootPathPrefix string
-	KubeconfigFile string
 }
 
 func NewWorkspaces() *Workspaces {
@@ -47,7 +45,7 @@ func NewWorkspaces() *Workspaces {
 	}
 }
 
-func (o *Workspaces) AddGenericFlags(flags *pflag.FlagSet, prefix string) {
+func (o *Workspaces) AddFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
@@ -57,29 +55,14 @@ func (o *Workspaces) AddGenericFlags(flags *pflag.FlagSet, prefix string) {
 		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/<org-name>/personal|all")
 }
 
-func (o *Workspaces) AddStandaloneFlags(flags *pflag.FlagSet, prefix string) {
-	if o == nil {
-		return
-	}
-
-	flags.StringVar(&o.KubeconfigFile, "workspaces:kubeconfig", "", ""+
-		"The kubeconfig file of the KCP instance that hosts workspaces.")
-
-	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
-}
-
-func (o *Workspaces) Validate(prefix string) []error {
+func (o *Workspaces) Validate(flagPrefix string) []error {
 	if o == nil {
 		return nil
 	}
 	errs := []error{}
 
-	if len(o.KubeconfigFile) == 0 {
-		errs = append(errs, fmt.Errorf("--%s-workspaces:kubeconfig is required for this command", prefix))
-	}
-
 	if !strings.HasPrefix(o.RootPathPrefix, "/") {
-		errs = append(errs, fmt.Errorf("--%s-workspaces-base-path %v should start with /", prefix, o.RootPathPrefix))
+		errs = append(errs, fmt.Errorf("--%s-workspaces-base-path %v should start with /", flagPrefix, o.RootPathPrefix))
 	}
 
 	return errs

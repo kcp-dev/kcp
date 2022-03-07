@@ -17,9 +17,11 @@ limitations under the License.
 package options
 
 import (
+	"fmt"
 	"io"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -30,6 +32,8 @@ import (
 
 type Options struct {
 	Output io.Writer
+
+	KubeconfigFile string
 
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
@@ -56,8 +60,11 @@ func NewOptions() *Options {
 func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
-	o.Workspaces.AddGenericFlags(flags, "")
-	o.Workspaces.AddStandaloneFlags(flags, "")
+	o.Workspaces.AddFlags(flags, "")
+
+	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile, ""+
+		"The kubeconfig file of the KCP instance that hosts workspaces.")
+	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 }
 
 func (o *Options) Validate() error {
@@ -65,5 +72,10 @@ func (o *Options) Validate() error {
 	errs = append(errs, o.SecureServing.Validate()...)
 	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.Workspaces.Validate("")...)
+
+	if len(o.KubeconfigFile) == 0 {
+		errs = append(errs, fmt.Errorf("--kubeconfig is required for this command"))
+	}
+
 	return utilerrors.NewAggregate(errs)
 }
