@@ -120,7 +120,7 @@ func (o *WorkspacesSubCommandOptions) PrepareVirtualWorkspaces() ([]rootapiserve
 	rootKcpClient := kcpClusterClient.Cluster(helper.RootCluster)
 
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(o.RootPathPrefix, wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), rootKcpClient, rootKubeClient),
+		builder.BuildVirtualWorkspace(o.RootPathPrefix, wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), rootKcpClient, rootKubeClient, kcpClusterClient, kubeClusterClient),
 	}
 	informerStarts := []rootapiserver.InformerStart{
 		wildcardKubeInformers.Start,

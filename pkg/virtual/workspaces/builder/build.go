@@ -27,14 +27,11 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
-	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -50,7 +47,7 @@ import (
 const WorkspacesVirtualWorkspaceName string = "workspaces"
 const DefaultRootPathPrefix string = "/services/workspaces"
 
-func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, rootKcpClient kcpclient.Interface, rootKubeClient kubernetes.Interface) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, rootKcpClient kcpclient.Interface, rootKubeClient kubernetes.Interface, kcpClusterInterface kcpclient.ClusterInterface, kubeClusterInterface kubernetes.ClusterInterface) framework.VirtualWorkspace {
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 	_ = virtualworkspacesregistry.AddNameIndexers(crbInformer)
 
@@ -117,9 +114,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 
 					globalClusterWorkspaceCache = workspacecache.NewClusterWorkspaceCache(
 						wildcardsClusterWorkspaces.Informer(),
-						func(orgName string) tenancyv1alpha1.TenancyV1alpha1Interface {
-							return tenancyv1alpha1.NewWithCluster(rootTenancyClient.RESTClient(), orgName)
-						},
+						kcpClusterInterface,
 						"")
 
 					rootRBACInformers := rbacwrapper.FilterInformers(helper.RootCluster, wildcardsRbacInformers)
@@ -136,13 +131,13 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 					)
 
 					rootOrg := virtualworkspacesregistry.CreateAndStartOrg(rootRBACClient, rootTenancyClient.ClusterWorkspaces(), rootRBACInformers, rbacwrapper.FilterClusterRoleBindingInformer(helper.RootCluster, crbInformer), rootClusterWorkspaceInformer)
-					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgName string) *virtualworkspacesregistry.Org {
+					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgClusterName string) *virtualworkspacesregistry.Org {
 						return virtualworkspacesregistry.CreateAndStartOrg(
-							rbacv1client.NewWithCluster(rootRBACClient.RESTClient(), orgName),
-							tenancyclient.NewWithCluster(rootTenancyClient.RESTClient(), orgName).ClusterWorkspaces(),
-							rbacwrapper.FilterInformers(orgName, wildcardsRbacInformers),
-							rbacwrapper.FilterClusterRoleBindingInformer(orgName, crbInformer),
-							tenancywrapper.FilterClusterWorkspaceInformer(orgName, wildcardsClusterWorkspaces))
+							kubeClusterInterface.Cluster(orgClusterName).RbacV1(),
+							kcpClusterInterface.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces(),
+							rbacwrapper.FilterInformers(orgClusterName, wildcardsRbacInformers),
+							rbacwrapper.FilterClusterRoleBindingInformer(orgClusterName, crbInformer),
+							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces))
 					})
 
 					if err := mainConfig.AddPostStartHook("clusterworkspaces.kcp.dev-workspacecache", func(context genericapiserver.PostStartHookContext) error {

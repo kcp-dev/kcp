@@ -35,7 +35,6 @@ import (
 	workspaceapiv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyfake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
@@ -61,7 +60,7 @@ func newTestWatcher(username string, groups []string, predicate storage.Selectio
 	informers := tenancyInformers.NewSharedInformerFactory(mockClient, controller.NoResyncPeriodFunc())
 	workspaceCache := workspacecache.NewClusterWorkspaceCache(
 		informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
-		func(orgName string) tenancyv1alpha1.TenancyV1alpha1Interface { return mockClient.TenancyV1alpha1() },
+		&mockClusterClient{mockClient: mockClient},
 		"",
 	)
 	fakeAuthCache := &fakeAuthCache{}
