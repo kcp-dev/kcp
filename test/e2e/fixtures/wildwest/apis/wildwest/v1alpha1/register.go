@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 )
 
 // SchemeGroupVersion is group version used to register these objects

@@ -18,7 +18,6 @@ package cowboy
 
 import (
 	"context"
-	"embed"
 	"testing"
 	"time"
 
@@ -30,10 +29,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 
@@ -43,19 +40,13 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclient "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest"
-	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned"
-	wildwestclient "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
-
-func init() {
-	utilruntime.Must(wildwestv1alpha1.AddToScheme(scheme.Scheme))
-}
-
-//go:embed *.yaml
-var rawCustomResourceDefinitions embed.FS
 
 const testNamespace = "cluster-controller-test"
 const sourceClusterName, sinkClusterName = "source", "sink"
@@ -173,7 +164,6 @@ func TestClusterController(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			start := time.Now()
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)
@@ -219,16 +209,13 @@ func TestClusterController(t *testing.T) {
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
 			)
 			require.NoError(t, err)
-			err = configcrds.CreateFromFS(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), rawCustomResourceDefinitions, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-			require.NoError(t, err)
+			fixturewildwest.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 			t.Log("Installing test CRDs into sink cluster...")
-			err = configcrds.CreateFromFS(ctx, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), rawCustomResourceDefinitions, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-			require.NoError(t, err)
-			t.Logf("Installed test CRDs after %s", time.Since(start))
+			fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 			t.Log("Installing sink cluster...")
-			start = time.Now()
+			start := time.Now()
 			_, err = framework.CreateClusterAndWait(t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(wsClusterName), sink)
 			require.NoError(t, err)
 			t.Logf("Installed sink cluster after %s", time.Since(start))

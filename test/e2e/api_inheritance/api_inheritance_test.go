@@ -18,7 +18,6 @@ package api_inheritance
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"testing"
 	"time"
@@ -32,19 +31,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 
-	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest"
-	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned"
 )
-
-//go:embed *.yaml
-var rawCustomResourceDefinitions embed.FS
 
 func TestAPIInheritance(t *testing.T) {
 	t.Parallel()
@@ -169,8 +165,7 @@ func TestAPIInheritance(t *testing.T) {
 
 			t.Logf("Install a cowboys CRD into \"source\" workspace")
 			sourceCrdClient := apiExtensionsClients.Cluster(sourceWorkspaceClusterName).ApiextensionsV1().CustomResourceDefinitions()
-			err = configcrds.CreateFromFS(ctx, sourceCrdClient, rawCustomResourceDefinitions, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-			require.NoError(t, err, "failed to bootstrap CRDs in source")
+			fixturewildwest.Create(t, sourceCrdClient, metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 			expectGroupInDiscovery := func(lcluster, group string) error {
 				if err := wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {

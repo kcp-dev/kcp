@@ -32,8 +32,8 @@ import (
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	"github.com/kcp-dev/kcp/test/e2e/reconciler/cluster/client/clientset/versioned/scheme"
 )
 
 // TODO: get rid of this package and move back into virtual_workspace_test.go
