@@ -81,7 +81,7 @@ func (l *orgListener) Initialize(authCache *workspaceauth.AuthorizationCache) {
 
 	workspaces, _ := authCache.ListAllWorkspaces(labels.Everything())
 	for _, workspace := range workspaces.Items {
-		orgName := helper.EncodeOrganizationAndWorkspace(helper.RootCluster, workspace.Name)
+		orgName := helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, workspace.Name)
 		org := l.newOrg(orgName)
 		readys = append(readys, org.Ready)
 		l.knownWorkspaces.Insert(workspace.Name)
@@ -111,7 +111,7 @@ func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups
 	l.knownWorkspacesMutex.Lock()
 	defer l.knownWorkspacesMutex.Unlock()
 
-	orgName := helper.EncodeOrganizationAndWorkspace(helper.RootCluster, workspaceName)
+	orgName := helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, workspaceName)
 	// All the workspace objects are accessible to the "system:masters" group
 	// and we want to track changes to all workspaces here
 	hasAccess := groups.Has(user.SystemPrivilegedGroup)

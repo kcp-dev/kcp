@@ -108,7 +108,7 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*
 			if err != nil {
 				return nil, err
 			}
-			orgClusterName := helper.EncodeOrganizationAndWorkspace(helper.RootCluster, "default")
+			orgClusterName := helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, "default")
 			clusterIndex := strings.Index(currentServerURL.Path, "/clusters/")
 			if clusterIndex >= 0 {
 				orgClusterName = currentServerURL.Path[clusterIndex+10:]
