@@ -83,7 +83,7 @@ type Config struct {
 	crdSharedInformerFactory crdexternalversions.SharedInformerFactory
 }
 
-func (c *Config) New() (*Controller, error) {
+func (c *Config) NewOrNil() (*Controller, error) {
 	var syncerManagerImpl syncerManagerImpl
 	if c.PullMode {
 		syncerManagerImpl = newPullSyncerManager(c.SyncerImage)

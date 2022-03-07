@@ -337,11 +337,11 @@ func (s *Server) installSyncerController(ctx context.Context, clientConfig clien
 		s.apiextensionsSharedInformerFactory,
 		s.options.Controllers.ApiImporter.ResourcesToSync,
 	)
-	syncer, err := c.New()
+	optionalSyncer, err := c.NewOrNil()
 	if err != nil {
 		return err
 	}
-	if syncer == nil {
+	if optionalSyncer == nil {
 		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
 		return nil
 	}
@@ -353,7 +353,7 @@ func (s *Server) installSyncerController(ctx context.Context, clientConfig clien
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go syncer.Start(goContext(hookContext))
+		go optionalSyncer.Start(goContext(hookContext))
 
 		return nil
 	}); err != nil {

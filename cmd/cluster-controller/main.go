@@ -121,7 +121,7 @@ func main() {
 	}
 
 	syncerOptions := options.SyncerOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory, apiImporterOptions.ResourcesToSync)
-	syncer, err := syncerOptions.New()
+	optionalSyncer, err := syncerOptions.NewOrNil()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -135,7 +135,9 @@ func main() {
 
 	go apiImporter.Start(ctx)
 	go apiresource.Start(ctx, apiResourceOptions.NumThreads)
-	go syncer.Start(ctx)
+	if optionalSyncer != nil {
+		go optionalSyncer.Start(ctx)
+	}
 
 	<-ctx.Done()
 }
