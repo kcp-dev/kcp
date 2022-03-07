@@ -233,6 +233,140 @@ func applyTest(t *testing.T, test TestDescription) {
 	test.apply(t, &storage, &kubeconfigSubresourceStorage, ctx, mockKubeClient, mockKCPClient, clusterWorkspaceLister.CheckedUsers, test.TestData)
 }
 
+func TestPrettyNameIndex(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:    user,
+			scope:   OrganizationScope,
+			orgName: "orgName",
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "orgName2-binding",
+						ClusterName: "orgName2",
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo-orgName2",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "orgName-binding",
+						ClusterName: "orgName",
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(PrettyNameIndex, lclusterAwareIndexValue("orgName", "foo"))
+			require.NoError(t, err)
+			require.Len(t, values, 1)
+			internalName, err := storage.getInternalNameFromPrettyName(testData.user, "orgName", "foo")
+			require.NoError(t, err)
+			require.Equal(t, "foo", internalName)
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestInternalNameIndex(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:    user,
+			scope:   OrganizationScope,
+			orgName: "orgName",
+			reviewerProvider: mockReviewerProvider{
+				"get":    mockReviewer{},
+				"delete": mockReviewer{},
+			},
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "orgName2-binding",
+						ClusterName: "orgName2",
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo-orgName2",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "orgName-binding",
+						ClusterName: "orgName",
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, lclusterAwareIndexValue("orgName", "foo"))
+			require.NoError(t, err)
+			require.Len(t, values, 1)
+			prettyName, err := storage.getPrettyNameFromInternalName(testData.user, "orgName", "foo")
+			require.NoError(t, err)
+			require.Equal(t, "foo", prettyName)
+		},
+	}
+	applyTest(t, test)
+}
+
 func TestListPersonalWorkspaces(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",

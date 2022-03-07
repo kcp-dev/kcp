@@ -29,6 +29,8 @@ import (
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 )
 
+// CreateAndStartOrg creates an Org struct that contains all the required clients and caches to retrieve user workspaces inside an org
+// As part of an Org, a WorkspaceAuthCache is created and ensured to be started.
 func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, orgRBACInformers rbacinformers.Interface, orgCRBInformer rbacinformers.ClusterRoleBindingInformer, orgClusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer) *Org {
 	orgSubjectLocator := frameworkrbac.NewSubjectLocator(orgRBACInformers)
 	orgReviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(orgSubjectLocator)

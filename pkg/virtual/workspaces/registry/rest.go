@@ -93,19 +93,23 @@ func AddNameIndexers(crbInformer rbacinformers.ClusterRoleBindingInformer) error
 	return crbInformer.Informer().AddIndexers(map[string]cache.IndexFunc{
 		PrettyNameIndex: func(obj interface{}) ([]string, error) {
 			if crb, isCRB := obj.(*rbacv1.ClusterRoleBinding); isCRB {
-				return []string{crb.Labels[PrettyNameLabel]}, nil
+				return []string{lclusterAwareIndexValue(crb.ClusterName, crb.Labels[PrettyNameLabel])}, nil
 			}
 
 			return []string{}, nil
 		},
 		InternalNameIndex: func(obj interface{}) ([]string, error) {
 			if crb, isCRB := obj.(*rbacv1.ClusterRoleBinding); isCRB {
-				return []string{crb.Labels[InternalNameLabel]}, nil
+				return []string{lclusterAwareIndexValue(crb.ClusterName, crb.Labels[InternalNameLabel])}, nil
 			}
 
 			return []string{}, nil
 		},
 	})
+}
+
+func lclusterAwareIndexValue(lclusterName, indexValue string) string {
+	return lclusterName + "#$#" + indexValue
 }
 
 var _ rest.Lister = &REST{}
@@ -151,13 +155,12 @@ func (s *REST) NamespaceScoped() bool {
 }
 
 func (s *REST) getPrettyNameFromInternalName(user kuser.Info, orgClusterName, internalName string) (string, error) {
-	list, err := s.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, internalName)
+	list, err := s.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, lclusterAwareIndexValue(orgClusterName, internalName))
 	if err != nil {
 		return "", err
 	}
 	for _, el := range list {
 		if crb, isCRB := el.(*rbacv1.ClusterRoleBinding); isCRB &&
-			crb.ClusterName == orgClusterName &&
 			len(crb.Subjects) == 1 && crb.Subjects[0].Name == user.GetName() {
 			return crb.Labels[PrettyNameLabel], nil
 		}
@@ -166,13 +169,12 @@ func (s *REST) getPrettyNameFromInternalName(user kuser.Info, orgClusterName, in
 }
 
 func (s *REST) getInternalNameFromPrettyName(user kuser.Info, orgClusterName, prettyName string) (string, error) {
-	list, err := s.crbInformer.Informer().GetIndexer().ByIndex(PrettyNameIndex, prettyName)
+	list, err := s.crbInformer.Informer().GetIndexer().ByIndex(PrettyNameIndex, lclusterAwareIndexValue(orgClusterName, prettyName))
 	if err != nil {
 		return "", err
 	}
 	for _, el := range list {
 		if crb, isCRB := el.(*rbacv1.ClusterRoleBinding); isCRB &&
-			crb.ClusterName == orgClusterName &&
 			len(crb.Subjects) == 1 && crb.Subjects[0].Name == user.GetName() {
 			return crb.Labels[InternalNameLabel], nil
 		}
