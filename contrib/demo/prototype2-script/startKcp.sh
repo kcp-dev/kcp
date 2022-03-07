@@ -95,7 +95,7 @@ bootstrapAddress="host.docker.internal"
 if [[ "${CONTAINER_ENGINE}" == "podman" ]]; then
   bootstrapAddress="host.containers.internal"
 fi
-sed "s/BOOTSTRAP_ADDRESS/$bootstrapAddress/" "${KCP_DIR}"/contrib/envoy/bootstrap.yaml > "${KCP_DATA_DIR}"/envoy-bootstrap.yaml
+sed "s/BOOTSTRAP_ADDRESS/$bootstrapAddress/" "${KCP_DIR}"/contrib/envoy/bootstrap.template.yaml > "${KCP_DATA_DIR}"/envoy-bootstrap.yaml
 "${CONTAINER_ENGINE}" create --rm -t --net=kind -p 8181:8181 envoyproxy/envoy-dev:d803505d919aff1c4207b353c3b430edfa047010
 ENVOY_CID=$("${CONTAINER_ENGINE}" ps -q -n1)
 "${CONTAINER_ENGINE}" cp "${KCP_DATA_DIR}"/envoy-bootstrap.yaml "${ENVOY_CID}":/etc/envoy/envoy.yaml
