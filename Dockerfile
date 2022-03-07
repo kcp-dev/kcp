@@ -32,7 +32,7 @@ COPY pkg/ pkg/
 COPY cmd/ cmd/
 COPY third_party/ third_party/
 
-RUN mkdir bin; CGO_ENABLED=0 go build -o bin ./cmd/...
+RUN mkdir bin; CGO_ENABLED=0 go build -ldflags "-X k8s.io/component-base/version.gitVersion=v1.23.4" -o bin ./cmd/...
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
