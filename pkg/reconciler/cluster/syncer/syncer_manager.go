@@ -78,6 +78,27 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1
 		}
 	}
 
+	// some types are not negotiated, but we possibly want them synced as well
+	nativeTypesPossiblyToSync := []schema.GroupVersionResource{
+		{Group: "", Resource: "configmaps", Version: "v1"},
+		{Group: "", Resource: "secrets", Version: "v1"},
+		{Group: "", Resource: "serviceaccounts", Version: "v1"},
+	}
+	resourcesToPull := sets.NewString(m.resourcesToSync...)
+	for _, gvr := range nativeTypesPossiblyToSync {
+		if !resourcesToPull.Has(gvr.GroupResource().String()) && !resourcesToPull.Has(gvr.Resource) {
+			continue
+		}
+		groupVersion := apiresourcev1alpha1.GroupVersion{
+			Group:   gvr.Group,
+			Version: gvr.Version,
+		}
+		groupResources.Insert(schema.GroupResource{
+			Group:    groupVersion.APIGroup(),
+			Resource: gvr.Resource,
+		}.String())
+	}
+
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("%s: invalid kubeconfig: %v", m.name, err)
