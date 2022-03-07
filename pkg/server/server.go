@@ -254,6 +254,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return &kcpAPIExtensionsSharedInformerFactory{
 			SharedInformerFactory: f,
 			workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+			apiBindingLister:      s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		}
 	}
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
