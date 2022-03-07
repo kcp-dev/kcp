@@ -53,17 +53,22 @@ podman_ssh() {
 
 detect_podman() {
     if ! command -v podman; then
+        echo "The podman binary could not be found, falling back to Docker."
         return
     fi
 
     if [[ "$OSTYPE" == "darwin"* && -z "$(podman ps)" ]]; then
         # Podman machine is not started
+        echo "The Podman machine does not seem to be started, falling back to Docker."
         return
     fi
 
     if [[ -z "$(podman system connection ls --format=json)" ]]; then
+        echo "The Podman SSH destinations could not be listed, falling back to Docker."
         return
     fi
+
+    echo "Using Podman as container engine."
 
     KIND_EXPERIMENTAL_PROVIDER=podman
 
