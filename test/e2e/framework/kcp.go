@@ -159,7 +159,7 @@ func (c *kcpServer) Run(parentCtx context.Context, opts ...RunOption) error {
 		<-cleanupCtx.Done()
 	})
 
-	c.t.Logf("running: %v", strings.Join(append([]string{"kcp", "start"}, c.args...), " "))
+	c.t.Logf("running: %v", strings.Join(append([]string{"kcp", "start"}, append(c.args, "--v=5")...), " "))
 
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
