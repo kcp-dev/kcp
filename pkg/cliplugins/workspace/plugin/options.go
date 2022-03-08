@@ -30,8 +30,6 @@ import (
 type Options struct {
 	KubectlOverrides *clientcmd.ConfigOverrides
 	Scope            string
-	// Temporary, until we have #640 merged, in which case it should be necessary anymore
-	Port int
 	genericclioptions.IOStreams
 }
 
@@ -40,6 +38,8 @@ func NewOptions(streams genericclioptions.IOStreams) *Options {
 	return &Options{
 		KubectlOverrides: &clientcmd.ConfigOverrides{},
 		IOStreams:        streams,
+
+		Scope: "personal",
 	}
 }
 
@@ -60,15 +60,13 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 	clientcmd.BindOverrideFlags(o.KubectlOverrides, cmd.PersistentFlags(), kubectlConfigOverrideFlags)
 
-	cmd.PersistentFlags().StringVar(&o.Scope, "scope", "personal", `The 'personal' scope shows only the workspaces you personally own, with the name you gave them at creation.
+	cmd.PersistentFlags().StringVar(&o.Scope, "scope", o.Scope, `The 'personal' scope shows only the workspaces you personally own, with the name you gave them at creation.
 	The 'all' scope returns all the workspaces you are allowed to see in the organization, with the disambiguated names they have inside the whole organization.`)
-
-	cmd.PersistentFlags().IntVar(&o.Port, "port", 0, `overrides the port that will be used to point to the workspace directory server. Default port is the port of the currrent kube context server.`)
 }
 
 func (o *Options) Validate() error {
 	if o.Scope != "personal" && o.Scope != "all" {
-		return errors.New("The scope should be either 'personal' (default) or 'all'")
+		return errors.New("the scope should be either 'personal' (default) or 'all'")
 	}
 	return nil
 }

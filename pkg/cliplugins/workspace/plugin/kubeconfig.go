@@ -22,29 +22,21 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+
 	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
-)
-<<<<<<< HEAD
-	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
-||||||| parent of 0fc8b6ef (virtual-workspaces: make options composable)
-	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
-	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
-	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
-=======
-	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
-	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
->>>>>>> 0fc8b6ef (virtual-workspaces: make options composable)
 )
 
 const (
@@ -60,7 +52,6 @@ type KubeConfig struct {
 	configAccess   clientcmd.ConfigAccess
 	startingConfig *api.Config
 	scope          string
-	port           int
 }
 
 // NewKubeConfig load a kubeconfig with default config access
@@ -80,7 +71,6 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 		configAccess:   configAccess,
 		startingConfig: startingConfig,
 		scope:          opts.Scope,
-		port:           opts.Port,
 	}, nil
 }
 
@@ -107,42 +97,42 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 	workspaceDirectoryContext := &api.Context{
 		Cluster: kcpVirtualWorkspaceInternalContextName,
 	}
-	currentServerURL, err := url.Parse(workspaceDirectoryCluster.Server)
+
+	// get workspace from current server URL and check it point to an org or the root workspace
+	serverURL, err := url.Parse(workspaceDirectoryCluster.Server)
 	if err != nil {
 		return nil, err
 	}
-	orgClusterName := tenancyhelpers.EncodeOrganizationAndClusterWorkspace(tenancyhelpers.RootCluster, "default")
-	clusterIndex := strings.Index(currentServerURL.Path, "/clusters/")
-	if clusterIndex >= 0 {
-		clusterName := currentServerURL.Path[clusterIndex+10:]
-		if clusterName == tenancyhelpers.RootCluster {
-			orgClusterName = clusterName
-		} else if org, _, err := tenancyhelpers.ParseLogicalClusterName(clusterName); err != nil {
-			return nil, fmt.Errorf("unable to parse cluster name %s", clusterName)
-		} else if org == "system:" {
-			return nil, fmt.Errorf("no workspaces are accessible from %s", clusterName)
-		} else if org == tenancyhelpers.RootCluster && !parent {
-			// already in an org workspace
-			orgClusterName = clusterName
-		} else {
-			// some other workspace, return org cluster name
-			orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
-			if err != nil {
-				// should never happen
-				return nil, fmt.Errorf("unable to derive parent cluster name for %s", clusterName)
-			}
+	clusterIndex := strings.Index(serverURL.Path, "/clusters/")
+	if clusterIndex < 0 {
+		return nil, fmt.Errorf("current cluster URL %s is not pointing to a workspace", serverURL)
+	}
+	clusterName := serverURL.Path[clusterIndex+10:]
+	var orgClusterName string
+	if clusterName == tenancyhelpers.RootCluster {
+		orgClusterName = clusterName
+	} else if org, _, err := tenancyhelpers.ParseLogicalClusterName(clusterName); err != nil {
+		return nil, fmt.Errorf("unable to parse cluster name %s", clusterName)
+	} else if org == "system:" {
+		return nil, fmt.Errorf("no workspaces are accessible from %s", clusterName)
+	} else if org == tenancyhelpers.RootCluster {
+		// already in an org workspace
+		orgClusterName = clusterName
+	} else {
+		// some other workspace, return org cluster name
+		orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
+		if err != nil {
+			// should never happen
+			return nil, fmt.Errorf("unable to derive parent cluster name for %s", clusterName)
 		}
 	}
 
-	port := ""
-	if kc.port != 0 {
-		port = fmt.Sprintf(":%d", kc.port)
-	} else {
-		if currentServerURL.Port() != "" {
-			port = fmt.Sprintf(":%s", currentServerURL.Port())
-		}
-	}
-	workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s%s%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), port, workspacesoptions.DefaultRootPathPrefix, orgClusterName, kc.scope)
+	basePath := serverURL.Path[:clusterIndex]
+
+	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
+	defaultOpts := workspacesoptions.NewWorkspaces()
+	serverURL.Path = path.Join(basePath, defaultOpts.RootPathPrefix, orgClusterName, kc.scope)
+	workspaceDirectoryCluster.Server = serverURL.String()
 
 	kubectlOverrides := options.KubectlOverrides
 
