@@ -425,7 +425,7 @@ func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
 		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
 
-	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "root", nil, nil), nil
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "system:admin", nil, nil), nil
 }
 
 type unmanagedKCPServer struct {
