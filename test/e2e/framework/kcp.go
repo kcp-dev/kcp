@@ -136,6 +136,11 @@ func WithLogStreaming(o *runOptions) {
 // Run runs the kcp server while the parent context is active. This call is not blocking,
 // callers should ensure that the server is Ready() before using it.
 func (c *kcpServer) Run(parentCtx context.Context, opts ...RunOption) error {
+	path, err := exec.LookPath("kcp")
+	if err != nil {
+		return err
+	}
+
 	runOpts := runOptions{}
 	for _, opt := range opts {
 		opt(&runOpts)
@@ -159,7 +164,7 @@ func (c *kcpServer) Run(parentCtx context.Context, opts ...RunOption) error {
 		<-cleanupCtx.Done()
 	})
 
-	c.t.Logf("running: %v", strings.Join(append([]string{"kcp", "start"}, c.args...), " "))
+	c.t.Logf("running: %v", strings.Join(append([]string{path, "start"}, c.args...), " "))
 
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
