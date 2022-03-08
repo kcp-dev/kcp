@@ -33,13 +33,13 @@ import (
 )
 
 func main() {
-	stopCh := genericapiserver.SetupSignalHandler()
+	ctx := genericapiserver.SetupSignalContext()
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
-	command := NewVirtualWorkspaceApiServerCommand(stopCh)
+	command := NewVirtualWorkspaceApiServerCommand(ctx.Done())
 	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

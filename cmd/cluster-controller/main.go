@@ -17,17 +17,16 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"time"
 
 	"github.com/spf13/pflag"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -75,8 +74,7 @@ func (o *options) Validate() error {
 
 func main() {
 	// Setup signal handler for a cleaner shutdown
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
-	defer cancel()
+	ctx := genericapiserver.SetupSignalContext()
 
 	fs := pflag.NewFlagSet("cluster-controller", pflag.ContinueOnError)
 	options := bindOptions(fs)
