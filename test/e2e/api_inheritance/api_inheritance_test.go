@@ -45,8 +45,6 @@ import (
 func TestAPIInheritance(t *testing.T) {
 	t.Parallel()
 
-	const serverName = "main"
-
 	type InheritFrom int
 	const (
 		fromRoot InheritFrom = iota
