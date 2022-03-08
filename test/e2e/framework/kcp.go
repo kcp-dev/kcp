@@ -270,8 +270,8 @@ func (c *kcpServer) KubeconfigPath() string {
 	return c.kubeconfigPath
 }
 
-// Config exposes a copy of the client config for this server.
-func (c *kcpServer) Config(context string) (*rest.Config, error) {
+// Config exposes a copy of the neutral client config for this server.
+func (c *kcpServer) DefaultConfig() (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
@@ -282,7 +282,7 @@ func (c *kcpServer) Config(context string) (*rest.Config, error) {
 		return nil, err
 	}
 
-	config := clientcmd.NewNonInteractiveClientConfig(raw, context, nil, nil)
+	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
 	return config.ClientConfig()
 }
 
@@ -308,7 +308,7 @@ func (c *kcpServer) Ready(keepMonitoring bool) error {
 		// main Ready() body, so we check before continuing that we are live
 		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
 	}
-	cfg, err := c.Config("system:admin")
+	cfg, err := c.DefaultConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read client configuration: %w", err)
 	}
@@ -425,7 +425,7 @@ func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
 		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
 
-	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "root", nil, nil), nil
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "system:admin", nil, nil), nil
 }
 
 type unmanagedKCPServer struct {
@@ -464,13 +464,13 @@ func (s *unmanagedKCPServer) RawConfig() (clientcmdapi.Config, error) {
 	return s.cfg.RawConfig()
 }
 
-func (s *unmanagedKCPServer) Config(context string) (*rest.Config, error) {
+func (s *unmanagedKCPServer) DefaultConfig() (*rest.Config, error) {
 	raw, err := s.cfg.RawConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	config := clientcmd.NewNonInteractiveClientConfig(raw, context, nil, nil)
+	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
 	return config.ClientConfig()
 }
 

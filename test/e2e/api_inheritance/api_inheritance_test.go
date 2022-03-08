@@ -80,7 +80,7 @@ func TestAPIInheritance(t *testing.T) {
 				ctx = withDeadline
 			}
 
-			cfg, err := server.Config("system:admin")
+			cfg, err := server.DefaultConfig()
 			require.NoError(t, err)
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)

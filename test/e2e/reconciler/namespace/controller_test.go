@@ -183,7 +183,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			require.Equal(t, 2, len(f.Servers), "incorrect number of servers")
 			server := f.Servers[serverName]
 
-			cfg, err := server.Config("system:admin")
+			cfg, err := server.DefaultConfig()
 			require.NoError(t, err)
 
 			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
