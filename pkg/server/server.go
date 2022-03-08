@@ -386,6 +386,8 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, preHandlerChainMux); err != nil {
 			return err
 		}
+	} else if err := s.installVirtualWorkspacesRedirect(ctx, preHandlerChainMux); err != nil {
+		return err
 	}
 
 	// Add our custom hooks to the underlying api server

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,6 +91,34 @@ func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient
 
 	klog.Infof("Starting virtual workspace apiserver")
 	preHandlerChainMux.Handle(s.options.Virtual.Workspaces.RootPathPrefix+"/", preparedRootAPIServer.GenericAPIServer.Handler)
+
+	return nil
+}
+
+func (s *Server) installVirtualWorkspacesRedirect(ctx context.Context, preHandlerChainMux mux) error {
+	// TODO(sttts): protect redirect via authz?
+
+	externalBaseURL, err := url.Parse(s.options.Virtual.ExternalVirtualWorkspaceAddress)
+	if err != nil {
+		return err // shouldn't happen due to options validation
+	}
+
+	from := s.options.Virtual.Workspaces.RootPathPrefix
+	if !strings.HasSuffix(from, "/") {
+		from += "/"
+	}
+	to := *externalBaseURL // shallow copy
+	to.Path = path.Join(to.Path, s.options.Virtual.Workspaces.RootPathPrefix)
+	klog.Infof("Redirecting %s to %s", from, to)
+
+	preHandlerChainMux.Handle(from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u := *externalBaseURL // shallow copy
+		u.Path = path.Join(u.Path, r.URL.Path)
+
+		klog.Infof("Got request to %s, redirecting to %s", r.URL.Path, u.String())
+
+		http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
+	}))
 
 	return nil
 }
