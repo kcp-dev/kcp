@@ -97,7 +97,7 @@ E2E_PARALLELISM ?= 1
 .PHONY: test-e2e
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: install
-	go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(TEST_ARGS) $(WHAT)
+	go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
 
 .PHONY: test
 test: WHAT ?= ./...
