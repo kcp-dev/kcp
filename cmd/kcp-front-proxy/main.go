@@ -18,8 +18,6 @@ package main
 
 import (
 	goflags "flag"
-	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -58,10 +56,10 @@ routed based on paths.`,
 	cmd.PersistentFlags().StringVar(&server.MappingFile, "mapping-file", "", "Config file mapping paths to backends")
 
 	if err := cmd.MarkPersistentFlagRequired("mapping-file"); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		klog.Errorf("error: %v\n", err)
 	}
 
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		klog.Errorf("error: %v\n", err)
 	}
 }
