@@ -40,7 +40,7 @@ import (
 type mockReview struct {
 	users  []string
 	groups []string
-	err    string
+	err    error
 }
 
 // Users returns the users that can access a resource
@@ -53,7 +53,7 @@ func (r *mockReview) Groups() []string {
 	return r.groups
 }
 
-func (r *mockReview) EvaluationError() string {
+func (r *mockReview) EvaluationError() error {
 	return r.err
 }
 

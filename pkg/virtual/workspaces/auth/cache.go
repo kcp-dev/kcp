@@ -416,8 +416,8 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	cacheReviewRecord(request, lastKnownValue, review, reviewRecordStore)
 	ac.notifyWatchers(workspace, lastKnownValue, sets.NewString(review.Users()...), sets.NewString(review.Groups()...))
 
-	if errMsg := review.EvaluationError(); len(errMsg) > 0 {
-		klog.V(5).Info(errMsg)
+	if err := review.EvaluationError(); err != nil {
+		klog.V(5).ErrorS(err, "Evaluation Error in the workspace authorization cache")
 	}
 	return nil
 }

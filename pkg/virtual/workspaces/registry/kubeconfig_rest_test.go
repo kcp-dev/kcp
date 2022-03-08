@@ -137,15 +137,20 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "personal",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "personal",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -163,7 +168,8 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -176,8 +182,9 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 			secrets: []corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kubeconfig",
-						Namespace: "kcp",
+						Name:        "kubeconfig",
+						Namespace:   "kcp",
+						ClusterName: "root",
 					},
 					Data: map[string][]byte{
 						"kubeconfig": []byte(shardKubeConfigContent),
@@ -187,7 +194,8 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -221,15 +229,20 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "personal",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "personal",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -247,7 +260,8 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -260,8 +274,9 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 			secrets: []corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kubeconfig",
-						Namespace: "kcp",
+						Name:        "kubeconfig",
+						Namespace:   "kcp",
+						ClusterName: "root",
 					},
 					Data: map[string][]byte{
 						"kubeconfig": []byte(shardKubeConfigContent),
@@ -271,7 +286,8 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -305,15 +321,20 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "oganization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -331,7 +352,8 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -344,8 +366,9 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			secrets: []corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kubeconfig",
-						Namespace: "kcp",
+						Name:        "kubeconfig",
+						Namespace:   "kcp",
+						ClusterName: "root",
 					},
 					Data: map[string][]byte{
 						"kubeconfig": []byte(shardKubeConfigContent),
@@ -355,7 +378,8 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -375,7 +399,7 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			require.NoError(t, err)
 			require.IsType(t, KubeConfig(""), response)
 			responseWorkspace := response.(KubeConfig)
-			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent("oganization"), string(responseWorkspace))
+			assert.YAMLEq(t, expectedWorkspaceKubeconfigContent("organization"), string(responseWorkspace))
 		},
 	}
 	applyTest(t, test)
@@ -389,15 +413,20 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "organization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -415,7 +444,8 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -428,8 +458,9 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 			secrets: []corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kubeconfig",
-						Namespace: "kcp",
+						Name:        "kubeconfig",
+						Namespace:   "kcp",
+						ClusterName: "root",
 					},
 					Data: map[string][]byte{
 						"kubeconfig": []byte(shardKubeConfigContentInvalidCADataBase64),
@@ -439,7 +470,8 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -476,15 +508,20 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "oganization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -502,7 +539,8 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -515,8 +553,9 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			secrets: []corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kubeconfig",
-						Namespace: "kcp",
+						Name:        "kubeconfig",
+						Namespace:   "kcp",
+						ClusterName: "root",
 					},
 					Data: map[string][]byte{
 						"kubeconfig": []byte(shardKubeConfigContentWithoutContext),
@@ -526,7 +565,8 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -562,15 +602,20 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "oganization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -588,7 +633,8 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -601,8 +647,9 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 			secrets: []corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kubeconfig",
-						Namespace: "kcp",
+						Name:        "kubeconfig",
+						Namespace:   "kcp",
+						ClusterName: "root",
 					},
 					Data: map[string][]byte{
 						"kubeconfig": []byte(shardKubeConfigContentInvalid),
@@ -612,7 +659,8 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -648,15 +696,20 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "oganization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -674,7 +727,8 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -687,15 +741,17 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 			secrets: []corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kubeconfig",
-						Namespace: "kcp",
+						Name:        "kubeconfig",
+						Namespace:   "kcp",
+						ClusterName: "root",
 					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -731,15 +787,20 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "oganization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -757,7 +818,8 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "theOneAndOnlyShard",
+						Name:        "theOneAndOnlyShard",
+						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
@@ -770,7 +832,8 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -806,15 +869,20 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "oganization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "THE_RIGHT_SERVER_URL",
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -832,7 +900,8 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -868,11 +937,16 @@ func TestKubeconfigFailBecauseWorkspaceNotFound(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:  user,
-			scope: "oganization",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            "organization",
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {

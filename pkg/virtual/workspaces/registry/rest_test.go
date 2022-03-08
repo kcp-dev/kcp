@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
@@ -67,7 +69,7 @@ var _ workspaceauth.Review = mockReview{}
 type mockReview struct {
 	users           []string
 	groups          []string
-	evaluationError string
+	evaluationError error
 }
 
 func (m mockReview) Users() []string {
@@ -76,7 +78,7 @@ func (m mockReview) Users() []string {
 func (m mockReview) Groups() []string {
 	return m.groups
 }
-func (m mockReview) EvaluationError() string {
+func (m mockReview) EvaluationError() error {
 	return m.evaluationError
 }
 
@@ -90,25 +92,36 @@ func (m mockReviewer) Review(name string) (workspaceauth.Review, error) {
 
 var _ workspaceauth.ReviewerProvider = mockReviewerProvider{}
 
-type verbAndResource [2]string
+type verbAndResourceType struct {
+	verb, resource string
+}
 
-type mockReviewerProvider map[verbAndResource]mockReviewer
+func reviewerKey(verb, resource string, subresources ...string) verbAndResourceType {
+	result := verbAndResourceType{
+		verb:     verb,
+		resource: strings.Join(append([]string{resource}, subresources...), "/"),
+	}
+	return result
+}
 
-func (m mockReviewerProvider) Create(checkedVerb, checkedResource string) workspaceauth.Reviewer {
-	return m[[2]string{checkedVerb, checkedResource}]
+type mockReviewerProvider map[verbAndResourceType]mockReviewer
+
+func (m mockReviewerProvider) Create(checkedVerb, checkedResource string, subresources ...string) workspaceauth.Reviewer {
+	return m[reviewerKey(checkedVerb, checkedResource, subresources...)]
 }
 
 type TestData struct {
-	clusterRoles        []rbacv1.ClusterRole
-	clusterRoleBindings []rbacv1.ClusterRoleBinding
-	clusterWorkspaces   []tenancyv1alpha1.ClusterWorkspace
-	workspaceShards     []tenancyv1alpha1.WorkspaceShard
-	secrets             []corev1.Secret
-	workspaceLister     *mockLister
-	user                kuser.Info
-	scope               string
-	reviewerProvider    workspaceauth.ReviewerProvider
-	orgName             string
+	clusterRoles         []rbacv1.ClusterRole
+	clusterRoleBindings  []rbacv1.ClusterRoleBinding
+	clusterWorkspaces    []tenancyv1alpha1.ClusterWorkspace
+	workspaceShards      []tenancyv1alpha1.WorkspaceShard
+	secrets              []corev1.Secret
+	workspaceLister      *mockLister
+	user                 kuser.Info
+	scope                string
+	reviewerProvider     mockReviewerProvider
+	rootReviewerProvider mockReviewerProvider
+	orgName              string
 }
 
 type TestDescription struct {
@@ -209,6 +222,8 @@ func applyTest(t *testing.T, test TestDescription) {
 		}
 	}
 
+	orgReviewerProvider := test.reviewerProvider
+
 	storage := REST{
 		getOrg: func(orgName string) (*Org, error) {
 			return &Org{
@@ -217,11 +232,12 @@ func applyTest(t *testing.T, test TestDescription) {
 				clusterWorkspaceClient:    mockKCPClient.TenancyV1alpha1().ClusterWorkspaces(),
 				crbLister:                 kubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
 				clusterWorkspaceLister:    clusterWorkspaceLister,
-				workspaceReviewerProvider: test.reviewerProvider,
+				workspaceReviewerProvider: orgReviewerProvider,
 			}, nil
 		},
 		crbInformer:           crbInformer,
 		clusterWorkspaceCache: nil,
+		rootReviewerProvider:  test.rootReviewerProvider,
 	}
 	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
 		mainRest:             &storage,
@@ -230,7 +246,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	}
 	ctx = apirequest.WithUser(ctx, test.user)
 	ctx = apirequest.WithValue(ctx, WorkspacesScopeKey, test.scope)
-	ctx = apirequest.WithValue(ctx, WorkspacesOrgKey, test.orgName)
+	ctx = apirequest.WithValue(ctx, WorkspacesOrgKey, helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, test.orgName))
 
 	test.apply(t, &storage, &kubeconfigSubresourceStorage, ctx, mockKubeClient, mockKCPClient, clusterWorkspaceLister.CheckedUsers, test.TestData)
 }
@@ -243,23 +259,20 @@ func TestPrettyNameIndex(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   OrganizationScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
-			},
+			user:             user,
+			scope:            OrganizationScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "orgName2-binding",
-						ClusterName: "orgName2",
+						ClusterName: "root:orgName2",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo-orgName2",
@@ -275,7 +288,7 @@ func TestPrettyNameIndex(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "orgName-binding",
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -291,10 +304,10 @@ func TestPrettyNameIndex(t *testing.T) {
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(PrettyNameIndex, lclusterAwareIndexValue("orgName", "foo"))
+			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(PrettyNameIndex, lclusterAwareIndexValue("root:orgName", "foo"))
 			require.NoError(t, err)
 			require.Len(t, values, 1)
-			internalName, err := storage.getInternalNameFromPrettyName(testData.user, "orgName", "foo")
+			internalName, err := storage.getInternalNameFromPrettyName(testData.user, "root:orgName", "foo")
 			require.NoError(t, err)
 			require.Equal(t, "foo", internalName)
 		},
@@ -310,23 +323,20 @@ func TestInternalNameIndex(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   OrganizationScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
-			},
+			user:             user,
+			scope:            OrganizationScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "orgName2-binding",
-						ClusterName: "orgName2",
+						ClusterName: "root:orgName2",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo-orgName2",
 							InternalNameLabel: "foo",
@@ -342,7 +352,7 @@ func TestInternalNameIndex(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "orgName-binding",
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -358,10 +368,10 @@ func TestInternalNameIndex(t *testing.T) {
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, lclusterAwareIndexValue("orgName", "foo"))
+			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, lclusterAwareIndexValue("root:orgName", "foo"))
 			require.NoError(t, err)
 			require.Len(t, values, 1)
-			prettyName, err := storage.getPrettyNameFromInternalName(testData.user, "orgName", "foo")
+			prettyName, err := storage.getPrettyNameFromInternalName(testData.user, "root:orgName", "foo")
 			require.NoError(t, err)
 			require.Equal(t, "foo", prettyName)
 		},
@@ -377,23 +387,27 @@ func TestListPersonalWorkspaces(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -438,23 +452,27 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -503,23 +521,27 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   OrganizationScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            OrganizationScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -560,23 +582,27 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   OrganizationScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            OrganizationScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -617,23 +643,27 @@ func TestGetPersonalWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -677,23 +707,27 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -737,25 +771,29 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo2"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo2", ClusterName: "root:orgName"},
 				},
 			},
 			workspaceLister: &mockLister{
 				workspaces: []tenancyv1alpha1.ClusterWorkspace{
 					{
-						ObjectMeta: metav1.ObjectMeta{Name: "foo2"},
+						ObjectMeta: metav1.ObjectMeta{Name: "foo2", ClusterName: "root:orgName"},
 					},
 				},
 			},
@@ -763,7 +801,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -805,12 +843,21 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   OrganizationScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            OrganizationScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
+				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
@@ -820,7 +867,7 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 				},
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, "workspace.tenancy.kcp.dev is forbidden: creating a workspace in only possible in the personal workspaces scope for now")
+			require.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: creating a workspace in only possible in the personal workspaces scope for now")
 			require.Nil(t, response)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
@@ -837,12 +884,21 @@ func TestCreateWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
+				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
@@ -897,7 +953,7 @@ func TestCreateWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -919,7 +975,7 @@ func TestCreateWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -949,23 +1005,32 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
+				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", anotherUser),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -982,7 +1047,8 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", anotherUser),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -991,7 +1057,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -1004,7 +1070,8 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(ListerRoleType, "foo", anotherUser),
+						Name:        getRoleBindingName(ListerRoleType, "foo", anotherUser),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1013,7 +1080,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -1078,7 +1145,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo--1"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -1100,7 +1167,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo--1"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -1136,23 +1203,32 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+			user:             user,
+			scope:            PersonalScope,
+			orgName:          "orgName",
+			reviewerProvider: mockReviewerProvider{},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
+				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1169,7 +1245,8 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(ListerRoleType, "foo", user),
+						Name:        getRoleBindingName(ListerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1178,7 +1255,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -1191,7 +1268,8 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1200,7 +1278,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -1252,19 +1330,29 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
+					"foo": mockReview{
+						users: []string{"test-user"},
+					},
+				},
+			},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1281,7 +1369,8 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1290,14 +1379,15 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(ListerRoleType, "foo", user),
+						Name:        getRoleBindingName(ListerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1306,7 +1396,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1347,19 +1437,29 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}:    mockReviewer{},
-				[2]string{"delete", "workspaces"}: mockReviewer{},
+				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
+					"foo": mockReview{
+						users: []string{}, // "test-user" not allowed to delete
+					},
+				},
+			},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
+					},
+				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1376,7 +1476,8 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1385,14 +1486,15 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(ListerRoleType, "foo", user),
+						Name:        getRoleBindingName(ListerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1401,7 +1503,7 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1410,7 +1512,7 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspace.tenancy.kcp.dev is forbidden: User test-user doesn't have the permission to delete workspace foo")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: user \"test-user\" is not allowed to delete workspace \"foo\" in organization \"orgName\"")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
@@ -1442,29 +1544,29 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}: mockReviewer{
+				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
 					"foo": mockReview{
-						users:  []string{"test-user"},
-						groups: []string{""},
+						users: []string{"test-user"},
 					},
 				},
-				[2]string{"delete", "workspaces"}: mockReviewer{
-					"foo": mockReview{
-						users:  []string{"test-user"},
-						groups: []string{""},
+			},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
 					},
 				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1481,7 +1583,8 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1490,14 +1593,15 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(ListerRoleType, "foo", user),
+						Name:        getRoleBindingName(ListerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1506,7 +1610,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1547,29 +1651,29 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
-				[2]string{"get", "workspaces"}: mockReviewer{
+				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
 					"foo--1": mockReview{
-						users:  []string{"test-user"},
-						groups: []string{""},
+						users: []string{"test-user"},
 					},
 				},
-				[2]string{"delete", "workspaces"}: mockReviewer{
-					"foo--1": mockReview{
-						users:  []string{"test-user"},
-						groups: []string{""},
+			},
+			rootReviewerProvider: mockReviewerProvider{
+				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
+					"orgName": mockReview{
+						groups: []string{"test-group"},
 					},
 				},
 			},
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
-						ClusterName: "orgName",
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -1586,7 +1690,8 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo--1",
 						},
@@ -1595,14 +1700,15 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo--1"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(ListerRoleType, "foo", user),
+						Name:        getRoleBindingName(ListerRoleType, "foo", user),
+						ClusterName: "root:orgName",
 						Labels: map[string]string{
 							InternalNameLabel: "foo--1",
 						},
@@ -1611,7 +1717,7 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 						{
 							Verbs:         []string{"get"},
 							ResourceNames: []string{"foo--1"},
-							Resources:     []string{"workspaces"},
+							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
