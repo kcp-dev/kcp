@@ -219,7 +219,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 					continue
 				}
 				if !sets.NewString([]string(ai.Verbs)...).HasAll("list", "watch") {
-					klog.V(2).InfoS("resource is not list+watchable", "logical-cluster", logicalClusterName, "group", gv.Group, "version", gv.Version, "resource", ai.Name, "verbs", ai.Verbs)
+					klog.V(4).InfoS("resource is not list+watchable", "logical-cluster", logicalClusterName, "group", gv.Group, "version", gv.Version, "resource", ai.Name, "verbs", ai.Verbs)
 					continue
 				}
 
