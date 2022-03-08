@@ -373,7 +373,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				virtualWorkspaceExpectations = append(virtualWorkspaceExpectations, expecter)
 			}
 
-			kcpCfg, err := server.Config("system:admin")
+			kcpCfg, err := server.DefaultConfig()
 			require.NoError(t, err)
 
 			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpCfg)

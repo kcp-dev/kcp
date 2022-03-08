@@ -107,7 +107,7 @@ func TestAuthorizer(t *testing.T) {
 
 	server := f.Servers["main"]
 
-	kcpCfg, err := server.Config("system:admin")
+	kcpCfg, err := server.DefaultConfig()
 	require.NoError(t, err)
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpCfg)
 	require.NoError(t, err)

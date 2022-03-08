@@ -54,7 +54,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 			ctx = withDeadline
 		}
 
-		cfg, err := server.Config("system:admin")
+		cfg, err := server.DefaultConfig()
 		require.NoError(t, err)
 
 		// Until we get rid of the multiClusterClientConfigRoundTripper and replace it with scoping,

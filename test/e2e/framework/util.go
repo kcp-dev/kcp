@@ -165,7 +165,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		gvk := gvks[0]
 		data.GetObjectKind().SetGroupVersionKind(gvk)
 
-		cfg, err := server.Config("system:admin") // TODO(sttts): this doesn't make sense: discovery from a random workspace
+		cfg, err := server.DefaultConfig() // TODO(sttts): this doesn't make sense: discovery from a random workspace
 		require.NoError(t, err, "could not get config for server %q", server.Name())
 
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
