@@ -17,10 +17,11 @@ limitations under the License.
 package auth
 
 import (
+	"path"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	kauthorizer "k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
-	"path"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )

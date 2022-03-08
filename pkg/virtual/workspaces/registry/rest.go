@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternal "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -45,6 +43,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"

@@ -124,7 +124,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 					rootWorkspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
 						rootClusterWorkspaceInformer.Lister(),
 						rootClusterWorkspaceInformer.Informer(),
-						rootReviewerProvider.Create("get", "workspaces"),
+						rootReviewerProvider.Create("access", "clusterworkspaces", "content"),
 						rootRBACInformers,
 					)
 
