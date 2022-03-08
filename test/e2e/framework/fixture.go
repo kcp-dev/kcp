@@ -41,6 +41,38 @@ type KcpFixture struct {
 	Servers map[string]RunningServer
 }
 
+// SharedKcpServer returns a kcp server fixture intended to be shared
+// between tests. A persistent server will be configured if
+// `--kubeconfig` is supplied to the test runner. Otherwise a
+// test-managed server will be started. Only tests that are known to
+// be hermetic are compatible with shared fixture.
+func SharedKcpServer(t *testing.T) RunningServer {
+	serverName := "shared"
+	if len(TestConfig.KubeConfig) > 0 {
+		// Use a persistent server
+
+		t.Logf("shared kcp server will target the persistent kcp server identified by --kubeconfig")
+		server, err := newPersistentKCPServer(serverName, TestConfig.KubeConfig)
+		require.NoError(t, err, "failed to create persistent server fixture")
+		return server
+	}
+
+	// Use a test-provisioned server
+	//
+	// TODO(marun) Enable non-persistent fixture to be shared across
+	// tests. This will likely require composing tests into a suite that
+	// initializes the shared fixture before tests that rely on the
+	// fixture.
+	f := NewKcpFixture(t, KcpConfig{
+		Name: serverName,
+		Args: []string{
+			"--auto-publish-apis",
+			"--discovery-poll-interval=2s",
+		},
+	})
+	return f.Servers[serverName]
+}
+
 func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 	f := &KcpFixture{}
 

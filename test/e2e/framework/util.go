@@ -132,10 +132,14 @@ func init() {
 	utilruntime.Must(localSchemeBuilder.AddToScheme(scheme.Scheme))
 }
 
-// Artifact registers the data-producing function to run and dump the YAML-formatted output
-// to the artifact directory for the test before the kcp process is terminated.
 func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
-	subDir := filepath.Join("artifacts", "kcp", c.name)
+	artifact(t, c, producer)
+}
+
+// artifact registers the data-producing function to run and dump the YAML-formatted output
+// to the artifact directory for the test before the kcp process is terminated.
+func artifact(t *testing.T, server RunningServer, producer func() (runtime.Object, error)) {
+	subDir := filepath.Join("artifacts", "kcp", server.Name())
 	artifactDir, err := CreateTempDirForTest(t, subDir)
 	require.NoError(t, err, "could not create artifacts dir")
 	// Using t.Cleanup ensures that artifact collection is local to
@@ -161,8 +165,8 @@ func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, erro
 		gvk := gvks[0]
 		data.GetObjectKind().SetGroupVersionKind(gvk)
 
-		cfg, err := c.Config("system:admin") // TODO(sttts): this doesn't make sense: discovery from a random workspace
-		require.NoError(t, err, "could not get config for server %q", c.name)
+		cfg, err := server.Config("system:admin") // TODO(sttts): this doesn't make sense: discovery from a random workspace
+		require.NoError(t, err, "could not get config for server %q", server.Name())
 
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
 		require.NoError(t, err, "could not get discovery client for server")

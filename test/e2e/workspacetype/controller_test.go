@@ -158,16 +158,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 		ctx = withDeadline
 	}
 
-	const serverName = "main"
-	f := framework.NewKcpFixture(t,
-		framework.KcpConfig{
-			Name: serverName,
-		},
-	)
-	require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
-	server := f.Servers[serverName]
-	cfg, err := server.Config("system:admin")
-	require.NoError(t, err)
+	server := framework.SharedKcpServer(t)
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -176,6 +167,8 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
+			cfg, err := server.Config("system:admin")
+			require.NoError(t, err)
 			kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 			orgKcpClient := kcpClusterClient.Cluster(orgClusterName)

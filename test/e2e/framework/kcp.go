@@ -36,6 +36,7 @@ import (
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -343,23 +344,17 @@ func (c *kcpServer) loadCfg() error {
 	var lastError error
 	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, 1*time.Minute, func(ctx context.Context) (bool, error) {
 		c.kubeconfigPath = filepath.Join(c.dataDir, "admin.kubeconfig")
-		if fs, err := os.Stat(c.kubeconfigPath); os.IsNotExist(err) {
-			lastError = err
-			return false, nil
-		} else if err != nil {
-			lastError = fmt.Errorf("failed to read admin kubeconfig after kcp start: %w", err)
-			return false, nil
-		} else if fs.Size() == 0 {
-			return false, nil
-		}
-
-		rawConfig, err := clientcmd.LoadFromFile(c.kubeconfigPath)
+		config, err := loadKubeConfig(c.kubeconfigPath)
 		if err != nil {
-			lastError = fmt.Errorf("failed to load admin kubeconfig: %w", err)
+			// A missing file is likely caused by the server not
+			// having started up yet. Ignore these errors for the
+			// purposes of logging.
+			if !os.IsNotExist(err) {
+				lastError = err
+			}
+
 			return false, nil
 		}
-
-		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, "root", nil, nil)
 
 		c.lock.Lock()
 		c.cfg = config
@@ -410,4 +405,75 @@ func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
 			c.t.Errorf("error contacting %s: %v", endpoint, err)
 		}
 	}, 1*time.Second)
+}
+
+// loadKubeConfig loads a kubeconfig from disk. This method is
+// intended to be common between fixture for servers whose lifecycle
+// is test-managed and fixture for servers whose lifecycle is managed
+// separately from a test run.
+func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
+	fs, err := os.Stat(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	if fs.Size() == 0 {
+		return nil, fmt.Errorf("%s points to an empty file", kubeconfigPath)
+	}
+
+	rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
+	}
+
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "root", nil, nil), nil
+}
+
+type unmanagedKCPServer struct {
+	name           string
+	kubeconfigPath string
+	cfg            clientcmd.ClientConfig
+}
+
+// newPersistentKCPServer returns a RunningServer for a kubeconfig
+// pointing to a kcp instance not managed by the test run. Since the
+// kubeconfig is expected to exist prior to running tests against it,
+// the configuration can be loaded synchronously and no locking is
+// required to subsequently access it.
+func newPersistentKCPServer(name, kubeconfigPath string) (RunningServer, error) {
+	cfg, err := loadKubeConfig(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &unmanagedKCPServer{
+		name:           name,
+		kubeconfigPath: kubeconfigPath,
+		cfg:            cfg,
+	}, nil
+}
+
+func (s *unmanagedKCPServer) Name() string {
+	return s.name
+}
+
+func (s *unmanagedKCPServer) KubeconfigPath() string {
+	return s.kubeconfigPath
+}
+
+func (s *unmanagedKCPServer) RawConfig() (clientcmdapi.Config, error) {
+	return s.cfg.RawConfig()
+}
+
+func (s *unmanagedKCPServer) Config(context string) (*rest.Config, error) {
+	raw, err := s.cfg.RawConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	config := clientcmd.NewNonInteractiveClientConfig(raw, context, nil, nil)
+	return config.ClientConfig()
+}
+
+func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
+	artifact(t, s, producer)
 }

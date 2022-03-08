@@ -66,15 +66,7 @@ func TestAPIInheritance(t *testing.T) {
 		},
 	}
 
-	f := framework.NewKcpFixture(t,
-		framework.KcpConfig{
-			Name: serverName,
-			Args: []string{
-				"--run-controllers=false",
-				"--unsupported-run-individual-controllers=workspace-scheduler",
-			},
-		},
-	)
+	server := framework.SharedKcpServer(t)
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -87,9 +79,6 @@ func TestAPIInheritance(t *testing.T) {
 				t.Cleanup(cancel)
 				ctx = withDeadline
 			}
-
-			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
-			server := f.Servers[serverName]
 
 			cfg, err := server.Config("system:admin")
 			require.NoError(t, err)
