@@ -61,10 +61,8 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: v1.17
-      - uses: golangci/golangci-lint-action@v2
-        with:
-          only-new-issues: true
-          args: --timeout=5m
+      - name: Run golangci-lint
+        run: make lint
 
   codegen:
     name: codegen
