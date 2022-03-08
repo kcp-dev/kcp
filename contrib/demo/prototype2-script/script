@@ -198,7 +198,7 @@ pe "kind delete clusters us-east1"
 c "Force the cluster healthcheck to run (we'll be improving this so it's not manual in the next prototype!)"
 pe "kubectl label workloadcluster/kind-us-east1 --overwrite now=\"$(date +%s)\""
 c "Show the cluster's status - us-east1 should be not ready"
-pe "kubectl get clusters -o wide"
+pe "kubectl get workloadclusters -o wide"
 
 wait
 clear
