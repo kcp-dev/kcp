@@ -216,14 +216,14 @@ wait
 clear
 
 c "Now we're going to show our new workspaces APIs! Think of a workspace like your own Kubernetes apiserver, where you can create your own CRDs without worrying about conflicting with anyone else's."
-c "Let's start by creating a 'demo' workspace"
-pe "kubectl kcp workspace --token user-1-token create demo --use"
+c "We are in the demo workspace now. Let's create a new workspace called 'playground' as user-1 and switch to it."
+pe "kubectl kcp workspace --token user-1-token create playground --use"
 
 c "This sets up RBAC permissions, including a ClusterRole for owners of the workspace, and a ClusterRoleBinding for user-1 as an owner:"
-pe "kubectl --context admin get clusterrole/owner-workspace-demo-user-1 -oyaml"
+pe "kubectl --context admin get clusterrole/owner-workspace-playground-user-1 -oyaml"
 wait
 clear
-pe "kubectl --context admin get clusterrole/owner-workspace-demo-user-1 -oyaml"
+pe "kubectl --context admin get clusterrole/owner-workspace-playground-user-1 -oyaml"
 wait
 clear
 c "As user-1, I should be able to access content in my new workspace"
@@ -232,20 +232,20 @@ pe "kubectl create namespace default"
 pe "kubectl create configmap test --from-literal hello=world"
 
 c "And if we remove user-1's access by deleting the ClusterRoleBinding..."
-pe "kubectl --context admin delete clusterrolebinding owner-workspace-demo-user-1"
+pe "kubectl --context admin delete clusterrolebinding owner-workspace-playground-user-1"
 c "Then we see permissions have been revoked"
 pe "kubectl get configmaps"
 pe "kubectl get namespaces"
 wait;clear
-c "Since we only removed permission to the demo workspace, user-1 should still be able to use workspace1 (created earlier)"
+c "Since we only removed permission to the playground workspace, user-1 should still be able to use workspace1 (created earlier)"
 pe "kubectl kcp workspace --token user-1-token use workspace1"
 pe "kubectl get namespaces"
 wait;clear
-c "Each workspace maps to a specific path in the kcp apiserver. For workspace1, its content is stored in /clusters/admin_workspace1"
-pe "kubectl get --raw /clusters/admin_workspace1/api/v1/namespaces"
+c "Each workspace maps to a specific path in the kcp apiserver. For workspace1 (part of the demo org), its content is stored in /clusters/demo:workspace1"
+pe "kubectl get --raw /clusters/demo:workspace1/api/v1/namespaces"
 wait;clear
 c "And you can't get access to a path for a workspace until that workspace has been created:"
-pe "kubectl get --raw /clusters/admin_someotherworkspace/api/v1/namespaces"
+pe "kubectl get --raw /clusters/demo:someotherworkspace/api/v1/namespaces"
 
 #### Section 4 API Inheritance
 wait;clear
