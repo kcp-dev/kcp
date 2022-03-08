@@ -18,8 +18,12 @@ package workspaces
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
+	"path"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -33,17 +37,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 
+	virtualcommand "github.com/kcp-dev/kcp/cmd/virtual-workspaces/command"
+	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	virtualcmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
-	workspacescmd "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cmd"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	"github.com/kcp-dev/kcp/test/e2e/virtual/helpers"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -129,37 +135,42 @@ func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Inte
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 	t.Parallel()
 
+	type clientInfo struct {
+		User   framework.User
+		Prefix string
+	}
+
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName                 string
-		orgKubeClient, rootKubeClient  kubernetes.Interface
-		orgKcpClient, rootKcpClient    clientset.Interface
-		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
-		virtualWorkspaceClients        []clientset.Interface
-		virtualWorkspaceExpectations   []framework.RegisterWorkspaceListExpectation
+		orgClusterName                string
+		orgKubeClient, rootKubeClient kubernetes.Interface
+		orgKcpClient, rootKcpClient   kcpclientset.Interface
+		virtualKcpClients             []kcpclientset.Interface
+		virtualWorkspaceExpectations  []framework.RegisterWorkspaceListExpectation
 	}
+
 	var testCases = []struct {
 		name                           string
-		virtualWorkspaceClientContexts func(orgName string) []helpers.VirtualWorkspaceClientContext
+		virtualWorkspaceClientContexts func(orgName string) []clientInfo
 		work                           func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "create a workspace in personal virtual workspace and have only its owner list it",
-			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
-				return []helpers.VirtualWorkspaceClientContext{
+			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: "/" + orgName + "/personal",
+						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
 					},
 					{
 						User:   testData.user2,
-						Prefix: "/" + orgName + "/personal",
+						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
 					},
 				}
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				vwUser1Client := server.virtualWorkspaceClients[0]
-				vwUser2Client := server.virtualWorkspaceClients[1]
+				vwUser1Client := server.virtualKcpClients[0]
+				vwUser2Client := server.virtualKcpClients[1]
 
 				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1", "team-2")
 				require.NoError(t, err, "failed to create root workspace roles")
@@ -204,21 +215,21 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 		},
 		{
 			name: "create a workspace in personal virtual workspace for an organization and don't see it in another organization",
-			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
-				return []helpers.VirtualWorkspaceClientContext{
+			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: "/" + orgName + "/personal",
+						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
 					},
 					{
 						User:   testData.user1,
-						Prefix: "/root:default/personal",
+						Prefix: path.Join(options.DefaultRootPathPrefix, "root:default", "personal"),
 					},
 				}
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				testOrgClient := server.virtualWorkspaceClients[0]
-				defaultOrgClient := server.virtualWorkspaceClients[1]
+				testOrgClient := server.virtualKcpClients[0]
+				defaultOrgClient := server.virtualKcpClients[1]
 
 				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
 				require.NoError(t, err, "failed to create root workspace roles")
@@ -261,11 +272,11 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 		},
 		{
 			name: "Checks that the org a user is member of is visible to him when pointing to the root workspace with the all scope",
-			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
-				return []helpers.VirtualWorkspaceClientContext{
+			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: "/root/all",
+						Prefix: path.Join(options.DefaultRootPathPrefix, "root", "all"),
 					},
 				}
 			},
@@ -292,16 +303,16 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 		},
 		{
 			name: "create a workspace in personal virtual workspace and retrieve its kubeconfig",
-			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
-				return []helpers.VirtualWorkspaceClientContext{
+			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: "/" + orgName + "/personal",
+						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
 					},
 				}
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				vwUser1Client := server.virtualWorkspaceClients[0]
+				vwUser1Client := server.virtualKcpClients[0]
 
 				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
 				require.NoError(t, err, "failed to create root workspace roles")
@@ -396,14 +407,21 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			usersKCPArgs, err := framework.Users(users).ArgsForKCP(t)
 			require.NoError(t, err)
 
+			// create port early. We have to hope it is still free when we are ready to start the virtual workspace apiserver.
+			portStr, err := framework.GetFreePort(t)
+			require.NoError(t, err)
+
 			// TODO(marun) Can fixture be shared for this test?
 			f := framework.NewKcpFixture(t,
 				framework.KcpConfig{
 					Name: serverName,
 					Args: append([]string{
+						"--run-virtual-workspaces=false",
 						"--run-controllers=false",
 						"--unsupported-run-individual-controllers=workspace-scheduler",
+						fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
 					}, usersKCPArgs...),
+					RunInProcess: true,
 				},
 			)
 
@@ -419,77 +437,102 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			clientContexts := testCase.virtualWorkspaceClientContexts(orgClusterName)
-
-			vw := helpers.VirtualWorkspace{
-				BuildSubCommandOptions: func(kcpServer framework.RunningServer) virtualcmd.SubCommandOptions {
-					kcpAdminConfig, _ := kcpServer.RawConfig()
-					var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
-					virtualWorkspaceKubeConfig := clientcmdapi.Config{
-						Clusters: map[string]*clientcmdapi.Cluster{
-							"shard": &baseCluster,
-						},
-						Contexts: map[string]*clientcmdapi.Context{
-							"shard": {
-								Cluster:  "shard",
-								AuthInfo: "virtualworkspace",
-							},
-						},
-						AuthInfos: map[string]*clientcmdapi.AuthInfo{
-							"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
-						},
-						CurrentContext: "shard",
-					}
-
-					// write kubeconfig to disk, next to kcp kubeconfig
-					cfgPath := filepath.Join(filepath.Dir(kcpServer.KubeconfigPath()), "virtualworkspace.kubeconfig")
-					err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, cfgPath)
-					require.NoError(t, err)
-
-					return &workspacescmd.WorkspacesSubCommandOptions{
-						KubeconfigFile: cfgPath,
-						RootPathPrefix: "/",
-					}
+			// write kubeconfig to disk, next to kcp kubeconfig
+			kcpAdminConfig, _ := server.RawConfig()
+			var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
+			virtualWorkspaceKubeConfig := clientcmdapi.Config{
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"shard": &baseCluster,
 				},
-				ClientContexts: clientContexts,
+				Contexts: map[string]*clientcmdapi.Context{
+					"shard": {
+						Cluster:  "shard",
+						AuthInfo: "virtualworkspace",
+					},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{
+					"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
+				},
+				CurrentContext: "shard",
 			}
-
-			vwConfigs, err := vw.Setup(t, ctx, server)
+			kubeconfgiPath := filepath.Join(filepath.Dir(server.KubeconfigPath()), "virtualworkspace.kubeconfig")
+			err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, kubeconfgiPath)
 			require.NoError(t, err)
 
-			virtualWorkspaceClients := []clientset.Interface{}
-			virtualWorkspaceExpectations := []framework.RegisterWorkspaceListExpectation{}
-			for _, vwConfig := range vwConfigs {
-				vwClients, err := clientset.NewForConfig(vwConfig)
-				require.NoError(t, err, "failed to construct client for server")
+			// launch virtual workspace apiserver
+			port, err := strconv.Atoi(portStr)
+			require.NoError(t, err)
+			opts := virtualoptions.NewOptions()
+			opts.KubeconfigFile = kubeconfgiPath
+			opts.SecureServing.BindPort = port
+			opts.SecureServing.ServerCert.CertKey.KeyFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.key")
+			opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.crt")
+			opts.Authentication.SkipInClusterLookup = true
+			opts.Authentication.RemoteKubeConfigFile = kubeconfgiPath
+			err = opts.Validate()
+			require.NoError(t, err)
+			go func() {
+				err = virtualcommand.Run(opts, ctx.Done())
+				require.NoError(t, err)
+			}()
 
-				virtualWorkspaceClients = append(virtualWorkspaceClients, vwClients)
+			// wait for readiness
+			client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+			require.Eventually(t, func() bool {
+				resp, err := client.Get(fmt.Sprintf("https://localhost:%s/readyz", portStr))
+				if err != nil {
+					klog.Warningf("error checking virtual workspace readiness: %v", err)
+					return false
+				}
+				defer resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					return true
+				}
+				klog.Infof("virtual workspace is not ready yet, status code: %d", resp.StatusCode)
+				return false
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "virtual workspace apiserver not ready")
 
-				expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, vwClients)
-				require.NoError(t, err, "failed to start expecter")
+			// create non-virtual clients
+			kcpConfig, err := server.DefaultConfig()
+			require.NoError(t, err)
+			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpConfig)
+			require.NoError(t, err, "failed to construct client for server")
+			kcpClusterClient, err := kcpclientset.NewClusterForConfig(kcpConfig)
+			require.NoError(t, err, "failed to construct client for server")
 
+			// create virtual clients for all paths and users requested
+			var virtualKcpClients []kcpclientset.Interface
+			var virtualWorkspaceExpectations []framework.RegisterWorkspaceListExpectation
+			kcpRawConfig, err := server.RawConfig()
+			require.NoError(t, err)
+			for _, cc := range testCase.virtualWorkspaceClientContexts(orgClusterName) {
+				// create virtual clients
+				virtualConfig := rest.CopyConfig(kcpConfig)
+				virtualConfig.Host = virtualConfig.Host + cc.Prefix
+				if authInfo, exists := kcpRawConfig.AuthInfos[cc.User.Name]; exists && cc.User.Token == "" {
+					virtualConfig.BearerToken = authInfo.Token
+				} else {
+					virtualConfig.BearerToken = cc.User.Token
+				}
+				client, err := kcpclientset.NewForConfig(virtualConfig)
+				require.NoError(t, err, "failed to construct kcp client")
+				virtualKcpClients = append(virtualKcpClients, client)
+
+				// create expectations
+				expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, client)
+				require.NoError(t, err, "failed to start virtual workspace expecter")
 				virtualWorkspaceExpectations = append(virtualWorkspaceExpectations, expecter)
 			}
 
-			kcpCfg, err := server.DefaultConfig()
-			require.NoError(t, err)
-
-			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpCfg)
-			require.NoError(t, err, "failed to construct client for server")
-
-			kcpClusterClient, err := clientset.NewClusterForConfig(kcpCfg)
-			require.NoError(t, err, "failed to construct client for server")
-
 			testCase.work(ctx, t, runningServer{
-				RunningServer:                  server,
-				orgClusterName:                 orgClusterName,
-				orgKubeClient:                  kubeClusterClient.Cluster(orgClusterName),
-				orgKcpClient:                   kcpClusterClient.Cluster(orgClusterName),
-				rootKubeClient:                 kubeClusterClient.Cluster(helper.RootCluster),
-				rootKcpClient:                  kcpClusterClient.Cluster(helper.RootCluster),
-				virtualWorkspaceClientContexts: clientContexts,
-				virtualWorkspaceClients:        virtualWorkspaceClients,
-				virtualWorkspaceExpectations:   virtualWorkspaceExpectations,
+				RunningServer:                server,
+				orgClusterName:               orgClusterName,
+				orgKubeClient:                kubeClusterClient.Cluster(orgClusterName),
+				orgKcpClient:                 kcpClusterClient.Cluster(orgClusterName),
+				rootKubeClient:               kubeClusterClient.Cluster(helper.RootCluster),
+				rootKcpClient:                kcpClusterClient.Cluster(helper.RootCluster),
+				virtualKcpClients:            virtualKcpClients,
+				virtualWorkspaceExpectations: virtualWorkspaceExpectations,
 			})
 		})
 	}
