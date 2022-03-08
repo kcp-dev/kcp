@@ -16,6 +16,11 @@ on:
 #
 # NOTE!!!
 
+env:
+  # etcd uses fsync by default, disable it for running on github actions to avoid disk contention
+  # xref: https://github.com/kcp-dev/kcp/pull/435/commits/064a517747d69c2cd8f7f8b4a595ad909e595c89
+  UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC: true
+
 jobs:
   boilerplate:
     name: boilerplate
