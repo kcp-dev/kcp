@@ -30,6 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -252,6 +253,37 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 					return nil
 				})
 				require.NoError(t, err, "did not see workspace2 created in test org")
+			},
+		},
+		{
+			name: "Checks that the org a user is member of is visible to him when pointing to the root workspace with the all scope",
+			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
+				return []helpers.VirtualWorkspaceClientContext{
+					{
+						User:   testData.user1,
+						Prefix: "/root/all",
+					},
+				}
+			},
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				_, orgName, err := helper.ParseLogicalClusterName(server.orgClusterName)
+				require.NoError(t, err, "failed to parse organization logical cluster")
+
+				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
+				require.NoError(t, err, "failed to create root org roles")
+
+				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
+					expectedOrgs := sets.NewString(orgName)
+					workspaceNames := sets.NewString()
+					for _, item := range w.Items {
+						workspaceNames.Insert(item.Name)
+					}
+					if workspaceNames.Equal(expectedOrgs) {
+						return nil
+					}
+					return fmt.Errorf("expected 1 workspaces (%#v), got %#v", expectedOrgs, w)
+				})
+				require.NoError(t, err, "did not see the workspace1 created in test org")
 			},
 		},
 		{

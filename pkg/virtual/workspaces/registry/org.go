@@ -58,6 +58,17 @@ func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWork
 	return newOrg
 }
 
+func RootOrg(rootRBACClient rbacv1client.RbacV1Interface, rootCRBInformer rbacinformers.ClusterRoleBindingInformer, rootReviewerProvider workspaceauth.ReviewerProvider, rootClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, rootWorkspaceAuthorizationCache *workspaceauth.AuthorizationCache) *Org {
+	return &Org{
+		rbacClient:                rootRBACClient,
+		crbInformer:               rootCRBInformer,
+		workspaceReviewerProvider: rootReviewerProvider,
+		clusterWorkspaceClient:    rootClusteWorkspaceClient,
+		clusterWorkspaceLister:    rootWorkspaceAuthorizationCache,
+		authCache:                 rootWorkspaceAuthorizationCache,
+	}
+}
+
 type Org struct {
 	rbacClient             rbacv1client.RbacV1Interface
 	crbInformer            rbacinformers.ClusterRoleBindingInformer

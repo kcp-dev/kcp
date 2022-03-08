@@ -215,15 +215,19 @@ func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
 func (s *REST) extractOrg(user user.Info, ctx context.Context) (orgClusterName string, org *Org, err error) {
 	orgClusterName = ctx.Value(WorkspacesOrgKey).(string)
 
-	reviewer := s.rootReviewerProvider.Create("access", "clusterworkspaces", "content")
-	_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
-	if err != nil {
-		return "", nil, kerrors.NewBadRequest("unable to determine organization")
-	}
-	if allowed, err := s.isUserAllowed(user, orgName, reviewer); err != nil {
-		return "", nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", err)
-	} else if !allowed {
-		return "", nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to access workspaces in organization %q", user.GetName(), orgName))
+	// Any user must has at least access to the content of the root org, in order to
+	// be able to fetch the list of the orgs he is member of
+	if orgClusterName != helper.RootCluster {
+		reviewer := s.rootReviewerProvider.Create("access", "clusterworkspaces", "content")
+		_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
+		if err != nil {
+			return "", nil, kerrors.NewBadRequest("unable to determine organization")
+		}
+		if allowed, err := s.isUserAllowed(user, orgName, reviewer); err != nil {
+			return "", nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", err)
+		} else if !allowed {
+			return "", nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to access workspaces in organization %q", user.GetName(), orgName))
+		}
 	}
 
 	org, err = s.getOrg(orgClusterName)

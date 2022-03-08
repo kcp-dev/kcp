@@ -128,7 +128,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 						rootRBACInformers,
 					)
 
-					rootOrg := virtualworkspacesregistry.CreateAndStartOrg(rootRBACClient, rootTenancyClient.ClusterWorkspaces(), rootRBACInformers, rbacwrapper.FilterClusterRoleBindingInformer(helper.RootCluster, crbInformer), rootClusterWorkspaceInformer)
+					rootOrg := virtualworkspacesregistry.RootOrg(rootRBACClient, rootRBACInformers.ClusterRoleBindings(), rootReviewerProvider, rootTenancyClient.ClusterWorkspaces(), rootWorkspaceAuthorizationCache)
+
 					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgClusterName string) *virtualworkspacesregistry.Org {
 						return virtualworkspacesregistry.CreateAndStartOrg(
 							kubeClusterInterface.Cluster(orgClusterName).RbacV1(),
