@@ -133,8 +133,17 @@ func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Inte
 }
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
-	t.Parallel()
+	t.Run("Standalone virtual workspace apiserver", func(t *testing.T) {
+		t.Parallel()
+		testWorkspacesVirtualWorkspaces(t, true)
+	})
+	t.Run("In-process virtual workspace apiserver", func(t *testing.T) {
+		t.Parallel()
+		testWorkspacesVirtualWorkspaces(t, false)
+	})
+}
 
+func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 	type clientInfo struct {
 		User   framework.User
 		Prefix string
@@ -412,16 +421,20 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			require.NoError(t, err)
 
 			// TODO(marun) Can fixture be shared for this test?
+			var extraArgs []string
+			if standalone {
+				extraArgs = append(extraArgs,
+					"--run-virtual-workspaces=false",
+					fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
+				)
+			}
 			f := framework.NewKcpFixture(t,
 				framework.KcpConfig{
 					Name: serverName,
-					Args: append([]string{
-						"--run-virtual-workspaces=false",
+					Args: append(append(extraArgs,
 						"--run-controllers=false",
 						"--unsupported-run-individual-controllers=workspace-scheduler",
-						fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
-					}, usersKCPArgs...),
-					RunInProcess: true,
+					), usersKCPArgs...),
 				},
 			)
 
@@ -437,60 +450,62 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			// write kubeconfig to disk, next to kcp kubeconfig
-			kcpAdminConfig, _ := server.RawConfig()
-			var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
-			virtualWorkspaceKubeConfig := clientcmdapi.Config{
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"shard": &baseCluster,
-				},
-				Contexts: map[string]*clientcmdapi.Context{
-					"shard": {
-						Cluster:  "shard",
-						AuthInfo: "virtualworkspace",
+			if standalone {
+				// write kubeconfig to disk, next to kcp kubeconfig
+				kcpAdminConfig, _ := server.RawConfig()
+				var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
+				virtualWorkspaceKubeConfig := clientcmdapi.Config{
+					Clusters: map[string]*clientcmdapi.Cluster{
+						"shard": &baseCluster,
 					},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
-				},
-				CurrentContext: "shard",
-			}
-			kubeconfgiPath := filepath.Join(filepath.Dir(server.KubeconfigPath()), "virtualworkspace.kubeconfig")
-			err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, kubeconfgiPath)
-			require.NoError(t, err)
-
-			// launch virtual workspace apiserver
-			port, err := strconv.Atoi(portStr)
-			require.NoError(t, err)
-			opts := virtualoptions.NewOptions()
-			opts.KubeconfigFile = kubeconfgiPath
-			opts.SecureServing.BindPort = port
-			opts.SecureServing.ServerCert.CertKey.KeyFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.key")
-			opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.crt")
-			opts.Authentication.SkipInClusterLookup = true
-			opts.Authentication.RemoteKubeConfigFile = kubeconfgiPath
-			err = opts.Validate()
-			require.NoError(t, err)
-			go func() {
-				err = virtualcommand.Run(opts, ctx.Done())
+					Contexts: map[string]*clientcmdapi.Context{
+						"shard": {
+							Cluster:  "shard",
+							AuthInfo: "virtualworkspace",
+						},
+					},
+					AuthInfos: map[string]*clientcmdapi.AuthInfo{
+						"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
+					},
+					CurrentContext: "shard",
+				}
+				kubeconfigPath := filepath.Join(filepath.Dir(server.KubeconfigPath()), "virtualworkspace.kubeconfig")
+				err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, kubeconfigPath)
 				require.NoError(t, err)
-			}()
 
-			// wait for readiness
-			client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
-			require.Eventually(t, func() bool {
-				resp, err := client.Get(fmt.Sprintf("https://localhost:%s/readyz", portStr))
-				if err != nil {
-					klog.Warningf("error checking virtual workspace readiness: %v", err)
+				// launch virtual workspace apiserver
+				port, err := strconv.Atoi(portStr)
+				require.NoError(t, err)
+				opts := virtualoptions.NewOptions()
+				opts.KubeconfigFile = kubeconfigPath
+				opts.SecureServing.BindPort = port
+				opts.SecureServing.ServerCert.CertKey.KeyFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.key")
+				opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.crt")
+				opts.Authentication.SkipInClusterLookup = true
+				opts.Authentication.RemoteKubeConfigFile = kubeconfigPath
+				err = opts.Validate()
+				require.NoError(t, err)
+				go func() {
+					err = virtualcommand.Run(opts, ctx.Done())
+					require.NoError(t, err)
+				}()
+
+				// wait for readiness
+				client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+				require.Eventually(t, func() bool {
+					resp, err := client.Get(fmt.Sprintf("https://localhost:%s/readyz", portStr))
+					if err != nil {
+						klog.Warningf("error checking virtual workspace readiness: %v", err)
+						return false
+					}
+					defer resp.Body.Close()
+					if resp.StatusCode == http.StatusOK {
+						return true
+					}
+					klog.Infof("virtual workspace is not ready yet, status code: %d", resp.StatusCode)
 					return false
-				}
-				defer resp.Body.Close()
-				if resp.StatusCode == http.StatusOK {
-					return true
-				}
-				klog.Infof("virtual workspace is not ready yet, status code: %d", resp.StatusCode)
-				return false
-			}, wait.ForeverTestTimeout, time.Millisecond*100, "virtual workspace apiserver not ready")
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "virtual workspace apiserver not ready")
+			}
 
 			// create non-virtual clients
 			kcpConfig, err := server.DefaultConfig()
