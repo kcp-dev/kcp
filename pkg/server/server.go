@@ -356,6 +356,10 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
+	if err := s.installRootCAConfigMapController(ctx, serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+		return err
+	}
+
 	enabled := sets.NewString(s.options.Controllers.IndividuallyEnabled...)
 	if len(enabled) > 0 {
 		klog.Infof("Starting controllers individually: %v", enabled)
