@@ -27,29 +27,10 @@ import (
 )
 
 // Review is a list of users and groups that can access a resource
-type Review interface {
-	Users() []string
-	Groups() []string
-	EvaluationError() error
-}
-
-type defaultReview struct {
-	users           []string
-	groups          []string
-	evaluationError error
-}
-
-func (r *defaultReview) Users() []string {
-	return r.users
-}
-
-// Groups returns the groups that can access a resource
-func (r *defaultReview) Groups() []string {
-	return r.groups
-}
-
-func (r *defaultReview) EvaluationError() error {
-	return r.evaluationError
+type Review struct {
+	Users           []string
+	Groups          []string
+	EvaluationError error
 }
 
 type ReviewerProvider interface {
@@ -99,10 +80,10 @@ func (r *authorizerReviewer) Review(workspaceName string) (Review, error) {
 	}
 
 	subjects, err := r.policyChecker.AllowedSubjects(attributes)
-	review := &defaultReview{}
-	review.users, review.groups = RBACSubjectsToUsersAndGroups(subjects)
+	review := Review{}
+	review.Users, review.Groups = RBACSubjectsToUsersAndGroups(subjects)
 	if err != nil {
-		review.evaluationError = err
+		review.EvaluationError = err
 	}
 	return review, nil
 }

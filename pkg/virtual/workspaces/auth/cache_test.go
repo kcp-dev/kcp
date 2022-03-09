@@ -36,27 +36,6 @@ import (
 	workspacelisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-// mockReview implements the Review interface for test cases
-type mockReview struct {
-	users  []string
-	groups []string
-	err    error
-}
-
-// Users returns the users that can access a resource
-func (r *mockReview) Users() []string {
-	return r.users
-}
-
-// Groups returns the groups that can access a resource
-func (r *mockReview) Groups() []string {
-	return r.groups
-}
-
-func (r *mockReview) EvaluationError() error {
-	return r.err
-}
-
 // common test users
 var (
 	alice = &user.DefaultInfo{
@@ -83,16 +62,16 @@ var (
 
 // mockReviewer returns the specified values for each supplied resource
 type mockReviewer struct {
-	expectedResults map[string]*mockReview
+	expectedResults map[string]*Review
 }
 
 // Review returns the mapped review from the mock object, or an error if none exists
 func (mr *mockReviewer) Review(name string) (Review, error) {
-	review := mr.expectedResults[name]
-	if review == nil {
-		return nil, fmt.Errorf("Item %s does not exist", name)
+	review, found := mr.expectedResults[name]
+	if !found {
+		return Review{}, fmt.Errorf("Item %s does not exist", name)
 	}
-	return review, nil
+	return *review, nil
 }
 
 func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.String) {
@@ -127,18 +106,18 @@ func TestSyncWorkspace(t *testing.T) {
 	mockKubeClient := fake.NewSimpleClientset()
 
 	reviewer := &mockReviewer{
-		expectedResults: map[string]*mockReview{
+		expectedResults: map[string]*Review{
 			"foo": {
-				users:  []string{alice.GetName(), bob.GetName()},
-				groups: eve.GetGroups(),
+				Users:  []string{alice.GetName(), bob.GetName()},
+				Groups: eve.GetGroups(),
 			},
 			"bar": {
-				users:  []string{frank.GetName(), eve.GetName()},
-				groups: []string{"random"},
+				Users:  []string{frank.GetName(), eve.GetName()},
+				Groups: []string{"random"},
 			},
 			"car": {
-				users:  []string{},
-				groups: []string{},
+				Users:  []string{},
+				Groups: []string{},
 			},
 		},
 	}
@@ -168,12 +147,12 @@ func TestSyncWorkspace(t *testing.T) {
 	validateList(t, authorizationCache, frank, sets.NewString("bar"))
 
 	// modify access rules
-	reviewer.expectedResults["foo"].users = []string{bob.GetName()}
-	reviewer.expectedResults["foo"].groups = []string{"random"}
-	reviewer.expectedResults["bar"].users = []string{alice.GetName(), eve.GetName()}
-	reviewer.expectedResults["bar"].groups = []string{"employee"}
-	reviewer.expectedResults["car"].users = []string{bob.GetName(), eve.GetName()}
-	reviewer.expectedResults["car"].groups = []string{"employee"}
+	reviewer.expectedResults["foo"].Users = []string{bob.GetName()}
+	reviewer.expectedResults["foo"].Groups = []string{"random"}
+	reviewer.expectedResults["bar"].Users = []string{alice.GetName(), eve.GetName()}
+	reviewer.expectedResults["bar"].Groups = []string{"employee"}
+	reviewer.expectedResults["car"].Users = []string{bob.GetName(), eve.GetName()}
+	reviewer.expectedResults["car"].Groups = []string{"employee"}
 
 	// modify resource version on each namespace to simulate a change had occurred to force cache refresh
 	for i := range workspaceList.Items {

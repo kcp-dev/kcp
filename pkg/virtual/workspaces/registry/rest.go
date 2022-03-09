@@ -162,10 +162,10 @@ func (s *REST) isUserAllowed(user user.Info, name string, reviewer workspaceauth
 	if err != nil {
 		return false, err
 	}
-	if review.EvaluationError() != nil {
-		return false, review.EvaluationError()
+	if review.EvaluationError != nil {
+		return false, review.EvaluationError
 	}
-	if !sets.NewString(user.GetGroups()...).HasAny(review.Groups()...) && !sets.NewString(review.Users()...).Has(user.GetName()) {
+	if !sets.NewString(user.GetGroups()...).HasAny(review.Groups...) && !sets.NewString(review.Users...).Has(user.GetName()) {
 		return false, nil
 	}
 

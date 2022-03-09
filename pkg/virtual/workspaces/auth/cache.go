@@ -404,20 +404,20 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	groupsToRemove := sets.NewString()
 	if lastKnownValue != nil {
 		usersToRemove.Insert(lastKnownValue.users...)
-		usersToRemove.Delete(review.Users()...)
+		usersToRemove.Delete(review.Users...)
 		groupsToRemove.Insert(lastKnownValue.groups...)
-		groupsToRemove.Delete(review.Groups()...)
+		groupsToRemove.Delete(review.Groups...)
 	}
 
 	deleteWorkspaceFromSubjects(userSubjectRecordStore, usersToRemove.List(), workspace)
 	deleteWorkspaceFromSubjects(groupSubjectRecordStore, groupsToRemove.List(), workspace)
-	addSubjectsToWorkspace(userSubjectRecordStore, review.Users(), workspace)
-	addSubjectsToWorkspace(groupSubjectRecordStore, review.Groups(), workspace)
+	addSubjectsToWorkspace(userSubjectRecordStore, review.Users, workspace)
+	addSubjectsToWorkspace(groupSubjectRecordStore, review.Groups, workspace)
 	cacheReviewRecord(request, lastKnownValue, review, reviewRecordStore)
-	ac.notifyWatchers(workspace, lastKnownValue, sets.NewString(review.Users()...), sets.NewString(review.Groups()...))
+	ac.notifyWatchers(workspace, lastKnownValue, sets.NewString(review.Users...), sets.NewString(review.Groups...))
 
-	if err := review.EvaluationError(); err != nil {
-		klog.V(5).ErrorS(err, "Evaluation Error in the workspace authorization cache")
+	if review.EvaluationError != nil {
+		klog.V(5).ErrorS(review.EvaluationError, "Evaluation Error in the workspace authorization cache")
 	}
 	return nil
 }
@@ -584,8 +584,8 @@ func (ac *AuthorizationCache) notifyWatchers(workspaceKey string, exists *review
 func cacheReviewRecord(request *reviewRequest, lastKnownValue *reviewRecord, review Review, reviewRecordStore cache.Store) {
 	reviewRecord := &reviewRecord{
 		reviewRequest: &reviewRequest{workspace: request.workspace, roleUIDToResourceVersion: map[types.UID]string{}, roleBindingUIDToResourceVersion: map[types.UID]string{}},
-		groups:        review.Groups(),
-		users:         review.Users(),
+		groups:        review.Groups,
+		users:         review.Users,
 	}
 	// keep what we last believe we knew by default
 	if lastKnownValue != nil {

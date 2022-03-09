@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"encoding/base64"
+	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -143,8 +144,8 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -235,8 +236,8 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -327,8 +328,8 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -419,8 +420,8 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -514,8 +515,8 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -608,8 +609,8 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -702,8 +703,8 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -793,8 +794,8 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -875,8 +876,8 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -943,8 +944,8 @@ func TestKubeconfigFailBecauseWorkspaceNotFound(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},

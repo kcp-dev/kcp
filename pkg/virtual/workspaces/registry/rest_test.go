@@ -64,27 +64,9 @@ func (ml *mockLister) List(user kuser.Info, selector labels.Selector) (*tenancyv
 	}, nil
 }
 
-var _ workspaceauth.Review = mockReview{}
-
-type mockReview struct {
-	users           []string
-	groups          []string
-	evaluationError error
-}
-
-func (m mockReview) Users() []string {
-	return m.users
-}
-func (m mockReview) Groups() []string {
-	return m.groups
-}
-func (m mockReview) EvaluationError() error {
-	return m.evaluationError
-}
-
 var _ workspaceauth.Reviewer = mockReviewer{}
 
-type mockReviewer map[string]mockReview
+type mockReviewer map[string]workspaceauth.Review
 
 func (m mockReviewer) Review(name string) (workspaceauth.Review, error) {
 	return m[name], nil
@@ -393,8 +375,8 @@ func TestListPersonalWorkspaces(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -458,8 +440,8 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -527,8 +509,8 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -588,8 +570,8 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -649,8 +631,8 @@ func TestGetPersonalWorkspace(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -713,8 +695,8 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -777,8 +759,8 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -849,13 +831,13 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -890,13 +872,13 @@ func TestCreateWorkspace(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -1011,13 +993,13 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -1209,13 +1191,13 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			reviewerProvider: mockReviewerProvider{},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -1331,15 +1313,15 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo": mockReview{
-						users: []string{"test-user"},
+					"foo": workspaceauth.Review{
+						Users: []string{"test-user"},
 					},
 				},
 			},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -1438,15 +1420,15 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo": mockReview{
-						users: []string{}, // "test-user" not allowed to delete
+					"foo": workspaceauth.Review{
+						Users: []string{}, // "test-user" not allowed to delete
 					},
 				},
 			},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -1545,15 +1527,15 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo": mockReview{
-						users: []string{"test-user"},
+					"foo": workspaceauth.Review{
+						Users: []string{"test-user"},
 					},
 				},
 			},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
@@ -1652,15 +1634,15 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			orgName: "orgName",
 			reviewerProvider: mockReviewerProvider{
 				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo--1": mockReview{
-						users: []string{"test-user"},
+					"foo--1": workspaceauth.Review{
+						Users: []string{"test-user"},
 					},
 				},
 			},
 			rootReviewerProvider: mockReviewerProvider{
 				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": mockReview{
-						groups: []string{"test-group"},
+					"orgName": workspaceauth.Review{
+						Groups: []string{"test-group"},
 					},
 				},
 			},
