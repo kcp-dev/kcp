@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package auth
+package authorization
 
 import (
 	"fmt"
@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -176,7 +177,8 @@ type AuthorizationCache struct {
 	skip      skipSynchronizer
 	lastState string
 
-	reviewer Reviewer
+	reviewTemplate authorizer.AttributesRecord
+	reviewer       *Reviewer
 
 	syncHandler func(request *reviewRequest, userSubjectRecordStore cache.Store, groupSubjectRecordStore cache.Store, reviewRecordStore cache.Store) error
 
@@ -190,7 +192,8 @@ type AuthorizationCache struct {
 func NewAuthorizationCache(
 	workspaceLister workspacelisters.ClusterWorkspaceLister,
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
-	reviewer Reviewer,
+	reviewer *Reviewer,
+	reviewTemplate authorizer.AttributesRecord,
 	informers rbacv1informers.Interface,
 ) *AuthorizationCache {
 	scrLister := syncedClusterRoleLister{
@@ -216,8 +219,9 @@ func NewAuthorizationCache(
 		userSubjectRecordStore:  cache.NewStore(subjectRecordKeyFn),
 		groupSubjectRecordStore: cache.NewStore(subjectRecordKeyFn),
 
-		reviewer: reviewer,
-		skip:     &neverSkipSynchronizer{},
+		reviewer:       reviewer,
+		reviewTemplate: reviewTemplate,
+		skip:           &neverSkipSynchronizer{},
 
 		watchers: []CacheWatcher{},
 	}
@@ -382,7 +386,6 @@ func (ac *AuthorizationCache) synchronize() {
 
 // syncRequest takes a reviewRequest and determines if it should update the caches supplied, it is not thread-safe
 func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRecordStore cache.Store, groupSubjectRecordStore cache.Store, reviewRecordStore cache.Store) error {
-
 	lastKnownValue, err := lastKnown(reviewRecordStore, request.workspace)
 	if err != nil {
 		return err
@@ -394,30 +397,33 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 
 	workspace := request.workspace
 
+	// Create a copy of reviewTemplate
+	reviewAttributes := ac.reviewTemplate
+
+	// And set the resource name on it
 	_, workspaceName := clusters.SplitClusterAwareKey(workspace)
-	review, err := ac.reviewer.Review(workspaceName)
-	if err != nil {
-		return fmt.Errorf("review for workspace %s failed: %w", workspace, err)
-	}
+	reviewAttributes.Name = workspaceName
+
+	review := ac.reviewer.Review(reviewAttributes)
 
 	usersToRemove := sets.NewString()
 	groupsToRemove := sets.NewString()
 	if lastKnownValue != nil {
 		usersToRemove.Insert(lastKnownValue.users...)
-		usersToRemove.Delete(review.Users()...)
+		usersToRemove.Delete(review.Users...)
 		groupsToRemove.Insert(lastKnownValue.groups...)
-		groupsToRemove.Delete(review.Groups()...)
+		groupsToRemove.Delete(review.Groups...)
 	}
 
 	deleteWorkspaceFromSubjects(userSubjectRecordStore, usersToRemove.List(), workspace)
 	deleteWorkspaceFromSubjects(groupSubjectRecordStore, groupsToRemove.List(), workspace)
-	addSubjectsToWorkspace(userSubjectRecordStore, review.Users(), workspace)
-	addSubjectsToWorkspace(groupSubjectRecordStore, review.Groups(), workspace)
+	addSubjectsToWorkspace(userSubjectRecordStore, review.Users, workspace)
+	addSubjectsToWorkspace(groupSubjectRecordStore, review.Groups, workspace)
 	cacheReviewRecord(request, lastKnownValue, review, reviewRecordStore)
-	ac.notifyWatchers(workspace, lastKnownValue, sets.NewString(review.Users()...), sets.NewString(review.Groups()...))
+	ac.notifyWatchers(workspace, lastKnownValue, sets.NewString(review.Users...), sets.NewString(review.Groups...))
 
-	if errMsg := review.EvaluationError(); len(errMsg) > 0 {
-		klog.V(5).Info(errMsg)
+	if review.EvaluationError != nil {
+		klog.V(5).ErrorS(review.EvaluationError, "Evaluation Error in the workspace authorization cache")
 	}
 	return nil
 }
@@ -584,8 +590,8 @@ func (ac *AuthorizationCache) notifyWatchers(workspaceKey string, exists *review
 func cacheReviewRecord(request *reviewRequest, lastKnownValue *reviewRecord, review Review, reviewRecordStore cache.Store) {
 	reviewRecord := &reviewRecord{
 		reviewRequest: &reviewRequest{workspace: request.workspace, roleUIDToResourceVersion: map[types.UID]string{}, roleBindingUIDToResourceVersion: map[types.UID]string{}},
-		groups:        review.Groups(),
-		users:         review.Users(),
+		groups:        review.Groups,
+		users:         review.Users,
 	}
 	// keep what we last believe we knew by default
 	if lastKnownValue != nil {

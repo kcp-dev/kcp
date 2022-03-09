@@ -26,9 +26,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -75,12 +77,62 @@ var testData = testDataType{
 	workspace2Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2--1"}},
 }
 
+// TODO: move this into a controller and remove this method
+func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Interface, orgClusterName string, groupNames ...string) error {
+	_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
+	if err != nil {
+		return err
+	}
+
+	roleName := "org-" + orgName + "-member"
+	if _, err := kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:         []string{"access", "member"},
+				Resources:     []string{"clusterworkspaces/content"},
+				ResourceNames: []string{orgName},
+				APIGroups:     []string{"tenancy.kcp.dev"},
+			},
+		},
+	}, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	binding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			APIGroup: "rbac.authorization.k8s.io",
+			Name:     roleName,
+		},
+	}
+
+	for _, groupName := range groupNames {
+		binding.Subjects = append(binding.Subjects, rbacv1.Subject{
+			Kind:      "Group",
+			Name:      groupName,
+			Namespace: "",
+		})
+	}
+	if _, err := kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 	t.Parallel()
 
 	type runningServer struct {
 		framework.RunningServer
-		orgKubeClient                  kubernetes.Interface
+		orgClusterName                 string
+		orgKubeClient, rootKubeClient  kubernetes.Interface
 		orgKcpClient, rootKcpClient    clientset.Interface
 		virtualWorkspaceClientContexts []helpers.VirtualWorkspaceClientContext
 		virtualWorkspaceClients        []clientset.Interface
@@ -108,6 +160,9 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
 				vwUser2Client := server.virtualWorkspaceClients[1]
+
+				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1", "team-2")
+				require.NoError(t, err, "failed to create root workspace roles")
 
 				t.Logf("Create Workspace workspace1 in the virtual workspace")
 				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
@@ -165,6 +220,14 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				testOrgClient := server.virtualWorkspaceClients[0]
 				defaultOrgClient := server.virtualWorkspaceClients[1]
 
+				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
+				require.NoError(t, err, "failed to create root workspace roles")
+
+				// TODO: move away from root:default. No e2e should depend on default object,
+				// but be hermeticly separated from everything else.
+				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, "root:default", "team-1")
+				require.NoError(t, err, "failed to create root workspace roles")
+
 				t.Logf("Create Workspace workspace1 in test org")
 				workspace1, err := testOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace1")
@@ -197,6 +260,37 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			},
 		},
 		{
+			name: "Checks that the org a user is member of is visible to him when pointing to the root workspace with the all scope",
+			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
+				return []helpers.VirtualWorkspaceClientContext{
+					{
+						User:   testData.user1,
+						Prefix: "/root/all",
+					},
+				}
+			},
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				_, orgName, err := helper.ParseLogicalClusterName(server.orgClusterName)
+				require.NoError(t, err, "failed to parse organization logical cluster")
+
+				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
+				require.NoError(t, err, "failed to create root workspace roles")
+
+				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
+					expectedOrgs := sets.NewString(orgName)
+					workspaceNames := sets.NewString()
+					for _, item := range w.Items {
+						workspaceNames.Insert(item.Name)
+					}
+					if workspaceNames.Equal(expectedOrgs) {
+						return nil
+					}
+					return fmt.Errorf("expected 1 workspaces (%#v), got %#v", expectedOrgs, w)
+				})
+				require.NoError(t, err, "did not see the workspace1 created in test org")
+			},
+		},
+		{
 			name: "create a workspace in personal virtual workspace and retrieve its kubeconfig",
 			virtualWorkspaceClientContexts: func(orgName string) []helpers.VirtualWorkspaceClientContext {
 				return []helpers.VirtualWorkspaceClientContext{
@@ -208,7 +302,11 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
-				_, err := server.orgKubeClient.CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, metav1.CreateOptions{})
+
+				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
+				require.NoError(t, err, "failed to create root workspace roles")
+
+				_, err = server.orgKubeClient.CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace")
 
 				kcpServerKubeconfig, err := server.RunningServer.RawConfig()
@@ -384,8 +482,10 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:                  server,
+				orgClusterName:                 orgClusterName,
 				orgKubeClient:                  kubeClusterClient.Cluster(orgClusterName),
 				orgKcpClient:                   kcpClusterClient.Cluster(orgClusterName),
+				rootKubeClient:                 kubeClusterClient.Cluster(helper.RootCluster),
 				rootKcpClient:                  kcpClusterClient.Cluster(helper.RootCluster),
 				virtualWorkspaceClientContexts: clientContexts,
 				virtualWorkspaceClients:        virtualWorkspaceClients,
