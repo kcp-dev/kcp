@@ -57,10 +57,10 @@ func (m *mockLister) CheckedUsers() []kuser.Info {
 	return m.checkedUsers
 }
 
-func (ml *mockLister) List(user kuser.Info, selector labels.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
-	ml.checkedUsers = append(ml.checkedUsers, user)
+func (m *mockLister) List(user kuser.Info, _ labels.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
+	m.checkedUsers = append(m.checkedUsers, user)
 	return &tenancyv1alpha1.ClusterWorkspaceList{
-		Items: ml.workspaces,
+		Items: m.workspaces,
 	}, nil
 }
 
@@ -137,16 +137,16 @@ func applyTest(t *testing.T, test TestDescription) {
 	mockKubeClient.PrependWatchReactor("*", func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
-		watch, err := mockKubeClient.Tracker().Watch(gvr, ns)
+		w, err := mockKubeClient.Tracker().Watch(gvr, ns)
 		if err != nil {
 			return false, nil, err
 		}
 		close(watcherStarted)
-		return true, watch, nil
+		return true, w, nil
 	})
 	mockKubeClient.AddReactor("delete-collection", "*", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
 		deleteCollectionAction := action.(clienttesting.DeleteCollectionAction)
-		var gvr schema.GroupVersionResource = deleteCollectionAction.GetResource()
+		var gvr = deleteCollectionAction.GetResource()
 		var gvk schema.GroupVersionKind
 		switch gvr.Resource {
 		case "clusterroles":
