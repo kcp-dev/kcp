@@ -29,9 +29,15 @@ import (
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
 )
 
-// CreateAndStartOrg creates an Org struct that contains all the required clients and caches to retrieve user workspaces inside an org
+// CreateAndStartOrg creates an Org that contains all the required clients and caches to retrieve user workspaces inside an org
 // As part of an Org, a WorkspaceAuthCache is created and ensured to be started.
-func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, orgRBACInformers rbacinformers.Interface, orgCRBInformer rbacinformers.ClusterRoleBindingInformer, orgClusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer) *Org {
+func CreateAndStartOrg(
+	orgRBACClient rbacv1client.RbacV1Interface,
+	orgClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface,
+	orgRBACInformers rbacinformers.Interface,
+	orgCRBInformer rbacinformers.ClusterRoleBindingInformer,
+	orgClusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer,
+) *Org {
 	orgSubjectLocator := frameworkrbac.NewSubjectLocator(orgRBACInformers)
 	orgReviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(orgSubjectLocator)
 
@@ -58,7 +64,13 @@ func CreateAndStartOrg(orgRBACClient rbacv1client.RbacV1Interface, orgClusteWork
 	return newOrg
 }
 
-func RootOrg(rootRBACClient rbacv1client.RbacV1Interface, rootCRBInformer rbacinformers.ClusterRoleBindingInformer, rootReviewerProvider workspaceauth.ReviewerProvider, rootClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface, rootWorkspaceAuthorizationCache *workspaceauth.AuthorizationCache) *Org {
+func RootOrg(
+	rootRBACClient rbacv1client.RbacV1Interface,
+	rootCRBInformer rbacinformers.ClusterRoleBindingInformer,
+	rootReviewerProvider workspaceauth.ReviewerProvider,
+	rootClusteWorkspaceClient tenancyclient.ClusterWorkspaceInterface,
+	rootWorkspaceAuthorizationCache *workspaceauth.AuthorizationCache,
+) *Org {
 	return &Org{
 		rbacClient:                rootRBACClient,
 		crbInformer:               rootCRBInformer,
