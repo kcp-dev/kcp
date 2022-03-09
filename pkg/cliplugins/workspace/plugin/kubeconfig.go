@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
@@ -108,14 +108,31 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*
 			if err != nil {
 				return nil, err
 			}
-			orgClusterName := helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, "default")
+			orgClusterName := tenancyhelpers.EncodeOrganizationAndClusterWorkspace(tenancyhelpers.RootCluster, "default")
 			clusterIndex := strings.Index(currentServerURL.Path, "/clusters/")
 			if clusterIndex >= 0 {
-				orgClusterName = currentServerURL.Path[clusterIndex+10:]
+				clusterName := currentServerURL.Path[clusterIndex+10:]
+				if clusterName == tenancyhelpers.RootCluster {
+					orgClusterName = clusterName
+				} else if org, _, err := tenancyhelpers.ParseLogicalClusterName(clusterName); err != nil {
+					return nil, fmt.Errorf("unable to parse cluster name %s", clusterName)
+				} else if org == "system:" {
+					return nil, fmt.Errorf("no workspaces are accessible from %s", clusterName)
+				} else if org == tenancyhelpers.RootCluster {
+					// already in an org workspace
+					orgClusterName = clusterName
+				} else {
+					// some other workspace, return org cluster name
+					orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
+					if err != nil {
+						// should never happen
+						return nil, fmt.Errorf("unable to derive parent cluster name for %s", clusterName)
+					}
+				}
 			}
 
 			scope := workspaceregistry.PersonalScope
-			if orgClusterName == helper.RootCluster {
+			if orgClusterName == tenancyhelpers.RootCluster {
 				scope = workspaceregistry.OrganizationScope
 			}
 
@@ -247,11 +264,11 @@ func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (scope string, name str
 	}
 
 	if currentContextName == "" {
-		return "", "", errors.New("No current context !")
+		return "", "", errors.New("no current context")
 	}
 
 	if !strings.HasPrefix(currentContextName, kcpWorkspaceContextNamePrefix) {
-		return "", "", errors.New("The current context is not a KCP workspace !")
+		return "", "", errors.New("the current context is not a KCP workspace")
 	}
 
 	scope, workspaceName := extractScopeAndName(strings.TrimPrefix(currentContextName, kcpWorkspaceContextNamePrefix))
@@ -284,7 +301,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 
 	outputCurrentWorkspaceMessage := func() error {
 		if workspaceName != "" {
-			err := write(opts, fmt.Sprintf("Current %s workspace is \"%s\".\n", scope, workspaceName))
+			err := write(opts, fmt.Sprintf("Current workspace is %q.\n", workspaceName))
 			return err
 		}
 		return nil
