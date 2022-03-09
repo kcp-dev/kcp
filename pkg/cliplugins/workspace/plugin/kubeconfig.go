@@ -37,7 +37,6 @@ import (
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
-	workspaceregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
 const (
@@ -52,10 +51,14 @@ const (
 type KubeConfig struct {
 	configAccess   clientcmd.ConfigAccess
 	startingConfig *api.Config
+	scope          string
 }
 
 // NewKubeConfig load a kubeconfig with default config access
-func NewKubeConfig(overridingOptions *Options) (*KubeConfig, error) {
+func NewKubeConfig(opts *Options) (*KubeConfig, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
 	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
 
 	var err error
@@ -67,6 +70,7 @@ func NewKubeConfig(overridingOptions *Options) (*KubeConfig, error) {
 	return &KubeConfig{
 		configAccess:   configAccess,
 		startingConfig: startingConfig,
+		scope:          opts.Scope,
 	}, nil
 }
 
@@ -120,9 +124,7 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 		}
 	}
 
-	scope := workspaceregistry.PersonalScope
-
-	workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, workspacebuilder.DefaultRootPathPrefix, orgClusterName, scope)
+	workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, workspacebuilder.DefaultRootPathPrefix, orgClusterName, kc.scope)
 
 	kubectlOverrides := options.KubectlOverrides
 
@@ -206,7 +208,6 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 	}
 
 	workspaceConfigCurrentContext := workspaceConfig.CurrentContext
-	scope, _ := extractScopeAndName(workspaceConfigCurrentContext)
 	workspaceContextName := kcpWorkspaceContextNamePrefix + workspaceConfigCurrentContext
 
 	currentContextName := kc.startingConfig.CurrentContext
@@ -233,7 +234,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 
 	kc.startingConfig.CurrentContext = workspaceContextName
 
-	if err := write(opts, fmt.Sprintf("Current %s workspace is \"%s\".\n", scope, workspaceName)); err != nil {
+	if err := write(opts, fmt.Sprintf("Current workspace is \"%s\".\n", workspaceName)); err != nil {
 		return err
 	}
 	return clientcmd.ModifyConfig(kc.configAccess, *kc.startingConfig, true)
@@ -279,7 +280,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 		return err
 	}
 
-	scope, workspaceName, err := kc.getCurrentWorkspace(opts)
+	_, workspaceName, err := kc.getCurrentWorkspace(opts)
 	if err != nil {
 		return err
 	}
@@ -290,12 +291,6 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 			return err
 		}
 		return nil
-	}
-
-	// Check that the scope is consistent with the workspace-directory config
-	if !strings.HasSuffix(workspaceDirectoryRestConfig.Host, "/"+scope) {
-		_ = outputCurrentWorkspaceMessage()
-		return fmt.Errorf("Scope of the workspace-directory ('%s') doesn't match the scope of the workspace-directory server ('%s').\nCannot check the current workspace existence.", scope, workspaceDirectoryRestConfig.Host)
 	}
 
 	if err := checkWorkspaceExists(ctx, workspaceName, tenancyClient); err != nil {

@@ -45,7 +45,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
-		Use:              "workspace [--workspace-directory-server=] <current|use|list>",
+		Use:              "workspace [--scope=<personal|all>] <create|list|use|current|delete>",
 		Short:            "Manages KCP workspaces",
 		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
 		SilenceUsage:     true,
@@ -53,10 +53,6 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	}
 
 	opts.BindFlags(cmd)
-	kubeconfig, err := plugin.NewKubeConfig(opts)
-	if err != nil {
-		return nil, err
-	}
 
 	useCmd := &cobra.Command{
 		Use:          "use < workspace name | - >",
@@ -64,6 +60,10 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		Example:      "kcp workspace use my-worspace",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
 			if len(args) != 1 {
 				return fmt.Errorf("The workspace name (or -) should be given")
 			}
@@ -81,6 +81,10 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		Example:      "kcp workspace current",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
 			if err := kubeconfig.CurrentWorkspace(c.Context(), opts); err != nil {
 				return err
 			}
@@ -94,6 +98,10 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		Example:      "kcp workspace list",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
 			if err := kubeconfig.ListWorkspaces(c.Context(), opts); err != nil {
 				return err
 			}
@@ -113,6 +121,10 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 			if err != nil {
 				return err
 			}
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
 			if err := kubeconfig.CreateWorkspace(c.Context(), opts, args[0], useAfterCreation); err != nil {
 				return err
 			}
@@ -128,6 +140,10 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
 			if err := kubeconfig.DeleteWorkspace(c.Context(), opts, args[0]); err != nil {
 				return err
 			}
