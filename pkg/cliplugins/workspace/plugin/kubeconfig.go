@@ -99,15 +99,29 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 	}
 
 	// get workspace from current server URL and check it point to an org or the root workspace
+	defaultOpts := workspacesoptions.NewWorkspaces()
 	serverURL, err := url.Parse(workspaceDirectoryCluster.Server)
 	if err != nil {
 		return nil, err
 	}
-	clusterIndex := strings.Index(serverURL.Path, "/clusters/")
-	if clusterIndex < 0 {
+	possiblePrefixes := []string{
+		"/clusters/",
+		defaultOpts.RootPathPrefix + "/",
+	}
+	var clusterName, basePath string
+	for _, prefix := range possiblePrefixes {
+		clusterIndex := strings.Index(serverURL.Path, prefix)
+		if clusterIndex < 0 {
+			continue
+		}
+		clusterName = strings.SplitN(serverURL.Path[clusterIndex+len(prefix):], "/", 2)[0]
+		basePath = serverURL.Path[:clusterIndex]
+	}
+	if clusterName == "" {
 		return nil, fmt.Errorf("current cluster URL %s is not pointing to a workspace", serverURL)
 	}
-	clusterName := serverURL.Path[clusterIndex+10:]
+
+	// derive the org workspace to operator on
 	var orgClusterName string
 	if clusterName == tenancyhelpers.RootCluster {
 		orgClusterName = clusterName
@@ -127,10 +141,7 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 		}
 	}
 
-	basePath := serverURL.Path[:clusterIndex]
-
 	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
-	defaultOpts := workspacesoptions.NewWorkspaces()
 	serverURL.Path = path.Join(basePath, defaultOpts.RootPathPrefix, orgClusterName, kc.scope)
 	workspaceDirectoryCluster.Server = serverURL.String()
 
