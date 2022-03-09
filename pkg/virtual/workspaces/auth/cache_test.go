@@ -20,10 +20,12 @@ import (
 	"strconv"
 	"testing"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -59,16 +61,6 @@ var (
 	}
 )
 
-// mockReviewer returns the specified values for each supplied resource
-type mockReviewer struct {
-	expectedResults map[string]*Review
-}
-
-// Review returns the mapped review from the mock object, or an error if none exists
-func (mr *mockReviewer) Review(name string) Review {
-	return *mr.expectedResults[name]
-}
-
 func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.String) {
 	workspaceList, err := lister.List(user, labels.Everything())
 	if err != nil {
@@ -81,6 +73,50 @@ func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.
 	if results.Len() != expectedSet.Len() || !results.HasAll(expectedSet.List()...) {
 		t.Errorf("User %v, Expected: %v, Actual: %v", user.GetName(), expectedSet, results)
 	}
+}
+
+type mockSubjectLocator struct {
+	subjects map[string][]rbacv1.Subject
+}
+
+func (m *mockSubjectLocator) AllowedSubjects(attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
+	return m.subjects[attributes.GetName()], nil
+}
+
+func rbacUser(name string) rbacv1.Subject {
+	return rbacv1.Subject{
+		APIGroup: rbacv1.GroupName,
+		Kind:     rbacv1.UserKind,
+		Name:     name,
+	}
+}
+
+func rbacUsers(names ...string) []rbacv1.Subject {
+	var subjects []rbacv1.Subject
+
+	for _, name := range names {
+		subjects = append(subjects, rbacUser(name))
+	}
+
+	return subjects
+}
+
+func rbacGroup(name string) rbacv1.Subject {
+	return rbacv1.Subject{
+		APIGroup: rbacv1.GroupName,
+		Kind:     rbacv1.GroupKind,
+		Name:     name,
+	}
+}
+
+func rbacGroups(names ...string) []rbacv1.Subject {
+	var subjects []rbacv1.Subject
+
+	for _, name := range names {
+		subjects = append(subjects, rbacGroup(name))
+	}
+
+	return subjects
 }
 
 func TestSyncWorkspace(t *testing.T) {
@@ -100,20 +136,11 @@ func TestSyncWorkspace(t *testing.T) {
 	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList)
 	mockKubeClient := fake.NewSimpleClientset()
 
-	reviewer := &mockReviewer{
-		expectedResults: map[string]*Review{
-			"foo": {
-				Users:  []string{alice.GetName(), bob.GetName()},
-				Groups: eve.GetGroups(),
-			},
-			"bar": {
-				Users:  []string{frank.GetName(), eve.GetName()},
-				Groups: []string{"random"},
-			},
-			"car": {
-				Users:  []string{},
-				Groups: []string{},
-			},
+	subjectLocator := &mockSubjectLocator{
+		subjects: map[string][]rbacv1.Subject{
+			"foo": append(rbacUsers(alice.GetName(), bob.GetName()), rbacGroups(eve.GetGroups()...)...),
+			"bar": append(rbacUsers(frank.GetName(), eve.GetName()), rbacGroups("random")...),
+			"car": {},
 		},
 	}
 
@@ -125,7 +152,8 @@ func TestSyncWorkspace(t *testing.T) {
 	authorizationCache := NewAuthorizationCache(
 		wsLister,
 		kcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
-		reviewer,
+		NewReviewer(subjectLocator),
+		authorizer.AttributesRecord{},
 		kubeInformers.Rbac().V1(),
 	)
 	// we prime the data we need here since we are not running reflectors
@@ -142,12 +170,9 @@ func TestSyncWorkspace(t *testing.T) {
 	validateList(t, authorizationCache, frank, sets.NewString("bar"))
 
 	// modify access rules
-	reviewer.expectedResults["foo"].Users = []string{bob.GetName()}
-	reviewer.expectedResults["foo"].Groups = []string{"random"}
-	reviewer.expectedResults["bar"].Users = []string{alice.GetName(), eve.GetName()}
-	reviewer.expectedResults["bar"].Groups = []string{"employee"}
-	reviewer.expectedResults["car"].Users = []string{bob.GetName(), eve.GetName()}
-	reviewer.expectedResults["car"].Groups = []string{"employee"}
+	subjectLocator.subjects["foo"] = []rbacv1.Subject{rbacUser(bob.GetName()), rbacGroup("random")}
+	subjectLocator.subjects["bar"] = []rbacv1.Subject{rbacUser(alice.GetName()), rbacUser(eve.GetName()), rbacGroup("employee")}
+	subjectLocator.subjects["car"] = []rbacv1.Subject{rbacUser(bob.GetName()), rbacUser(eve.GetName()), rbacGroup("employee")}
 
 	// modify resource version on each namespace to simulate a change had occurred to force cache refresh
 	for i := range workspaceList.Items {

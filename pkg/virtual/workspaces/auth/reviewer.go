@@ -17,13 +17,11 @@ limitations under the License.
 package auth
 
 import (
-	"path"
-
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kauthorizer "k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
-
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 // Review is a list of users and groups that can access a resource. It is also possible that the authorization
@@ -35,61 +33,36 @@ type Review struct {
 	EvaluationError error
 }
 
-type ReviewerProvider interface {
-	Create(checkedVerb, checkedResource string, subresources ...string) Reviewer
+// Includes returns true if there is an intersection between either the Review's groups and the user's groups,
+// or the Review's users and the user's name.
+func (r Review) Includes(user user.Info) bool {
+	return sets.NewString(r.Groups...).HasAny(user.GetGroups()...) || sets.NewString(r.Users...).Has(user.GetName())
 }
 
-type authorizerReviewerProvider struct {
-	policyChecker rbac.SubjectLocator
+// Reviewer is a wrapper around rbac.SubjectLocator that parses the allowed subjects and splits them into users and
+// groups.
+type Reviewer struct {
+	subjectLocater rbac.SubjectLocator
 }
 
-func (arp *authorizerReviewerProvider) Create(checkedVerb, checkedResource string, subresources ...string) Reviewer {
-	return &authorizerReviewer{
-		checkedVerb:     checkedVerb,
-		checkedResource: checkedResource,
-		policyChecker:   arp.policyChecker,
-		subresources:    subresources,
+// NewReviewer returns a new Reviewer that uses subjectLocator.
+func NewReviewer(subjectLocator rbac.SubjectLocator) *Reviewer {
+	return &Reviewer{
+		subjectLocater: subjectLocator,
 	}
 }
 
-// Reviewer performs access reviews for a workspace by name
-type Reviewer interface {
-	Review(name string) Review
-}
-
-type authorizerReviewer struct {
-	checkedVerb, checkedResource string
-	subresources                 []string
-	policyChecker                rbac.SubjectLocator
-}
-
-func NewAuthorizerReviewerProvider(policyChecker rbac.SubjectLocator) ReviewerProvider {
-	return &authorizerReviewerProvider{
-		policyChecker: policyChecker,
-	}
-}
-
-func (r *authorizerReviewer) Review(workspaceName string) Review {
-	attributes := kauthorizer.AttributesRecord{
-		Verb:            r.checkedVerb,
-		Namespace:       "",
-		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-		Resource:        r.checkedResource,
-		Subresource:     path.Join(r.subresources...),
-		Name:            workspaceName,
-		ResourceRequest: true,
-	}
-
-	subjects, err := r.policyChecker.AllowedSubjects(attributes)
+// Review returns a Review for attributes.
+func (r *Reviewer) Review(attributes kauthorizer.Attributes) Review {
+	subjects, err := r.subjectLocater.AllowedSubjects(attributes)
 	review := Review{
 		EvaluationError: err,
 	}
-	review.Users, review.Groups = RBACSubjectsToUsersAndGroups(subjects)
+	review.Users, review.Groups = rbacSubjectsToUsersAndGroups(subjects)
 	return review
 }
 
-func RBACSubjectsToUsersAndGroups(subjects []rbacv1.Subject) (users []string, groups []string) {
+func rbacSubjectsToUsersAndGroups(subjects []rbacv1.Subject) (users []string, groups []string) {
 	for _, subject := range subjects {
 		switch {
 		case subject.APIGroup == rbacv1.GroupName && subject.Kind == rbacv1.GroupKind:

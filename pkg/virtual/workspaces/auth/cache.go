@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -176,7 +177,8 @@ type AuthorizationCache struct {
 	skip      skipSynchronizer
 	lastState string
 
-	reviewer Reviewer
+	reviewTemplate authorizer.AttributesRecord
+	reviewer       *Reviewer
 
 	syncHandler func(request *reviewRequest, userSubjectRecordStore cache.Store, groupSubjectRecordStore cache.Store, reviewRecordStore cache.Store) error
 
@@ -190,7 +192,8 @@ type AuthorizationCache struct {
 func NewAuthorizationCache(
 	workspaceLister workspacelisters.ClusterWorkspaceLister,
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
-	reviewer Reviewer,
+	reviewer *Reviewer,
+	reviewTemplate authorizer.AttributesRecord,
 	informers rbacv1informers.Interface,
 ) *AuthorizationCache {
 	scrLister := syncedClusterRoleLister{
@@ -216,8 +219,9 @@ func NewAuthorizationCache(
 		userSubjectRecordStore:  cache.NewStore(subjectRecordKeyFn),
 		groupSubjectRecordStore: cache.NewStore(subjectRecordKeyFn),
 
-		reviewer: reviewer,
-		skip:     &neverSkipSynchronizer{},
+		reviewer:       reviewer,
+		reviewTemplate: reviewTemplate,
+		skip:           &neverSkipSynchronizer{},
 
 		watchers: []CacheWatcher{},
 	}
@@ -382,7 +386,6 @@ func (ac *AuthorizationCache) synchronize() {
 
 // syncRequest takes a reviewRequest and determines if it should update the caches supplied, it is not thread-safe
 func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRecordStore cache.Store, groupSubjectRecordStore cache.Store, reviewRecordStore cache.Store) error {
-
 	lastKnownValue, err := lastKnown(reviewRecordStore, request.workspace)
 	if err != nil {
 		return err
@@ -394,8 +397,14 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 
 	workspace := request.workspace
 
+	// Create a copy of reviewTemplate
+	reviewAttributes := ac.reviewTemplate
+
+	// And set the resource name on it
 	_, workspaceName := clusters.SplitClusterAwareKey(workspace)
-	review := ac.reviewer.Review(workspaceName)
+	reviewAttributes.Name = workspaceName
+
+	review := ac.reviewer.Review(reviewAttributes)
 
 	usersToRemove := sets.NewString()
 	groupsToRemove := sets.NewString()

@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -117,18 +118,22 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 
 					rootRBACInformers := rbacwrapper.FilterInformers(helper.RootCluster, wildcardsRbacInformers)
 					rootSubjectLocator := frameworkrbac.NewSubjectLocator(rootRBACInformers)
-					rootReviewerProvider := workspaceauth.NewAuthorizerReviewerProvider(rootSubjectLocator)
+					rootReviewer := workspaceauth.NewReviewer(rootSubjectLocator)
 
 					rootClusterWorkspaceInformer := tenancywrapper.FilterClusterWorkspaceInformer(helper.RootCluster, wildcardsClusterWorkspaces)
 
 					rootWorkspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
 						rootClusterWorkspaceInformer.Lister(),
 						rootClusterWorkspaceInformer.Informer(),
-						rootReviewerProvider.Create("access", "clusterworkspaces", "content"),
+						rootReviewer,
+						*workspaceauth.NewAttributesBuilder().
+							Verb("access").
+							Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
+							AttributesRecord,
 						rootRBACInformers,
 					)
 
-					rootOrg := virtualworkspacesregistry.RootOrg(rootRBACClient, rootRBACInformers.ClusterRoleBindings(), rootReviewerProvider, rootTenancyClient.ClusterWorkspaces(), rootWorkspaceAuthorizationCache)
+					rootOrg := virtualworkspacesregistry.RootOrg(rootRBACClient, rootRBACInformers.ClusterRoleBindings(), rootReviewer, rootTenancyClient.ClusterWorkspaces(), rootWorkspaceAuthorizationCache)
 
 					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgClusterName string) *virtualworkspacesregistry.Org {
 						return virtualworkspacesregistry.CreateAndStartOrg(
@@ -169,7 +174,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 						return nil, err
 					}
 
-					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(rootKcpClient.TenancyV1alpha1(), rootKubeClient, globalClusterWorkspaceCache, crbInformer, orgListener.GetOrg, rootReviewerProvider)
+					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(rootKcpClient.TenancyV1alpha1(), rootKubeClient, globalClusterWorkspaceCache, crbInformer, orgListener.GetOrg, rootReviewer)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 							return workspacesRest, nil

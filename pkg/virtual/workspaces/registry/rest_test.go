@@ -19,7 +19,6 @@ package registry
 import (
 	"context"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -64,46 +63,18 @@ func (m *mockLister) List(user kuser.Info, _ labels.Selector) (*tenancyv1alpha1.
 	}, nil
 }
 
-var _ workspaceauth.Reviewer = mockReviewer{}
-
-type mockReviewer map[string]workspaceauth.Review
-
-func (m mockReviewer) Review(name string) workspaceauth.Review {
-	return m[name]
-}
-
-var _ workspaceauth.ReviewerProvider = mockReviewerProvider{}
-
-type verbAndResourceType struct {
-	verb, resource string
-}
-
-func reviewerKey(verb, resource string, subresources ...string) verbAndResourceType {
-	result := verbAndResourceType{
-		verb:     verb,
-		resource: strings.Join(append([]string{resource}, subresources...), "/"),
-	}
-	return result
-}
-
-type mockReviewerProvider map[verbAndResourceType]mockReviewer
-
-func (m mockReviewerProvider) Create(checkedVerb, checkedResource string, subresources ...string) workspaceauth.Reviewer {
-	return m[reviewerKey(checkedVerb, checkedResource, subresources...)]
-}
-
 type TestData struct {
-	clusterRoles         []rbacv1.ClusterRole
-	clusterRoleBindings  []rbacv1.ClusterRoleBinding
-	clusterWorkspaces    []tenancyv1alpha1.ClusterWorkspace
-	workspaceShards      []tenancyv1alpha1.WorkspaceShard
-	secrets              []corev1.Secret
-	workspaceLister      *mockLister
-	user                 kuser.Info
-	scope                string
-	reviewerProvider     mockReviewerProvider
-	rootReviewerProvider mockReviewerProvider
-	orgName              string
+	clusterRoles        []rbacv1.ClusterRole
+	clusterRoleBindings []rbacv1.ClusterRoleBinding
+	clusterWorkspaces   []tenancyv1alpha1.ClusterWorkspace
+	workspaceShards     []tenancyv1alpha1.WorkspaceShard
+	secrets             []corev1.Secret
+	workspaceLister     *mockLister
+	user                kuser.Info
+	scope               string
+	reviewer            *workspaceauth.Reviewer
+	rootReviewer        *workspaceauth.Reviewer
+	orgName             string
 }
 
 type TestDescription struct {
@@ -204,22 +175,22 @@ func applyTest(t *testing.T, test TestDescription) {
 		}
 	}
 
-	orgReviewerProvider := test.reviewerProvider
+	orgReviewer := test.reviewer
 
 	storage := REST{
 		getOrg: func(orgName string) (*Org, error) {
 			return &Org{
-				rbacClient:                mockKubeClient.RbacV1(),
-				crbInformer:               crbInformer,
-				clusterWorkspaceClient:    mockKCPClient.TenancyV1alpha1().ClusterWorkspaces(),
-				crbLister:                 kubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-				clusterWorkspaceLister:    clusterWorkspaceLister,
-				workspaceReviewerProvider: orgReviewerProvider,
+				rbacClient:             mockKubeClient.RbacV1(),
+				crbInformer:            crbInformer,
+				clusterWorkspaceClient: mockKCPClient.TenancyV1alpha1().ClusterWorkspaces(),
+				crbLister:              kubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+				clusterWorkspaceLister: clusterWorkspaceLister,
+				workspaceReviewer:      orgReviewer,
 			}, nil
 		},
 		crbInformer:           crbInformer,
 		clusterWorkspaceCache: nil,
-		rootReviewerProvider:  test.rootReviewerProvider,
+		rootReviewer:          test.rootReviewer,
 	}
 	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
 		mainRest:             &storage,
@@ -241,10 +212,10 @@ func TestPrettyNameIndex(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            OrganizationScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
+			user:     user,
+			scope:    OrganizationScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -305,10 +276,10 @@ func TestInternalNameIndex(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            OrganizationScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
+			user:     user,
+			scope:    OrganizationScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -369,17 +340,17 @@ func TestListPersonalWorkspaces(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -434,17 +405,17 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
@@ -503,17 +474,17 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            OrganizationScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    OrganizationScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -564,17 +535,17 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            OrganizationScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    OrganizationScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
@@ -625,17 +596,17 @@ func TestGetPersonalWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -689,17 +660,17 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
@@ -753,17 +724,17 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -825,22 +796,20 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            OrganizationScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    OrganizationScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
-					},
-				},
-			},
+			}),
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1alpha1.ClusterWorkspace{
@@ -866,22 +835,20 @@ func TestCreateWorkspace(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
-					},
-				},
-			},
+			}),
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
@@ -987,22 +954,20 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
-					},
-				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -1185,22 +1150,20 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:             user,
-			scope:            PersonalScope,
-			orgName:          "orgName",
-			reviewerProvider: mockReviewerProvider{},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-				reviewerKey("member", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
-					},
-				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -1311,20 +1274,20 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			user:    user,
 			scope:   PersonalScope,
 			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo": workspaceauth.Review{
-						Users: []string{"test-user"},
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"orgName": rbacUsers("test-user"),
 					},
 				},
-			},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -1418,20 +1381,20 @@ func TestDeleteWorkspaceForbidden(t *testing.T) {
 			user:    user,
 			scope:   PersonalScope,
 			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo": workspaceauth.Review{
-						Users: []string{}, // "test-user" not allowed to delete
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"orgName": rbacUsers("test-user"),
 					},
 				},
-			},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -1525,20 +1488,20 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			user:    user,
 			scope:   PersonalScope,
 			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo": workspaceauth.Review{
-						Users: []string{"test-user"},
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"foo": rbacUsers("test-user"),
 					},
 				},
-			},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
@@ -1632,20 +1595,20 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			user:    user,
 			scope:   PersonalScope,
 			orgName: "orgName",
-			reviewerProvider: mockReviewerProvider{
-				reviewerKey("delete", "clusterworkspaces", "workspace"): mockReviewer{
-					"foo--1": workspaceauth.Review{
-						Users: []string{"test-user"},
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"foo--1": rbacUsers("test-user"),
 					},
 				},
-			},
-			rootReviewerProvider: mockReviewerProvider{
-				reviewerKey("access", "clusterworkspaces", "content"): mockReviewer{
-					"orgName": workspaceauth.Review{
-						Groups: []string{"test-group"},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ClusterName: "root:orgName"},
