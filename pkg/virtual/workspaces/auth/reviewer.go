@@ -33,9 +33,9 @@ type Review struct {
 	EvaluationError error
 }
 
-// Includes returns true if there is an intersection between either the Review's groups and the user's groups,
+// Allows returns true if there is an intersection between either the Review's groups and the user's groups,
 // or the Review's users and the user's name.
-func (r Review) Includes(user user.Info) bool {
+func (r Review) Allows(user user.Info) bool {
 	return sets.NewString(r.Groups...).HasAny(user.GetGroups()...) || sets.NewString(r.Users...).Has(user.GetName())
 }
 

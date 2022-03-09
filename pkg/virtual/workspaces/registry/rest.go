@@ -221,7 +221,7 @@ func (s *REST) authorizeOrgForUser(orgClusterName string, user user.Info) (org *
 				Name(orgName).
 				AttributesRecord,
 		)
-		if !review.Includes(user) {
+		if !review.Allows(user) {
 			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to access organization %q", user.GetName(), orgName))
 		}
 	}
@@ -506,7 +506,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			Name(orgName).
 			AttributesRecord,
 	)
-	if !review.Includes(userInfo) {
+	if !review.Allows(userInfo) {
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to create workspaces in organization %q", userInfo.GetName(), orgName))
 	}
 
@@ -674,7 +674,7 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 			Name(internalName).
 			AttributesRecord,
 	)
-	if !review.Includes(userInfo) {
+	if !review.Allows(userInfo) {
 		_, orgName, _ := helper.ParseLogicalClusterName(orgClusterName)
 		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("user %q is not allowed to delete workspace %q in organization %q", userInfo.GetName(), internalName, orgName))
 	}
