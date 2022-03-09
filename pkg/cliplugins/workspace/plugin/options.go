@@ -26,8 +26,7 @@ import (
 // Options provides options that will drive the update of the current context
 // on a user's KUBECONFIG based on actions done on KCP workspaces
 type Options struct {
-	WorkspaceDirectoryOverrides *clientcmd.ConfigOverrides
-	KubectlOverrides            *clientcmd.ConfigOverrides
+	KubectlOverrides *clientcmd.ConfigOverrides
 
 	genericclioptions.IOStreams
 }
@@ -35,8 +34,7 @@ type Options struct {
 // NewOptions provides an instance of Options with default values
 func NewOptions(streams genericclioptions.IOStreams) *Options {
 	return &Options{
-		WorkspaceDirectoryOverrides: &clientcmd.ConfigOverrides{},
-		KubectlOverrides:            &clientcmd.ConfigOverrides{},
+		KubectlOverrides: &clientcmd.ConfigOverrides{},
 
 		IOStreams: streams,
 	}
@@ -58,34 +56,4 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	kubectlConfigOverrideFlags.Timeout.LongName = ""
 
 	clientcmd.BindOverrideFlags(o.KubectlOverrides, cmd.PersistentFlags(), kubectlConfigOverrideFlags)
-
-	// We also add a subset of kubeconfig-related flags related specifically to
-	// workspace directory (user workspace list). They would override the way the
-	// `workspaces` virtual workspace API server is accessed.
-	descriptionSuffix := " for workspace directory context"
-	workspaceDirectoryConfigOverrideFlags := clientcmd.RecommendedConfigOverrideFlags("workspace-directory-")
-
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.ClientCertificate.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.ClientKey.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Impersonate.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.ImpersonateGroups.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Password.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Token.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Username.Description += descriptionSuffix
-
-	workspaceDirectoryConfigOverrideFlags.ContextOverrideFlags.AuthInfoName.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.ContextOverrideFlags.ClusterName.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.ContextOverrideFlags.Namespace.LongName = ""
-
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.APIVersion.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.APIServer.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.CertificateAuthority.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.InsecureSkipTLSVerify.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.TLSServerName.Description += descriptionSuffix
-
-	workspaceDirectoryConfigOverrideFlags.CurrentContext.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.CurrentContext.Default = "workspace-directory"
-	workspaceDirectoryConfigOverrideFlags.Timeout.LongName = ""
-
-	clientcmd.BindOverrideFlags(o.WorkspaceDirectoryOverrides, cmd.PersistentFlags(), workspaceDirectoryConfigOverrideFlags)
 }
