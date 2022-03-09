@@ -42,6 +42,7 @@ import (
 	"k8s.io/klog/v2"
 
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
 
 const (
@@ -74,6 +75,7 @@ func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resourc
 	return nil
 }
 
+type mutatorGvrMap map[schema.GroupVersionResource]mutators.Mutator
 type UpsertFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
 type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
 type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
@@ -91,10 +93,11 @@ type Controller struct {
 
 	upstreamClusterName string
 	syncerNamespace     string
+	mutators            mutatorGvrMap
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, pclusterID string) (*Controller, error) {
+func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
 	controllerName := string(direction) + "-" + kcpClusterName + "-" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -105,6 +108,11 @@ func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInter
 		direction:           direction,
 		upstreamClusterName: kcpClusterName,
 		syncerNamespace:     os.Getenv(SyncerNamespaceKey),
+		mutators:            make(mutatorGvrMap),
+	}
+
+	if len(mutators) > 0 {
+		c.mutators = mutators
 	}
 
 	if direction == KcpToPhysicalCluster {
@@ -452,4 +460,10 @@ func transformName(syncedObject *unstructured.Unstructured, direction Direction)
 			syncedObject.SetName("default")
 		}
 	}
+}
+
+func getDefaultMutators(from, to *rest.Config, registeredWorkspace string) map[schema.GroupVersionResource]mutators.Mutator {
+	mutatorsMap := make(map[schema.GroupVersionResource]mutators.Mutator)
+
+	return mutatorsMap
 }

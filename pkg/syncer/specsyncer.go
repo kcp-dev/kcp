@@ -83,7 +83,11 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClust
 	}
 	fromClient := fromClients.Cluster(kcpClusterName)
 	toClient := dynamic.NewForConfigOrDie(to)
-	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, pclusterID)
+
+	// Register the default mutators
+	mutatorsMap := getDefaultMutators(from, to, kcpClusterName)
+
+	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, pclusterID, mutatorsMap)
 }
 
 func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {

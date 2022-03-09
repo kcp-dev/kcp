@@ -62,7 +62,11 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClu
 		return nil, err
 	}
 	toClient := toClients.Cluster(kcpClusterName)
-	return New(kcpClusterName, pclusterID, discoveryClient, fromClient, toClient, PhysicalClusterToKcp, syncedResourceTypes, pclusterID)
+
+	// Register the default mutators
+	mutatorsMap := getDefaultMutators(from, to, kcpClusterName)
+
+	return New(kcpClusterName, pclusterID, discoveryClient, fromClient, toClient, PhysicalClusterToKcp, syncedResourceTypes, pclusterID, mutatorsMap)
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
