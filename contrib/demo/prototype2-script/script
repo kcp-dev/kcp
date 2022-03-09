@@ -90,6 +90,9 @@ pe "kubectl get clusterworkspaces"
 c "We can switch over to the demo organization. For this, we could add the URL to our kubeconfig. But this far too complicate. We have this awesome kcp kubectl plugin:"
 pe "kubectl kcp workspace use demo"
 
+wait
+clear
+
 c "Let's start by creating a \"real\" workspace and using it. That's what organization workspace are for, to hold the actual application workspaces."
 pe "kubectl kcp workspace --token user-1-token create workspace1 --use"
 
@@ -219,10 +222,10 @@ c "We are in the demo workspace now. Let's create a new workspace called 'playgr
 pe "kubectl kcp workspace --token user-1-token create playground --use"
 
 c "This sets up RBAC permissions, including a ClusterRole for owners of the workspace, and a ClusterRoleBinding for user-1 as an owner:"
-pe "kubectl --context admin get clusterrole/owner-workspace-playground-user-1 -oyaml"
+pe "kubectl --context workspace.kcp.dev/personal/demo get clusterrole/owner-workspace-playground-user-1 -oyaml"
 wait
 clear
-pe "kubectl --context admin get clusterrole/owner-workspace-playground-user-1 -oyaml"
+pe "kubectl --context workspace.kcp.dev/personal/demo get clusterrole/owner-workspace-playground-user-1 -oyaml"
 wait
 clear
 c "As user-1, I should be able to access content in my new workspace"
@@ -231,7 +234,7 @@ pe "kubectl create namespace default"
 pe "kubectl create configmap test --from-literal hello=world"
 
 c "And if we remove user-1's access by deleting the ClusterRoleBinding..."
-pe "kubectl --context admin delete clusterrolebinding owner-workspace-playground-user-1"
+pe "kubectl --context workspace.kcp.dev/personal/demo delete clusterrolebinding owner-workspace-playground-user-1"
 c "Then we see permissions have been revoked"
 pe "kubectl get configmaps"
 pe "kubectl get namespaces"
@@ -252,12 +255,12 @@ wait;clear
 c "Now let's examine one more cool feature of workspaces - API inheritance! A workspace can specify another workspace from which it can inherit CRD-based APIs. Let's start by creating 2 workspaces that don't have any inheritance."
 
 c "Add a workspace called 'inherit' for user-2 (but it's not inheriting yet!)"
-pe "kubectl kcp workspace --token user-2-token create inherit --inherit-from=''"
+pe "kubectl kcp workspace --token user-2-token create inherit"
 c "Add a workspace called 'source' for user-1 and use it"
-pe "kubectl kcp workspace --token user-1-token create source --inherit-from='' --use"
+pe "kubectl kcp workspace --token user-1-token create source --use"
 
 c "Let's add a CRD to the source workspace and show that it's only available there and not in the inheriting workspace yet"
-pe "kubectl apply -f ${KCP_DIR}/test/e2e/reconciler/cluster/wildwest.dev_cowboys.yaml"
+pe "kubectl apply -f ${KCP_DIR}/test/e2e/fixtures/wildwest/wildwest.dev_cowboys.yaml"
 
 c "The CRD and API resources exist:"
 pe "kubectl get crd"
@@ -290,7 +293,7 @@ pe "kubectl get cowboys"
 
 wait;clear
 c "Update the inherit workspace to inherit from source"
-pe "kubectl --context admin patch workspaces/inherit --type merge --patch '{\"spec\":{\"inheritFrom\":\"source\"}}'"
+pe "kubectl --context workspace.kcp.dev/personal/demo patch clusterworkspaces/inherit --type merge --patch '{\"spec\":{\"inheritFrom\":\"source\"}}'"
 
 c "Now we have access to the cowboys resource"
 pe "kubectl api-resources | grep cowboys"
