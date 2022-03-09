@@ -84,6 +84,16 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		return err
 	}
 
+<<<<<<< HEAD
+=======
+	// Run any transformations on the object before we update the status on kcp.
+	if mutator, ok := c.mutators[gvr]; ok {
+		if err := mutator.ApplyStatus(upstreamObj); err != nil {
+			return err
+		}
+	}
+
+>>>>>>> 29bed66 (syncer: remove ApplyDownstreamName)
 	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.
 	//       I believe to remember that we had resources where that happened.
 
