@@ -35,7 +35,6 @@ import (
 	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	workspacecmd "github.com/kcp-dev/kcp/pkg/virtual/framework/cmd"
 	workspacebuilder "github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
 
@@ -52,6 +51,7 @@ type KubeConfig struct {
 	configAccess   clientcmd.ConfigAccess
 	startingConfig *api.Config
 	scope          string
+	port           int
 }
 
 // NewKubeConfig load a kubeconfig with default config access
@@ -71,6 +71,7 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 		configAccess:   configAccess,
 		startingConfig: startingConfig,
 		scope:          opts.Scope,
+		port:           opts.Port,
 	}, nil
 }
 
@@ -124,7 +125,15 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 		}
 	}
 
-	workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, workspacebuilder.DefaultRootPathPrefix, orgClusterName, kc.scope)
+	port := ""
+	if kc.port != 0 {
+		port = fmt.Sprintf(":%d", kc.port)
+	} else {
+		if currentServerURL.Port() != "" {
+			port = fmt.Sprintf(":%s", currentServerURL.Port())
+		}
+	}
+	workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s%s%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), port, workspacebuilder.DefaultRootPathPrefix, orgClusterName, kc.scope)
 
 	kubectlOverrides := options.KubectlOverrides
 

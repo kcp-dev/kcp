@@ -30,6 +30,8 @@ import (
 type Options struct {
 	KubectlOverrides *clientcmd.ConfigOverrides
 	Scope            string
+	// Temporary, until we have #640 merged, in which case it should be necessary anymore
+	Port int
 	genericclioptions.IOStreams
 }
 
@@ -60,6 +62,8 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().StringVar(&o.Scope, "scope", "personal", `The 'personal' scope shows only the workspaces you personally own, with the name you gave them at creation.
 	The 'all' scope returns all the workspaces you are allowed to see in the organization, with the disambiguated names they have inside the whole organization.`)
+
+	cmd.PersistentFlags().IntVar(&o.Port, "port", 0, `overrides the port that will be used to point to the workspace directory server. Default port is the port of the currrent kube context server.`)
 }
 
 func (o *Options) Validate() error {
