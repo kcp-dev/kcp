@@ -19,6 +19,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/pprof"
+	"runtime/trace"
 
 	"github.com/spf13/cobra"
 
@@ -36,6 +40,19 @@ import (
 
 func main() {
 	help.FitTerminal()
+
+	// cli flags for profiling
+	var (
+		outputDir            string
+		memProfile           string
+		memProfileRate       int
+		cpuProfile           string
+		blockProfile         string
+		blockProfileRate     int
+		mutexProfile         string
+		mutexProfileFraction int
+		traceFile            string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "kcp",
@@ -98,9 +115,94 @@ func main() {
 				return err
 			}
 
+			// cli profiling
+			if memProfileRate > 0 {
+				runtime.MemProfileRate = memProfileRate
+			}
+			if blockProfile != "" && blockProfileRate >= 0 {
+				runtime.SetBlockProfileRate(blockProfileRate)
+			}
+			if mutexProfile != "" && mutexProfileFraction >= 0 {
+				runtime.SetMutexProfileFraction(mutexProfileFraction)
+			}
+
+			if cpuProfile != "" {
+				f, err := os.Create(filepath.Join(outputDir, cpuProfile))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "kcp: %s\n", err)
+					return err
+				}
+				if err := pprof.StartCPUProfile(f); err != nil {
+					fmt.Fprintf(os.Stderr, "kcp: can't start cpu profile: %s\n", err)
+					f.Close()
+					return err
+				}
+				defer pprof.StopCPUProfile()
+			}
+
+			if memProfile != "" {
+				f, err := os.Create(filepath.Join(outputDir, memProfile))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "kcp: %s\n", err)
+					return err
+				}
+				defer func() {
+					pprof.Lookup("heap").WriteTo(f, 0)
+					f.Close()
+				}()
+			}
+
+			if mutexProfile != "" {
+				f, err := os.Create(filepath.Join(outputDir, mutexProfile))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "kcp: %s\n", err)
+					return err
+				}
+				defer func() {
+					pprof.Lookup("mutex").WriteTo(f, 0)
+					f.Close()
+				}()
+			}
+
+			if blockProfile != "" {
+				f, err := os.Create(filepath.Join(outputDir, blockProfile))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "kcp: %s\n", err)
+					return err
+				}
+				defer func() {
+					pprof.Lookup("block").WriteTo(f, 0)
+					f.Close()
+				}()
+			}
+
+			if traceFile != "" {
+				f, err := os.Create(filepath.Join(outputDir, traceFile))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "kcp: %s\n", err)
+					return err
+				}
+				if err := trace.Start(f); err != nil {
+					fmt.Fprintf(os.Stderr, "kcp: can't start tracing: %s\n", err)
+					f.Close()
+					return err
+				}
+				defer trace.Stop()
+			}
+
 			return s.Run(genericapiserver.SetupSignalContext())
 		},
 	}
+
+	startCmd.Flags().StringVarP(&outputDir, "profile-outputdir", "", "", "write profiles to `dir`")
+	startCmd.Flags().StringVarP(&memProfile, "memprofile", "", "", "write an allocation profile to `file`")
+	startCmd.Flags().IntVarP(&memProfileRate, "memprofilerate", "", 0, "set memory allocation profiling `rate` (see runtime.MemProfileRate)")
+	startCmd.Flags().StringVarP(&cpuProfile, "cpuprofile", "", "", "write a cpu profile to `file`")
+	startCmd.Flags().StringVarP(&blockProfile, "blockprofile", "", "", "write a goroutine blocking profile to `file`")
+	startCmd.Flags().IntVarP(&blockProfileRate, "blockprofilerate", "", 1, "set blocking profile `rate` (see runtime.SetBlockProfileRate)")
+	startCmd.Flags().StringVarP(&mutexProfile, "mutexprofile", "", "", "write a mutex contention profile to the named file after execution")
+	startCmd.Flags().IntVarP(&mutexProfileFraction, "mutexprofilefraction", "", 1, "if >= 0, calls runtime.SetMutexProfileFraction()")
+	startCmd.Flags().StringVarP(&traceFile, "trace", "", "", "write an execution trace to `file`")
 
 	// add start named flag sets to start flags
 	namedStartFlagSets := serverOptions.Flags()
