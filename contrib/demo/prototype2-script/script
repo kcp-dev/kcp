@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+TYPE_SPEED=${TYPE_SPEED:-150}
+#NO_WAIT=true
+
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "${DEMO_DIR}"/../.setupEnv
 
@@ -21,10 +24,6 @@ source "${DEMO_DIR}"/../.setupEnv
 . "${DEMOS_DIR}"/demo-magic
 
 DEMO_PROMPT="☸️ $ "
-
-TYPE_SPEED=150
-#TYPE_SPEED=999
-#NO_WAIT=true
 
 function pause() {
   if [[ "${NO_WAIT}" = "true" ]]; then
