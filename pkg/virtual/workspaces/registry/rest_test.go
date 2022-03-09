@@ -199,7 +199,13 @@ func applyTest(t *testing.T, test TestDescription) {
 	}
 	ctx = apirequest.WithUser(ctx, test.user)
 	ctx = apirequest.WithValue(ctx, WorkspacesScopeKey, test.scope)
-	ctx = apirequest.WithValue(ctx, WorkspacesOrgKey, helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, test.orgName))
+	var orgClusterName string
+	if test.orgName == helper.RootCluster {
+		orgClusterName = test.orgName
+	} else {
+		orgClusterName = helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, test.orgName)
+	}
+	ctx = apirequest.WithValue(ctx, WorkspacesOrgKey, orgClusterName)
 
 	test.apply(t, &storage, &kubeconfigSubresourceStorage, ctx, mockKubeClient, mockKCPClient, clusterWorkspaceLister.CheckedUsers, test.TestData)
 }
@@ -514,6 +520,46 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 			if err != nil {
 				t.Errorf("%#v should be nil.", err)
 			}
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestListPersonalWorkspacesOnRootOrg(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "root",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{},
+			}),
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "orgName", ClusterName: "root"},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			response, err := storage.List(ctx, nil)
+			require.NoError(t, err)
+			workspaces := response.(*tenancyv1beta1.WorkspaceList)
+			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
+			responseWorkspace := workspaces.Items[0]
+			assert.Equal(t, "orgName", responseWorkspace.Name)
+			checkedUsers := listerCheckedUsers()
+			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
+			assert.Equal(t,
+				user,
+				checkedUsers[0],
+				"The workspaceLister should have checked the user with its groups")
 		},
 	}
 	applyTest(t, test)

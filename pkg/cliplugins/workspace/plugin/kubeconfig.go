@@ -132,9 +132,6 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*
 			}
 
 			scope := workspaceregistry.PersonalScope
-			if orgClusterName == tenancyhelpers.RootCluster {
-				scope = workspaceregistry.OrganizationScope
-			}
 
 			workspaceDirectoryCluster.Server = fmt.Sprintf("%s://%s:%d%s/%s/%s", currentServerURL.Scheme, currentServerURL.Hostname(), workspacecmd.SecurePortDefault, workspacebuilder.DefaultRootPathPrefix, orgClusterName, scope)
 		}
