@@ -26,7 +26,9 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-// Review is a list of users and groups that can access a resource
+// Review is a list of users and groups that can access a resource. It is also possible that the authorization
+// check encountered some errors (e.g. if it couldn't resolve certain role bindings). Any errors encountered are
+// stored in EvaluationError.
 type Review struct {
 	Users           []string
 	Groups          []string
@@ -52,7 +54,7 @@ func (arp *authorizerReviewerProvider) Create(checkedVerb, checkedResource strin
 
 // Reviewer performs access reviews for a workspace by name
 type Reviewer interface {
-	Review(name string) (Review, error)
+	Review(name string) Review
 }
 
 type authorizerReviewer struct {
@@ -67,7 +69,7 @@ func NewAuthorizerReviewerProvider(policyChecker rbac.SubjectLocator) ReviewerPr
 	}
 }
 
-func (r *authorizerReviewer) Review(workspaceName string) (Review, error) {
+func (r *authorizerReviewer) Review(workspaceName string) Review {
 	attributes := kauthorizer.AttributesRecord{
 		Verb:            r.checkedVerb,
 		Namespace:       "",
@@ -80,26 +82,20 @@ func (r *authorizerReviewer) Review(workspaceName string) (Review, error) {
 	}
 
 	subjects, err := r.policyChecker.AllowedSubjects(attributes)
-	review := Review{}
-	review.Users, review.Groups = RBACSubjectsToUsersAndGroups(subjects)
-	if err != nil {
-		review.EvaluationError = err
+	review := Review{
+		EvaluationError: err,
 	}
-	return review, nil
+	review.Users, review.Groups = RBACSubjectsToUsersAndGroups(subjects)
+	return review
 }
 
 func RBACSubjectsToUsersAndGroups(subjects []rbacv1.Subject) (users []string, groups []string) {
 	for _, subject := range subjects {
-
 		switch {
 		case subject.APIGroup == rbacv1.GroupName && subject.Kind == rbacv1.GroupKind:
 			groups = append(groups, subject.Name)
 		case subject.APIGroup == rbacv1.GroupName && subject.Kind == rbacv1.UserKind:
 			users = append(users, subject.Name)
-		case subject.APIGroup == "" && subject.Kind == rbacv1.ServiceAccountKind:
-			// service account are not considered here
-		default:
-			// service account are not considered here
 		}
 	}
 

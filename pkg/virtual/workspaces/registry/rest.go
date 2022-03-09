@@ -158,13 +158,7 @@ func (s *REST) NamespaceScoped() bool {
 }
 
 func (s *REST) isUserAllowed(user user.Info, name string, reviewer workspaceauth.Reviewer) (bool, error) {
-	review, err := reviewer.Review(name)
-	if err != nil {
-		return false, err
-	}
-	if review.EvaluationError != nil {
-		return false, review.EvaluationError
-	}
+	review := reviewer.Review(name)
 	if !sets.NewString(user.GetGroups()...).HasAny(review.Groups...) && !sets.NewString(review.Users...).Has(user.GetName()) {
 		return false, nil
 	}
@@ -215,8 +209,8 @@ func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
 func (s *REST) extractOrg(user user.Info, ctx context.Context) (orgClusterName string, org *Org, err error) {
 	orgClusterName = ctx.Value(WorkspacesOrgKey).(string)
 
-	// Any user must has at least access to the content of the root org, in order to
-	// be able to fetch the list of the orgs he is member of
+	// Any user must have at least access to the content of the root org, in order to
+	// be able to fetch the list of the orgs they're a member of
 	if orgClusterName != helper.RootCluster {
 		reviewer := s.rootReviewerProvider.Create("access", "clusterworkspaces", "content")
 		_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)

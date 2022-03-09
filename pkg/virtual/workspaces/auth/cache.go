@@ -395,10 +395,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	workspace := request.workspace
 
 	_, workspaceName := clusters.SplitClusterAwareKey(workspace)
-	review, err := ac.reviewer.Review(workspaceName)
-	if err != nil {
-		return fmt.Errorf("review for workspace %s failed: %w", workspace, err)
-	}
+	review := ac.reviewer.Review(workspaceName)
 
 	usersToRemove := sets.NewString()
 	groupsToRemove := sets.NewString()

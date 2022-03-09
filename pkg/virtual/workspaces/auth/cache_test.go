@@ -17,7 +17,6 @@ limitations under the License.
 package auth
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -66,12 +65,8 @@ type mockReviewer struct {
 }
 
 // Review returns the mapped review from the mock object, or an error if none exists
-func (mr *mockReviewer) Review(name string) (Review, error) {
-	review, found := mr.expectedResults[name]
-	if !found {
-		return Review{}, fmt.Errorf("Item %s does not exist", name)
-	}
-	return *review, nil
+func (mr *mockReviewer) Review(name string) Review {
+	return *mr.expectedResults[name]
 }
 
 func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.String) {

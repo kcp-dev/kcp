@@ -68,8 +68,8 @@ var _ workspaceauth.Reviewer = mockReviewer{}
 
 type mockReviewer map[string]workspaceauth.Review
 
-func (m mockReviewer) Review(name string) (workspaceauth.Review, error) {
-	return m[name], nil
+func (m mockReviewer) Review(name string) workspaceauth.Review {
+	return m[name]
 }
 
 var _ workspaceauth.ReviewerProvider = mockReviewerProvider{}
