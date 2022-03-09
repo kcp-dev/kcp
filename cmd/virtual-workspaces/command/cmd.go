@@ -28,6 +28,10 @@ import (
 	"github.com/spf13/cobra"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -36,7 +40,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -118,7 +121,10 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	recommendedConfig := genericapiserver.NewRecommendedConfig(legacyscheme.Codecs)
+	scheme := runtime.NewScheme()
+	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
+	codecs := serializer.NewCodecFactory(scheme)
+	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
 	if err := o.SecureServing.ApplyTo(&recommendedConfig.Config.SecureServing); err != nil {
 		return err
 	}
