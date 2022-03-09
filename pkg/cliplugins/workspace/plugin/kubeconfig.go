@@ -76,7 +76,7 @@ func NewKubeConfig(overridingOptions *Options) (*KubeConfig, error) {
 // by the workspace directory overrides.
 // No Auth info is added in this workspace directory new context.
 // The current kubeconfig is not modified though, but a copy of it is returned
-func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*api.Config, error) {
+func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, parent bool) (*api.Config, error) {
 	workspaceDirectoryAwareConfig := kc.startingConfig.DeepCopy()
 	currentContextName := workspaceDirectoryAwareConfig.CurrentContext
 	if options.KubectlOverrides.CurrentContext != "" {
@@ -118,7 +118,7 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*
 					return nil, fmt.Errorf("unable to parse cluster name %s", clusterName)
 				} else if org == "system:" {
 					return nil, fmt.Errorf("no workspaces are accessible from %s", clusterName)
-				} else if org == tenancyhelpers.RootCluster {
+				} else if org == tenancyhelpers.RootCluster && !parent {
 					// already in an org workspace
 					orgClusterName = clusterName
 				} else {
@@ -152,8 +152,8 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options) (*
 
 // workspaceDirectoryRestConfig returns the rest.Config to access the workspace directory
 // virtual workspace based on the stored config and CLI overrides
-func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options) (*rest.Config, error) {
-	workpaceDirectoryAwareConfig, err := kc.ensureWorkspaceDirectoryContextExists(options)
+func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options, parent bool) (*rest.Config, error) {
+	workpaceDirectoryAwareConfig, err := kc.ensureWorkspaceDirectoryContextExists(options, parent)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options) (*rest.Conf
 // Then it make this new context the current context.
 func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspaceName string) error {
 
-	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts)
+	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts, false)
 	if err != nil {
 		return err
 	}
@@ -281,16 +281,6 @@ func checkWorkspaceExists(ctx context.Context, workspaceName string, tenancyClie
 
 // CurrentWorkspace outputs the current workspace.
 func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error {
-	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts)
-	if err != nil {
-		return err
-	}
-
-	tenancyClient, err := tenancyclient.NewForConfig(workspaceDirectoryRestConfig)
-	if err != nil {
-		return err
-	}
-
 	scope, workspaceName, err := kc.getCurrentWorkspace(opts)
 	if err != nil {
 		return err
@@ -304,10 +294,20 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 		return nil
 	}
 
+	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts, true)
+	if err != nil {
+		return err
+	}
+
 	// Check that the scope is consistent with the workspace-directory config
 	if !strings.HasSuffix(workspaceDirectoryRestConfig.Host, "/"+scope) {
 		_ = outputCurrentWorkspaceMessage()
 		return fmt.Errorf("Scope of the workspace-directory ('%s') doesn't match the scope of the workspace-directory server ('%s').\nCannot check the current workspace existence.", scope, workspaceDirectoryRestConfig.Host)
+	}
+
+	tenancyClient, err := tenancyclient.NewForConfig(workspaceDirectoryRestConfig)
+	if err != nil {
+		return err
 	}
 
 	if err := checkWorkspaceExists(ctx, workspaceName, tenancyClient); err != nil {
@@ -321,7 +321,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 // ListWorkspaces outputs the list of workspaces of the current user
 // (kubeconfig user possibly overridden by CLI options).
 func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
-	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts)
+	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts, false)
 	if err != nil {
 		return err
 	}
@@ -365,7 +365,7 @@ func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
 // CreateWorkspace creates a workspace owned by the the current user
 // (kubeconfig user possibly overridden by CLI options).
 func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, workspaceName string, useAfterCreation bool) error {
-	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts)
+	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts, false)
 	if err != nil {
 		return err
 	}
@@ -400,7 +400,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, worksp
 // DeleteWorkspace deletes a workspace owned by the the current user
 // (kubeconfig user possibly overridden by CLI options).
 func (kc *KubeConfig) DeleteWorkspace(ctx context.Context, opts *Options, workspaceName string) error {
-	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts)
+	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(opts, false)
 	if err != nil {
 		return err
 	}
