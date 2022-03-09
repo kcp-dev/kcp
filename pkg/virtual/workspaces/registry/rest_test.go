@@ -397,6 +397,59 @@ func TestListPersonalWorkspaces(t *testing.T) {
 	applyTest(t, test)
 }
 
+func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("anotherOrg"),
+					},
+				},
+			}),
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", ClusterName: "root:orgName"},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        getRoleBindingName(OwnerRoleType, "foo", user),
+						ClusterName: "root:orgName",
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			response, err := storage.List(ctx, nil)
+
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: user \"test-user\" is not allowed to access organization \"orgName\"")
+			assert.Nil(t, response, "response should be nil")
+		},
+	}
+	applyTest(t, test)
+}
+
 func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
@@ -819,6 +872,42 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
 			require.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: creating a workspace in only possible in the personal workspaces scope for now")
+			require.Nil(t, response)
+			checkedUsers := listerCheckedUsers()
+			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestCreatePersonalWorkspaceForbiddenToNonOrgMember(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:     user,
+			scope:    PersonalScope,
+			orgName:  "orgName",
+			reviewer: workspaceauth.NewReviewer(nil),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+				},
+			}),
+		},
+		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			newWorkspace := tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+			}
+			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
+			require.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: user \"test-user\" is not allowed to create workspaces in organization \"orgName\"")
 			require.Nil(t, response)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
