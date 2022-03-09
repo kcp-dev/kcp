@@ -32,7 +32,8 @@ func prioritizedAuthInfo(values ...*api.AuthInfo) *api.AuthInfo {
 			continue
 		}
 		value := *value
-		if value.Token != "" || value.TokenFile != "" || value.Password != "" || value.Username != "" {
+		if value.Token != "" || value.TokenFile != "" || value.Password != "" || value.Username != "" ||
+			value.Exec != nil || value.AuthProvider != nil {
 			return &value
 		}
 	}
