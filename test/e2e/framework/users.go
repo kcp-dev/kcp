@@ -22,6 +22,8 @@ import (
 	"path"
 	"strings"
 	"testing"
+
+	"k8s.io/client-go/rest"
 )
 
 type User struct {
@@ -40,6 +42,12 @@ func (u User) String() string {
 }
 
 type Users []User
+
+func (us User) ConfigForUser(defaultConfig *rest.Config) *rest.Config {
+	cfgCopy := rest.CopyConfig(defaultConfig)
+	cfgCopy.BearerToken = us.Token
+	return cfgCopy
+}
 
 func (us Users) ArgsForKCP(t *testing.T) ([]string, error) {
 	kcpTokensPath := path.Join(t.TempDir(), "kcp-tokens")
