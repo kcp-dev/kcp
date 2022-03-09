@@ -94,11 +94,12 @@ var (
 		"tracing-config-file", // File with apiserver tracing configuration.
 
 		// KCP flags
-		"discovery-poll-interval", // Polling interval for dynamic discovery informers.
-		"enable-sharding",         // Enable delegating to peer kcp shards.
-		"profiler-address",        // [Address]:port to bind the profiler to
-		"root-directory",          // Root directory.
-		"shard-kubeconfig-file",   // Kubeconfig holding admin(!) credentials to peer kcp shards.
+		"discovery-poll-interval",     // Polling interval for dynamic discovery informers.
+		"enable-sharding",             // Enable delegating to peer kcp shards.
+		"profiler-address",            // [Address]:port to bind the profiler to
+		"root-directory",              // Root directory.
+		"shard-kubeconfig-file",       // Kubeconfig holding admin(!) credentials to peer kcp shards.
+		"experimental-bind-free-port", // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
 
 		// secure serving flags
 		"bind-address",                     // The IP address on which to listen for the --secure-port port. The associated interface(s) must be reachable by the rest of the cluster, and by CLI/web clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces will be used.

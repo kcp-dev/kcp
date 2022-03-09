@@ -18,6 +18,7 @@ package options
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
 	_ "k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
@@ -44,11 +46,12 @@ type Options struct {
 }
 
 type ExtraOptions struct {
-	RootDirectory         string
-	ProfilerAddress       string
-	ShardKubeconfigFile   string
-	EnableSharding        bool
-	DiscoveryPollInterval time.Duration
+	RootDirectory            string
+	ProfilerAddress          string
+	ShardKubeconfigFile      string
+	EnableSharding           bool
+	DiscoveryPollInterval    time.Duration
+	ExperimentalBindFreePort bool
 }
 
 type completedOptions struct {
@@ -77,11 +80,12 @@ func NewOptions() *Options {
 		AdminAuthentication: *NewAdminAuthentication(),
 
 		Extra: ExtraOptions{
-			RootDirectory:         ".kcp",
-			ProfilerAddress:       "",
-			ShardKubeconfigFile:   "",
-			EnableSharding:        false,
-			DiscoveryPollInterval: 60 * time.Second,
+			RootDirectory:            ".kcp",
+			ProfilerAddress:          "",
+			ShardKubeconfigFile:      "",
+			EnableSharding:           false,
+			DiscoveryPollInterval:    60 * time.Second,
+			ExperimentalBindFreePort: false,
 		},
 	}
 
@@ -128,11 +132,20 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 	fs.DurationVar(&o.Extra.DiscoveryPollInterval, "discovery-poll-interval", o.Extra.DiscoveryPollInterval, "Polling interval for dynamic discovery informers.")
 
+	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
+	fs.MarkHidden("experimental-bind-free-port") // nolint:errcheck
+
 	return fss
 }
 
 func (o *CompletedOptions) Validate() []error {
 	var errs []error
+
+	if o.Extra.ExperimentalBindFreePort {
+		if o.GenericControlPlane.SecureServing.BindPort != 0 {
+			errs = append(errs, fmt.Errorf("--secure-port=0 required if --experimental-bind-free-port is set"))
+		}
+	}
 
 	errs = append(errs, o.GenericControlPlane.Validate()...)
 	errs = append(errs, o.Controllers.Validate()...)
@@ -178,9 +191,24 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.AdminAuthentication.KubeConfigPath = filepath.Join(o.Extra.RootDirectory, o.AdminAuthentication.KubeConfigPath)
 	}
 
+	if o.Extra.ExperimentalBindFreePort {
+		listener, _, err := genericapiserveroptions.CreateListener("tcp", fmt.Sprintf("%s:0", o.GenericControlPlane.SecureServing.BindAddress), net.ListenConfig{})
+		if err != nil {
+			return nil, err
+		}
+		o.GenericControlPlane.SecureServing.Listener = listener
+	}
+
 	completedGenericControlPlane, err := o.GenericControlPlane.ServerRunOptions.Complete()
 	if err != nil {
 		return nil, err
+	}
+
+	if o.Extra.ExperimentalBindFreePort {
+		// Override Required here. It influences o.GenericControlPlane.Validate to pass without a set port,
+		// but other than that only has cosmetic effects e.g. on the flag description. Hence, we do it here
+		// in Complete and not in NewOptions.
+		o.GenericControlPlane.SecureServing.Required = false
 	}
 
 	return &CompletedOptions{
