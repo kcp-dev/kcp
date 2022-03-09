@@ -40,7 +40,7 @@ import (
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 	tenancywrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/tenancy"
-	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
+	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	virtualworkspacesregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )

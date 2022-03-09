@@ -46,7 +46,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
-	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
+	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceprinters "github.com/kcp-dev/kcp/pkg/virtual/workspaces/printers"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"

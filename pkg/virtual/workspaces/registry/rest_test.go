@@ -43,7 +43,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
+	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 )
 
 // mockLister returns the workspaces in the list

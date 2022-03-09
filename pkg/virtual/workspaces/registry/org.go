@@ -27,7 +27,7 @@ import (
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
-	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
+	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 )
 
 // CreateAndStartOrg creates an Org that contains all the required clients and caches to retrieve user workspaces inside an org

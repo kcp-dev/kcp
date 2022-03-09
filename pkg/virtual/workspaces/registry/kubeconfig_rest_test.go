@@ -34,7 +34,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/auth"
+	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
 
