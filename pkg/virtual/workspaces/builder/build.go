@@ -133,7 +133,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 						rootRBACInformers,
 					)
 
-					rootOrg := virtualworkspacesregistry.RootOrg(rootRBACClient, rootRBACInformers.ClusterRoleBindings(), rootReviewer, rootTenancyClient.ClusterWorkspaces(), rootWorkspaceAuthorizationCache)
+					rootOrg := virtualworkspacesregistry.NewRootOrg(rootRBACClient, rootRBACInformers.ClusterRoleBindings(), rootReviewer, rootTenancyClient.ClusterWorkspaces(), rootWorkspaceAuthorizationCache)
 
 					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgClusterName string) *virtualworkspacesregistry.Org {
 						return virtualworkspacesregistry.CreateAndStartOrg(

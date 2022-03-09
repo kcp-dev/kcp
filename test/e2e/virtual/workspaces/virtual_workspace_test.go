@@ -77,15 +77,17 @@ var testData = testDataType{
 	workspace2Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2--1"}},
 }
 
+// TODO: move this into a controller and remove this method
 func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Interface, orgClusterName string, groupNames ...string) error {
 	_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
 	if err != nil {
 		return err
 	}
 
+	roleName := "org-" + orgName + "-member"
 	if _, err := kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: orgName + "-member",
+			Name: roleName,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -101,12 +103,12 @@ func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Inte
 
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: orgName + "-member",
+			Name: roleName,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     orgName + "-member",
+			Name:     roleName,
 		},
 	}
 
@@ -160,7 +162,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				vwUser2Client := server.virtualWorkspaceClients[1]
 
 				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1", "team-2")
-				require.NoError(t, err, "failed to create root org roles")
+				require.NoError(t, err, "failed to create root workspace roles")
 
 				t.Logf("Create Workspace workspace1 in the virtual workspace")
 				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
@@ -219,10 +221,12 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				defaultOrgClient := server.virtualWorkspaceClients[1]
 
 				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
-				require.NoError(t, err, "failed to create root org roles")
+				require.NoError(t, err, "failed to create root workspace roles")
 
+				// TODO: move away from root:default. No e2e should depend on default object,
+				// but be hermeticly separated from everything else.
 				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, "root:default", "team-1")
-				require.NoError(t, err, "failed to create root org roles")
+				require.NoError(t, err, "failed to create root workspace roles")
 
 				t.Logf("Create Workspace workspace1 in test org")
 				workspace1, err := testOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
@@ -270,7 +274,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				require.NoError(t, err, "failed to parse organization logical cluster")
 
 				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
-				require.NoError(t, err, "failed to create root org roles")
+				require.NoError(t, err, "failed to create root workspace roles")
 
 				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
 					expectedOrgs := sets.NewString(orgName)
@@ -300,7 +304,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 				vwUser1Client := server.virtualWorkspaceClients[0]
 
 				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
-				require.NoError(t, err, "failed to create root org roles")
+				require.NoError(t, err, "failed to create root workspace roles")
 
 				_, err = server.orgKubeClient.CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace")

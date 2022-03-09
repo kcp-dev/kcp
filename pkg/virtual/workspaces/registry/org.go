@@ -69,7 +69,7 @@ func CreateAndStartOrg(
 	return newOrg
 }
 
-func RootOrg(
+func NewRootOrg(
 	rootRBACClient rbacv1client.RbacV1Interface,
 	rootCRBInformer rbacinformers.ClusterRoleBindingInformer,
 	rootReviewer *workspaceauth.Reviewer,
