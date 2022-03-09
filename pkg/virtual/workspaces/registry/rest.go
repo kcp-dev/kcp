@@ -656,7 +656,8 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	}
 
 	internalName := name
-	if scope := ctx.Value(WorkspacesScopeKey); scope == PersonalScope {
+	scope := ctx.Value(WorkspacesScopeKey)
+	if scope == PersonalScope {
 		var err error
 		internalName, err = s.getInternalNameFromPrettyName(userInfo, orgClusterName, name)
 		if err != nil {
@@ -676,7 +677,20 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	)
 	if !review.Allows(userInfo) {
 		_, orgName, _ := helper.ParseLogicalClusterName(orgClusterName)
-		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("user %q is not allowed to delete workspace %q in organization %q", userInfo.GetName(), internalName, orgName))
+		allowed := false
+		if scope == OrganizationScope {
+			review := s.rootReviewer.Review(
+				workspaceauth.NewAttributesBuilder().
+					Verb("admin").
+					Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
+					Name(orgName).
+					AttributesRecord,
+			)
+			allowed = review.Allows(userInfo)
+		}
+		if !allowed {
+			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("user %q is not allowed to delete workspace %q in organization %q", userInfo.GetName(), internalName, orgName))
+		}
 	}
 
 	errorToReturn := org.clusterWorkspaceClient.Delete(ctx, internalName, *options)
