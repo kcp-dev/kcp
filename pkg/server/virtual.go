@@ -107,7 +107,7 @@ func (s *Server) installVirtualWorkspacesRedirect(ctx context.Context, preHandle
 	from := virtualcommandoptions.DefaultRootPathPrefix + "/"
 	to := *externalBaseURL // shallow copy
 	to.Path = path.Join(to.Path, virtualcommandoptions.DefaultRootPathPrefix, "/")
-	klog.Infof("Redirecting %s to %s", from, to)
+	klog.Infof("Redirecting %s to %s", from, to.String())
 
 	preHandlerChainMux.Handle(from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := *externalBaseURL // shallow copy
