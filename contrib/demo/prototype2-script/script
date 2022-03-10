@@ -171,17 +171,11 @@ c "And create an ingress"
 pe "cat ${DEMO_DIR}/ingress-kuard.yaml"
 pe "kubectl apply -f ${DEMO_DIR}/ingress-kuard.yaml"
 
-if [ "$(uname)" = "Darwin" ]; then
-  c "On Linux, we would now see how to access our application with curl through local envoy - we would get a 200 status code"
-  c "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
-  c "On Mac, unfortunately accessing the ingress inside of kind is little tricky and still WIP 🤷‍"
-else
-  c "Wait for the ingress to be accepted by the ingress controller in the us-east1 cluster"
-  pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
+c "Wait for the ingress to be accepted by the ingress controller in the us-east1 cluster"
+pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
 
-  c "Now let's access our application with curl - we should get a 200 status code"
-  pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
-fi
+c "Now let's access our application with curl - we should get a 200 status code"
+pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
 
 wait;clear
 
@@ -215,15 +209,10 @@ clear
 c "Let's see if the deployment got rescheduled"
 pe "kubectl describe deployment/kuard"
 
-if [ "$(uname)" = "Darwin" ]; then
-  c "On Linux, we would now see how to access our application with curl through local envoy - we would get a 200 status code from us-west1 cluster."
-  c "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
-else
-  c "Let's wait for the ingress to be accepted by the ingress controller in the us-west1 cluster"
-  pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
-  c "And now, lets make an http request to our application again"
-  pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
-fi
+c "Let's wait for the ingress to be accepted by the ingress controller in the us-west1 cluster"
+pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
+c "And now, lets make an http request to our application again"
+pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
 
 #### Section 3 Policy/Orgs
 wait
