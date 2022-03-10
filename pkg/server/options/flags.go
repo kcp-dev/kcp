@@ -84,6 +84,11 @@ var (
 		"authentication-admin-token-path", // Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.
 		"kubeconfig-path",                 // Path to which the administrative kubeconfig should be written at startup.
 
+		// Kubernetes ServiceAccount Token Controller
+		"concurrent-serviceaccount-token-syncs", // The number of service account token objects that are allowed to sync concurrently. Larger number = more responsive token generation, but more CPU (and network) load
+		"service-account-private-key-file",      // Filename containing a PEM-encoded private RSA or ECDSA key used to sign service account tokens.
+		"root-ca-file",                          // If set, this root certificate authority will be included in service account's token secret. This must be a valid PEM-encoded CA bundle.
+
 		// logs flags
 		"logging-format",      // Sets the log format. Permitted formats: "text".
 		"log-flush-frequency", // Maximum number of seconds between log flushes
