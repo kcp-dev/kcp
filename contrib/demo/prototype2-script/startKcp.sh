@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-STANDALONE_VIRTUAL_WORKSPACCE=${STANDALONE_VIRTUAL_WORKSPACCE:-true}
+STANDALONE_VIRTUAL_WORKSPACE=${STANDALONE_VIRTUAL_WORKSPACE:-true}
 
 DEMO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../.setupEnv
@@ -33,8 +33,8 @@ CURRENT_DIR="$(pwd)"
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
 VW_ARGS=""
-if [ "${STANDALONE_VIRTUAL_WORKSPACCE}" = "true" ]; then
-    VW_ARGS="--run-virtual-workspaces=false --virtual-workspaces-address=https://127.0.0.1:6444 --bind-address=127.0.0.1 --external-hostname=127.0.0.1"
+if [ "${STANDALONE_VIRTUAL_WORKSPACE}" = "true" ]; then
+    VW_ARGS="--run-virtual-workspaces=false --virtual-workspace-address=https://127.0.0.1:6444 --bind-address=127.0.0.1 --external-hostname=127.0.0.1"
 fi
 
 "${DEMOS_DIR}"/startKcp.sh \
@@ -63,7 +63,7 @@ envoy --config-path "${KCP_DIR}"/build/kcp-ingress/utils/envoy/bootstrap.yaml &>
 ENVOY_PID=$!
 echo "Envoy started: ${ENVOY_PID}"
 
-if [ "${STANDALONE_VIRTUAL_WORKSPACCE}" = "true" ]; then
+if [ "${STANDALONE_VIRTUAL_WORKSPACE}" = "true" ]; then
   echo ""
   echo "Starting Virtual Workspace"
   "${KCP_DIR}"/bin/virtual-workspaces workspaces \
