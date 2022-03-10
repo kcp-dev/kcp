@@ -125,7 +125,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 }
 
 func (s *Server) installKubeServiceAccountController(ctx context.Context, config *rest.Config) error {
-	rest.AddUserAgent(config, "service-account-controller")
+	config = rest.AddUserAgent(rest.CopyConfig(config), "service-account-controller")
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
 	saTokenControllerName := "serviceaccount-token"
 
-	rest.AddUserAgent(config, "tokens-controller")
+	config = rest.AddUserAgent(rest.CopyConfig(config), "tokens-controller")
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
