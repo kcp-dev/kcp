@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+STANDALONE_VIRTUAL_WORKSPACCE=${STANDALONE_VIRTUAL_WORKSPACCE:-true}
+
 DEMO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../.setupEnv
 source "${DEMO_DIR}"/../.setupEnv
@@ -30,6 +32,11 @@ CURRENT_DIR="$(pwd)"
 
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
+VW_ARGS=""
+if [ "${STANDALONE_VIRTUAL_WORKSPACCE}" = "true" ]; then
+    VW_ARGS="--run-virtual-workspaces=false --virtual-workspaces-address=https://127.0.0.1:6444 --bind-address=127.0.0.1 --external-hostname=127.0.0.1"
+fi
+
 "${DEMOS_DIR}"/startKcp.sh \
     --token-auth-file "${DEMO_DIR}"/kcp-tokens \
     --auto-publish-apis \
@@ -37,6 +44,7 @@ KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
     --discovery-poll-interval 3s \
     --profiler-address localhost:6060 \
     --resources-to-sync ingresses.networking.k8s.io,deployments.apps,services \
+    ${VW_ARGS} \
     -v 2 &
 
 wait_command "ls ${KUBECONFIG}"
@@ -55,16 +63,19 @@ envoy --config-path "${KCP_DIR}"/build/kcp-ingress/utils/envoy/bootstrap.yaml &>
 ENVOY_PID=$!
 echo "Envoy started: ${ENVOY_PID}"
 
-echo ""
-echo "Starting Virtual Workspace"
-"${KCP_DIR}"/bin/virtual-workspaces workspaces \
-    --workspaces:kubeconfig "${KUBECONFIG}" \
-    --authentication-kubeconfig "${KUBECONFIG}" \
-    --tls-cert-file "${KCP_DATA_DIR}"/.kcp/apiserver.crt \
-    --tls-private-key-file "${KCP_DATA_DIR}"/.kcp/apiserver.key \
-    &> "${CURRENT_DIR}"/virtual-workspace.log &
-SPLIT_PID=$!
-echo "Virtual Workspace started: $SPLIT_PID"
+if [ "${STANDALONE_VIRTUAL_WORKSPACCE}" = "true" ]; then
+  echo ""
+  echo "Starting Virtual Workspace"
+  "${KCP_DIR}"/bin/virtual-workspaces workspaces \
+      --bind-address=127.0.0.1 \
+      --kubeconfig "${KUBECONFIG}" \
+      --authentication-kubeconfig "${KUBECONFIG}" \
+      --tls-cert-file "${KCP_DATA_DIR}"/.kcp/apiserver.crt \
+      --tls-private-key-file "${KCP_DATA_DIR}"/.kcp/apiserver.key \
+      &> "${CURRENT_DIR}"/virtual-workspace.log &
+  SPLIT_PID=$!
+  echo "Virtual Workspace started: $SPLIT_PID"
+fi
 
 touch "${KCP_DATA_DIR}/servers-ready"
 
