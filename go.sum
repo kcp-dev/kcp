@@ -420,8 +420,6 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/karrick/godirwalk v1.16.1/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1qeJ3RV7ULlk=
-github.com/kcp-dev/kubernetes v0.0.0-20220303133054-a8ae7563898a h1:iXSiIBQAxoFwWgVqmC3HUUc8il4pvySw/q5cSeLT3zA=
-github.com/kcp-dev/kubernetes v0.0.0-20220303133054-a8ae7563898a/go.mod h1:RpUrWJs5nq1Y6UJy/neYheNDvxH2Z0WYzP3hpAhjQyk=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20220303133054-a8ae7563898a h1:o2EKetxbqzN1Cq2AHBOd1qTDOVadkGoDLMwoA0JXyrw=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20220303133054-a8ae7563898a/go.mod h1:IpPnJRE5t3olVaut5p67N16cZkWwwU5KVFM35xCKyxM=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20220303133054-a8ae7563898a h1:zB/HKfWK0vwoxS61vbcl826Nyrk93PxAobdB3EJ/Od4=
@@ -444,11 +442,13 @@ github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-base v0.0.0-202203031
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-base v0.0.0-20220303133054-a8ae7563898a/go.mod h1:4IWNaSBE0Z02qopZW9+g2IbDAqFG+1alRB847qhaIco=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-helpers v0.0.0-20220303133054-a8ae7563898a h1:aOrIgix1j70UFc1ywVMD4oXqTeHau1qCK3PqdrRzMRw=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-helpers v0.0.0-20220303133054-a8ae7563898a/go.mod h1:qV12F849svAujqTL79WonkUFKUM5O4IHzh4W3leBLvY=
+github.com/kcp-dev/kubernetes/staging/src/k8s.io/controller-manager v0.0.0-20220303133054-a8ae7563898a h1:PoGwoIEY+6EYKehWR7H6O6EqCG66739SlFF3SaOrf7k=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/controller-manager v0.0.0-20220303133054-a8ae7563898a/go.mod h1:TdwiR9RY4Gk2+vANIP2oopMFcluM+dXO8P1UiVFXI2s=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/cri-api v0.0.0-20220303133054-a8ae7563898a/go.mod h1:Qls61FIA7GOKCWlPHMEWyz4zm6loDfdUyMdAss5SJe4=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/csi-translation-lib v0.0.0-20220303133054-a8ae7563898a/go.mod h1:WdK+l6XUeToWpqSTtHIg4qv61u5HDougIKQb0mGDlbQ=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-aggregator v0.0.0-20220303133054-a8ae7563898a h1:i3k85UQNn4ttLWjim0veNNaevMZpAd2fq+mcR/d8TNA=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-aggregator v0.0.0-20220303133054-a8ae7563898a/go.mod h1:eg5HTDxp1V0jlu/n7bVmP3UyDQS09fpxt8ytg1nbAsA=
+github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-controller-manager v0.0.0-20220303133054-a8ae7563898a h1:ijk3bwXg3QoLBKJMOCHyQm6/loByapXzJeEXr6Gh7E8=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-controller-manager v0.0.0-20220303133054-a8ae7563898a/go.mod h1:U3g0FGkoClR+edPeq1zcTKT3eNK/ZFzZALOcy9VsGMo=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-proxy v0.0.0-20220303133054-a8ae7563898a/go.mod h1:6mEp02ABsuOeeBuUrrol78v9LYysX7Z8CZOMFlkPOOI=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-scheduler v0.0.0-20220303133054-a8ae7563898a/go.mod h1:xZnfOrGTta6rB9IWNKl82yzWKpMSUXVmyGHRilQ9kzM=
@@ -491,6 +491,8 @@ github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN
 github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
 github.com/mailru/easyjson v0.7.6 h1:8yTIVnZgCoiM1TgqoeTl+LfU5Jg6/xL3QhGQnimLYnA=
 github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
+github.com/marun/kubernetes v0.0.0-20220311042418-82170e44a74b h1:Ik6dCHp0necgJggbgosvAZbsDf2EWLTA/RHRgHuebxM=
+github.com/marun/kubernetes v0.0.0-20220311042418-82170e44a74b/go.mod h1:RpUrWJs5nq1Y6UJy/neYheNDvxH2Z0WYzP3hpAhjQyk=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-isatty v0.0.3/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/mattn/go-runewidth v0.0.7 h1:Ei8KR0497xHyKJPAv59M1dkC+rOZCMBJ+t3fZ+twI54=
@@ -779,6 +781,7 @@ golang.org/x/exp v0.0.0-20191129062945-2f5052295587/go.mod h1:2RIsYlXP63K8oxa1u0
 golang.org/x/exp v0.0.0-20191227195350-da58074b4299/go.mod h1:2RIsYlXP63K8oxa1u096TMicItID8zy7Y6sNkU49FU4=
 golang.org/x/exp v0.0.0-20200119233911-0405dc783f0a/go.mod h1:2RIsYlXP63K8oxa1u096TMicItID8zy7Y6sNkU49FU4=
 golang.org/x/exp v0.0.0-20200207192155-f17229e696bd/go.mod h1:J/WKrq2StrnmMY6+EHIKF9dgMWnmCNThgcyBT1FY9mM=
+golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6 h1:QE6XYQK6naiK1EPAe1g/ILLxN5RBoH5xkJk3CqlMI/Y=
 golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6/go.mod h1:3jZMyOhIsHpP37uCMkUooju7aAi5cS1Q23tOzKc+0MU=
 golang.org/x/image v0.0.0-20180708004352-c73c2afc3b81/go.mod h1:ux5Hcp/YLpHSI86hEcLt0YII63i6oz57MZXIpbrjZUs=
 golang.org/x/image v0.0.0-20190227222117-0694c2d4d067/go.mod h1:kZ7UVZpmo3dzQBMxlp+ypCbDeSB+sBbTgSJuh5dn5js=
@@ -1048,7 +1051,9 @@ golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8T
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 h1:go1bK/D/BFZV2I8cIQd1NKEZ+0owSTG1fDTci4IqFcE=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gonum.org/v1/gonum v0.0.0-20180816165407-929014505bf4/go.mod h1:Y+Yx5eoAFn32cQvJDxZx5Dpnq+c3wtXuadVZAcxbbBo=
+gonum.org/v1/gonum v0.6.2 h1:4r+yNT0+8SWcOkXP+63H2zQbN+USnC73cjGUxnDF94Q=
 gonum.org/v1/gonum v0.6.2/go.mod h1:9mxDZsDKxgMAuccQkewq682L+0eCu4dCN2yonUJTCLU=
+gonum.org/v1/netlib v0.0.0-20190313105609-8cb42192e0e0 h1:OE9mWmgKkjJyEmDAAtGMPjXu+YNeGvK9VTSHY6+Qihc=
 gonum.org/v1/netlib v0.0.0-20190313105609-8cb42192e0e0/go.mod h1:wa6Ws7BG/ESfp6dHfk7C6KdzKA7wR7u/rKwOGE66zvw=
 gonum.org/v1/plot v0.0.0-20190515093506-e2840ee46a6b/go.mod h1:Wt8AAjI+ypCyYX3nZBvf6cAIx93T+c/OS2HFAYskSZc=
 google.golang.org/api v0.4.0/go.mod h1:8k5glujaEP+g9n7WNsDg8QP6cUVNI86fCNMcbazEtwE=

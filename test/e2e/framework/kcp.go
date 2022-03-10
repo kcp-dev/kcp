@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,6 +99,16 @@ func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kc
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return nil, fmt.Errorf("could not create data dir: %w", err)
 	}
+
+	saPrivateKey, err := GenerateRSAPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	saPrivateKeyFile := filepath.Join(dataDir, "sa-token-private-key")
+	if err := ioutil.WriteFile(saPrivateKeyFile, saPrivateKey, 0600); err != nil {
+		return nil, err
+	}
+
 	return &kcpServer{
 		name: cfg.Name,
 		args: append([]string{
@@ -108,6 +119,7 @@ func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kc
 			"--embedded-etcd-peer-port=" + etcdPeerPort,
 			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
 			"--kubeconfig-path=admin.kubeconfig",
+			"--service-account-private-key-file=" + saPrivateKeyFile,
 			"--v=7",
 		},
 			cfg.Args...),

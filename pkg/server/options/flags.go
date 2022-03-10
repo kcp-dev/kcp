@@ -84,6 +84,15 @@ var (
 		"authentication-admin-token-path", // Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.
 		"kubeconfig-path",                 // Path to which the administrative kubeconfig should be written at startup.
 
+		// Kubernetes ServiceAccount Token Controller
+		"concurrent-serviceaccount-token-syncs", // The number of service account token objects that are allowed to sync concurrently. Larger number = more responsive token generation, but more CPU (and network) load
+		"service-account-private-key-file",      // Filename containing a PEM-encoded private RSA or ECDSA key used to sign service account tokens.
+		"root-ca-file",                          // If set, this root certificate authority will be included in service account's token secret. This must be a valid PEM-encoded CA bundle.
+
+		// Kubernetes ServiceAccount Authentication flags
+		"service-account-key-file", // File containing PEM-encoded x509 RSA or ECDSA private or public keys, used to verify ServiceAccount tokens. The specified file can contain multiple keys, and the flag can be specified multiple times with different files. If unspecified, --tls-private-key-file is used. Must be specified when --service-account-signing-key is provided
+		"service-account-lookup",   // If true, validate ServiceAccount tokens exist in etcd as part of authentication.
+
 		// logs flags
 		"logging-format",      // Sets the log format. Permitted formats: "text".
 		"log-flush-frequency", // Maximum number of seconds between log flushes
@@ -215,5 +224,14 @@ var (
 
 		// API enablement flags
 		"runtime-config", // A set of key=value pairs that enable or disable built-in APIs. Supported options are:
+
+		// Kubernetes ServiceAccount Authentication flags
+		"service-account-api-audiences",           // Identifiers of the API. The service account token authenticator will validate that tokens used against the API are bound to at least one of these audiences.
+		"service-account-extend-token-expiration", // Turns on projected service account expiration extension during token generation, which helps safe transition from legacy token to bound service account token feature. If this flag is enabled, admission injected tokens would be extended up to 1 year to prevent unexpected failure during transition, ignoring value of service-account-max-token-expiration.
+		"service-account-issuer",                  // Identifier of the service account token issuer. The issuer will assert this identifier in "iss" claim of issued tokens. This value is a string or URI. If this option is not a valid URI per the OpenID Discovery 1.0 spec, the ServiceAccountIssuerDiscovery feature will remain disabled, even if the feature gate is set to true. It is highly recommended that this value comply with the OpenID spec: https://openid.net/specs/openid-connect-discovery-1_0.html. In practice, this means that service-account-issuer must be an https URL. It is also highly recommended that this URL be capable of serving OpenID discovery documents at {service-account-issuer}/.well-known/openid-configuration. When this flag is specified multiple times, the first is used to generate tokens and all are used to determine which issuers are accepted.
+		"service-account-jwks-uri",                // Overrides the URI for the JSON Web Key Set in the discovery doc served at /.well-known/openid-configuration. This flag is useful if the discovery docand key set are served to relying parties from a URL other than the API server's external (as auto-detected or overridden with external-hostname).
+		"service-account-key-file",                // File containing PEM-encoded x509 RSA or ECDSA private or public keys, used to verify ServiceAccount tokens. The specified file can contain multiple keys, and the flag can be specified multiple times with different files. If unspecified, --tls-private-key-file is used. Must be specified when --service-account-signing-key is provided
+		"service-account-lookup",                  // If true, validate ServiceAccount tokens exist in etcd as part of authentication.
+		"service-account-max-token-expiration",    // The maximum validity duration of a token created by the service account token issuer. If an otherwise valid TokenRequest with a validity duration larger than this value is requested, a token will be issued with a validity duration of this value.
 	)
 )

@@ -100,7 +100,7 @@ func NewOptions() *Options {
 		WithClientCert().
 		WithOIDC().
 		WithRequestHeader().
-		// WithServiceAccounts().
+		WithServiceAccounts().
 		WithTokenFile()
 	//WithWebHook()
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
@@ -215,6 +215,13 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		// in Complete and not in NewOptions.
 		o.GenericControlPlane.SecureServing.Required = false
 	}
+
+	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
+		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
+	}
+
+	// // TODO(ncdc): make this configurable
+	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kubernetes.default.svc.cluster.local"}
 
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
