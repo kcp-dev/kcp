@@ -100,7 +100,7 @@ func NewOptions() *Options {
 		WithClientCert().
 		WithOIDC().
 		WithRequestHeader().
-		// WithServiceAccounts().
+		WithServiceAccounts().
 		WithTokenFile()
 	//WithWebHook()
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
