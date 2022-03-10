@@ -129,8 +129,12 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 	} else if org == "system:" {
 		return nil, fmt.Errorf("no workspaces are accessible from %s", clusterName)
 	} else if org == tenancyhelpers.RootCluster {
-		// already in an org workspace
-		orgClusterName = clusterName
+		if parent {
+			orgClusterName = tenancyhelpers.RootCluster
+		} else {
+			// already in an org workspace
+			orgClusterName = clusterName
+		}
 	} else {
 		// some other workspace, return org cluster name
 		orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
@@ -252,7 +256,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 
 	kc.startingConfig.CurrentContext = workspaceContextName
 
-	if err := write(opts, fmt.Sprintf("Current workspace is \"%s\".\n", workspaceName)); err != nil {
+	if err := write(opts, fmt.Sprintf("Current workspace is %q.\n", workspaceName)); err != nil {
 		return err
 	}
 	return clientcmd.ModifyConfig(kc.configAccess, *kc.startingConfig, true)
