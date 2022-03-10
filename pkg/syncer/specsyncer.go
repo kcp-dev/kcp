@@ -166,6 +166,9 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	}
 	downstreamObj.SetOwnerReferences(ownerReferences)
 
+	// Run name transformations on the downstreamObj.
+	transformName(downstreamObj, KcpToPhysicalCluster)
+
 	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
 	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
 

@@ -431,3 +431,25 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 
 	return err
 }
+
+// transformName changes the object name into the desired one based on the Direction:
+// - if the object is a configmap it handles the "kube-root-ca.crt" name mapping
+// - if the object is a serviceaccount it handles the "default" name mapping
+func transformName(syncedObject *unstructured.Unstructured, direction Direction) {
+	switch direction {
+	case KcpToPhysicalCluster:
+		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kube-root-ca.crt" {
+			syncedObject.SetName("kcp-root-ca.crt")
+		}
+		if syncedObject.GetKind() == "ServiceAccount" && syncedObject.GetName() == "default" {
+			syncedObject.SetName("kcp-default")
+		}
+	case PhysicalClusterToKcp:
+		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kcp-root-ca.crt" {
+			syncedObject.SetName("kube-root-ca.crt")
+		}
+		if syncedObject.GetKind() == "ServiceAccount" && syncedObject.GetName() == "kcp-default" {
+			syncedObject.SetName("default")
+		}
+	}
+}
