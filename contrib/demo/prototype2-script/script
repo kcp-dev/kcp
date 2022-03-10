@@ -93,6 +93,10 @@ pe "kubectl kcp workspace use demo"
 wait
 clear
 
+c "We will now real non-admin users. So we have to first given them member permission for the demo organization."
+pe "cat ${DEMO_DIR}/user-rbac.yaml"
+pe "kubectl apply --context root -f ${DEMO_DIR}/user-rbac.yaml"
+
 c "Let's start by creating a \"real\" workspace and using it. That's what organization workspace are for, to hold the actual application workspaces."
 pe "kubectl kcp workspace --token user-1-token create workspace1 --use"
 
@@ -229,7 +233,7 @@ wait
 clear
 
 c "Now we're going to show our new workspaces APIs! Think of a workspace like your own Kubernetes apiserver, where you can create your own CRDs without worrying about conflicting with anyone else's."
-c "We are in the demo workspace now. Let's create a new workspace called 'playground' as user-1 and switch to it."
+c "Let's create a new workspace called 'playground' as user-1 and switch to it."
 pe "kubectl kcp workspace --token user-1-token create playground --use"
 
 c "This sets up RBAC permissions, including a ClusterRole for owners of the workspace, and a ClusterRoleBinding for user-1 as an owner:"
