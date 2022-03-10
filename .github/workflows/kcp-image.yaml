@@ -43,6 +43,7 @@ jobs:
           registry: ghcr.io/${{ github.repository_owner }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
       - name: Set up kubectl and kustomize
         run: |-
           curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv4.5.2/kustomize_v4.5.2_linux_amd64.tar.gz" | tar xzf -
@@ -50,9 +51,14 @@ jobs:
           chmod u+x ./kubectl
           chmod u+x ./kustomize
 
+      - name: Get the external hostname
+        id: vars
+        run: echo "::set-output name=external_hostname::$(kubectl get route kcp -o jsonpath='{.spec.host}')"
+
       - name: Deploy new image to CI
         id: deploy-to-ci
         run: |-
           cd manifest
+          ../kustomize edit add patch --patch='[{"op": "replace", "path": "/spec/template/spec/containers/0/env", "value": [{"name": "EXTERNAL_HOSTNAME", "value": "${{ steps.vars.outputs.external_hostname }}"}]}]' --group apps --kind Deployment --name kcp --version v1
           ../kustomize edit set image ghcr.io/kcp-dev/kcp=ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha_short }}
           ../kustomize build . | ../kubectl --server=https://${{ secrets.CICD_KUBE_HOST }} --token=${{ secrets.CICD_KUBE_TOKEN }} -n ${{ secrets.CICD_KUBE_NS }} apply -f -

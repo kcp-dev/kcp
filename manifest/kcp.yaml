@@ -105,12 +105,18 @@ spec:
         - --tls-private-key-file=/etc/kcp/tls/server/tls.key
         - --tls-cert-file=/etc/kcp/tls/server/tls.crt
         - --root-directory=/tmp/kcp
+        - --run-virtual-workspaces=false
+        - --virtual-workspace-address=https://$(EXTERNAL_HOSTNAME)
+        - --external-hostname=$(EXTERNAL_HOSTNAME)
         - --oidc-issuer-url=https://sso.redhat.com/auth/realms/redhat-external
         - --oidc-client-id=rhoas-cli-prod
         - --oidc-groups-claim=org_id
         - --oidc-username-claim=preferred_username
         - "--oidc-username-prefix=rh-sso:"
         - "--oidc-groups-prefix=rh-sso:"
+        env:
+        - name: EXTERNAL_HOSTNAME
+          value: kcp
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -142,10 +148,10 @@ spec:
         - sh
         - -c
         - >
-          cat /tmp/kcp/admin.kubeconfig | sed -e 's|https://\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}|https://localhost|' > /tmp/kcp/localhost.kubeconfig &&
+          cat /tmp/kcp/admin.kubeconfig | sed -e 's;://\([^/]*\);://localhost:6443;' > /tmp/kcp/localhost.kubeconfig &&
           /virtual-workspaces
           workspaces
-          --workspaces:kubeconfig=/tmp/kcp/localhost.kubeconfig
+          --kubeconfig=/tmp/kcp/localhost.kubeconfig
           --authentication-kubeconfig=/tmp/kcp/localhost.kubeconfig
           --authentication-skip-lookup
           --tls-private-key-file=/etc/kcp/tls/server/tls.key
