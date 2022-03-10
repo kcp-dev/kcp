@@ -174,8 +174,7 @@ var (
 		"proxy-client-key-file",                 // Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins.
 
 		// KCP Virtual Workspaces flags
-		"virtual-workspace-address",               // Address of a stand-alone virtual workspace apiservers
-		"virtual-workspaces-workspaces-base-path", // The prefix of the workspaces API server root path.
+		"virtual-workspace-address", // Address of a stand-alone virtual workspace apiserver.
 	)
 
 	disallowedFlags = sets.NewString(

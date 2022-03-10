@@ -69,5 +69,5 @@ func (v *Virtual) AddFlags(fs *pflag.FlagSet) {
 	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 
 	fs.BoolVar(&v.Enabled, "run-virtual-workspaces", v.Enabled, "Run the virtual workspace apiservers in-process")
-	fs.StringVar(&v.ExternalVirtualWorkspaceAddress, "virtual-workspace-address", v.ExternalVirtualWorkspaceAddress, "Address of a stand-alone virtual workspace apiservers")
+	fs.StringVar(&v.ExternalVirtualWorkspaceAddress, "virtual-workspace-address", v.ExternalVirtualWorkspaceAddress, "Address of a stand-alone virtual workspace apiserver (without the /services path)")
 }

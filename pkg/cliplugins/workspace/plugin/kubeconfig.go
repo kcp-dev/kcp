@@ -33,10 +33,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 )
 
 const (
@@ -99,14 +99,13 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 	}
 
 	// get workspace from current server URL and check it point to an org or the root workspace
-	defaultOpts := workspacesoptions.NewWorkspaces()
 	serverURL, err := url.Parse(workspaceDirectoryCluster.Server)
 	if err != nil {
 		return nil, err
 	}
 	possiblePrefixes := []string{
 		"/clusters/",
-		defaultOpts.RootPathPrefix + "/",
+		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
 	}
 	var clusterName, basePath string
 	for _, prefix := range possiblePrefixes {
@@ -142,7 +141,7 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 	}
 
 	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
-	serverURL.Path = path.Join(basePath, defaultOpts.RootPathPrefix, orgClusterName, kc.scope)
+	serverURL.Path = path.Join(basePath, virtualcommandoptions.DefaultRootPathPrefix, "workspaces", orgClusterName, kc.scope)
 	workspaceDirectoryCluster.Server = serverURL.String()
 
 	kubectlOverrides := options.KubectlOverrides

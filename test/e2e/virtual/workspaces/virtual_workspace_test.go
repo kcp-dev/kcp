@@ -48,7 +48,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -169,11 +168,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 					{
 						User:   testData.user2,
-						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 				}
 			},
@@ -228,11 +227,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 					{
 						User:   testData.user1,
-						Prefix: path.Join(options.DefaultRootPathPrefix, "root:default", "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", "root:default", "personal"),
 					},
 				}
 			},
@@ -285,7 +284,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: path.Join(options.DefaultRootPathPrefix, "root", "all"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", "root", "all"),
 					},
 				}
 			},
@@ -316,7 +315,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				return []clientInfo{
 					{
 						User:   testData.user1,
-						Prefix: path.Join(options.DefaultRootPathPrefix, orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 				}
 			},

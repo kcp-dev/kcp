@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -30,10 +31,16 @@ import (
 	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 )
 
+// DefaultRootPathPrefix is basically constant forever, or we risk a breaking change. The
+// kubectl plugin for example will use this prefix to generate the root path, and because
+// we don't control kubectl plugin updates, we cannot change this prefix.
+const DefaultRootPathPrefix string = "/services"
+
 type Options struct {
 	Output io.Writer
 
 	KubeconfigFile string
+	RootPathPrefix string
 
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
@@ -43,7 +50,10 @@ type Options struct {
 
 func NewOptions() *Options {
 	opts := &Options{
-		Output:         nil,
+		Output: nil,
+
+		RootPathPrefix: DefaultRootPathPrefix,
+
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
 
@@ -75,6 +85,9 @@ func (o *Options) Validate() error {
 
 	if len(o.KubeconfigFile) == 0 {
 		errs = append(errs, fmt.Errorf("--kubeconfig is required for this command"))
+	}
+	if !strings.HasPrefix(o.RootPathPrefix, "/") {
+		errs = append(errs, fmt.Errorf("RootPathPrefix %q must start with /", o.RootPathPrefix))
 	}
 
 	return utilerrors.NewAggregate(errs)

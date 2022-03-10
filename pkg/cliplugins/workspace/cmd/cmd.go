@@ -53,7 +53,6 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	}
 
 	opts.BindFlags(cmd)
-
 	useCmd := &cobra.Command{
 		Use:          "use < workspace name | - >",
 		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace",
@@ -65,7 +64,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 				return err
 			}
 			if len(args) != 1 {
-				return fmt.Errorf("The workspace name (or -) should be given")
+				return fmt.Errorf("the workspace name (or -) should be given")
 			}
 
 			if err := kubeconfig.UseWorkspace(c.Context(), opts, args[0]); err != nil {

@@ -17,8 +17,7 @@ limitations under the License.
 package options
 
 import (
-	"fmt"
-	"strings"
+	"path"
 
 	"github.com/spf13/pflag"
 
@@ -33,26 +32,16 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
 
-const DefaultRootPathPrefix string = "/services/workspaces"
-
-type Workspaces struct {
-	RootPathPrefix string
-}
+type Workspaces struct{}
 
 func NewWorkspaces() *Workspaces {
-	return &Workspaces{
-		RootPathPrefix: DefaultRootPathPrefix,
-	}
+	return &Workspaces{}
 }
 
 func (o *Workspaces) AddFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
-
-	flags.StringVar(&o.RootPathPrefix, prefix+"workspaces-base-path", o.RootPathPrefix, ""+
-		"The prefix of the workspaces API server root path.\n"+
-		"The final workspaces API root path will be of the form:\n    <root-path-prefix>/<org-name>/personal|all")
 }
 
 func (o *Workspaces) Validate(flagPrefix string) []error {
@@ -61,14 +50,11 @@ func (o *Workspaces) Validate(flagPrefix string) []error {
 	}
 	errs := []error{}
 
-	if !strings.HasPrefix(o.RootPathPrefix, "/") {
-		errs = append(errs, fmt.Errorf("--%s-workspaces-base-path %v should start with /", flagPrefix, o.RootPathPrefix))
-	}
-
 	return errs
 }
 
 func (o *Workspaces) NewVirtualWorkspaces(
+	rootPathPrefix string,
 	kubeClusterClient kubernetes.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKubeInformers informers.SharedInformerFactory,
@@ -78,7 +64,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	rootKcpClient := kcpClusterClient.Cluster(helper.RootCluster)
 
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(o.RootPathPrefix, wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), rootKcpClient, rootKubeClient, kcpClusterClient, kubeClusterClient),
+		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), rootKcpClient, rootKubeClient, kcpClusterClient, kubeClusterClient),
 	}
 	return nil, virtualWorkspaces, nil
 }

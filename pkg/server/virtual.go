@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +31,7 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
+	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
@@ -43,6 +43,7 @@ type mux interface {
 func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, auth genericapiserver.AuthenticationInfo, preHandlerChainMux mux) error {
 	// create virtual workspaces
 	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.Workspaces.NewVirtualWorkspaces(
+		virtualcommandoptions.DefaultRootPathPrefix,
 		kubeClusterClient,
 		kcpClusterClient,
 		s.kubeSharedInformerFactory,
@@ -90,7 +91,7 @@ func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient
 	})
 
 	klog.Infof("Starting virtual workspace apiserver")
-	preHandlerChainMux.Handle(s.options.Virtual.Workspaces.RootPathPrefix+"/", preparedRootAPIServer.GenericAPIServer.Handler)
+	preHandlerChainMux.Handle(virtualcommandoptions.DefaultRootPathPrefix+"/", preparedRootAPIServer.GenericAPIServer.Handler)
 
 	return nil
 }
@@ -103,19 +104,16 @@ func (s *Server) installVirtualWorkspacesRedirect(ctx context.Context, preHandle
 		return err // shouldn't happen due to options validation
 	}
 
-	from := s.options.Virtual.Workspaces.RootPathPrefix
-	if !strings.HasSuffix(from, "/") {
-		from += "/"
-	}
+	from := virtualcommandoptions.DefaultRootPathPrefix + "/"
 	to := *externalBaseURL // shallow copy
-	to.Path = path.Join(to.Path, s.options.Virtual.Workspaces.RootPathPrefix)
+	to.Path = path.Join(to.Path, virtualcommandoptions.DefaultRootPathPrefix, "/")
 	klog.Infof("Redirecting %s to %s", from, to)
 
 	preHandlerChainMux.Handle(from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := *externalBaseURL // shallow copy
 		u.Path = path.Join(u.Path, r.URL.Path)
 
-		klog.Infof("Got request to %s, redirecting to %s", r.URL.Path, u.String())
+		klog.Infof("Got virtual workspace request to %s, redirecting to %s", r.URL.Path, u.String())
 
 		http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 	}))
