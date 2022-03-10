@@ -154,6 +154,8 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	return apimachineryerrors.NewAggregate(errs)
 }
 
+const annotationCreateOnlyKey = "bootstrap.kcp.dev/create-only"
+
 func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte) error {
 	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(raw, nil, &unstructured.Unstructured{})
 	if err != nil {
@@ -169,6 +171,15 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return fmt.Errorf("could not get REST mapping for %s: %w", gvk, err)
 	}
 
+	// TODO(ncdc): replace with Maru's upcoming helper
+	logName := func(o metav1.Object) string {
+		if o.GetNamespace() == "" {
+			return fmt.Sprintf("%s|%s", o.GetClusterName(), o.GetName())
+		} else {
+			return fmt.Sprintf("%s|%s/%s", o.GetClusterName(), o.GetNamespace(), o.GetName())
+		}
+	}
+
 	upserted, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Create(ctx, u, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -176,18 +187,29 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			if err != nil {
 				return err
 			}
+
+			if _, exists := existing.GetAnnotations()[annotationCreateOnlyKey]; exists {
+				klog.Infof(
+					"Skipping update of %s %s because it has the create-only annotation",
+					gvk,
+					logName(existing),
+				)
+
+				return nil
+			}
+
 			u.SetResourceVersion(existing.GetResourceVersion())
-			if upserted, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("could not update %s %s/%s: %w", gvk.Kind, u.GetNamespace(), u.GetName(), err)
+			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, logName(existing), err)
 			} else {
-				klog.Infof("Updated %s %s|%s", gvk, upserted.GetClusterName(), upserted.GetName())
+				klog.Infof("Updated %s %s", gvk, logName(existing))
 				return nil
 			}
 		}
 		return err
 	}
 
-	klog.Infof("Bootstrapped %s %s|%s", gvk.Kind, upserted.GetClusterName(), upserted.GetName())
+	klog.Infof("Bootstrapped %s %s", gvk.Kind, logName(upserted))
 
 	return nil
 }
