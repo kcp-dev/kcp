@@ -126,6 +126,7 @@ var (
 		"push-mode",                              // If true, run syncer for each cluster from inside cluster controller
 		"resources-to-sync",                      // Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters
 		"run-controllers",                        // Run the controllers in-process
+		"run-virtual-workspaces",                 // Run the virtual workspaces apiservers in-process
 		"syncer-image",                           // Syncer image to install on clusters
 		"unsupported-run-individual-controllers", // Run individual controllers in-process. The controller names can change at any time.
 
@@ -171,6 +172,9 @@ var (
 		"max-connection-bytes-per-sec",          // If non-zero, throttle each user connection to this number of bytes/sec. Currently only applies to long-running requests.
 		"proxy-client-cert-file",                // Client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins. It is expected that this cert includes a signature from the CA in the --requestheader-client-ca-file flag. That CA is published in the 'extension-apiserver-authentication' configmap in the kube-system namespace. Components receiving calls from kube-aggregator should use that CA to perform their half of the mutual TLS verification.
 		"proxy-client-key-file",                 // Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins.
+
+		// KCP Virtual Workspaces flags
+		"virtual-workspace-address", // Address of a stand-alone virtual workspace apiserver.
 	)
 
 	disallowedFlags = sets.NewString(

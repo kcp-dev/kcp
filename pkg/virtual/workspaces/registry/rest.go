@@ -192,8 +192,8 @@ func (s *REST) getInternalNameFromPrettyName(user kuser.Info, orgClusterName, pr
 	return "", kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), prettyName)
 }
 
-func withoutGroupsWhenPersonal(user user.Info, scope string) user.Info {
-	if scope == PersonalScope {
+func withoutGroupsWhenPersonal(user user.Info, usePersonalScope bool) user.Info {
+	if usePersonalScope {
 		return &kuser.DefaultInfo{
 			Name:   user.GetName(),
 			UID:    user.GetUID(),
@@ -230,6 +230,10 @@ func (s *REST) authorizeOrgForUser(orgClusterName string, user user.Info) (org *
 	return
 }
 
+func shouldUsePersonalScope(scope, orgClusterName string) bool {
+	return scope == PersonalScope && orgClusterName != helper.RootCluster
+}
+
 // List retrieves a list of Workspaces that match label.
 func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (runtime.Object, error) {
 	userInfo, ok := apirequest.UserFrom(ctx)
@@ -242,7 +246,7 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 		return nil, err
 	}
 
-	scope := ctx.Value(WorkspacesScopeKey).(string)
+	usePersonalScope := shouldUsePersonalScope(ctx.Value(WorkspacesScopeKey).(string), orgClusterName)
 
 	// TODO:
 	// The workspaceLister is informer driven, so it's important to note that the lister can be stale.
@@ -250,12 +254,12 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 	// To make it correct we have to know the latest RV of the org workspace shard,
 	// and then wait for freshness relative to that RV of the lister.
 	labelSelector, _ := InternalListOptionsToSelectors(options)
-	clusterWorkspaceList, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, scope), labelSelector)
+	clusterWorkspaceList, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labelSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	if scope == PersonalScope {
+	if usePersonalScope {
 		for i, workspace := range clusterWorkspaceList.Items {
 			var err error
 			clusterWorkspaceList.Items[i].Name, err = s.getPrettyNameFromInternalName(userInfo, orgClusterName, workspace.Name)
@@ -333,8 +337,9 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 		return nil, err
 	}
 
-	scope := ctx.Value(WorkspacesScopeKey).(string)
-	if scope == PersonalScope {
+	usePersonalScope := shouldUsePersonalScope(ctx.Value(WorkspacesScopeKey).(string), orgClusterName)
+
+	if usePersonalScope {
 		internalName, err := s.getInternalNameFromPrettyName(userInfo, orgClusterName, name)
 		if err != nil {
 			return nil, err
@@ -351,7 +356,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 	// Filtering by applying the lister operation might not be necessary anymore
 	// when using a semi-delegated authorizer in the workspaces virtual workspace that would
 	// delegate this authorization to the main KCP instance hosting the workspaces and RBAC rules
-	obj, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, scope), labels.Everything())
+	obj, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labels.Everything())
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +372,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 		return nil, kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
 	}
 
-	if scope == PersonalScope {
+	if usePersonalScope {
 		existingClusterWorkspace.Name, err = s.getPrettyNameFromInternalName(userInfo, orgClusterName, existingClusterWorkspace.Name)
 		if err != nil {
 			return nil, err
@@ -656,8 +661,8 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	}
 
 	internalName := name
-	scope := ctx.Value(WorkspacesScopeKey)
-	if scope == PersonalScope {
+	scope := ctx.Value(WorkspacesScopeKey).(string)
+	if usePersonalScope := shouldUsePersonalScope(scope, orgClusterName); usePersonalScope {
 		var err error
 		internalName, err = s.getInternalNameFromPrettyName(userInfo, orgClusterName, name)
 		if err != nil {

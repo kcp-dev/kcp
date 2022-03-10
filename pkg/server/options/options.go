@@ -39,6 +39,7 @@ type Options struct {
 	Controllers         Controllers
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication
+	Virtual             Virtual
 
 	Extra ExtraOptions
 }
@@ -57,6 +58,7 @@ type completedOptions struct {
 	Controllers         Controllers
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication
+	Virtual             Virtual
 
 	Extra ExtraOptions
 }
@@ -75,6 +77,7 @@ func NewOptions() *Options {
 		Controllers:         *NewControllers(),
 		Authorization:       *NewAuthorization(),
 		AdminAuthentication: *NewAdminAuthentication(),
+		Virtual:             *NewVirtual(),
 
 		Extra: ExtraOptions{
 			RootDirectory:         ".kcp",
@@ -120,6 +123,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	o.Controllers.AddFlags(fss.FlagSet("KCP Controllers"))
 	o.Authorization.AddFlags(fss.FlagSet("KCP Authorization"))
 	o.AdminAuthentication.AddFlags(fss.FlagSet("KCP Authentication"))
+	o.Virtual.AddFlags(fss.FlagSet("KCP Virtual Workspaces"))
 
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
@@ -139,6 +143,7 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.EmbeddedEtcd.Validate()...)
 	errs = append(errs, o.Authorization.Validate()...)
 	errs = append(errs, o.AdminAuthentication.Validate()...)
+	errs = append(errs, o.Virtual.Validate()...)
 
 	if o.Extra.DiscoveryPollInterval == 0 {
 		errs = append(errs, fmt.Errorf("--discovery-poll-interval not set"))
@@ -191,6 +196,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
 			AdminAuthentication: o.AdminAuthentication,
+			Virtual:             o.Virtual,
 			Extra:               o.Extra,
 		},
 	}, nil

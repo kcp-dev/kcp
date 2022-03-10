@@ -17,6 +17,8 @@ limitations under the License.
 package plugin
 
 import (
+	"errors"
+
 	"github.com/spf13/cobra"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -26,19 +28,18 @@ import (
 // Options provides options that will drive the update of the current context
 // on a user's KUBECONFIG based on actions done on KCP workspaces
 type Options struct {
-	WorkspaceDirectoryOverrides *clientcmd.ConfigOverrides
-	KubectlOverrides            *clientcmd.ConfigOverrides
-
+	KubectlOverrides *clientcmd.ConfigOverrides
+	Scope            string
 	genericclioptions.IOStreams
 }
 
 // NewOptions provides an instance of Options with default values
 func NewOptions(streams genericclioptions.IOStreams) *Options {
 	return &Options{
-		WorkspaceDirectoryOverrides: &clientcmd.ConfigOverrides{},
-		KubectlOverrides:            &clientcmd.ConfigOverrides{},
+		KubectlOverrides: &clientcmd.ConfigOverrides{},
+		IOStreams:        streams,
 
-		IOStreams: streams,
+		Scope: "personal",
 	}
 }
 
@@ -59,33 +60,13 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 	clientcmd.BindOverrideFlags(o.KubectlOverrides, cmd.PersistentFlags(), kubectlConfigOverrideFlags)
 
-	// We also add a subset of kubeconfig-related flags related specifically to
-	// workspace directory (user workspace list). They would override the way the
-	// `workspaces` virtual workspace API server is accessed.
-	descriptionSuffix := " for workspace directory context"
-	workspaceDirectoryConfigOverrideFlags := clientcmd.RecommendedConfigOverrideFlags("workspace-directory-")
+	cmd.PersistentFlags().StringVar(&o.Scope, "scope", o.Scope, `The 'personal' scope shows only the workspaces you personally own, with the name you gave them at creation.
+	The 'all' scope returns all the workspaces you are allowed to see in the organization, with the disambiguated names they have inside the whole organization.`)
+}
 
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.ClientCertificate.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.ClientKey.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Impersonate.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.ImpersonateGroups.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Password.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Token.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.AuthOverrideFlags.Username.Description += descriptionSuffix
-
-	workspaceDirectoryConfigOverrideFlags.ContextOverrideFlags.AuthInfoName.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.ContextOverrideFlags.ClusterName.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.ContextOverrideFlags.Namespace.LongName = ""
-
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.APIVersion.LongName = ""
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.APIServer.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.CertificateAuthority.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.InsecureSkipTLSVerify.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.ClusterOverrideFlags.TLSServerName.Description += descriptionSuffix
-
-	workspaceDirectoryConfigOverrideFlags.CurrentContext.Description += descriptionSuffix
-	workspaceDirectoryConfigOverrideFlags.CurrentContext.Default = "workspace-directory"
-	workspaceDirectoryConfigOverrideFlags.Timeout.LongName = ""
-
-	clientcmd.BindOverrideFlags(o.WorkspaceDirectoryOverrides, cmd.PersistentFlags(), workspaceDirectoryConfigOverrideFlags)
+func (o *Options) Validate() error {
+	if o.Scope != "personal" && o.Scope != "all" {
+		return errors.New("the scope should be either 'personal' (default) or 'all'")
+	}
+	return nil
 }

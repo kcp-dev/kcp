@@ -16,6 +16,7 @@ limitations under the License.
 
 package compositecmd
 
+/*
 import (
 	"context"
 	"strings"
@@ -64,7 +65,7 @@ func (o *CompositeSubCommandOptions) Validate() []error {
 	return errs
 }
 
-func (o *CompositeSubCommandOptions) PrepareVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error) {
+func (o *CompositeSubCommandOptions) NewVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error) {
 	var virtualWorkspaces []framework.VirtualWorkspace
 	for prefix, vw := range o.StoragesPerPrefix {
 		prefixWithSlash := "/" + prefix
@@ -134,3 +135,4 @@ func (o *CompositeSubCommandOptions) PrepareVirtualWorkspaces() ([]virtualrootap
 		virtualWorkspaces,
 		nil
 }
+*/
