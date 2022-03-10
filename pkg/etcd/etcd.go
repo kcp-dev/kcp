@@ -92,7 +92,7 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBy
 	cfg.ClientTLSInfo.TrustedCAFile = filepath.Join(cfg.Dir, "secrets", "ca", "cert.pem")
 	cfg.ClientTLSInfo.ClientCertAuth = true
 
-	if enableUnsafeMacE2EDisableFsyncHack, _ := strconv.ParseBool(os.Getenv("UNSAFE_MAC_E2E_HACK_DISABLE_ETCD_FSYNC")); enableUnsafeMacE2EDisableFsyncHack {
+	if enableUnsafeEtcdDisableFsyncHack, _ := strconv.ParseBool(os.Getenv("UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC")); enableUnsafeEtcdDisableFsyncHack {
 		cfg.UnsafeNoFsync = true
 	}
 
