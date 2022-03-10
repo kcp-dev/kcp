@@ -137,6 +137,7 @@ var (
 		"shutdown-delay-duration",              // Time to delay the termination. During that time the server keeps serving requests normally. The endpoints /healthz and /livez will return success, but /readyz immediately returns failure. Graceful termination starts after this delay has elapsed. This can be used to allow load balancer to stop sending traffic to this server.
 		"shutdown-send-retry-after",            // If true the HTTP Server will continue listening until all non long running request(s) in flight have been drained, during this window all incoming requests will be rejected with a status code 429 and a 'Retry-After' response header, in addition 'Connection: close' response header is set in order to tear down the TCP connection when idle.
 		"strict-transport-security-directives", // List of directives for HSTS, comma separated. If this list is empty, then HSTS directives will not be added. Example: 'max-age=31536000,includeSubDomains,preload'
+		"external-hostname",                    // The hostname to use when generating externalized URLs for this master (e.g. Swagger API Docs or OpenID Discovery).
 
 		// etcd flags
 		"etcd-cafile",                   // SSL Certificate Authority file used to secure etcd communication.
@@ -184,7 +185,6 @@ var (
 		// generic flags
 		"advertise-address",              // The IP address on which to advertise the apiserver to members of the cluster. This address must be reachable by the rest of the cluster. If blank, the --bind-address will be used. If --bind-address is unspecified, the host's default interface will be used.
 		"enable-priority-and-fairness",   // If true and the APIPriorityAndFairness feature gate is enabled, replace the max-in-flight handler with an enhanced one that queues and dispatches with priority and fairness
-		"external-hostname",              // The hostname to use when generating externalized URLs for this master (e.g. Swagger API Docs or OpenID Discovery).
 		"feature-gates",                  // A set of key=value pairs that describe feature gates for alpha/experimental features. Options are:
 		"master-service-namespace",       // DEPRECATED: the namespace from which the Kubernetes master services should be injected into pods.
 		"max-mutating-requests-inflight", // This and --max-requests-inflight are summed to determine the server's total concurrency limit (which must be positive) if --enable-priority-and-fairness is true. Otherwise, this flag limits the maximum number of mutating requests in flight, or a zero value disables the limit completely.
