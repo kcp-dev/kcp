@@ -71,6 +71,9 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	upstreamObj.SetResourceVersion("")
 	upstreamObj.SetNamespace(upstreamNamespace)
 
+	// Run name transformations on upstreamObj
+	transformName(upstreamObj, PhysicalClusterToKcp)
+
 	existing, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, upstreamObj.GetName(), metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, upstreamObj.GetName(), err)
