@@ -1,0 +1,37 @@
+dynamic_resources:
+  ads_config:
+    transport_api_version: V3
+    api_type: GRPC
+    rate_limit_settings: {}
+    grpc_services:
+      - envoy_grpc: { cluster_name: xds_cluster }
+  cds_config:
+    resource_api_version: V3
+    ads: {}
+  lds_config:
+    resource_api_version: V3
+    ads: {}
+node:
+  cluster: kcp-cluster
+  id: kcp-ingress
+static_resources:
+  clusters:
+    - name: xds_cluster
+      connect_timeout: 1s
+      type: STRICT_DNS
+      dns_lookup_family: V4_ONLY
+      load_assignment:
+        cluster_name: xds_cluster
+        endpoints:
+          lb_endpoints:
+            endpoint:
+              address:
+                socket_address:
+                  address: BOOTSTRAP_ADDRESS
+                  port_value: 18000
+      http2_protocol_options: {}
+admin:
+  access_log_path: "/dev/stdout"
+  address:
+    pipe:
+      path: /tmp/envoy.admin

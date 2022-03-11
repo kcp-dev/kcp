@@ -53,16 +53,28 @@ podman_ssh() {
 
 detect_podman() {
     if ! command -v podman; then
+        echo "The podman binary could not be found, falling back to Docker."
+        return
+    fi
+
+    if [[ "$OSTYPE" == "darwin"* && -z "$(podman ps)" ]]; then
+        # Podman machine is not started
+        echo "The Podman machine does not seem to be started, falling back to Docker."
         return
     fi
 
     if [[ -z "$(podman system connection ls --format=json)" ]]; then
+        echo "The Podman SSH destinations could not be listed, falling back to Docker."
         return
     fi
 
+    echo "Using Podman as container engine."
+
+    KIND_EXPERIMENTAL_PROVIDER=podman
+
     PODMAN_VERSION=$(podman version -f '{{.Server.Version}}')
     PODMAN_MAJOR=$(echo "${PODMAN_VERSION}" | cut -d. -f1)
-    if [[ "${PODMAN_MAJOR}" == "3" ]]; then
+    if [[ "${PODMAN_MAJOR}" == "3" && "$OSTYPE" == "darwin"* ]]; then
         PODMAN_MAC_SSH_WORKAROUND=1
 
         # Setup the control socket if it's not already running
@@ -94,14 +106,14 @@ for cluster in "${CLUSTERS[@]}"; do
 
     # Only create if we're not reusing existing clusters, or the cluster doesn't exist
     if [[ -z "${REUSE_KIND_CLUSTERS:-}" || -z "${clusterExists}" ]]; then
-        kind create cluster \
+        KIND_EXPERIMENTAL_PROVIDER=${KIND_EXPERIMENTAL_PROVIDER:-} kind create cluster \
             --config "${CLUSTERS_DIR}/${cluster}.config" \
             --kubeconfig "${CLUSTERS_DIR}/${cluster}.kubeconfig" \
-            "${IMAGE_FLAG[@]}"
+            "${IMAGE_FLAG[@]:[]}"
     fi
 
     if [[ ! -f "${CLUSTERS_DIR}/${cluster}.yaml" ]]; then
-        clusterKubeconfig=$(kind get kubeconfig --name "${cluster}")
+        clusterKubeconfig=$(KIND_EXPERIMENTAL_PROVIDER=${KIND_EXPERIMENTAL_PROVIDER:-} kind get kubeconfig --name "${cluster}")
 
         echo "${clusterKubeconfig}" | sed -e 's/^/    /' | cat "${DEMO_ROOT}/clusters/${cluster}.yaml" - > "${CLUSTERS_DIR}/${cluster}.yaml"
     fi
