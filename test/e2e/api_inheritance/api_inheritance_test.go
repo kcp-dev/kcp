@@ -113,6 +113,11 @@ func TestAPIInheritance(t *testing.T) {
 			}
 			_, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating source workspace")
+			require.Eventually(t, func() bool {
+				ws, err := orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "source", metav1.GetOptions{})
+				require.NoError(t, err, "error getting source workspace")
+				return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+			}, 5*time.Second, 100*time.Millisecond, "error waiting for source workspace to be ready")
 
 			server.Artifact(t, func() (runtime.Object, error) {
 				return orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "source", metav1.GetOptions{})
@@ -126,7 +131,11 @@ func TestAPIInheritance(t *testing.T) {
 			}
 			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, targetWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating target workspace")
-			require.NoError(t, err, "error creating source workspace")
+			require.Eventually(t, func() bool {
+				ws, err := orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "target", metav1.GetOptions{})
+				require.NoError(t, err, "error getting target workspace")
+				return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+			}, 5*time.Second, 100*time.Millisecond, "error waiting for target workspace to be ready")
 
 			server.Artifact(t, func() (runtime.Object, error) {
 				return orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "target", metav1.GetOptions{})
