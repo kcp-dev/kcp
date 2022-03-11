@@ -71,7 +71,8 @@ func ReplaceOption(pairs ...string) Option {
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
 func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dynamicClient dynamic.Interface, fs embed.FS, crds []metav1.GroupResource, opts ...Option) error {
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(crdClient.Discovery()))
+	cache := memory.NewMemCacheClient(crdClient.Discovery())
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		if err := configcrds.Create(ctx, crdClient.ApiextensionsV1().CustomResourceDefinitions(), crds...); err != nil {
@@ -91,6 +92,9 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dyn
 	return wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, fs, transformers...); err != nil {
 			klog.Infof("Failed to bootstrap resources, retrying: %v", err)
+			// invalidate cache if resources not found
+			// xref: https://github.com/kcp-dev/kcp/issues/655
+			cache.Invalidate()
 			return false, nil
 		}
 		return true, nil
