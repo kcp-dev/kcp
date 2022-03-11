@@ -50,9 +50,18 @@ func CreateFromFS(ctx context.Context, client apiextensionsv1client.CustomResour
 		wg.Add(1)
 		go func(gr metav1.GroupResource) {
 			defer wg.Done()
-			bootstrapErrChan <- retryRetryableErrors(func() error {
+			err := retryRetryableErrors(func() error {
 				return createSingleFromFS(ctx, client, gr, fs)
 			})
+			// wait.Poll functions return ErrWaitTimeout instead the context cancellation error, for backward compatibility reasons, see:
+			// https://github.com/kubernetes/kubernetes/blob/b5f8cca701575678819b5e9e6372df989ab6799f/staging/src/k8s.io/apimachinery/pkg/util/wait/wait.go
+			// however, retryOnError swallows that error and replaces it for the last one, that is nil if it is still retrying, see:
+			// https://github.com/kubernetes/kubernetes/blob/ee81e5ebfad1b3f3c1112e7b83b0a5113286a3d3/pkg/client/unversioned/util.go
+			// if the context is cancelled, we have to inform the upper layers about that, so context error takes precedence.
+			if ctx.Err() != nil {
+				err = ctx.Err()
+			}
+			bootstrapErrChan <- err
 		}(gk)
 	}
 	wg.Wait()
