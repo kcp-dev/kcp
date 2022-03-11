@@ -103,6 +103,7 @@ func NewOptions() *Options {
 		WithServiceAccounts().
 		WithTokenFile()
 	//WithWebHook()
+	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 
 	// override set of admission plugins
@@ -214,6 +215,13 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		// but other than that only has cosmetic effects e.g. on the flag description. Hence, we do it here
 		// in Complete and not in NewOptions.
 		o.GenericControlPlane.SecureServing.Required = false
+	}
+
+	if err := o.Controllers.Complete(o.Extra.RootDirectory); err != nil {
+		return nil, err
+	}
+	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
+		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
 	}
 
 	return &CompletedOptions{

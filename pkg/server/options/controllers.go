@@ -17,8 +17,15 @@ limitations under the License.
 package options
 
 import (
+	cryptorand "crypto/rand"
+	"crypto/rsa"
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/pflag"
 
+	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 
@@ -73,6 +80,31 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	syncer.BindOptions(&c.Syncer, fs)
 
 	c.SAController.AddFlags(fs)
+}
+
+func (c *Controllers) Complete(rootDir string) error {
+	if c.SAController.ServiceAccountKeyFile == "" {
+		// use sa.key and auto-generate if not existing
+		c.SAController.ServiceAccountKeyFile = filepath.Join(rootDir, "sa.key")
+		if _, err := os.Stat(c.SAController.ServiceAccountKeyFile); os.IsNotExist(err) {
+			klog.Infof("Generating service account key file %s", c.SAController.ServiceAccountKeyFile)
+			// TODO(ncdc): should alrogithm & key size be configurable?
+			key, err := rsa.GenerateKey(cryptorand.Reader, 2048)
+			if err != nil {
+				return fmt.Errorf("error generating service account private key: %w", err)
+			}
+
+			encoded, err := keyutil.MarshalPrivateKeyToPEM(key)
+			if err != nil {
+				return fmt.Errorf("error converting service account private key to PEM format: %w", err)
+			}
+			if err := keyutil.WriteKey(c.SAController.ServiceAccountKeyFile, encoded); err != nil {
+				return fmt.Errorf("error writing service account private key file %q: %w", c.SAController.ServiceAccountKeyFile, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *Controllers) Validate() []error {
