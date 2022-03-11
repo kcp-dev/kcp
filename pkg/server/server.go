@@ -256,14 +256,10 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
-	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
-		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
-		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
-		return &kcpAPIExtensionsSharedInformerFactory{
-			SharedInformerFactory: f,
-			workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-			apiBindingLister:      s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
-		}
+	apiExtensionsConfig.ExtraConfig.Informers = &kcpAPIExtensionsSharedInformerFactory{
+		SharedInformerFactory: s.apiextensionsSharedInformerFactory,
+		workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		apiBindingLister:      s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 	}
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
 	// try to issue Update() calls using the * client, which ends up with the cluster name being set to the default
@@ -299,9 +295,6 @@ func (s *Server) Run(ctx context.Context) error {
 		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
 
 		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		// wait for CRD inheritance work through the custom informer
-		// TODO: merge with upper s.apiextensionsSharedInformerFactory
-		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
 
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
