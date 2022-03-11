@@ -24,12 +24,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -95,8 +93,6 @@ func TestAPIInheritance(t *testing.T) {
 			require.NoError(t, err, "failed to construct apiextensions client for server")
 			kcpClients, err := clientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp client for server")
-			kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
-			require.NoError(t, err, "failed to construct kube client for server")
 
 			t.Logf("Creating \"source\" workspaces in org lcluster %s, inheriting sourceInheritsFrom %q", orgClusterName, orgClusterName)
 			var sourceInheritsFrom string
@@ -117,13 +113,6 @@ func TestAPIInheritance(t *testing.T) {
 			}
 			_, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating source workspace")
-			sourceKubeClient := kubeClusterClient.Cluster(sourceWorkspaceClusterName)
-			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "default",
-				},
-			}, metav1.CreateOptions{})
-			require.NoError(t, err, "error creating defaul tnamespace")
 
 			server.Artifact(t, func() (runtime.Object, error) {
 				return orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "source", metav1.GetOptions{})
@@ -138,13 +127,6 @@ func TestAPIInheritance(t *testing.T) {
 			targetWorkspace, err = orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, targetWorkspace, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating target workspace")
 			require.NoError(t, err, "error creating source workspace")
-			targetKubeClient := kubeClusterClient.Cluster(targetWorkspaceClusterName)
-			_, err = targetKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "default",
-				},
-			}, metav1.CreateOptions{})
-			require.NoError(t, err, "error creating default namespace")
 
 			server.Artifact(t, func() (runtime.Object, error) {
 				return orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "target", metav1.GetOptions{})
