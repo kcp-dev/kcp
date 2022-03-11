@@ -68,41 +68,37 @@ func newUserClient(t *testing.T, username, clusterName string, cfg *rest.Config)
 }
 
 func TestAuthorizer(t *testing.T) {
-	t.Parallel()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
 
-	usersKCPArgs, err := framework.Users([]framework.User{
-		{
-			Name:   "user-1",
-			UID:    "1111-1111-1111-1111",
-			Token:  "user-1-token",
-			Groups: []string{"team-1"},
-		},
-		{
-			Name:   "user-2",
-			UID:    "1111-1111-1111-1111",
-			Token:  "user-2-token",
-			Groups: []string{"team-2"},
-		},
-		{
-			Name:   "user-3",
-			UID:    "1111-1111-1111-1111",
-			Token:  "user-3-token",
-			Groups: []string{"team-3"},
-		},
-	}).ArgsForKCP(t)
+	user1 := framework.User{
+		Name:   "user-1",
+		UID:    "1111-1111-1111-1111",
+		Token:  "user-1-token",
+		Groups: []string{"team-1"},
+	}
+
+	user2 := framework.User{
+		Name:   "user-2",
+		UID:    "1111-1111-1111-1111",
+		Token:  "user-2-token",
+		Groups: []string{"team-2"},
+	}
+
+	user3 := framework.User{
+		Name:   "user-3",
+		UID:    "1111-1111-1111-1111",
+		Token:  "user-3-token",
+		Groups: []string{"team-3"},
+	}
+
+	usersKCPArgs, err := framework.Users([]framework.User{user1, user2, user3}).ArgsForKCP(t)
 	require.NoError(t, err)
 
 	f := framework.NewKcpFixture(t, framework.KcpConfig{
 		Name: "main",
 		Args: usersKCPArgs,
 	})
-
-	ctx := context.Background()
-	if deadline, ok := t.Deadline(); ok {
-		withDeadline, cancel := context.WithDeadline(ctx, deadline)
-		t.Cleanup(cancel)
-		ctx = withDeadline
-	}
 	require.Equal(t, len(f.Servers), 1, "incorrect number of servers")
 
 	server := f.Servers["main"]
@@ -155,63 +151,107 @@ func TestAuthorizer(t *testing.T) {
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace %s didn't get ready", wsName)
 	}
 
-	_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
-		ctx,
-		&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
-		metav1.CreateOptions{},
-	)
-	require.NoError(t, err)
-	_, err = clients["user-1"].KubeClient.CoreV1().ConfigMaps("default").Create(
-		ctx,
-		&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "foo"}},
-		metav1.CreateOptions{},
-	)
-	require.NoError(t, err)
+	tests := map[string]func(){
+		"Users can view their own resources": func() {
+			var err error
+			_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
+				ctx,
+				&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test-own-resources"}},
+				metav1.CreateOptions{},
+			)
+			require.NoError(t, err)
+			_, err = clients["user-1"].KubeClient.CoreV1().ConfigMaps("test-own-resources").Create(
+				ctx,
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-own-resources"}},
+				metav1.CreateOptions{},
+			)
+			require.NoError(t, err)
 
-	_, err = clients["user-2"].KubeClient.CoreV1().Namespaces().Create(
-		ctx,
-		&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "baz"}},
-		metav1.CreateOptions{},
-	)
-	require.Error(t, err)
-	_, err = clients["user-2"].KubeClient.CoreV1().ConfigMaps("default").Create(
-		ctx,
-		&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "foo"}},
-		metav1.CreateOptions{},
-	)
-	require.Error(t, err)
+			_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Get(
+				ctx, "test-own-resources",
+				metav1.GetOptions{},
+			)
+			require.NoError(t, err)
+			_, err = clients["user-1"].KubeClient.CoreV1().ConfigMaps("test-own-resources").Get(
+				ctx, "test-own-resources",
+				metav1.GetOptions{},
+			)
+			require.NoError(t, err)
+		},
+		"Users can view each others resources": func() {
+			var err error
+			_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
+				ctx,
+				&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test-each-other-resources"}},
+				metav1.CreateOptions{},
+			)
+			require.NoError(t, err)
+			_, err = clients["user-1"].KubeClient.CoreV1().ConfigMaps("test-each-other-resources").Create(
+				ctx,
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-each-other-resources"}},
+				metav1.CreateOptions{},
+			)
+			require.NoError(t, err)
 
-	_, err = clients["user-2"].KubeClient.CoreV1().Namespaces().Get(
-		ctx, "default",
-		metav1.GetOptions{},
-	)
-	require.NoError(t, err)
-	_, err = clients["user-2"].KubeClient.CoreV1().ConfigMaps("default").Get(
-		ctx, "foo",
-		metav1.GetOptions{},
-	)
-	require.NoError(t, err)
+			_, err = clients["user-2"].KubeClient.CoreV1().Namespaces().Get(
+				ctx, "test-each-other-resources",
+				metav1.GetOptions{},
+			)
+			require.NoError(t, err)
+			_, err = clients["user-2"].KubeClient.CoreV1().ConfigMaps("test-each-other-resources").Get(
+				ctx, "test-each-other-resources",
+				metav1.GetOptions{},
+			)
+			require.NoError(t, err)
+		},
+		"Users without access can not see resources": func() {
+			var err error
+			_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
+				ctx,
+				&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "no-access-resources"}},
+				metav1.CreateOptions{},
+			)
+			require.NoError(t, err)
+			_, err = clients["user-1"].KubeClient.CoreV1().ConfigMaps("no-access-resources").Create(
+				ctx,
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "no-access-resources"}},
+				metav1.CreateOptions{},
+			)
+			require.NoError(t, err)
 
-	_, err = clients["user-3"].KubeClient.CoreV1().Namespaces().Create(
-		ctx,
-		&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "baz"}},
-		metav1.CreateOptions{},
-	)
-	require.Error(t, err)
-	_, err = clients["user-3"].KubeClient.CoreV1().ConfigMaps("default").Create(
-		ctx,
-		&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "foo"}},
-		metav1.CreateOptions{},
-	)
-	require.Error(t, err)
-	_, err = clients["user-3"].KubeClient.CoreV1().Namespaces().Get(
-		ctx, "default",
-		metav1.GetOptions{},
-	)
-	require.Error(t, err)
-	_, err = clients["user-3"].KubeClient.CoreV1().ConfigMaps("default").Get(
-		ctx, "foo",
-		metav1.GetOptions{},
-	)
-	require.Error(t, err)
+			_, err = clients["user-3"].KubeClient.CoreV1().Namespaces().Get(
+				ctx, "no-access-resources",
+				metav1.GetOptions{},
+			)
+			require.Error(t, err)
+			_, err = clients["user-3"].KubeClient.CoreV1().ConfigMaps("no-access-resources").Get(
+				ctx, "no-access-resources",
+				metav1.GetOptions{},
+			)
+			require.Error(t, err)
+		},
+		"Cluster Admins can use wildcard clusters": func() {
+			var err error
+			_, err = kubeClusterClient.Cluster("*").CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+		},
+		"Non-Cluster Admins can not use wildcard clusters": func() {
+			var err error
+			user1Config := user1.ConfigForUser(kcpCfg)
+			user1ClusterConfig, err := kubernetes.NewClusterForConfig(user1Config)
+			require.NoError(t, err)
+
+			_, err = user1ClusterConfig.Cluster("*").CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			require.Error(t, err, "Only cluster admins can use all clusters at once")
+		},
+	}
+
+	for tcName, tcFunc := range tests {
+		tcName := tcName
+		tcFunc := tcFunc
+		t.Run(tcName, func(t *testing.T) {
+			t.Parallel()
+			tcFunc()
+		})
+	}
 }
