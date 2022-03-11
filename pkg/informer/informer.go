@@ -176,26 +176,21 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	latest := sets.NewString()
 	logicalClusterNames := sets.NewString()
 
-	// Assuming the workspaceLister is set, get a list of all the logical cluster names. We'll
-	// get discovery from all of them, union all the GVRs, and use that union for the
-	// informer.
+	// Get a list of all the logical cluster names. We'll get discovery from all of them, union all the GVRs, and use
+	// that union for the informer.
+
 	// TODO(ncdc): this may not scale well. Watchable discovery or something like that
 	// is a better long term solution.
-	if d.workspaceLister != nil {
-		workspaces, err := d.workspaceLister.List(labels.Everything())
+	workspaces, err := d.workspaceLister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	for i := range workspaces {
+		logicalClusterName, err := helper.EncodeLogicalClusterName(workspaces[i])
 		if err != nil {
 			return err
 		}
-		for i := range workspaces {
-			logicalClusterName, err := helper.EncodeLogicalClusterName(workspaces[i])
-			if err != nil {
-				return err
-			}
-			logicalClusterNames.Insert(logicalClusterName)
-		}
-	} else {
-		// If we don't have the workspaceLister, only check the root logical cluster.
-		logicalClusterNames.Insert(helper.RootCluster)
+		logicalClusterNames.Insert(logicalClusterName)
 	}
 
 	for _, logicalClusterName := range logicalClusterNames.List() {
