@@ -27,7 +27,6 @@ import (
 	"time"
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,12 +34,11 @@ import (
 	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
-
-	configcrds "github.com/kcp-dev/kcp/config/crds"
 )
 
 // TransformFileFunc transforms a resource file before being applied to the cluster.
@@ -67,22 +65,12 @@ func ReplaceOption(pairs ...string) Option {
 	}
 }
 
-// Bootstrap creates a list of CRDs and then the resources in a package's fs by
+// Bootstrap creates resources in a package's fs by
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dynamicClient dynamic.Interface, fs embed.FS, crds []metav1.GroupResource, opts ...Option) error {
-	cache := memory.NewMemCacheClient(crdClient.Discovery())
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, fs embed.FS, opts ...Option) error {
+	cache := memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
-
-	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
-		if err := configcrds.Create(ctx, crdClient.ApiextensionsV1().CustomResourceDefinitions(), crds...); err != nil {
-			klog.Errorf("failed to bootstrap CRDs: %v", err)
-			return false, nil // keep retrying
-		}
-		return true, nil
-	}); err != nil {
-		return fmt.Errorf("failed to bootstrap CRDs: %w", err)
-	}
 
 	// bootstrap non-crd resources
 	var transformers []TransformFileFunc

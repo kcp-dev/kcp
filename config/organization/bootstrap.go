@@ -20,12 +20,10 @@ import (
 	"context"
 	"embed"
 
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 //go:embed *.yaml
@@ -34,9 +32,6 @@ var fs embed.FS
 // Bootstrap creates CRDs and the resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dynamicClient dynamic.Interface) error {
-	return confighelpers.Bootstrap(ctx, crdClient, dynamicClient, fs, []metav1.GroupResource{
-		{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
-		{Group: tenancy.GroupName, Resource: "clusterworkspacetypes"},
-	})
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
+	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, fs)
 }
