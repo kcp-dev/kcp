@@ -98,50 +98,14 @@ func (kc *KubeConfig) ensureWorkspaceDirectoryContextExists(options *Options, pa
 		Cluster: kcpVirtualWorkspaceInternalContextName,
 	}
 
-	// get workspace from current server URL and check it point to an org or the root workspace
 	serverURL, err := url.Parse(workspaceDirectoryCluster.Server)
 	if err != nil {
 		return nil, err
 	}
-	possiblePrefixes := []string{
-		"/clusters/",
-		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
-	}
-	var clusterName, basePath string
-	for _, prefix := range possiblePrefixes {
-		clusterIndex := strings.Index(serverURL.Path, prefix)
-		if clusterIndex < 0 {
-			continue
-		}
-		clusterName = strings.SplitN(serverURL.Path[clusterIndex+len(prefix):], "/", 2)[0]
-		basePath = serverURL.Path[:clusterIndex]
-	}
-	if clusterName == "" {
-		return nil, fmt.Errorf("current cluster URL %s is not pointing to a workspace", serverURL)
-	}
 
-	// derive the org workspace to operator on
-	var orgClusterName string
-	if clusterName == tenancyhelpers.RootCluster {
-		orgClusterName = clusterName
-	} else if org, _, err := tenancyhelpers.ParseLogicalClusterName(clusterName); err != nil {
-		return nil, fmt.Errorf("unable to parse cluster name %s", clusterName)
-	} else if org == "system:" {
-		return nil, fmt.Errorf("no workspaces are accessible from %s", clusterName)
-	} else if org == tenancyhelpers.RootCluster {
-		if parent {
-			orgClusterName = tenancyhelpers.RootCluster
-		} else {
-			// already in an org workspace
-			orgClusterName = clusterName
-		}
-	} else {
-		// some other workspace, return org cluster name
-		orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
-		if err != nil {
-			// should never happen
-			return nil, fmt.Errorf("unable to derive parent cluster name for %s", clusterName)
-		}
+	orgClusterName, basePath, err := getOrgClusterNameandBasePath(workspaceDirectoryCluster.Server, parent)
+	if err != nil {
+		return nil, err
 	}
 
 	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
@@ -256,7 +220,12 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 
 	kc.startingConfig.CurrentContext = workspaceContextName
 
-	if err := write(opts, fmt.Sprintf("Current workspace is %q.\n", workspaceName)); err != nil {
+	org, err := kc.getOrgName(workspaceContextName)
+	if err != nil {
+		return err
+	}
+
+	if err := write(opts, fmt.Sprintf("Current workspace is %q in organization %q.\n", workspaceName, org)); err != nil {
 		return err
 	}
 	return clientcmd.ModifyConfig(kc.configAccess, *kc.startingConfig, true)
@@ -264,15 +233,9 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 
 // getCurrentWorkspace gets the current workspace from the kubeconfig.
 func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (scope string, name string, err error) {
-	currentContextName := kc.startingConfig.CurrentContext
-
-	kubectlOverrides := opts.KubectlOverrides
-	if kubectlOverrides.CurrentContext != "" {
-		currentContextName = kubectlOverrides.CurrentContext
-	}
-
-	if currentContextName == "" {
-		return "", "", errors.New("no current context")
+	currentContextName, err := kc.getCurrentContextName(opts)
+	if err != nil {
+		return "", "", err
 	}
 
 	if !strings.HasPrefix(currentContextName, kcpWorkspaceContextNamePrefix) {
@@ -302,14 +265,24 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 		return err
 	}
 
+	currentContext, err := kc.getCurrentContextName(opts)
+	if err != nil {
+		return err
+	}
+
 	_, workspaceName, err := kc.getCurrentWorkspace(opts)
 	if err != nil {
 		return err
 	}
 
+	org, err := kc.getOrgName(currentContext)
+	if err != nil {
+		return err
+	}
+
 	outputCurrentWorkspaceMessage := func() error {
-		if workspaceName != "" {
-			err := write(opts, fmt.Sprintf("Current workspace is %q.\n", workspaceName))
+		if workspaceName != "" && org != "" {
+			err := write(opts, fmt.Sprintf("Current workspace is %q in organization %q.\n", workspaceName, org))
 			return err
 		}
 		return nil
@@ -420,4 +393,92 @@ func (kc *KubeConfig) DeleteWorkspace(ctx context.Context, opts *Options, worksp
 	}
 
 	return write(opts, fmt.Sprintf("Workspace \"%s\" deleted.\n", workspaceName))
+}
+
+// getOrgClusterNameandBasePath gets the logical cluster name and the base URL for the current
+// workspace.
+func getOrgClusterNameandBasePath(urlPath string, parent bool) (string, string, error) {
+	// get workspace from current server URL and check it point to an org or the root workspace
+	serverURL, err := url.Parse(urlPath)
+	if err != nil {
+		return "", "", err
+	}
+
+	possiblePrefixes := []string{
+		"/clusters/",
+		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
+	}
+
+	var clusterName, basePath string
+	for _, prefix := range possiblePrefixes {
+		clusterIndex := strings.Index(serverURL.Path, prefix)
+		if clusterIndex < 0 {
+			continue
+		}
+		clusterName = strings.SplitN(serverURL.Path[clusterIndex+len(prefix):], "/", 2)[0]
+		basePath = serverURL.Path[:clusterIndex]
+	}
+
+	if clusterName == "" {
+		return "", basePath, fmt.Errorf("current cluster URL %s is not pointing to a workspace", serverURL)
+	}
+
+	// derive the org workspace to operator on
+	var orgClusterName string
+	if clusterName == tenancyhelpers.RootCluster {
+		orgClusterName = clusterName
+	} else if org, _, err := tenancyhelpers.ParseLogicalClusterName(clusterName); err != nil {
+		return "", "", fmt.Errorf("unable to parse cluster name %s", clusterName)
+	} else if org == "system:" {
+		return "", "", fmt.Errorf("no workspaces are accessible from %s", clusterName)
+	} else if org == tenancyhelpers.RootCluster {
+		if parent {
+			orgClusterName = tenancyhelpers.RootCluster
+		} else {
+			// already in an org workspace
+			orgClusterName = clusterName
+		}
+	} else {
+		// some other workspace, return org cluster name
+		orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
+		if err != nil {
+			// should never happen
+			return "", "", fmt.Errorf("unable to derive parent cluster name for %s", clusterName)
+		}
+	}
+	return orgClusterName, basePath, nil
+}
+
+// getCurrentContextName returns the current context from kubeconfig.
+func (kc *KubeConfig) getCurrentContextName(opts *Options) (string, error) {
+	currentContextName := kc.startingConfig.CurrentContext
+
+	kubectlOverrides := opts.KubectlOverrides
+	if kubectlOverrides.CurrentContext != "" {
+		currentContextName = kubectlOverrides.CurrentContext
+	}
+
+	if currentContextName == "" {
+		return "", errors.New("no current context")
+	}
+
+	return currentContextName, nil
+}
+
+// getOrgName returns the name of the organization.
+func (kc *KubeConfig) getOrgName(currentContext string) (orgName string, err error) {
+	if serverInfo, ok := kc.startingConfig.Clusters[currentContext]; ok {
+		clusterName, _, err := getOrgClusterNameandBasePath(serverInfo.Server, true)
+		if err != nil {
+			return "", err
+		}
+
+		_, orgName, err = tenancyhelpers.ParseLogicalClusterName(clusterName)
+		if err != nil {
+			return "", err
+		}
+	} else { // should not reach this statement
+		return "", fmt.Errorf("cannot find server info for current context %q", currentContext)
+	}
+	return orgName, nil
 }
