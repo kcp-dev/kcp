@@ -26,6 +26,7 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -38,8 +39,10 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
+	configcrds "github.com/kcp-dev/kcp/config/crds"
 	configroot "github.com/kcp-dev/kcp/config/root"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -259,6 +262,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return &kcpAPIExtensionsSharedInformerFactory{
 			SharedInformerFactory: f,
 			workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+			apiBindingLister:      s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		}
 	}
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
@@ -331,6 +335,24 @@ func (s *Server) Run(ctx context.Context) error {
 
 		klog.Infof("Bootstrapped CRDs and synced all informers. Ready to start controllers")
 		close(s.syncedCh)
+
+		return nil
+	})
+
+	// TODO(ncdc): eventually remove/replace this. It's needed for the moment because anything/everything that works
+	// with CRDs and CRs now needs to have the APIBindings CRD installed (our custom CRD lister uses the APIBindings
+	// lister).
+	s.AddPostStartHook("kcp-hack-install-apibindings-into-local-admin", func(ctx genericapiserver.PostStartHookContext) error {
+		if err = configcrds.Create(
+			goContext(ctx),
+			apiextensionsClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).ApiextensionsV1().CustomResourceDefinitions(),
+			metav1.GroupResource{Group: apis.GroupName, Resource: "apibindings"},
+		); err != nil {
+			klog.Errorf("Error bootstrapping apibindings into local admin cluster: %v", err)
+
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
 
 		return nil
 	})
