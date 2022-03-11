@@ -108,7 +108,6 @@ func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kc
 			"--embedded-etcd-peer-port=" + etcdPeerPort,
 			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
 			"--kubeconfig-path=admin.kubeconfig",
-			"--v=7",
 		},
 			cfg.Args...),
 		dataDir:     dataDir,
