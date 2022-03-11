@@ -205,6 +205,16 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.GenericControlPlane.SecureServing.Listener = listener
 	}
 
+	if err := o.Controllers.Complete(o.Extra.RootDirectory); err != nil {
+		return nil, err
+	}
+	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
+		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
+	}
+	if o.GenericControlPlane.ServerRunOptions.ServiceAccountSigningKeyFile == "" {
+		o.GenericControlPlane.ServerRunOptions.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
+	}
+
 	completedGenericControlPlane, err := o.GenericControlPlane.ServerRunOptions.Complete()
 	if err != nil {
 		return nil, err
@@ -215,13 +225,6 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		// but other than that only has cosmetic effects e.g. on the flag description. Hence, we do it here
 		// in Complete and not in NewOptions.
 		o.GenericControlPlane.SecureServing.Required = false
-	}
-
-	if err := o.Controllers.Complete(o.Extra.RootDirectory); err != nil {
-		return nil, err
-	}
-	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
-		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
 	}
 
 	return &CompletedOptions{
