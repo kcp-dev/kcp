@@ -33,7 +33,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestServiceAccountTokenController(t *testing.T) {
+func TestLegacyServiceAccounts(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -49,17 +49,19 @@ func TestServiceAccountTokenController(t *testing.T) {
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err)
 
-	orgKubeClient := kubeClusterClient.Cluster(clusterName)
+	kubeClient := kubeClusterClient.Cluster(clusterName)
 
-	namespace, err := orgKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	t.Log("Creating namespace")
+	namespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-sa-",
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create namespace")
 
+	t.Log("Waiting for service account to be created")
 	require.Eventually(t, func() bool {
-		_, err := orgKubeClient.CoreV1().ServiceAccounts(namespace.Name).Get(ctx, "default", metav1.GetOptions{})
+		_, err := kubeClient.CoreV1().ServiceAccounts(namespace.Name).Get(ctx, "default", metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -70,9 +72,10 @@ func TestServiceAccountTokenController(t *testing.T) {
 		helper.QualifiedObjectName(namespace),
 	)
 
+	t.Log("Waiting for service account secret to be created")
 	var tokenSecret corev1.Secret
 	require.Eventually(t, func() bool {
-		secrets, err := orgKubeClient.CoreV1().Secrets(namespace.Name).List(ctx, metav1.ListOptions{})
+		secrets, err := kubeClient.CoreV1().Secrets(namespace.Name).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "failed to list secrets")
 
 		for _, secret := range secrets.Items {
@@ -86,7 +89,46 @@ func TestServiceAccountTokenController(t *testing.T) {
 
 	t.Logf("Token secret: %v", tokenSecret)
 
-	// Use the token to access the secret
-	// Create a namespace with the same name in a different workspace
-	// Verify that it is not possible to read the namespace in the other workspace
+	saRestConfig, err := server.DefaultConfig()
+	saRestConfig.BearerToken = string(tokenSecret.Data["token"])
+	saKubeClusterClient, err := kubernetes.NewClusterForConfig(saRestConfig)
+	require.NoError(t, err)
+
+	t.Run("Accessing workspace with the service account", func(t *testing.T) {
+		_, err = saKubeClusterClient.Cluster(clusterName).Discovery().ServerGroups()
+		require.NoError(t, err)
+	})
+
+	t.Run("Access another workspace in the same org", func(t *testing.T) {
+		t.Log("Create namespace with the same name ")
+		clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+		kubeClient := kubeClusterClient.Cluster(clusterName)
+		_, err = kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace.Name,
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err, "failed to create namespace in other workspace")
+
+		t.Log("Accessing workspace with the service account")
+		_, err = saKubeClusterClient.Cluster(clusterName).Discovery().ServerGroups()
+		require.Error(t, err)
+	})
+
+	t.Run("Access an equally named workspace in another org", func(t *testing.T) {
+		t.Log("Create namespace with the same name")
+		orgClusterName := framework.NewOrganizationFixture(t, server)
+		clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+		kubeClient := kubeClusterClient.Cluster(clusterName)
+		_, err = kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace.Name,
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err, "failed to create namespace in other workspace")
+
+		t.Log("Accessing workspace with the service account")
+		_, err = saKubeClusterClient.Cluster(clusterName).Discovery().ServerGroups()
+		require.Error(t, err)
+	})
 }
