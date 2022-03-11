@@ -34,8 +34,7 @@ then
     fi
 else
     echo "Installing 'controller-gen'"
-    go get sigs.k8s.io/controller-tools/cmd/controller-gen
-    go install sigs.k8s.io/controller-tools/cmd/controller-gen
+    go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 fi
 
 mkdir crd-build
