@@ -68,40 +68,12 @@ func newUserClient(t *testing.T, username, clusterName string, cfg *rest.Config)
 }
 
 func TestAuthorizer(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	user1 := framework.User{
-		Name:   "user-1",
-		UID:    "1111-1111-1111-1111",
-		Token:  "user-1-token",
-		Groups: []string{"team-1"},
-	}
-
-	user2 := framework.User{
-		Name:   "user-2",
-		UID:    "1111-1111-1111-1111",
-		Token:  "user-2-token",
-		Groups: []string{"team-2"},
-	}
-
-	user3 := framework.User{
-		Name:   "user-3",
-		UID:    "1111-1111-1111-1111",
-		Token:  "user-3-token",
-		Groups: []string{"team-3"},
-	}
-
-	usersKCPArgs, err := framework.Users([]framework.User{user1, user2, user3}).ArgsForKCP(t)
-	require.NoError(t, err)
-
-	f := framework.NewKcpFixture(t, framework.KcpConfig{
-		Name: "main",
-		Args: usersKCPArgs,
-	})
-	require.Equal(t, len(f.Servers), 1, "incorrect number of servers")
-
-	server := f.Servers["main"]
+	server := framework.SharedKcpServer(t)
 
 	kcpCfg, err := server.DefaultConfig()
 	require.NoError(t, err)
@@ -112,7 +84,7 @@ func TestAuthorizer(t *testing.T) {
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(kcpCfg)
 	require.NoError(t, err)
 
-	orgClusterName := framework.NewOrganizationFixture(t, f.Servers["main"])
+	orgClusterName := framework.NewOrganizationFixture(t, server)
 	_, org, err := helper.ParseLogicalClusterName(orgClusterName)
 	require.NoError(t, err)
 
@@ -236,8 +208,9 @@ func TestAuthorizer(t *testing.T) {
 			require.NoError(t, err)
 		},
 		"Non-Cluster Admins can not use wildcard clusters": func() {
-			var err error
-			user1Config := user1.ConfigForUser(kcpCfg)
+			user1Config := rest.CopyConfig(kcpCfg)
+			// Token is defined in test/e2e/framework/auth-tokens.csv
+			user1Config.BearerToken = "user-1-token"
 			user1ClusterConfig, err := kubernetes.NewClusterForConfig(user1Config)
 			require.NoError(t, err)
 
