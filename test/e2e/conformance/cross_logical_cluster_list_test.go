@@ -54,8 +54,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 			ctx = withDeadline
 		}
 
-		cfg, err := server.DefaultConfig()
-		require.NoError(t, err)
+		cfg := server.DefaultConfig(t)
 
 		// Until we get rid of the multiClusterClientConfigRoundTripper and replace it with scoping,
 		// make sure we don't break cross-logical cluster client listing.
