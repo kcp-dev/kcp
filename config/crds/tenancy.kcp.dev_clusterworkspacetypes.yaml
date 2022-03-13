@@ -38,6 +38,12 @@ spec:
             type: object
           spec:
             properties:
+              additionalWorkspaceLabels:
+                additionalProperties:
+                  type: string
+                description: additionalWorkspaceLabels are a set of labels that will
+                  be added to a ClusterWorkspace on creation.
+                type: object
               initializers:
                 description: initializers are set of a ClusterWorkspace on creation
                   and must be cleared by a controller before the workspace can be

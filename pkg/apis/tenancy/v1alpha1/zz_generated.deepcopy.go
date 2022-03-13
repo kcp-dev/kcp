@@ -223,6 +223,13 @@ func (in *ClusterWorkspaceTypeSpec) DeepCopyInto(out *ClusterWorkspaceTypeSpec) 
 		*out = make([]ClusterWorkspaceInitializer, len(*in))
 		copy(*out, *in)
 	}
+	if in.AdditionalWorkspaceLabels != nil {
+		in, out := &in.AdditionalWorkspaceLabels, &out.AdditionalWorkspaceLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
