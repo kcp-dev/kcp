@@ -90,9 +90,9 @@ When the PR has been merged, please make sure the task is checked off in the epi
 
 ## Tracking work
 
-### in-progress label
+### Issue status and project board
 
-Please make every effort possible to set the `in-progress` label on any issues you are actively working on.
+We use the Github projects beta for project management, compare [our project board](https://github.com/orgs/kcp-dev/projects/1). Please add issues and PRs into the kcp project and update the status (new, in-progress, ...) for those you are actively working on.
 
 ### Unplanned/untracked work
 If you find yourself working on something that is unplanned and/or untracked (i.e., not an open GitHub issue or story task in an epic), that's 100% ok, but we'd like to track this type of work too! Please file a new issue for it, and when you have a PR ready, mark the PR as fixing the issue.
