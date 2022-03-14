@@ -532,8 +532,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			}
 
 			// create non-virtual clients
-			kcpConfig, err := server.DefaultConfig()
-			require.NoError(t, err)
+			kcpConfig := server.DefaultConfig(t)
 			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
 			kcpClusterClient, err := kcpclientset.NewClusterForConfig(kcpConfig)

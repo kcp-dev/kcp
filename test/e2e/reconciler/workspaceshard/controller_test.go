@@ -293,8 +293,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
 			server := f.Servers[serverName]
 
-			cfg, err := server.DefaultConfig()
-			require.NoError(t, err)
+			cfg := server.DefaultConfig(t)
 
 			orgClusterName := framework.NewOrganizationFixture(t, f.Servers[serverName])
 

@@ -35,6 +35,7 @@ import (
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
@@ -276,7 +277,7 @@ func (c *kcpServer) KubeconfigPath() string {
 }
 
 // Config exposes a copy of the neutral client config for this server.
-func (c *kcpServer) DefaultConfig() (*rest.Config, error) {
+func (c *kcpServer) defaultConfig() (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
@@ -289,6 +290,12 @@ func (c *kcpServer) DefaultConfig() (*rest.Config, error) {
 
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
 	return config.ClientConfig()
+}
+
+func (c *kcpServer) DefaultConfig(t *testing.T) *rest.Config {
+	cfg, err := c.defaultConfig()
+	require.NoError(t, err)
+	return cfg
 }
 
 // RawConfig exposes a copy of the client config for this server.
@@ -313,7 +320,7 @@ func (c *kcpServer) Ready(keepMonitoring bool) error {
 		// main Ready() body, so we check before continuing that we are live
 		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
 	}
-	cfg, err := c.DefaultConfig()
+	cfg, err := c.defaultConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read client configuration: %w", err)
 	}
@@ -469,14 +476,14 @@ func (s *unmanagedKCPServer) RawConfig() (clientcmdapi.Config, error) {
 	return s.cfg.RawConfig()
 }
 
-func (s *unmanagedKCPServer) DefaultConfig() (*rest.Config, error) {
+func (s *unmanagedKCPServer) DefaultConfig(t *testing.T) *rest.Config {
 	raw, err := s.cfg.RawConfig()
-	if err != nil {
-		return nil, err
-	}
+	require.NoError(t, err)
 
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
-	return config.ClientConfig()
+	defaultConfig, err := config.ClientConfig()
+	require.NoError(t, err)
+	return defaultConfig
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {

@@ -167,8 +167,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			cfg, err := server.DefaultConfig()
-			require.NoError(t, err)
+			cfg := server.DefaultConfig(t)
 			kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 			orgKcpClient := kcpClusterClient.Cluster(orgClusterName)

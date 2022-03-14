@@ -76,9 +76,6 @@ func TestAPIInheritance(t *testing.T) {
 				ctx = withDeadline
 			}
 
-			cfg, err := server.DefaultConfig()
-			require.NoError(t, err)
-
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			// These are the cluster name paths (i.e. /clusters/$org:$workspace) for our two workspaces.
@@ -89,6 +86,7 @@ func TestAPIInheritance(t *testing.T) {
 				targetWorkspaceClusterName = org + ":target"
 			)
 
+			cfg := server.DefaultConfig(t)
 			apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct apiextensions client for server")
 			kcpClients, err := clientset.NewClusterForConfig(cfg)

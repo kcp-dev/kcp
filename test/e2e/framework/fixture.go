@@ -136,9 +136,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cfg, err := server.DefaultConfig()
-	require.NoError(t, err, "failed to get kcp server config")
-
+	cfg := server.DefaultConfig(t)
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
 
@@ -181,9 +179,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName stri
 	require.NoErrorf(t, err, "failed to parse organization cluster name %q", orgClusterName)
 	require.Equalf(t, rootOrg, helper.RootCluster, "expected an org cluster name, i.e. with \"%s:\" prefix", helper.RootCluster)
 
-	cfg, err := server.DefaultConfig()
-	require.NoError(t, err)
-
+	cfg := server.DefaultConfig(t)
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
