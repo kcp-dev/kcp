@@ -29,9 +29,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -49,7 +47,6 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 type testDataType struct {
@@ -345,9 +342,6 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
 				require.NoError(t, err, "failed to create root workspace roles")
 
-				_, err = server.orgKubeClient.CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create namespace")
-
 				kcpServerKubeconfig, err := server.RunningServer.RawConfig()
 				require.NoError(t, err, "failed to get KCP Kubeconfig")
 
@@ -363,26 +357,15 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
-				workspaceURL := ""
-				var lastErr error
-				err = wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (done bool, err error) {
-					defer func() {
-						lastErr = err
-					}()
+				require.Eventually(t, func() bool {
+					ws, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+					require.NoError(t, err, "failed to get workspace1")
+					return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+				}, wait.ForeverTestTimeout, time.Millisecond*100, " workspace1 did not become ready")
 
-					cw, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
-					if err != nil {
-						if apierrors.IsNotFound(err) {
-							return false, nil
-						}
-						return false, err
-					} else if !conditions.IsTrue(cw, tenancyv1alpha1.WorkspaceShardValid) {
-						return false, fmt.Errorf("ClusterWorkspace %s is not valid: %s", cw.Name, conditions.GetMessage(cw, tenancyv1alpha1.WorkspaceShardValid))
-					}
-					workspaceURL = cw.Status.BaseURL
-					return true, nil
-				})
-				require.NoError(t, err, "did not see the workspace created and valid in KCP: %v", lastErr)
+				ws, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				require.NoError(t, err, "failed to get workspace1 as ClusterWorkspace")
+				workspaceURL := ws.Status.BaseURL
 
 				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
