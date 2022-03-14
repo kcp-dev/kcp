@@ -83,14 +83,14 @@ func (sr *SubResources) ImportFromCRDVersion(crdVersion *apiextensionsv1.CustomR
 		return false
 	}
 
-	if crdVersion.Subresources.Scale != nil {
+	if crdVersion.Subresources != nil && crdVersion.Subresources.Scale != nil {
 		if !alreadyExists(ScaleSubResourceName) {
 			*sr = append(*sr, SubResource{
 				Name: ScaleSubResourceName,
 			})
 		}
 	}
-	if crdVersion.Subresources.Status != nil {
+	if crdVersion.Subresources != nil && crdVersion.Subresources.Status != nil {
 		if !alreadyExists(StatusSubResourceName) {
 			*sr = append(*sr, SubResource{
 				Name: StatusSubResourceName,
