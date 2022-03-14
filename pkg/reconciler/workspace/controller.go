@@ -417,7 +417,18 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	case "":
 		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseScheduling
 	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
+		// TODO(sttts): in the future this step is done by a workspace shard itself. I.e. moving to initializing is a step
+		//              of acceptance of the workspace on that shard.
 		if workspace.Status.Location.Current != "" && workspace.Status.BaseURL != "" {
+			// do final quorum read to avoid race when the workspace shard is being deleted
+			_, err := c.kcpClient.Cluster(tenancyhelper.RootCluster).TenancyV1alpha1().WorkspaceShards().Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
+			if err != nil {
+				// reschedule
+				workspace.Status.Location.Current = ""
+				workspace.Status.BaseURL = ""
+				return nil // nolint:nilerr
+			}
+
 			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
 		}
 	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing:
