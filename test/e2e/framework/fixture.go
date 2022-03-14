@@ -63,11 +63,14 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	// tests. This will likely require composing tests into a suite that
 	// initializes the shared fixture before tests that rely on the
 	// fixture.
+
+	tokenAuthFile := writeTokenAuthFile(t)
 	f := NewKcpFixture(t, KcpConfig{
 		Name: serverName,
 		Args: []string{
 			"--auto-publish-apis",
 			"--discovery-poll-interval=2s",
+			"--token-auth-file", tokenAuthFile,
 		},
 	})
 	return f.Servers[serverName]
