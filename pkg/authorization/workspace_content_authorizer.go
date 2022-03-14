@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -123,42 +124,55 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		}
 	}
 
-	verbToGroupMembership := map[string]string{
-		"admin":  "system:kcp:clusterworkspace:admin",
-		"edit":   "system:kcp:clusterworkspace:edit",
-		"view":   "system:kcp:clusterworkspace:view",
-		"access": "system:kcp:authenticated",
-	}
-
 	extraGroups := []string{}
-	var (
-		errList    []error
-		reasonList []string
-	)
-	for verb, group := range verbToGroupMembership {
-		workspaceAttr := authorizer.AttributesRecord{
-			User:            attr.GetUser(),
-			Verb:            verb,
-			APIGroup:        v1alpha1.SchemeGroupVersion.Group,
-			APIVersion:      v1alpha1.SchemeGroupVersion.Version,
-			Resource:        "clusterworkspaces",
-			Subresource:     "content",
-			Name:            clusterWorkspace,
-			ResourceRequest: true,
+	if subjectCluster := attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey]; len(subjectCluster) > 0 {
+		// a subject from a workspace, like a ServiceAccount, is automatically authenticated
+		// against that workspace.
+		// On the other hand, referencing that in the parent cluster for further permissions
+		// is not possible. Hence, we skip the authorization steps for the verb below.
+		for _, sc := range subjectCluster {
+			if sc == cluster.Name {
+				extraGroups = append(extraGroups, "system:kcp:authenticated")
+				break
+			}
+		}
+	} else {
+		verbToGroupMembership := map[string]string{
+			"admin":  "system:kcp:clusterworkspace:admin",
+			"edit":   "system:kcp:clusterworkspace:edit",
+			"view":   "system:kcp:clusterworkspace:view",
+			"access": "system:kcp:authenticated",
 		}
 
-		dec, reason, err := orgAuthorizer.Authorize(ctx, workspaceAttr)
-		if err != nil {
-			errList = append(errList, err)
-			reasonList = append(reasonList, reason)
-			continue
+		var (
+			errList    []error
+			reasonList []string
+		)
+		for verb, group := range verbToGroupMembership {
+			workspaceAttr := authorizer.AttributesRecord{
+				User:            attr.GetUser(),
+				Verb:            verb,
+				APIGroup:        v1alpha1.SchemeGroupVersion.Group,
+				APIVersion:      v1alpha1.SchemeGroupVersion.Version,
+				Resource:        "clusterworkspaces",
+				Subresource:     "content",
+				Name:            clusterWorkspace,
+				ResourceRequest: true,
+			}
+
+			dec, reason, err := orgAuthorizer.Authorize(ctx, workspaceAttr)
+			if err != nil {
+				errList = append(errList, err)
+				reasonList = append(reasonList, reason)
+				continue
+			}
+			if dec == authorizer.DecisionAllow {
+				extraGroups = append(extraGroups, group)
+			}
 		}
-		if dec == authorizer.DecisionAllow {
-			extraGroups = append(extraGroups, group)
+		if len(errList) > 0 {
+			return authorizer.DecisionNoOpinion, strings.Join(reasonList, "\n"), utilerrors.NewAggregate(errList)
 		}
-	}
-	if len(errList) > 0 {
-		return authorizer.DecisionNoOpinion, strings.Join(reasonList, "\n"), utilerrors.NewAggregate(errList)
 	}
 	if len(extraGroups) == 0 {
 		return authorizer.DecisionNoOpinion, "workspace access not permitted", nil

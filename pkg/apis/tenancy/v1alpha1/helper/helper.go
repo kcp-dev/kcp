@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clusters"
 
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -96,4 +97,11 @@ func ParentClusterName(name string) (string, error) {
 		return RootCluster, nil
 	}
 	return EncodeOrganizationAndClusterWorkspace(RootCluster, parent), nil
+}
+
+func QualifiedObjectName(obj metav1.Object) string {
+	if len(obj.GetNamespace()) > 0 {
+		return fmt.Sprintf("%s|%s/%s", obj.GetClusterName(), obj.GetNamespace(), obj.GetName())
+	}
+	return fmt.Sprintf("%s|%s", obj.GetClusterName(), obj.GetName())
 }

@@ -19,6 +19,8 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	_ "net/http/pprof"
 	"net/url"
 	"time"
@@ -34,10 +36,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	certutil "k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
+	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	"k8s.io/kubernetes/pkg/serviceaccount"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	configorganization "github.com/kcp-dev/kcp/config/organization"
@@ -116,6 +122,109 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 	})
 
 	return nil
+}
+
+func (s *Server) installKubeServiceAccountController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "service-account-controller")
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := serviceaccountcontroller.NewServiceAccountsController(
+		s.kubeSharedInformerFactory.Core().V1().ServiceAccounts(),
+		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		kubeClient,
+		serviceaccountcontroller.DefaultServiceAccountsControllerOptions(),
+	)
+	if err != nil {
+		return fmt.Errorf("error creating ServiceAccount controller: %w", err)
+	}
+
+	s.AddPostStartHook("kcp-start-kube-service-account-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-start-kube-service-account-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Run(ctx, 1)
+		return nil
+	})
+
+	return nil
+}
+
+func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
+	saTokenControllerName := "serviceaccount-token"
+
+	config = rest.AddUserAgent(rest.CopyConfig(config), "tokens-controller")
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	serviceAccountKeyFile := s.options.Controllers.SAController.ServiceAccountKeyFile
+	if len(serviceAccountKeyFile) == 0 {
+		return fmt.Errorf("%s controller requires a private key", saTokenControllerName)
+	}
+	privateKey, err := keyutil.PrivateKeyFromFile(serviceAccountKeyFile)
+	if err != nil {
+		return fmt.Errorf("error reading key for service account token controller: %w", err)
+	}
+
+	var rootCA []byte
+	rootCAFile := s.options.Controllers.SAController.RootCAFile
+	if rootCAFile != "" {
+		if rootCA, err = readCA(rootCAFile); err != nil {
+			return fmt.Errorf("error parsing root-ca-file at %s: %w", rootCAFile, err)
+		}
+	} else {
+		rootCA = config.CAData
+	}
+
+	tokenGenerator, err := serviceaccount.JWTTokenGenerator(serviceaccount.LegacyIssuer, privateKey)
+	if err != nil {
+		return fmt.Errorf("failed to build token generator: %w", err)
+	}
+	controller, err := serviceaccountcontroller.NewTokensController(
+		s.kubeSharedInformerFactory.Core().V1().ServiceAccounts(),
+		s.kubeSharedInformerFactory.Core().V1().Secrets(),
+		kubeClient,
+		serviceaccountcontroller.TokensControllerOptions{
+			TokenGenerator: tokenGenerator,
+			RootCA:         rootCA,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error creating %s controller: %w", saTokenControllerName, err)
+	}
+
+	s.AddPostStartHook("kcp-start-kube-service-account-token-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-start-kube-service-account-token-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go controller.Run(int(s.options.Controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
+
+		return nil
+	})
+
+	return nil
+}
+
+func readCA(file string) ([]byte, error) {
+	rootCA, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := certutil.ParseCertsPEM(rootCA); err != nil {
+		return nil, err
+	}
+
+	return rootCA, err
 }
 
 func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister tenancylisters.ClusterWorkspaceLister, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {

@@ -100,9 +100,10 @@ func NewOptions() *Options {
 		WithClientCert().
 		WithOIDC().
 		WithRequestHeader().
-		// WithServiceAccounts().
+		WithServiceAccounts().
 		WithTokenFile()
 	//WithWebHook()
+	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 
 	// override set of admission plugins
@@ -202,6 +203,19 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			return nil, err
 		}
 		o.GenericControlPlane.SecureServing.Listener = listener
+	}
+
+	if err := o.Controllers.Complete(o.Extra.RootDirectory); err != nil {
+		return nil, err
+	}
+	if o.Controllers.SAController.ServiceAccountKeyFile != "" && !filepath.IsAbs(o.Controllers.SAController.ServiceAccountKeyFile) {
+		o.Controllers.SAController.ServiceAccountKeyFile = filepath.Join(o.Extra.RootDirectory, o.Controllers.SAController.ServiceAccountKeyFile)
+	}
+	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
+		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
+	}
+	if o.GenericControlPlane.ServerRunOptions.ServiceAccountSigningKeyFile == "" {
+		o.GenericControlPlane.ServerRunOptions.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
 	completedGenericControlPlane, err := o.GenericControlPlane.ServerRunOptions.Complete()
