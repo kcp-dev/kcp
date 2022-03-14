@@ -184,8 +184,13 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				require.NoError(t, err, "failed to create root workspace roles")
 
 				t.Logf("Create Workspace workspace1 in the virtual workspace")
-				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace1")
+				var workspace1 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
 				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
@@ -195,8 +200,13 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				})
 
 				t.Logf("Create Workspace workspace2 in the virtual workspace")
-				workspace2, err := vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace2")
+				var workspace2 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace2, err = vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace2")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
 				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{})
@@ -248,8 +258,13 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				require.NoError(t, err, "failed to create root workspace roles")
 
 				t.Logf("Create Workspace workspace1 in test org")
-				workspace1, err := testOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace1")
+				var workspace1 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace1, err = testOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
 				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
@@ -259,8 +274,13 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				})
 
 				t.Logf("Create Workspace workspace2 in the virtual workspace")
-				workspace2, err := defaultOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace2")
+				var workspace2 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace2, err = defaultOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace2")
 
 				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
@@ -331,8 +351,13 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				kcpServerKubeconfig, err := server.RunningServer.RawConfig()
 				require.NoError(t, err, "failed to get KCP Kubeconfig")
 
-				workspace1, err := vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace1")
+				var workspace1 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
