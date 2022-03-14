@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"io"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 
-	kcpadmissionhelpers "github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
@@ -53,15 +54,13 @@ func (o *apiResourceSchemaValidation) Validate(ctx context.Context, a admission.
 		return nil
 	}
 
-	obj, err := kcpadmissionhelpers.NativeObject(a.GetObject())
-	if err != nil {
-		// nolint: nilerr
-		return nil // only work on unstructured APIResourceSchemas
-	}
-	schema, ok := obj.(*apisv1alpha1.APIResourceSchema)
+	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
-		// nolint: nilerr
-		return nil // only work on unstructured APIResourceSchemas
+		return fmt.Errorf("unexpected type %T", a.GetObject())
+	}
+	schema := &apisv1alpha1.APIResourceSchema{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, schema); err != nil {
+		return fmt.Errorf("failed to convert unstructured to APIResourceSchema: %w", err)
 	}
 
 	// first all steps where we need no lister
@@ -73,14 +72,13 @@ func (o *apiResourceSchemaValidation) Validate(ctx context.Context, a admission.
 		}
 
 	case admission.Update:
-		obj, err = kcpadmissionhelpers.NativeObject(a.GetOldObject())
-		if err != nil {
-			return fmt.Errorf("unexpected unknown old object, got %v, expected APIResourceSchema", a.GetOldObject().GetObjectKind().GroupVersionKind().Kind)
-		}
-
-		old, ok = obj.(*apisv1alpha1.APIResourceSchema)
+		u, ok = a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
-			return fmt.Errorf("unexpected unknown old object, got %v, expected APIResourceSchema", obj.GetObjectKind().GroupVersionKind().Kind)
+			return fmt.Errorf("unexpected type %T", a.GetOldObject())
+		}
+		old = &apisv1alpha1.APIResourceSchema{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
+			return fmt.Errorf("failed to convert unstructured to APIResourceSchema: %w", err)
 		}
 
 		if errs := ValidateAPIResourceSchemaUpdate(schema, old); len(errs) > 0 {

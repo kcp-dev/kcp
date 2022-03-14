@@ -27,13 +27,14 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func createAttr(s *apisv1alpha1.APIResourceSchema) admission.Attributes {
 	return admission.NewAttributesRecord(
-		s,
+		helpers.ToUnstructuredOrDie(s),
 		nil,
 		apisv1alpha1.Kind("APIResourceSchema").WithVersion("v1alpha1"),
 		"",
@@ -50,8 +51,8 @@ func createAttr(s *apisv1alpha1.APIResourceSchema) admission.Attributes {
 // nolint:deadcode,unused
 func updateAttr(s, old *apisv1alpha1.APIResourceSchema) admission.Attributes {
 	return admission.NewAttributesRecord(
-		s,
-		old,
+		helpers.ToUnstructuredOrDie(s),
+		helpers.ToUnstructuredOrDie(old),
 		tenancyv1alpha1.Kind("APIResourceSchema").WithVersion("v1alpha1"),
 		"",
 		s.Name,

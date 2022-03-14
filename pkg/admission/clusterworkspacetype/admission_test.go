@@ -25,12 +25,13 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
+	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func createAttr(cwt *tenancyv1alpha1.ClusterWorkspaceType) admission.Attributes {
 	return admission.NewAttributesRecord(
-		cwt,
+		helpers.ToUnstructuredOrDie(cwt),
 		nil,
 		tenancyv1alpha1.Kind("ClusterWorkspaceType").WithVersion("v1alpha1"),
 		"",
@@ -47,8 +48,8 @@ func createAttr(cwt *tenancyv1alpha1.ClusterWorkspaceType) admission.Attributes 
 // nolint:unused,deadcode
 func updateAttr(cwt, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
 	return admission.NewAttributesRecord(
-		cwt,
-		old,
+		helpers.ToUnstructuredOrDie(cwt),
+		helpers.ToUnstructuredOrDie(old),
 		tenancyv1alpha1.Kind("ClusterWorkspaceType").WithVersion("v1alpha1"),
 		"",
 		cwt.Name,

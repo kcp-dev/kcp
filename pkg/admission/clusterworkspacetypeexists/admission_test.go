@@ -19,11 +19,14 @@ package clusterworkspacetypeexists
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -33,12 +36,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/diff"
 
+	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func createAttr(ws *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
+func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
 	return admission.NewAttributesRecord(
-		ws,
+		helpers.ToUnstructuredOrDie(obj),
 		nil,
 		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
 		"",
@@ -52,10 +56,10 @@ func createAttr(ws *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
 	)
 }
 
-func updateAttr(ws, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
+func updateAttr(obj, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
 	return admission.NewAttributesRecord(
-		ws,
-		old,
+		helpers.ToUnstructuredOrDie(obj),
+		helpers.ToUnstructuredOrDie(old),
 		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
 		"",
 		"test",
@@ -175,10 +179,9 @@ func TestAdmit(t *testing.T) {
 					Type: "Foo",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseReady,
+					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
 		},
@@ -218,21 +221,27 @@ func TestAdmit(t *testing.T) {
 					Type: "Universal",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
 		},
 		{
 			name: "ignores different resources",
 			a: admission.NewAttributesRecord(
-				&tenancyv1alpha1.WorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
+				&unstructured.Unstructured{Object: map[string]interface{}{
+					"apiVersion": tenancyv1alpha1.SchemeGroupVersion.String(),
+					"kind":       "WorkspaceShard",
+					"metadata": map[string]interface{}{
+						"name":              "test",
+						"creationTimestamp": nil,
 					},
-				},
+					"spec": map[string]interface{}{
+						"credentials": map[string]interface{}{},
+					},
+					"status": map[string]interface{}{},
+				}},
 				nil,
 				tenancyv1alpha1.Kind("WorkspaceShard").WithVersion("v1alpha1"),
 				"",
@@ -245,6 +254,10 @@ func TestAdmit(t *testing.T) {
 				&user.DefaultInfo{},
 			),
 			expectedObj: &tenancyv1alpha1.WorkspaceShard{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: tenancyv1alpha1.SchemeGroupVersion.String(),
+					Kind:       "WorkspaceShard",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
@@ -260,9 +273,13 @@ func TestAdmit(t *testing.T) {
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !reflect.DeepEqual(tt.expectedObj, tt.a.GetObject()) {
-				t.Errorf("unexpected result (A expected, B got): %s", diff.ObjectReflectDiff(tt.expectedObj, tt.a.GetObject()))
+			} else if err == nil {
+				got, ok := tt.a.GetObject().(*unstructured.Unstructured)
+				require.True(t, ok, "expected unstructured, got %T", tt.a.GetObject())
+				expected := helpers.ToUnstructuredOrDie(tt.expectedObj)
+				if !apiequality.Semantic.DeepEqual(expected, got) {
+					t.Fatalf("unexpected result (A expected, B got): %s", diff.ObjectDiff(expected, got))
+				}
 			}
 		})
 	}
