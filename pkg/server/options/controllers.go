@@ -88,8 +88,7 @@ func (c *Controllers) Complete(rootDir string) error {
 		c.SAController.ServiceAccountKeyFile = filepath.Join(rootDir, "sa.key")
 		if _, err := os.Stat(c.SAController.ServiceAccountKeyFile); os.IsNotExist(err) {
 			klog.Infof("Generating service account key file %s", c.SAController.ServiceAccountKeyFile)
-			// TODO(ncdc): should alrogithm & key size be configurable?
-			key, err := rsa.GenerateKey(cryptorand.Reader, 2048)
+			key, err := rsa.GenerateKey(cryptorand.Reader, 4096)
 			if err != nil {
 				return fmt.Errorf("error generating service account private key: %w", err)
 			}
@@ -101,6 +100,8 @@ func (c *Controllers) Complete(rootDir string) error {
 			if err := keyutil.WriteKey(c.SAController.ServiceAccountKeyFile, encoded); err != nil {
 				return fmt.Errorf("error writing service account private key file %q: %w", c.SAController.ServiceAccountKeyFile, err)
 			}
+		} else if err != nil {
+			return fmt.Errorf("error checking service account key file %q: %w", c.SAController.ServiceAccountKeyFile, err)
 		}
 	}
 

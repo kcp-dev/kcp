@@ -208,6 +208,9 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 	if err := o.Controllers.Complete(o.Extra.RootDirectory); err != nil {
 		return nil, err
 	}
+	if o.Controllers.SAController.ServiceAccountKeyFile != "" && !filepath.IsAbs(o.Controllers.SAController.ServiceAccountKeyFile) {
+		o.Controllers.SAController.ServiceAccountKeyFile = filepath.Join(o.Extra.RootDirectory, o.Controllers.SAController.ServiceAccountKeyFile)
+	}
 	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
 		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
 	}

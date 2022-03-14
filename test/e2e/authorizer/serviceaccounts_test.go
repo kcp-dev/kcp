@@ -126,11 +126,10 @@ func TestServiceAccounts(t *testing.T) {
 		return false
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for default service account not created")
 
-	type TokenTestCase struct {
+	testCases := []struct {
 		name  string
 		token func(t *testing.T) string
-	}
-	for _, ttc := range []TokenTestCase{
+	}{
 		{"Legacy token", func(t *testing.T) string {
 			return string(tokenSecret.Data["token"])
 		}},
@@ -151,7 +150,8 @@ func TestServiceAccounts(t *testing.T) {
 			require.NoError(t, err, "failed to create token")
 			return boundToken.Status.Token
 		}},
-	} {
+	}
+	for _, ttc := range testCases {
 		t.Run(ttc.name, func(t *testing.T) {
 			saRestConfig, err := server.DefaultConfig()
 			require.NoError(t, err)
