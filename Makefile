@@ -127,6 +127,10 @@ demo-kubecon: build ## Run the KubeCon demo.
 demo-ingress: build ## Run the Ingress demo.
 	cd contrib/demo && ./runDemoScripts.sh ingress
 
+.PHONY: demo-cert-manager
+demo-ingress: build ## Run the cert-manager demo.
+	cd contrib/demo && ./runDemoScripts.sh cert-manager
+
 .PHONY: demo-prototype2
 demo-prototype2: build ## Run the Prototype2 demo.
 	cd contrib/demo && ./runDemoScripts.sh prototype2
