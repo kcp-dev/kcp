@@ -38,6 +38,7 @@ import (
 	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
 const (
@@ -129,6 +130,17 @@ func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string
 	return workspaceDirectoryAwareConfig, nil
 }
 
+// tenancyClient returns the tenancy client set to access the workspace directory
+// virtual workspace based on the stored config and CLI overrides, as well as the Auth info
+// of the current kubeconfig context.
+func (kc *KubeConfig) tenancyClient(contextName string, options *Options, alwaysUpToOrg bool) (*tenancyclient.Clientset, error) {
+	if workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(contextName, options, alwaysUpToOrg); err != nil {
+		return nil, err
+	} else {
+		return tenancyclient.NewForConfig(workspaceDirectoryRestConfig)
+	}
+}
+
 // workspaceDirectoryRestConfig returns the rest.Config to access the workspace directory
 // virtual workspace based on the stored config and CLI overrides, as well as the Auth info
 // of the current kubeconfig context.
@@ -181,33 +193,57 @@ func (kc *KubeConfig) workspaceDirectoryRestConfigFromCurrentContext(options *Op
 // from the `workspaces` virtual workspace `workspaces/kubeconfig` sub-resources,
 // and adds it (along with the Auth info that is currently used) to the Kubeconfig.
 // Then it make this new context the current context.
-func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspaceName string) error {
-	searchInParent := false
+func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requestedWorkspaceName string) error {
+	workspaceIsRoot := false
 	currentContextName, err := kc.getCurrentContextName(opts)
 	if err != nil {
 		return err
 	}
 
-	orgName, _, err := kc.getWorkspace(currentContextName)
-	if err != nil {
-		return err
-	}
-
+	var tenancyClient *tenancyclient.Clientset
 	contextName := currentContextName
-	if workspaceName == "-" {
+	if requestedWorkspaceName == "-" {
 		if _, previousWorkspaceExists := kc.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]; !previousWorkspaceExists {
 			return errors.New("No previous workspace exists !")
 		}
 
 		var err error
-		orgName, workspaceName, err = kc.getWorkspace(kcpPreviousWorkspaceContextKey)
+		var orgName string
+		orgName, requestedWorkspaceName, err = kc.getWorkspace(kcpPreviousWorkspaceContextKey)
 		if err != nil {
 			return err
 		}
-		searchInParent = true
+
+		if orgName == "" && requestedWorkspaceName == tenancyhelpers.RootCluster {
+			workspaceIsRoot = true
+		}
+
 		contextName = kcpPreviousWorkspaceContextKey
+		tenancyClient, err = kc.tenancyClient(contextName, opts, true)
+		if err != nil {
+			return err
+		}
+
+		if kc.scope == registry.PersonalScope && orgName != "" && orgName != tenancyhelpers.RootCluster {
+			// If we're in the personal scope, and request a non-organization workspace, the workspaceName
+			// returned based on the current context URL might be different from the one visible to the end-user
+			// due to pretty names (== alias) management.
+			// Let's grab the user-facing name (pretty name) based on the workspace internal (organization-wide) name.
+			if ws, err := getWorkspaceFromInternalName(ctx, requestedWorkspaceName, tenancyClient); err != nil {
+				return err
+			} else {
+				requestedWorkspaceName = ws.Name
+			}
+		}
+	} else {
+		tenancyClient, err = kc.tenancyClient(contextName, opts, false)
+		if err != nil {
+			return err
+		}
 	}
 
+	// Store the currentContext, so that it will replace the previous context content
+	// at the end
 	currentContext, err := kc.getContext(currentContextName)
 	if err != nil {
 		return err
@@ -217,39 +253,33 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 		return err
 	}
 
+	// Retrieve the kubeconfig cluster info that will be updated
+	// in the new current workspace context
 	var newContextCluster *api.Cluster
-	if (orgName == "" || orgName == tenancyhelpers.RootCluster) && searchInParent {
+	if workspaceIsRoot {
+		// If we're switching to the root workspace, let's not try to retrieve the updated
+		// kubeconfig of the root cluster, which makes no sense.
 		newContextCluster, err = kc.getContextCluster(contextName)
 		if err != nil {
 			return err
 		}
 	} else {
-		workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(contextName, opts, searchInParent)
+		// Let's request the KubeConfig from the virtual workspaces
+		workspaceKubeConfigBytes, err := tenancyClient.TenancyV1beta1().RESTClient().Get().Resource("workspaces").SubResource("kubeconfig").Name(requestedWorkspaceName).Do(ctx).Raw()
 		if err != nil {
 			return err
 		}
-
-		tenancyClient, err := tenancyclient.NewForConfig(workspaceDirectoryRestConfig)
-		if err != nil {
-			return err
-		}
-
-		workspaceKubeConfigBytes, err := tenancyClient.TenancyV1beta1().RESTClient().Get().Resource("workspaces").SubResource("kubeconfig").Name(workspaceName).Do(ctx).Raw()
-		if err != nil {
-			return err
-		}
-
 		workspaceConfig, err := clientcmd.Load(workspaceKubeConfigBytes)
 		if err != nil {
 			return err
 		}
-
-		workspaceConfigCurrentContext := workspaceConfig.CurrentContext
-
-		newContextCluster = workspaceConfig.Clusters[workspaceConfigCurrentContext]
+		newContextCluster = workspaceConfig.Clusters[workspaceConfig.CurrentContext]
 	}
+
+	// Update the current workspace cluster info with the new cluster info
 	kc.startingConfig.Clusters[kcpCurrentWorkspaceContextKey] = newContextCluster.DeepCopy()
 
+	// Add authentication info based on either the kubectl overrides or the current kubectl context
 	authInfoName := currentContext.AuthInfo
 	kubectlOverrides := opts.KubectlOverrides
 	if !reflect.ValueOf(kubectlOverrides.AuthInfo).IsZero() {
@@ -264,14 +294,16 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 		AuthInfo: authInfoName,
 	}
 
+	// Set the kubeconfig current context to the current workspace context
 	kc.startingConfig.CurrentContext = kcpCurrentWorkspaceContextKey
 
-	newOrgName, newWorkspaceName, err := kc.getWorkspace(kcpCurrentWorkspaceContextKey)
+	// Get the orgName and workspace internal name from the new current workspace context Server URL
+	orgName, workspaceInternalName, err := kc.getWorkspace(kcpCurrentWorkspaceContextKey)
 	if err != nil {
 		return err
 	}
 
-	_ = outputCurrentWorkspaceMessage(newOrgName, newWorkspaceName, opts)
+	_ = outputCurrentWorkspaceMessage(orgName, requestedWorkspaceName, workspaceInternalName, opts)
 
 	kc.startingConfig.Clusters[kcpPreviousWorkspaceContextKey] = currentContextCluster.DeepCopy()
 	kc.startingConfig.Contexts[kcpPreviousWorkspaceContextKey] = &api.Context{
@@ -315,16 +347,28 @@ func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (orgName, workspaceName
 	return kc.getWorkspace(currentContextName)
 }
 
-// checkWorkspaceExists checks whether this workspace exsts in the
+// getWorkspaceFromInternalName retrieves the workspace with this internal name in the
 // user workspace directory, by requesting the `workspaces` virtual workspace.
-func checkWorkspaceExists(ctx context.Context, workspaceName string, tenancyClient tenancyclient.Interface) error {
-	_, err := tenancyClient.TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
-	return err
+func getWorkspaceFromInternalName(ctx context.Context, workspaceInternalName string, tenancyClient tenancyclient.Interface) (*tenancyv1beta1.Workspace, error) {
+	if list, err := tenancyClient.TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{
+		FieldSelector: "metadata.name=" + workspaceInternalName,
+	}); err != nil {
+		return nil, err
+	} else if list == nil || len(list.Items) == 0 {
+		return nil, fmt.Errorf("workspace %q is not found", workspaceInternalName)
+	} else if len(list.Items) > 1 {
+		return nil, fmt.Errorf("several workspaces with the same internal name : %q", workspaceInternalName)
+	} else {
+		return &list.Items[0], nil
+	}
 }
 
-func outputCurrentWorkspaceMessage(orgName, workspaceName string, opts *Options) error {
+func outputCurrentWorkspaceMessage(orgName, workspacePrettyName, workspaceName string, opts *Options) error {
 	if workspaceName != "" {
-		message := fmt.Sprintf("Current workspace is %q", workspaceName)
+		message := fmt.Sprintf("Current workspace is %q", workspacePrettyName)
+		if workspaceName != workspacePrettyName {
+			message = fmt.Sprintf("%s (an alias for %q)", message, workspaceName)
+		}
 		if orgName != "" {
 			message = fmt.Sprintf("%s in organization %q", message, orgName)
 		}
@@ -341,6 +385,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 		return err
 	}
 
+	workspacePrettyName := workspaceName
 	if org != "" {
 		workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfigFromCurrentContext(opts, true)
 		if err != nil {
@@ -352,13 +397,17 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 			return err
 		}
 
-		if err := checkWorkspaceExists(ctx, workspaceName, tenancyClient); err != nil {
-			_ = outputCurrentWorkspaceMessage(org, workspaceName, opts)
+		if ws, err := getWorkspaceFromInternalName(ctx, workspaceName, tenancyClient); err != nil {
+			_ = outputCurrentWorkspaceMessage(org, workspacePrettyName, workspaceName, opts)
 			return err
+		} else {
+			if kc.scope == registry.PersonalScope {
+				workspacePrettyName = ws.Name
+			}
 		}
 	}
 
-	return outputCurrentWorkspaceMessage(org, workspaceName, opts)
+	return outputCurrentWorkspaceMessage(org, workspacePrettyName, workspaceName, opts)
 }
 
 // ListWorkspaces outputs the list of workspaces of the current user
