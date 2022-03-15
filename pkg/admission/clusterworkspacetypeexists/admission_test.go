@@ -263,6 +263,46 @@ func TestAdmit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "adds additional workspace labels if missing",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "root:org#$#foo",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						AdditionalWorkspaceLabels: map[string]string{
+							"new-label":      "default",
+							"existing-label": "default",
+						},
+					},
+				},
+			},
+			a: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Labels: map[string]string{
+						"existing-label": "non-default",
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: "Foo",
+				},
+			}),
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Labels: map[string]string{
+						"new-label":      "default",
+						"existing-label": "non-default",
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: "Foo",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

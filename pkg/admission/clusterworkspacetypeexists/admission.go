@@ -78,9 +78,6 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
 		return nil
 	}
-	if a.GetOperation() != admission.Update {
-		return nil
-	}
 
 	if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1") {
 		return nil
@@ -92,6 +89,35 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	cw := &tenancyv1alpha1.ClusterWorkspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
+	}
+
+	if !o.WaitForReady() {
+		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
+	}
+
+	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
+	if err != nil {
+		return apierrors.NewInternalError(err)
+	}
+
+	cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
+	if err != nil && apierrors.IsNotFound(err) {
+		if cw.Spec.Type == "Universal" {
+			return nil // Universal is always valid
+		}
+		return admission.NewForbidden(a, fmt.Errorf("spec.type %q does not exist", cw.Spec.Type))
+	} else if err != nil {
+		return admission.NewForbidden(a, err)
+	}
+
+	if a.GetOperation() == admission.Create {
+		addAdditionalWorkspaceLabels(cwt, cw)
+
+		return updateUnstructured(u, cw)
+	}
+
+	if a.GetOperation() != admission.Update {
+		return nil
 	}
 
 	if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1") {
@@ -114,25 +140,6 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return nil
 	}
 
-	if !o.WaitForReady() {
-		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
-	}
-
-	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
-	if err != nil {
-		return apierrors.NewInternalError(err)
-	}
-
-	cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
-	if err != nil && apierrors.IsNotFound(err) {
-		if cw.Spec.Type == "Universal" {
-			return nil // Universal is always valid
-		}
-		return admission.NewForbidden(a, fmt.Errorf("spec.type %q does not exist", cw.Spec.Type))
-	} else if err != nil {
-		return admission.NewForbidden(a, err)
-	}
-
 	// add initializers from type to workspace
 	existing := sets.NewString()
 	for _, i := range cw.Status.Initializers {
@@ -144,13 +151,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		}
 	}
 
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
-	if err != nil {
-		return err
-	}
-	u.Object = raw
-
-	return nil
+	return updateUnstructured(u, cw)
 }
 
 // Validate ensures that
@@ -282,4 +283,34 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 
 func (o *clusterWorkspaceTypeExists) SetKubeClusterClient(kubeClusterClient *kubernetes.Cluster) {
 	o.kubeClusterClient = kubeClusterClient
+}
+
+// updateUnstructured updates the given unstructured object to match the given cluster workspace.
+func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1alpha1.ClusterWorkspace) error {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
+	if err != nil {
+		return err
+	}
+	u.Object = raw
+	return nil
+}
+
+// addAdditionlWorkspaceLabels adds labels defined by the workspace
+// type to the workspace if they are not already present.
+func addAdditionalWorkspaceLabels(
+	cwt *tenancyv1alpha1.ClusterWorkspaceType,
+	cw *tenancyv1alpha1.ClusterWorkspace,
+) {
+	if len(cwt.Spec.AdditionalWorkspaceLabels) > 0 {
+		if cw.Labels == nil {
+			cw.Labels = map[string]string{}
+		}
+		for key, value := range cwt.Spec.AdditionalWorkspaceLabels {
+			if _, ok := cw.Labels[key]; ok {
+				// Do not override existing labels
+				continue
+			}
+			cw.Labels[key] = value
+		}
+	}
 }

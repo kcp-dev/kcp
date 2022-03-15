@@ -107,6 +107,12 @@ type ClusterWorkspaceTypeSpec struct {
 	//
 	// +optional
 	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+
+	// additionalWorkspaceLabels are a set of labels that will be added to a
+	// ClusterWorkspace on creation.
+	//
+	// +optional
+	AdditionalWorkspaceLabels map[string]string `json:"additionalWorkspaceLabels,omitempty"`
 }
 
 // ClusterWorkspaceTypeList is a list of cluster workspace types

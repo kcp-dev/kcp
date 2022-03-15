@@ -462,6 +462,22 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 							},
 						},
 					},
+					"additionalWorkspaceLabels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "additionalWorkspaceLabels are a set of labels that will be added to a ClusterWorkspace on creation.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
