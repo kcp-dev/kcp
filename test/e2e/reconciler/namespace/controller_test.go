@@ -27,23 +27,18 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
-	workloadclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
@@ -54,25 +49,22 @@ const clusterLabel = nscontroller.ClusterLabel
 func TestNamespaceScheduler(t *testing.T) {
 	t.Parallel()
 
-	const (
-		serverName           = "main"
-		physicalCluster1Name = "pcluster1"
-	)
-
 	type runningServer struct {
 		framework.RunningServer
-		client        kubernetes.Interface
-		clusterClient v1alpha1.WorkloadClusterInterface
-		expect        registerNamespaceExpectation
+		client         kubernetes.Interface
+		orgKcpClient   versioned.Interface
+		kcpClient      clientset.Interface
+		expect         registerNamespaceExpectation
+		orgClusterName string
 	}
 
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t *testing.T, f *framework.KcpFixture, server runningServer)
+		work func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "validate namespace scheduling",
-			work: func(ctx context.Context, t *testing.T, f *framework.KcpFixture, server runningServer) {
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Log("Create a namespace without a cluster available and expect it to be marked unschedulable")
 
 				namespace, err := server.client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -89,26 +81,12 @@ func TestNamespaceScheduler(t *testing.T) {
 				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonUnschedulable))
 				require.NoError(t, err, "did not see namespace marked unschedulable")
 
-				t.Log("Create a cluster and expect the namespace to be scheduled to it")
+				t.Log("Creating a fake workload server")
+				logicalServer := framework.NewFakeWorkloadServer(t, server, server.orgClusterName)
 
-				server1RawConfig, err := f.Servers[physicalCluster1Name].RawConfig()
-				require.NoError(t, err, "failed to get server 1 raw config")
-
-				server1Kubeconfig, err := clientcmd.Write(server1RawConfig)
-				require.NoError(t, err, "failed to marshal server 1 kubeconfig")
-
-				cluster1, err := server.clusterClient.Create(ctx, &workloadv1alpha1.WorkloadCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "e2e-nss-1-",
-					},
-					Spec: workloadv1alpha1.WorkloadClusterSpec{
-						KubeConfig: string(server1Kubeconfig),
-					},
-				}, metav1.CreateOptions{})
+				t.Log("Create a ready cluster")
+				cluster1, err := framework.CreateReadyCluster(t, ctx, server.Artifact, server.kcpClient, logicalServer)
 				require.NoError(t, err, "failed to create cluster1")
-
-				// Wait for the cluster to become ready. A namespace can only be assigned to a ready cluster.
-				waitForClusterReadiness(t, ctx, server.clusterClient, cluster1.Name)
 
 				err = server.expect(namespace, scheduledMatcher(cluster1.Name))
 				require.NoError(t, err, "did not see namespace marked scheduled for cluster1 %q", cluster1.Name)
@@ -116,13 +94,13 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Log("Cordon the cluster and expect the namespace to end up unscheduled")
 
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					cluster, err := server.clusterClient.Get(ctx, cluster1.Name, metav1.GetOptions{})
+					cluster, err := server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster1.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					anHourAgo := metav1.NewTime(time.Now().Add(-1 * time.Hour))
 					cluster.Spec.EvictAfter = &anHourAgo
-					_, err = server.clusterClient.Update(ctx, cluster, metav1.UpdateOptions{})
+					_, err = server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Update(ctx, cluster, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err, "failed to update cluster1")
@@ -149,6 +127,9 @@ func TestNamespaceScheduler(t *testing.T) {
 		},
 	}
 
+	server := framework.SharedKcpServer(t)
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+
 	for i := range testCases {
 		testCase := testCases[i]
 
@@ -163,34 +144,12 @@ func TestNamespaceScheduler(t *testing.T) {
 				ctx = withDeadline
 			}
 
-			f := framework.NewKcpFixture(t,
-				framework.KcpConfig{
-					Name: serverName,
-					Args: []string{
-						"--discovery-poll-interval=2s",
-						"--push-mode=true", // Required to ensure clusters are ready for scheduling
-					},
-				},
-				// this is a kcp acting as a physical cluster
-				framework.KcpConfig{
-					Name: physicalCluster1Name,
-					Args: []string{
-						"--run-controllers=false",
-					},
-				},
-			)
-
-			require.Equal(t, 2, len(f.Servers), "incorrect number of servers")
-			server := f.Servers[serverName]
-
 			cfg := server.DefaultConfig(t)
 
 			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 			apiextensionClusterClient, err := apiextensionsclient.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
-
-			orgClusterName := framework.NewOrganizationFixture(t, server)
 			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
 			err = crds.Create(ctx, apiextensionClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "apiresourceimports"},
@@ -203,22 +162,25 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			clients, err := clientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
-			clusterClient := clients.Cluster(clusterName).WorkloadV1alpha1().WorkloadClusters()
+			kcpClient := clients.Cluster(clusterName)
+			orgKcpClient := clients.Cluster(orgClusterName)
 
 			expect, err := expectNamespaces(ctx, t, client)
 			require.NoError(t, err, "failed to start expecter")
 
 			s := runningServer{
-				RunningServer: server,
-				clusterClient: clusterClient,
-				client:        client,
-				expect:        expect,
+				RunningServer:  server,
+				client:         client,
+				orgKcpClient:   orgKcpClient,
+				kcpClient:      kcpClient,
+				expect:         expect,
+				orgClusterName: orgClusterName,
 			}
 
 			t.Logf("Set up clients for test after %s", time.Since(start))
 			t.Log("Starting test...")
 
-			testCase.work(ctx, t, f, s)
+			testCase.work(ctx, t, s)
 		},
 		)
 	}
@@ -282,20 +244,4 @@ func expectNamespaces(ctx context.Context, t *testing.T, client kubernetes.Inter
 			return expectErr == nil, expectErr
 		}, 30*time.Second)
 	}, nil
-}
-
-func waitForClusterReadiness(t *testing.T, ctx context.Context, client workloadclient.WorkloadClusterInterface, clusterName string) {
-	t.Logf("Waiting for cluster %q to become ready", clusterName)
-	require.Eventually(t, func() bool {
-		cluster, err := client.Get(ctx, clusterName, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return false
-		}
-		if err != nil {
-			t.Errorf("Error getting cluster %q: %v", clusterName, err)
-			return false
-		}
-		return conditions.IsTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-	t.Logf("Cluster %q confirmed ready", clusterName)
 }
