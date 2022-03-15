@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helpers
+package delegated
 
 import (
 	"time"
@@ -28,11 +28,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type AdmissionAuthorizerFactory func(clusterName string, client *kubeclient.Cluster) (authorizer.Authorizer, error)
+type DelegatedAuthorizerFactory func(clusterName string, client kubeclient.ClusterInterface) (authorizer.Authorizer, error)
 
-// NewAdmissionAuthorizer returns a new authorizer for use in admission plugins that delegates
+// NewDelegatedAuthorizer returns a new authorizer for use in e.g. admission plugins that delegates
 // to the kube API server via SubjectAccessReview.
-func NewAdmissionAuthorizer(clusterName string, client *kubeclient.Cluster) (authorizer.Authorizer, error) {
+func NewDelegatedAuthorizer(clusterName string, client kubeclient.ClusterInterface) (authorizer.Authorizer, error) {
 	delegatingAuthorizerConfig := &authorizerfactory.DelegatingAuthorizerConfig{
 		SubjectAccessReviewClient: &clusterAwareAuthorizationV1Client{
 			AuthorizationV1Interface: client.Cluster(clusterName).AuthorizationV1(),

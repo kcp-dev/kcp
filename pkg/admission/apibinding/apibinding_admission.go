@@ -32,9 +32,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	kcpadmissionhelpers "github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 )
 
 const (
@@ -46,7 +46,7 @@ func Register(plugins *admission.Plugins) {
 		func(_ io.Reader) (admission.Interface, error) {
 			return &apiBindingAdmission{
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: kcpadmissionhelpers.NewAdmissionAuthorizer,
+				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}, nil
 		})
 }
@@ -55,7 +55,7 @@ type apiBindingAdmission struct {
 	*admission.Handler
 	kubeClusterClient *kubernetes.Cluster
 
-	createAuthorizer kcpadmissionhelpers.AdmissionAuthorizerFactory
+	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
 
 // Ensure that the required admission interfaces are implemented.

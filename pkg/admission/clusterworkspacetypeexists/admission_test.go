@@ -571,7 +571,7 @@ func TestValidate(t *testing.T) {
 			o := &clusterWorkspaceTypeExists{
 				Handler:    admission.NewHandler(admission.Create, admission.Update),
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
-				createAuthorizer: func(clusterName string, client *kubernetes.Cluster) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName string, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,

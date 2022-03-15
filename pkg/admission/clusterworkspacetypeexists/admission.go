@@ -33,9 +33,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
 
-	kcpadmissionhelpers "github.com/kcp-dev/kcp/pkg/admission/helpers"
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
@@ -49,7 +49,7 @@ func Register(plugins *admission.Plugins) {
 		func(_ io.Reader) (admission.Interface, error) {
 			return &clusterWorkspaceTypeExists{
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: kcpadmissionhelpers.NewAdmissionAuthorizer,
+				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}, nil
 		})
 }
@@ -63,7 +63,7 @@ type clusterWorkspaceTypeExists struct {
 	typeLister        tenancyv1alpha1lister.ClusterWorkspaceTypeLister
 	kubeClusterClient *kubernetes.Cluster
 
-	createAuthorizer kcpadmissionhelpers.AdmissionAuthorizerFactory
+	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
 
 // Ensure that the required admission interfaces are implemented.
@@ -247,7 +247,7 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 	if a.GetOperation() == admission.Create {
 		authz, err := o.createAuthorizer(cwt.ClusterName, o.kubeClusterClient)
 		if err != nil {
-			return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q: %w", cw.Spec.Type, err))
+			return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q", cw.Spec.Type))
 		}
 
 		useAttr := authorizer.AttributesRecord{
