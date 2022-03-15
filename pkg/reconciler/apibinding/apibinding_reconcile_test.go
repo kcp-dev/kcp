@@ -34,6 +34,8 @@ import (
 func TestPhaseReconciler(t *testing.T) {
 	tests := map[string]struct {
 		apiBinding          *apisv1alpha1.APIBinding
+		apiExport           *apisv1alpha1.APIExport
+		apiResourceSchemas  map[string]*apisv1alpha1.APIResourceSchema
 		wantPhase           apisv1alpha1.APIBindingPhaseType
 		wantReconcileStatus reconcileStatus
 	}{
@@ -44,6 +46,10 @@ func TestPhaseReconciler(t *testing.T) {
 		},
 		"bound becomes binding when export changes": {
 			apiBinding: &apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					ClusterName: "org:ws",
+					Name:        "my-binding",
+				},
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.ExportReference{
 						Workspace: &apisv1alpha1.WorkspaceExportReference{
@@ -65,11 +71,85 @@ func TestPhaseReconciler(t *testing.T) {
 			wantPhase:           apisv1alpha1.APIBindingPhaseBinding,
 			wantReconcileStatus: reconcileStatusStop,
 		},
+		"bound becomes binding when export changes what it's exporting": {
+			apiBinding: &apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					ClusterName: "org:ws",
+					Name:        "my-binding",
+				},
+				Spec: apisv1alpha1.APIBindingSpec{
+					Reference: apisv1alpha1.ExportReference{
+						Workspace: &apisv1alpha1.WorkspaceExportReference{
+							WorkspaceName: "some-workspace",
+							ExportName:    "some-export",
+						},
+					},
+				},
+				Status: apisv1alpha1.APIBindingStatus{
+					BoundAPIExport: &apisv1alpha1.ExportReference{
+						Workspace: &apisv1alpha1.WorkspaceExportReference{
+							WorkspaceName: "some-workspace",
+							ExportName:    "some-export",
+						},
+					},
+					BoundResources: []apisv1alpha1.BoundAPIResource{
+						{
+							Group:    "mygroup",
+							Resource: "someresources",
+							Schema: apisv1alpha1.BoundAPIResourceSchema{
+								Name: "today.someresources.mygroup",
+								UID:  "uid1",
+							},
+						},
+						{
+							Group:    "anothergroup",
+							Resource: "otherresources",
+							Schema: apisv1alpha1.BoundAPIResourceSchema{
+								Name: "today.otherresources.anothergroup",
+								UID:  "uid2",
+							},
+						},
+					},
+					Phase: apisv1alpha1.APIBindingPhaseBound,
+				},
+			},
+			apiExport: &apisv1alpha1.APIExport{
+				Spec: apisv1alpha1.APIExportSpec{
+					LatestResourceSchemas: []string{"someresources", "moreresources"},
+				},
+			},
+			apiResourceSchemas: map[string]*apisv1alpha1.APIResourceSchema{
+				"someresources": {
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "someresources",
+						UID:  "uid1",
+					},
+				},
+				"moreresources": {
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "moreresources",
+						UID:  "uid3",
+					},
+				},
+			},
+			wantPhase:           apisv1alpha1.APIBindingPhaseBinding,
+			wantReconcileStatus: reconcileStatusStop,
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			r := &phaseReconciler{}
+			r := &phaseReconciler{
+				getAPIExport: func(clusterName, name string) (*apisv1alpha1.APIExport, error) {
+					require.Equal(t, "org:some-workspace", clusterName)
+					require.Equal(t, "some-export", name)
+					return tc.apiExport, nil
+				},
+				getAPIResourceSchema: func(clusterName, name string) (*apisv1alpha1.APIResourceSchema, error) {
+					require.Equal(t, "org:some-workspace", clusterName)
+					return tc.apiResourceSchemas[name], nil
+				},
+			}
 
 			status, err := r.reconcile(context.Background(), tc.apiBinding)
 			require.NoError(t, err)

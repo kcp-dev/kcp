@@ -19,6 +19,7 @@ package apibinding
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -56,18 +57,75 @@ type reconciler interface {
 	reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error)
 }
 
-type phaseReconciler struct{}
+type phaseReconciler struct {
+	getAPIExport         func(clusterName, name string) (*apisv1alpha1.APIExport, error)
+	getAPIResourceSchema func(clusterName, name string) (*apisv1alpha1.APIResourceSchema, error)
+}
 
 func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
-	switch {
-	case apiBinding.Status.Phase == "":
+	switch apiBinding.Status.Phase {
+	case "":
 		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
-	case apiBinding.Status.Phase == apisv1alpha1.APIBindingPhaseBound && needsRebinding(apiBinding):
-		klog.Infof("Rebinding %s|%s because it now points to a different APIExport", apiBinding.ClusterName, apiBinding.Name)
-		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+	case apisv1alpha1.APIBindingPhaseBound:
+		apiExportClusterName := getAPIExportClusterName(apiBinding)
+		if apiExportClusterName == "" {
+			// Should never happen
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.APIExportValid,
+				apisv1alpha1.APIExportNotFoundReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"unable to determine workspace for APIExport",
+			)
 
-		// Commit the phase change, then wait for next update event to process binding changes
-		return reconcileStatusStop, nil
+			// No way to proceed from here - don't retry
+			return reconcileStatusStop, nil
+		}
+
+		if referencedAPIExportChanged(apiBinding) {
+			klog.Infof("APIBinding %s|%s needs rebinding because it now points to a different APIExport", apiBinding.ClusterName, apiBinding.Name)
+
+			apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+
+			// Commit the phase change, then wait for next update event to process binding changes
+			return reconcileStatusStop, nil
+		}
+
+		apiExport, err := r.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
+		if err != nil {
+			return reconcileStatusStop, fmt.Errorf("error getting APIExport %s|%s: %w", apiExport.ClusterName, apiExport.Name, err)
+		}
+
+		var exportedSchemas []*apisv1alpha1.APIResourceSchema
+		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+			apiResourceSchema, err := r.getAPIResourceSchema(apiExportClusterName, schemaName)
+			if err != nil {
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha1.APIExportValid,
+					apisv1alpha1.GetErrorReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"error getting APIResourceSchema %s|%s: %v",
+					apiExportClusterName,
+					schemaName,
+					err,
+				)
+
+				// No way to proceed from here - don't retry
+				return reconcileStatusStop, nil
+			}
+
+			exportedSchemas = append(exportedSchemas, apiResourceSchema)
+		}
+
+		if apiExportLatestResourceSchemasChanged(apiBinding, exportedSchemas) {
+			klog.Infof("APIBinding %s|%s needs rebinding because the APIExport's latestResourceSchemas has changed", apiBinding.ClusterName, apiBinding.Name)
+
+			apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+
+			// Commit the phase change, then wait for next update event to process binding changes
+			return reconcileStatusStop, nil
+		}
 	}
 
 	return reconcileStatusContinue, nil
@@ -84,18 +142,34 @@ func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) string {
 	return helper.EncodeOrganizationAndClusterWorkspace(org, apiBinding.Spec.Reference.Workspace.WorkspaceName)
 }
 
-// TODO(ncdc): rebind if the APIExport itself changed its schemas?
-func needsRebinding(apiBinding *apisv1alpha1.APIBinding) bool {
+func referencedAPIExportChanged(apiBinding *apisv1alpha1.APIBinding) bool {
+	// Can't happen because of OpenAPI, but just in case
 	if apiBinding.Spec.Reference.Workspace == nil {
 		return false
 	}
+
 	if apiBinding.Status.BoundAPIExport == nil {
 		return false
 	}
 	if apiBinding.Status.BoundAPIExport.Workspace == nil {
 		return false
 	}
+
 	return *apiBinding.Spec.Reference.Workspace != *apiBinding.Status.BoundAPIExport.Workspace
+}
+
+func apiExportLatestResourceSchemasChanged(apiBinding *apisv1alpha1.APIBinding, exportedSchemas []*apisv1alpha1.APIResourceSchema) bool {
+	exportedSchemaUIDs := sets.NewString()
+	for _, exportedSchema := range exportedSchemas {
+		exportedSchemaUIDs.Insert(string(exportedSchema.UID))
+	}
+
+	boundSchemaUIDs := sets.NewString()
+	for _, boundResource := range apiBinding.Status.BoundResources {
+		boundSchemaUIDs.Insert(boundResource.Schema.UID)
+	}
+
+	return !exportedSchemaUIDs.Equal(boundSchemaUIDs)
 }
 
 type workspaceAPIExportReferenceReconciler struct {
@@ -305,7 +379,10 @@ func (r *workspaceAPIExportReferenceReconciler) unbind(apiBinding *apisv1alpha1.
 
 func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
 	reconcilers := []reconciler{
-		&phaseReconciler{},
+		&phaseReconciler{
+			getAPIExport:         c.getAPIExport,
+			getAPIResourceSchema: c.getAPIResourceSchema,
+		},
 		&workspaceAPIExportReferenceReconciler{
 			getAPIExport:         c.getAPIExport,
 			getAPIResourceSchema: c.getAPIResourceSchema,
