@@ -104,19 +104,36 @@ func createSingleFromFS(ctx context.Context, client apiextensionsv1client.Custom
 		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gr.String(), rawCrd, &apiextensionsv1.CustomResourceDefinition{})
 	}
 
-	crdResource, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
+	updateNeeded := false
+	crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			crd, err := client.Create(ctx, rawCrd, metav1.CreateOptions{})
+			crd, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("error creating CRD %s: %w", gr.String(), err)
+				// If multiple post-start hooks specify the same CRD, they could race with each other, so we need to
+				// handle the scenario where another hook created this CRD after our Get() call returned not found.
+				if apierrors.IsAlreadyExists(err) {
+					// Re-get so we have the correct resourceVersion
+					crd, err = client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
+					if err != nil {
+						return fmt.Errorf("error creating CRD %s: %w", gr.String(), err)
+					}
+					updateNeeded = true
+				} else {
+					return fmt.Errorf("error creating CRD %s: %w", gr.String(), err)
+				}
+			} else {
+				klog.Infof("Bootstrapped CRD %s|%v after %s", crd.GetClusterName(), gr.String(), time.Since(start).String())
 			}
-			klog.Infof("Bootstrapped CRD %s|%v after %s", crd.GetClusterName(), gr.String(), time.Since(start).String())
 		} else {
 			return fmt.Errorf("error fetching CRD %s: %w", gr.String(), err)
 		}
 	} else {
-		rawCrd.ResourceVersion = crdResource.ResourceVersion
+		updateNeeded = true
+	}
+
+	if updateNeeded {
+		rawCrd.ResourceVersion = crd.ResourceVersion
 		crd, err := client.Update(ctx, rawCrd, metav1.UpdateOptions{})
 		if err != nil {
 			return err
