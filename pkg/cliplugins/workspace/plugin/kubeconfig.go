@@ -54,7 +54,6 @@ const (
 type KubeConfig struct {
 	configAccess   clientcmd.ConfigAccess
 	startingConfig *api.Config
-	scope          string
 }
 
 // NewKubeConfig load a kubeconfig with default config access
@@ -73,7 +72,6 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 	return &KubeConfig{
 		configAccess:   configAccess,
 		startingConfig: startingConfig,
-		scope:          opts.Scope,
 	}, nil
 }
 
@@ -84,7 +82,7 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 // by the kubectl overrides.
 // No Auth info is added in this workspace directory new context.
 // The current kubeconfig is not modified, and the returned additional context is transient.
-func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string, options *Options, alwaysUpToOrg bool) (*api.Config, error) {
+func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string, opts *Options, alwaysUpToOrg bool) (*api.Config, error) {
 	contextCluster, err := kc.getContextCluster(contextName)
 	if err != nil {
 		return nil, err
@@ -105,12 +103,12 @@ func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string
 	orgClusterName = upToOrg(orgClusterName, workspaceName, alwaysUpToOrg)
 
 	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
-	serverURL.Path = path.Join(basePath, virtualcommandoptions.DefaultRootPathPrefix, "workspaces", orgClusterName, kc.scope)
+	serverURL.Path = path.Join(basePath, virtualcommandoptions.DefaultRootPathPrefix, "workspaces", orgClusterName, opts.Scope)
 
 	workspaceDirectoryCluster := contextCluster.DeepCopy()
 	workspaceDirectoryCluster.Server = serverURL.String()
 
-	kubectlOverrides := options.KubectlOverrides
+	kubectlOverrides := opts.KubectlOverrides
 	if kubectlOverrides.ClusterInfo.CertificateAuthority != "" {
 		workspaceDirectoryCluster.CertificateAuthority = kubectlOverrides.ClusterInfo.CertificateAuthority
 	}
@@ -133,8 +131,8 @@ func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string
 // tenancyClient returns the tenancy client set to access the workspace directory
 // virtual workspace based on the stored config and CLI overrides, as well as the Auth info
 // of the current kubeconfig context.
-func (kc *KubeConfig) tenancyClient(contextName string, options *Options, alwaysUpToOrg bool) (*tenancyclient.Clientset, error) {
-	if workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(contextName, options, alwaysUpToOrg); err != nil {
+func (kc *KubeConfig) tenancyClient(contextName string, opts *Options, alwaysUpToOrg bool) (*tenancyclient.Clientset, error) {
+	if workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(contextName, opts, alwaysUpToOrg); err != nil {
 		return nil, err
 	} else {
 		return tenancyclient.NewForConfig(workspaceDirectoryRestConfig)
@@ -144,13 +142,13 @@ func (kc *KubeConfig) tenancyClient(contextName string, options *Options, always
 // workspaceDirectoryRestConfig returns the rest.Config to access the workspace directory
 // virtual workspace based on the stored config and CLI overrides, as well as the Auth info
 // of the current kubeconfig context.
-func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, options *Options, alwaysUpToOrg bool) (*rest.Config, error) {
-	workpaceDirectoryAwareConfig, err := kc.workspaceDirectoryRestConfigWithoutAuth(contextName, options, alwaysUpToOrg)
+func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, opts *Options, alwaysUpToOrg bool) (*rest.Config, error) {
+	workpaceDirectoryAwareConfig, err := kc.workspaceDirectoryRestConfigWithoutAuth(contextName, opts, alwaysUpToOrg)
 	if err != nil {
 		return nil, err
 	}
 
-	currentContextName, err := kc.getCurrentContextName(options)
+	currentContextName, err := kc.getCurrentContextName(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +158,7 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, options *
 	}
 
 	authInfoOverride := api.AuthInfo{}
-	kubectlOverrides := options.KubectlOverrides
+	kubectlOverrides := opts.KubectlOverrides
 	if !reflect.ValueOf(kubectlOverrides.AuthInfo).IsZero() {
 		authInfoOverride = *(&kubectlOverrides.AuthInfo).DeepCopy()
 	} else {
@@ -180,12 +178,12 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, options *
 // workspaceDirectoryRestConfigFromCurrentContext returns the rest.Config to access the workspace directory
 // virtual workspace based on the stored config and CLI overrides, as well as the Auth info
 // of the current kubeconfig context.
-func (kc *KubeConfig) workspaceDirectoryRestConfigFromCurrentContext(options *Options, parent bool) (*rest.Config, error) {
-	currentContextName, err := kc.getCurrentContextName(options)
+func (kc *KubeConfig) workspaceDirectoryRestConfigFromCurrentContext(opts *Options, parent bool) (*rest.Config, error) {
+	currentContextName, err := kc.getCurrentContextName(opts)
 	if err != nil {
 		return nil, err
 	}
-	return kc.workspaceDirectoryRestConfig(currentContextName, options, parent)
+	return kc.workspaceDirectoryRestConfig(currentContextName, opts, parent)
 }
 
 // UseWorkspace switch the current workspace to the given workspace.
@@ -224,7 +222,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requested
 			return err
 		}
 
-		if kc.scope == registry.PersonalScope && orgName != "" && orgName != tenancyhelpers.RootCluster {
+		if opts.Scope == registry.PersonalScope && orgName != "" && orgName != tenancyhelpers.RootCluster {
 			// If we're in the personal scope, and request a non-organization workspace, the workspaceName
 			// returned based on the current context URL might be different from the one visible to the end-user
 			// due to pretty names (== alias) management.
@@ -401,7 +399,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 			_ = outputCurrentWorkspaceMessage(org, workspacePrettyName, workspaceName, opts)
 			return err
 		} else {
-			if kc.scope == registry.PersonalScope {
+			if opts.Scope == registry.PersonalScope {
 				workspacePrettyName = ws.Name
 			}
 		}
