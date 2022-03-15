@@ -181,8 +181,9 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(options *Options, parent bool
 	}
 
 	kubectlOverrides := options.KubectlOverrides
+	_, authInfo := prioritizedAuthInfo(&kubectlOverrides.AuthInfo, currentContextAuthInfo)
 	overrides := &clientcmd.ConfigOverrides{
-		AuthInfo: *prioritizedAuthInfo(&kubectlOverrides.AuthInfo, currentContextAuthInfo),
+		AuthInfo: *authInfo,
 	}
 	return clientcmd.NewDefaultClientConfig(*workpaceDirectoryAwareConfig, overrides).ClientConfig()
 }
@@ -232,9 +233,10 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 	workspaceConfigCurrentContext := workspaceConfig.CurrentContext
 	workspaceContextName := kcpWorkspaceContextNamePrefix + workspaceConfigCurrentContext
 
+	kubectlOverrides := opts.KubectlOverrides
 	currentContextName := kc.startingConfig.CurrentContext
-	if opts.KubectlOverrides.CurrentContext != "" {
-		currentContextName = opts.KubectlOverrides.CurrentContext
+	if kubectlOverrides.CurrentContext != "" {
+		currentContextName = kubectlOverrides.CurrentContext
 	}
 
 	currentContext := kc.startingConfig.Contexts[currentContextName]
@@ -244,14 +246,20 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, workspace
 	}
 	kc.startingConfig.Clusters[workspaceContextName] = workspaceConfig.Clusters[workspaceConfigCurrentContext]
 
-	kubectlOverrides := opts.KubectlOverrides
+	i, workspaceAuthInfo := prioritizedAuthInfo(&kubectlOverrides.AuthInfo, currentContextAuthInfo)
 
-	workspaceAuthInfo := prioritizedAuthInfo(&kubectlOverrides.AuthInfo, currentContextAuthInfo)
-	kc.startingConfig.AuthInfos[workspaceContextName] = workspaceAuthInfo
+	authInfoName := workspaceContextName
+
+	// Only add override AuthInfo to kubeconfig
+	if i == 0 { // The first item was chosen, which is the override
+		kc.startingConfig.AuthInfos[workspaceContextName] = workspaceAuthInfo
+	} else {
+		authInfoName = kc.startingConfig.Contexts[kc.startingConfig.CurrentContext].AuthInfo
+	}
 
 	kc.startingConfig.Contexts[workspaceContextName] = &api.Context{
 		Cluster:  workspaceContextName,
-		AuthInfo: workspaceContextName,
+		AuthInfo: authInfoName,
 	}
 
 	kc.startingConfig.CurrentContext = workspaceContextName

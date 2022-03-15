@@ -25,19 +25,21 @@ import (
 )
 
 // prioritizedAuthInfo returns the first non-nil or non-empty AuthInfo it finds
-// from the ordred list passed in argument
-func prioritizedAuthInfo(values ...*api.AuthInfo) *api.AuthInfo {
-	for _, value := range values {
+// from the ordred list passed in argument.
+// The first return paremeter is the index at which the returned AuthInfo was found.
+// -1 means none was found.
+func prioritizedAuthInfo(values ...*api.AuthInfo) (int, *api.AuthInfo) {
+	for i, value := range values {
 		if value == nil {
 			continue
 		}
 		value := *value
 		if value.Token != "" || value.TokenFile != "" || value.Password != "" || value.Username != "" ||
 			value.Exec != nil || value.AuthProvider != nil {
-			return &value
+			return i, &value
 		}
 	}
-	return api.NewAuthInfo()
+	return -1, api.NewAuthInfo()
 }
 
 // extractScopeAndName extracts the scope and workspace name from
