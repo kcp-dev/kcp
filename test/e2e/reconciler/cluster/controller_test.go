@@ -102,7 +102,7 @@ func TestClusterController(t *testing.T) {
 						klog.Errorf("Error getting cowboy %q in sink: %v", cowboy.Name, err)
 						return false
 					} else if diff := cmp.Diff(cowboy.Spec, got.Spec); diff != "" {
-						require.Errorf(t, nil, "Spec mismatch on sink cluster: %s", diff)
+						return false
 					}
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected cowboy to be synced to sink with right spec")
@@ -120,7 +120,7 @@ func TestClusterController(t *testing.T) {
 						klog.Errorf("Error getting cowboy %q in source: %v", cowboy.Name, err)
 						return false
 					} else if diff := cmp.Diff(updated.Status, got.Status); diff != "" {
-						require.Errorf(t, nil, "Status mismatch on source cluster: %s", diff)
+						return false
 					}
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected source to show status change")
