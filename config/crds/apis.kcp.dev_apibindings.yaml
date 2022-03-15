@@ -60,6 +60,8 @@ spec:
                     - name
                     type: object
                 type: object
+            required:
+            - reference
             type: object
           status:
             description: Status communicates the observed state.
