@@ -28,12 +28,16 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 // KcpFixture manages the lifecycle of a set of kcp servers.
@@ -175,6 +179,11 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 }
 
 func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName string, workspaceType string) (clusterName string) {
+	schedulable := workspaceType == "Universal"
+	return NewWorkspaceWithWorkloads(t, server, orgClusterName, workspaceType, schedulable)
+}
+
+func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterName string, workspaceType string, schedulable bool) (clusterName string) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -186,9 +195,15 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName stri
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
+	labels := map[string]string{}
+	if !schedulable {
+		labels[nscontroller.WorkspaceSchedulableLabel] = "false"
+	}
+
 	ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-workspace-",
+			Labels:       labels,
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 			Type: workspaceType,
@@ -215,4 +230,23 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName stri
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s:%s to become ready", orgName, ws.Name)
 
 	return helper.EncodeOrganizationAndClusterWorkspace(orgName, ws.Name)
+}
+
+// StartWorkspaceSyncer starts a new syncer to synchronize the identified set of
+// resource types scheduled for the given workload cluster from the upstream server
+// to the downstream server.
+func StartWorkspaceSyncer(
+	t *testing.T,
+	resources sets.String,
+	workloadCluster *workloadv1alpha1.WorkloadCluster,
+	upstream, downstream RunningServer,
+) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	upstreamConfig := upstream.DefaultConfig(t)
+	downstreamConfig := downstream.DefaultConfig(t)
+
+	err := syncer.StartSyncer(ctx, upstreamConfig, downstreamConfig, resources, workloadCluster.ClusterName, workloadCluster.Name, 2)
+	require.NoError(t, err, "syncer failed to start")
 }

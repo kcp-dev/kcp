@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -138,26 +139,8 @@ func TestClusterController(t *testing.T) {
 		},
 	}
 
-	f := framework.NewKcpFixture(t,
-		// this is the host kcp cluster from which we sync spec
-		framework.KcpConfig{
-			Name: sourceClusterName,
-			Args: []string{
-				"--push-mode",
-				"--resources-to-sync=cowboys.wildwest.dev",
-				"--auto-publish-apis",
-				"--discovery-poll-interval=5s",
-			},
-		},
-		// this is a kcp acting as a target cluster to sync status from
-		framework.KcpConfig{
-			Name: sinkClusterName,
-			Args: []string{
-				"--run-controllers=false",
-			},
-		},
-	)
-	orgClusterName := framework.NewOrganizationFixture(t, f.Servers[sourceClusterName])
+	source := framework.SharedKcpServer(t)
+	orgClusterName := framework.NewOrganizationFixture(t, source)
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -170,10 +153,6 @@ func TestClusterController(t *testing.T) {
 				t.Cleanup(cancel)
 				ctx = withDeadline
 			}
-			require.Equal(t, len(f.Servers), 2, "incorrect number of servers")
-
-			source, sink := f.Servers[sourceClusterName], f.Servers[sinkClusterName]
-
 			t.Log("Creating a workspace")
 			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 
@@ -191,6 +170,9 @@ func TestClusterController(t *testing.T) {
 			sourceCrdClient := sourceCrdClusterClient.Cluster(wsClusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
+
+			t.Log("Creating a fake workload server")
+			sink := framework.NewFakeWorkloadServer(t, source, orgClusterName)
 
 			sinkConfig := sink.DefaultConfig(t)
 			sinkKubeClient, err := kubernetesclient.NewForConfig(sinkConfig)
@@ -214,9 +196,12 @@ func TestClusterController(t *testing.T) {
 
 			t.Log("Installing sink cluster...")
 			start := time.Now()
-			_, err = framework.CreateClusterAndWait(t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(wsClusterName), sink)
+			workloadCluster, err := framework.CreateReadyCluster(
+				t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(wsClusterName), sink)
 			require.NoError(t, err)
 			t.Logf("Installed sink cluster after %s", time.Since(start))
+
+			framework.StartWorkspaceSyncer(t, sets.NewString("cowboys.wildwest.dev"), workloadCluster, source, sink)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -226,12 +211,12 @@ func TestClusterController(t *testing.T) {
 
 			runningServers := map[string]runningServer{
 				sourceClusterName: {
-					RunningServer: f.Servers[sourceClusterName],
+					RunningServer: source,
 					client:        sourceWildwestClient.WildwestV1alpha1(),
 					coreClient:    sourceKubeClient.CoreV1(),
 				},
 				sinkClusterName: {
-					RunningServer: f.Servers[sinkClusterName],
+					RunningServer: sink,
 					client:        sinkWildwestClient.WildwestV1alpha1(),
 					coreClient:    sinkKubeClient.CoreV1(),
 				},

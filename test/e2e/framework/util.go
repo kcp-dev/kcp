@@ -31,7 +31,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -40,13 +39,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/retry"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -279,35 +278,28 @@ func GetFreePort(t *testing.T) (string, error) {
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
-// CreateClusterAndWait creates a new Cluster resource with the desired name on a given server and waits for it to be ready.
-func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
+// CreateReadyCluster creates a new Cluster resource with the desired name on a
+// given server and sets it to a ready state.
+func CreateReadyCluster(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
 	config, err := pcluster.RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server config: %w", err)
 	}
-	pclusterConfig := clientcmdapi.Config{
-		Clusters: map[string]*clientcmdapi.Cluster{
-			"pcluster": config.Clusters["system:admin"],
-		},
-		Contexts: map[string]*clientcmdapi.Context{
-			"pcluster": {
-				Cluster:  "pcluster",
-				AuthInfo: "admin",
-			},
-		},
-		AuthInfos: map[string]*clientcmdapi.AuthInfo{
-			"admin": config.AuthInfos["admin"],
-		},
-		CurrentContext: "pcluster",
-	}
 
-	bs, err := clientcmd.Write(pclusterConfig)
+	// Assume the supplied configuration does not need to be modified for use.
+	bs, err := clientcmd.Write(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize server config: %w", err)
 	}
 
+	// The name of the pcluster could be the name of a logical cluster
+	// which is of the form `org:workspace`. Since `:` isn't allowed
+	// in resource names, replacing it with '.' results in a name safe
+	// for use as a resource name.
+	safeClusterName := strings.Replace(pcluster.Name(), ":", ".", 1)
+
 	cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, &workloadv1alpha1.WorkloadCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: pcluster.Name()},
+		ObjectMeta: metav1.ObjectMeta{Name: safeClusterName},
 		Spec:       workloadv1alpha1.WorkloadClusterSpec{KubeConfig: string(bs)},
 	}, metav1.CreateOptions{})
 	if err != nil {
@@ -317,20 +309,23 @@ func CreateClusterAndWait(t *testing.T, ctx context.Context, artifacts ArtifactF
 		return kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	})
 
-	if err := wait.PollImmediateWithContext(ctx, time.Millisecond*500, wait.ForeverTestTimeout, func(ctx context.Context) (done bool, err error) {
-		cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
+	// Manually mark the cluster ready.
+	//
+	// TODO(marun) Readiness should be determined by a controller monitoring
+	// syncer heartbeats reported via workload cluster status.
+	var updatedCluster *workloadv1alpha1.WorkloadCluster
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		current, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 		if err != nil {
-			return false, err
+			return err
 		}
-		if conditions.IsTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition) {
-			return true, nil
-		}
-		return false, nil
-	}); err != nil {
-		return nil, err
-	}
+		conditions.MarkTrue(current, workloadv1alpha1.WorkloadClusterReadyCondition)
+		updatedCluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		return err
+	})
+	require.NoError(t, err, "failed to mark cluster ready")
 
-	return cluster, nil
+	return updatedCluster, nil
 }
 
 func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
@@ -341,4 +336,30 @@ func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
 func RequireNoDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
 	diff := cmp.Diff(x, y)
 	require.Empty(t, diff, msgAndArgs...)
+}
+
+// LogicalClusterConfig returns the logical cluster context of the given config.
+func LogicalClusterConfig(rawConfig *clientcmdapi.Config, logicalClusterName string) clientcmd.ClientConfig {
+	contextName := "system:admin"
+
+	var configCluster = *rawConfig.Clusters[contextName] // shallow copy
+	configCluster.Server += path.Join("/clusters", logicalClusterName)
+
+	kubeConfig := clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			contextName: &configCluster,
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			contextName: {
+				Cluster:  contextName,
+				AuthInfo: "admin",
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"admin": rawConfig.AuthInfos["admin"],
+		},
+		CurrentContext: contextName,
+	}
+
+	return clientcmd.NewNonInteractiveClientConfig(kubeConfig, contextName, &clientcmd.ConfigOverrides{}, nil)
 }

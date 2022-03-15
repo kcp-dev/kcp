@@ -465,6 +465,22 @@ func newPersistentKCPServer(name, kubeconfigPath string) (RunningServer, error) 
 	}, nil
 }
 
+// NewFakeWorkloadServer creates a workspace in the provided server and org
+// and creates a server fixture for the logical cluster that results.
+func NewFakeWorkloadServer(t *testing.T, server RunningServer, org string) RunningServer {
+	logicalClusterName := NewWorkspaceWithWorkloads(t, server, org, "Universal", false)
+
+	serverKubeConfig, err := server.RawConfig()
+	require.NoError(t, err, "failed to read config for server")
+
+	logicalConfig := LogicalClusterConfig(&serverKubeConfig, logicalClusterName)
+
+	return &unmanagedKCPServer{
+		name: logicalClusterName,
+		cfg:  logicalConfig,
+	}
+}
+
 func (s *unmanagedKCPServer) Name() string {
 	return s.name
 }
