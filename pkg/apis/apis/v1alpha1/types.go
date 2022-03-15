@@ -95,6 +95,8 @@ const (
 	APIBindingPhaseBinding   APIBindingPhaseType = "Binding"
 	APIBindingPhaseBound     APIBindingPhaseType = "Bound"
 	APIBindingPhaseRebinding APIBindingPhaseType = "Rebinding"
+
+	DefaultAPIBindingInitializer = "apis.kcp.dev/binding"
 )
 
 // APIBindingStatus records which schemas are bound.
