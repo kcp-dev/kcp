@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	_ "net/http/pprof"
+	"os"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +38,7 @@ import (
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/controller/certificates/rootcacertpublisher"
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
@@ -209,6 +211,50 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 
 		go controller.Run(int(s.options.Controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
 
+		return nil
+	})
+
+	return nil
+}
+
+func (s *Server) installRootCAConfigMapController(ctx context.Context, config *rest.Config) error {
+	rootCAConfigMapControllerName := "kube-root-ca-configmap-controller"
+
+	config = rest.AddUserAgent(rest.CopyConfig(config), rootCAConfigMapControllerName)
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	// TODO(jmprusi): We should make the CA loading dynamic when the file changes on disk.
+	caDataPath := s.options.Controllers.SAController.RootCAFile
+	if caDataPath == "" {
+		caDataPath = s.options.GenericControlPlane.SecureServing.SecureServingOptions.ServerCert.CertKey.CertFile
+	}
+
+	caData, err := os.ReadFile(caDataPath)
+	if err != nil {
+		return fmt.Errorf("error parsing root-ca-file at %s: %w", caDataPath, err)
+	}
+
+	c, err := rootcacertpublisher.NewPublisher(
+		s.kubeSharedInformerFactory.Core().V1().ConfigMaps(),
+		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		kubeClient,
+		caData,
+	)
+	if err != nil {
+		return fmt.Errorf("error creating %s controller: %w", rootCAConfigMapControllerName, err)
+	}
+
+	s.AddPostStartHook("kcp-start-"+rootCAConfigMapControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", rootCAConfigMapControllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Run(2, ctx.Done())
 		return nil
 	})
 
