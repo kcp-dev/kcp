@@ -66,9 +66,6 @@ type ClusterWorkspaceSpec struct {
 	// +optional
 	ReadOnly bool `json:"readOnly,omitempty"`
 
-	// +optional
-	InheritFrom string `json:"inheritFrom,omitempty"`
-
 	// type defines properties of the workspace both on creation (e.g. initial
 	// resources and initially installed APIs) and during runtime (e.g. permissions).
 	//
