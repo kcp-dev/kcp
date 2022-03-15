@@ -61,6 +61,7 @@ import (
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kube-cluster-role-aggregation-controller")
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -78,6 +79,7 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 }
 
 func (s *Server) installKubeNamespaceController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kube-namespace-controller")
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -125,7 +127,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 }
 
 func (s *Server) installKubeServiceAccountController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "service-account-controller")
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kube-service-account-controller")
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -156,9 +158,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 }
 
 func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
-	saTokenControllerName := "serviceaccount-token"
-
-	config = rest.AddUserAgent(rest.CopyConfig(config), "tokens-controller")
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kube-service-account-token-controller")
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 
 	serviceAccountKeyFile := s.options.Controllers.SAController.ServiceAccountKeyFile
 	if len(serviceAccountKeyFile) == 0 {
-		return fmt.Errorf("%s controller requires a private key", saTokenControllerName)
+		return fmt.Errorf("service account controller requires a private key")
 	}
 	privateKey, err := keyutil.PrivateKeyFromFile(serviceAccountKeyFile)
 	if err != nil {
@@ -197,7 +197,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("error creating %s controller: %w", saTokenControllerName, err)
+		return fmt.Errorf("error creating service account controller: %w", err)
 	}
 
 	s.AddPostStartHook("kcp-start-kube-service-account-token-controller", func(hookContext genericapiserver.PostStartHookContext) error {
@@ -228,6 +228,7 @@ func readCA(file string) ([]byte, error) {
 }
 
 func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-namespace-scheduler")
 	kubeClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -268,6 +269,7 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Con
 }
 
 func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workspace-scheduler")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -343,6 +345,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 }
 
 func (s *Server) installApiImportController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-api-import-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -373,6 +376,7 @@ func (s *Server) installApiImportController(ctx context.Context, config *rest.Co
 }
 
 func (s *Server) installApiResourceController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-api-resource-controller")
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -417,6 +421,7 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 }
 
 func (s *Server) installSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-syncer-controller")
 	manager := s.options.Controllers.Syncer.CreateSyncerManager()
 	if manager == nil {
 		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
