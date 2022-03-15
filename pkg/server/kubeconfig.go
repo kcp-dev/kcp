@@ -21,41 +21,27 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {
-	var kubeConfig clientcmdapi.Config
-	//Create Client and Shared
-	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-		adminUserName: {Token: adminBearerToken},
-	}
-	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
-		// cross-cluster is the virtual cluster running by default
-		"cross-cluster": {
-			Server:                   baseHost + "/clusters/*",
-			CertificateAuthorityData: caData,
-			TLSServerName:            tlsServerName,
+// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
+func CreateLoopbackUpstreamKubeConfig(server *server.GenericAPIServer) *clientcmdapi.Config {
+	return &clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"upstream": {
+				Server:                   server.LoopbackClientConfig.Host,
+				CertificateAuthorityData: server.LoopbackClientConfig.CAData,
+				TLSServerName:            server.LoopbackClientConfig.ServerName,
+			},
 		},
-		// root is the virtual cluster containing the organizations
-		"root": {
-			Server:                   baseHost + "/clusters/root",
-			CertificateAuthorityData: caData,
-			TLSServerName:            tlsServerName,
+		Contexts: map[string]*clientcmdapi.Context{
+			"upstream": {
+				Cluster:  "upstream",
+				AuthInfo: "syncer",
+			},
 		},
-		// system:admin is the virtual cluster running by default
-		"system:admin": {
-			Server:                   baseHost,
-			CertificateAuthorityData: caData,
-			TLSServerName:            tlsServerName,
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"syncer": {
+				Token: server.LoopbackClientConfig.BearerToken,
+			},
 		},
+		CurrentContext: "upstream",
 	}
-	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
-		"cross-cluster": {Cluster: "cross-cluster", AuthInfo: adminUserName},
-		"root":          {Cluster: "root", AuthInfo: adminUserName},
-		"system:admin":  {Cluster: "system:admin", AuthInfo: adminUserName},
-	}
-	return &kubeConfig
-}
-
-func createLoopbackBasedKubeConfig(server *server.GenericAPIServer) *clientcmdapi.Config {
-	loopbackCfg := server.LoopbackClientConfig
-	return createKubeConfig("loopback", loopbackCfg.BearerToken, loopbackCfg.Host, loopbackCfg.ServerName, loopbackCfg.CAData)
 }

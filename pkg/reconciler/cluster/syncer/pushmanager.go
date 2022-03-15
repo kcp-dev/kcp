@@ -40,7 +40,7 @@ type pushSyncerManager struct {
 	syncerCancelFuncs map[string]func()
 }
 
-func newPushSyncerManager() syncerManagerImpl {
+func newPushSyncerManager() SyncerManager {
 	return &pushSyncerManager{
 		syncerCancelFuncs: map[string]func(){},
 	}
@@ -55,26 +55,8 @@ func (m *pushSyncerManager) needsUpdate(ctx context.Context, cluster *workloadv1
 	return !running || !sets.NewString(cluster.Status.SyncedResources...).Equal(groupResources), nil
 }
 
-func (m *pushSyncerManager) update(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error) {
-	// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
-	var upstreamCluster = *kubeConfig.Clusters["system:admin"] // shallow copy
-	upstreamKubeConfig := clientcmdapi.Config{
-		Clusters: map[string]*clientcmdapi.Cluster{
-			"upstream": &upstreamCluster,
-		},
-		Contexts: map[string]*clientcmdapi.Context{
-			"upstream": {
-				Cluster:  "upstream",
-				AuthInfo: "syncer",
-			},
-		},
-		AuthInfos: map[string]*clientcmdapi.AuthInfo{
-			"syncer": kubeConfig.AuthInfos["loopback"],
-		},
-		CurrentContext: "upstream",
-	}
-
-	upstream, err := clientcmd.NewNonInteractiveClientConfig(upstreamKubeConfig, "upstream", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+func (m *pushSyncerManager) update(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String, upstreamKubeConfig *clientcmdapi.Config) (bool, error) {
+	upstream, err := clientcmd.NewNonInteractiveClientConfig(*upstreamKubeConfig, "upstream", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
 	if err != nil {
 		klog.Errorf("error getting kcp kubeconfig: %v", err)
 		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error getting kcp kubeconfig: %v", err.Error())

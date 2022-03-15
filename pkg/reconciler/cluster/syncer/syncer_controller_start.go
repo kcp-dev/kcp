@@ -20,14 +20,6 @@ import (
 	"errors"
 
 	"github.com/spf13/pflag"
-
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 // DefaultOptions are the default options for the cluster controller.
@@ -66,54 +58,13 @@ func (o *Options) Validate() error {
 	return nil
 }
 
-func (o *Options) Complete(kubeconfig clientcmdapi.Config, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory, crdSharedInformerFactory crdexternalversions.SharedInformerFactory, resourcesToSync []string) *Config {
-	o.ResourcesToSync = resourcesToSync
-	return &Config{
-		Options:                  o,
-		kubeconfig:               kubeconfig,
-		kcpSharedInformerFactory: kcpSharedInformerFactory,
-		crdSharedInformerFactory: crdSharedInformerFactory,
-	}
-}
-
-type Config struct {
-	*Options
-	kubeconfig               clientcmdapi.Config
-	kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory
-	crdSharedInformerFactory crdexternalversions.SharedInformerFactory
-}
-
-func (c *Config) NewOrNil() (*Controller, error) {
-	var syncerManagerImpl syncerManagerImpl
-	if c.PullMode {
-		syncerManagerImpl = newPullSyncerManager(c.SyncerImage)
-	} else if c.PushMode {
-		syncerManagerImpl = newPushSyncerManager()
-	} else {
-		// No mode, no controller required
-		return nil, nil
+func (o *Options) CreateSyncerManager() SyncerManager {
+	if o.PullMode {
+		return newPullSyncerManager(o.SyncerImage)
+	} else if o.PushMode {
+		return newPushSyncerManager()
 	}
 
-	neutralConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(neutralConfig)
-	if err != nil {
-		return nil, err
-	}
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(neutralConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewController(
-		crdClusterClient,
-		kcpClusterClient,
-		c.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
-		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		c.kubeconfig,
-		c.ResourcesToSync,
-		syncerManagerImpl,
-	)
+	// No mode, no controller required
+	return nil
 }

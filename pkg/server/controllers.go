@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	_ "net/http/pprof"
-	"net/url"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
@@ -52,8 +50,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/gvk"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
@@ -227,34 +227,34 @@ func readCA(file string) ([]byte, error) {
 	return rootCA, err
 }
 
-func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister tenancylisters.ClusterWorkspaceLister, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeClient, err := kubernetes.NewClusterForConfig(server.LoopbackClientConfig)
+func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Config) error {
+	kubeClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(server.LoopbackClientConfig)
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 	dynamicClient := dynamicClusterClient
 
 	// TODO(ncdc): I dont' think this is used anywhere?
-	gvkTrans := gvk.NewGVKTranslator(server.LoopbackClientConfig)
+	gvkTrans := gvk.NewGVKTranslator(config)
 
 	namespaceScheduler := kcpnamespace.NewController(
-		workspaceLister,
 		dynamicClient,
 		kubeClient.DiscoveryClient,
+		kubeClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters().Lister(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
-		kubeClient,
 		gvkTrans,
 		s.options.Extra.DiscoveryPollInterval,
 	)
 
-	if err := server.AddPostStartHook("kcp-install-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+	s.AddPostStartHook("kcp-install-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-namespace-scheduler: %v", err)
 			// nolint:nilerr
@@ -263,30 +263,22 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, workspaceLister 
 
 		go namespaceScheduler.Start(ctx, 2)
 		return nil
-	}); err != nil {
-		return err
-	}
+	})
 	return nil
 }
 
-func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeconfig := clientConfig.DeepCopy()
-	adminConfig, err := clientcmd.NewNonInteractiveClientConfig(*kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config) error {
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(adminConfig)
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(adminConfig)
-	if err != nil {
-		return err
-	}
-
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(adminConfig)
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -333,7 +325,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		return err
 	}
 
-	if err := server.AddPostStartHook("kcp-install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+	s.AddPostStartHook("kcp-install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-workspace-scheduler: %v", err)
 			// nolint:nilerr
@@ -346,63 +338,60 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, clientConfig cli
 		go universalController.Start(ctx, 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
+	})
 	return nil
 }
 
-func (s *Server) installApiImportController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeconfig := clientConfig.DeepCopy()
-	for _, cluster := range kubeconfig.Clusters {
-		hostURL, err := url.Parse(cluster.Server)
-		if err != nil {
-			return err
-		}
-		hostURL.Host = server.ExternalAddress
-		cluster.Server = hostURL.String()
-	}
-
-	c := s.options.Controllers.ApiImporter.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
-	apiimporter, err := c.New()
+func (s *Server) installApiImportController(ctx context.Context, config *rest.Config) error {
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook("kcp-install-api-importer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	c, err := clusterapiimporter.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		s.options.Controllers.ApiImporter.ResourcesToSync,
+	)
+	if err != nil {
+		return err
+	}
+
+	s.AddPostStartHook("kcp-install-api-importer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-api-importer-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go apiimporter.Start(goContext(hookContext))
+		go c.Start(ctx)
 
 		return nil
-	}); err != nil {
-		return err
-	}
+	})
 	return nil
 }
 
-func (s *Server) installApiResourceController(ctx context.Context, crdClusterClient apiextensionsclient.ClusterInterface, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeconfig := clientConfig.DeepCopy()
-	for _, cluster := range kubeconfig.Clusters {
-		hostURL, err := url.Parse(cluster.Server)
-		if err != nil {
-			return err
-		}
-		hostURL.Host = server.ExternalAddress
-		cluster.Server = hostURL.String()
+func (s *Server) installApiResourceController(ctx context.Context, config *rest.Config) error {
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
 	}
-
-	c := s.options.Controllers.ApiResource.Complete(*kubeconfig, s.kcpSharedInformerFactory, s.apiextensionsSharedInformerFactory)
-	apiresource, err := c.New()
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	c, err := apiresource.NewController(
+		crdClusterClient,
+		kcpClusterClient,
+		s.options.Controllers.ApiResource.AutoPublishAPIs,
+		s.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+	)
+
+	s.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		// HACK HACK HACK
 		// TODO(sttts): these CRDs can go away when when we don't need a CRD in some workspace for "*" informers to work
 		err = configcrds.Create(ctx, crdClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).ApiextensionsV1().CustomResourceDefinitions(),
@@ -420,54 +409,53 @@ func (s *Server) installApiResourceController(ctx context.Context, crdClusterCli
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go apiresource.Start(goContext(hookContext), c.NumThreads)
+		go c.Start(ctx, s.options.Controllers.ApiResource.NumThreads)
 
 		return nil
-	}); err != nil {
-		return err
-	}
+	})
 	return nil
 }
 
-func (s *Server) installSyncerController(ctx context.Context, clientConfig clientcmdapi.Config, server *genericapiserver.GenericAPIServer) error {
-	kubeconfig := clientConfig.DeepCopy()
-	for _, cluster := range kubeconfig.Clusters {
-		hostURL, err := url.Parse(cluster.Server)
-		if err != nil {
-			return err
-		}
-		hostURL.Host = server.ExternalAddress
-		cluster.Server = hostURL.String()
-	}
-
-	c := s.options.Controllers.Syncer.Complete(
-		*kubeconfig,
-		s.kcpSharedInformerFactory,
-		s.apiextensionsSharedInformerFactory,
-		s.options.Controllers.ApiImporter.ResourcesToSync,
-	)
-	optionalSyncer, err := c.NewOrNil()
-	if err != nil {
-		return err
-	}
-	if optionalSyncer == nil {
+func (s *Server) installSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config) error {
+	manager := s.options.Controllers.Syncer.CreateSyncerManager()
+	if manager == nil {
 		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
 		return nil
 	}
 
-	if err := server.AddPostStartHook("kcp-install-syncer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := syncer.NewController(
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		pclusterKubeconfig,
+		s.options.Controllers.Syncer.ResourcesToSync,
+		manager,
+	)
+	if err != nil {
+		return err
+	}
+
+	s.AddPostStartHook("kcp-install-syncer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-syncer-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go optionalSyncer.Start(goContext(hookContext))
+		go c.Start(ctx)
 
 		return nil
-	}); err != nil {
-		return err
-	}
+	})
 	return nil
 }
 

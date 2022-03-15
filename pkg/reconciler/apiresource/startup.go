@@ -20,14 +20,6 @@ import (
 	"runtime"
 
 	"github.com/spf13/pflag"
-
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 // DefaultOptions are the default options for the apiresource controller.
@@ -54,44 +46,4 @@ type Options struct {
 
 func (o *Options) Validate() error {
 	return nil
-}
-
-func (o *Options) Complete(kubeconfig clientcmdapi.Config, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory, crdSharedInformerFactory crdexternalversions.SharedInformerFactory) *Config {
-	return &Config{
-		Options:                  o,
-		kubeconfig:               kubeconfig,
-		kcpSharedInformerFactory: kcpSharedInformerFactory,
-		crdSharedInformerFactory: crdSharedInformerFactory,
-	}
-}
-
-type Config struct {
-	*Options
-	kubeconfig               clientcmdapi.Config
-	kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory
-	crdSharedInformerFactory crdexternalversions.SharedInformerFactory
-}
-
-func (c *Config) New() (*Controller, error) {
-	neutralConfig, err := clientcmd.NewNonInteractiveClientConfig(c.kubeconfig, "system:admin", &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(neutralConfig)
-	if err != nil {
-		return nil, err
-	}
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(neutralConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewController(
-		crdClusterClient,
-		kcpClusterClient,
-		c.AutoPublishAPIs,
-		c.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
-		c.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		c.crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
-	)
 }
