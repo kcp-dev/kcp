@@ -41,7 +41,8 @@ type APIBinding struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state.
-	// +optional
+	// +required
+	// +kubebuilder:validation:Required
 	Spec APIBindingSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state.
@@ -53,8 +54,9 @@ type APIBinding struct {
 type APIBindingSpec struct {
 	// reference uniquely identifies an API to bind to.
 	//
-	// +optional
-	Reference ExportReference `json:"reference,omitempty"`
+	// +required
+	// +kubebuilder:validation:Required
+	Reference ExportReference `json:"reference"`
 }
 
 // ExportReference describes a reference to an APIExport. Exactly one of the
