@@ -72,6 +72,8 @@ type Server struct {
 
 	syncedCh chan struct{}
 
+	serverChain *genericcontrolplane.ServerChain
+
 	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
 	rootKcpSharedInformerFactory       kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
@@ -273,16 +275,16 @@ func (s *Server) Run(ctx context.Context) error {
 	//		return client.Scope(crossClusterScope), nil
 	//	}
 
-	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
+	s.serverChain, err = genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
 		return err
 	}
-	server := serverChain.MiniAggregator.GenericAPIServer
-	serverChain.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.Filter(
+	server := s.serverChain.MiniAggregator.GenericAPIServer
+	server.Handler.GoRestfulContainer.Filter(
 		mergeCRDsIntoCoreGroup(
-			serverChain.CustomResourceDefinitions.Informers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
-			serverChain.CustomResourceDefinitions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
-			serverChain.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
+			s.serverChain.CustomResourceDefinitions.Informers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+			s.serverChain.CustomResourceDefinitions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
+			server.Handler.GoRestfulContainer.ServeHTTP,
 		),
 	)
 
@@ -296,10 +298,10 @@ func (s *Server) Run(ctx context.Context) error {
 		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		// wait for CRD inheritance work through the custom informer
 		// TODO: merge with upper s.apiextensionsSharedInformerFactory
-		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
+		s.serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
 
 		// bootstrap root workspace with workspace shard
-		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
+		servingCert, _ := s.serverChain.MiniAggregator.GenericAPIServer.SecureServingInfo.Cert.CurrentCertKeyContent()
 		if err := configroot.Bootstrap(goContext(ctx),
 			apiextensionsClusterClient.Cluster(helper.RootCluster),
 			dynamicClusterClient.Cluster(helper.RootCluster),
