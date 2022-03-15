@@ -42,9 +42,9 @@ import (
 )
 
 const (
-	kcpWorkspaceContextNamePrefix          string = "workspace.kcp.dev/"
 	kcpPreviousWorkspaceContextKey         string = "workspace.kcp.dev/previous"
 	kcpCurrentWorkspaceContextKey          string = "workspace.kcp.dev/current"
+	kcpOverridesContextAuthInfoKey         string = "workspace.kcp.dev/overridden-auth"
 	kcpVirtualWorkspaceInternalContextName string = "workspace.kcp.dev/workspace-directory"
 )
 
@@ -83,6 +83,21 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requestedWorkspaceName string) error {
 	workspaceIsRoot := false
 	currentContextName, err := kc.getCurrentContextName(opts)
+	if err != nil {
+		return err
+	}
+
+	// Store the currentContext content, so that it will replace the previous context content
+	// at the end
+	currentContext, err := kc.getContext(currentContextName)
+	if err != nil {
+		return err
+	}
+	currentContextCluster, err := kc.getContextCluster(currentContextName)
+	if err != nil {
+		return err
+	}
+	currentContextAuthName, err := kc.getContextAuthName(currentContextName)
 	if err != nil {
 		return err
 	}
@@ -129,17 +144,6 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requested
 		}
 	}
 
-	// Store the currentContext, so that it will replace the previous context content
-	// at the end
-	currentContext, err := kc.getContext(currentContextName)
-	if err != nil {
-		return err
-	}
-	currentContextCluster, err := kc.getContextCluster(currentContextName)
-	if err != nil {
-		return err
-	}
-
 	// Retrieve the kubeconfig cluster info that will be updated
 	// in the new current workspace context
 	var newContextCluster *api.Cluster
@@ -166,14 +170,23 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requested
 	// Update the current workspace cluster info with the new cluster info
 	kc.startingConfig.Clusters[kcpCurrentWorkspaceContextKey] = newContextCluster.DeepCopy()
 
-	// Add authentication info based on either the kubectl overrides or the current kubectl context
-	authInfoName := currentContext.AuthInfo
+	// Add authentication info based on either the kubectl overrides or the current or previous kubectl context
+	newContext, err := kc.getContext(contextName)
+	if err != nil {
+		return err
+	}
+	authInfoName := newContext.AuthInfo
+	if authInfoName == "" {
+		authInfoName = currentContext.AuthInfo
+	}
 	kubectlOverrides := opts.KubectlOverrides
 	if !reflect.ValueOf(kubectlOverrides.AuthInfo).IsZero() {
-		kc.startingConfig.AuthInfos[kcpCurrentWorkspaceContextKey] = &kubectlOverrides.AuthInfo
-		authInfoName = kcpCurrentWorkspaceContextKey
+		kc.startingConfig.AuthInfos[kcpOverridesContextAuthInfoKey] = &kubectlOverrides.AuthInfo
+		authInfoName = kcpOverridesContextAuthInfoKey
 	} else {
-		delete(kc.startingConfig.AuthInfos, kcpCurrentWorkspaceContextKey)
+		if authInfoName != kcpOverridesContextAuthInfoKey && currentContextAuthName != kcpOverridesContextAuthInfoKey {
+			delete(kc.startingConfig.AuthInfos, kcpOverridesContextAuthInfoKey)
+		}
 	}
 
 	kc.startingConfig.Contexts[kcpCurrentWorkspaceContextKey] = &api.Context{
@@ -194,7 +207,8 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requested
 
 	kc.startingConfig.Clusters[kcpPreviousWorkspaceContextKey] = currentContextCluster.DeepCopy()
 	kc.startingConfig.Contexts[kcpPreviousWorkspaceContextKey] = &api.Context{
-		Cluster: kcpPreviousWorkspaceContextKey,
+		Cluster:  kcpPreviousWorkspaceContextKey,
+		AuthInfo: currentContextAuthName,
 	}
 
 	return clientcmd.ModifyConfig(kc.configAccess, *kc.startingConfig, true)
@@ -365,7 +379,7 @@ func (kc *KubeConfig) getContextClusterName(contextName string) (string, error) 
 	}
 }
 
-// getContextCluster returns the cluster struct for a given kubeconfig context.
+// getContextCluster returns the Cluster struct for a given kubeconfig context.
 func (kc *KubeConfig) getContextCluster(contextName string) (*api.Cluster, error) {
 	if clusterName, err := kc.getContextClusterName(contextName); err == nil {
 		return kc.startingConfig.Clusters[clusterName], nil
@@ -378,6 +392,15 @@ func (kc *KubeConfig) getContextCluster(contextName string) (*api.Cluster, error
 func (kc *KubeConfig) getServer(contextName string) (string, error) {
 	if clusterName, err := kc.getContextClusterName(contextName); err == nil {
 		return kc.startingConfig.Clusters[clusterName].Server, nil
+	} else {
+		return "", err
+	}
+}
+
+// getContextAuthName returns the auth name for a given kubeconfig context.
+func (kc *KubeConfig) getContextAuthName(contextName string) (string, error) {
+	if context, err := kc.getContext(contextName); err == nil {
+		return context.AuthInfo, nil
 	} else {
 		return "", err
 	}
@@ -445,11 +468,7 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, opts *Opt
 		return nil, err
 	}
 
-	currentContextName, err := kc.getCurrentContextName(opts)
-	if err != nil {
-		return nil, err
-	}
-	currentContext, err := kc.getContext(currentContextName)
+	context, err := kc.getContext(contextName)
 	if err != nil {
 		return nil, err
 	}
@@ -459,8 +478,8 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, opts *Opt
 	if !reflect.ValueOf(kubectlOverrides.AuthInfo).IsZero() {
 		authInfoOverride = *(&kubectlOverrides.AuthInfo).DeepCopy()
 	} else {
-		if currentContext != nil {
-			if authInfo := kc.startingConfig.AuthInfos[currentContext.AuthInfo]; authInfo != nil {
+		if context != nil {
+			if authInfo := kc.startingConfig.AuthInfos[context.AuthInfo]; authInfo != nil {
 				authInfoOverride = *authInfo
 			}
 		}
