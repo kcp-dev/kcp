@@ -17,21 +17,47 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	goflags "flag"
+	"fmt"
+	"math/rand"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"k8s.io/klog/v2"
+	"k8s.io/apimachinery/pkg/util/errors"
+	genericapiserver "k8s.io/apiserver/pkg/server"
+	restclient "k8s.io/client-go/rest"
+	utilflag "k8s.io/component-base/cli/flag"
+	"k8s.io/component-base/logs"
+	"k8s.io/component-base/version"
 
+	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
 	"github.com/kcp-dev/kcp/pkg/proxy"
 )
 
 func main() {
-	flags := pflag.NewFlagSet("kcp-front-proxy", pflag.ExitOnError)
-	pflag.CommandLine = flags
+	ctx := genericapiserver.SetupSignalContext()
 
-	server := proxy.Server{}
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
+	pflag.CommandLine.AddGoFlagSet(goflags.CommandLine)
+
+	logs.InitLogs()
+	defer logs.FlushLogs()
+
+	command := NewProxyCommand(ctx)
+	if err := command.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
+
+func NewProxyCommand(ctx context.Context) *cobra.Command {
+	options := frontproxyoptions.NewOptions()
 	cmd := &cobra.Command{
 		Use:   "kcp-front-proxy",
 		Short: "Terminate TLS and handles client cert auth for backend API servers",
@@ -40,26 +66,39 @@ forwards Common Name and Organizations to backend API servers in HTTP headers.
 The proxy terminates TLS and communicates with API servers via mTLS. Traffic is
 routed based on paths.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return server.Serve()
+			if err := options.Complete(); err != nil {
+				return err
+			}
+			if errs := options.Validate(); errs != nil {
+				return errors.NewAggregate(errs)
+			}
+			proxyHandler, err := proxy.NewHandler(&options.Proxy)
+			if err != nil {
+				return err
+			}
+
+			var servingInfo *genericapiserver.SecureServingInfo
+			var loopbackClientConfig *restclient.Config
+			if err := options.SecureServing.ApplyTo(&servingInfo, &loopbackClientConfig); err != nil {
+				return err
+			}
+			doneCh, err := servingInfo.Serve(proxyHandler, time.Second*60, ctx.Done())
+			if err != nil {
+				return err
+			}
+
+			<-doneCh
+			return nil
 		},
 	}
 
-	// setup klog
-	fs := goflags.NewFlagSet("klog", goflags.PanicOnError)
-	klog.InitFlags(fs)
-	cmd.PersistentFlags().AddGoFlagSet(fs)
+	options.AddFlags(cmd.Flags())
 
-	cmd.PersistentFlags().StringVar(&server.ListenAddress, "listen-address", ":8083", "Address and port for the proxy to listen on")
-	cmd.PersistentFlags().StringVar(&server.ClientCACert, "client-ca-cert", "certs/kcp-client-ca-cert.pem", "CA cert used to validate client certs")
-	cmd.PersistentFlags().StringVar(&server.ServerCertFile, "server-cert-file", "certs/proxy-server-cert.pem", "The proxy's serving cert file")
-	cmd.PersistentFlags().StringVar(&server.ServerKeyFile, "server-key-file", "certs/proxy-server-key.pem", "The proxy's serving private key file")
-	cmd.PersistentFlags().StringVar(&server.MappingFile, "mapping-file", "", "Config file mapping paths to backends")
-
-	if err := cmd.MarkPersistentFlagRequired("mapping-file"); err != nil {
-		klog.Errorf("error: %v\n", err)
+	if v := version.Get().String(); len(v) == 0 {
+		cmd.Version = "<unknown>"
+	} else {
+		cmd.Version = v
 	}
 
-	if err := cmd.Execute(); err != nil {
-		klog.Errorf("error: %v\n", err)
-	}
+	return cmd
 }
