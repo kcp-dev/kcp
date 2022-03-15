@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,7 +57,7 @@ func (m *mockLister) CheckedUsers() []kuser.Info {
 	return m.checkedUsers
 }
 
-func (m *mockLister) List(user kuser.Info, _ labels.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
+func (m *mockLister) List(user kuser.Info, _ labels.Selector, _ fields.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
 	m.checkedUsers = append(m.checkedUsers, user)
 	return &tenancyv1alpha1.ClusterWorkspaceList{
 		Items: m.workspaces,

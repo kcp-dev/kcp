@@ -253,8 +253,8 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 	// It breaks the API guarantees of lists.
 	// To make it correct we have to know the latest RV of the org workspace shard,
 	// and then wait for freshness relative to that RV of the lister.
-	labelSelector, _ := InternalListOptionsToSelectors(options)
-	clusterWorkspaceList, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labelSelector)
+	labelSelector, fieldSelector := InternalListOptionsToSelectors(options)
+	clusterWorkspaceList, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labelSelector, fieldSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +356,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 	// Filtering by applying the lister operation might not be necessary anymore
 	// when using a semi-delegated authorizer in the workspaces virtual workspace that would
 	// delegate this authorization to the main KCP instance hosting the workspaces and RBAC rules
-	obj, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labels.Everything())
+	obj, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labels.Everything(), fields.Everything())
 	if err != nil {
 		return nil, err
 	}
