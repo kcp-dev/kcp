@@ -37,6 +37,8 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -44,12 +46,19 @@ import (
 const (
 	ClusterLabel            = "workloads.kcp.dev/cluster"
 	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
+
+	// The presence of `workloads.kcp.dev/schedulable: true` on a workspace
+	// enables scheduling for the contents of the workspace. It is applied by
+	// default to workspaces of type `Universal`.
+	WorkspaceSchedulableLabel = "workloads.kcp.dev/schedulable"
 )
 
 var (
 	scheduleRequirement           labels.Requirement
 	scheduleEmptyLabelRequirement labels.Requirement
 	unscheduledRequirement        labels.Requirement
+
+	workspaceSchedulableRequirement labels.Requirement
 )
 
 func init() {
@@ -70,6 +79,12 @@ func init() {
 		klog.Fatalf("error creating the schedule label requirement: %v", err)
 	} else {
 		scheduleRequirement = *req
+	}
+	// This matches workspaces whose contents should be scheduled.
+	if req, err := labels.NewRequirement(WorkspaceSchedulableLabel, selection.Equals, []string{"true"}); err != nil {
+		klog.Fatalf("error creating the schedule label requirement: %v", err)
+	} else {
+		workspaceSchedulableRequirement = *req
 	}
 }
 
@@ -205,6 +220,15 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 // resources in the namespace to be assigned to the namespace's cluster.
 func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string, ns *corev1.Namespace) error {
 	klog.Infof("Reconciling namespace %s|%s", lclusterName, ns.Name)
+
+	workspaceSchedulingEnabled, err := isWorkspaceSchedulable(c.workspaceLister.Get, ns.ClusterName)
+	if err != nil {
+		return err
+	}
+	if !workspaceSchedulingEnabled {
+		klog.V(5).Infof("Scheduling is disabled for the workspace of namespace %s|%s", lclusterName, ns.Name)
+		return nil
+	}
 
 	if ns.Labels == nil {
 		ns.Labels = map[string]string{}
@@ -391,4 +415,23 @@ func statusPatchBytes(old, new *corev1.Namespace) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create status patch for namespace %s|%s: %w", new.ClusterName, new.Name, err)
 	}
 	return patchBytes, nil
+}
+
+type getWorkspaceFunc func(name string) (*tenancyv1alpha1.ClusterWorkspace, error)
+
+// isWorkspaceSchedulable indicates whether the contents of the workspace
+// identified by the logical cluster name are schedulable.
+func isWorkspaceSchedulable(getWorkspace getWorkspaceFunc, logicalClusterName string) (bool, error) {
+	org, ws, err := helper.ParseLogicalClusterName(logicalClusterName)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse logical cluster name %q", logicalClusterName)
+	}
+
+	workspaceKey := helper.WorkspaceKey(org, ws)
+	workspace, err := getWorkspace(workspaceKey)
+	if err != nil {
+		return false, fmt.Errorf("failed to retrieve workspace with key %s", workspaceKey)
+	}
+
+	return workspaceSchedulableRequirement.Matches(labels.Set(workspace.Labels)), nil
 }

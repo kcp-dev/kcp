@@ -292,7 +292,7 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Con
 		dynamicClient,
 		kubeClient.DiscoveryClient,
 		kubeClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters().Lister(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
