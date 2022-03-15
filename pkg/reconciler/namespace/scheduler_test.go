@@ -147,6 +147,7 @@ func TestAssignCluster(t *testing.T) {
 			scheduler := newTestScheduler(clusters)
 			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
 					ClusterName: testLclusterName,
 					Labels:      testCase.labels,
 				},
