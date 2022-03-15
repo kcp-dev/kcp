@@ -18,6 +18,7 @@ package apibinding
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -97,6 +98,7 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 		}
 
 		var exportedSchemas []*apisv1alpha1.APIResourceSchema
+		exportedSchemaHashes := map[string]string{}
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 			apiResourceSchema, err := r.getAPIResourceSchema(apiExportClusterName, schemaName)
 			if err != nil {
@@ -116,6 +118,19 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 			}
 
 			exportedSchemas = append(exportedSchemas, apiResourceSchema)
+
+			schemaSpecJSON, err := json.Marshal(apiResourceSchema.Spec)
+			if err != nil {
+				// TODO condition
+				return reconcileStatusStop, err
+			}
+			schemaHash := sha256.New()
+			if _, err := schemaHash.Write(schemaSpecJSON); err != nil {
+				// TODO condition
+				return reconcileStatusStop, err
+			}
+
+			exportedSchemaHashes[string(apiResourceSchema.UID)] = fmt.Sprintf("%x", schemaHash.Sum(nil))
 		}
 
 		if apiExportLatestResourceSchemasChanged(apiBinding, exportedSchemas) {
@@ -125,6 +140,23 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 
 			// Commit the phase change, then wait for next update event to process binding changes
 			return reconcileStatusStop, nil
+		}
+
+		for _, boundResource := range apiBinding.Status.BoundResources {
+			if boundResource.Schema.Hash != exportedSchemaHashes[boundResource.Schema.UID] {
+				klog.Infof(
+					"APIBinding %s|%s needs rebinding because APIResourceSchema %s|%s has changed",
+					apiBinding.ClusterName,
+					apiBinding.Name,
+					apiBinding.Spec.Reference.Workspace.WorkspaceName,
+					boundResource.Schema.Name,
+				)
+
+				apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+
+				// Commit the phase change, then wait for next update event to process binding changes
+				return reconcileStatusStop, nil
+			}
 		}
 	}
 
@@ -270,6 +302,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 				crd.Name,
 				err,
 			)
+
 			return reconcileStatusStop, nil // don't retry
 		}
 
@@ -341,7 +374,17 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 					needToWaitForRequeue = true
 				}
 			}
+		}
 
+		schemaSpecJSON, err := json.Marshal(schema.Spec)
+		if err != nil {
+			// TODO condition
+			return reconcileStatusStop, err
+		}
+		schemaHash := sha256.New()
+		if _, err := schemaHash.Write(schemaSpecJSON); err != nil {
+			// TODO condition
+			return reconcileStatusStop, err
 		}
 
 		boundResources = append(boundResources, apisv1alpha1.BoundAPIResource{
@@ -350,6 +393,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 			Schema: apisv1alpha1.BoundAPIResourceSchema{
 				Name: schema.Name,
 				UID:  string(schema.UID),
+				Hash: fmt.Sprintf("%x", schemaHash.Sum(nil)),
 			},
 			StorageVersions: crd.Status.StoredVersions,
 		})
