@@ -35,7 +35,7 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-type syncerManagerImpl interface {
+type SyncerManager interface {
 	name() string
 	needsUpdate(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String) (bool, error)
 	update(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster, client *kubernetes.Clientset, groupResources sets.String, kubeConfig *clientcmdapi.Config) (bool, error)
@@ -46,9 +46,9 @@ type syncerManagerImpl interface {
 type syncerManager struct {
 	name string
 
-	kubeconfig               clientcmdapi.Config
+	upstreamKubeconfig       *clientcmdapi.Config
 	resourcesToSync          []string
-	syncerManagerImpl        syncerManagerImpl
+	syncerManagerImpl        SyncerManager
 	apiresourceImportIndexer cache.Indexer
 }
 
@@ -129,9 +129,7 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1
 
 	if needsUpdate {
 		klog.V(2).Infof("%s: Need to create/update syncer", m.name)
-		kubeConfig := m.kubeconfig.DeepCopy()
-
-		if updateSucceeded, err := m.syncerManagerImpl.update(ctx, cluster, client, groupResources, kubeConfig); err != nil {
+		if updateSucceeded, err := m.syncerManagerImpl.update(ctx, cluster, client, groupResources, m.upstreamKubeconfig); err != nil {
 			return err
 		} else if !updateSucceeded {
 			return nil

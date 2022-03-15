@@ -41,14 +41,13 @@ func NewController(
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
-	kubeconfig clientcmdapi.Config,
+	upstreamKubeconfig *clientcmdapi.Config,
 	resourcesToSync []string,
-	syncerManagerImpl syncerManagerImpl,
+	syncerManagerImpl SyncerManager,
 ) (*Controller, error) {
-
 	sm := &syncerManager{
 		name:                     syncerManagerImpl.name(),
-		kubeconfig:               kubeconfig,
+		upstreamKubeconfig:       upstreamKubeconfig,
 		resourcesToSync:          resourcesToSync,
 		syncerManagerImpl:        syncerManagerImpl,
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),

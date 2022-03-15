@@ -54,14 +54,14 @@ type clusterDiscovery interface {
 
 // NewController returns a new Controller which schedules namespaced resources to a Cluster.
 func NewController(
+	dynamicClusterClient dynamic.ClusterInterface,
+	clusterDiscoveryClient clusterDiscovery,
+	kubeClusterClient kubernetes.ClusterInterface,
 	workspaceLister tenancylisters.ClusterWorkspaceLister,
-	dynClient dynamic.ClusterInterface,
-	disco clusterDiscovery,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	clusterLister workloadlisters.WorkloadClusterLister,
 	namespaceInformer coreinformers.NamespaceInformer,
 	namespaceLister corelisters.NamespaceLister,
-	kubeClient kubernetes.ClusterInterface,
 	gvkTrans *gvk.GVKTranslator,
 	pollInterval time.Duration,
 ) *Controller {
@@ -77,10 +77,10 @@ func NewController(
 		namespaceQueue: namespaceQueue,
 		clusterQueue:   clusterQueue,
 
-		dynClient:       dynClient,
+		dynClient:       dynamicClusterClient,
 		clusterLister:   clusterLister,
 		namespaceLister: namespaceLister,
-		kubeClient:      kubeClient,
+		kubeClient:      kubeClusterClient,
 		gvkTrans:        gvkTrans,
 	}
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -97,7 +97,7 @@ func NewController(
 		},
 	})
 	// Always do a * list/watch
-	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, disco, dynClient.Cluster("*"),
+	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicClusterClient.Cluster("*"),
 		filterResource,
 		informer.GVREventHandlerFuncs{
 			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },

@@ -28,11 +28,13 @@ import (
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
+	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
 )
 
@@ -91,7 +93,7 @@ func main() {
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.kubeconfigPath},
 		&clientcmd.ConfigOverrides{})
 
-	r, err := configLoader.ClientConfig()
+	config, err := configLoader.ClientConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -101,28 +103,62 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(r), resyncPeriod)
-	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(r), resyncPeriod)
 
-	apiImporterOptions := options.ApiImporterOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
-	apiImporter, err := apiImporterOptions.New()
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	apiResourceOptions := options.ApiResourceOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory)
-	apiresource, err := apiResourceOptions.New()
+	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(config), resyncPeriod)
+	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(config), resyncPeriod)
+
+	apiImporter, err := clusterapiimporter.NewController(
+		kcpClusterClient,
+		kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		options.ApiImporterOptions.ResourcesToSync,
+	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	syncerOptions := options.SyncerOptions.Complete(kubeconfig, kcpSharedInformerFactory, crdSharedInformerFactory, apiImporterOptions.ResourcesToSync)
-	optionalSyncer, err := syncerOptions.NewOrNil()
+	apiResource, err := apiresource.NewController(
+		crdClusterClient,
+		kcpClusterClient,
+		options.ApiResourceOptions.AutoPublishAPIs,
+		kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+
+	var optionalSyncer *syncer.Controller
+	if manager := options.SyncerOptions.CreateSyncerManager(); manager == nil {
+		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
+	} else {
+		optionalSyncer, err = syncer.NewController(
+			crdClusterClient,
+			kcpClusterClient,
+			kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+			kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+			&kubeconfig, // TODO: remove this once the syncer is started externally
+			options.SyncerOptions.ResourcesToSync,
+			manager,
+		)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 
 	kcpSharedInformerFactory.Start(ctx.Done())
@@ -132,7 +168,7 @@ func main() {
 	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
 	go apiImporter.Start(ctx)
-	go apiresource.Start(ctx, apiResourceOptions.NumThreads)
+	go apiResource.Start(ctx, options.ApiResourceOptions.NumThreads)
 	if optionalSyncer != nil {
 		go optionalSyncer.Start(ctx)
 	}
