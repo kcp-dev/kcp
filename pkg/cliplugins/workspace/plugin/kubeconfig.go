@@ -75,117 +75,6 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 	}, nil
 }
 
-// workspaceDirectoryRestConfigWithoutAuth creates a kubeconfig context
-// that corresponds to the expected workspace directory context
-// (thus pointing to the `workspaces` virtual workspace).
-// The produced contexted is based on the kubeconfig current context, overridden by
-// by the kubectl overrides.
-// No Auth info is added in this workspace directory new context.
-// The current kubeconfig is not modified, and the returned additional context is transient.
-func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string, opts *Options, alwaysUpToOrg bool) (*api.Config, error) {
-	contextCluster, err := kc.getContextCluster(contextName)
-	if err != nil {
-		return nil, err
-	}
-
-	workspaceDirectoryAwareConfig := api.NewConfig()
-
-	serverURL, err := url.Parse(contextCluster.Server)
-	if err != nil {
-		return nil, err
-	}
-
-	orgClusterName, workspaceName, basePath, err := getWorkspaceAndBasePath(contextCluster.Server)
-	if err != nil {
-		return nil, err
-	}
-
-	orgClusterName = upToOrg(orgClusterName, workspaceName, alwaysUpToOrg)
-
-	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
-	serverURL.Path = path.Join(basePath, virtualcommandoptions.DefaultRootPathPrefix, "workspaces", orgClusterName, opts.Scope)
-
-	workspaceDirectoryCluster := contextCluster.DeepCopy()
-	workspaceDirectoryCluster.Server = serverURL.String()
-
-	kubectlOverrides := opts.KubectlOverrides
-	if kubectlOverrides.ClusterInfo.CertificateAuthority != "" {
-		workspaceDirectoryCluster.CertificateAuthority = kubectlOverrides.ClusterInfo.CertificateAuthority
-	}
-	if kubectlOverrides.ClusterInfo.TLSServerName != "" {
-		workspaceDirectoryCluster.TLSServerName = kubectlOverrides.ClusterInfo.TLSServerName
-	}
-	if kubectlOverrides.ClusterInfo.InsecureSkipTLSVerify {
-		workspaceDirectoryCluster.InsecureSkipTLSVerify = kubectlOverrides.ClusterInfo.InsecureSkipTLSVerify
-	}
-	workspaceDirectoryAwareConfig.Clusters[kcpVirtualWorkspaceInternalContextName] = workspaceDirectoryCluster
-	workspaceDirectoryContext := &api.Context{
-		Cluster: kcpVirtualWorkspaceInternalContextName,
-	}
-	workspaceDirectoryAwareConfig.Contexts[kcpVirtualWorkspaceInternalContextName] = workspaceDirectoryContext
-	workspaceDirectoryAwareConfig.CurrentContext = kcpVirtualWorkspaceInternalContextName
-
-	return workspaceDirectoryAwareConfig, nil
-}
-
-// tenancyClient returns the tenancy client set to access the workspace directory
-// virtual workspace based on the stored config and CLI overrides, as well as the Auth info
-// of the current kubeconfig context.
-func (kc *KubeConfig) tenancyClient(contextName string, opts *Options, alwaysUpToOrg bool) (*tenancyclient.Clientset, error) {
-	if workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(contextName, opts, alwaysUpToOrg); err != nil {
-		return nil, err
-	} else {
-		return tenancyclient.NewForConfig(workspaceDirectoryRestConfig)
-	}
-}
-
-// workspaceDirectoryRestConfig returns the rest.Config to access the workspace directory
-// virtual workspace based on the stored config and CLI overrides, as well as the Auth info
-// of the current kubeconfig context.
-func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, opts *Options, alwaysUpToOrg bool) (*rest.Config, error) {
-	workpaceDirectoryAwareConfig, err := kc.workspaceDirectoryRestConfigWithoutAuth(contextName, opts, alwaysUpToOrg)
-	if err != nil {
-		return nil, err
-	}
-
-	currentContextName, err := kc.getCurrentContextName(opts)
-	if err != nil {
-		return nil, err
-	}
-	currentContext, err := kc.getContext(currentContextName)
-	if err != nil {
-		return nil, err
-	}
-
-	authInfoOverride := api.AuthInfo{}
-	kubectlOverrides := opts.KubectlOverrides
-	if !reflect.ValueOf(kubectlOverrides.AuthInfo).IsZero() {
-		authInfoOverride = *(&kubectlOverrides.AuthInfo).DeepCopy()
-	} else {
-		if currentContext != nil {
-			if authInfo := kc.startingConfig.AuthInfos[currentContext.AuthInfo]; authInfo != nil {
-				authInfoOverride = *authInfo
-			}
-		}
-	}
-
-	overrides := &clientcmd.ConfigOverrides{
-		AuthInfo: authInfoOverride,
-	}
-	return clientcmd.NewDefaultClientConfig(*workpaceDirectoryAwareConfig, overrides).ClientConfig()
-}
-
-// workspaceDirectoryRestConfigFromCurrentContext returns the rest.Config to access the workspace directory
-// virtual workspace based on the stored config and CLI overrides, as well as the Auth info
-// of the current kubeconfig context.
-func (kc *KubeConfig) workspaceDirectoryRestConfigFromCurrentContext(opts *Options, parent bool) (*rest.Config, error) {
-	currentContextName, err := kc.getCurrentContextName(opts)
-	if err != nil {
-		return nil, err
-	}
-	return kc.workspaceDirectoryRestConfig(currentContextName, opts, parent)
-}
-
 // UseWorkspace switch the current workspace to the given workspace.
 // To do so it retrieves the ClusterWorkspace minimal KubeConfig (mainly cluster infos)
 // from the `workspaces` virtual workspace `workspaces/kubeconfig` sub-resources,
@@ -309,71 +198,6 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requested
 	}
 
 	return clientcmd.ModifyConfig(kc.configAccess, *kc.startingConfig, true)
-}
-
-// getWorkspace gets the workspace from a kubeconfig context.
-func (kc *KubeConfig) getWorkspace(contextName string) (orgName, workspaceName string, err error) {
-	serverInfo, err := kc.getServer(contextName)
-	if err != nil {
-		return "", "", err
-	}
-
-	orgClusterName, workspaceName, _, err := getWorkspaceAndBasePath(serverInfo)
-	if err != nil {
-		return "", "", err
-	}
-
-	if orgClusterName == "" {
-		orgName = ""
-	} else {
-		_, orgName, err = tenancyhelpers.ParseLogicalClusterName(orgClusterName)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
-	return orgName, workspaceName, nil
-}
-
-// getCurrentWorkspace gets the current workspace from the kubeconfig.
-func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (orgName, workspaceName string, err error) {
-	currentContextName, err := kc.getCurrentContextName(opts)
-	if err != nil {
-		return "", "", err
-	}
-
-	return kc.getWorkspace(currentContextName)
-}
-
-// getWorkspaceFromInternalName retrieves the workspace with this internal name in the
-// user workspace directory, by requesting the `workspaces` virtual workspace.
-func getWorkspaceFromInternalName(ctx context.Context, workspaceInternalName string, tenancyClient tenancyclient.Interface) (*tenancyv1beta1.Workspace, error) {
-	if list, err := tenancyClient.TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{
-		FieldSelector: "metadata.name=" + workspaceInternalName,
-	}); err != nil {
-		return nil, err
-	} else if list == nil || len(list.Items) == 0 {
-		return nil, fmt.Errorf("workspace %q is not found", workspaceInternalName)
-	} else if len(list.Items) > 1 {
-		return nil, fmt.Errorf("several workspaces with the same internal name : %q", workspaceInternalName)
-	} else {
-		return &list.Items[0], nil
-	}
-}
-
-func outputCurrentWorkspaceMessage(orgName, workspacePrettyName, workspaceName string, opts *Options) error {
-	if workspaceName != "" {
-		message := fmt.Sprintf("Current workspace is %q", workspacePrettyName)
-		if workspaceName != workspacePrettyName {
-			message = fmt.Sprintf("%s (an alias for %q)", message, workspaceName)
-		}
-		if orgName != "" {
-			message = fmt.Sprintf("%s in organization %q", message, orgName)
-		}
-		err := write(opts, fmt.Sprintf("%s.\n", message))
-		return err
-	}
-	return nil
 }
 
 // CurrentWorkspace outputs the current workspace.
@@ -507,70 +331,6 @@ func (kc *KubeConfig) DeleteWorkspace(ctx context.Context, opts *Options, worksp
 	return write(opts, fmt.Sprintf("Workspace \"%s\" deleted.\n", workspaceName))
 }
 
-// getClusterNameAndBasePath gets the logical cluster name and the base URL for the current
-// workspace.
-func getWorkspaceAndBasePath(urlPath string) (orgClusterName, workspaceName, basePath string, err error) {
-	// get workspace from current server URL and check it point to an org or the root workspace
-	serverURL, err := url.Parse(urlPath)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	possiblePrefixes := []string{
-		"/clusters/",
-		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
-	}
-
-	var clusterName string
-	for _, prefix := range possiblePrefixes {
-		clusterIndex := strings.Index(serverURL.Path, prefix)
-		if clusterIndex < 0 {
-			continue
-		}
-		clusterName = strings.SplitN(serverURL.Path[clusterIndex+len(prefix):], "/", 2)[0]
-		basePath = serverURL.Path[:clusterIndex]
-	}
-
-	if clusterName == "" {
-		return "", "", basePath, fmt.Errorf("current cluster URL %s is not pointing to a workspace", serverURL)
-	}
-
-	var org string
-	if clusterName == tenancyhelpers.RootCluster {
-		orgClusterName = ""
-		workspaceName = tenancyhelpers.RootCluster
-	} else if org, workspaceName, err = tenancyhelpers.ParseLogicalClusterName(clusterName); err != nil {
-		return "", "", "", fmt.Errorf("unable to parse cluster name %s", clusterName)
-	} else if org == "system:" {
-		return "", "", "", fmt.Errorf("no workspaces are accessible from %s", clusterName)
-	} else if org == tenancyhelpers.RootCluster {
-		orgClusterName = tenancyhelpers.RootCluster
-	} else {
-		orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
-		if err != nil {
-			// should never happen
-			return "", "", "", fmt.Errorf("unable to derive parent cluster name for %s", clusterName)
-		}
-	}
-
-	return orgClusterName, workspaceName, basePath, nil
-}
-
-// upToOrg derives the org workspace cluster name to operate on,
-// from a given workspace logical cluster name.
-func upToOrg(orgClusterName, workspaceName string, always bool) string {
-
-	if orgClusterName == "" && workspaceName == tenancyhelpers.RootCluster {
-		return tenancyhelpers.RootCluster
-	}
-
-	if orgClusterName == tenancyhelpers.RootCluster && !always {
-		return tenancyhelpers.EncodeOrganizationAndClusterWorkspace(tenancyhelpers.RootCluster, workspaceName)
-	}
-
-	return orgClusterName
-}
-
 // getCurrentContextName returns the current context from kubeconfig.
 func (kc *KubeConfig) getCurrentContextName(opts *Options) (string, error) {
 	currentContextName := kc.startingConfig.CurrentContext
@@ -605,6 +365,7 @@ func (kc *KubeConfig) getContextClusterName(contextName string) (string, error) 
 	}
 }
 
+// getContextCluster returns the cluster struct for a given kubeconfig context.
 func (kc *KubeConfig) getContextCluster(contextName string) (*api.Cluster, error) {
 	if clusterName, err := kc.getContextClusterName(contextName); err == nil {
 		return kc.startingConfig.Clusters[clusterName], nil
@@ -613,10 +374,156 @@ func (kc *KubeConfig) getContextCluster(contextName string) (*api.Cluster, error
 	}
 }
 
+// getServer returns the cluster Server URL for a given kubeconfig context.
 func (kc *KubeConfig) getServer(contextName string) (string, error) {
 	if clusterName, err := kc.getContextClusterName(contextName); err == nil {
 		return kc.startingConfig.Clusters[clusterName].Server, nil
 	} else {
 		return "", err
 	}
+}
+
+// workspaceDirectoryRestConfigWithoutAuth creates a kubeconfig context
+// that corresponds to the expected workspace directory context
+// (thus pointing to the `workspaces` virtual workspace).
+// The produced contexted is based on the kubeconfig current context, overridden by
+// by the kubectl overrides.
+// No Auth info is added in this workspace directory new context.
+// The current kubeconfig is not modified, and the returned additional context is transient.
+func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string, opts *Options, alwaysUpToOrg bool) (*api.Config, error) {
+	contextCluster, err := kc.getContextCluster(contextName)
+	if err != nil {
+		return nil, err
+	}
+
+	workspaceDirectoryAwareConfig := api.NewConfig()
+
+	serverURL, err := url.Parse(contextCluster.Server)
+	if err != nil {
+		return nil, err
+	}
+
+	orgClusterName, workspaceName, basePath, err := getWorkspaceAndBasePath(contextCluster.Server)
+	if err != nil {
+		return nil, err
+	}
+
+	orgClusterName = upToOrg(orgClusterName, workspaceName, alwaysUpToOrg)
+
+	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
+	serverURL.Path = path.Join(basePath, virtualcommandoptions.DefaultRootPathPrefix, "workspaces", orgClusterName, opts.Scope)
+
+	workspaceDirectoryCluster := contextCluster.DeepCopy()
+	workspaceDirectoryCluster.Server = serverURL.String()
+
+	kubectlOverrides := opts.KubectlOverrides
+	if kubectlOverrides.ClusterInfo.CertificateAuthority != "" {
+		workspaceDirectoryCluster.CertificateAuthority = kubectlOverrides.ClusterInfo.CertificateAuthority
+	}
+	if kubectlOverrides.ClusterInfo.TLSServerName != "" {
+		workspaceDirectoryCluster.TLSServerName = kubectlOverrides.ClusterInfo.TLSServerName
+	}
+	if kubectlOverrides.ClusterInfo.InsecureSkipTLSVerify {
+		workspaceDirectoryCluster.InsecureSkipTLSVerify = kubectlOverrides.ClusterInfo.InsecureSkipTLSVerify
+	}
+	workspaceDirectoryAwareConfig.Clusters[kcpVirtualWorkspaceInternalContextName] = workspaceDirectoryCluster
+	workspaceDirectoryContext := &api.Context{
+		Cluster: kcpVirtualWorkspaceInternalContextName,
+	}
+	workspaceDirectoryAwareConfig.Contexts[kcpVirtualWorkspaceInternalContextName] = workspaceDirectoryContext
+	workspaceDirectoryAwareConfig.CurrentContext = kcpVirtualWorkspaceInternalContextName
+
+	return workspaceDirectoryAwareConfig, nil
+}
+
+// workspaceDirectoryRestConfig returns the rest.Config to access the workspace directory
+// virtual workspace based on the stored config and CLI overrides, as well as the Auth info
+// of the current kubeconfig context.
+func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, opts *Options, alwaysUpToOrg bool) (*rest.Config, error) {
+	workpaceDirectoryAwareConfig, err := kc.workspaceDirectoryRestConfigWithoutAuth(contextName, opts, alwaysUpToOrg)
+	if err != nil {
+		return nil, err
+	}
+
+	currentContextName, err := kc.getCurrentContextName(opts)
+	if err != nil {
+		return nil, err
+	}
+	currentContext, err := kc.getContext(currentContextName)
+	if err != nil {
+		return nil, err
+	}
+
+	authInfoOverride := api.AuthInfo{}
+	kubectlOverrides := opts.KubectlOverrides
+	if !reflect.ValueOf(kubectlOverrides.AuthInfo).IsZero() {
+		authInfoOverride = *(&kubectlOverrides.AuthInfo).DeepCopy()
+	} else {
+		if currentContext != nil {
+			if authInfo := kc.startingConfig.AuthInfos[currentContext.AuthInfo]; authInfo != nil {
+				authInfoOverride = *authInfo
+			}
+		}
+	}
+
+	overrides := &clientcmd.ConfigOverrides{
+		AuthInfo: authInfoOverride,
+	}
+	return clientcmd.NewDefaultClientConfig(*workpaceDirectoryAwareConfig, overrides).ClientConfig()
+}
+
+// tenancyClient returns the tenancy client set to access the workspace directory
+// virtual workspace based on the stored config and CLI overrides, as well as the Auth info
+// of the current kubeconfig context.
+func (kc *KubeConfig) tenancyClient(contextName string, opts *Options, alwaysUpToOrg bool) (*tenancyclient.Clientset, error) {
+	if workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfig(contextName, opts, alwaysUpToOrg); err != nil {
+		return nil, err
+	} else {
+		return tenancyclient.NewForConfig(workspaceDirectoryRestConfig)
+	}
+}
+
+// workspaceDirectoryRestConfigFromCurrentContext returns the rest.Config to access the workspace directory
+// virtual workspace based on the stored config and CLI overrides, as well as the Auth info
+// of the current kubeconfig context.
+func (kc *KubeConfig) workspaceDirectoryRestConfigFromCurrentContext(opts *Options, parent bool) (*rest.Config, error) {
+	currentContextName, err := kc.getCurrentContextName(opts)
+	if err != nil {
+		return nil, err
+	}
+	return kc.workspaceDirectoryRestConfig(currentContextName, opts, parent)
+}
+
+// getWorkspace gets the workspace from a kubeconfig context.
+func (kc *KubeConfig) getWorkspace(contextName string) (orgName, workspaceName string, err error) {
+	serverInfo, err := kc.getServer(contextName)
+	if err != nil {
+		return "", "", err
+	}
+
+	orgClusterName, workspaceName, _, err := getWorkspaceAndBasePath(serverInfo)
+	if err != nil {
+		return "", "", err
+	}
+
+	if orgClusterName == "" {
+		orgName = ""
+	} else {
+		_, orgName, err = tenancyhelpers.ParseLogicalClusterName(orgClusterName)
+		if err != nil {
+			return "", "", err
+		}
+	}
+
+	return orgName, workspaceName, nil
+}
+
+// getCurrentWorkspace gets the current workspace from the kubeconfig.
+func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (orgName, workspaceName string, err error) {
+	currentContextName, err := kc.getCurrentContextName(opts)
+	if err != nil {
+		return "", "", err
+	}
+
+	return kc.getWorkspace(currentContextName)
 }
