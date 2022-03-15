@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
@@ -45,6 +47,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
@@ -82,6 +85,10 @@ type REST struct {
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
 	rootReviewer *workspaceauth.Reviewer
+
+	// delegatedAuthz implements cluster-aware SubjectAccessReview
+	delegatedAuthz    delegated.DelegatedAuthorizerFactory
+	kubeClusterClient kubernetes.ClusterInterface
 
 	// Allows extended behavior during creation, required
 	createStrategy rest.RESTCreateStrategy
@@ -124,7 +131,7 @@ var _ rest.GracefulDeleter = &REST{}
 // org workspaces, projecting them to the Workspace type.
 func NewREST(
 	rootTenancyClient tenancyclient.TenancyV1alpha1Interface,
-	rootKubeClient kubernetes.Interface,
+	kubeClusterClient kubernetes.ClusterInterface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 	wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
 	getOrg func(orgClusterName string) (*Org, error),
@@ -132,6 +139,9 @@ func NewREST(
 ) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
 		getOrg: getOrg,
+
+		kubeClusterClient: kubeClusterClient,
+		delegatedAuthz:    delegated.NewDelegatedAuthorizer,
 
 		crbInformer:           wilcardsCRBInformer,
 		clusterWorkspaceCache: clusterWorkspaceCache,
@@ -145,7 +155,7 @@ func NewREST(
 	return mainRest,
 		&KubeconfigSubresourceREST{
 			mainRest:             mainRest,
-			rootCoreClient:       rootKubeClient.CoreV1(),
+			rootCoreClient:       kubeClusterClient.Cluster(helper.RootCluster).CoreV1(),
 			workspaceShardClient: rootTenancyClient.WorkspaceShards(),
 		}
 }
@@ -500,19 +510,44 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
 
+	// check whether the user is allowed to access the org
 	_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
 	if err != nil {
 		return nil, kerrors.NewBadRequest("unable to determine organization")
 	}
-	review := s.rootReviewer.Review(
+	orgMemberReview := s.rootReviewer.Review(
 		workspaceauth.NewAttributesBuilder().
 			Verb("member").
 			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
 			Name(orgName).
 			AttributesRecord,
 	)
-	if !review.Allows(userInfo) {
+	if !orgMemberReview.Allows(userInfo) {
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to create workspaces in organization %q", userInfo.GetName(), orgName))
+	}
+
+	// check whether the user is allowed to use the cluster workspace type
+	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
+	if err != nil {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to authorize"))
+	}
+	typeName := strings.ToLower(workspace.Spec.Type)
+	if len(typeName) == 0 {
+		typeName = "universal"
+	}
+	typeUseAttr := authorizer.AttributesRecord{
+		User:            userInfo,
+		Verb:            "use",
+		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+		Resource:        "clusterworkspacetypes",
+		Name:            typeName,
+		ResourceRequest: true,
+	}
+	if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine access to cluster workspace type"))
+	} else if decision != authorizer.DecisionAllow {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", workspace.Spec.Type))
 	}
 
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, userInfo)
