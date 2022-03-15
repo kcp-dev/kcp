@@ -219,6 +219,12 @@ type BoundAPIResourceSchema struct {
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	UID string `json:"UID"`
+
+	// hash is a hash of the APIResourceSchema's spec.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Hash string `json:"hash"`
 }
 
 // APIBindingList is a list of APIBinding resources

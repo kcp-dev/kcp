@@ -112,12 +112,17 @@ spec:
                             is bound to this API.
                           minLength: 1
                           type: string
+                        hash:
+                          description: hash is a hash of the APIResourceSchema's spec.
+                          minLength: 1
+                          type: string
                         name:
                           description: name is the bound APIResourceSchema name.
                           minLength: 1
                           type: string
                       required:
                       - UID
+                      - hash
                       - name
                       type: object
                     storageVersions:
