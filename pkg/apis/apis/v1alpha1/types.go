@@ -277,10 +277,9 @@ type APIExportSpec struct {
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatus struct {
 	// ResourceSchemasInUse records which schemas are actually in use (that is,
-	// APIBindings bound to this APIExport at any given time). It can be a
-	// superset of the actually bound schemas. Pruning is done regularly.
-	//
-	// An APIBinding cannot bind to a schema that is not in this list.
+	// APIBindings bound to this APIExport at any given time). This field
+	// is eventually consistent, i.e. it can be a subset or superset of the
+	// actual state of APIBindings.
 	//
 	// +optional
 	// +listType=set
@@ -301,6 +300,10 @@ type APIExportList struct {
 //
 // A APIResourceSchema is immutable and cannot be deleted if they are referenced by
 // an APIExport in the same workspace.
+//
+// Note that an APIResourceSchema can be deleted, although it is bound by an APIBinding
+// in a workspace. The workspace shard will keep a copy of the APIResourceSchema
+// until the APIBinding either binds to another schema or is deleted.
 //
 // +crd
 // +genclient
