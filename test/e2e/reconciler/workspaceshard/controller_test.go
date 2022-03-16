@@ -43,6 +43,8 @@ import (
 func TestWorkspaceShardController(t *testing.T) {
 	t.Parallel()
 
+	namePrefix := "e2e-shard-"
+
 	type runningServer struct {
 		framework.RunningServer
 		rootShardClient               tenancyv1alpha1client.WorkspaceShardInterface
@@ -57,7 +59,11 @@ func TestWorkspaceShardController(t *testing.T) {
 			name: "create a workspace shard without credentials, expect to see status reflect missing credentials",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("create a workspace shard without credentials")
-				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{ObjectMeta: metav1.ObjectMeta{Name: "of-glass"}}, metav1.CreateOptions{})
+				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix,
+					},
+				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
 
 				server.Artifact(t, func() (runtime.Object, error) {
@@ -77,11 +83,15 @@ func TestWorkspaceShardController(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("create a workspace shard referencing missing credentials")
 				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
-						Name:      "not",
-						Namespace: "real",
-					}},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix,
+					},
+					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+						Credentials: corev1.SecretReference{
+							Name:      "not",
+							Namespace: "real",
+						},
+					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
 
@@ -100,13 +110,19 @@ func TestWorkspaceShardController(t *testing.T) {
 		{
 			name: "create a workspace shard referencing credentials without data, expect to see status reflect invalid credentials",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("create a namespace %q for the credentials secret", "credentials")
-				_, err := server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{})
+				t.Log("create a namespace for the credentials secret")
+				namespace, err := server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix + "credentials-",
+					},
+				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create credentials namespace")
 
 				t.Logf("create credential secret without credentials")
-				secret, err := server.rootKubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
+				secret, err := server.rootKubeClient.CoreV1().Secrets(namespace.Name).Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix + "kubeconfig-",
+					},
 					Data: map[string][]byte{
 						"unrelated": []byte(`information`),
 					},
@@ -119,10 +135,12 @@ func TestWorkspaceShardController(t *testing.T) {
 
 				t.Logf("create a workspace shard referencing the secret above")
 				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix,
+					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
-						Name:      "kubeconfig",
-						Namespace: "credentials",
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
 					}},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
@@ -142,13 +160,19 @@ func TestWorkspaceShardController(t *testing.T) {
 		{
 			name: "create a workspace shard referencing credentials with invalid data, expect to see status reflect invalid credentials",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("create a namespace %q for the credentials secret", "credentials")
-				_, err := server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{})
+				t.Log("create a namespace for the credentials secret")
+				namespace, err := server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix + "credentials-",
+					},
+				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create credentials namespace")
 
 				t.Logf("create credential secret with an invalid kubeconfig file")
-				secret, err := server.rootKubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
+				secret, err := server.rootKubeClient.CoreV1().Secrets(namespace.Name).Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix + "kubeconfig-",
+					},
 					Data: map[string][]byte{
 						"kubeconfig": []byte(`not a kubeconfig`),
 					},
@@ -161,10 +185,12 @@ func TestWorkspaceShardController(t *testing.T) {
 
 				t.Logf("create a workspace shard referencing the secret above")
 				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix,
+					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
-						Name:      "kubeconfig",
-						Namespace: "credentials",
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
 					}},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
@@ -184,8 +210,12 @@ func TestWorkspaceShardController(t *testing.T) {
 		{
 			name: "create a workspace shard referencing valid credentials, expect to see status reflect that, and then notice a change in the secret",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("create a namespace %q for the credentials secret", "credentials")
-				_, err := server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{})
+				t.Log("create a namespace for the credentials secret")
+				namespace, err := server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix + "credentials-",
+					},
+				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create credentials namespace")
 
 				t.Logf("create credential secret with a valid kubeconfig file")
@@ -201,8 +231,10 @@ func TestWorkspaceShardController(t *testing.T) {
 				cfg, err := clientcmd.NewNonInteractiveClientConfig(rawCfg, "context", nil, nil).ClientConfig()
 				require.NoError(t, err, "failed to create rootShardClient config")
 
-				secret, err := server.rootKubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
+				secret, err := server.rootKubeClient.CoreV1().Secrets(namespace.Name).Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix + "kubeconfig-",
+					},
 					Data: map[string][]byte{
 						"kubeconfig": rawBytes,
 					},
@@ -215,10 +247,12 @@ func TestWorkspaceShardController(t *testing.T) {
 
 				t.Logf("create a workspace shard referencing the secret above")
 				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: "of-glass"},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: namePrefix,
+					},
 					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
-						Name:      "kubeconfig",
-						Namespace: "credentials",
+						Name:      secret.Name,
+						Namespace: secret.Namespace,
 					}},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
@@ -251,7 +285,7 @@ func TestWorkspaceShardController(t *testing.T) {
 				require.NoError(t, err, "could not serialize raw config")
 
 				secret.Data["kubeconfig"] = rawBytes
-				_, err = server.rootKubeClient.CoreV1().Secrets("credentials").Update(ctx, secret, metav1.UpdateOptions{})
+				_, err = server.rootKubeClient.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
 				require.NoError(t, err, "failed to create credentials secret")
 
 				t.Logf("expecting workspace shard condition %s status=True with new credential hash", tenancyv1alpha1.WorkspaceShardCredentialsValid)
@@ -270,18 +304,13 @@ func TestWorkspaceShardController(t *testing.T) {
 			},
 		},
 	}
-	const serverName = "main"
+
+	server := framework.SharedKcpServer(t)
+
 	for i := range testCases {
 		testCase := testCases[i]
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-
-			// TODO(marun) Refactor tests to enable the use of shared fixture
-			f := framework.NewKcpFixture(t,
-				framework.KcpConfig{
-					Name: serverName,
-				},
-			)
 
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -290,12 +319,9 @@ func TestWorkspaceShardController(t *testing.T) {
 				ctx = withDeadline
 			}
 
-			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
-			server := f.Servers[serverName]
-
 			cfg := server.DefaultConfig(t)
 
-			orgClusterName := framework.NewOrganizationFixture(t, f.Servers[serverName])
+			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp rootShardClient for server")
