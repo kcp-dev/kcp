@@ -176,7 +176,9 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 			return nil, err
 		}
 	}
-	gvrstrs := []string{"namespaces.v1."} // A syncer should always watch namespaces
+	// TODO(jmprusi): Added ServiceAccounts, Configmaps and Secrets to the default syncing, but we should figure out
+	//                a way to avoid doing that: https://github.com/kcp-dev/kcp/issues/727
+	gvrstrs := []string{"namespaces.v1.", "serviceaccounts.v1.", "configmaps.v1.", "secrets.v1."} // A syncer should always watch namespaces, serviceaccounts, secrets and configmaps.
 	for _, r := range rs {
 		// v1 -> v1.
 		// apps/v1 -> v1.apps
