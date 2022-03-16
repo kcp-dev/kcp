@@ -67,9 +67,6 @@ func (options *Options) Validate() error {
 	if options.FromKubeconfig == "" {
 		return errors.New("--from-kubeconfig is required")
 	}
-	if options.ToKubeconfig == "" {
-		return errors.New("--to-kubeconfig is required")
-	}
 
 	return nil
 }
