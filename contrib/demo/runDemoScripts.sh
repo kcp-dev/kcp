@@ -108,7 +108,7 @@ for demo in ${DEMOS} ; do
   fi
   cd ${CURRENT_DIR}
 
-  if ! diff <(cleanupDemoOutput ${DEMO_DIR}/result.txt) <(cleanupDemoOutput ${TEST_DIR}/demo.log) > ${TEST_DIR}/diff.log ; then
+  if ! diff <cleanupDemoOutput ${DEMO_DIR}/result.txt <cleanupDemoOutput ${TEST_DIR}/demo.log> ${TEST_DIR}/diff.log ; then
     echo "Demo $demo failed ! Difference between expected and effective outputs is in the ${TEST_DIR}/diff.log file"
     error=true
   else
