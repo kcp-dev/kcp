@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clusters"
 
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
@@ -53,18 +52,6 @@ func EncodeLogicalClusterName(workspace *tenancyapi.ClusterWorkspace) (string, e
 // an organization and workspace.
 func EncodeOrganizationAndClusterWorkspace(organization, workspace string) string {
 	return organization + separator + workspace
-}
-
-// WorkspaceKey returns a key to use when looking up a ClusterWorkspace in a lister or indexer.
-// If org is the value of OrganizationCluster, the key will be of the format
-// <OrganizationCluster>#$#<ws>. Otherwise, the key will be of the format
-// <OrganizationClsuter>_<org>#$#<ws>.
-func WorkspaceKey(org, ws string) string {
-	if org == RootCluster || (org == "" && ws == RootCluster) || strings.HasPrefix(org, LocalSystemClusterPrefix) {
-		return clusters.ToClusterAwareKey(org, ws)
-	}
-
-	return clusters.ToClusterAwareKey(EncodeOrganizationAndClusterWorkspace(RootCluster, org), ws)
 }
 
 // ParseLogicalClusterName determines the organization and workspace name from a

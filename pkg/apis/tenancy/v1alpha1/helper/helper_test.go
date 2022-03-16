@@ -136,47 +136,6 @@ func TestParseLogicalClusterName(t *testing.T) {
 	}
 }
 
-func TestWorkspaceKey(t *testing.T) {
-	tests := []struct {
-		name string
-		org  string
-		ws   string
-		want string
-	}{
-		{
-			name: "root ws",
-			org:  "",
-			ws:   RootCluster,
-			want: RootCluster,
-		},
-		{
-			name: "fake root ws",
-			org:  "myorg",
-			ws:   RootCluster,
-			want: "root:myorg#$#root",
-		},
-		{
-			name: "org ws",
-			org:  RootCluster,
-			ws:   "myws",
-			want: "root#$#myws",
-		},
-		{
-			name: "normal ws",
-			org:  "myorg",
-			ws:   "myws",
-			want: "root:myorg#$#myws",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := WorkspaceKey(tt.org, tt.ws); got != tt.want {
-				t.Errorf("WorkspaceKey() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestParentClusterName(t *testing.T) {
 	tests := []struct {
 		clusterName string

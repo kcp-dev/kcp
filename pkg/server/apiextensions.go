@@ -78,7 +78,7 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 	// exist, we'll never be able to create it. Only check if the target workspace exists for
 	// non-default keys.
 	if cluster.Name != helper.RootCluster && c.workspaceLister != nil {
-		targetWorkspaceKey := helper.WorkspaceKey(orgName, ws)
+		targetWorkspaceKey := workspaceKey(orgName, ws)
 		workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 		if err != nil && !apierrors.IsNotFound(err) {
 			// Only return errors other than not-found. If we couldn't find the workspace, let's continue
@@ -99,18 +99,13 @@ func (c *inheritanceCRDLister) ListWithContext(ctx context.Context, selector lab
 			} else {
 				// Make sure the source workspace exists
 				wsName := workspace.Spec.InheritFrom
-				orgClusterName := orgName
 				if strings.ContainsRune(workspace.Spec.InheritFrom, ':') {
-					orgClusterName, err = helper.ParentClusterName(workspace.Spec.InheritFrom)
-					if err != nil {
-						return nil, err
-					}
 					orgName, wsName, err = helper.ParseLogicalClusterName(workspace.Spec.InheritFrom)
 					if err != nil {
 						return nil, err
 					}
 				}
-				sourceWorkspaceKey := helper.WorkspaceKey(orgClusterName, wsName)
+				sourceWorkspaceKey := workspaceKey(orgName, wsName)
 				_, err := c.workspaceLister.Get(sourceWorkspaceKey)
 				switch {
 				case err == nil:
@@ -211,7 +206,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 	}
 
 	// Check for API inheritance
-	targetWorkspaceKey := helper.WorkspaceKey(org, ws)
+	targetWorkspaceKey := workspaceKey(org, ws)
 	workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
 	if err != nil {
 		// If we're here it means ctx's logical cluster doesn't have the CRD and there isn't a
@@ -234,7 +229,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		// HACK: allow inheriting from the OrganizationCluster logical cluster
 		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.RootCluster, name)
 	} else {
-		sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
+		sourceWorkspaceKey := workspaceKey(org, workspace.Spec.InheritFrom)
 		if _, err := c.workspaceLister.Get(sourceWorkspaceKey); err != nil {
 			// If we're here it means ctx's logical cluster doesn't have the CRD, the ClusterWorkspace exists,
 			// we are inheriting, but the ClusterWorkspace we're inheriting from doesn't exist. Just return
@@ -344,4 +339,16 @@ func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) Lister
 		workspaceLister: i.workspaceLister,
 	}
 	return l
+}
+
+// workspaceKey returns a key to use when looking up a ClusterWorkspace in a lister or indexer.
+// If org is the value of OrganizationCluster, the key will be of the format
+// <OrganizationCluster>#$#<ws>. Otherwise, the key will be of the format
+// <OrganizationClsuter>_<org>#$#<ws>.
+func workspaceKey(org, ws string) string {
+	if org == helper.RootCluster || (org == "" && ws == helper.RootCluster) || strings.HasPrefix(org, helper.LocalSystemClusterPrefix) {
+		return clusters.ToClusterAwareKey(org, ws)
+	}
+
+	return clusters.ToClusterAwareKey(helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, org), ws)
 }
