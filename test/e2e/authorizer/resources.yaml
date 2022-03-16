@@ -4,58 +4,27 @@ kind: ClusterWorkspace
 metadata:
   name: workspace1
 ---
-apiVersion: tenancy.kcp.dev/v1alpha1
-kind: ClusterWorkspace
-metadata:
-  name: workspace2
----
-
-# declare user-1 to be editor
+# declare user-1 to be an admin
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: user-1-editor
+  name: user-1-admin
 subjects:
   - kind: User
     name: user-1
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole
-  name: workspace1-editor
+  name: workspace1-admin
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: workspace1-editor
+  name: workspace1-admin
 rules:
   - apiGroups: ["tenancy.kcp.dev"]
     resources: ["clusterworkspaces/content"]
     resourceNames: ["workspace1"]
-    verbs: ["edit", "view"]
----
-
-# declare user-2 to be viewer
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: user-2-viewer
-subjects:
-  - kind: User
-    name: user-2
-    apiGroup: rbac.authorization.k8s.io
-roleRef:
-  kind: ClusterRole
-  name: workspace1-viewer
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: workspace1-viewer
-rules:
-  - apiGroups: ["tenancy.kcp.dev"]
-    resources: ["clusterworkspaces/content"]
-    resourceNames: ["workspace1"]
-    verbs: ["view"]
+    verbs: ["admin"]
 ---

@@ -98,8 +98,6 @@ func TestAuthorizer(t *testing.T) {
 			Dynamic:    orgDynamicClient,
 		},
 		"user-1": newUserClient(t, "user-1", helper.EncodeOrganizationAndClusterWorkspace(org, "workspace1"), kcpCfg),
-		"user-2": newUserClient(t, "user-2", helper.EncodeOrganizationAndClusterWorkspace(org, "workspace1"), kcpCfg),
-		"user-3": newUserClient(t, "user-3", helper.EncodeOrganizationAndClusterWorkspace(org, "workspace1"), kcpCfg),
 	}
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgKcpClient.Discovery()))
@@ -111,7 +109,7 @@ func TestAuthorizer(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create resources")
 
-	for _, wsName := range []string{"workspace1", "workspace2"} {
+	for _, wsName := range []string{"workspace1"} {
 		require.Eventually(t, func() bool {
 			ws, err := orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "workspace1", metav1.GetOptions{})
 			if err != nil {
@@ -148,58 +146,6 @@ func TestAuthorizer(t *testing.T) {
 				metav1.GetOptions{},
 			)
 			require.NoError(t, err)
-		},
-		"Users can view each others resources": func() {
-			var err error
-			_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
-				ctx,
-				&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test-each-other-resources"}},
-				metav1.CreateOptions{},
-			)
-			require.NoError(t, err)
-			_, err = clients["user-1"].KubeClient.CoreV1().ConfigMaps("test-each-other-resources").Create(
-				ctx,
-				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-each-other-resources"}},
-				metav1.CreateOptions{},
-			)
-			require.NoError(t, err)
-
-			_, err = clients["user-2"].KubeClient.CoreV1().Namespaces().Get(
-				ctx, "test-each-other-resources",
-				metav1.GetOptions{},
-			)
-			require.NoError(t, err)
-			_, err = clients["user-2"].KubeClient.CoreV1().ConfigMaps("test-each-other-resources").Get(
-				ctx, "test-each-other-resources",
-				metav1.GetOptions{},
-			)
-			require.NoError(t, err)
-		},
-		"Users without access can not see resources": func() {
-			var err error
-			_, err = clients["user-1"].KubeClient.CoreV1().Namespaces().Create(
-				ctx,
-				&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "no-access-resources"}},
-				metav1.CreateOptions{},
-			)
-			require.NoError(t, err)
-			_, err = clients["user-1"].KubeClient.CoreV1().ConfigMaps("no-access-resources").Create(
-				ctx,
-				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "no-access-resources"}},
-				metav1.CreateOptions{},
-			)
-			require.NoError(t, err)
-
-			_, err = clients["user-3"].KubeClient.CoreV1().Namespaces().Get(
-				ctx, "no-access-resources",
-				metav1.GetOptions{},
-			)
-			require.Error(t, err)
-			_, err = clients["user-3"].KubeClient.CoreV1().ConfigMaps("no-access-resources").Get(
-				ctx, "no-access-resources",
-				metav1.GetOptions{},
-			)
-			require.Error(t, err)
 		},
 		"Cluster Admins can use wildcard clusters": func() {
 			var err error
