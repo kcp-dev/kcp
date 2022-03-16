@@ -320,7 +320,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 			}
 
 			if len(validShards) > 0 {
-				targetShard := shards[rand.Intn(len(shards))]
+				targetShard := validShards[rand.Intn(len(validShards))]
 
 				u, err := url.Parse(targetShard.Status.ConnectionInfo.Host)
 				if err != nil {
