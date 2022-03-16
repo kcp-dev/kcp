@@ -33,6 +33,7 @@ const (
 	// RootCluster is the name of the logical cluster containing the organizations.
 	RootCluster              = "root"
 	LocalSystemClusterPrefix = "system:"
+	LocalSystemAdminCluster  = LocalSystemClusterPrefix + "admin"
 )
 
 // EncodeLogicalClusterName determines the logical cluster name for a workspace.

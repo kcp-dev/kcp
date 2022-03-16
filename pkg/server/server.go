@@ -39,6 +39,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
+	"github.com/kcp-dev/kcp/config/admin"
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	configroot "github.com/kcp-dev/kcp/config/root"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
@@ -296,10 +297,20 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
+		if err := admin.Bootstrap(
+			goContext(ctx),
+			apiextensionsClusterClient.Cluster(helper.LocalSystemAdminCluster),
+			apiextensionsClusterClient.Cluster(helper.LocalSystemAdminCluster).Discovery(),
+			dynamicClusterClient.Cluster(helper.LocalSystemAdminCluster),
+		); err != nil {
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
 		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(helper.RootCluster),
+			apiextensionsClusterClient.Cluster(helper.RootCluster).Discovery(),
 			dynamicClusterClient.Cluster(helper.RootCluster),
 			"root",
 
