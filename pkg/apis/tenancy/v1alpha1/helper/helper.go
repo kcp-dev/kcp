@@ -60,7 +60,7 @@ func EncodeOrganizationAndClusterWorkspace(organization, workspace string) strin
 // <OrganizationCluster>#$#<ws>. Otherwise, the key will be of the format
 // <OrganizationClsuter>_<org>#$#<ws>.
 func WorkspaceKey(org, ws string) string {
-	if org == RootCluster || strings.HasPrefix(org, LocalSystemClusterPrefix) {
+	if org == RootCluster || (org == "" && ws == RootCluster) || strings.HasPrefix(org, LocalSystemClusterPrefix) {
 		return clusters.ToClusterAwareKey(org, ws)
 	}
 

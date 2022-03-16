@@ -144,6 +144,18 @@ func TestWorkspaceKey(t *testing.T) {
 		want string
 	}{
 		{
+			name: "root ws",
+			org:  "",
+			ws:   RootCluster,
+			want: RootCluster,
+		},
+		{
+			name: "fake root ws",
+			org:  "myorg",
+			ws:   RootCluster,
+			want: "root:myorg#$#root",
+		},
+		{
 			name: "org ws",
 			org:  RootCluster,
 			ws:   "myws",

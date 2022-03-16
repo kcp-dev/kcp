@@ -24,6 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -103,5 +104,37 @@ func TestEnqueueStrategyForCluster(t *testing.T) {
 			require.Equal(t, testCase.pendingCordon, pendingCordon, "unexpected pendingCordon")
 		})
 	}
+}
 
+func TestIsWorkspaceSchedulable(t *testing.T) {
+	testCases := []struct {
+		testName    string
+		schedulable bool
+		expected    bool
+	}{{
+		testName:    "workspace schedulable",
+		schedulable: true,
+		expected:    true,
+	}, {
+		testName: "workspace unschedulable",
+	}}
+	for _, testCase := range testCases {
+		t.Run(testCase.testName, func(t *testing.T) {
+			labels := map[string]string{}
+			if testCase.schedulable {
+				labels[WorkspaceSchedulableLabel] = "true"
+			}
+			getWorkspace := func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+				return &tenancyv1alpha1.ClusterWorkspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "ws",
+						Labels: labels,
+					},
+				}, nil
+			}
+			actual, err := isWorkspaceSchedulable(getWorkspace, "org:ws")
+			require.NoError(t, err)
+			require.Equal(t, testCase.expected, actual)
+		})
+	}
 }
