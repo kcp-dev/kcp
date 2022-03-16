@@ -54,17 +54,6 @@ spec:
             type: object
           status:
             description: Status communicates the observed state.
-            properties:
-              resourceSchemasInUse:
-                description: "ResourceSchemasInUse records which schemas are actually
-                  in use (that is, APIBindings bound to this APIExport at any given
-                  time). It can be a superset of the actually bound schemas. Pruning
-                  is done regularly. \n An APIBinding cannot bind to a schema that
-                  is not in this list."
-                items:
-                  type: string
-                type: array
-                x-kubernetes-list-type: set
             type: object
         type: object
     served: true

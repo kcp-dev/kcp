@@ -239,15 +239,6 @@ type APIExportSpec struct {
 
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatus struct {
-	// ResourceSchemasInUse records which schemas are actually in use (that is,
-	// APIBindings bound to this APIExport at any given time). It can be a
-	// superset of the actually bound schemas. Pruning is done regularly.
-	//
-	// An APIBinding cannot bind to a schema that is not in this list.
-	//
-	// +optional
-	// +listType=set
-	ResourceSchemasInUse []string `json:"resourceSchemasInUse,omitempty"`
 }
 
 // APIExportList is a list of APIExport resources
