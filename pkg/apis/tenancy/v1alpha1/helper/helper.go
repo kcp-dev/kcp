@@ -17,6 +17,7 @@ limitations under the License.
 package helper
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -55,12 +56,38 @@ func EncodeOrganizationAndClusterWorkspace(organization, workspace string) strin
 	return organization + separator + workspace
 }
 
+// HasClusterWorkspace indicates whether provided org and workspace
+// identify a cluster that is backed by a ClusterWorkspace resource.
+func HasClusterWorkspace(org, ws string) bool {
+	return checkWorkspaceKeyInput(org, ws) == nil
+}
+
+// checkWorkspaceKeyInput validates the input to HasClusterWorkspace
+// and WorkspaceKey and returns an error if invalid.
+func checkWorkspaceKeyInput(org, ws string) error {
+	if org == "" && ws == RootCluster {
+		return errors.New("The root cluster is not backed by a ClusterWorkspace")
+	}
+	if strings.Contains(org, separator) {
+		return fmt.Errorf("org '%s' contains a '%s' which is not valid", org, separator)
+	}
+	if strings.Contains(ws, separator) {
+		return fmt.Errorf("workspace '%s' contains a '%s' which is not valid", ws, separator)
+	}
+	return nil
+}
+
 // WorkspaceKey returns a key to use when looking up a ClusterWorkspace in a lister or indexer.
 // If org is the value of OrganizationCluster, the key will be of the format
 // <OrganizationCluster>#$#<ws>. Otherwise, the key will be of the format
 // <OrganizationClsuter>_<org>#$#<ws>.
-func WorkspaceKey(org, ws string) string {
-	if org == RootCluster || (org == "" && ws == RootCluster) || strings.HasPrefix(org, LocalSystemClusterPrefix) {
+func WorkspaceKey(org string, ws string) string {
+	err := checkWorkspaceKeyInput(org, ws)
+	if err != nil {
+		panic(err)
+	}
+
+	if org == RootCluster {
 		return clusters.ToClusterAwareKey(org, ws)
 	}
 

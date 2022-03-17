@@ -19,6 +19,8 @@ package helper
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -136,25 +138,53 @@ func TestParseLogicalClusterName(t *testing.T) {
 	}
 }
 
+func TestCheckWorkspaceKeyInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		org   string
+		ws    string
+		valid bool
+	}{{
+		name:  "root ws",
+		org:   "",
+		ws:    RootCluster,
+		valid: false,
+	}, {
+		name:  "colon in org",
+		org:   "system:admin",
+		ws:    "foo",
+		valid: false,
+	}, {
+		name:  "colon in ws",
+		org:   "foo",
+		ws:    "system:admin",
+		valid: false,
+	}, {
+		name:  "normal ws",
+		org:   "foo",
+		ws:    "bar",
+		valid: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkWorkspaceKeyInput(tt.org, tt.ws)
+			if tt.valid {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
 func TestWorkspaceKey(t *testing.T) {
 	tests := []struct {
-		name string
-		org  string
-		ws   string
-		want string
+		name   string
+		org    string
+		ws     string
+		want   string
+		panics bool
 	}{
-		{
-			name: "root ws",
-			org:  "",
-			ws:   RootCluster,
-			want: RootCluster,
-		},
-		{
-			name: "fake root ws",
-			org:  "myorg",
-			ws:   RootCluster,
-			want: "root:myorg#$#root",
-		},
 		{
 			name: "org ws",
 			org:  RootCluster,
@@ -167,9 +197,20 @@ func TestWorkspaceKey(t *testing.T) {
 			ws:   "myws",
 			want: "root:myorg#$#myws",
 		},
+		{
+			name:   "invalid input panics",
+			org:    "",
+			ws:     RootCluster,
+			panics: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.panics {
+				require.Panics(t, func() { WorkspaceKey(tt.org, tt.ws) },
+					"expected panic for org: %s, ws: %s", tt.org, tt.ws)
+				return
+			}
 			if got := WorkspaceKey(tt.org, tt.ws); got != tt.want {
 				t.Errorf("WorkspaceKey() = %v, want %v", got, tt.want)
 			}
