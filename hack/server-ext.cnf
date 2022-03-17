@@ -1,3 +1,0 @@
-subjectAltName=DNS:*,IP:192.168.0.16
-keyUsage=digitalSignature, keyEncipherment
-extendedKeyUsage=serverAuth
