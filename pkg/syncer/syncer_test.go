@@ -26,11 +26,11 @@ func TestTransformName(t *testing.T) {
 	for _, c := range []struct {
 		desc         string
 		syncedobject *unstructured.Unstructured
-		direction    Direction
+		direction    SyncDirection
 		expectedName string
 	}{{
 		desc:      "Sync kube-root-ca.crt configmap from KCP to a Pcluster",
-		direction: KcpToPhysicalCluster,
+		direction: SyncDown,
 		syncedobject: &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"kind":       "ConfigMap",
@@ -45,7 +45,7 @@ func TestTransformName(t *testing.T) {
 	},
 		{
 			desc:      "Sync kcp-root-ca.crt configmap from Pcluster to a KCP",
-			direction: PhysicalClusterToKcp,
+			direction: SyncUp,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ConfigMap",
@@ -60,7 +60,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync default serviceaccount from KCP to a Pcluster",
-			direction: KcpToPhysicalCluster,
+			direction: SyncDown,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ServiceAccount",
@@ -75,7 +75,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync kcp-default serviceaccount from Pcluster to a KCP",
-			direction: PhysicalClusterToKcp,
+			direction: SyncUp,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ServiceAccount",
@@ -90,7 +90,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync arbitrary serviceaccount from Pcluster to a KCP",
-			direction: PhysicalClusterToKcp,
+			direction: SyncUp,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ServiceAccount",
@@ -105,7 +105,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync arbitrary serviceaccount from KCP to a Pcluster",
-			direction: KcpToPhysicalCluster,
+			direction: SyncDown,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ServiceAccount",
@@ -120,7 +120,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync arbitrary configmap from Pcluster to a KCP",
-			direction: PhysicalClusterToKcp,
+			direction: SyncUp,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ConfigMap",
@@ -135,7 +135,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync arbitrary configmap from KCP to a Pcluster",
-			direction: KcpToPhysicalCluster,
+			direction: SyncDown,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ConfigMap",
@@ -150,7 +150,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync deployment from KCP to a Pcluster",
-			direction: KcpToPhysicalCluster,
+			direction: SyncDown,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "Deployment",
@@ -165,7 +165,7 @@ func TestTransformName(t *testing.T) {
 		},
 		{
 			desc:      "Sync deployment from Pcluster to KCP",
-			direction: PhysicalClusterToKcp,
+			direction: SyncUp,
 			syncedobject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "Deployment",

@@ -83,7 +83,7 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClust
 	}
 	fromClient := fromClients.Cluster(kcpClusterName)
 	toClient := dynamic.NewForConfigOrDie(to)
-	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, pclusterID)
+	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, SyncDown, syncedResourceTypes, pclusterID)
 }
 
 func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
@@ -167,7 +167,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetOwnerReferences(ownerReferences)
 
 	// Run name transformations on the downstreamObj.
-	transformName(downstreamObj, KcpToPhysicalCluster)
+	transformName(downstreamObj, SyncDown)
 
 	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
 	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.

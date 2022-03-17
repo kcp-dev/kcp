@@ -50,14 +50,14 @@ const (
 	syncerApplyManager = "syncer"
 )
 
-// Direction indicates which direction data is flowing for this particular syncer
-type Direction string
+// SyncDirection indicates which direction data is flowing for this particular syncer
+type SyncDirection string
 
-// KcpToPhysicalCluster indicates a syncer watches resources on KCP and applies the spec to the target cluster
-const KcpToPhysicalCluster Direction = "down"
+// SyncDown indicates a syncer watches resources on KCP and applies the spec to the target cluster
+const SyncDown SyncDirection = "down"
 
-// PhysicalClusterToKcp indicates a syncer watches resources on the target cluster and applies the status to KCP
-const PhysicalClusterToKcp Direction = "up"
+// SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
+const SyncUp SyncDirection = "up"
 
 func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName, pcluster string, numSyncerThreads int) error {
 	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster)
@@ -87,14 +87,14 @@ type Controller struct {
 
 	upsertFn  UpsertFunc
 	deleteFn  DeleteFunc
-	direction Direction
+	direction SyncDirection
 
 	upstreamClusterName string
 	syncerNamespace     string
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction Direction, syncedResourceTypes []string, pclusterID string) (*Controller, error) {
+func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction SyncDirection, syncedResourceTypes []string, pclusterID string) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -107,7 +107,7 @@ func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInter
 		syncerNamespace:     os.Getenv(SyncerNamespaceKey),
 	}
 
-	if direction == KcpToPhysicalCluster {
+	if direction == SyncDown {
 		c.upsertFn = c.applyToDownstream
 		c.deleteFn = c.deleteFromDownstream
 	} else {
@@ -130,7 +130,7 @@ func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInter
 		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if c.direction == KcpToPhysicalCluster {
+				if c.direction == SyncDown {
 					if !deepEqualApartFromStatus(oldObj, newObj) {
 						c.AddToQueue(*gvr, newObj)
 					}
@@ -256,7 +256,7 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 	if len(metaObj.GetNamespace()) > 0 {
 		qualifiedName = metaObj.GetNamespace() + "/" + qualifiedName
 	}
-	if c.direction == KcpToPhysicalCluster {
+	if c.direction == SyncDown {
 		qualifiedName = metaObj.GetClusterName() + "|" + qualifiedName
 	}
 	klog.Infof("Syncer %s: adding %s %s to queue", c.name, gvr, qualifiedName)
@@ -355,7 +355,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 	)
 
 	// Determine toNamespace
-	if c.direction == KcpToPhysicalCluster {
+	if c.direction == SyncDown {
 		// Convert the clusterName and namespace to a single string for toNamespace
 		l := NamespaceLocator{
 			LogicalCluster: h.clusterName,
@@ -444,16 +444,16 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 // transformName changes the object name into the desired one based on the Direction:
 // - if the object is a configmap it handles the "kube-root-ca.crt" name mapping
 // - if the object is a serviceaccount it handles the "default" name mapping
-func transformName(syncedObject *unstructured.Unstructured, direction Direction) {
+func transformName(syncedObject *unstructured.Unstructured, direction SyncDirection) {
 	switch direction {
-	case KcpToPhysicalCluster:
+	case SyncDown:
 		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kube-root-ca.crt" {
 			syncedObject.SetName("kcp-root-ca.crt")
 		}
 		if syncedObject.GetKind() == "ServiceAccount" && syncedObject.GetName() == "default" {
 			syncedObject.SetName("kcp-default")
 		}
-	case PhysicalClusterToKcp:
+	case SyncUp:
 		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kcp-root-ca.crt" {
 			syncedObject.SetName("kube-root-ca.crt")
 		}
