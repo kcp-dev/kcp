@@ -52,8 +52,9 @@ func TestWorkspaceShardController(t *testing.T) {
 		expect                        framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
-		name string
-		work func(ctx context.Context, t *testing.T, server runningServer)
+		name        string
+		destructive bool
+		work        func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "create a workspace shard without credentials, expect to see status reflect missing credentials",
@@ -209,6 +210,9 @@ func TestWorkspaceShardController(t *testing.T) {
 		},
 		{
 			name: "create a workspace shard referencing valid credentials, expect to see status reflect that, and then notice a change in the secret",
+			// This test creates a workspace shard whose kubeconfig does not include the `certificate-authority-data` that a virtual workspace test expects
+			// so it runs with a private server to avoid failing the other test.
+			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Log("create a namespace for the credentials secret")
 				namespace, err := server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -305,7 +309,7 @@ func TestWorkspaceShardController(t *testing.T) {
 		},
 	}
 
-	server := framework.SharedKcpServer(t)
+	sharedServer := framework.SharedKcpServer(t)
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -317,6 +321,16 @@ func TestWorkspaceShardController(t *testing.T) {
 				withDeadline, cancel := context.WithDeadline(ctx, deadline)
 				t.Cleanup(cancel)
 				ctx = withDeadline
+			}
+
+			server := sharedServer
+			if testCase.destructive {
+				// Destructive tests require their own server
+				//
+				// TODO(marun) Could the testing currently requiring destructive e2e be performed with less cost?
+				const serverName = "main"
+				f := framework.NewKcpFixture(t, framework.KcpConfig{Name: serverName})
+				server = f.Servers[serverName]
 			}
 
 			cfg := server.DefaultConfig(t)
