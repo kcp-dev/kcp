@@ -69,6 +69,7 @@ func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterfa
 			clusterClient,
 			nil,
 			wrapper,
+			nil,
 		)
 
 		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need

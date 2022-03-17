@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	dynamicextension "github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 )
 
 // StoreFuncs holds proto-functions that can be mutated by successive actors to wrap behavior.
@@ -76,9 +77,10 @@ func DefaultDynamicDelegatedStoreFuncs(
 	dynamicClusterClient dynamic.ClusterInterface,
 	subResources []string,
 	patchConflictRetryBackoff wait.Backoff,
+	transformers transforming.Transformers,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
-	client := clientGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	client := clientGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash, transformers)
 	s := &StoreFuncs{}
 	s.FactoryFunc = factory
 	s.ListFactoryFunc = listFactory
@@ -232,6 +234,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Watch(watchCtx, v1ListOptions)
 	}
+
 	s.TableConvertorFunc = tableConvertor.ConvertToTable
 	s.CategoriesProviderFunc = func() []string {
 		return categories
@@ -247,7 +250,7 @@ func withDeleter(dynamicResourceInterface dynamic.ResourceInterface) (dynamicext
 	return nil, fmt.Errorf("dynamic client does not implement ResourceDeleterInterface")
 }
 
-func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
+func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string, transformers transforming.Transformers) func(ctx context.Context) (dynamic.ResourceInterface, error) {
 	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
@@ -262,14 +265,23 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 			}
 		}
 
-		if namespaceScoped {
-			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
-			} else {
-				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
-			}
-		} else {
-			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
+		if !namespaceScoped {
+			return &transforming.TransformingClient{
+				Transformations: transformers,
+				Client:          dynamicClusterClient.Cluster(clusterName).Resource(gvr),
+				Namespace:       "",
+				Resource:        gvr,
+			}, nil
 		}
+
+		if namespace, exists := genericapirequest.NamespaceFrom(ctx); exists {
+			return &transforming.TransformingClient{
+				Transformations: transformers,
+				Client:          dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace),
+				Namespace:       namespace,
+				Resource:        gvr,
+			}, nil
+		}
+		return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
 	}
 }

@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
 )
@@ -152,6 +153,8 @@ func BuildVirtualWorkspace(
 			}
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+			genericTransformers := transforming.Transformers{}
+
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
 				wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
@@ -167,7 +170,7 @@ func BuildVirtualWorkspace(
 					storageWrapper := forwardingregistry.WithStaticLabelSelector(requirements)
 
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
+					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper, genericTransformers)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
