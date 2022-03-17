@@ -210,6 +210,11 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
+	if !helper.HasClusterWorkspace(org, ws) {
+		// Without a cluster workspace no inheritance is possible
+		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+	}
+
 	// Check for API inheritance
 	targetWorkspaceKey := helper.WorkspaceKey(org, ws)
 	workspace, err := c.workspaceLister.Get(targetWorkspaceKey)
@@ -234,7 +239,20 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		// HACK: allow inheriting from the OrganizationCluster logical cluster
 		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.RootCluster, name)
 	} else {
-		sourceWorkspaceKey := helper.WorkspaceKey(org, workspace.Spec.InheritFrom)
+		// Make sure the source workspace exists
+		wsName := workspace.Spec.InheritFrom
+		orgClusterName := org
+		if strings.ContainsRune(workspace.Spec.InheritFrom, ':') {
+			orgClusterName, err = helper.ParentClusterName(workspace.Spec.InheritFrom)
+			if err != nil {
+				return nil, err
+			}
+			org, wsName, err = helper.ParseLogicalClusterName(workspace.Spec.InheritFrom)
+			if err != nil {
+				return nil, err
+			}
+		}
+		sourceWorkspaceKey := helper.WorkspaceKey(orgClusterName, wsName)
 		if _, err := c.workspaceLister.Get(sourceWorkspaceKey); err != nil {
 			// If we're here it means ctx's logical cluster doesn't have the CRD, the ClusterWorkspace exists,
 			// we are inheriting, but the ClusterWorkspace we're inheriting from doesn't exist. Just return
@@ -246,7 +264,7 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 			return nil, err
 		}
 
-		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.EncodeOrganizationAndClusterWorkspace(org, workspace.Spec.InheritFrom), name)
+		sourceWorkspaceCRDKey = clusters.ToClusterAwareKey(helper.EncodeOrganizationAndClusterWorkspace(org, wsName), name)
 	}
 	// Try to get the inherited CRD
 	crd, err = c.crdLister.Get(sourceWorkspaceCRDKey)

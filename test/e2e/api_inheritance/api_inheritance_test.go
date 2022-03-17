@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -159,8 +158,8 @@ func TestAPIInheritance(t *testing.T) {
 				return nil
 			}
 
-			t.Logf("Make sure %q API group shows up in \"source\" workspace group discovery, inherited from %s", tenancy.GroupName, sourceInheritsFrom)
-			err = expectGroupInDiscovery(sourceWorkspaceClusterName, tenancy.GroupName)
+			t.Logf("Make sure %q API group shows up in \"source\" workspace group discovery, inherited from %s", wildwest.GroupName, sourceInheritsFrom)
+			err = expectGroupInDiscovery(sourceWorkspaceClusterName, wildwest.GroupName)
 			require.NoError(t, err)
 
 			t.Logf("Make sure \"cowboys\" API resource shows up in \"source\" workspace group version discovery")
