@@ -23,21 +23,33 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 type wantCondition struct {
 	Type     conditionsv1alpha1.ConditionType
+	Status   corev1.ConditionStatus
 	Reason   string
 	Severity conditionsv1alpha1.ConditionSeverity
+}
+
+func requireConditionMatches(t *testing.T, g conditions.Getter, w wantCondition) {
+	c := conditions.Get(g, w.Type)
+	require.NotNil(t, c, "missing condition %q", w.Type)
+	require.Equal(t, w.Status, c.Status)
+	require.Equal(t, w.Severity, c.Severity)
+	require.Equal(t, w.Reason, c.Reason)
 }
 
 func TestPhaseReconciler(t *testing.T) {
@@ -160,6 +172,7 @@ func TestPhaseReconciler(t *testing.T) {
 			wantPhase:           apisv1alpha1.APIBindingPhaseBound,
 			wantCondition: &wantCondition{
 				Type:     apisv1alpha1.APIExportValid,
+				Status:   corev1.ConditionFalse,
 				Reason:   apisv1alpha1.GetErrorReason,
 				Severity: conditionsv1alpha1.ConditionSeverityWarning,
 			},
@@ -190,14 +203,7 @@ func TestPhaseReconciler(t *testing.T) {
 			require.Equal(t, status, tc.wantReconcileStatus)
 			require.Equal(t, tc.wantPhase, tc.apiBinding.Status.Phase)
 			if tc.wantCondition != nil {
-				found := false
-				for _, c := range tc.apiBinding.Status.Conditions {
-					if c.Type == tc.wantCondition.Type && c.Reason == tc.wantCondition.Reason && c.Severity == tc.wantCondition.Severity {
-						found = true
-						break
-					}
-				}
-				require.True(t, found, "missing condition with %#v", tc.wantCondition)
+				requireConditionMatches(t, tc.apiBinding, *tc.wantCondition)
 			}
 		})
 	}
@@ -424,9 +430,16 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 		getAPIExportError         error
 		apiResourceSchemas        map[string]*apisv1alpha1.APIResourceSchema
 		getAPIResourceSchemaError error
+		crds                      map[string]*apiextensionsv1.CustomResourceDefinition
+		getCRDError               error
+		wantCreateCRD             bool
+		createCRDError            error
+		wantUpdateCRD             bool
+		updateCRDError            error
+		deletedCRDs               []string
 		wantReconcileStatus       reconcileStatus
 		wantError                 bool
-		wantCondition             *wantCondition
+		wantConditions            []wantCondition
 		wantUnbound               bool
 	}{
 		"empty workspace ref unbinds": {
@@ -459,10 +472,13 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 				Build(),
 			getAPIExportError:   apierrors.NewNotFound(apisv1alpha1.SchemeGroupVersion.WithResource("apiexports").GroupResource(), "some-export"),
 			wantReconcileStatus: reconcileStatusStop,
-			wantCondition: &wantCondition{
-				Type:     apisv1alpha1.APIExportValid,
-				Reason:   apisv1alpha1.APIExportNotFoundReason,
-				Severity: conditionsv1alpha1.ConditionSeverityError,
+			wantConditions: []wantCondition{
+				{
+					Type:     apisv1alpha1.APIExportValid,
+					Status:   corev1.ConditionFalse,
+					Reason:   apisv1alpha1.APIExportNotFoundReason,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+				},
 			},
 		},
 		"APIExport get error": {
@@ -480,10 +496,12 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 				Build(),
 			getAPIExportError:   errors.New("foo"),
 			wantReconcileStatus: reconcileStatusStop,
-			wantCondition: &wantCondition{
-				Type:     apisv1alpha1.APIExportValid,
-				Reason:   apisv1alpha1.GetErrorReason,
-				Severity: conditionsv1alpha1.ConditionSeverityError,
+			wantConditions: []wantCondition{
+				{
+					Type:   apisv1alpha1.APIExportValid,
+					Status: corev1.ConditionUnknown,
+					Reason: apisv1alpha1.GetErrorReason,
+				},
 			},
 		},
 		"APIResourceSchema get error": {
@@ -506,16 +524,131 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 			},
 			getAPIResourceSchemaError: errors.New("foo"),
 			wantReconcileStatus:       reconcileStatusStop,
-			wantCondition: &wantCondition{
-				Type:     apisv1alpha1.APIExportValid,
-				Reason:   apisv1alpha1.GetAPIResourceSchemaError,
-				Severity: conditionsv1alpha1.ConditionSeverityError,
+			wantConditions: []wantCondition{
+				{
+					Type:     apisv1alpha1.APIExportValid,
+					Status:   corev1.ConditionFalse,
+					Reason:   apisv1alpha1.GetAPIResourceSchemaError,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+				},
+			},
+		},
+		"APIResourceSchema invalid": {
+			apiBinding: new(bindingBuilder).
+				WithClusterName("org:some-workspace").
+				WithName("binding").
+				WithWorkspaceReference("some-workspace", "some-export").
+				WithBoundAPIExport("some-workspace", "some-export").
+				WithBoundResources(
+					new(boundAPIResourceBuilder).
+						WithGroupResource("group", "resource").
+						WithSchema("schema1", "uid1").
+						BoundAPIResource,
+				).
+				Build(),
+			apiExport: &apisv1alpha1.APIExport{
+				Spec: apisv1alpha1.APIExportSpec{
+					LatestResourceSchemas: []string{"schema1"},
+				},
+			},
+			apiResourceSchemas: map[string]*apisv1alpha1.APIResourceSchema{
+				"schema1": {
+					Spec: apisv1alpha1.APIResourceSchemaSpec{
+						Versions: []apisv1alpha1.APIResourceVersion{
+							{
+								Schema: runtime.RawExtension{
+									Raw: []byte("invalid schema"),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantReconcileStatus: reconcileStatusStop,
+			wantConditions: []wantCondition{
+				{
+					Type:     apisv1alpha1.APIExportValid,
+					Status:   corev1.ConditionFalse,
+					Reason:   apisv1alpha1.InvalidSchemaReason,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+				},
+			},
+		},
+		"CRD get error": {
+			apiBinding: new(bindingBuilder).
+				WithClusterName("org:some-workspace").
+				WithName("binding").
+				WithWorkspaceReference("some-workspace", "some-export").
+				WithBoundAPIExport("some-workspace", "some-export").
+				WithBoundResources(
+					new(boundAPIResourceBuilder).
+						WithGroupResource("group", "resource").
+						WithSchema("schema1", "uid1").
+						BoundAPIResource,
+				).
+				Build(),
+			apiExport: &apisv1alpha1.APIExport{
+				Spec: apisv1alpha1.APIExportSpec{
+					LatestResourceSchemas: []string{"schema1"},
+				},
+			},
+			apiResourceSchemas: map[string]*apisv1alpha1.APIResourceSchema{
+				"schema1": {},
+			},
+			getCRDError:         errors.New("foo"),
+			wantReconcileStatus: reconcileStatusStop,
+			wantConditions: []wantCondition{
+				{
+					Type:     apisv1alpha1.CRDReady,
+					Status:   corev1.ConditionFalse,
+					Reason:   apisv1alpha1.GetErrorReason,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+				},
+			},
+		},
+		"create CRD": {
+			apiBinding: new(bindingBuilder).
+				WithClusterName("org:some-workspace").
+				WithName("binding").
+				WithWorkspaceReference("some-workspace", "some-export").
+				WithBoundAPIExport("some-workspace", "some-export").
+				WithBoundResources(
+					new(boundAPIResourceBuilder).
+						WithGroupResource("group", "resource").
+						WithSchema("schema1", "uid1").
+						BoundAPIResource,
+				).
+				Build(),
+			apiExport: &apisv1alpha1.APIExport{
+				Spec: apisv1alpha1.APIExportSpec{
+					LatestResourceSchemas: []string{"schema1"},
+				},
+			},
+			apiResourceSchemas: map[string]*apisv1alpha1.APIResourceSchema{
+				"schema1": {},
+			},
+			getCRDError:         apierrors.NewNotFound(schema.GroupResource{}, ""),
+			wantCreateCRD:       true,
+			wantReconcileStatus: reconcileStatusStop,
+			wantConditions: []wantCondition{
+				{
+					Type:     apisv1alpha1.CRDReady,
+					Status:   corev1.ConditionFalse,
+					Reason:   apisv1alpha1.WaitingForEstablishedReason,
+					Severity: conditionsv1alpha1.ConditionSeverityInfo,
+				},
+				{
+					Type:   apisv1alpha1.APIExportValid,
+					Status: corev1.ConditionTrue,
+				},
 			},
 		},
 	}
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
+			createCRDCalled := false
+
 			r := &workspaceAPIExportReferenceReconciler{
 				getAPIExport: func(clusterName, name string) (*apisv1alpha1.APIExport, error) {
 					require.Equal(t, "org:some-workspace", clusterName)
@@ -526,10 +659,19 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 					require.Equal(t, "org:some-workspace", clusterName)
 					return tc.apiResourceSchemas[name], tc.getAPIResourceSchemaError
 				},
-				getCRD:            nil,
-				createCRD:         nil,
-				updateCRD:         nil,
-				deletedCRDTracker: nil,
+				getCRD: func(clusterName, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+					require.Equal(t, shadowWorkspaceName, clusterName)
+					return tc.crds[name], tc.getCRDError
+				},
+				createCRD: func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+					createCRDCalled = true
+					// We don't use the returned CRD - update in the future if we need it
+					return &apiextensionsv1.CustomResourceDefinition{}, tc.createCRDError
+				},
+				updateCRD: func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+					return nil, nil
+				},
+				deletedCRDTracker: &lockedStringSet{},
 			}
 
 			status, err := r.reconcile(context.Background(), tc.apiBinding)
@@ -545,6 +687,12 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 			if tc.wantUnbound {
 				require.Nil(t, tc.apiBinding.Status.BoundAPIExport)
 				require.Empty(t, tc.apiBinding.Status.BoundResources)
+			}
+
+			require.Equal(t, tc.wantCreateCRD, createCRDCalled, "expected CRD to be created")
+
+			for _, wantCondition := range tc.wantConditions {
+				requireConditionMatches(t, tc.apiBinding, wantCondition)
 			}
 		})
 	}
