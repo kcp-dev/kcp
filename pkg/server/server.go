@@ -188,8 +188,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	servingOpts := s.options.GenericControlPlane.SecureServing
-	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash, s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, servingOpts.BindPort); err != nil {
+	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash); err != nil {
 		return err
 	}
 
@@ -205,7 +204,7 @@ func (s *Server) Run(ctx context.Context) error {
 		// the lcluster handler is a pass-through, not a delegate, so the wrapping looks weird
 		if s.options.Extra.EnableSharding {
 			clientLoader := sharding.NewClientLoader()
-			clientLoader.Add(s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, genericConfig.LoopbackClientConfig)
+			clientLoader.Add(genericConfig.ExternalAddress, genericConfig.LoopbackClientConfig)
 			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
@@ -394,7 +393,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Virtual.Enabled {
-		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, preHandlerChainMux); err != nil {
+		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig, preHandlerChainMux); err != nil {
 			return err
 		}
 	} else if err := s.installVirtualWorkspacesRedirect(ctx, preHandlerChainMux); err != nil {
