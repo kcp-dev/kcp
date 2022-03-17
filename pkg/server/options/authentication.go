@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -45,7 +46,7 @@ type AdminAuthentication struct {
 
 func NewAdminAuthentication() *AdminAuthentication {
 	return &AdminAuthentication{
-		KubeConfigPath:    "admin.kubeconfig",
+		KubeConfigPath:    ".",
 		TokenHashFilePath: ".admin-token-store",
 	}
 }
@@ -58,7 +59,7 @@ func (s *AdminAuthentication) Validate() []error {
 	errs := []error{}
 
 	if s.TokenHashFilePath == "" && s.KubeConfigPath != "" {
-		errs = append(errs, fmt.Errorf("--admin-kubeconfig requires --admin-token-hash-file-path"))
+		errs = append(errs, fmt.Errorf("--kubeconfig-path requires --admin-token-hash-file-path"))
 	}
 
 	return errs
@@ -70,7 +71,7 @@ func (s *AdminAuthentication) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.StringVar(&s.KubeConfigPath, "kubeconfig-path", s.KubeConfigPath,
-		"Path to which the administrative kubeconfig should be written at startup. If this is relative, it is relative to --root-directory.")
+		"Dir to which the kubeconfigs should be written at startup. If this is relative, it is relative to --root-directory.")
 	fs.StringVar(&s.TokenHashFilePath, "authentication-admin-token-path", s.TokenHashFilePath,
 		"Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.")
 }
@@ -107,14 +108,18 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newToken
 	return newTokenOrEmpty, tokenHash, nil
 }
 
-func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte, externalAddress string, servingPort int) error {
+func (s *AdminAuthentication) WriteKubeConfigs(config *genericapiserver.Config, newToken string, tokenHash []byte, publicAddress string, servingPort int) error {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
-	externalKubeConfigHost := fmt.Sprintf("https://%s:%d", externalAddress, servingPort)
+	externalKubeConfigHost := fmt.Sprintf("https://%s", config.ExternalAddress)
+
+	adminKubeConfigHost := fmt.Sprintf("https://%s:%d", publicAddress, servingPort)
+
+	adminPath := filepath.Join(s.KubeConfigPath, "admin.kubeconfig")
 
 	externalAdminUserName := "admin"
 	if newToken == "" {
 		// The same token will be used: retrieve it, but only if its hash matches the stored token hash.
-		existingExternalKubeConfig, err := clientcmd.LoadFromFile(s.KubeConfigPath)
+		existingExternalKubeConfig, err := clientcmd.LoadFromFile(adminPath)
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -122,7 +127,7 @@ func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, n
 			if externalAdminUser := existingExternalKubeConfig.AuthInfos[externalAdminUserName]; externalAdminUser != nil {
 				kubeConfigTokenHash := sha256.Sum256([]byte(externalAdminUser.Token))
 				if !bytes.Equal(kubeConfigTokenHash[:], tokenHash) {
-					return fmt.Errorf("admin token in file %s is not valid anymore. Remove file %s and restart KCP", s.KubeConfigPath, s.TokenHashFilePath)
+					return fmt.Errorf("admin token in file %s is not valid anymore. Remove file %s and restart KCP", adminPath, s.TokenHashFilePath)
 				}
 				newToken = externalAdminUser.Token
 			}
@@ -131,8 +136,16 @@ func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, n
 	if newToken == "" {
 		return fmt.Errorf("cannot create the 'admin.kubeconfig` file with an empty token for the %s user", externalAdminUserName)
 	}
+
+	adminKubeConfig := createKubeConfig("admin", newToken, adminKubeConfigHost, "", externalCACert)
+	err := clientcmd.WriteToFile(*adminKubeConfig, adminPath)
+
+	if err != nil {
+		return err
+	}
+
 	externalKubeConfig := createKubeConfig("admin", newToken, externalKubeConfigHost, "", externalCACert)
-	return clientcmd.WriteToFile(*externalKubeConfig, s.KubeConfigPath)
+	return clientcmd.WriteToFile(*externalKubeConfig, filepath.Join(s.KubeConfigPath, "external.kubeconfig"))
 }
 
 func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {

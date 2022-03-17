@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"path"
@@ -40,7 +39,7 @@ type mux interface {
 	Handle(pattern string, handler http.Handler)
 }
 
-func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, auth genericapiserver.AuthenticationInfo, preHandlerChainMux mux) error {
+func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, genericConfig *genericapiserver.Config, preHandlerChainMux mux) error {
 	// create virtual workspaces
 	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.Workspaces.NewVirtualWorkspaces(
 		virtualcommandoptions.DefaultRootPathPrefix,
@@ -67,12 +66,12 @@ func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 	codecs := serializer.NewCodecFactory(scheme)
 	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
-	recommendedConfig.Authentication = auth
+	recommendedConfig.Authentication = genericConfig.Authentication
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, extraInformerStarts, virtualWorkspaces...)
 	if err != nil {
 		return err
 	}
-	rootAPIServerConfig.GenericConfig.ExternalAddress = fmt.Sprintf("%s:%d", s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, s.options.GenericControlPlane.SecureServing.BindPort)
+	rootAPIServerConfig.GenericConfig.ExternalAddress = genericConfig.ExternalAddress
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
 	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
 	if err != nil {
