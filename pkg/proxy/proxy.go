@@ -75,7 +75,7 @@ func ProxyHandler(p *KCPProxy, UserHeader, GroupHeader string) func(wr http.Resp
 			clientCert := r.TLS.PeerCertificates[0]
 			appendClientCertAuthHeaders(r.Header, clientCert, UserHeader, GroupHeader)
 		}
-		if klog.V(3).Enabled() {
+		if klog.V(6).Enabled() {
 			klog.Infof("%s %s (%s -> %s) ", r.Method, r.RequestURI, r.RemoteAddr, p.backend)
 		}
 		p.proxy.ServeHTTP(w, r)

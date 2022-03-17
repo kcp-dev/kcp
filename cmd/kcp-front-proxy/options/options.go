@@ -17,27 +17,62 @@ limitations under the License.
 package options
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/apiserver/pkg/authentication/request/x509"
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 )
 
-type Options struct {
-	SecureServing *apiserveroptions.SecureServingOptionsWithLoopback
-	Proxy         proxyoptions.Options
+// ClientCertOptions wraps ClientCertAuthenticationOptions so we don't pull in
+// more auth machinery than we need with DelegatingAuthenticationOptions
+type ClientCertOptions struct {
+	Options apiserveroptions.ClientCertAuthenticationOptions
+}
 
-	RootDirectory string
+// ApplyTo sets up the x509 Authenticator if the client-ca-file option was passed
+func (c *ClientCertOptions) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo) error {
+	clientCAProvider, err := c.Options.GetClientCAContentProvider()
+	if err != nil {
+		return fmt.Errorf("unable to load client CA provider: %w", err)
+	}
+	if clientCAProvider != nil {
+		if err = authenticationInfo.ApplyClientCert(clientCAProvider, servingInfo); err != nil {
+			return fmt.Errorf("unable to assign client CA provider: %w", err)
+		}
+		authenticationInfo.Authenticator = x509.NewDynamic(clientCAProvider.VerifyOptions, x509.CommonNameUserConversion)
+	}
+	return nil
+}
+
+// AddFlags delegates to ClientCertAuthenticationOptions
+func (c *ClientCertOptions) AddFlags(fs *pflag.FlagSet) {
+	c.Options.AddFlags(fs)
+}
+
+// Validate just completes the options pattern. Returns nil.
+func (c *ClientCertOptions) Validate() []error {
+	return nil
+}
+
+type Options struct {
+	SecureServing  apiserveroptions.SecureServingOptionsWithLoopback
+	Authentication ClientCertOptions
+	Proxy          proxyoptions.Options
+	RootDirectory  string
 }
 
 func NewOptions() *Options {
 	o := &Options{
-		SecureServing: apiserveroptions.NewSecureServingOptions().WithLoopback(),
-		Proxy:         *proxyoptions.NewOptions(),
+		SecureServing:  *apiserveroptions.NewSecureServingOptions().WithLoopback(),
+		Authentication: ClientCertOptions{},
+		Proxy:          *proxyoptions.NewOptions(),
 
 		RootDirectory: ".kcp",
 	}
@@ -51,6 +86,7 @@ func NewOptions() *Options {
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.SecureServing.AddFlags(fs)
+	o.Authentication.AddFlags(fs)
 	o.Proxy.AddFlags(fs)
 
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
@@ -87,6 +123,7 @@ func (o *Options) Validate() []error {
 	var errs []error
 
 	errs = append(errs, o.SecureServing.Validate()...)
+	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.Proxy.Validate()...)
 
 	return errs
