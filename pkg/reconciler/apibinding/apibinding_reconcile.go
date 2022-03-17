@@ -94,11 +94,23 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 
 		apiExport, err := r.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
 		if err != nil {
-			return reconcileStatusStop, fmt.Errorf("error getting APIExport %s|%s: %w", apiExport.ClusterName, apiExport.Name, err)
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.APIExportValid,
+				apisv1alpha1.GetErrorReason,
+				conditionsv1alpha1.ConditionSeverityWarning,
+				"error getting previously bound APIExport: %v",
+				err,
+			)
+
+			// Stop reconciling, but return error so we retry
+			return reconcileStatusStop, fmt.Errorf("error getting APIExport %s|%s: %w", apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName, err)
 		}
 
 		var exportedSchemas []*apisv1alpha1.APIResourceSchema
-		exportedSchemaHashes := map[string]string{}
+		// name -> uid
+		exportedSchemaUIDs := map[string]string{}
+
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 			apiResourceSchema, err := r.getAPIResourceSchema(apiExportClusterName, schemaName)
 			if err != nil {
@@ -118,19 +130,7 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 			}
 
 			exportedSchemas = append(exportedSchemas, apiResourceSchema)
-
-			schemaSpecJSON, err := json.Marshal(apiResourceSchema.Spec)
-			if err != nil {
-				// TODO condition
-				return reconcileStatusStop, err
-			}
-			schemaHash := sha256.New()
-			if _, err := schemaHash.Write(schemaSpecJSON); err != nil {
-				// TODO condition
-				return reconcileStatusStop, err
-			}
-
-			exportedSchemaHashes[string(apiResourceSchema.UID)] = fmt.Sprintf("%x", schemaHash.Sum(nil))
+			exportedSchemaUIDs[schemaName] = string(apiResourceSchema.UID)
 		}
 
 		if apiExportLatestResourceSchemasChanged(apiBinding, exportedSchemas) {
@@ -140,23 +140,6 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 
 			// Commit the phase change, then wait for next update event to process binding changes
 			return reconcileStatusStop, nil
-		}
-
-		for _, boundResource := range apiBinding.Status.BoundResources {
-			if boundResource.Schema.Hash != exportedSchemaHashes[boundResource.Schema.UID] {
-				klog.Infof(
-					"APIBinding %s|%s needs rebinding because APIResourceSchema %s|%s has changed",
-					apiBinding.ClusterName,
-					apiBinding.Name,
-					apiBinding.Spec.Reference.Workspace.WorkspaceName,
-					boundResource.Schema.Name,
-				)
-
-				apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
-
-				// Commit the phase change, then wait for next update event to process binding changes
-				return reconcileStatusStop, nil
-			}
 		}
 	}
 
