@@ -30,10 +30,11 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 )
 
 // NewStorageBuilder returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
-func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
+func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper, transformers transforming.Transformers) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -69,6 +70,7 @@ func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterfa
 			clusterClient,
 			nil,
 			wrapper,
+			transformers,
 		)
 
 		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need

@@ -68,6 +68,7 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 				tenancyv1alpha1.ClusterWorkspacePhaseLabel:                               string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
 				tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializerName: "",
 			}),
+			nil,
 		)
 
 		// only expose LIST+WATCH
