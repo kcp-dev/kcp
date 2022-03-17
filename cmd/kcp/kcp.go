@@ -133,7 +133,7 @@ func main() {
 	startCmd.AddCommand(startOptionsCmd)
 	cmd.AddCommand(startCmd)
 
-	setPartialUsageAndHelpFunc(cmd, namedStartFlagSets, cols, []string{
+	setPartialUsageAndHelpFunc(startCmd, namedStartFlagSets, cols, []string{
 		"etcd-servers",
 		"run-controllers",
 		"run-virtual-workspaces",
