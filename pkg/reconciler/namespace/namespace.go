@@ -427,6 +427,11 @@ func isWorkspaceSchedulable(getWorkspace getWorkspaceFunc, logicalClusterName st
 		return false, fmt.Errorf("failed to parse logical cluster name %q", logicalClusterName)
 	}
 
+	// Clusters not backed by ClusterWorkspace resources should not have scheduling enabled.
+	if !helper.HasClusterWorkspace(org, ws) {
+		return false, nil
+	}
+
 	workspaceKey := helper.WorkspaceKey(org, ws)
 	workspace, err := getWorkspace(workspaceKey)
 	if err != nil {
