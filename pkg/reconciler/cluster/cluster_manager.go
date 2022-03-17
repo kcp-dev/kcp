@@ -35,7 +35,7 @@ func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha
 	if cluster.Status.LastHeartbeat != nil && time.Since(cluster.Status.LastHeartbeat.Time) > c.heartbeatThreshold {
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.WorkloadClusterReadyCondition,
-			workloadv1alpha1.ErrorHeartbeat,
+			workloadv1alpha1.ErrorHeartbeatMissedReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"No heartbeat since %s", cluster.Status.LastHeartbeat)
 	} else {
