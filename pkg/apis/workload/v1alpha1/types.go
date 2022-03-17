@@ -87,6 +87,10 @@ type WorkloadClusterStatus struct {
 
 	// +optional
 	SyncedResources []string `json:"syncedResources,omitempty"`
+
+	// LastHeartbeat represents the last time the cluster's syncer successfully made a request to update this value.
+	// +optional
+	LastHeartbeat *metav1.Time `json:"lastHeartbeat,omitempty"`
 }
 
 // WorkloadClusterList is a list of WorkloadCluster resources
@@ -130,6 +134,9 @@ const (
 
 	// ErrorStartingAPIImporterReason indicates an error starting the API Importer.
 	ErrorStartingAPIImporterReason = "ErrorStartingAPIImporter"
+
+	// ErrorHeartbeat indicates that a heartbeat update was not received within the configured threshold.
+	ErrorHeartbeat = "ErrorHeartbeat"
 )
 
 func (in *WorkloadCluster) SetConditions(c conditionsv1alpha1.Conditions) {

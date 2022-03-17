@@ -54,6 +54,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
@@ -508,6 +509,38 @@ func (s *Server) installSyncerController(ctx context.Context, config *rest.Confi
 		return nil
 	})
 	return nil
+}
+
+func (s *Server) installClusterController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-cluster-controller")
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := cluster.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		s.options.Controllers.Cluster.HeartbeatThreshold,
+	)
+	if err != nil {
+		return err
+	}
+
+	s.AddPostStartHook("kcp-install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-cluster-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(ctx)
+
+		return nil
+	})
+	return nil
+
 }
 
 func (s *Server) waitForSync(stop <-chan struct{}) error {

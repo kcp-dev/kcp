@@ -112,7 +112,7 @@ func NewClusterReconciler(
 	}
 	if len(indexers) > 0 {
 		if err := c.apiresourceImportIndexer.AddIndexers(indexers); err != nil {
-			return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %w", err)
+			return nil, fmt.Errorf("failed to add indexer for APIResourceImport: %w", err)
 		}
 	}
 

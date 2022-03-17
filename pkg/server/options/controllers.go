@@ -30,6 +30,7 @@ import (
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
 )
@@ -40,12 +41,14 @@ type Controllers struct {
 	ApiImporter         ApiImporterController
 	ApiResource         ApiResourceController
 	Syncer              SyncerController
+	Cluster             ClusterController
 	SAController        kcmoptions.SAControllerOptions
 }
 
 type ApiImporterController = apiimporter.Options
 type ApiResourceController = apiresource.Options
 type SyncerController = syncer.Options
+type ClusterController = cluster.Options
 
 var kcmDefaults *kcmoptions.KubeControllerManagerOptions
 
@@ -65,6 +68,7 @@ func NewControllers() *Controllers {
 		ApiImporter:  *apiimporter.DefaultOptions(),
 		ApiResource:  *apiresource.DefaultOptions(),
 		Syncer:       *syncer.DefaultOptions(),
+		Cluster:      *cluster.DefaultOptions(),
 		SAController: *kcmDefaults.SAController,
 	}
 }
@@ -78,6 +82,7 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	apiimporter.BindOptions(&c.ApiImporter, fs)
 	apiresource.BindOptions(&c.ApiResource, fs)
 	syncer.BindOptions(&c.Syncer, fs)
+	cluster.BindOptions(&c.Cluster, fs)
 
 	c.SAController.AddFlags(fs)
 }
@@ -118,6 +123,9 @@ func (c *Controllers) Validate() []error {
 		errs = append(errs, err)
 	}
 	if err := c.Syncer.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Cluster.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if saErrs := c.SAController.Validate(); saErrs != nil {
