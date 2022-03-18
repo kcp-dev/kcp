@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
@@ -33,7 +35,6 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
@@ -71,19 +72,15 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	if err != nil {
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
 	}
-	if cluster == nil || cluster.Name == "" {
+	if cluster == nil || cluster.Name.Empty() {
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 	}
 
-	parentClusterName, err := helper.ParentClusterName(cluster.Name)
-	if err != nil {
-		return authorizer.DecisionNoOpinion, "", err
+	parentClusterName, hasParent := cluster.Name.Parent()
+	if !hasParent {
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 	}
-
-	_, clusterWorkspace, err := helper.ParseLogicalClusterName(cluster.Name)
-	if err != nil {
-		return authorizer.DecisionNoOpinion, "", err
-	}
+	clusterWorkspace := cluster.Name.Base()
 
 	orgWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.versionedInformers.Rbac().V1())
 	orgAuthorizer := rbac.New(
@@ -132,7 +129,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		// On the other hand, referencing that in the parent cluster for further permissions
 		// is not possible. Hence, we skip the authorization steps for the verb below.
 		for _, sc := range subjectCluster {
-			if sc == cluster.Name {
+			if logicalcluster.New(sc) == cluster.Name {
 				extraGroups = append(extraGroups, "system:kcp:authenticated")
 				break
 			}

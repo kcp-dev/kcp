@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -185,7 +187,7 @@ spec:
 			o := &apiResourceSchemaValidation{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
 			err := o.Validate(ctx, tt.attr, nil)
 			wantErr := len(tt.expectedErrors) > 0
 			if (err != nil) != wantErr {

@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
@@ -50,7 +51,7 @@ import (
 )
 
 var (
-	reClusterName = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,30}[a-z0-9]:)?[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$`)
+	reClusterName = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,30}[a-z0-9]:)*[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$`)
 
 	errorScheme = runtime.NewScheme()
 	errorCodecs = serializer.NewCodecFactory(errorScheme)
@@ -83,7 +84,7 @@ func WithAcceptHeader(apiHandler http.Handler) http.Handler {
 
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var clusterName string
+		var clusterName logicalcluster.LogicalCluster
 		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {
 			path = strings.TrimPrefix(path, "/clusters/")
 			i := strings.Index(path, "/")
@@ -94,7 +95,7 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 					w, req)
 				return
 			}
-			clusterName, path = path[:i], path[i:]
+			clusterName, path = logicalcluster.New(path[:i]), path[i:]
 			req.URL.Path = path
 			for i := 0; i < 2 && len(req.URL.RawPath) > 1; i++ {
 				slash := strings.Index(req.URL.RawPath[1:], "/")
@@ -108,18 +109,18 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 				req.URL.RawPath = req.URL.RawPath[slash:]
 			}
 		} else {
-			clusterName = req.Header.Get("X-Kubernetes-Cluster")
+			clusterName = logicalcluster.New(req.Header.Get("X-Kubernetes-Cluster"))
 		}
 		var cluster request.Cluster
-		switch clusterName {
-		case "*":
+		switch {
+		case clusterName == logicalcluster.Wildcard:
 			// HACK: just a workaround for testing
 			cluster.Wildcard = true
 			fallthrough
-		case "":
+		case clusterName.Empty():
 			cluster.Name = genericcontrolplane.LocalAdminCluster
 		default:
-			if !reClusterName.MatchString(clusterName) {
+			if !reClusterName.MatchString(clusterName.String()) {
 				responsewriters.ErrorNegotiated(
 					apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", clusterName)),
 					errorCodecs, schema.GroupVersion{},

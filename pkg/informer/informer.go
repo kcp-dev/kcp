@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"go.uber.org/multierr"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -34,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
@@ -43,7 +43,7 @@ const (
 )
 
 type clusterDiscovery interface {
-	WithCluster(name string) discovery.DiscoveryInterface
+	WithCluster(name logicalcluster.LogicalCluster) discovery.DiscoveryInterface
 }
 
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
@@ -186,16 +186,10 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 		return err
 	}
 	for i := range workspaces {
-		logicalClusterName, err := helper.EncodeLogicalClusterName(workspaces[i])
-		if err != nil {
-			return err
-		}
-		logicalClusterNames.Insert(logicalClusterName)
-	}
+		logicalClusterName := logicalcluster.From(workspaces[i]).Join(workspaces[i].Name).String()
 
-	for _, logicalClusterName := range logicalClusterNames.List() {
 		klog.Infof("Discovering types for logical cluster %q", logicalClusterName)
-		rs, err := d.disco.WithCluster(logicalClusterName).ServerPreferredResources()
+		rs, err := d.disco.WithCluster(logicalcluster.New(logicalClusterName)).ServerPreferredResources()
 		if err != nil {
 			return err
 		}

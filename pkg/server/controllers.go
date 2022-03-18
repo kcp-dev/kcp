@@ -25,6 +25,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +48,7 @@ import (
 
 	configorganization "github.com/kcp-dev/kcp/config/organization"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
@@ -90,9 +92,9 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		return err
 	}
 
-	discoverResourcesFn := func(clusterName string) ([]*metav1.APIResourceList, error) {
+	discoverResourcesFn := func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error) {
 		logicalClusterConfig := rest.CopyConfig(config)
-		logicalClusterConfig.Host += "/clusters/" + clusterName
+		logicalClusterConfig.Host += clusterName.Path()
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(logicalClusterConfig)
 		if err != nil {
 			return nil, err
@@ -347,7 +349,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	workspaceShardController, err := workspaceshard.NewController(
-		kcpClusterClient.Cluster(helper.RootCluster),
+		kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 		s.rootKubeSharedInformerFactory.Core().V1().Secrets(),
 		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
 	)

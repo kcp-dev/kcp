@@ -17,12 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
+
+// RootCluster is the root of ClusterWorkspace based logical clusters.
+var RootCluster = logicalcluster.New("root")
 
 // ClusterWorkspace defines a Kubernetes-cluster-like endpoint that holds a default set
 // of resources and exhibits standard Kubernetes API semantics of CRUD operations. It represents

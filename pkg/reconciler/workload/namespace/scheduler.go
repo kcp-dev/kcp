@@ -20,6 +20,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -52,7 +54,7 @@ func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error)
 	}
 
 	if assignedCluster != "" {
-		isValid, invalidMsg, err := s.isValidCluster(ns.ClusterName, assignedCluster)
+		isValid, invalidMsg, err := s.isValidCluster(logicalcluster.From(ns), assignedCluster)
 		if err != nil {
 			return "", err
 		}
@@ -67,7 +69,7 @@ func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return pickCluster(allClusters, ns.ClusterName), nil
+	return pickCluster(allClusters, logicalcluster.From(ns)), nil
 }
 
 // isValidCluster checks whether the given cluster name exists and is valid for
@@ -77,7 +79,7 @@ func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error)
 // It doesn't take into account Unschedulable, and should only be used when
 // determining if a cluster that a namespace has already been assigned to
 // should keep having that namespace.
-func (s *namespaceScheduler) isValidCluster(lclusterName, clusterName string) (
+func (s *namespaceScheduler) isValidCluster(lclusterName logicalcluster.LogicalCluster, clusterName string) (
 	isValid bool, invalidMsg string, err error) {
 
 	cluster, err := s.getCluster(clusters.ToClusterAwareKey(lclusterName, clusterName))
@@ -101,11 +103,11 @@ func (s *namespaceScheduler) isValidCluster(lclusterName, clusterName string) (
 // cluster to assign to a namespace. If a suitable cluster is
 // identified, its name will be returned. Otherwise, an empty string
 // will be returned.
-func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName string) string {
+func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName logicalcluster.LogicalCluster) string {
 	var clusters []*workloadv1alpha1.WorkloadCluster
 	for i := range allClusters {
 		// Only include Clusters that are in the logical cluster
-		if allClusters[i].ClusterName != lclusterName {
+		if logicalcluster.From(allClusters[i]) != lclusterName {
 			klog.V(2).InfoS("pickCluster: excluding cluster with different metadata.clusterName",
 				"ns.clusterName", lclusterName, "check", allClusters[i].ClusterName)
 			continue

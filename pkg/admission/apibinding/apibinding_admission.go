@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -33,7 +35,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 )
 
@@ -112,11 +113,11 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("error determining workspace: %w", err))
 	}
-	org, _, err := helper.ParseLogicalClusterName(cluster.Name)
-	if err != nil {
+	org, hasParent := cluster.Name.Parent()
+	if !hasParent {
 		return admission.NewForbidden(a, fmt.Errorf("%q is not a valid workspace name: %w", cluster.Name, err))
 	}
-	apiExportClusterName := helper.EncodeOrganizationAndClusterWorkspace(org, apiBinding.Spec.Reference.Workspace.WorkspaceName)
+	apiExportClusterName := org.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName)
 
 	// Access check
 	if err := o.checkAPIExportAccess(ctx, a.GetUserInfo(), apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName); err != nil {
@@ -130,7 +131,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 	return nil
 }
 
-func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName, apiExportName string) error {
+func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName logicalcluster.LogicalCluster, apiExportName string) error {
 	authz, err := o.createAuthorizer(apiExportClusterName, o.kubeClusterClient)
 	if err != nil {
 		// Logging a more specific error for the operator

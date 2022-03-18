@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -334,7 +336,7 @@ func TestValidate(t *testing.T) {
 			o := &clusterWorkspace{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
 			if err := o.Validate(ctx, tt.a, nil); (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}

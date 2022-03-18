@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -80,7 +81,7 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 		return err
 	}
 
-	if err := syncer.StartSyncer(ctx, kcpConfig, toConfig, sets.NewString(options.SyncedResourceTypes...), options.FromClusterName, options.PclusterID, numThreads); err != nil {
+	if err := syncer.StartSyncer(ctx, kcpConfig, toConfig, sets.NewString(options.SyncedResourceTypes...), logicalcluster.New(options.FromClusterName), options.PclusterID, numThreads); err != nil {
 		return err
 	}
 

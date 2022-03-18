@@ -20,6 +20,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -80,7 +82,7 @@ type userWorkspaceWatcher struct {
 	// knownWorkspaces maps name to resourceVersion
 	knownWorkspaces map[string]string
 
-	lclusterName string
+	lclusterName logicalcluster.LogicalCluster
 }
 
 var (
@@ -89,7 +91,7 @@ var (
 	watchChannelHWM kstorage.HighWaterMark
 )
 
-func NewUserWorkspaceWatcher(user user.Info, lclusterName string, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, authCache WatchableCache, includeAllExistingWorkspaces bool, predicate kstorage.SelectionPredicate) *userWorkspaceWatcher {
+func NewUserWorkspaceWatcher(user user.Info, lclusterName logicalcluster.LogicalCluster, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, authCache WatchableCache, includeAllExistingWorkspaces bool, predicate kstorage.SelectionPredicate) *userWorkspaceWatcher {
 	workspaces, _ := authCache.List(user, labels.Everything(), fields.Everything())
 	knownWorkspaces := map[string]string{}
 	for _, workspace := range workspaces.Items {
@@ -137,8 +139,15 @@ func NewUserWorkspaceWatcher(user user.Info, lclusterName string, clusterWorkspa
 func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, users, groups sets.String) {
 	hasAccess := users.Has(w.user.GetName()) || groups.HasAny(w.user.GetGroups()...)
 	_, known := w.knownWorkspaces[workspaceName]
+
 	var workspace workspaceapibeta1.Workspace
-	projection.ProjectClusterWorkspaceToWorkspace(&workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ClusterName: w.lclusterName}}, &workspace)
+	projection.ProjectClusterWorkspaceToWorkspace(&workspaceapi.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        workspaceName,
+			ClusterName: w.lclusterName.String(),
+		},
+	}, &workspace)
+
 	switch {
 	// this means that we were removed from the workspace
 	case !hasAccess && known:

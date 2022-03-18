@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -81,7 +82,7 @@ func TestIngressController(t *testing.T) {
 				rootIngress, err = servers[sourceServerName].client.Ingresses(testNamespace).Create(ctx, rootIngress, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ingress")
 
-				nsLocator := syncer.NamespaceLocator{LogicalCluster: rootIngress.ClusterName, Namespace: rootIngress.Namespace}
+				nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(rootIngress), Namespace: rootIngress.Namespace}
 				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
 				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 

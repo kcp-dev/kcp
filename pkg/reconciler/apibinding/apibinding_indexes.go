@@ -19,11 +19,11 @@ package apibinding
 import (
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 // indexAPIBindingByWorkspaceExport is an index function that maps an APIBinding to the key for its
@@ -35,11 +35,11 @@ func indexAPIBindingByWorkspaceExport(obj interface{}) ([]string, error) {
 	}
 
 	if apiBinding.Spec.Reference.Workspace != nil {
-		org, _, err := helper.ParseLogicalClusterName(apiBinding.ClusterName)
-		if err != nil {
-			return []string{}, fmt.Errorf("error parsing clusterName %q: %w", apiBinding.ClusterName, err)
+		parent, hasParent := logicalcluster.From(apiBinding).Parent()
+		if !hasParent {
+			return []string{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
 		}
-		apiExportClusterName := helper.EncodeOrganizationAndClusterWorkspace(org, apiBinding.Spec.Reference.Workspace.WorkspaceName)
+		apiExportClusterName := parent.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName)
 		key := clusters.ToClusterAwareKey(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
 		return []string{key}, nil
 	}
@@ -54,17 +54,9 @@ func indexAPIExportByAPIResourceSchemas(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIExport, but is %T", obj)
 	}
 
-	meta, err := meta.Accessor(obj)
-	if err != nil {
-		return []string{}, fmt.Errorf("object has no meta: %w", err)
-	}
-
-	clusterName := meta.GetClusterName()
-
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
-
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = clusters.ToClusterAwareKey(clusterName, apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = clusters.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil

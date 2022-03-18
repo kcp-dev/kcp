@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -65,7 +67,7 @@ const SyncDown SyncDirection = "down"
 // SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
 const SyncUp SyncDirection = "up"
 
-func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName, pcluster string, numSyncerThreads int) error {
+func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int) error {
 	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster)
 	if err != nil {
 		return err
@@ -127,14 +129,14 @@ type Controller struct {
 	deleteFn  DeleteFunc
 	direction SyncDirection
 
-	upstreamClusterName string
+	upstreamClusterName logicalcluster.LogicalCluster
 	syncerNamespace     string
 	mutators            mutatorGvrMap
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction SyncDirection, syncedResourceTypes []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
-	controllerName := string(direction) + "--" + kcpClusterName + "--" + pcluster
+func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction SyncDirection, syncedResourceTypes []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
+	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
 	c := Controller{
@@ -277,7 +279,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 
 type holder struct {
 	gvr         schema.GroupVersionResource
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	namespace   string
 	name        string
 }
@@ -308,7 +310,7 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 	c.queue.Add(
 		holder{
 			gvr:         gvr,
-			clusterName: metaObj.GetClusterName(),
+			clusterName: logicalcluster.From(metaObj),
 			namespace:   metaObj.GetNamespace(),
 			name:        metaObj.GetName(),
 		},
@@ -364,8 +366,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // NamespaceLocator stores a logical cluster and namespace and is used
 // as the source for the mapped namespace name in a physical cluster.
 type NamespaceLocator struct {
-	LogicalCluster string `json:"logical-cluster"`
-	Namespace      string `json:"namespace"`
+	LogicalCluster logicalcluster.LogicalCluster `json:"logical-cluster"`
+	Namespace      string                        `json:"namespace"`
 }
 
 // PhysicalClusterNamespaceName encodes the NamespaceLocator to a new
@@ -421,7 +423,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 		nsInformer := c.fromInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
 
 		nsKey := fromNamespace
-		if h.clusterName != "" {
+		if !h.clusterName.Empty() {
 			// If our "physical" cluster is a kcp instance (e.g. for testing purposes), it will return resources
 			// with metadata.clusterName set, which means their keys are cluster-aware, so we need to do the same here.
 			nsKey = clusters.ToClusterAwareKey(h.clusterName, nsKey)
@@ -454,7 +456,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 
 	key := h.name
 
-	if h.clusterName != "" {
+	if !h.clusterName.Empty() {
 		key = clusters.ToClusterAwareKey(h.clusterName, key)
 	}
 

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -310,7 +311,7 @@ func TestAdmit(t *testing.T) {
 				Handler:    admission.NewHandler(admission.Create, admission.Update),
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
@@ -571,14 +572,14 @@ func TestValidate(t *testing.T) {
 			o := &clusterWorkspaceTypeExists{
 				Handler:    admission.NewHandler(admission.Create, admission.Update),
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
-				createAuthorizer: func(clusterName string, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.LogicalCluster, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,
 					}, nil
 				},
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}

@@ -24,6 +24,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -41,7 +43,7 @@ import (
 	configroot "github.com/kcp-dev/kcp/config/root"
 	"github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authentication"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -149,14 +151,12 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	const crossCluster = "*"
-
 	// Setup kcp * informers
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
 	}
-	kcpClient := kcpClusterClient.Cluster(crossCluster)
+	kcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
 	s.kcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 
 	// Setup kube * informers
@@ -164,7 +164,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	kubeClient := kubeClusterClient.Cluster(crossCluster)
+	kubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
 	s.kubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 
 	// Setup apiextensions * informers
@@ -172,12 +172,12 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	apiextensionsCrossClusterClient := apiextensionsClusterClient.Cluster(crossCluster)
+	apiextensionsCrossClusterClient := apiextensionsClusterClient.Cluster(logicalcluster.Wildcard)
 	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsCrossClusterClient, resyncPeriod)
 
 	// Setup root informers
-	s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(helper.RootCluster), resyncPeriod)
-	s.rootKubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClusterClient.Cluster(helper.RootCluster), resyncPeriod)
+	s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(v1alpha1.RootCluster), resyncPeriod)
+	s.rootKubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClusterClient.Cluster(v1alpha1.RootCluster), resyncPeriod)
 
 	// Setup dynamic client
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(genericConfig.LoopbackClientConfig)
@@ -333,8 +333,8 @@ func (s *Server) Run(ctx context.Context) error {
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
 		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(helper.RootCluster).Discovery(),
-			dynamicClusterClient.Cluster(helper.RootCluster),
+			apiextensionsClusterClient.Cluster(v1alpha1.RootCluster).Discovery(),
+			dynamicClusterClient.Cluster(v1alpha1.RootCluster),
 			"root",
 
 			// TODO(sttts): move away from loopback, use external advertise address, an external CA and an access header enabled client servingCert for authentication

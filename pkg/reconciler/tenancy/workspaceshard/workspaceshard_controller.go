@@ -25,6 +25,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -42,7 +43,6 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -235,7 +235,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: previous.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", helper.RootCluster, namespace, name, err)
+			return fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 
 		newData, err := json.Marshal(tenancyv1alpha1.WorkspaceShard{
@@ -246,12 +246,12 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for workspace shard %s|%s/%s: %w", helper.RootCluster, namespace, name, err)
+			return fmt.Errorf("failed to Marshal new data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", helper.RootCluster, namespace, name, err)
+			return fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 		_, uerr := c.kcpClient.TenancyV1alpha1().WorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
@@ -261,7 +261,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
-	secret, err := c.rootSecretLister.Secrets(workspaceShard.Spec.Credentials.Namespace).Get(clusters.ToClusterAwareKey(workspaceShard.ClusterName, workspaceShard.Spec.Credentials.Name))
+	secret, err := c.rootSecretLister.Secrets(workspaceShard.Spec.Credentials.Namespace).Get(clusters.ToClusterAwareKey(logicalcluster.From(workspaceShard), workspaceShard.Spec.Credentials.Name))
 	if errors.IsNotFound(err) {
 		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing, conditionsapi.ConditionSeverityWarning, "Referenced secret %s/%s could not be found.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name)
 		return nil

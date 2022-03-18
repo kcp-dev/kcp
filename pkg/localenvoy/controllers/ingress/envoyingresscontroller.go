@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -188,14 +190,14 @@ func (c *Controller) process(ctx context.Context, key string) (requeue bool, err
 		if current.Labels[envoycontrolplane.ToEnvoyLabel] == "" {
 			// If it's a root, we need to patch only status
 			// TODO(jmprusi): Move to patch instead of Update.
-			_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
+			_, err := c.client.Cluster(logicalcluster.From(current)).NetworkingV1().Ingresses(current.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err
 			}
 		} else {
 			// If it's a leaf, we need to patch only non-status (to set labels)
 			// TODO(jmprusi): Move to patch instead of Update.
-			_, err := c.client.Cluster(current.ClusterName).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
+			_, err := c.client.Cluster(logicalcluster.From(current)).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err
 			}

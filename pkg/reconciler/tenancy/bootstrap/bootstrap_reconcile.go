@@ -21,10 +21,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 const (
@@ -53,11 +54,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	}
 
 	// bootstrap resources
-	_, org, err := helper.ParseLogicalClusterName(workspace.ClusterName)
-	if err != nil {
-		return err
-	}
-	wsClusterName := helper.EncodeOrganizationAndClusterWorkspace(org, workspace.Name)
+	wsClusterName := logicalcluster.From(workspace).Join(workspace.Name)
 	klog.Infof("Bootstrapping resources for org workspace %s, logical cluster %s", workspace.Name, wsClusterName)
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()

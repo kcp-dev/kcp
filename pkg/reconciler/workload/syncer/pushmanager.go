@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -70,7 +72,7 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *workloadv1alpha
 		return false, nil // Don't retry.
 	}
 
-	kcpClusterName := cluster.GetClusterName()
+	kcpClusterName := logicalcluster.From(cluster)
 	klog.Infof("Starting syncer for clusterName %s to pcluster %s, resources %v", kcpClusterName, cluster.Name, groupResources)
 	syncerCtx, syncerCancel := context.WithCancel(ctx)
 	if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, kcpClusterName, cluster.Name, numSyncerThreads); err != nil {

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -39,14 +41,14 @@ import (
 
 const GVRForLocationInLogicalClusterIndexName = "GVRForLocationInLogicalCluster"
 
-func GetGVRForLocationInLogicalClusterIndexKey(location, clusterName string, gvr metav1.GroupVersionResource) string {
+func GetGVRForLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.LogicalCluster, gvr metav1.GroupVersionResource) string {
 	return location + "$$" + apiresource.GetClusterNameAndGVRIndexKey(clusterName, gvr)
 }
 
 const LocationInLogicalClusterIndexName = "LocationInLogicalCluster"
 
-func GetLocationInLogicalClusterIndexKey(location, clusterName string) string {
-	return location + "/" + clusterName
+func GetLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.LogicalCluster) string {
+	return location + "/" + clusterName.String()
 }
 
 // ClusterReconcileImpl defines the methods that ClusterReconciler
@@ -98,13 +100,13 @@ func NewClusterReconciler(
 	indexers := map[string]cache.IndexFunc{
 		GVRForLocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
-				return []string{GetGVRForLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, apiResourceImport.ClusterName, apiResourceImport.GVR())}, nil
+				return []string{GetGVRForLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport), apiResourceImport.GVR())}, nil
 			}
 			return []string{}, nil
 		},
 		LocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
-				return []string{GetLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, apiResourceImport.ClusterName)}, nil
+				return []string{GetLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport))}, nil
 			}
 			return []string{}, nil
 		},
@@ -237,7 +239,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.kcpClusterClient.Cluster(current.ClusterName).WorkloadV1alpha1().WorkloadClusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClusterClient.Cluster(logicalcluster.From(current)).WorkloadV1alpha1().WorkloadClusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 

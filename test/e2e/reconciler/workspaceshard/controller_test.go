@@ -33,7 +33,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -336,7 +335,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp rootShardClient for server")
 
-			rootKcpClient := kcpClients.Cluster(helper.RootCluster)
+			rootKcpClient := kcpClients.Cluster(tenancyv1alpha1.RootCluster)
 			expect, err := framework.ExpectWorkspaceShards(ctx, t, rootKcpClient)
 			require.NoError(t, err, "failed to start expecter")
 
@@ -346,7 +345,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
 				rootShardClient: rootKcpClient.TenancyV1alpha1().WorkspaceShards(),
-				rootKubeClient:  kubeClients.Cluster(helper.RootCluster),
+				rootKubeClient:  kubeClients.Cluster(tenancyv1alpha1.RootCluster),
 				orgKubeClient:   kubeClients.Cluster(orgClusterName),
 				expect:          expect,
 			})

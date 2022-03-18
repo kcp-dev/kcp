@@ -23,10 +23,11 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -72,13 +73,10 @@ func (i *index) Record(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	}
 	// TODO: how to handle the root itself?
 	org := workspace.ClusterName
-	if workspace.ClusterName != helper.RootCluster {
-		orgName, workspaceName, err := helper.ParseLogicalClusterName(workspace.ClusterName)
-		if err != nil {
-			klog.Errorf("failed to determine org for cluster: %v", err)
-			return nil
-		}
-		if orgName != helper.RootCluster {
+	if logicalcluster.From(workspace) != tenancyv1alpha1.RootCluster {
+		orgName, workspaceName := logicalcluster.From(workspace).Split()
+		if orgName != tenancyv1alpha1.RootCluster {
+			// TODO(sttts): this old code did not support multiple org levels. Fix it.
 			klog.Errorf("invalid org %q, only one level of nesting allowed", orgName)
 			return nil
 		}

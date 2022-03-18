@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
@@ -55,7 +57,7 @@ type syncerManager struct {
 func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
 	klog.Infof("%s: reconciling cluster %q", m.name, cluster.Name)
 
-	logicalCluster := cluster.GetClusterName()
+	logicalCluster := logicalcluster.From(cluster)
 
 	groupResources := sets.NewString()
 
