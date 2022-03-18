@@ -465,7 +465,6 @@ func crdFromAPIResourceSchema(schema *apisv1alpha1.APIResourceSchema) (*apiexten
 				annotationSchemaClusterKey: schema.ClusterName,
 				annotationSchemaNameKey:    schema.Name,
 			},
-			// TODO(ncdc) owner ref back to either schema or export?
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: schema.Spec.Group,

@@ -56,8 +56,8 @@ const (
 
 // NewController returns a new controller for APIBindings.
 func NewController(
-	crdClient apiextensionclientset.ClusterInterface,
-	kcpClient kcpclient.ClusterInterface,
+	crdClusterClient apiextensionclientset.ClusterInterface,
+	kcpClusterClient kcpclient.ClusterInterface,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
@@ -67,8 +67,8 @@ func NewController(
 
 	c := &controller{
 		queue:                    queue,
-		crdClusterClient:         crdClient,
-		kcpClusterClient:         kcpClient,
+		crdClusterClient:         crdClusterClient,
+		kcpClusterClient:         kcpClusterClient,
 		apiBindingsLister:        apiBindingInformer.Lister(),
 		apiBindingsIndexer:       apiBindingInformer.Informer().GetIndexer(),
 		apiExportsLister:         apiExportInformer.Lister(),
