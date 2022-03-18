@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package workloadclusterheartbeat
 
 import (
 	"time"
@@ -22,6 +22,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
 func NewController(
@@ -29,12 +30,12 @@ func NewController(
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	heartbeatThreshold time.Duration,
-) (*ClusterReconciler, error) {
+) (*cluster.ClusterReconciler, error) {
 
 	cm := &clusterManager{heartbeatThreshold: heartbeatThreshold}
 
-	return NewClusterReconciler(
-		"kcp-cluster-manager",
+	return cluster.NewClusterReconciler(
+		"kcp-cluster-heartbeat-manager",
 		cm,
 		kcpClusterClient,
 		clusterInformer,

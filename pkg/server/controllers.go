@@ -54,9 +54,9 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/workloadclusterheartbeat"
 	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
@@ -512,17 +512,17 @@ func (s *Server) installSyncerController(ctx context.Context, config *rest.Confi
 }
 
 func (s *Server) installClusterController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-cluster-controller")
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-cluster-heartbeat-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c, err := cluster.NewController(
+	c, err := workloadclusterheartbeat.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		s.options.Controllers.Cluster.HeartbeatThreshold,
+		s.options.Controllers.WorkloadClusterHeartbeat.HeartbeatThreshold,
 	)
 	if err != nil {
 		return err

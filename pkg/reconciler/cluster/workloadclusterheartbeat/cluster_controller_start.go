@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package workloadclusterheartbeat
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ func DefaultOptions() *Options {
 }
 
 func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
-	fs.DurationVar(&o.HeartbeatThreshold, "cluster-heartbeat-threshold", o.HeartbeatThreshold, "Amount of time to wait for a successful heartbeat before marking the cluster as not ready")
+	fs.DurationVar(&o.HeartbeatThreshold, "workload-cluster-heartbeat-threshold", o.HeartbeatThreshold, "Amount of time to wait for a successful heartbeat before marking the cluster as not ready")
 	return o
 }
 
@@ -39,8 +39,8 @@ type Options struct {
 }
 
 func (o *Options) Validate() error {
-	if o.HeartbeatThreshold < 0 {
-		return fmt.Errorf("heartbeat threshold must be >0 (%s)", o.HeartbeatThreshold)
+	if o.HeartbeatThreshold <= 0 {
+		return fmt.Errorf("--workload-cluster-heartbeat-threshold must be >0 (%s)", o.HeartbeatThreshold)
 	}
 	return nil
 }
