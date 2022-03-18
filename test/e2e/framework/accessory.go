@@ -57,7 +57,7 @@ type Accessory struct {
 	args        []string
 }
 
-func (a *Accessory) Run(parentCtx context.Context, opts ...RunOption) error {
+func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
 	runOpts := runOptions{}
 	for _, opt := range opts {
 		opt(&runOpts)
@@ -66,18 +66,11 @@ func (a *Accessory) Run(parentCtx context.Context, opts ...RunOption) error {
 		return fmt.Errorf("cannot run arbitrary accessories in process")
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
-
-	if deadline, ok := a.t.Deadline(); ok {
-		deadlinedCtx, deadlinedCancel := context.WithDeadline(ctx, deadline.Add(-10*time.Second))
-		ctx = deadlinedCtx
-		a.t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
-	}
-	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	ctx, cleanupCancel := context.WithCancel(context.Background())
 	a.t.Cleanup(func() {
 		a.t.Logf("cleanup: ending `%s`", a.cmd)
-		cancel()
-		<-cleanupCtx.Done()
+		cleanupCancel()
+		<-ctx.Done()
 	})
 
 	a.ctx = ctx

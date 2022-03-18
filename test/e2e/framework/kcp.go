@@ -70,15 +70,7 @@ type kcpServer struct {
 
 func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
 	t.Helper()
-	ctx := context.Background()
-	if deadline, ok := t.Deadline(); ok {
-		if remaining := time.Until(deadline); remaining < 30*time.Second {
-			return nil, fmt.Errorf("only have %v until deadline, need at least 30 seconds", remaining)
-		}
-		c, cancel := context.WithDeadline(ctx, deadline.Add(-10*time.Second))
-		ctx = c
-		t.Cleanup(cancel) // this does not really matter but govet is upset
-	}
+
 	kcpListenPort, err := GetFreePort(t)
 	if err != nil {
 		return nil, err
@@ -114,7 +106,6 @@ func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kc
 			cfg.Args...),
 		dataDir:     dataDir,
 		artifactDir: artifactDir,
-		ctx:         ctx,
 		t:           t,
 		lock:        &sync.Mutex{},
 	}, nil
@@ -137,7 +128,7 @@ func WithLogStreaming(o *runOptions) {
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
 // callers should ensure that the server is Ready() before using it.
-func (c *kcpServer) Run(parentCtx context.Context, opts ...RunOption) error {
+func (c *kcpServer) Run(opts ...RunOption) error {
 	path, err := exec.LookPath("kcp")
 	if err != nil {
 		return err
@@ -148,23 +139,13 @@ func (c *kcpServer) Run(parentCtx context.Context, opts ...RunOption) error {
 		opt(&runOpts)
 	}
 
-	// calling any methods on *testing.T after the test is finished causes
-	// a panic, so we need to communicate to our cleanup routines when the
-	// test has been completed, and we need to communicate back up to the
-	// test when we're done with everything
-	ctx, cancel := context.WithCancel(parentCtx)
-	if deadline, ok := c.t.Deadline(); ok {
-		deadlinedCtx, deadlinedCancel := context.WithDeadline(ctx, deadline.Add(-10*time.Second))
-		ctx = deadlinedCtx
-		c.t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
-	}
-	c.ctx = ctx
-	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	ctx, cleanupCancel := context.WithCancel(context.Background())
 	c.t.Cleanup(func() {
 		c.t.Log("cleanup: ending kcp server")
-		cancel()
-		<-cleanupCtx.Done()
+		cleanupCancel()
+		<-ctx.Done()
 	})
+	c.ctx = ctx
 
 	c.t.Logf("running: %v", strings.Join(append([]string{path, "start"}, c.args...), " "))
 

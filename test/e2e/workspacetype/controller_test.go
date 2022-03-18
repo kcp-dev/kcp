@@ -151,19 +151,15 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	if deadline, ok := t.Deadline(); ok {
-		withDeadline, cancel := context.WithDeadline(ctx, deadline)
-		t.Cleanup(cancel)
-		ctx = withDeadline
-	}
-
 	server := framework.SharedKcpServer(t)
 
 	for i := range testCases {
 		testCase := testCases[i]
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
+
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			t.Cleanup(cancelFunc)
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 

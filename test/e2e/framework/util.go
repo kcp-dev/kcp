@@ -280,7 +280,7 @@ type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
 // CreateReadyCluster creates a new Cluster resource with the desired name on a
 // given server and sets it to a ready state.
-func CreateReadyCluster(t *testing.T, ctx context.Context, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
+func CreateReadyCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
 	config, err := pcluster.RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server config: %w", err)
@@ -297,6 +297,9 @@ func CreateReadyCluster(t *testing.T, ctx context.Context, artifacts ArtifactFun
 	// in resource names, replacing it with '.' results in a name safe
 	// for use as a resource name.
 	safeClusterName := strings.Replace(pcluster.Name(), ":", ".", 1)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
 
 	cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, &workloadv1alpha1.WorkloadCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: safeClusterName},
