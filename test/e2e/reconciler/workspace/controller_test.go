@@ -51,8 +51,9 @@ func TestWorkspaceController(t *testing.T) {
 		rootExpectShard               framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
-		name string
-		work func(ctx context.Context, t *testing.T, server runningServer)
+		name        string
+		destructive bool
+		work        func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "create a workspace with a shard, expect it to be scheduled",
@@ -66,12 +67,16 @@ func TestWorkspaceController(t *testing.T) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
-				err = server.orgExpect(workspace, scheduled("root"))
+				err = server.orgExpect(workspace, func(current *tenancyv1alpha1.ClusterWorkspace) error {
+					expectationErr := scheduledAnywhere(current)
+					return expectationErr
+				})
 				require.NoError(t, err, "did not see workspace scheduled")
 			},
 		},
 		{
-			name: "add a shard after a workspace is unschedulable, expect it to be scheduled",
+			name:        "add a shard after a workspace is unschedulable, expect it to be scheduled",
+			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
 				err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
@@ -140,7 +145,8 @@ func TestWorkspaceController(t *testing.T) {
 			},
 		},
 		{
-			name: "delete a shard that a workspace is scheduled to, expect WorkspaceShardValid condition to turn false",
+			name:        "delete a shard that a workspace is scheduled to, expect WorkspaceShardValid condition to turn false",
+			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("Create a workspace")
 				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
@@ -171,6 +177,8 @@ func TestWorkspaceController(t *testing.T) {
 		},
 	}
 
+	sharedServer := framework.SharedKcpServer(t)
+
 	for i := range testCases {
 		testCase := testCases[i]
 		t.Run(testCase.name, func(t *testing.T) {
@@ -183,14 +191,16 @@ func TestWorkspaceController(t *testing.T) {
 				ctx = withDeadline
 			}
 
-			const serverName = "main"
-			f := framework.NewKcpFixture(t,
-				framework.KcpConfig{
-					Name: serverName,
-				},
-			)
-			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
-			server := f.Servers[serverName]
+			server := sharedServer
+			if testCase.destructive {
+				// Destructive tests require their own server
+				//
+				// TODO(marun) Could the testing currently requiring destructive e2e be performed with less cost?
+				const serverName = "main"
+				f := framework.NewKcpFixture(t, framework.KcpConfig{Name: serverName})
+				server = f.Servers[serverName]
+			}
+
 			cfg := server.DefaultConfig(t)
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
