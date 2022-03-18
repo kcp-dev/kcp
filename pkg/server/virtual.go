@@ -39,7 +39,7 @@ type mux interface {
 	Handle(pattern string, handler http.Handler)
 }
 
-func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, genericConfig *genericapiserver.Config, preHandlerChainMux mux) error {
+func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, auth genericapiserver.AuthenticationInfo, externalAddress string, preHandlerChainMux mux) error {
 	// create virtual workspaces
 	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.Workspaces.NewVirtualWorkspaces(
 		virtualcommandoptions.DefaultRootPathPrefix,
@@ -66,12 +66,12 @@ func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 	codecs := serializer.NewCodecFactory(scheme)
 	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
-	recommendedConfig.Authentication = genericConfig.Authentication
+	recommendedConfig.Authentication = auth
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, extraInformerStarts, virtualWorkspaces...)
 	if err != nil {
 		return err
 	}
-	rootAPIServerConfig.GenericConfig.ExternalAddress = genericConfig.ExternalAddress
+	rootAPIServerConfig.GenericConfig.ExternalAddress = externalAddress
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
 	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
 	if err != nil {

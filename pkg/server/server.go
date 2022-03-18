@@ -394,7 +394,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Virtual.Enabled {
-		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig, preHandlerChainMux); err != nil {
+		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, genericConfig.ExternalAddress, preHandlerChainMux); err != nil {
 			return err
 		}
 	} else if err := s.installVirtualWorkspacesRedirect(ctx, preHandlerChainMux); err != nil {
