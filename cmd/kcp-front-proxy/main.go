@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
@@ -89,7 +90,7 @@ func WithOptionalClientCert(handler, failed http.Handler, auth authenticator.Req
 			handler.ServeHTTP(w, req)
 			return
 		}
-		_, ok, err := auth.AuthenticateRequest(req)
+		resp, ok, err := auth.AuthenticateRequest(req)
 		if err != nil || !ok {
 			if err != nil {
 				klog.ErrorS(err, "Unable to authenticate the request")
@@ -97,6 +98,7 @@ func WithOptionalClientCert(handler, failed http.Handler, auth authenticator.Req
 			failed.ServeHTTP(w, req)
 			return
 		}
+		req = req.WithContext(request.WithUser(req.Context(), resp.User))
 		handler.ServeHTTP(w, req)
 	})
 }
