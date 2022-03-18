@@ -245,7 +245,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: func(clusterName string, client *kubernetes.Cluster) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName string, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tc.authzDecision,
 						tc.authzError,

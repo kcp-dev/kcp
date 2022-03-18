@@ -186,7 +186,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
 					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
-					return err == nil
+					if err != nil {
+						klog.Errorf("Failed to create workspace1: %w", err)
+						return false
+					}
+					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
@@ -226,6 +230,108 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return nil
 				})
 				require.NoError(t, err, "did not see workspace2 created in personal virtual workspace")
+			},
+		},
+		{
+			name: "create a workspace of custom type and verify that clusteworkspacetype use authorization takes place",
+			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+				return []clientInfo{
+					{
+						User:   testData.user1,
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+					},
+					{
+						User:   testData.user2,
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+					},
+				}
+			},
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				vwUser1Client := server.virtualKcpClients[0]
+				vwUser2Client := server.virtualKcpClients[1]
+
+				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1", "team-2")
+				require.NoError(t, err, "failed to create root workspace roles")
+
+				t.Logf("Create custom ClusterWorkspaceType 'Custom'")
+				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{ObjectMeta: metav1.ObjectMeta{Name: "custom"}}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create custom ClusterWorkspaceType 'Custom'")
+
+				t.Logf("Give user1 access to the custom type")
+				_, err = server.orgKubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "custom-type-access",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"use", "member"},
+							Resources:     []string{"clusterworkspacetypes"},
+							ResourceNames: []string{"custom"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create custom ClusterRole 'custom-type-access'")
+
+				_, err = server.orgKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "user1-custom-type-access",
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						APIGroup: "rbac.authorization.k8s.io",
+						Name:     "custom-type-access",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: testData.user1.Name,
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create custom ClusterRoleBinding 'user1-custom-type-access'")
+
+				t.Logf("Create Workspace workspace1 in the virtual workspace as user1")
+				var workspace1 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+						ObjectMeta: metav1.ObjectMeta{Name: "workspace1"},
+						Spec: tenancyv1beta1.WorkspaceSpec{
+							Type: "Custom",
+						},
+					}, metav1.CreateOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1 as user1")
+
+				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
+				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
+				server.Artifact(t, func() (runtime.Object, error) {
+					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+				})
+				require.Equal(t, "Custom", workspace1.Spec.Type, "expected workspace1 to be of type Custom")
+
+				t.Logf("Create Workspace workspace2 in the virtual workspace")
+
+				t.Logf("Try to create custom workspace as user2")
+				_, err = vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{Name: "workspace2"},
+					Spec: tenancyv1beta1.WorkspaceSpec{
+						Type: "Custom",
+					},
+				}, metav1.CreateOptions{})
+				require.Errorf(t, err, "expected to fail to create workspace2 as user2")
+
+				t.Logf("Try to create custom2 workspace as user1")
+				_, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{Name: "workspace2"},
+					Spec: tenancyv1beta1.WorkspaceSpec{
+						Type: "Custom2",
+					},
+				}, metav1.CreateOptions{})
+				require.Errorf(t, err, "expected to fail to create workspace2 as user1")
 			},
 		},
 		{

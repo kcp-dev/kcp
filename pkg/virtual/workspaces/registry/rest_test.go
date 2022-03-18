@@ -32,8 +32,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
+	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -191,6 +194,9 @@ func applyTest(t *testing.T, test TestDescription) {
 		crbInformer:           crbInformer,
 		clusterWorkspaceCache: nil,
 		rootReviewer:          test.rootReviewer,
+		delegatedAuthz: func(clusterName string, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+			return authorizerfactory.NewAlwaysAllowAuthorizer(), nil
+		},
 	}
 	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
 		mainRest:             &storage,
