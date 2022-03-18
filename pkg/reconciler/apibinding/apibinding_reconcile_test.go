@@ -52,13 +52,13 @@ func requireConditionMatches(t *testing.T, g conditions.Getter, w wantCondition)
 	require.Equal(t, w.Reason, c.Reason)
 }
 
-func TestPhaseReconciler(t *testing.T) {
-	unbound := new(bindingBuilder).
+var (
+	unbound = new(bindingBuilder).
 		WithClusterName("org:ws").
 		WithName("my-binding").
 		WithWorkspaceReference("some-workspace", "some-export")
 
-	bound := unbound.DeepCopy().
+	bound = unbound.DeepCopy().
 		WithPhase(apisv1alpha1.APIBindingPhaseBound).
 		WithBoundAPIExport("some-workspace", "some-export").
 		WithBoundResources(
@@ -71,7 +71,9 @@ func TestPhaseReconciler(t *testing.T) {
 				WithSchema("today.someresources.anothergroup", "uid2").
 				BoundAPIResource,
 		)
+)
 
+func TestPhaseReconciler(t *testing.T) {
 	tests := map[string]struct {
 		apiBinding          *apisv1alpha1.APIBinding
 		apiExport           *apisv1alpha1.APIExport
@@ -428,34 +430,13 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 		wantConditions            []wantCondition
 		wantUnbound               bool
 	}{
-		"empty workspace ref unbinds": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:some-workspace").
-				WithName("binding").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("group", "resource").
-						WithSchema("schema1", "uid1").
-						BoundAPIResource,
-				).
-				Build(),
+		"Bound updated with nil workspace ref unbinds": {
+			apiBinding:          bound.DeepCopy().WithoutWorkspaceReference().Build(),
 			wantReconcileStatus: reconcileStatusStop,
 			wantUnbound:         true,
 		},
-		"APIExport not found": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:some-workspace").
-				WithName("binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("group", "resource").
-						WithSchema("schema1", "uid1").
-						BoundAPIResource,
-				).
-				Build(),
+		"Bound, APIExport not found": {
+			apiBinding:          bound.Build(),
 			getAPIExportError:   apierrors.NewNotFound(apisv1alpha1.SchemeGroupVersion.WithResource("apiexports").GroupResource(), "some-export"),
 			wantReconcileStatus: reconcileStatusStop,
 			wantConditions: []wantCondition{
@@ -706,6 +687,11 @@ func (b *bindingBuilder) WithClusterName(clusterName string) *bindingBuilder {
 
 func (b *bindingBuilder) WithName(name string) *bindingBuilder {
 	b.Name = name
+	return b
+}
+
+func (b *bindingBuilder) WithoutWorkspaceReference() *bindingBuilder {
+	b.Spec.Reference.Workspace = nil
 	return b
 }
 
