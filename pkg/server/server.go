@@ -41,6 +41,7 @@ import (
 	configroot "github.com/kcp-dev/kcp/config/root"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	"github.com/kcp-dev/kcp/pkg/authentication"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -193,6 +194,14 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
+	// create service-account-only authenticator without any lookup for objects, just to extract the logical cluster name from the JWT.
+	// If the request hits us at a non-/clusters URL, we will re-add the /clusters/<cluster-name> prefix to the request. This is necessary
+	// because a service account used by a InCluster client does not support the /clusters/<cluster-name> prefix.
+	unsafeServiceAccountPreAuth, err := authentication.NewUnsafeNonLookupServiceAccountAuthenticator(s.options.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles, s.options.GenericControlPlane.Authentication.ServiceAccounts.Issuers, s.options.GenericControlPlane.Authentication.APIAudiences)
+	if err != nil {
+		return err
+	}
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -210,6 +219,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
+		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
 
 		// add a mux before the chain, for other handlers with their own handler chain to hook in
 		mux := http.NewServeMux()
