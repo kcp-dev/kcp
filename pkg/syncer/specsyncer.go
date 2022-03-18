@@ -155,23 +155,19 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetNamespace(downstreamNamespace)
 	downstreamObj.SetManagedFields(nil)
 	downstreamObj.SetClusterName("")
-
-	ownedByLabel := downstreamObj.GetLabels()["kcp.dev/owned-by"]
-	var ownerReferences []metav1.OwnerReference
-	for _, reference := range downstreamObj.GetOwnerReferences() {
-		if reference.Name == ownedByLabel {
-			continue
-		}
-		ownerReferences = append(ownerReferences, reference)
-	}
-	downstreamObj.SetOwnerReferences(ownerReferences)
+	// Deletion fields are immutable and set by the downstream API server
+	downstreamObj.SetDeletionTimestamp(nil)
+	downstreamObj.SetDeletionGracePeriodSeconds(nil)
+	// Strip owner references, to avoid orphaning by broken references,
+	// and make sure cascading deletion is only performed once upstream.
+	downstreamObj.SetOwnerReferences(nil)
+	// Strip finalizers to avoid the deletion of the downstream resource from being blocked.
+	downstreamObj.SetFinalizers(nil)
 
 	// Run name transformations on the downstreamObj.
 	transformName(downstreamObj, KcpToPhysicalCluster)
 
-	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
-	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
-
+	// Marshalling the unstructured object is good enough as SSA patch
 	data, err := json.Marshal(downstreamObj)
 	if err != nil {
 		return err
