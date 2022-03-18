@@ -39,7 +39,7 @@ type Options struct {
 
 func NewOptions() *Options {
 	return &Options{
-		SyncedResourceTypes: []string{"deployments.apps"},
+		SyncedResourceTypes: []string{},
 		Logs:                logs.NewOptions(),
 	}
 }
