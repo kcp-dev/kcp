@@ -62,7 +62,7 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClu
 		return nil, err
 	}
 	toClient := toClients.Cluster(kcpClusterName)
-	return New(kcpClusterName, pclusterID, discoveryClient, fromClient, toClient, PhysicalClusterToKcp, syncedResourceTypes, pclusterID)
+	return New(kcpClusterName, pclusterID, discoveryClient, fromClient, toClient, SyncUp, syncedResourceTypes, pclusterID)
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
@@ -72,7 +72,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	upstreamObj.SetNamespace(upstreamNamespace)
 
 	// Run name transformations on upstreamObj
-	transformName(upstreamObj, PhysicalClusterToKcp)
+	transformName(upstreamObj, SyncUp)
 
 	existing, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, upstreamObj.GetName(), metav1.GetOptions{})
 	if err != nil {

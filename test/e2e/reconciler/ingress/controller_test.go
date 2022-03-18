@@ -29,6 +29,7 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
@@ -125,30 +126,14 @@ func TestIngressController(t *testing.T) {
 			},
 		},
 	}
+
+	source := framework.SharedKcpServer(t)
+	orgClusterName := framework.NewOrganizationFixture(t, source)
+
 	for i := range testCases {
 		testCase := testCases[i]
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-
-			// TODO(marun) Refactor tests to enable the use of shared fixture
-			f := framework.NewKcpFixture(t,
-				framework.KcpConfig{
-					Name: "source",
-					Args: []string{
-						"--push-mode",
-						"--auto-publish-apis=true",
-						"--resources-to-sync=ingresses.networking.k8s.io,deployments.apps,services",
-						"--discovery-poll-interval=5s",
-					},
-				},
-				framework.KcpConfig{
-					Name: "sink",
-					Args: []string{
-						"--run-controllers=false",
-					},
-				},
-			)
-			source, sink := f.Servers[sourceServerName], f.Servers[sinkServerName]
 
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -157,9 +142,6 @@ func TestIngressController(t *testing.T) {
 				ctx = withDeadline
 			}
 
-			require.Equal(t, 2, len(f.Servers), "incorrect number of servers")
-
-			orgClusterName := framework.NewOrganizationFixture(t, source)
 			clusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 
 			// clients
@@ -173,6 +155,9 @@ func TestIngressController(t *testing.T) {
 
 			sourceCrdClient := sourceCrdClusterClient.Cluster(clusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(clusterName)
+
+			t.Log("Creating a fake workload server")
+			sink := framework.NewFakeWorkloadServer(t, source, orgClusterName)
 
 			sinkConfig := sink.DefaultConfig(t)
 			sinkKubeClient, err := kubernetesclientset.NewForConfig(sinkConfig)
@@ -204,9 +189,13 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Installing sink cluster...")
 			start := time.Now()
-			_, err = framework.CreateClusterAndWait(t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
+			workloadCluster, err := framework.CreateReadyCluster(
+				t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
 			require.NoError(t, err)
 			t.Logf("Installed sink cluster after %s", time.Since(start))
+
+			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
+			framework.StartWorkspaceSyncer(t, resources, workloadCluster, source, sink)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -238,11 +227,11 @@ func TestIngressController(t *testing.T) {
 
 			runningServers := map[string]runningServer{
 				sourceServerName: {
-					RunningServer: f.Servers[sourceServerName],
+					RunningServer: source,
 					client:        sourceKubeClient.NetworkingV1(),
 				},
 				sinkServerName: {
-					RunningServer: f.Servers[sinkServerName],
+					RunningServer: sink,
 					client:        sinkKubeClient.NetworkingV1(),
 				},
 			}

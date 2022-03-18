@@ -83,7 +83,7 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClust
 	}
 	fromClient := fromClients.Cluster(kcpClusterName)
 	toClient := dynamic.NewForConfigOrDie(to)
-	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, KcpToPhysicalCluster, syncedResourceTypes, pclusterID)
+	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, SyncDown, syncedResourceTypes, pclusterID)
 }
 
 func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
@@ -139,7 +139,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 			return err
 		}
 	}
-	klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetName())
+	klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetNamespace())
 
 	return nil
 }
@@ -165,7 +165,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetFinalizers(nil)
 
 	// Run name transformations on the downstreamObj.
-	transformName(downstreamObj, KcpToPhysicalCluster)
+	transformName(downstreamObj, SyncDown)
 
 	// Marshalling the unstructured object is good enough as SSA patch
 	data, err := json.Marshal(downstreamObj)
