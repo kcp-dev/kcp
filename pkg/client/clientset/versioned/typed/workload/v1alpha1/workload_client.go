@@ -21,6 +21,8 @@ package v1alpha1
 import (
 	"net/http"
 
+	logicalcluster "github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -35,7 +37,7 @@ type WorkloadV1alpha1Interface interface {
 // WorkloadV1alpha1Client is used to interact with features provided by the workload.kcp.dev group.
 type WorkloadV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    string
+	cluster    logicalcluster.LogicalCluster
 }
 
 func (c *WorkloadV1alpha1Client) WorkloadClusters() WorkloadClusterInterface {
@@ -87,7 +89,7 @@ func New(c rest.Interface) *WorkloadV1alpha1Client {
 }
 
 // NewWithCluster creates a new WorkloadV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster string) *WorkloadV1alpha1Client {
+func NewWithCluster(c rest.Interface, cluster logicalcluster.LogicalCluster) *WorkloadV1alpha1Client {
 	return &WorkloadV1alpha1Client{restClient: c, cluster: cluster}
 }
 
