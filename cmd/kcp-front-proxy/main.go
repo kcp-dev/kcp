@@ -117,19 +117,20 @@ routed based on paths.`,
 			if errs := options.Validate(); errs != nil {
 				return errors.NewAggregate(errs)
 			}
+
 			var handler http.Handler
 			handler, err := proxy.NewHandler(&options.Proxy)
 			if err != nil {
 				return err
 			}
 
-			var requestInfoResolver apirequest.RequestInfoResolver = NewRequestInfoResolver()
-			var authenticationInfo genericapiserver.AuthenticationInfo
 			var servingInfo *genericapiserver.SecureServingInfo
 			var loopbackClientConfig *restclient.Config
 			if err := options.SecureServing.ApplyTo(&servingInfo, &loopbackClientConfig); err != nil {
 				return err
 			}
+
+			var authenticationInfo genericapiserver.AuthenticationInfo
 			if err := options.Authentication.ApplyTo(&authenticationInfo, servingInfo); err != nil {
 				return err
 			}
@@ -138,8 +139,9 @@ routed based on paths.`,
 			metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 			codecs := serializer.NewCodecFactory(scheme)
 			failedHandler := genericapifilters.Unauthorized(codecs)
-
 			handler = WithOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
+
+			var requestInfoResolver apirequest.RequestInfoResolver = NewRequestInfoResolver()
 			handler = genericapifilters.WithRequestInfo(handler, requestInfoResolver)
 			handler = genericfilters.WithPanicRecovery(handler, requestInfoResolver)
 
