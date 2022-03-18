@@ -324,10 +324,9 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 					return crd, nil
 				}
 
-				// TODO(ncdc): if we got here, it means there is supposed to be a CRD coming from an APIBinding, but
-				// the CRD doesn't exist for some reason. Does it make sense to return a 404 here, or keep going and
-				// check other APIBindings and/or local CRDs?
-				return nil, apierrors.NewNotFound(schema.GroupResource{Group: apiextensionsv1.SchemeGroupVersion.Group, Resource: "customresourcedefinitions"}, name)
+				// If we got here, it means there is supposed to be a CRD coming from an APIBinding, but
+				// the CRD doesn't exist for some reason.
+				return nil, apierrors.NewServiceUnavailable(fmt.Sprintf("%s is currently unavailable", name))
 			}
 		}
 	}
