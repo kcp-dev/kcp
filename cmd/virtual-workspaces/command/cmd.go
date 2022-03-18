@@ -22,7 +22,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -52,34 +50,33 @@ type SubCommandOptions interface {
 	NewVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error)
 }
 
-func NewCommand(out, errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
+func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 	opts := options.NewOptions()
 	cmd := &cobra.Command{
 		Use:   "workspaces",
 		Short: "Launch workspaces virtual workspace apiserver",
 		Long:  "Start a virtual workspace apiserver to managing personal, shared or organization workspaces",
 
-		Run: func(c *cobra.Command, args []string) {
+		RunE: func(c *cobra.Command, args []string) error {
 			if err := opts.Logs.ValidateAndApply(); err != nil {
-				fmt.Fprintf(errout, "Error configuring logging options: %v", err)
-				os.Exit(255)
+				return err
 			}
-			kcmdutil.CheckErr(opts.Validate())
+			if err := opts.Validate(); err != nil {
+				return err
+			}
 
-			if err := Run(opts, stopCh); err != nil {
-				if kerrors.IsInvalid(err) {
-					var statusError *kerrors.StatusError
-					if isStatusError := errors.As(err, &statusError); isStatusError && statusError.ErrStatus.Details != nil {
-						details := statusError.ErrStatus.Details
-						fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
-						for _, cause := range details.Causes {
-							fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
-						}
-						os.Exit(255)
+			err := Run(opts, stopCh)
+			if kerrors.IsInvalid(err) {
+				var statusError *kerrors.StatusError
+				if isStatusError := errors.As(err, &statusError); isStatusError && statusError.ErrStatus.Details != nil {
+					details := statusError.ErrStatus.Details
+					fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
+					for _, cause := range details.Causes {
+						fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
 					}
 				}
-				klog.Fatal(err)
 			}
+			return err
 		},
 	}
 
