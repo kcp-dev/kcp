@@ -60,6 +60,10 @@ func NewCommand(out, errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 		Long:  "Start a virtual workspace apiserver to managing personal, shared or organization workspaces",
 
 		Run: func(c *cobra.Command, args []string) {
+			if err := opts.Logs.ValidateAndApply(); err != nil {
+				fmt.Fprintf(errout, "Error configuring logging options: %v", err)
+				os.Exit(255)
+			}
 			kcmdutil.CheckErr(opts.Validate())
 
 			if err := Run(opts, stopCh); err != nil {

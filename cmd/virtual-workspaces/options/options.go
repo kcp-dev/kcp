@@ -27,6 +27,7 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/component-base/logs"
 
 	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 )
@@ -44,6 +45,7 @@ type Options struct {
 
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
+	Logs           logs.Options
 
 	Workspaces workspacesoptions.Workspaces
 }
@@ -56,6 +58,7 @@ func NewOptions() *Options {
 
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
+		Logs:           *logs.NewOptions(),
 
 		Workspaces: *workspacesoptions.NewWorkspaces(),
 	}
@@ -70,6 +73,7 @@ func NewOptions() *Options {
 func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
+	o.Logs.AddFlags(flags)
 	o.Workspaces.AddFlags(flags, "")
 
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile, ""+
