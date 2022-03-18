@@ -43,6 +43,10 @@ var fs embed.FS
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
 func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
+	// This is the full list of CRDs that kcp owns and manages in the system:admin logical cluster. Our custom CRD
+	// lister currently has a hard-coded list of which system CRDs are made available to which workspaces. See
+	// pkg/server/apiextensions.go newSystemCRDProvider for the list. These CRDs should never be installed in any other
+	// logical cluster.
 	crds := []metav1.GroupResource{
 		{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
 		{Group: tenancy.GroupName, Resource: "clusterworkspacetypes"},
