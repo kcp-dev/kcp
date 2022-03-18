@@ -113,6 +113,9 @@ forwards Common Name and Organizations to backend API servers in HTTP headers.
 The proxy terminates TLS and communicates with API servers via mTLS. Traffic is
 routed based on paths.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := options.Logs.ValidateAndApply(); err != nil {
+				return err
+			}
 			if err := options.Complete(); err != nil {
 				return err
 			}
@@ -143,7 +146,7 @@ routed based on paths.`,
 			failedHandler := genericapifilters.Unauthorized(codecs)
 			handler = WithOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
 
-			var requestInfoResolver apirequest.RequestInfoResolver = NewRequestInfoResolver()
+			requestInfoResolver := NewRequestInfoResolver()
 			handler = genericapifilters.WithRequestInfo(handler, requestInfoResolver)
 			handler = genericfilters.WithPanicRecovery(handler, requestInfoResolver)
 

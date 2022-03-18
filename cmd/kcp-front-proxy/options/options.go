@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/pflag"
 
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/component-base/logs"
 
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 )
@@ -31,6 +32,7 @@ type Options struct {
 	SecureServing  apiserveroptions.SecureServingOptionsWithLoopback
 	Authentication Authentication
 	Proxy          proxyoptions.Options
+	Logs           *logs.Options
 
 	RootDirectory string
 }
@@ -40,6 +42,7 @@ func NewOptions() *Options {
 		SecureServing:  *apiserveroptions.NewSecureServingOptions().WithLoopback(),
 		Authentication: *NewAuthentication(),
 		Proxy:          *proxyoptions.NewOptions(),
+		Logs:           logs.NewOptions(),
 
 		RootDirectory: ".kcp",
 	}
@@ -55,6 +58,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.SecureServing.AddFlags(fs)
 	o.Authentication.AddFlags(fs)
 	o.Proxy.AddFlags(fs)
+
+	o.Logs.AddFlags(fs)
 
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
 }
