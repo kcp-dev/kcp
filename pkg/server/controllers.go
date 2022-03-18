@@ -516,6 +516,7 @@ func (s *Server) installSyncerController(ctx context.Context, config *rest.Confi
 }
 
 func (s *Server) installAPIBindingController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-apibinding-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
