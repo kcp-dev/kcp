@@ -142,6 +142,8 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 	crdName := func(crd *apiextensionsv1.CustomResourceDefinition) string {
 		return crd.Spec.Names.Plural + "." + crd.Spec.Group
 	}
+
+	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
 	org, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
@@ -154,6 +156,7 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
 
+	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
 	for i := range kcpSystemCRDs {
 		ret = append(ret, kcpSystemCRDs[i])
 		seen.Insert(crdName(kcpSystemCRDs[i]))
@@ -188,6 +191,7 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 				continue
 			}
 
+			// Priority 2: Add APIBinding CRDs. These take priority over those from the local workspace.
 			ret = append(ret, crd)
 			seen.Insert(crdName(crd))
 		}
@@ -206,6 +210,8 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 			klog.Infof("Skipping local CRD %s|%s because it came in via APIBindings or system CRDs", crd.ClusterName, crd.Name)
 			continue
 		}
+
+		// Priority 3: add local workspace CRDs that weren't already coming from APIBindings or kcp system.
 		ret = append(ret, crd)
 	}
 
