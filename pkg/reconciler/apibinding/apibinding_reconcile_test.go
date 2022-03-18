@@ -53,50 +53,50 @@ func requireConditionMatches(t *testing.T, g conditions.Getter, w wantCondition)
 }
 
 func TestPhaseReconciler(t *testing.T) {
+	unbound := new(bindingBuilder).
+		WithClusterName("org:ws").
+		WithName("my-binding").
+		WithWorkspaceReference("some-workspace", "some-export")
+
+	bound := unbound.DeepCopy().
+		WithPhase(apisv1alpha1.APIBindingPhaseBound).
+		WithBoundAPIExport("some-workspace", "some-export").
+		WithBoundResources(
+			new(boundAPIResourceBuilder).
+				WithGroupResource("mygroup", "someresources").
+				WithSchema("today.someresources.mygroup", "uid1").
+				BoundAPIResource,
+			new(boundAPIResourceBuilder).
+				WithGroupResource("anothergroup", "otherresources").
+				WithSchema("today.someresources.anothergroup", "uid2").
+				BoundAPIResource,
+		)
+
 	tests := map[string]struct {
 		apiBinding          *apisv1alpha1.APIBinding
 		apiExport           *apisv1alpha1.APIExport
 		getAPIExportError   error
 		apiResourceSchemas  map[string]*apisv1alpha1.APIResourceSchema
 		wantReconcileStatus reconcileStatus
-		wantPhase           apisv1alpha1.APIBindingPhaseType
+		wantBinding         bool
+		wantBound           bool
 		wantCondition       *wantCondition
 		wantError           bool
 	}{
 		"empty phase becomes binding": {
-			apiBinding:          &apisv1alpha1.APIBinding{},
-			wantPhase:           apisv1alpha1.APIBindingPhaseBinding,
+			apiBinding:          unbound.Build(),
+			wantBinding:         true,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
-		"bound becomes binding when export changes": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:ws").
-				WithName("my-binding").
+		"bound becomes binding when referenced export changes": {
+			apiBinding: bound.DeepCopy().
 				WithWorkspaceReference("new-workspace", "new-export").
-				WithPhase(apisv1alpha1.APIBindingPhaseBound).
-				WithBoundAPIExport("some-workspace", "some-export").
 				Build(),
-			wantPhase:           apisv1alpha1.APIBindingPhaseBinding,
+			wantBinding:         true,
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"bound becomes binding when export changes what it's exporting": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:ws").
-				WithName("my-binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("mygroup", "someresources").
-						WithSchema("today.someresources.mygroup", "uid1").
-						BoundAPIResource,
-					new(boundAPIResourceBuilder).
-						WithGroupResource("anothergroup", "otherresources").
-						WithSchema("today.someresources.anothergroup", "uid2").
-						BoundAPIResource,
-				).
-				WithPhase(apisv1alpha1.APIBindingPhaseBound).
-				Build(),
+			apiBinding: bound.Build(),
 			apiExport: &apisv1alpha1.APIExport{
 				Spec: apisv1alpha1.APIExportSpec{
 					LatestResourceSchemas: []string{"someresources", "moreresources"},
@@ -116,27 +116,11 @@ func TestPhaseReconciler(t *testing.T) {
 					},
 				},
 			},
-			wantPhase:           apisv1alpha1.APIBindingPhaseBinding,
+			wantBinding:         true,
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"bound becomes binding when bound APIResourceSchema UID changes": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:ws").
-				WithName("my-binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("mygroup", "someresources").
-						WithSchema("today.someresources.mygroup", "uid1").
-						BoundAPIResource,
-					new(boundAPIResourceBuilder).
-						WithGroupResource("anothergroup", "otherresources").
-						WithSchema("today.someresources.anothergroup", "uid2").
-						BoundAPIResource,
-				).
-				WithPhase(apisv1alpha1.APIBindingPhaseBound).
-				Build(),
+			apiBinding: bound.Build(),
 			apiExport: &apisv1alpha1.APIExport{
 				Spec: apisv1alpha1.APIExportSpec{
 					LatestResourceSchemas: []string{"someresources", "otherresources"},
@@ -156,27 +140,20 @@ func TestPhaseReconciler(t *testing.T) {
 					},
 				},
 			},
-			wantPhase:           apisv1alpha1.APIBindingPhaseBinding,
+			wantBinding:         true,
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"APIExportValid warning condition set when error getting previously bound APIExport": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:ws").
-				WithName("my-binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithPhase(apisv1alpha1.APIBindingPhaseBound).
-				WithBoundAPIExport("some-workspace", "some-export").
-				Build(),
+			apiBinding:          bound.Build(),
 			getAPIExportError:   errors.New("foo"),
+			wantError:           true,
 			wantReconcileStatus: reconcileStatusStop,
-			wantPhase:           apisv1alpha1.APIBindingPhaseBound,
 			wantCondition: &wantCondition{
 				Type:     apisv1alpha1.APIExportValid,
 				Status:   corev1.ConditionFalse,
 				Reason:   apisv1alpha1.GetErrorReason,
 				Severity: conditionsv1alpha1.ConditionSeverityWarning,
 			},
-			wantError: true,
 		},
 	}
 
@@ -195,13 +172,22 @@ func TestPhaseReconciler(t *testing.T) {
 			}
 
 			status, err := r.reconcile(context.Background(), tc.apiBinding)
+
 			gotErr := err != nil
 			require.Equal(t, tc.wantError, gotErr)
 			if tc.wantError {
 				return
 			}
+
 			require.Equal(t, status, tc.wantReconcileStatus)
-			require.Equal(t, tc.wantPhase, tc.apiBinding.Status.Phase)
+
+			switch {
+			case tc.wantBinding:
+				require.Equal(t, apisv1alpha1.APIBindingPhaseBinding, tc.apiBinding.Status.Phase)
+			case tc.wantBound:
+				require.Equal(t, apisv1alpha1.APIBindingPhaseBound, tc.apiBinding.Status.Phase)
+			}
+
 			if tc.wantCondition != nil {
 				requireConditionMatches(t, tc.apiBinding, *tc.wantCondition)
 			}
@@ -703,8 +689,14 @@ type bindingBuilder struct {
 	apisv1alpha1.APIBinding
 }
 
+func (b *bindingBuilder) DeepCopy() *bindingBuilder {
+	return &bindingBuilder{
+		APIBinding: *b.APIBinding.DeepCopy(),
+	}
+}
+
 func (b *bindingBuilder) Build() *apisv1alpha1.APIBinding {
-	return &b.APIBinding
+	return b.APIBinding.DeepCopy()
 }
 
 func (b *bindingBuilder) WithClusterName(clusterName string) *bindingBuilder {
