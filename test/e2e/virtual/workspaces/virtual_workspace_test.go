@@ -50,29 +50,10 @@ import (
 )
 
 type testDataType struct {
-	user1, user2, user3                                                      framework.User
 	workspace1, workspace1Disambiguited, workspace2, workspace2Disambiguited *tenancyv1beta1.Workspace
 }
 
 var testData = testDataType{
-	user1: framework.User{
-		Name:   "user-1",
-		UID:    "1111-1111-1111-1111",
-		Token:  "user-1-token",
-		Groups: []string{"team-1"},
-	},
-	user2: framework.User{
-		Name:   "user-2",
-		UID:    "2222-2222-2222-2222",
-		Token:  "user-2-token",
-		Groups: []string{"team-2"},
-	},
-	user3: framework.User{
-		Name:   "user-3",
-		UID:    "3333-3333-3333-3333",
-		Token:  "user-3-token",
-		Groups: []string{"team-3"},
-	},
 	workspace1:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1"}},
 	workspace1Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1--1"}},
 	workspace2:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2"}},
@@ -129,10 +110,14 @@ func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Inte
 }
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
-	t.Run("Standalone virtual workspace apiserver", func(t *testing.T) {
-		t.Parallel()
-		testWorkspacesVirtualWorkspaces(t, true)
-	})
+	if len(framework.TestConfig.KubeConfig) == 0 {
+		// Skip testing standalone when running against persistent fixture to minimize
+		// test execution cost for development.
+		t.Run("Standalone virtual workspace apiserver", func(t *testing.T) {
+			t.Parallel()
+			testWorkspacesVirtualWorkspaces(t, true)
+		})
+	}
 	t.Run("In-process virtual workspace apiserver", func(t *testing.T) {
 		t.Parallel()
 		testWorkspacesVirtualWorkspaces(t, false)
@@ -141,7 +126,7 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 	type clientInfo struct {
-		User   framework.User
+		Token  string
 		Prefix string
 	}
 
@@ -164,11 +149,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
 				return []clientInfo{
 					{
-						User:   testData.user1,
+						Token:  "user-1-token",
 						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 					{
-						User:   testData.user2,
+						Token:  "user-2-token",
 						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 				}
@@ -206,6 +191,9 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
 					workspace2, err = vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+					if err != nil {
+						t.Logf("failed to create workspace2: %v", err)
+					}
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace2")
 
@@ -237,11 +225,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
 				return []clientInfo{
 					{
-						User:   testData.user1,
+						Token:  "user-1-token",
 						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 					{
-						User:   testData.user2,
+						Token:  "user-2-token",
 						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 				}
@@ -285,7 +273,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					Subjects: []rbacv1.Subject{
 						{
 							Kind: "User",
-							Name: testData.user1.Name,
+							Name: "user-1",
 						},
 					},
 				}, metav1.CreateOptions{})
@@ -339,33 +327,37 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
 				return []clientInfo{
 					{
-						User:   testData.user1,
+						Token:  "user-1-token",
 						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
-					},
-					{
-						User:   testData.user1,
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", "root:default", "personal"),
 					},
 				}
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				testOrgClient := server.virtualKcpClients[0]
-				defaultOrgClient := server.virtualKcpClients[1]
+				org1Client := server.virtualKcpClients[0]
+				org1Expecter := server.virtualWorkspaceExpectations[0]
 
-				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
-				require.NoError(t, err, "failed to create root workspace roles")
+				org2ClusterName := framework.NewOrganizationFixture(t, server)
+				token := "user-1-token"
+				prefix := path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", org2ClusterName, "personal")
+				org2Client := newVirtualKcpClient(t, server.DefaultConfig(t), token, prefix)
+				org2Expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, org2Client)
+				require.NoError(t, err, "failed to start virtual workspace expecter")
 
-				// TODO: move away from root:default. No e2e should depend on default object,
-				// but be hermeticly separated from everything else.
-				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, "root:default", "team-1")
-				require.NoError(t, err, "failed to create root workspace roles")
+				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
+				require.NoError(t, err, "failed to create member role for org %q", server.orgClusterName)
 
-				t.Logf("Create Workspace workspace1 in test org")
+				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, org2ClusterName, "team-1")
+				require.NoError(t, err, "failed to create member role for org %q", org2ClusterName)
+
+				t.Logf("Create workspace1 in org1")
 				var workspace1 *tenancyv1beta1.Workspace
 				require.Eventually(t, func() bool {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
-					workspace1, err = testOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					workspace1, err = org1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					if err != nil {
+						t.Logf("failed to create workspace1 in org1: %v", err)
+					}
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
@@ -376,29 +368,33 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("Create Workspace workspace2 in the virtual workspace")
+				t.Logf("Create workspace2 in org2")
 				var workspace2 *tenancyv1beta1.Workspace
 				require.Eventually(t, func() bool {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
-					workspace2, err = defaultOrgClient.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+					workspace2, err = org2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+					if err != nil {
+						t.Logf("failed to create workspace2 in org2: %v", err)
+					}
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace2")
 
-				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
+				err = org1Expecter(func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
 					}
 					return nil
 				})
-				require.NoError(t, err, "did not see the workspace1 created in test org")
-				err = server.virtualWorkspaceExpectations[1](func(w *tenancyv1beta1.WorkspaceList) error {
+				require.NoError(t, err, "did not see the workspace1 created in org1")
+
+				err = org2Expecter(func(w *tenancyv1beta1.WorkspaceList) error {
 					if len(w.Items) != 1 || w.Items[0].Name != workspace2.Name {
 						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace2.Name, w)
 					}
 					return nil
 				})
-				require.NoError(t, err, "did not see workspace2 created in test org")
+				require.NoError(t, err, "did not see workspace2 created in org2")
 			},
 		},
 		{
@@ -406,7 +402,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
 				return []clientInfo{
 					{
-						User:   testData.user1,
+						// Use a user unique to the test to ensure isolation from other tests
+						Token:  "user-virtual-workspace-all-scope-token",
 						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", "root", "all"),
 					},
 				}
@@ -415,7 +412,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				_, orgName, err := helper.ParseLogicalClusterName(server.orgClusterName)
 				require.NoError(t, err, "failed to parse organization logical cluster")
 
-				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
+				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-virtual-workspace-all-scope")
 				require.NoError(t, err, "failed to create root workspace roles")
 
 				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
@@ -437,7 +434,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
 				return []clientInfo{
 					{
-						User:   testData.user1,
+						// Use a user unique to the test to ensure isolation from other tests
+						Token:  "user-virtual-workspace-kubeconfig-token",
 						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
 					},
 				}
@@ -445,7 +443,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualKcpClients[0]
 
-				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
+				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-virtual-workspace-kubeconfig")
 				require.NoError(t, err, "failed to create root workspace roles")
 
 				kcpServerKubeconfig, err := server.RunningServer.RawConfig()
@@ -456,6 +454,9 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
 					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					if err != nil {
+						t.Logf("failed to create workspace1: %v", err)
+					}
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
@@ -465,7 +466,10 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 				require.Eventually(t, func() bool {
 					ws, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
-					require.NoError(t, err, "failed to get workspace1")
+					if err != nil {
+						t.Logf("failed to retrieve workspace1: %v", err)
+						return false
+					}
 					return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 				}, wait.ForeverTestTimeout, time.Millisecond*100, " workspace1 did not become ready")
 
@@ -515,44 +519,92 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		},
 	}
 
-	const serverName = "main"
+	var server framework.RunningServer
+	if standalone {
+		// create port early. We have to hope it is still free when we are ready to start the virtual workspace apiserver.
+		portStr, err := framework.GetFreePort(t)
+		require.NoError(t, err)
+
+		serverName := "main"
+		tokenAuthFile := framework.WriteTokenAuthFile(t)
+		f := framework.NewKcpFixture(t,
+			framework.KcpConfig{
+				Name: serverName,
+				Args: []string{
+					"--run-controllers=false",
+					"--unsupported-run-individual-controllers=workspace-scheduler",
+					"--run-virtual-workspaces=false",
+					fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
+					"--token-auth-file", tokenAuthFile,
+				},
+			},
+		)
+		server = f.Servers[serverName]
+
+		// write kubeconfig to disk, next to kcp kubeconfig
+		kcpAdminConfig, _ := server.RawConfig()
+		var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
+		virtualWorkspaceKubeConfig := clientcmdapi.Config{
+			Clusters: map[string]*clientcmdapi.Cluster{
+				"shard": &baseCluster,
+			},
+			Contexts: map[string]*clientcmdapi.Context{
+				"shard": {
+					Cluster:  "shard",
+					AuthInfo: "virtualworkspace",
+				},
+			},
+			AuthInfos: map[string]*clientcmdapi.AuthInfo{
+				"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
+			},
+			CurrentContext: "shard",
+		}
+		kubeconfigPath := filepath.Join(filepath.Dir(server.KubeconfigPath()), "virtualworkspace.kubeconfig")
+		err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, kubeconfigPath)
+		require.NoError(t, err)
+
+		// launch virtual workspace apiserver
+		port, err := strconv.Atoi(portStr)
+		require.NoError(t, err)
+		opts := virtualoptions.NewOptions()
+		opts.KubeconfigFile = kubeconfigPath
+		opts.SecureServing.BindPort = port
+		opts.SecureServing.ServerCert.CertKey.KeyFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.key")
+		opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.crt")
+		opts.Authentication.SkipInClusterLookup = true
+		opts.Authentication.RemoteKubeConfigFile = kubeconfigPath
+		err = opts.Validate()
+		require.NoError(t, err)
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(cancelFunc)
+		go func() {
+			err = virtualcommand.Run(opts, ctx.Done())
+			require.NoError(t, err)
+		}()
+
+		// wait for readiness
+		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+		require.Eventually(t, func() bool {
+			resp, err := client.Get(fmt.Sprintf("https://localhost:%s/readyz", portStr))
+			if err != nil {
+				klog.Warningf("error checking virtual workspace readiness: %v", err)
+				return false
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return true
+			}
+			klog.Infof("virtual workspace is not ready yet, status code: %d", resp.StatusCode)
+			return false
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "virtual workspace apiserver not ready")
+	} else {
+		server = framework.SharedKcpServer(t)
+	}
 
 	for i := range testCases {
 		testCase := testCases[i]
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-
-			var users []framework.User
-			for _, vwClientContexts := range testCase.virtualWorkspaceClientContexts("") {
-				users = append(users, vwClientContexts.User)
-			}
-			usersKCPArgs, err := framework.Users(users).ArgsForKCP(t)
-			require.NoError(t, err)
-
-			// create port early. We have to hope it is still free when we are ready to start the virtual workspace apiserver.
-			portStr, err := framework.GetFreePort(t)
-			require.NoError(t, err)
-
-			// TODO(marun) Can fixture be shared for this test?
-			var extraArgs []string
-			if standalone {
-				extraArgs = append(extraArgs,
-					"--run-virtual-workspaces=false",
-					fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
-				)
-			}
-			f := framework.NewKcpFixture(t,
-				framework.KcpConfig{
-					Name: serverName,
-					Args: append(append(extraArgs,
-						"--run-controllers=false",
-						"--unsupported-run-individual-controllers=workspace-scheduler",
-					), usersKCPArgs...),
-				},
-			)
-
-			require.Equal(t, 1, len(f.Servers), "incorrect number of servers")
-			server := f.Servers[serverName]
 
 			ctx := context.Background()
 			if deadline, ok := t.Deadline(); ok {
@@ -562,63 +614,6 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			}
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
-
-			if standalone {
-				// write kubeconfig to disk, next to kcp kubeconfig
-				kcpAdminConfig, _ := server.RawConfig()
-				var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
-				virtualWorkspaceKubeConfig := clientcmdapi.Config{
-					Clusters: map[string]*clientcmdapi.Cluster{
-						"shard": &baseCluster,
-					},
-					Contexts: map[string]*clientcmdapi.Context{
-						"shard": {
-							Cluster:  "shard",
-							AuthInfo: "virtualworkspace",
-						},
-					},
-					AuthInfos: map[string]*clientcmdapi.AuthInfo{
-						"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
-					},
-					CurrentContext: "shard",
-				}
-				kubeconfigPath := filepath.Join(filepath.Dir(server.KubeconfigPath()), "virtualworkspace.kubeconfig")
-				err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, kubeconfigPath)
-				require.NoError(t, err)
-
-				// launch virtual workspace apiserver
-				port, err := strconv.Atoi(portStr)
-				require.NoError(t, err)
-				opts := virtualoptions.NewOptions()
-				opts.KubeconfigFile = kubeconfigPath
-				opts.SecureServing.BindPort = port
-				opts.SecureServing.ServerCert.CertKey.KeyFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.key")
-				opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(filepath.Dir(server.KubeconfigPath()), "apiserver.crt")
-				opts.Authentication.SkipInClusterLookup = true
-				opts.Authentication.RemoteKubeConfigFile = kubeconfigPath
-				err = opts.Validate()
-				require.NoError(t, err)
-				go func() {
-					err = virtualcommand.Run(opts, ctx.Done())
-					require.NoError(t, err)
-				}()
-
-				// wait for readiness
-				client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
-				require.Eventually(t, func() bool {
-					resp, err := client.Get(fmt.Sprintf("https://localhost:%s/readyz", portStr))
-					if err != nil {
-						klog.Warningf("error checking virtual workspace readiness: %v", err)
-						return false
-					}
-					defer resp.Body.Close()
-					if resp.StatusCode == http.StatusOK {
-						return true
-					}
-					klog.Infof("virtual workspace is not ready yet, status code: %d", resp.StatusCode)
-					return false
-				}, wait.ForeverTestTimeout, time.Millisecond*100, "virtual workspace apiserver not ready")
-			}
 
 			// create non-virtual clients
 			kcpConfig := server.DefaultConfig(t)
@@ -630,19 +625,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			// create virtual clients for all paths and users requested
 			var virtualKcpClients []kcpclientset.Interface
 			var virtualWorkspaceExpectations []framework.RegisterWorkspaceListExpectation
-			kcpRawConfig, err := server.RawConfig()
-			require.NoError(t, err)
 			for _, cc := range testCase.virtualWorkspaceClientContexts(orgClusterName) {
-				// create virtual clients
-				virtualConfig := rest.CopyConfig(kcpConfig)
-				virtualConfig.Host = virtualConfig.Host + cc.Prefix
-				if authInfo, exists := kcpRawConfig.AuthInfos[cc.User.Name]; exists && cc.User.Token == "" {
-					virtualConfig.BearerToken = authInfo.Token
-				} else {
-					virtualConfig.BearerToken = cc.User.Token
-				}
-				client, err := kcpclientset.NewForConfig(virtualConfig)
-				require.NoError(t, err, "failed to construct kcp client")
+				client := newVirtualKcpClient(t, kcpConfig, cc.Token, cc.Prefix)
 				virtualKcpClients = append(virtualKcpClients, client)
 
 				// create expectations
@@ -663,4 +647,15 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			})
 		})
 	}
+}
+
+func newVirtualKcpClient(t *testing.T, kcpConfig *rest.Config, token, prefix string) kcpclientset.Interface {
+	// create virtual clients
+	virtualConfig := rest.CopyConfig(kcpConfig)
+	virtualConfig.Host = virtualConfig.Host + prefix
+	// Token must be defined in test/e2e/framework/auth-tokens.csv
+	virtualConfig.BearerToken = token
+	client, err := kcpclientset.NewForConfig(virtualConfig)
+	require.NoError(t, err, "failed to construct kcp client")
+	return client
 }

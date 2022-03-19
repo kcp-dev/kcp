@@ -16,16 +16,6 @@ limitations under the License.
 
 package framework
 
-import (
-	"fmt"
-	"os"
-	"path"
-	"strings"
-	"testing"
-
-	"k8s.io/client-go/rest"
-)
-
 type User struct {
 	Name   string
 	Token  string
@@ -35,31 +25,4 @@ type User struct {
 
 var LoopbackUser User = User{
 	Name: "loopback",
-}
-
-func (u User) String() string {
-	return fmt.Sprintf("%s,%s,%s,\"%s\"", u.Token, u.Name, u.UID, strings.Join(u.Groups, ","))
-}
-
-type Users []User
-
-func (us User) ConfigForUser(defaultConfig *rest.Config) *rest.Config {
-	cfgCopy := rest.CopyConfig(defaultConfig)
-	cfgCopy.BearerToken = us.Token
-	return cfgCopy
-}
-
-func (us Users) ArgsForKCP(t *testing.T) ([]string, error) {
-	kcpTokensPath := path.Join(t.TempDir(), "kcp-tokens")
-	kcpTokens, err := os.Create(kcpTokensPath)
-	if err != nil {
-		return nil, err
-	}
-	defer kcpTokens.Close()
-	for _, user := range us {
-		if _, err := kcpTokens.WriteString(user.String() + "\n"); err != nil {
-			return nil, err
-		}
-	}
-	return []string{"--token-auth-file", kcpTokensPath}, nil
 }

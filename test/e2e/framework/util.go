@@ -57,7 +57,7 @@ import (
 //go:embed *.csv
 var fs embed.FS
 
-// writeTokenAuthFile writes the embedded token file to the current
+// WriteTokenAuthFile writes the embedded token file to the current
 // test's data dir.
 //
 // Persistent servers can target the file in the source tree with
@@ -67,7 +67,7 @@ var fs embed.FS
 //
 // TODO(marun) Is there a way to avoid embedding by determining the
 // path to the file during test execution?
-func writeTokenAuthFile(t *testing.T) string {
+func WriteTokenAuthFile(t *testing.T) string {
 	dataDir, err := CreateTempDirForTest(t, "data")
 	require.NoError(t, err)
 
