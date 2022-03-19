@@ -17,8 +17,6 @@ limitations under the License.
 package command
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -26,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -64,19 +61,7 @@ func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 			if err := opts.Validate(); err != nil {
 				return err
 			}
-
-			err := Run(opts, stopCh)
-			if kerrors.IsInvalid(err) {
-				var statusError *kerrors.StatusError
-				if isStatusError := errors.As(err, &statusError); isStatusError && statusError.ErrStatus.Details != nil {
-					details := statusError.ErrStatus.Details
-					fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
-					for _, cause := range details.Causes {
-						fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
-					}
-				}
-			}
-			return err
+			return Run(opts, stopCh)
 		},
 	}
 
