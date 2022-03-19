@@ -17,17 +17,13 @@ limitations under the License.
 package command
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -52,30 +47,21 @@ type SubCommandOptions interface {
 	NewVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error)
 }
 
-func NewCommand(out, errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
+func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 	opts := options.NewOptions()
 	cmd := &cobra.Command{
 		Use:   "workspaces",
 		Short: "Launch workspaces virtual workspace apiserver",
 		Long:  "Start a virtual workspace apiserver to managing personal, shared or organization workspaces",
 
-		Run: func(c *cobra.Command, args []string) {
-			kcmdutil.CheckErr(opts.Validate())
-
-			if err := Run(opts, stopCh); err != nil {
-				if kerrors.IsInvalid(err) {
-					var statusError *kerrors.StatusError
-					if isStatusError := errors.As(err, &statusError); isStatusError && statusError.ErrStatus.Details != nil {
-						details := statusError.ErrStatus.Details
-						fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
-						for _, cause := range details.Causes {
-							fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
-						}
-						os.Exit(255)
-					}
-				}
-				klog.Fatal(err)
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Logs.ValidateAndApply(); err != nil {
+				return err
 			}
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			return Run(opts, stopCh)
 		},
 	}
 

@@ -37,7 +37,7 @@ func main() {
 
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
-	command := virtualworkspacecommand.NewCommand(os.Stdout, os.Stderr, ctx.Done())
+	command := virtualworkspacecommand.NewCommand(os.Stderr, ctx.Done())
 	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
