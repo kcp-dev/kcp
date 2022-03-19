@@ -394,21 +394,10 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 type RoleType string
 
 const (
-	ListerRoleType RoleType = "lister"
-	OwnerRoleType  RoleType = "owner"
+	OwnerRoleType RoleType = "owner"
 )
 
-var roleRules map[RoleType][]rbacv1.PolicyRule = map[RoleType][]rbacv1.PolicyRule{
-	ListerRoleType: {
-		{
-			Verbs:     []string{"get"},
-			Resources: []string{"clusterworkspaces/workspace"},
-		},
-		{
-			Resources: []string{"clusterworkspaces/content"},
-			Verbs:     []string{"view"},
-		},
-	},
+var roleRules = map[RoleType][]rbacv1.PolicyRule{
 	OwnerRoleType: {
 		{
 			Verbs:     []string{"get", "delete"},
@@ -416,7 +405,7 @@ var roleRules map[RoleType][]rbacv1.PolicyRule = map[RoleType][]rbacv1.PolicyRul
 		},
 		{
 			Resources: []string{"clusterworkspaces/content"},
-			Verbs:     []string{"view", "edit"},
+			Verbs:     []string{"admin"},
 		},
 	},
 }
@@ -460,7 +449,7 @@ var _ = rest.Creater(&REST{})
 // since the name ( == pretty name ) requested by the user might already exist at the organization level.
 // Internal names would be <pretty name>--<suffix>.
 //
-// However when the user manages his workspaces through the personal scope, the pretty names will always be used.
+// However, when the user manages his workspaces through the personal scope, the pretty names will always be used.
 //
 // Personal pretty names and the related internal names are stored on the ClusterRoleBinding that links the
 // ClusterWorkspace-related ClusterRole with the user Subject.
@@ -477,7 +466,6 @@ var _ = rest.Creater(&REST{})
 //
 //   2. create ClusterRoleBinding owner-workspace-my-app-user-A
 //      create ClusterRole owner-workspace-my-app-user-A
-//      create ClusterRole lister-workspace-my-app-user-A  (in order to later allow sharing)
 //
 //   3. create ClusterWorkspace my-app
 //
@@ -551,7 +539,6 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	}
 
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, userInfo)
-	listerRoleBindingName := getRoleBindingName(ListerRoleType, workspace.Name, userInfo)
 
 	// First create the ClusterRoleBinding that will link the workspace cluster role with the user Subject
 	// This is created with a name unique inside the user personal scope (pretty name + userName),
@@ -581,17 +568,11 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
 	}
 
-	// Then create the owner and lister roles related to the given workspace.
+	// Then create the owner role related to the given workspace.
 	// Note that ResourceNames contains the workspace pretty name for now.
 	// It will be updated later on when the internal name of the workspace is known.
 	ownerClusterRole := createClusterRole(ownerRoleBindingName, workspace.Name, OwnerRoleType)
 	if _, err := org.rbacClient.ClusterRoles().Create(ctx, ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
-	}
-
-	listerClusterRole := createClusterRole(listerRoleBindingName, workspace.Name, ListerRoleType)
-	if _, err := org.rbacClient.ClusterRoles().Create(ctx, listerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
-		_ = org.rbacClient.ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
 	}
 
@@ -636,21 +617,6 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	ownerClusterRole.Labels[InternalNameLabel] = createdClusterWorkspace.Name
 	if _, err := org.rbacClient.ClusterRoles().Update(ctx, ownerClusterRole, metav1.UpdateOptions{}); err != nil {
 		_ = org.rbacClient.ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
-		_ = org.rbacClient.ClusterRoles().Delete(ctx, listerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
-		_, _, _ = s.Delete(ctx, createdClusterWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
-		if kerrors.IsConflict(err) {
-			return nil, kerrors.NewConflict(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
-		}
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
-	}
-
-	for i := range listerClusterRole.Rules {
-		listerClusterRole.Rules[i].ResourceNames = []string{createdClusterWorkspace.Name}
-	}
-	listerClusterRole.Labels[InternalNameLabel] = createdClusterWorkspace.Name
-	if _, err := org.rbacClient.ClusterRoles().Update(ctx, listerClusterRole, metav1.UpdateOptions{}); err != nil {
-		_ = org.rbacClient.ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
-		_ = org.rbacClient.ClusterRoles().Delete(ctx, listerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_, _, _ = s.Delete(ctx, createdClusterWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		if kerrors.IsConflict(err) {
 			return nil, kerrors.NewConflict(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
