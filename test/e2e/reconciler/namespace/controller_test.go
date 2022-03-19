@@ -85,7 +85,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				logicalServer := framework.NewFakeWorkloadServer(t, server, server.orgClusterName)
 
 				t.Log("Create a ready cluster")
-				cluster1, err := framework.CreateReadyCluster(t, ctx, server.Artifact, server.kcpClient, logicalServer)
+				cluster1, err := framework.CreateReadyCluster(t, server.Artifact, server.kcpClient, logicalServer)
 				require.NoError(t, err, "failed to create cluster1")
 
 				err = server.expect(namespace, scheduledMatcher(cluster1.Name))
@@ -137,12 +137,9 @@ func TestNamespaceScheduler(t *testing.T) {
 			t.Parallel()
 
 			start := time.Now()
-			ctx := context.Background()
-			if deadline, ok := t.Deadline(); ok {
-				withDeadline, cancel := context.WithDeadline(ctx, deadline)
-				t.Cleanup(cancel)
-				ctx = withDeadline
-			}
+
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			t.Cleanup(cancelFunc)
 
 			cfg := server.DefaultConfig(t)
 

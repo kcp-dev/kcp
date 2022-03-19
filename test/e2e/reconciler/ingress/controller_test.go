@@ -135,12 +135,8 @@ func TestIngressController(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			if deadline, ok := t.Deadline(); ok {
-				withDeadline, cancel := context.WithDeadline(ctx, deadline)
-				t.Cleanup(cancel)
-				ctx = withDeadline
-			}
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			t.Cleanup(cancelFunc)
 
 			clusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 
@@ -190,7 +186,7 @@ func TestIngressController(t *testing.T) {
 			t.Log("Installing sink cluster...")
 			start := time.Now()
 			workloadCluster, err := framework.CreateReadyCluster(
-				t, ctx, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
+				t, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
 			require.NoError(t, err)
 			t.Logf("Installed sink cluster after %s", time.Since(start))
 
@@ -272,7 +268,7 @@ func TestIngressController(t *testing.T) {
 				"--envoy-listener-port="+envoyListenerPort,
 				"--envoy-xds-port="+xdsListenerPort,
 			)
-			err = ingressController.Run(ctx, framework.WithLogStreaming)
+			err = ingressController.Run(t, framework.WithLogStreaming)
 			require.NoError(t, err, "failed to start ingress controller")
 
 			t.Log("Starting test...")

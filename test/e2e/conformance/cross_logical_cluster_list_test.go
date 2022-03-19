@@ -47,12 +47,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	t.Run("Ensure cross logical cluster list works", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
-		if deadline, ok := t.Deadline(); ok {
-			withDeadline, cancel := context.WithDeadline(ctx, deadline)
-			t.Cleanup(cancel)
-			ctx = withDeadline
-		}
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(cancelFunc)
 
 		cfg := server.DefaultConfig(t)
 

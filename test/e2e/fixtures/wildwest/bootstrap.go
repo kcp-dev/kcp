@@ -33,12 +33,8 @@ import (
 var rawCustomResourceDefinitions embed.FS
 
 func Create(t *testing.T, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) {
-	ctx := context.Background()
-	if deadline, ok := t.Deadline(); ok {
-		withDeadline, cancel := context.WithDeadline(ctx, deadline)
-		t.Cleanup(cancel)
-		ctx = withDeadline
-	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
 
 	err := configcrds.CreateFromFS(ctx, client, rawCustomResourceDefinitions, grs...)
 	require.NoError(t, err)

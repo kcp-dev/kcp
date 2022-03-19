@@ -87,9 +87,6 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 	artifactDir, dataDir, err := ScratchDirs(t)
 	require.NoError(t, err, "failed to create scratch dirs: %v", err)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
 	// Initialize servers from the provided configuration
 	var servers []*kcpServer
 	f.Servers = map[string]RunningServer{}
@@ -114,7 +111,7 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 		if InProcessEnvSet() || cfgs[i].RunInProcess {
 			opts = append(opts, RunInProcess)
 		}
-		err := srv.Run(ctx, opts...)
+		err := srv.Run(opts...)
 		require.NoError(t, err)
 
 		// Wait for the server to become ready
