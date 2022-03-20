@@ -23,29 +23,19 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
-	"k8s.io/apiserver/pkg/endpoints/request"
-	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	restclient "k8s.io/client-go/rest"
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/version"
-	"k8s.io/klog/v2"
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
 	"github.com/kcp-dev/kcp/pkg/proxy"
@@ -67,40 +57,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-}
-
-func NewRequestInfoResolver() *apirequest.RequestInfoFactory {
-	apiPrefixes := sets.NewString(strings.Trim(genericapiserver.APIGroupPrefix, "/"))
-	legacyAPIPrefixes := sets.String{}
-	apiPrefixes.Insert(strings.Trim(genericapiserver.DefaultLegacyAPIPrefix, "/"))
-	legacyAPIPrefixes.Insert(strings.Trim(genericapiserver.DefaultLegacyAPIPrefix, "/"))
-
-	return &apirequest.RequestInfoFactory{
-		APIPrefixes:          apiPrefixes,
-		GrouplessAPIPrefixes: legacyAPIPrefixes,
-	}
-}
-
-func WithOptionalClientCert(handler, failed http.Handler, auth authenticator.Request) http.Handler {
-	if auth == nil {
-		return handler
-	}
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.TLS == nil || len(req.TLS.PeerCertificates) == 0 {
-			handler.ServeHTTP(w, req)
-			return
-		}
-		resp, ok, err := auth.AuthenticateRequest(req)
-		if err != nil || !ok {
-			if err != nil {
-				klog.ErrorS(err, "Unable to authenticate the request")
-			}
-			failed.ServeHTTP(w, req)
-			return
-		}
-		req = req.WithContext(request.WithUser(req.Context(), resp.User))
-		handler.ServeHTTP(w, req)
-	})
 }
 
 func NewProxyCommand(ctx context.Context) *cobra.Command {
@@ -140,15 +96,12 @@ routed based on paths.`,
 				return err
 			}
 
-			scheme := runtime.NewScheme()
-			metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
-			codecs := serializer.NewCodecFactory(scheme)
-			failedHandler := genericapifilters.Unauthorized(codecs)
-			handler = WithOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
+			failedHandler := newUnauthorizedHandler()
+			handler = withOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
 
-			requestInfoResolver := NewRequestInfoResolver()
-			handler = genericapifilters.WithRequestInfo(handler, requestInfoResolver)
-			handler = genericfilters.WithPanicRecovery(handler, requestInfoResolver)
+			requestInfoFactory := newRequestInfoFactory()
+			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
+			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
 
 			doneCh, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
 			if err != nil {

@@ -32,6 +32,7 @@ type Authentication struct {
 	ClientCert apiserveroptions.ClientCertAuthenticationOptions
 }
 
+// NewAuthentication creates a default Authentication
 func NewAuthentication() *Authentication {
 	return &Authentication{}
 }
