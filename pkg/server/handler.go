@@ -151,6 +151,8 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 // WithWorkspaceProjection maps the personal virtual workspace "workspaces" resource into the cluster
 // workspace URL space. This means you can do `kubectl get workspaces` from an org workspace.
 func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
+	toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1beta1.SchemeGroupVersion.Version, "workspaces/")
+
 	return func(w http.ResponseWriter, req *http.Request) {
 		cluster := genericapirequest.ClusterFrom(req.Context())
 		if cluster.Name.Empty() {
@@ -158,10 +160,9 @@ func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 			return
 		}
 
-		toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1beta1.SchemeGroupVersion.Version, "workspaces/")
 		if strings.HasPrefix(req.URL.Path, toRedirectPath) {
 			newPath := path.Join("/services/workspaces", cluster.Name.String(), "all", req.URL.Path)
-			klog.Infof("Rewriting %s -> %s", path.Join(cluster.Name.Path(), req.URL.Path), newPath)
+			klog.V(4).Infof("Rewriting %s -> %s", path.Join(cluster.Name.Path(), req.URL.Path), newPath)
 			req.URL.Path = newPath
 		}
 
