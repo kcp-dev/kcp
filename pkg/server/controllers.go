@@ -47,6 +47,7 @@ import (
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
 	configorganization "github.com/kcp-dev/kcp/config/organization"
+	configteam "github.com/kcp-dev/kcp/config/team"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -369,6 +370,18 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
+	teamController, err := bootstrap.NewController(
+		dynamicClusterClient,
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		"Team",
+		configteam.Bootstrap,
+	)
+	if err != nil {
+		return err
+	}
+
 	universalController, err := bootstrap.NewController(
 		dynamicClusterClient,
 		crdClusterClient,
@@ -391,6 +404,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		go workspaceController.Start(ctx, 2)
 		go workspaceShardController.Start(ctx, 2)
 		go organizationController.Start(ctx, 2)
+		go teamController.Start(ctx, 2)
 		go universalController.Start(ctx, 2)
 
 		return nil

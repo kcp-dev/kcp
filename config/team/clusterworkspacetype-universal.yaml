@@ -1,0 +1,9 @@
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: ClusterWorkspaceType
+metadata:
+  name: universal
+spec:
+  initializers:
+  - initializers.tenancy.kcp.dev/universal
+  additionalWorkspaceLabels:
+    workloads.kcp.dev/schedulable: "true"
