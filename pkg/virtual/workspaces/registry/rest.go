@@ -504,43 +504,45 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 
 	// check whether the user is allowed to access the org
 	parent, orgName := orgClusterName.Split()
-	if parent != tenancyv1alpha1.RootCluster {
-		// TODO(sttts): support nested orgs
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, fmt.Errorf("cannot created workspaces in nested orgs"))
-	}
-	orgMemberReview := s.rootReviewer.Review(
-		workspaceauth.NewAttributesBuilder().
-			Verb("member").
-			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
-			Name(orgName).
-			AttributesRecord,
-	)
-	if !orgMemberReview.Allows(userInfo) {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to create workspaces in organization %q", userInfo.GetName(), orgName))
-	}
+	if !sets.NewString(userInfo.GetGroups()...).Has("system:masters") {
+		if parent != tenancyv1alpha1.RootCluster {
+			// TODO(sttts): support nested orgs
+			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, fmt.Errorf("cannot create workspaces in nested orgs"))
+		}
+		orgMemberReview := s.rootReviewer.Review(
+			workspaceauth.NewAttributesBuilder().
+				Verb("member").
+				Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
+				Name(orgName).
+				AttributesRecord,
+		)
+		if !orgMemberReview.Allows(userInfo) {
+			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to create workspaces in organization %q", userInfo.GetName(), orgName))
+		}
 
-	// check whether the user is allowed to use the cluster workspace type
-	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
-	if err != nil {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to authorize"))
-	}
-	typeName := strings.ToLower(workspace.Spec.Type)
-	if len(typeName) == 0 {
-		typeName = "universal"
-	}
-	typeUseAttr := authorizer.AttributesRecord{
-		User:            userInfo,
-		Verb:            "use",
-		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-		Resource:        "clusterworkspacetypes",
-		Name:            typeName,
-		ResourceRequest: true,
-	}
-	if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine access to cluster workspace type"))
-	} else if decision != authorizer.DecisionAllow {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", workspace.Spec.Type))
+		// check whether the user is allowed to use the cluster workspace type
+		authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
+		if err != nil {
+			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to authorize"))
+		}
+		typeName := strings.ToLower(workspace.Spec.Type)
+		if len(typeName) == 0 {
+			typeName = "universal"
+		}
+		typeUseAttr := authorizer.AttributesRecord{
+			User:            userInfo,
+			Verb:            "use",
+			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+			Resource:        "clusterworkspacetypes",
+			Name:            typeName,
+			ResourceRequest: true,
+		}
+		if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
+			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine access to cluster workspace type"))
+		} else if decision != authorizer.DecisionAllow {
+			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", workspace.Spec.Type))
+		}
 	}
 
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, userInfo)
