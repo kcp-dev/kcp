@@ -46,10 +46,13 @@ import (
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
+
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 var (
@@ -142,6 +145,27 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		}
 		ctx := request.WithCluster(req.Context(), cluster)
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
+	}
+}
+
+// WithWorkspaceProjection maps the personal virtual workspace "workspaces" resource into the cluster
+// workspace URL space. This means you can do `kubectl get workspaces` from an org workspace.
+func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		cluster := genericapirequest.ClusterFrom(req.Context())
+		if cluster.Name.Empty() {
+			apiHandler.ServeHTTP(w, req)
+			return
+		}
+
+		toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1beta1.SchemeGroupVersion.Version, "workspaces/")
+		if strings.HasPrefix(req.URL.Path, toRedirectPath) {
+			newPath := path.Join("/services/workspaces", cluster.Name.String(), "all", req.URL.Path)
+			klog.Infof("Rewriting %s -> %s", path.Join(cluster.Name.Path(), req.URL.Path), newPath)
+			req.URL.Path = newPath
+		}
+
+		apiHandler.ServeHTTP(w, req)
 	}
 }
 

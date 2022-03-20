@@ -222,9 +222,7 @@ func (s *Server) Run(ctx context.Context) error {
 			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
-		apiHandler = WithAcceptHeader(apiHandler)
-		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
-		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
+		apiHandler = genericapiserver.DefaultBuildHandlerChain(apiHandler, c)
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
@@ -234,7 +232,14 @@ func (s *Server) Run(ctx context.Context) error {
 		mux := http.NewServeMux()
 		mux.Handle("/", apiHandler)
 		preHandlerChainMux = append(preHandlerChainMux, mux)
-		return mux
+		apiHandler = mux
+
+		apiHandler = WithWorkspaceProjection(apiHandler)
+		apiHandler = WithClusterScope(apiHandler)
+		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
+		apiHandler = WithAcceptHeader(apiHandler)
+
+		return apiHandler
 	}
 
 	admissionPluginInitializers := []admission.PluginInitializer{
