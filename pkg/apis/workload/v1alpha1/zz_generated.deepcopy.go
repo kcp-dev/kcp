@@ -191,10 +191,6 @@ func (in *WorkloadClusterStatus) DeepCopyInto(out *WorkloadClusterStatus) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.LastHeartbeat != nil {
-		in, out := &in.LastHeartbeat, &out.LastHeartbeat
-		*out = (*in).DeepCopy()
-	}
 	return
 }
 

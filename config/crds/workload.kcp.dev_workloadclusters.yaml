@@ -138,11 +138,6 @@ spec:
                   - type
                   type: object
                 type: array
-              lastHeartbeat:
-                description: LastHeartbeat represents the last time the cluster's
-                  syncer successfully made a request to update this value.
-                format: date-time
-                type: string
               syncedResources:
                 items:
                   type: string

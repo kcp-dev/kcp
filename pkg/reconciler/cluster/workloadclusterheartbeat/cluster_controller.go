@@ -32,13 +32,20 @@ func NewController(
 	heartbeatThreshold time.Duration,
 ) (*cluster.ClusterReconciler, error) {
 
-	cm := &clusterManager{heartbeatThreshold: heartbeatThreshold}
+	cm := &clusterManager{
+		heartbeatThreshold: heartbeatThreshold,
+	}
 
-	return cluster.NewClusterReconciler(
+	r, queue, err := cluster.NewClusterReconciler(
 		"kcp-cluster-heartbeat-manager",
 		cm,
 		kcpClusterClient,
 		clusterInformer,
 		apiResourceImportInformer,
 	)
+	if err != nil {
+		return nil, err
+	}
+	cm.enqueueClusterAfter = queue.EnqueueAfter
+	return r, nil
 }

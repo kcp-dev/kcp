@@ -38,11 +38,12 @@ func NewController(
 		apiImporters:             map[string]*APIImporter{},
 	}
 
-	return clusterctl.NewClusterReconciler(
+	r, _, err := clusterctl.NewClusterReconciler(
 		"kcp-api-importer",
 		am,
 		kcpClusterClient,
 		clusterInformer,
 		apiResourceImportInformer,
 	)
+	return r, err
 }

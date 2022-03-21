@@ -87,10 +87,6 @@ type WorkloadClusterStatus struct {
 
 	// +optional
 	SyncedResources []string `json:"syncedResources,omitempty"`
-
-	// LastHeartbeat represents the last time the cluster's syncer successfully made a request to update this value.
-	// +optional
-	LastHeartbeat *metav1.Time `json:"lastHeartbeat,omitempty"`
 }
 
 // WorkloadClusterList is a list of WorkloadCluster resources

@@ -29,21 +29,35 @@ import (
 var _ cluster.ClusterReconcileImpl = (*clusterManager)(nil)
 
 type clusterManager struct {
-	heartbeatThreshold time.Duration
+	heartbeatThreshold  time.Duration
+	enqueueClusterAfter func(*workloadv1alpha1.WorkloadCluster, time.Duration)
 }
 
 func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
-	if cluster.Status.LastHeartbeat != nil && time.Since(cluster.Status.LastHeartbeat.Time) > c.heartbeatThreshold {
+	latestHeartbeat := time.Time{}
+	for _, c := range cluster.Status.Conditions {
+		if c.LastHeartbeatTime.Time.After(latestHeartbeat) {
+			latestHeartbeat = c.LastHeartbeatTime.Time
+		}
+	}
+	if latestHeartbeat.IsZero() {
+		// Never seen a heartbeat; for now, this means the syncer hasn't heartbeated -- in the future, this should be un-Ready.
+		return nil
+	}
+
+	if time.Since(latestHeartbeat) > c.heartbeatThreshold {
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.WorkloadClusterReadyCondition,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			"No heartbeat since %s", cluster.Status.LastHeartbeat)
+			"No heartbeat since %s", latestHeartbeat)
 	} else {
 		conditions.MarkTrue(cluster,
 			workloadv1alpha1.WorkloadClusterReadyCondition)
 
-		// TODO: enqueue another check in $heartbeatThreshold.
+		// Enqueue another check after which the heartbeat should have been updated again.
+		dur := time.Until(latestHeartbeat.Add(c.heartbeatThreshold))
+		c.enqueueClusterAfter(cluster, dur)
 	}
 
 	return nil
