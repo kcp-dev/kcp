@@ -49,6 +49,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
@@ -65,6 +66,15 @@ const (
 	InternalNameIndex string = "workspace-internal-name"
 )
 
+// FilteredClusterWorkspaces allows to list and watch ClusterWorkspaces
+// filtered by authorizaation, i.e. a user only sees those object he has access to.
+type FilteredClusterWorkspaces interface {
+	workspaceauth.Lister
+	workspaceauth.WatchableCache
+	AddWatcher(watcher workspaceauth.CacheWatcher)
+	Stop()
+}
+
 var ScopeSet sets.String = sets.NewString(PersonalScope, OrganizationScope)
 
 type WorkspacesScopeKeyType string
@@ -75,28 +85,22 @@ const (
 )
 
 type REST struct {
-	// getOrg retrieves an Org struct which contains all the org-related data (informers, clients, caches)
-	// required to perform the REST actions based on an orgClusterName.
-	getOrg func(orgClusterName logicalcluster.LogicalCluster) (*Org, error)
+	// getFilteredClusterWorkspaces returns a provider for ClusterWorkspaces.
+	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster) FilteredClusterWorkspaces
 
-	// crbInformer allows listing or seaching for RBAC cluster role bindings through all orgs
 	crbInformer rbacinformers.ClusterRoleBindingInformer
+
+	kubeClusterClient kubernetes.ClusterInterface
+	kcpClusterClient  kcpclientset.ClusterInterface
 
 	// clusterWorkspaceCache is a global cache of cluster workspaces (for all orgs) used by the watcher.
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
-	// TODO(sttts): allow nested orgs, i.e. func(org) Reviewer
-	rootReviewer *workspaceauth.Reviewer
-
 	// delegatedAuthz implements cluster-aware SubjectAccessReview
-	delegatedAuthz    delegated.DelegatedAuthorizerFactory
-	kubeClusterClient kubernetes.ClusterInterface
+	delegatedAuthz delegated.DelegatedAuthorizerFactory
 
-	// Allows extended behavior during creation, required
 	createStrategy rest.RESTCreateStrategy
-	// Allows extended behavior during updates, required
 	updateStrategy rest.RESTUpdateStrategy
-
 	rest.TableConvertor
 }
 
@@ -134,26 +138,28 @@ var _ rest.GracefulDeleter = &REST{}
 func NewREST(
 	rootTenancyClient tenancyclient.TenancyV1alpha1Interface,
 	kubeClusterClient kubernetes.ClusterInterface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 	wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
-	getOrg func(orgClusterName logicalcluster.LogicalCluster) (*Org, error),
-	rootReviewer *workspaceauth.Reviewer,
+	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster) FilteredClusterWorkspaces,
 ) (*REST, *KubeconfigSubresourceREST) {
 	mainRest := &REST{
-		getOrg: getOrg,
+		getFilteredClusterWorkspaces: getFilteredClusterWorkspaces,
 
 		kubeClusterClient: kubeClusterClient,
+		kcpClusterClient:  kcpClusterClient,
 		delegatedAuthz:    delegated.NewDelegatedAuthorizer,
 
-		crbInformer:           wilcardsCRBInformer,
+		crbInformer: wilcardsCRBInformer,
+
 		clusterWorkspaceCache: clusterWorkspaceCache,
-		rootReviewer:          rootReviewer,
 
 		createStrategy: Strategy,
 		updateStrategy: Strategy,
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(workspaceprinters.AddWorkspacePrintHandlers)},
 	}
+
 	return mainRest,
 		&KubeconfigSubresourceREST{
 			mainRest:             mainRest,
@@ -216,32 +222,36 @@ func withoutGroupsWhenPersonal(user user.Info, usePersonalScope bool) user.Info 
 	return user
 }
 
-func (s *REST) authorizeOrgForUser(orgClusterName logicalcluster.LogicalCluster, user user.Info) (org *Org, err error) {
+func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcluster.LogicalCluster, user user.Info, verb string) error {
 	// Root org access is implicit for every user. For non-root orgs, we need to check for
 	// verb=access permissions against the clusterworkspaces/content of the ClusterWorkspace of
 	// the org in the root.
-	if orgClusterName != tenancyv1alpha1.RootCluster {
-		parent, orgName := orgClusterName.Split()
-
-		if parent != tenancyv1alpha1.RootCluster {
-			// TODO(sttts): support nested orgs
-			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf("cannot access root org"))
-		}
-
-		review := s.rootReviewer.Review(
-			workspaceauth.NewAttributesBuilder().
-				Verb("access").
-				Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
-				Name(orgName).
-				AttributesRecord,
-		)
-		if !review.Allows(user) {
-			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to access organization %q", user.GetName(), orgName))
-		}
+	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(user.GetGroups()...).Has("system:masters") {
+		return nil
 	}
 
-	org, err = s.getOrg(orgClusterName)
-	return
+	parent, orgName := orgClusterName.Split()
+	authz, err := s.delegatedAuthz(parent, s.kubeClusterClient)
+	if err != nil {
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q lacks %s permission to workspace %q", user.GetName(), verb, orgClusterName))
+	}
+	typeUseAttr := authorizer.AttributesRecord{
+		User:            user,
+		Verb:            verb,
+		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+		Resource:        "clusterworkspaces",
+		Subresource:     "content",
+		Name:            orgName,
+		ResourceRequest: true,
+	}
+	if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q lacks %s permission to workspace %q", user.GetName(), verb, orgClusterName))
+	} else if decision != authorizer.DecisionAllow {
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q lacks %s permission to workspace %q", user.GetName(), verb, orgClusterName))
+	}
+
+	return nil
 }
 
 func shouldUsePersonalScope(scope string, orgClusterName logicalcluster.LogicalCluster) bool {
@@ -255,22 +265,24 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
-	org, err := s.authorizeOrgForUser(orgClusterName, userInfo)
-	if err != nil {
+	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, err
 	}
 
 	usePersonalScope := shouldUsePersonalScope(ctx.Value(WorkspacesScopeKey).(string), orgClusterName)
-
-	// TODO:
-	// The workspaceLister is informer driven, so it's important to note that the lister can be stale.
-	// It breaks the API guarantees of lists.
-	// To make it correct we have to know the latest RV of the org workspace shard,
-	// and then wait for freshness relative to that RV of the lister.
-	labelSelector, fieldSelector := InternalListOptionsToSelectors(options)
-	clusterWorkspaceList, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labelSelector, fieldSelector)
-	if err != nil {
-		return nil, err
+	clusterWorkspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
+	if clusterWorkspaces := s.getFilteredClusterWorkspaces(orgClusterName); clusterWorkspaces != nil {
+		// TODO:
+		// The workspaceLister is informer driven, so it's important to note that the lister can be stale.
+		// It breaks the API guarantees of lists.
+		// To make it correct we have to know the latest RV of the org workspace shard,
+		// and then wait for freshness relative to that RV of the lister.
+		labelSelector, fieldSelector := InternalListOptionsToSelectors(options)
+		var err error
+		clusterWorkspaceList, err = clusterWorkspaces.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labelSelector, fieldSelector)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if usePersonalScope {
@@ -296,25 +308,22 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 }
 
 func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (watch.Interface, error) {
-	if ctx == nil {
-		return nil, fmt.Errorf("Context is nil")
-	}
 	userInfo, exists := apirequest.UserFrom(ctx)
 	if !exists {
 		return nil, fmt.Errorf("no user")
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
-	org, err := s.authorizeOrgForUser(orgClusterName, userInfo)
-	if err != nil {
+	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, err
 	}
+	clusterWorkspaces := s.getFilteredClusterWorkspaces(orgClusterName)
 
 	includeAllExistingProjects := (options != nil) && options.ResourceVersion == "0"
 
 	m := workspaceutil.MatchWorkspace(InternalListOptionsToSelectors(options))
-	watcher := workspaceauth.NewUserWorkspaceWatcher(userInfo, orgClusterName, s.clusterWorkspaceCache, org.authCache, includeAllExistingProjects, m)
-	org.authCache.AddWatcher(watcher)
+	watcher := workspaceauth.NewUserWorkspaceWatcher(userInfo, orgClusterName, s.clusterWorkspaceCache, clusterWorkspaces, includeAllExistingProjects, m)
+	clusterWorkspaces.AddWatcher(watcher)
 
 	go watcher.Watch()
 	return watcher, nil
@@ -346,8 +355,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
-	org, err := s.authorizeOrgForUser(orgClusterName, userInfo)
-	if err != nil {
+	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, err
 	}
 
@@ -361,7 +369,11 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 		name = internalName
 	}
 
-	workspace, err := org.clusterWorkspaceClient.Get(ctx, name, opts)
+	clusterWorkspaces := s.getFilteredClusterWorkspaces(orgClusterName)
+	if clusterWorkspaces == nil {
+		return nil, kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
+	}
+	workspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +382,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 	// Filtering by applying the lister operation might not be necessary anymore
 	// when using a semi-delegated authorizer in the workspaces virtual workspace that would
 	// delegate this authorization to the main KCP instance hosting the workspaces and RBAC rules
-	obj, err := org.clusterWorkspaceLister.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labels.Everything(), fields.Everything())
+	obj, err := clusterWorkspaces.List(withoutGroupsWhenPersonal(userInfo, usePersonalScope), labels.Everything(), fields.Everything())
 	if err != nil {
 		return nil, err
 	}
@@ -488,8 +500,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
-	org, err := s.authorizeOrgForUser(orgClusterName, userInfo)
-	if err != nil {
+	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "member"); err != nil {
 		return nil, err
 	}
 
@@ -502,47 +513,28 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
 
-	// check whether the user is allowed to access the org
-	parent, orgName := orgClusterName.Split()
-	if !sets.NewString(userInfo.GetGroups()...).Has("system:masters") {
-		if parent != tenancyv1alpha1.RootCluster {
-			// TODO(sttts): support nested orgs
-			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, fmt.Errorf("cannot create workspaces in nested orgs"))
-		}
-		orgMemberReview := s.rootReviewer.Review(
-			workspaceauth.NewAttributesBuilder().
-				Verb("member").
-				Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
-				Name(orgName).
-				AttributesRecord,
-		)
-		if !orgMemberReview.Allows(userInfo) {
-			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q is not allowed to create workspaces in organization %q", userInfo.GetName(), orgName))
-		}
-
-		// check whether the user is allowed to use the cluster workspace type
-		authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
-		if err != nil {
-			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to authorize"))
-		}
-		typeName := strings.ToLower(workspace.Spec.Type)
-		if len(typeName) == 0 {
-			typeName = "universal"
-		}
-		typeUseAttr := authorizer.AttributesRecord{
-			User:            userInfo,
-			Verb:            "use",
-			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-			Resource:        "clusterworkspacetypes",
-			Name:            typeName,
-			ResourceRequest: true,
-		}
-		if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
-			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine access to cluster workspace type"))
-		} else if decision != authorizer.DecisionAllow {
-			return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", workspace.Spec.Type))
-		}
+	// check whether the user is allowed to use the cluster workspace type
+	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
+	if err != nil {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to authorize"))
+	}
+	typeName := strings.ToLower(workspace.Spec.Type)
+	if len(typeName) == 0 {
+		typeName = "universal"
+	}
+	typeUseAttr := authorizer.AttributesRecord{
+		User:            userInfo,
+		Verb:            "use",
+		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+		Resource:        "clusterworkspacetypes",
+		Name:            typeName,
+		ResourceRequest: true,
+	}
+	if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine access to cluster workspace type"))
+	} else if decision != authorizer.DecisionAllow {
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", workspace.Spec.Type))
 	}
 
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, userInfo)
@@ -568,7 +560,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			},
 		},
 	}
-	if _, err := org.rbacClient.ClusterRoleBindings().Create(ctx, &clusterRoleBinding, metav1.CreateOptions{}); err != nil {
+	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &clusterRoleBinding, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
 			return nil, kerrors.NewAlreadyExists(tenancyv1beta1.Resource("workspaces"), workspace.Name)
 		}
@@ -579,7 +571,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// Note that ResourceNames contains the workspace pretty name for now.
 	// It will be updated later on when the internal name of the workspace is known.
 	ownerClusterRole := createClusterRole(ownerRoleBindingName, workspace.Name, OwnerRoleType)
-	if _, err := org.rbacClient.ClusterRoles().Create(ctx, ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Create(ctx, ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
 	}
 
@@ -593,26 +585,14 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			Type: workspace.Spec.Type,
 		},
 	}
-	prettyName := workspace.Name
-	var createdClusterWorkspace *tenancyv1alpha1.ClusterWorkspace
-	var nameSuffix string
-	i := 0
-	for i < 10 {
-		if i > 0 {
-			nameSuffix = fmt.Sprintf("-%d", i)
-			clusterWorkspace.Name = fmt.Sprintf("%s-%s", prettyName, nameSuffix)
-		}
-		createdClusterWorkspace, err = org.clusterWorkspaceClient.Create(ctx, clusterWorkspace, metav1.CreateOptions{})
-		if err == nil {
-			break
-		}
-		if !kerrors.IsAlreadyExists(err) {
-			return nil, err
-		}
-		i++
+	createdClusterWorkspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
+	if err != nil && kerrors.IsAlreadyExists(err) {
+		clusterWorkspace.Name = ""
+		clusterWorkspace.GenerateName = workspace.Name + "-"
+		createdClusterWorkspace, err = s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
 	}
-
 	if err != nil {
+		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		return nil, err
 	}
 
@@ -622,8 +602,8 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		ownerClusterRole.Rules[i].ResourceNames = []string{createdClusterWorkspace.Name}
 	}
 	ownerClusterRole.Labels[InternalNameLabel] = createdClusterWorkspace.Name
-	if _, err := org.rbacClient.ClusterRoles().Update(ctx, ownerClusterRole, metav1.UpdateOptions{}); err != nil {
-		_ = org.rbacClient.ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Update(ctx, ownerClusterRole, metav1.UpdateOptions{}); err != nil {
+		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_, _, _ = s.Delete(ctx, createdClusterWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		if kerrors.IsConflict(err) {
 			return nil, kerrors.NewConflict(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
@@ -634,10 +614,10 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// Update the cluster role bindings with the new workspace internal and pretty names,
 	// to allow searching with them later on.
 	clusterRoleBinding.Labels[InternalNameLabel] = createdClusterWorkspace.Name
-	clusterRoleBinding.Labels[PrettyNameLabel] = prettyName
-	if _, err := org.rbacClient.ClusterRoleBindings().Update(ctx, &clusterRoleBinding, metav1.UpdateOptions{}); err != nil {
+	clusterRoleBinding.Labels[PrettyNameLabel] = workspace.Name
+	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Update(ctx, &clusterRoleBinding, metav1.UpdateOptions{}); err != nil {
 		var zero int64
-		_ = org.rbacClient.ClusterRoleBindings().Delete(ctx, clusterRoleBinding.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBinding.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_, _, _ = s.Delete(ctx, createdClusterWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		if kerrors.IsConflict(err) {
 			return nil, kerrors.NewConflict(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
@@ -650,7 +630,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 
 	// The workspace has been created with the internal name in KCP,
 	// but will be returned to the user (in personal scope) with the pretty name.
-	createdWorkspace.Name = prettyName
+	createdWorkspace.Name = workspace.Name
 	return &createdWorkspace, nil
 }
 
@@ -659,12 +639,11 @@ var _ = rest.GracefulDeleter(&REST{})
 func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 	userInfo, ok := apirequest.UserFrom(ctx)
 	if !ok {
-		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to delete a workspace without a user on the context"))
+		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), name, fmt.Errorf("unable to delete a workspace without a user on the context"))
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
-	org, err := s.authorizeOrgForUser(orgClusterName, userInfo)
-	if err != nil {
+	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, false, err
 	}
 
@@ -681,46 +660,53 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		}
 	}
 
-	review := org.workspaceReviewer.Review(
-		workspaceauth.NewAttributesBuilder().
-			Verb("delete").
-			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "workspace").
-			Name(internalName).
-			AttributesRecord,
-	)
-	if !review.Allows(userInfo) {
-		parent, orgName := orgClusterName.Split()
-		if parent != tenancyv1alpha1.RootCluster {
-			// TODO(sttts): support nested orgs
-			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), name, fmt.Errorf("user %q is not authorized to delete workspace %q in org %q", userInfo.GetName(), name, orgName))
+	// check for delete permission on the ClusterWorkspace workspace subresource
+	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
+	if err != nil {
+		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), name, fmt.Errorf("unable to authorize"))
+	}
+	deleteWorkspaceAttr := authorizer.AttributesRecord{
+		User:            userInfo,
+		Verb:            "delete",
+		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+		Resource:        "clusterworkspaces",
+		Subresource:     "workspace",
+		Name:            internalName,
+		ResourceRequest: true,
+	}
+	if decision, _, err := authz.Authorize(ctx, deleteWorkspaceAttr); err != nil {
+		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine permissions"))
+	} else if decision != authorizer.DecisionAllow {
+		// check for admin verb on the content
+		contentAdminAttr := authorizer.AttributesRecord{
+			User:            userInfo,
+			Verb:            "admin",
+			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+			Resource:        "clusterworkspaces",
+			Subresource:     "content",
+			Name:            internalName,
+			ResourceRequest: true,
 		}
-		allowed := false
-		if scope == OrganizationScope {
-			review := s.rootReviewer.Review(
-				workspaceauth.NewAttributesBuilder().
-					Verb("admin").
-					Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
-					Name(orgName).
-					AttributesRecord,
-			)
-			allowed = review.Allows(userInfo)
-		}
-		if !allowed {
+		if decision, _, err := authz.Authorize(ctx, contentAdminAttr); err != nil {
+			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine permissions"))
+		} else if decision != authorizer.DecisionAllow {
 			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("user %q is not allowed to delete workspace %q in %q", userInfo.GetName(), internalName, orgClusterName))
 		}
 	}
 
-	errorToReturn := org.clusterWorkspaceClient.Delete(ctx, internalName, *options)
+	errorToReturn := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, internalName, *options)
 	if err != nil && !kerrors.IsNotFound(errorToReturn) {
 		return nil, false, err
 	}
 	internalNameLabelSelector := fmt.Sprintf("%s=%s", InternalNameLabel, internalName)
-	if err := org.rbacClient.ClusterRoleBindings().DeleteCollection(ctx, *options, metav1.ListOptions{
+	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, *options, metav1.ListOptions{
 		LabelSelector: internalNameLabelSelector,
 	}); err != nil {
 		klog.Error(err)
 	}
-	if err := org.rbacClient.ClusterRoles().DeleteCollection(ctx, *options, metav1.ListOptions{
+	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, *options, metav1.ListOptions{
 		LabelSelector: internalNameLabelSelector,
 	}); err != nil {
 		klog.Error(err)

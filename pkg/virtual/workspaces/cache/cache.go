@@ -24,7 +24,6 @@ import (
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	klog "k8s.io/klog/v2"
 
@@ -32,29 +31,23 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
-// NewClusterWorkspaceCache returns a non-initialized ClusterWorkspaceCache. The cache needs to be run to begin functioning
-func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterClient kcpclient.ClusterInterface, defaultNodeSelector string) *ClusterWorkspaceCache {
-	if err := workspaces.GetIndexer().AddIndexers(cache.Indexers{
-		"requester": indexWorkspaceByRequester,
-	}); err != nil {
-		panic(err)
-	}
+// NewClusterWorkspaceCache returns a wrapper around an informer. It serves from the informer, and on cache-miss
+// it looks up through the given client.
+func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterClient kcpclient.ClusterInterface) *ClusterWorkspaceCache {
 	return &ClusterWorkspaceCache{
-		kcpClusterClient:    kcpClusterClient,
-		Store:               workspaces.GetIndexer(),
-		HasSynced:           workspaces.GetController().HasSynced,
-		DefaultNodeSelector: defaultNodeSelector,
+		kcpClusterClient: kcpClusterClient,
+		Store:            workspaces.GetIndexer(),
+		HasSynced:        workspaces.GetController().HasSynced,
 	}
 }
 
 type ClusterWorkspaceCache struct {
-	kcpClusterClient    kcpclient.ClusterInterface
-	Store               cache.Indexer
-	HasSynced           cache.InformerSynced
-	DefaultNodeSelector string
+	kcpClusterClient kcpclient.ClusterInterface
+	Store            cache.Indexer
+	HasSynced        cache.InformerSynced
 }
 
-func (c *ClusterWorkspaceCache) GetWorkspace(lclusterName logicalcluster.LogicalCluster, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
+func (c *ClusterWorkspaceCache) Get(lclusterName logicalcluster.LogicalCluster, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
 	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ClusterName: lclusterName.String()}}
 
 	// check for cluster workspace in the cache
@@ -88,31 +81,4 @@ func (c *ClusterWorkspaceCache) GetWorkspace(lclusterName logicalcluster.Logical
 		klog.V(4).Infof("found %s via storage lookup", workspaceName)
 	}
 	return clusterWorkspace, nil
-}
-
-// Run waits until the cache has synced.
-func (c *ClusterWorkspaceCache) Run(stopCh <-chan struct{}) {
-	defer runtime.HandleCrash()
-	if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
-		return
-	}
-	<-stopCh
-}
-
-// Running determines if the cache is initialized and running
-func (c *ClusterWorkspaceCache) Running() bool {
-	return c.Store != nil
-}
-
-// NewCacheStore creates an Indexer store with the given key function
-func NewCacheStore(keyFn cache.KeyFunc) cache.Indexer {
-	return cache.NewIndexer(keyFn, cache.Indexers{
-		"requester": indexWorkspaceByRequester,
-	})
-}
-
-// indexWorkspaceByRequester returns the requester for a given workspace object as an index value
-func indexWorkspaceByRequester(obj interface{}) ([]string, error) {
-	requester := obj.(*workspaceapi.ClusterWorkspace).Annotations["kcp.dev/workspace-requester"]
-	return []string{requester}, nil
 }

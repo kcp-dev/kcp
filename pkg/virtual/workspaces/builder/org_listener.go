@@ -17,174 +17,255 @@ limitations under the License.
 package builder
 
 import (
-	"fmt"
 	"sync"
-	"time"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
-	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
-	virtualworkspacesregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
+	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	listerstenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
+	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-// orgListener listens for changes in the root WorkspaceAuthCache,
-// in order to manage the list of orgs
+type Stoppable interface {
+	Stop()
+}
+
+// orgListener *-watches ClusterWorkspaces and starts virtualworkspacesregistry.Org for the
+// parents for those. This means that workspaces without any ClusterWorkspace (like universal
+// workspaces) will not be started.
 type orgListener struct {
-	newOrg func(orgName logicalcluster.LogicalCluster) *virtualworkspacesregistry.Org
+	lister   listerstenancyv1alpha1.ClusterWorkspaceLister
+	informer cache.SharedIndexInformer
 
-	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
+	newClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces
 
-	knownWorkspacesMutex sync.Mutex
-	// knownWorkspaces keeps the list of the workspaces that are currently known to exist,
-	// so that when a notification comes from the workspaceAuthCache for a workspace
-	// (through the GroupMembershipChanged method being called), we can conclude
-	// whether the workspace has been deleted, added or modified.
-	knownWorkspaces sets.String
+	lock sync.RWMutex
 
-	ready func() bool
-
-	orgMutex sync.RWMutex
-	orgs     map[logicalcluster.LogicalCluster]*virtualworkspacesregistry.Org
+	clusterWorkspacesPerCluster map[logicalcluster.LogicalCluster]*preCreationClusterWorkspaces
 }
 
-func NewOrgListener(clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg *virtualworkspacesregistry.Org, newOrg func(orgName logicalcluster.LogicalCluster) *virtualworkspacesregistry.Org) *orgListener {
-	w := &orgListener{
-		newOrg: newOrg,
-		orgs: map[logicalcluster.LogicalCluster]*virtualworkspacesregistry.Org{
-			tenancyv1alpha1.RootCluster: rootOrg,
+func NewOrgListener(informer workspaceinformer.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
+	l := &orgListener{
+		lister:   informer.Lister(),
+		informer: informer.Informer(),
+
+		newClusterWorkspaces:        newClusterWorkspaces,
+		clusterWorkspacesPerCluster: map[logicalcluster.LogicalCluster]*preCreationClusterWorkspaces{},
+	}
+
+	// nolint: errcheck
+	informer.Informer().AddIndexers(cache.Indexers{
+		"parent": indexByLogicalCluster,
+	})
+
+	informer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    l.addClusterWorkspace,
+			DeleteFunc: l.deleteClusterWorkspace,
 		},
+	)
 
-		clusterWorkspaceCache: clusterWorkspaceCache,
-
-		knownWorkspaces: sets.NewString(),
-
-		ready: func() bool { return false },
-	}
-	return w
-}
-
-func (l *orgListener) Initialize(authCache *workspaceauth.AuthorizationCache) {
-	l.knownWorkspacesMutex.Lock()
-	defer l.knownWorkspacesMutex.Unlock()
-
-	l.orgMutex.Lock()
-	defer l.orgMutex.Unlock()
-
-	readys := []func() bool{}
-
-	workspaces, _ := authCache.ListAllWorkspaces(labels.Everything())
-	for _, workspace := range workspaces.Items {
-		orgName := tenancyv1alpha1.RootCluster.Join(workspace.Name)
-		org := l.newOrg(orgName)
-		readys = append(readys, org.Ready)
-		l.knownWorkspaces.Insert(workspace.Name)
-		l.orgs[orgName] = org
-	}
-	l.ready = func() bool {
-		for _, r := range readys {
-			if !r() {
-				return false
-			}
-		}
-		return true
-	}
-	authCache.AddWatcher(l)
+	return l
 }
 
 func (l *orgListener) Stop() {
-	l.orgMutex.RLock()
-	defer l.orgMutex.RUnlock()
+	l.lock.RLock()
+	defer l.lock.RUnlock()
 
-	for _, o := range l.orgs {
+	for _, o := range l.clusterWorkspacesPerCluster {
 		o.Stop()
 	}
 }
 
-func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups sets.String) {
-	l.knownWorkspacesMutex.Lock()
-	defer l.knownWorkspacesMutex.Unlock()
+// FilteredClusterWorkspaces returns the cluster workspace provider or nil if it is started (does not mean it does
+// not exist, we just don't know here).
+// Note: because the defining ClusterWorkspace of the parent can be on a different shard, we cannot know here.
+func (l *orgListener) FilteredClusterWorkspaces(orgName logicalcluster.LogicalCluster) registry.FilteredClusterWorkspaces {
+	// fast path
+	l.lock.RLock()
+	cws, found := l.clusterWorkspacesPerCluster[orgName]
+	l.lock.RUnlock()
+	if found {
+		return cws
+	}
 
-	orgName := tenancyv1alpha1.RootCluster.Join(workspaceName)
-	// All the workspace objects are accessible to the "system:masters" group
-	// and we want to track changes to all workspaces here
-	hasAccess := groups.Has(user.SystemPrivilegedGroup)
-	known := l.knownWorkspaces.Has(workspaceName)
-	switch {
-	// this means that the workspace has been deleted
-	case !hasAccess && known:
-		l.knownWorkspaces.Delete(workspaceName)
+	// slow path
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	if _, found := l.clusterWorkspacesPerCluster[orgName]; found {
+		return cws
+	}
 
-		l.RemoveOrg(orgName)
+	l.clusterWorkspacesPerCluster[orgName] = &preCreationClusterWorkspaces{}
+	return l.clusterWorkspacesPerCluster[orgName]
+}
 
-	case hasAccess:
-		_, err := l.clusterWorkspaceCache.GetWorkspace(tenancyv1alpha1.RootCluster, workspaceName)
-		if err != nil {
-			utilruntime.HandleError(err)
+func (l *orgListener) addClusterWorkspace(obj interface{}) {
+	cw, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	if !ok {
+		klog.Errorf("expected ClusterWorkspace but handler received %#v", obj)
+		return
+	}
+
+	// fast path
+	parent := logicalcluster.From(cw)
+	l.lock.RLock()
+	cws, found := l.clusterWorkspacesPerCluster[parent]
+	if found {
+		cws.lock.RLock()
+		if cws.delegate != nil {
+			cws.lock.RUnlock()
+			l.lock.RUnlock()
 			return
 		}
+		cws.lock.RUnlock()
+	}
+	l.lock.RUnlock()
 
-		// if we already have this in our list, then we're getting notified because the object changed
-		if known := l.knownWorkspaces.Has(workspaceName); known {
+	// slow path
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	cws, found = l.clusterWorkspacesPerCluster[parent]
+	var existingWatchers []authorization.CacheWatcher
+	if found {
+		cws.lock.RLock()
+		if cws.delegate != nil {
+			cws.lock.RUnlock()
 			return
 		}
-		l.knownWorkspaces.Insert(workspaceName)
-		if err := l.AddOrg(orgName); err != nil {
-			klog.Errorf("Failed adding org: %s: %v", orgName, err)
+		cws.lock.RUnlock()
+
+		// there is no auth cache running yet. Start one.
+		cws.lock.Lock()
+		defer cws.lock.Unlock()
+		existingWatchers = cws.watchers
+		cws.watchers = nil
+	} else {
+		cws = &preCreationClusterWorkspaces{}
+		l.clusterWorkspacesPerCluster[parent] = cws
+	}
+
+	klog.Infof("First ClusterWorkspace for %s, starting authorization cache", parent)
+	l.clusterWorkspacesPerCluster[parent].delegate = l.newClusterWorkspaces(parent, existingWatchers)
+}
+
+func (l *orgListener) deleteClusterWorkspace(obj interface{}) {
+	cw, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	if !ok {
+		klog.Errorf("Expected ClusterWorkspace but handler received %#v", obj)
+		return
+	}
+
+	// fast path
+	parent := logicalcluster.From(cw)
+	l.lock.RLock()
+	_, found := l.clusterWorkspacesPerCluster[parent]
+	l.lock.RUnlock()
+	if !found {
+		return
+	}
+
+	// any other ClusterWorkspace in this logical cluster?
+	others, err := l.informer.GetIndexer().ByIndex("parent", parent.String())
+	if err != nil {
+		klog.Errorf("Failed to get ClusterWorkspace parent index %v: %v", parent, err)
+		return
+	}
+	if len(others) > 0 {
+		return
+	}
+
+	// slow path
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	cws, found := l.clusterWorkspacesPerCluster[parent]
+	if !found {
+		return
+	}
+
+	klog.Infof("Last ClusterWorkspace for %s is gone", parent)
+	// Note: this will stop watches on last ClusterWorkspace removal. Not perfect, but ok.
+	cws.Stop()
+	delete(l.clusterWorkspacesPerCluster, parent)
+}
+
+// preCreationClusterWorkspaces is a proxy object that collects watchers before the actual auth cache is started.
+// On auth cache start, the collected watchers are added to the auth cache.
+type preCreationClusterWorkspaces struct {
+	lock     sync.RWMutex
+	watchers []authorization.CacheWatcher
+	delegate registry.FilteredClusterWorkspaces
+}
+
+func (cws *preCreationClusterWorkspaces) List(user user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
+	cws.lock.RLock()
+	defer cws.lock.RUnlock()
+	if cws.delegate != nil {
+		return cws.delegate.List(user, labelSelector, fieldSelector)
+	}
+	return &tenancyv1alpha1.ClusterWorkspaceList{}, nil
+}
+
+func (cws *preCreationClusterWorkspaces) RemoveWatcher(watcher authorization.CacheWatcher) {
+	// fast path
+	cws.lock.RLock()
+	if cws.delegate != nil {
+		cws.delegate.RemoveWatcher(watcher)
+		cws.lock.RUnlock()
+		return
+	}
+	cws.lock.RUnlock()
+
+	// slow path
+	cws.lock.Lock()
+	defer cws.lock.Unlock()
+	if cws.delegate != nil {
+		cws.delegate.RemoveWatcher(watcher)
+		return
+	}
+
+	for i, w := range cws.watchers {
+		if w == watcher {
+			cws.watchers = append(cws.watchers[:i], cws.watchers[i+1:]...)
+			return
 		}
 	}
-
 }
 
-func (l *orgListener) AddOrg(orgName logicalcluster.LogicalCluster) error {
-	l.orgMutex.Lock()
-	defer l.orgMutex.Unlock()
+func (cws *preCreationClusterWorkspaces) AddWatcher(watcher authorization.CacheWatcher) {
+	// fast path
+	cws.lock.RLock()
+	if cws.delegate != nil {
+		cws.delegate.AddWatcher(watcher)
+		cws.lock.RUnlock()
+		return
+	}
+	cws.lock.RUnlock()
 
-	if _, exists := l.orgs[orgName]; !exists {
-		org := l.newOrg(orgName)
-		if err := wait.PollImmediate(100*time.Millisecond, 1*time.Minute, func() (done bool, err error) {
-			return org.Ready(), nil
-		}); err != nil {
-			org.Stop()
-			return err
+	// slow path
+	cws.lock.Lock()
+	defer cws.lock.Unlock()
+	if cws.delegate != nil {
+		cws.delegate.AddWatcher(watcher)
+		return
+	}
+	cws.watchers = append(cws.watchers, watcher)
+}
+
+func (cws *preCreationClusterWorkspaces) Stop() {
+	cws.lock.Lock()
+	defer cws.lock.Unlock()
+	for _, w := range cws.watchers {
+		if w, ok := w.(Stoppable); ok {
+			w.Stop()
 		}
-		l.orgs[orgName] = org
 	}
-	return nil
-}
-
-func (l *orgListener) RemoveOrg(orgName logicalcluster.LogicalCluster) {
-	l.orgMutex.Lock()
-	defer l.orgMutex.Unlock()
-
-	if org, exists := l.orgs[orgName]; exists {
-		delete(l.orgs, orgName)
-		org.Stop()
-	}
-}
-
-func (l *orgListener) Ready() bool {
-	l.orgMutex.RLock()
-	defer l.orgMutex.RUnlock()
-
-	return l.ready()
-}
-
-func (l *orgListener) GetOrg(orgName logicalcluster.LogicalCluster) (*virtualworkspacesregistry.Org, error) {
-	l.orgMutex.RLock()
-	defer l.orgMutex.RUnlock()
-
-	org, exists := l.orgs[orgName]
-	if !exists {
-		return nil, fmt.Errorf("Unknown organization: %s", orgName)
-	}
-	return org, nil
 }

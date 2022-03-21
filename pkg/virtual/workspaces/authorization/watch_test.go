@@ -52,7 +52,7 @@ func (m *mockClusterClient) Cluster(name logicalcluster.LogicalCluster) kcpclien
 
 var _ kcpclient.ClusterInterface = (*mockClusterClient)(nil)
 
-func newTestWatcher(username string, groups []string, predicate storage.SelectionPredicate, workspaces ...*workspaceapi.ClusterWorkspace) (*userWorkspaceWatcher, *fakeAuthCache, chan struct{}) {
+func newTestWatcher(username string, groups []string, predicate storage.SelectionPredicate, workspaces ...*workspaceapi.ClusterWorkspace) (*userWorkspaceWatcher, *fakeAuthCache) {
 	objects := []runtime.Object{}
 	for i := range workspaces {
 		objects = append(objects, workspaces[i])
@@ -63,14 +63,10 @@ func newTestWatcher(username string, groups []string, predicate storage.Selectio
 	workspaceCache := workspacecache.NewClusterWorkspaceCache(
 		informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
 		&mockClusterClient{mockClient: mockClient},
-		"",
 	)
 	fakeAuthCache := &fakeAuthCache{}
 
-	stopCh := make(chan struct{})
-	go workspaceCache.Run(stopCh)
-
-	return NewUserWorkspaceWatcher(&user.DefaultInfo{Name: username, Groups: groups}, logicalcluster.New("lclusterName"), workspaceCache, fakeAuthCache, false, predicate), fakeAuthCache, stopCh
+	return NewUserWorkspaceWatcher(&user.DefaultInfo{Name: username, Groups: groups}, logicalcluster.New("lclusterName"), workspaceCache, fakeAuthCache, false, predicate), fakeAuthCache
 }
 
 type fakeAuthCache struct {
@@ -95,8 +91,7 @@ func (w *fakeAuthCache) List(userInfo user.Info, labelSelector labels.Selector, 
 }
 
 func TestFullIncoming(t *testing.T) {
-	watcher, fakeAuthCache, stopCh := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
-	defer close(stopCh)
+	watcher, fakeAuthCache := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
 	watcher.cacheIncoming = make(chan watch.Event)
 
 	go watcher.Watch()
@@ -144,8 +139,7 @@ func TestFullIncoming(t *testing.T) {
 }
 
 func TestAddModifyDeleteEventsByUser(t *testing.T) {
-	watcher, _, stopCh := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
-	defer close(stopCh)
+	watcher, _ := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
 	go watcher.Watch()
 
 	watcher.GroupMembershipChanged("ns-01", sets.NewString("bob"), sets.String{})
@@ -187,8 +181,7 @@ func TestWorkspaceSelectionPredicate(t *testing.T) {
 	field := fields.ParseSelectorOrDie("metadata.name=ns-03")
 	m := workspaceutil.MatchWorkspace(labels.Everything(), field)
 
-	watcher, _, stopCh := newTestWatcher("bob", nil, m, newClusterWorkspaces("ns-01", "ns-02", "ns-03")...)
-	defer close(stopCh)
+	watcher, _ := newTestWatcher("bob", nil, m, newClusterWorkspaces("ns-01", "ns-02", "ns-03")...)
 
 	if watcher.emit == nil {
 		t.Fatalf("unset emit function")
@@ -249,8 +242,7 @@ func TestWorkspaceSelectionPredicate(t *testing.T) {
 }
 
 func TestAddModifyDeleteEventsByGroup(t *testing.T) {
-	watcher, _, stopCh := newTestWatcher("bob", []string{"group-one"}, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
-	defer close(stopCh)
+	watcher, _ := newTestWatcher("bob", []string{"group-one"}, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
 	go watcher.Watch()
 
 	watcher.GroupMembershipChanged("ns-01", sets.String{}, sets.NewString("group-one"))
