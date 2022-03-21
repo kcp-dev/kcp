@@ -81,7 +81,7 @@ func (w *fakeAuthCache) RemoveWatcher(watcher CacheWatcher) {
 	w.removed = append(w.removed, watcher)
 }
 
-func (w *fakeAuthCache) List(userInfo user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
+func (w *fakeAuthCache) List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
 	ret := &workspaceapi.ClusterWorkspaceList{}
 	if w.clusterWorkspaces != nil {
 		for i := range w.clusterWorkspaces {

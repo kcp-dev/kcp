@@ -23,6 +23,7 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -38,12 +39,13 @@ import (
 
 	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workspacelisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
 
 // Lister enforces ability to enumerate a resource based on role
 type Lister interface {
 	// List returns the list of ClusterWorkspace items that the user can access
-	List(user user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error)
+	List(user user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error)
 }
 
 // subjectRecord is a cache record for the set of workspaces a subject can access
@@ -460,7 +462,7 @@ func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*work
 }
 
 // List returns the set of workspace names the user has access to view
-func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
+func (ac *AuthorizationCache) List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
 	ac.rwMutex.RLock()
 	defer ac.rwMutex.RUnlock()
 
@@ -491,10 +493,14 @@ func (ac *AuthorizationCache) List(userInfo user.Info, selector labels.Selector)
 		if err != nil {
 			return nil, err
 		}
-		// only match selected labels
-		if !selector.Matches(labels.Set(workspace.Labels)) {
+
+		// only match selected labels and fields
+
+		predicate := workspaceutil.MatchWorkspace(labelSelector, fieldSelector)
+		if matches, err := predicate.Matches(workspace); err != nil || !matches {
 			continue
 		}
+
 		workspaceList.Items = append(workspaceList.Items, *workspace)
 	}
 	return workspaceList, nil

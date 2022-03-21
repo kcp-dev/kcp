@@ -22,6 +22,7 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -62,7 +63,11 @@ var (
 )
 
 func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.String) {
-	workspaceList, err := lister.List(user, labels.Everything())
+	validateListWithSelectors(t, lister, user, labels.Everything(), fields.Everything(), expectedSet)
+}
+
+func validateListWithSelectors(t *testing.T, lister Lister, user user.Info, labelSelector labels.Selector, fieldSelector fields.Selector, expectedSet sets.String) {
+	workspaceList, err := lister.List(user, labelSelector, fieldSelector)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -126,7 +131,7 @@ func TestSyncWorkspace(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", ResourceVersion: "1"},
 			},
 			{
-				ObjectMeta: metav1.ObjectMeta{Name: "bar", ResourceVersion: "2"},
+				ObjectMeta: metav1.ObjectMeta{Name: "bar", ResourceVersion: "2", Labels: map[string]string{"label": "value"}},
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "car", ResourceVersion: "3"},
@@ -194,4 +199,15 @@ func TestSyncWorkspace(t *testing.T) {
 	validateList(t, authorizationCache, bob, sets.NewString("foo", "bar", "car"))
 	validateList(t, authorizationCache, eve, sets.NewString("bar", "car"))
 	validateList(t, authorizationCache, frank, sets.NewString())
+
+	// Now test label and field selectors
+	validateListWithSelectors(t, authorizationCache, bob,
+		labels.SelectorFromSet(labels.Set{"label": "value"}),
+		fields.Everything(),
+		sets.NewString("bar"))
+
+	validateListWithSelectors(t, authorizationCache, bob,
+		labels.Everything(),
+		fields.SelectorFromSet(fields.Set{"metadata.name": "foo"}),
+		sets.NewString("foo"))
 }

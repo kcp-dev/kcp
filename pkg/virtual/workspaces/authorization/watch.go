@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,7 +46,7 @@ type WatchableCache interface {
 	// RemoveWatcher removes a watcher
 	RemoveWatcher(CacheWatcher)
 	// List returns the set of workspace names the user has access to view
-	List(userInfo user.Info, selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error)
+	List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error)
 }
 
 // userWorkspaceWatcher converts notifications received from the WorkspaceAuthCache to
@@ -89,7 +90,7 @@ var (
 )
 
 func NewUserWorkspaceWatcher(user user.Info, lclusterName string, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, authCache WatchableCache, includeAllExistingWorkspaces bool, predicate kstorage.SelectionPredicate) *userWorkspaceWatcher {
-	workspaces, _ := authCache.List(user, labels.Everything())
+	workspaces, _ := authCache.List(user, labels.Everything(), fields.Everything())
 	knownWorkspaces := map[string]string{}
 	for _, workspace := range workspaces.Items {
 		knownWorkspaces[workspace.Name] = workspace.ResourceVersion
