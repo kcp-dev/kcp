@@ -19,11 +19,14 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -80,6 +83,18 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 	genericServer.Handler.Director = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if vwName := r.Context().Value(virtualcontext.VirtualWorkspaceNameKey); vwName != nil {
 			if vwNameString, isString := vwName.(string); isString && vwNameString == virtualWorkspaceName {
+				// In the current KCP Kubernetes feature branch, some components (e.g.Discovery index)
+				// don't support calls without a cluster set in the request context.
+				// That's why we add a dummy cluster name here.
+				// However we don't add it for the OpenAPI v2 endpoint since, on the contrary,
+				// in our case the OpenAPI Spec will be published by the default OpenAPI Service Provider,
+				// which is served when the cluster name is empty.
+				if r.URL.Path != "/openapi/v2" {
+					context := r.Context()
+					context = genericapirequest.WithCluster(context, genericapirequest.Cluster{Name: logicalcluster.New("virtual")})
+					r = r.WithContext(context)
+				}
+
 				director.ServeHTTP(rw, r)
 				return
 			}
