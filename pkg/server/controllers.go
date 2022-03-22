@@ -441,6 +441,9 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
+	if err != nil {
+		return err
+	}
 
 	s.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		// HACK HACK HACK
