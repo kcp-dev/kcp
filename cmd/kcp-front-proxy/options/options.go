@@ -23,21 +23,26 @@ import (
 	"github.com/spf13/pflag"
 
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/component-base/logs"
 
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 )
 
 type Options struct {
-	SecureServing *apiserveroptions.SecureServingOptionsWithLoopback
-	Proxy         proxyoptions.Options
+	SecureServing  apiserveroptions.SecureServingOptionsWithLoopback
+	Authentication Authentication
+	Proxy          proxyoptions.Options
+	Logs           *logs.Options
 
 	RootDirectory string
 }
 
 func NewOptions() *Options {
 	o := &Options{
-		SecureServing: apiserveroptions.NewSecureServingOptions().WithLoopback(),
-		Proxy:         *proxyoptions.NewOptions(),
+		SecureServing:  *apiserveroptions.NewSecureServingOptions().WithLoopback(),
+		Authentication: *NewAuthentication(),
+		Proxy:          *proxyoptions.NewOptions(),
+		Logs:           logs.NewOptions(),
 
 		RootDirectory: ".kcp",
 	}
@@ -51,7 +56,10 @@ func NewOptions() *Options {
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.SecureServing.AddFlags(fs)
+	o.Authentication.AddFlags(fs)
 	o.Proxy.AddFlags(fs)
+
+	o.Logs.AddFlags(fs)
 
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
 }
@@ -87,6 +95,7 @@ func (o *Options) Validate() []error {
 	var errs []error
 
 	errs = append(errs, o.SecureServing.Validate()...)
+	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.Proxy.Validate()...)
 
 	return errs

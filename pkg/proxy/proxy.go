@@ -24,6 +24,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	userinfo "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 )
 
@@ -71,23 +73,20 @@ func NewReverseProxy(backend, clientCert, clientKeyFile, caFile string) (*KCPPro
 // the client cert and adds them as HTTP headers to backend request.
 func ProxyHandler(p *KCPProxy, UserHeader, GroupHeader string) func(wr http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if len(r.TLS.PeerCertificates) >= 1 {
-			clientCert := r.TLS.PeerCertificates[0]
-			appendClientCertAuthHeaders(r.Header, clientCert, UserHeader, GroupHeader)
+		if u, ok := request.UserFrom(r.Context()); ok {
+			appendClientCertAuthHeaders(r.Header, u, UserHeader, GroupHeader)
 		}
-		if klog.V(3).Enabled() {
+		if klog.V(6).Enabled() {
 			klog.Infof("%s %s (%s -> %s) ", r.Method, r.RequestURI, r.RemoteAddr, p.backend)
 		}
 		p.proxy.ServeHTTP(w, r)
 	}
 }
 
-func appendClientCertAuthHeaders(header http.Header, clientCert *x509.Certificate, UserHeader, GroupHeader string) {
-	userName := clientCert.Subject.CommonName
-	header.Set(UserHeader, userName)
+func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, UserHeader, GroupHeader string) {
+	header.Set(UserHeader, user.GetName())
 
-	groups := clientCert.Subject.Organization
-	for _, group := range groups {
+	for _, group := range user.GetGroups() {
 		header.Add(GroupHeader, group)
 	}
 }

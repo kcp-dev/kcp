@@ -21,6 +21,7 @@ import (
 	goflags "flag"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 
@@ -28,7 +29,9 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/errors"
+	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	restclient "k8s.io/client-go/rest"
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
@@ -66,13 +69,18 @@ forwards Common Name and Organizations to backend API servers in HTTP headers.
 The proxy terminates TLS and communicates with API servers via mTLS. Traffic is
 routed based on paths.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := options.Logs.ValidateAndApply(); err != nil {
+				return err
+			}
 			if err := options.Complete(); err != nil {
 				return err
 			}
 			if errs := options.Validate(); errs != nil {
 				return errors.NewAggregate(errs)
 			}
-			proxyHandler, err := proxy.NewHandler(&options.Proxy)
+
+			var handler http.Handler
+			handler, err := proxy.NewHandler(&options.Proxy)
 			if err != nil {
 				return err
 			}
@@ -82,7 +90,20 @@ routed based on paths.`,
 			if err := options.SecureServing.ApplyTo(&servingInfo, &loopbackClientConfig); err != nil {
 				return err
 			}
-			doneCh, err := servingInfo.Serve(proxyHandler, time.Second*60, ctx.Done())
+
+			var authenticationInfo genericapiserver.AuthenticationInfo
+			if err := options.Authentication.ApplyTo(&authenticationInfo, servingInfo); err != nil {
+				return err
+			}
+
+			failedHandler := newUnauthorizedHandler()
+			handler = withOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
+
+			requestInfoFactory := newRequestInfoFactory()
+			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
+			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
+
+			doneCh, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
 			if err != nil {
 				return err
 			}
