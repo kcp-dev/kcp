@@ -130,16 +130,30 @@ func WithLogStreaming(o *runOptions) {
 
 // RepositoryBinDir returns the absolute path of <repo-dir>/bin. That's where `make build` produces our binaries.
 func RepositoryBinDir() string {
+	// Caller(0) returns the path to the calling test file rather than the path to this framework file. That
+	// precludes assuming how many directories are between the file and the repo root. It's therefore necessary
+	// to search in the hierarchy for an indication of a path that looks like the repo root.
 	_, sourceFile, _, _ := goruntime.Caller(0)
-	repoDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "..")
-	return filepath.Join(repoDir, "bin")
+	currentDir := filepath.Dir(sourceFile)
+	for {
+		// go.mod should always exist in the repo root
+		if _, err := os.Stat(filepath.Join(currentDir, "go.mod")); err == nil {
+			break
+		} else if errors.Is(err, os.ErrNotExist) {
+			currentDir, err = filepath.Abs(filepath.Join(currentDir, ".."))
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			panic(err)
+		}
+	}
+	return filepath.Join(currentDir, "bin")
 }
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
 // callers should ensure that the server is Ready() before using it.
 func (c *kcpServer) Run(opts ...RunOption) error {
-	path := filepath.Join(RepositoryBinDir(), "kcp")
-
 	runOpts := runOptions{}
 	for _, opt := range opts {
 		opt(&runOpts)
@@ -153,7 +167,9 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	})
 	c.ctx = ctx
 
-	c.t.Logf("running: %v", strings.Join(append([]string{path, "start"}, c.args...), " "))
+	kcpPath := filepath.Join(RepositoryBinDir(), "kcp")
+	commandLine := append([]string{kcpPath, "start"}, c.args...)
+	c.t.Logf("running: %v", strings.Join(commandLine, " "))
 
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
@@ -192,7 +208,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		return nil
 	}
 
-	cmd := exec.CommandContext(ctx, "kcp", append([]string{"start"}, c.args...)...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 	logFile, err := os.Create(filepath.Join(c.artifactDir, "kcp.log"))
 	if err != nil {
 		cleanupCancel()
