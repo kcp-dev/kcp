@@ -31,7 +31,6 @@ func NewController(
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	heartbeatThreshold time.Duration,
 ) (*cluster.ClusterReconciler, error) {
-
 	cm := &clusterManager{
 		heartbeatThreshold: heartbeatThreshold,
 	}
