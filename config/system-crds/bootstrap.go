@@ -32,6 +32,7 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 )
@@ -55,6 +56,9 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
 		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
 		{Group: workload.GroupName, Resource: "workloadclusters"},
+		{Group: apis.GroupName, Resource: "apiexports"},
+		{Group: apis.GroupName, Resource: "apibindings"},
+		{Group: apis.GroupName, Resource: "apiresourceschemas"},
 	}
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
