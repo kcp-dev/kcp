@@ -75,10 +75,12 @@ type Server struct {
 	syncedCh chan struct{}
 
 	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
-	rootKcpSharedInformerFactory       kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
-	rootKubeSharedInformerFactory      coreexternalversions.SharedInformerFactory
 	apiextensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
+
+	// TODO(sttts): get rid of these. We have wildcard informers already.
+	rootKcpSharedInformerFactory  kcpexternalversions.SharedInformerFactory
+	rootKubeSharedInformerFactory coreexternalversions.SharedInformerFactory
 }
 
 // NewServer creates a new instance of Server which manages the KCP api-server.
