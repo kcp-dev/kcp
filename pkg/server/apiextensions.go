@@ -31,6 +31,7 @@ import (
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -41,6 +42,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
@@ -92,6 +94,8 @@ func (p *systemCRDProvider) List(ctx context.Context, org, ws string) ([]*apiext
 	for _, key := range p.Keys(ctx, org, ws).List() {
 		crd, err := p.getCRD(key)
 		if err != nil {
+			klog.Errorf("Failed to get CRD %s for %s|%s: %v", key, err, org, ws)
+			// we shouldn't see this because getCRD is backed by a quorum-read client on cache-miss
 			return nil, fmt.Errorf("error getting system CRD %q: %w", key, err)
 		}
 
@@ -107,11 +111,14 @@ func (p *systemCRDProvider) Keys(ctx context.Context, org, workspace string) set
 		return p.rootCRDs
 	case org == helper.RootCluster:
 		return p.orgCRDs
+	case org == "system":
+		// fall through
 	case org != "":
 		workspaceKey := helper.WorkspaceKey(org, workspace)
 		clusterWorkspace, err := p.getClusterWorkspace(ctx, workspaceKey)
 		if err != nil {
-			// TODO return?
+			// this shouldn't happen. The getters use quorum-read client on cache-miss.
+			klog.Errorf("error getting cluster workspace %q: %v", workspaceKey, err)
 			break
 		}
 		if clusterWorkspace.Spec.Type == "Universal" {
@@ -124,6 +131,7 @@ func (p *systemCRDProvider) Keys(ctx context.Context, org, workspace string) set
 
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
+	kcpClusterClient  kcpclientset.ClusterInterface
 	crdLister         apiextensionslisters.CustomResourceDefinitionLister
 	workspaceLister   tenancylisters.ClusterWorkspaceLister
 	apiBindingLister  apislisters.APIBindingLister
@@ -393,6 +401,7 @@ func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (
 // we can supply our own inheritance-aware CRD lister.
 type kcpAPIExtensionsSharedInformerFactory struct {
 	apiextensionsexternalversions.SharedInformerFactory
+	kcpClusterClient kcpclientset.ClusterInterface
 	workspaceLister  tenancylisters.ClusterWorkspaceLister
 	apiBindingLister apislisters.APIBindingLister
 }
@@ -403,6 +412,7 @@ func (f *kcpAPIExtensionsSharedInformerFactory) Apiextensions() apiextensions.In
 	i := f.SharedInformerFactory.Apiextensions()
 	return &kcpAPIExtensionsApiextensions{
 		Interface:        i,
+		kcpClusterClient: f.kcpClusterClient,
 		workspaceLister:  f.workspaceLister,
 		apiBindingLister: f.apiBindingLister,
 	}
@@ -412,6 +422,7 @@ func (f *kcpAPIExtensionsSharedInformerFactory) Apiextensions() apiextensions.In
 // we can supply our own inheritance-aware CRD lister.
 type kcpAPIExtensionsApiextensions struct {
 	apiextensions.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 	workspaceLister  tenancylisters.ClusterWorkspaceLister
 	apiBindingLister apislisters.APIBindingLister
 }
@@ -422,6 +433,7 @@ func (i *kcpAPIExtensionsApiextensions) V1() apiextensionsinformerv1.Interface {
 	v1i := i.Interface.V1()
 	return &kcpAPIExtensionsApiextensionsV1{
 		Interface:        v1i,
+		kcpClusterClient: i.kcpClusterClient,
 		workspaceLister:  i.workspaceLister,
 		apiBindingLister: i.apiBindingLister,
 	}
@@ -431,6 +443,7 @@ func (i *kcpAPIExtensionsApiextensions) V1() apiextensionsinformerv1.Interface {
 // we can supply our own inheritance-aware CRD lister.
 type kcpAPIExtensionsApiextensionsV1 struct {
 	apiextensionsinformerv1.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 	workspaceLister  tenancylisters.ClusterWorkspaceLister
 	apiBindingLister apislisters.APIBindingLister
 }
@@ -441,6 +454,7 @@ func (i *kcpAPIExtensionsApiextensionsV1) CustomResourceDefinitions() apiextensi
 	c := i.Interface.CustomResourceDefinitions()
 	return &kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer{
 		CustomResourceDefinitionInformer: c,
+		kcpClusterClient:                 i.kcpClusterClient,
 		workspaceLister:                  i.workspaceLister,
 		apiBindingLister:                 i.apiBindingLister,
 	}
@@ -451,6 +465,7 @@ func (i *kcpAPIExtensionsApiextensionsV1) CustomResourceDefinitions() apiextensi
 // inheritance-aware CRD lister.
 type kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer struct {
 	apiextensionsinformerv1.CustomResourceDefinitionInformer
+	kcpClusterClient kcpclientset.ClusterInterface
 	workspaceLister  tenancylisters.ClusterWorkspaceLister
 	apiBindingLister apislisters.APIBindingLister
 }
@@ -460,13 +475,28 @@ type kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer struct {
 func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) Lister() apiextensionslisters.CustomResourceDefinitionLister {
 	originalLister := i.CustomResourceDefinitionInformer.Lister()
 	l := &apiBindingAwareCRDLister{
+		kcpClusterClient: i.kcpClusterClient,
 		crdLister:        originalLister,
 		workspaceLister:  i.workspaceLister,
 		apiBindingLister: i.apiBindingLister,
 		systemCRDProvider: newSystemCRDProvider(
-			i.workspaceLister.GetWithContext,
+			i.GetWithQuorumReadOnCacheMiss,
 			originalLister.Get,
 		),
 	}
 	return l
+}
+
+func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) GetWithQuorumReadOnCacheMiss(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+	cws, err := i.workspaceLister.GetWithContext(ctx, name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+	if err != nil {
+		clusterName, name := clusters.SplitClusterAwareKey(name)
+		klog.Infof("GetWithQuorumReadOnCacheMiss name %q -> %s|%s", clusterName, name)
+		cws, err = i.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, metav1.GetOptions{})
+	}
+
+	return cws, err
 }

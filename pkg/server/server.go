@@ -256,6 +256,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	apiExtensionsConfig.ExtraConfig.Informers = &kcpAPIExtensionsSharedInformerFactory{
 		SharedInformerFactory: s.apiextensionsSharedInformerFactory,
+		kcpClusterClient:      kcpClusterClient,
 		workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
 		apiBindingLister:      s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 	}
