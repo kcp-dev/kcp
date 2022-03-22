@@ -128,8 +128,8 @@ func WithLogStreaming(o *runOptions) {
 	o.streamLogs = true
 }
 
-// RepositoryBinDir returns the absolute path of <repo-dir>/bin. That's where `make build` produces our binaries.
-func RepositoryBinDir() string {
+// RepositoryDir returns the absolute path of <repo-dir>.
+func RepositoryDir() string {
 	// Caller(0) returns the path to the calling test file rather than the path to this framework file. That
 	// precludes assuming how many directories are between the file and the repo root. It's therefore necessary
 	// to search in the hierarchy for an indication of a path that looks like the repo root.
@@ -148,7 +148,24 @@ func RepositoryBinDir() string {
 			panic(err)
 		}
 	}
-	return filepath.Join(currentDir, "bin")
+	return currentDir
+}
+
+// RepositoryBinDir returns the absolute path of <repo-dir>/bin. That's where `make build` produces our binaries.
+func RepositoryBinDir() string {
+	return filepath.Join(RepositoryDir(), "bin")
+}
+
+// StartKcpCommand returns the string tokens required to start kcp in
+// the currently configured mode (direct or via `go run`).
+func StartKcpCommand() []string {
+	if NoGoRunEnvSet() {
+		kcpPath := filepath.Join(RepositoryBinDir(), "kcp")
+		return []string{kcpPath, "start"}
+	} else {
+		kcpCmdPath := filepath.Join(RepositoryDir(), "cmd", "kcp")
+		return []string{"go", "run", kcpCmdPath, "start"}
+	}
 }
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
@@ -167,8 +184,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	})
 	c.ctx = ctx
 
-	kcpPath := filepath.Join(RepositoryBinDir(), "kcp")
-	commandLine := append([]string{kcpPath, "start"}, c.args...)
+	commandLine := append(StartKcpCommand(), c.args...)
 	c.t.Logf("running: %v", strings.Join(commandLine, " "))
 
 	// run kcp start in-process for easier debugging
@@ -227,6 +243,15 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		cleanupCancel()
 		return err
 	}
+
+	c.t.Cleanup(func() {
+		// Ensure child process is killed on cleanup
+		err := cmd.Process.Kill()
+		if err != nil {
+			c.t.Errorf("Saw an error trying to kill `kcp`: %v", err)
+		}
+	})
+
 	go func() {
 		defer func() { cleanupCancel() }()
 		err := cmd.Wait()
@@ -508,4 +533,9 @@ func (s *unmanagedKCPServer) DefaultConfig(t *testing.T) *rest.Config {
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
 	artifact(t, s, producer)
+}
+
+func NoGoRunEnvSet() bool {
+	envSet, _ := strconv.ParseBool(os.Getenv("NO_GORUN"))
+	return envSet
 }
