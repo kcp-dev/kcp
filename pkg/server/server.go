@@ -26,7 +26,6 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -40,6 +39,7 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
+	"github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -288,16 +288,38 @@ func (s *Server) Run(ctx context.Context) error {
 	s.AddPostStartHook("kcp-start-informers", func(ctx genericapiserver.PostStartHookContext) error {
 		s.kubeSharedInformerFactory.Start(ctx.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
-		s.kcpSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKubeSharedInformerFactory.Start(ctx.StopCh)
+
+		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.rootKubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+		klog.Infof("Finished start kube informers")
+
+		if err := systemcrds.Bootstrap(
+			goContext(ctx),
+			apiextensionsClusterClient.Cluster(SystemCRDLogicalCluster),
+			apiextensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
+			dynamicClusterClient.Cluster(SystemCRDLogicalCluster),
+		); err != nil {
+			klog.Errorf("failed to bootstrap system CRDs: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		klog.Infof("Finished bootstrapping system CRDs")
+
+		s.kcpSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
 
-		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+		klog.Infof("Finished start kcp informers")
 
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
 		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(helper.RootCluster),
+			apiextensionsClusterClient.Cluster(helper.RootCluster).Discovery(),
 			dynamicClusterClient.Cluster(helper.RootCluster),
 			"root",
 
@@ -319,12 +341,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.rootKubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-
-		klog.Infof("Bootstrapped CRDs and synced all informers. Ready to start controllers")
+		klog.Infof("Bootstrapped resources and synced all informers. Ready to start controllers")
 		close(s.syncedCh)
 
 		return nil

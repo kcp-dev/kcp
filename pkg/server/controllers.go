@@ -42,16 +42,11 @@ import (
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
-	configcrds "github.com/kcp-dev/kcp/config/crds"
 	configorganization "github.com/kcp-dev/kcp/config/organization"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
-	apiresourceapi "github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
-	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apibinding"
@@ -448,20 +443,6 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	}
 
 	s.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		// HACK HACK HACK
-		// TODO(sttts): these CRDs can go away when when we don't need a CRD in some workspace for "*" informers to work
-		err = configcrds.Create(ctx, crdClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).ApiextensionsV1().CustomResourceDefinitions(),
-			metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
-			metav1.GroupResource{Group: apiresourceapi.GroupName, Resource: "apiresourceimports"},
-			metav1.GroupResource{Group: apiresourceapi.GroupName, Resource: "negotiatedapiresources"},
-			metav1.GroupResource{Group: apis.GroupName, Resource: "apiresourceschemas"},
-			metav1.GroupResource{Group: apis.GroupName, Resource: "apiexports"},
-			metav1.GroupResource{Group: apis.GroupName, Resource: "apibindings"},
-		)
-		if err != nil {
-			return err
-		}
-
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-api-resource-controller: %v", err)
 			// nolint:nilerr

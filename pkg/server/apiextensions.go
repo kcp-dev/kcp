@@ -33,20 +33,101 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
+// SystemCRDLogicalCluster is the logical cluster we install system CRDs into for now. These are needed
+// to start wildcard informers until a "real" workspace gets them installed.
+const SystemCRDLogicalCluster = helper.LocalSystemClusterPrefix + "system-crds"
+
+type systemCRDProvider struct {
+	rootCRDs      sets.String
+	orgCRDs       sets.String
+	universalCRDs sets.String
+
+	getClusterWorkspace func(ctx context.Context, key string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getCRD              func(key string) (*apiextensionsv1.CustomResourceDefinition, error)
+}
+
+// NewSystemCRDProvider returns CRDs for certain cluster workspace types and the root workspace.
+// TODO(sttts): This must be replaced by some non-hardcoded mechanism in the (near) future, probably by
+//              using APIBindings. For now, this is our way to enforce to have no schema drift of these CRDs
+//              as that would break wildcard informers.
+func newSystemCRDProvider(
+	getClusterWorkspace func(ctx context.Context, key string) (*tenancyv1alpha1.ClusterWorkspace, error),
+	getCRD func(key string) (*apiextensionsv1.CustomResourceDefinition, error),
+) *systemCRDProvider {
+	return &systemCRDProvider{
+		rootCRDs: sets.NewString(
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "workspaceshards.tenancy.kcp.dev"),
+		),
+		orgCRDs: sets.NewString(
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
+		),
+		universalCRDs: sets.NewString(
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiresourceimports.apiresource.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "negotiatedapiresources.apiresource.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "workloadclusters.workload.kcp.dev"),
+		),
+		getClusterWorkspace: getClusterWorkspace,
+		getCRD:              getCRD,
+	}
+}
+
+func (p *systemCRDProvider) List(ctx context.Context, org, ws string) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+	var ret []*apiextensionsv1.CustomResourceDefinition
+
+	for _, key := range p.Keys(ctx, org, ws).List() {
+		crd, err := p.getCRD(key)
+		if err != nil {
+			return nil, fmt.Errorf("error getting system CRD %q: %w", key, err)
+		}
+
+		ret = append(ret, crd)
+	}
+
+	return ret, nil
+}
+
+func (p *systemCRDProvider) Keys(ctx context.Context, org, workspace string) sets.String {
+	switch {
+	case workspace == helper.RootCluster:
+		return p.rootCRDs
+	case org == helper.RootCluster:
+		return p.orgCRDs
+	case org != "":
+		workspaceKey := helper.WorkspaceKey(org, workspace)
+		clusterWorkspace, err := p.getClusterWorkspace(ctx, workspaceKey)
+		if err != nil {
+			// TODO return?
+			break
+		}
+		if clusterWorkspace.Spec.Type == "Universal" {
+			return p.universalCRDs
+		}
+	}
+
+	return sets.NewString()
+}
+
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
-	crdLister        apiextensionslisters.CustomResourceDefinitionLister
-	workspaceLister  tenancylisters.ClusterWorkspaceLister
-	apiBindingLister apislisters.APIBindingLister
+	crdLister         apiextensionslisters.CustomResourceDefinitionLister
+	workspaceLister   tenancylisters.ClusterWorkspaceLister
+	apiBindingLister  apislisters.APIBindingLister
+	systemCRDProvider *systemCRDProvider
 }
 
 var _ apiextensionslisters.CustomResourceDefinitionLister = (*apiBindingAwareCRDLister)(nil)
@@ -69,8 +150,25 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 	crdName := func(crd *apiextensionsv1.CustomResourceDefinition) string {
 		return crd.Spec.Names.Plural + "." + crd.Spec.Group
 	}
-	// crdName -> apiBinding
-	seen := map[string]string{}
+
+	// Seen keeps track of which CRDs have already been found from system and apibindings.
+	seen := sets.NewString()
+
+	org, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
+	if err != nil {
+		return nil, fmt.Errorf("error determining workspace name from cluster name %q: %w", cluster.Name, err)
+	}
+
+	kcpSystemCRDs, err := c.systemCRDProvider.List(ctx, org, workspace)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
+	}
+
+	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
+	ret = kcpSystemCRDs
+	for i := range kcpSystemCRDs {
+		seen.Insert(crdName(kcpSystemCRDs[i]))
+	}
 
 	apiBindings, err := c.apiBindingLister.ListWithContext(ctx, labels.Everything())
 	if err != nil {
@@ -94,8 +192,17 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 				klog.Errorf("Error getting bound CRD %q: %v", crdKey, err)
 				continue
 			}
+
+			// system CRDs take priority over APIBindings from the local workspace.
+			if seen.Has(crdName(crd)) {
+				// Came from system
+				klog.Infof("Skipping APIBinding CRD %s|%s because it came in via system CRDs", crd.ClusterName, crd.Name)
+				continue
+			}
+
+			// Priority 2: Add APIBinding CRDs. These take priority over those from the local workspace.
 			ret = append(ret, crd)
-			seen[crdName(crd)] = fmt.Sprintf("%s|%s", apiBinding.ClusterName, apiBinding.Name)
+			seen.Insert(crdName(crd))
 		}
 	}
 
@@ -108,10 +215,14 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 		if crd.ClusterName != cluster.Name {
 			continue
 		}
-		if apiBinding, exists := seen[crdName(crd)]; exists {
-			klog.Infof("Skipping local CRD %s|%s because it came in via APIBinding %s", crd.ClusterName, crd.Name, apiBinding)
+
+		// system CRDs and local APIBindings take priority over CRDs from the local workspace.
+		if seen.Has(crdName(crd)) {
+			klog.Infof("Skipping local CRD %s|%s because it came in via APIBindings or system CRDs", crd.ClusterName, crd.Name)
 			continue
 		}
+
+		// Priority 3: add local workspace CRDs that weren't already coming from APIBindings or kcp system.
 		ret = append(ret, crd)
 	}
 
@@ -165,6 +276,28 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 		return crd, nil
 	}
 
+	org, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
+	if err != nil {
+		return nil, fmt.Errorf("error determining workspace name from cluster name %q: %w", cluster.Name, err)
+	}
+
+	systemCRDKeys := c.systemCRDProvider.Keys(ctx, org, workspace)
+
+	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
+	if systemCRDKeys.Has(systemCRDKeyName) {
+		crd, err = c.crdLister.Get(systemCRDKeyName)
+		if err != nil && !apierrors.IsNotFound(err) {
+			// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.
+			return nil, err
+		}
+
+		if crd != nil {
+			return crd, nil
+		}
+
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: apiextensionsv1.SchemeGroupVersion.Group, Resource: "customresourcedefinitions"}, name)
+	}
+
 	// Priority 1: see if it comes from any APIBindings
 	parts := strings.SplitN(name, ".", 2)
 	resource, group := parts[0], parts[1]
@@ -202,10 +335,9 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 					return crd, nil
 				}
 
-				// TODO(ncdc): if we got here, it means there is supposed to be a CRD coming from an APIBinding, but
-				// the CRD doesn't exist for some reason. Does it make sense to return a 404 here, or keep going and
-				// check other APIBindings and/or local CRDs?
-				return nil, apierrors.NewNotFound(schema.GroupResource{Group: apiextensionsv1.SchemeGroupVersion.Group, Resource: "customresourcedefinitions"}, name)
+				// If we got here, it means there is supposed to be a CRD coming from an APIBinding, but
+				// the CRD doesn't exist for some reason.
+				return nil, apierrors.NewServiceUnavailable(fmt.Sprintf("%s is currently unavailable", name))
 			}
 		}
 	}
@@ -331,6 +463,10 @@ func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) Lister
 		crdLister:        originalLister,
 		workspaceLister:  i.workspaceLister,
 		apiBindingLister: i.apiBindingLister,
+		systemCRDProvider: newSystemCRDProvider(
+			i.workspaceLister.GetWithContext,
+			originalLister.Get,
+		),
 	}
 	return l
 }

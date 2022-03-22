@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -53,7 +54,7 @@ func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	workspaceType string,
-	bootstrap func(context.Context, apiextensionclientset.Interface, dynamic.Interface) error,
+	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface) error,
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -96,7 +97,7 @@ type controller struct {
 	syncChecks []cache.InformerSynced
 
 	workspaceType string
-	bootstrap     func(context.Context, apiextensionclientset.Interface, dynamic.Interface) error
+	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface) error
 }
 
 func (c *controller) enqueue(obj interface{}) {
