@@ -83,7 +83,11 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClust
 	}
 	fromClient := fromClients.Cluster(kcpClusterName)
 	toClient := dynamic.NewForConfigOrDie(to)
-	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, SyncDown, syncedResourceTypes, pclusterID)
+
+	// Register the default mutators
+	mutatorsMap := getDefaultMutators(from)
+
+	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, SyncDown, syncedResourceTypes, pclusterID, mutatorsMap)
 }
 
 func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
@@ -166,6 +170,16 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 	// Run name transformations on the downstreamObj.
 	transformName(downstreamObj, SyncDown)
+
+	// Run any transformations on the object before we apply it to the downstream cluster.
+	if mutator, ok := c.mutators[gvr]; ok {
+		if err := mutator(downstreamObj); err != nil {
+			return err
+		}
+	}
+
+	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
+	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
 
 	// Marshalling the unstructured object is good enough as SSA patch
 	data, err := json.Marshal(downstreamObj)
