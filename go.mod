@@ -31,7 +31,6 @@ require (
 	k8s.io/component-base v0.0.0
 	k8s.io/klog/v2 v2.30.0
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
-	k8s.io/kubectl v0.0.0
 	k8s.io/kubernetes v1.23.4
 	k8s.io/utils v0.0.0-20211208161948-7d6a63dca704
 	sigs.k8s.io/yaml v1.2.0
