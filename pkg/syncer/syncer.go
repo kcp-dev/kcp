@@ -480,3 +480,14 @@ func transformName(syncedObject *unstructured.Unstructured, direction SyncDirect
 		}
 	}
 }
+
+func getDefaultMutators(from *rest.Config) mutatorGvrMap {
+	mutatorsMap := make(mutatorGvrMap)
+
+	deploymentMutator := mutators.NewDeploymentMutator(from)
+	secretMutator := mutators.NewSecretMutator()
+
+	mutatorsMap[deploymentMutator.GVR()] = deploymentMutator.Mutate
+	mutatorsMap[secretMutator.GVR()] = secretMutator.Mutate
+	return mutatorsMap
+}
