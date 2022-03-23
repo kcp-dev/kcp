@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"mime"
 	_ "net/http/pprof"
 	"strings"
 
@@ -179,11 +180,37 @@ func (c *inheritanceCRDLister) GetWithContext(ctx context.Context, name string) 
 		if err != nil {
 			return nil, err
 		}
-		var equal bool // true if all the found CRDs have the same spec
-		crd, equal = findCRD(name, crds)
-		if !equal {
-			err = apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
-			return nil, err
+
+		// for PartialObjectMetadata we weaken the schema requirement and let requests through although the schemas differ
+		pruneEverythingButObjectMeta := false
+		if accept := ctx.Value(acceptHeaderContextKey).(string); len(accept) > 0 {
+			if _, params, err := mime.ParseMediaType(accept); err == nil {
+				pruneEverythingButObjectMeta = params["as"] == "PartialObjectMetadata" || params["as"] == "PartialObjectMetadataList"
+			}
+		}
+
+		var crd *apiextensionsv1.CustomResourceDefinition
+		if pruneEverythingButObjectMeta {
+			crd := findCRDIgnoringSpec(name, crds)
+			if crd != nil {
+				crd := crd.DeepCopy()
+				// set minimal schema that prunes everything but ObjectMeta
+				for _, v := range crd.Spec.Versions {
+					v.Schema = &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Type: "object",
+						},
+					}
+				}
+				return crd, nil
+			}
+		} else {
+			var equal bool // true if all the found CRDs have the same spec
+			crd, equal = findCRD(name, crds)
+			if !equal {
+				err = apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
+				return nil, err
+			}
 		}
 
 		if crd == nil {
@@ -292,6 +319,16 @@ func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (
 	}
 
 	return crd, true
+}
+
+func findCRDIgnoringSpec(name string, crds []*apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
+	for _, aCRD := range crds {
+		if aCRD.Name == name {
+			return aCRD
+		}
+	}
+
+	return nil
 }
 
 // kcpAPIExtensionsSharedInformerFactory wraps the apiextensionsinformers.SharedInformerFactory so

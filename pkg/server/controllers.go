@@ -53,6 +53,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/gvk"
+	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
@@ -284,13 +285,20 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
-	dynamicClient := dynamicClusterClient
+
+	// create special client that only gets PartialObjectMetadata objects. For these we can do
+	// wildcard requests with different schemas without risking data loss.
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(config)
+	if err != nil {
+		return err
+	}
 
 	// TODO(ncdc): I dont' think this is used anywhere?
 	gvkTrans := gvk.NewGVKTranslator(config)
 
 	namespaceScheduler := kcpnamespace.NewController(
-		dynamicClient,
+		dynamicClusterClient,
+		metadataClusterClient,
 		kubeClient.DiscoveryClient,
 		kubeClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
