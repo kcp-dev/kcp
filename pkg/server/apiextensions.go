@@ -112,8 +112,6 @@ func (p *systemCRDProvider) Keys(ctx context.Context, org, workspace string) set
 	switch {
 	case workspace == helper.RootCluster:
 		return p.rootCRDs
-	case org == helper.RootCluster:
-		return p.orgCRDs
 	case org == "system":
 		// fall through
 	case org != "":
@@ -124,8 +122,11 @@ func (p *systemCRDProvider) Keys(ctx context.Context, org, workspace string) set
 			klog.Errorf("error getting cluster workspace %q: %v", workspaceKey, err)
 			break
 		}
-		if clusterWorkspace.Spec.Type == "Universal" {
+		switch clusterWorkspace.Spec.Type {
+		case "Universal":
 			return p.universalCRDs
+		case "Organization":
+			return p.orgCRDs
 		}
 	}
 
