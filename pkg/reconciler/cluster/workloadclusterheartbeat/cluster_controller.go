@@ -14,36 +14,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apiimporter
+package workloadclusterheartbeat
 
 import (
+	"time"
+
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
 )
 
 func NewController(
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
-	resourcesToSync []string,
-) (*clusterctl.ClusterReconciler, error) {
-
-	am := &apiImporterManager{
-		kcpClusterClient:         kcpClusterClient,
-		resourcesToSync:          resourcesToSync,
-		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
-		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
-		apiImporters:             map[string]*APIImporter{},
+	heartbeatThreshold time.Duration,
+) (*cluster.ClusterReconciler, error) {
+	cm := &clusterManager{
+		heartbeatThreshold: heartbeatThreshold,
 	}
 
-	r, _, err := clusterctl.NewClusterReconciler(
-		"kcp-api-importer",
-		am,
+	r, queue, err := cluster.NewClusterReconciler(
+		"kcp-cluster-heartbeat-manager",
+		cm,
 		kcpClusterClient,
 		clusterInformer,
 		apiResourceImportInformer,
 	)
-	return r, err
+	if err != nil {
+		return nil, err
+	}
+	cm.enqueueClusterAfter = queue.EnqueueAfter
+	return r, nil
 }

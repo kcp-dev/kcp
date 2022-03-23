@@ -53,7 +53,7 @@ func NewController(
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
 	}
 
-	cr, err := clusterctl.NewClusterReconciler(
+	cr, _, err := clusterctl.NewClusterReconciler(
 		syncerManagerImpl.name(),
 		sm,
 		kcpClusterClient,

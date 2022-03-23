@@ -130,6 +130,9 @@ const (
 
 	// ErrorStartingAPIImporterReason indicates an error starting the API Importer.
 	ErrorStartingAPIImporterReason = "ErrorStartingAPIImporter"
+
+	// ErrorHeartbeatMissedReason indicates that a heartbeat update was not received within the configured threshold.
+	ErrorHeartbeatMissedReason = "ErrorHeartbeat"
 )
 
 func (in *WorkloadCluster) SetConditions(c conditionsv1alpha1.Conditions) {

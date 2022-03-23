@@ -56,6 +56,10 @@ type ClusterReconcileImpl interface {
 	Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster)
 }
 
+type ClusterQueue interface {
+	EnqueueAfter(*workloadv1alpha1.WorkloadCluster, time.Duration)
+}
+
 // NewClusterReconciler returns a new controller which reconciles
 // Cluster resources in the API server it reaches using the REST
 // client.
@@ -65,7 +69,7 @@ func NewClusterReconciler(
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
-) (*ClusterReconciler, error) {
+) (*ClusterReconciler, ClusterQueue, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
 
 	c := &ClusterReconciler{
@@ -112,11 +116,21 @@ func NewClusterReconciler(
 	}
 	if len(indexers) > 0 {
 		if err := c.apiresourceImportIndexer.AddIndexers(indexers); err != nil {
-			return nil, fmt.Errorf("Failed to add indexer for APIResourceImport: %w", err)
+			return nil, nil, fmt.Errorf("failed to add indexer for APIResourceImport: %w", err)
 		}
 	}
 
-	return c, nil
+	return c, queueAdapter{queue}, nil
+}
+
+type queueAdapter struct {
+	queue interface {
+		AddAfter(item interface{}, duration time.Duration)
+	}
+}
+
+func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.WorkloadCluster, dur time.Duration) {
+	a.queue.AddAfter(cl, dur)
 }
 
 type ClusterReconciler struct {
