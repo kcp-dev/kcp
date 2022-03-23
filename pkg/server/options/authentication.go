@@ -22,7 +22,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -107,6 +109,35 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newToken
 	return newTokenOrEmpty, tokenHash, nil
 }
 
+// TODO(jmprusi): delete once push mode is removed.
+func (s *AdminAuthentication) GetPushModeSyncerKubeconfig(config *genericapiserver.Config, newToken string, tokenHash []byte, externalAddress string, servingPort int) (*clientcmdapi.Config, error) {
+	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
+	externalKubeConfigHost := fmt.Sprintf("https://%s", net.JoinHostPort(externalAddress, strconv.Itoa(int(servingPort))))
+
+	externalAdminUserName := "admin"
+	if newToken == "" {
+		// The same token will be used: retrieve it, but only if its hash matches the stored token hash.
+		existingExternalKubeConfig, err := clientcmd.LoadFromFile(s.KubeConfigPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		if existingExternalKubeConfig != nil {
+			if externalAdminUser := existingExternalKubeConfig.AuthInfos[externalAdminUserName]; externalAdminUser != nil {
+				kubeConfigTokenHash := sha256.Sum256([]byte(externalAdminUser.Token))
+				if !bytes.Equal(kubeConfigTokenHash[:], tokenHash) {
+					return nil, fmt.Errorf("admin token in file %s is not valid anymore. Remove file %s and restart KCP", s.KubeConfigPath, s.TokenHashFilePath)
+				}
+				newToken = externalAdminUser.Token
+			}
+		}
+	}
+	if newToken == "" {
+		return nil, fmt.Errorf("cannot create the PushModeSyncer kubeconfig with an empty token for the %s user", externalAdminUserName)
+	}
+	externalKubeConfig := createPushModeSyncerKubeConfig("admin", newToken, externalKubeConfigHost, "", externalCACert)
+	return externalKubeConfig, nil
+}
+
 func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte, externalAddress string, servingPort int) error {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
 	externalKubeConfigHost := fmt.Sprintf("https://%s:%d", externalAddress, servingPort)
@@ -133,6 +164,29 @@ func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, n
 	}
 	externalKubeConfig := createKubeConfig("admin", newToken, externalKubeConfigHost, "", externalCACert)
 	return clientcmd.WriteToFile(*externalKubeConfig, s.KubeConfigPath)
+}
+
+// TODO(jmprusi): delete once push mode is removed.
+func createPushModeSyncerKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {
+	var kubeConfig clientcmdapi.Config
+	//Create Client and Shared
+	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
+		adminUserName: {Token: adminBearerToken},
+	}
+	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
+		// cross-cluster is the virtual cluster running by default
+		// system:admin is the virtual cluster running by default
+		"upstream": {
+			Server:                   baseHost,
+			CertificateAuthorityData: caData,
+			TLSServerName:            tlsServerName,
+		},
+	}
+	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
+		"upstream": {Cluster: "upstream", AuthInfo: adminUserName},
+	}
+	kubeConfig.CurrentContext = "upstream"
+	return &kubeConfig
 }
 
 func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {

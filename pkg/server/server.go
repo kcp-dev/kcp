@@ -382,8 +382,11 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 
-		// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
-		if err := s.installSyncerController(ctx, controllerConfig, CreateLoopbackUpstreamKubeConfig(server)); err != nil {
+		syncerConfig, err := s.options.AdminAuthentication.GetPushModeSyncerKubeconfig(genericConfig, newTokenOrEmpty, tokenHash, s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, servingOpts.BindPort)
+		if err != nil {
+			return err
+		}
+		if err := s.installSyncerController(ctx, controllerConfig, syncerConfig); err != nil {
 			return err
 		}
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
