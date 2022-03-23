@@ -47,9 +47,8 @@ import (
 )
 
 const (
-	controllerName                    = "kcp-apibinding"
-	indexAPIBindingsByWorkspaceExport = "apiBindingsByWorkspaceExport"
-	//indexAPIResourceSchemasByCRD       = "apiResourceSchemasByCRD"
+	controllerName                     = "kcp-apibinding"
+	indexAPIBindingsByWorkspaceExport  = "apiBindingsByWorkspaceExport"
 	indexAPIExportsByAPIResourceSchema = "apiExportsByAPIResourceSchema"
 	shadowWorkspaceName                = "system:bound-crds"
 )
@@ -127,21 +126,6 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj) },
 	})
 
-	//if err := crdInformer.Informer().GetIndexer().AddIndexers(cache.Indexers{
-	//	indexAPIResourceSchemasByCRD: func(obj interface{}) ([]string, error) {
-	//		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
-	//		if !ok {
-	//			return []string{}, fmt.Errorf("obj is supposed to be a CRD, but is %T", obj)
-	//		}
-	//		if crd.Annotations[annotationSchemaClusterKey] != "" && crd.Annotations[annotationSchemaNameKey] != "" {
-	//			return []string{clusters.ToClusterAwareKey(crd.Annotations[annotationSchemaClusterKey], crd.Annotations[annotationSchemaNameKey])}, nil
-	//		}
-	//		return []string{}, nil
-	//	},
-	//}); err != nil {
-	//	return nil, fmt.Errorf("error add CRD indexes: %w", err)
-	//}
-
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj) },
@@ -157,9 +141,9 @@ func NewController(
 	return c, nil
 }
 
-// controller reconciles APIBindings. It creates and maintains CRDs associated with an APIBinding's reference. It
-// also watches CRDs, APIResourceSchemas, and APIExports to ensure whenever objects related to an APIBinding are
-// updated, the APIBinding is rereconciled.
+// controller reconciles APIBindings. It creates and maintains CRDs associated with APIResourceSchemas that are
+// referenced from APIBindings. It also watches CRDs, APIResourceSchemas, and APIExports to ensure whenever
+// objects related to an APIBinding are updated, the APIBinding is reconciled.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -199,13 +183,13 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 	}
 
 	klog.Infof("Mapping APIExport %q", key)
-	list, err := c.apiBindingsIndexer.ByIndex(indexAPIBindingsByWorkspaceExport, key)
+	bindingsForExport, err := c.apiBindingsIndexer.ByIndex(indexAPIBindingsByWorkspaceExport, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, apiBinding := range list {
+	for _, apiBinding := range bindingsForExport {
 		c.enqueueAPIBinding(apiBinding)
 	}
 }
@@ -278,8 +262,6 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	key := k.(string)
-
-	klog.Infof("processing key %q", key)
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
