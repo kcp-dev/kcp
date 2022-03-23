@@ -436,7 +436,7 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 				{
 					Type:     apisv1alpha1.APIExportValid,
 					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.APIExportInvalidReference,
+					Reason:   apisv1alpha1.APIExportInvalidReferenceReason,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 				},
 			},
@@ -469,6 +469,7 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 				Build(),
 			getAPIExportError:   errors.New("foo"),
 			wantReconcileStatus: reconcileStatusStop,
+			wantError:           true,
 			wantConditions: []wantCondition{
 				{
 					Type:   apisv1alpha1.APIExportValid,
@@ -497,11 +498,12 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 			},
 			getAPIResourceSchemaError: errors.New("foo"),
 			wantReconcileStatus:       reconcileStatusStop,
+			wantError:                 true,
 			wantConditions: []wantCondition{
 				{
 					Type:     apisv1alpha1.APIExportValid,
 					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.GetAPIResourceSchemaError,
+					Reason:   apisv1alpha1.GetErrorReason,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 				},
 			},
@@ -570,6 +572,7 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 			},
 			getCRDError:         errors.New("foo"),
 			wantReconcileStatus: reconcileStatusStop,
+			wantError:           true,
 			wantConditions: []wantCondition{
 				{
 					Type:     apisv1alpha1.CRDReady,

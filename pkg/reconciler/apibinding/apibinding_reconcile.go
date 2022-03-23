@@ -203,7 +203,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 		conditions.MarkFalse(
 			apiBinding,
 			apisv1alpha1.APIExportValid,
-			apisv1alpha1.APIExportInvalidReference,
+			apisv1alpha1.APIExportInvalidReferenceReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"Missing APIExport reference",
 		)
@@ -216,7 +216,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 		conditions.MarkFalse(
 			apiBinding,
 			apisv1alpha1.APIExportValid,
-			apisv1alpha1.APIExportInvalidReference,
+			apisv1alpha1.APIExportInvalidReferenceReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"Missing APIExport cluster name",
 		)
@@ -224,26 +224,24 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 	}
 
 	apiExport, err := r.getAPIExport(apiExportClusterName, workspaceRef.ExportName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.APIExportNotFoundReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				"APIExport not found",
-			)
-		} else {
-			conditions.MarkUnknown(
-				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.GetErrorReason,
-				"error getting APIExport: %v",
-				err,
-			)
-		}
-
-		return reconcileStatusStop, nil // don't retry
+	if err != nil && apierrors.IsNotFound(err) {
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.APIExportValid,
+			apisv1alpha1.APIExportNotFoundReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"APIExport not found",
+		)
+		return reconcileStatusStop, nil // don't retry, only when APIExport shows up with new event
+	} else if err != nil {
+		conditions.MarkUnknown(
+			apiBinding,
+			apisv1alpha1.APIExportValid,
+			apisv1alpha1.GetErrorReason,
+			"error getting APIExport: %v",
+			err,
+		)
+		return reconcileStatusStop, err // temporary error, retry
 	}
 
 	var boundResources []apisv1alpha1.BoundAPIResource
@@ -251,13 +249,28 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		schema, err := r.getAPIResourceSchema(apiExportClusterName, schemaName)
-		if err != nil {
+		if err != nil && apierrors.IsNotFound(err) {
+			klog.Errorf("APIResourceSchema %s|%s not found", apiExportClusterName, schemaName)
+			// TODO(ncdc): not sure if we should expose this level of detail to the binding user?
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.APIExportValid,
+				apisv1alpha1.APIExportNotFoundReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Associated APIResourceSchema %s|%s not found: %v",
+				apiExportClusterName,
+				schemaName,
+				err,
+			)
+
+			return reconcileStatusStop, nil // don't retry
+		} else if err != nil {
 			klog.Errorf("Error getting APIResourceSchema %s|%s", apiExportClusterName, schemaName)
 			// TODO(ncdc): not sure if we should expose this level of detail to the binding user?
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.APIExportValid,
-				apisv1alpha1.GetAPIResourceSchemaError,
+				apisv1alpha1.GetErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Error getting associated APIResourceSchema %s|%s: %v",
 				apiExportClusterName,
@@ -265,7 +278,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 				err,
 			)
 
-			return reconcileStatusStop, nil // don't retry
+			return reconcileStatusStop, err // temporary error, retry
 		}
 
 		crd, err := crdFromAPIResourceSchema(schema)
@@ -299,7 +312,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 				err,
 			)
 
-			return reconcileStatusStop, nil // don't retry
+			return reconcileStatusStop, err // temporary error, retry
 		}
 
 		// If the deletedCRDTracker has this CRD in it, it means it was deleted. There is a chance that the cache
@@ -325,7 +338,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 					)
 
 					// Only return for non already-exists errors
-					return reconcileStatusStop, err // retry
+					return reconcileStatusStop, err // temporary error, retry
 				}
 
 				// If we got an already-exists error, proceed below to set condition

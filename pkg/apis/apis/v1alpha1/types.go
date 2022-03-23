@@ -152,21 +152,22 @@ type APIBindingStatus struct {
 
 // These are valid conditions of APIBinding.
 const (
-	// APIExportValid is a condition for APIBinding that reflects that validity of the referenced APIExport.
+	// GetErrorReason is a generic reason that the referenced APIExport cannot be retrieved.
+	GetErrorReason = "GetError"
+
+	// APIExportValid is a condition for APIBinding that reflects the validity of the referenced APIExport.
 	APIExportValid conditionsv1alpha1.ConditionType = "APIExportValid"
 
-	// APIExportInvalidReference is a reason for APIExportValid condition of APIBinding that the referenced APIExport reference is invalid.
-	APIExportInvalidReference = "APIExportInvalidReference"
+	// APIExportInvalidReferenceReason is a reason for APIExportValid condition of APIBinding that the referenced APIExport reference is invalid.
+	APIExportInvalidReferenceReason = "APIExportInvalidReference"
 	// APIExportNotFoundReason is a reason for APIExportValid condition that the referenced APIExport is not found.
 	APIExportNotFoundReason = "APIExportNotFound"
-	// GetErrorReason is a reason for APIExportValid condition that the referenced APIExport cannot be retrieved.
-	GetErrorReason = "GetError"
 
 	// CRDReady is a condition for APIBinding that reflects that the referenced CRDs are ready.
 	CRDReady conditionsv1alpha1.ConditionType = "CRDReady"
 
-	// GetAPIResourceSchemaError is a reason for CRDReady condition that the referenced CRDs cannot be retrieved.
-	GetAPIResourceSchemaError = "GetAPIResourceSchemaError"
+	// APIResourceSchemaNotFoundReason is a reason for CRDReady condition that the referenced APIResourceSchemas has not been found.
+	APIResourceSchemaNotFoundReason = "APIResourceSchemaNotFound"
 	// InvalidSchemaReason is a reason for CRDReady condition that the referenced APIResoureSchema cannot be converted to a CRD.
 	InvalidSchemaReason = "InvalidSchema"
 	// CreateErrorReason is a reason for CRDReady condition that the referenced CRDs cannot be created.
