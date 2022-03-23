@@ -445,19 +445,23 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 // - if the object is a configmap it handles the "kube-root-ca.crt" name mapping
 // - if the object is a serviceaccount it handles the "default" name mapping
 func transformName(syncedObject *unstructured.Unstructured, direction SyncDirection) {
+	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
+	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+
 	switch direction {
 	case SyncDown:
-		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kube-root-ca.crt" {
+		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
 			syncedObject.SetName("kcp-root-ca.crt")
 		}
-		if syncedObject.GetKind() == "ServiceAccount" && syncedObject.GetName() == "default" {
+		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
 			syncedObject.SetName("kcp-default")
 		}
 	case SyncUp:
-		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kcp-root-ca.crt" {
+		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
 			syncedObject.SetName("kube-root-ca.crt")
 		}
-		if syncedObject.GetKind() == "ServiceAccount" && syncedObject.GetName() == "kcp-default" {
+		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "kcp-default" {
 			syncedObject.SetName("default")
 		}
 	}
