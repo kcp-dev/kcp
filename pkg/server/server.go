@@ -212,6 +212,7 @@ func (s *Server) Run(ctx context.Context) error {
 			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
+		apiHandler = WithAcceptHeader(apiHandler)
 		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
 
 		// add a mux before the chain, for other handlers with their own handler chain to hook in

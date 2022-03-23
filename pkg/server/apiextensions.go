@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"mime"
 	_ "net/http/pprof"
 	"strings"
 
@@ -261,8 +262,6 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 		name = name + "core"
 	}
 
-	var crd *apiextensionsv1.CustomResourceDefinition
-
 	if cluster.Wildcard {
 		// HACK: Search for the right logical cluster hosting the given CRD when watching or listing with wildcards.
 		// This is a temporary fix for issue https://github.com/kcp-dev/kcp/issues/183: One cannot watch with wildcards
@@ -274,11 +273,37 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 		if err != nil {
 			return nil, err
 		}
-		var equal bool // true if all the found CRDs have the same spec
-		crd, equal = findCRD(name, crds)
-		if !equal {
-			err = apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
-			return nil, err
+
+		// for PartialObjectMetadata we weaken the schema requirement and let requests through although the schemas differ
+		pruneEverythingButObjectMeta := false
+		if accept := ctx.Value(acceptHeaderContextKey).(string); len(accept) > 0 {
+			if _, params, err := mime.ParseMediaType(accept); err == nil {
+				pruneEverythingButObjectMeta = params["as"] == "PartialObjectMetadata" || params["as"] == "PartialObjectMetadataList"
+			}
+		}
+
+		var crd *apiextensionsv1.CustomResourceDefinition
+		if pruneEverythingButObjectMeta {
+			crd := findCRDIgnoringSpec(name, crds)
+			if crd != nil {
+				crd := crd.DeepCopy()
+				// set minimal schema that prunes everything but ObjectMeta
+				for _, v := range crd.Spec.Versions {
+					v.Schema = &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Type: "object",
+						},
+					}
+				}
+				return crd, nil
+			}
+		} else {
+			var equal bool
+			crd, equal = findCRDWithEqualSpec(name, crds)
+			if !equal {
+				err = apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
+				return nil, err
+			}
 		}
 
 		if crd == nil {
@@ -297,7 +322,7 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 
 	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
 	if systemCRDKeys.Has(systemCRDKeyName) {
-		crd, err = c.crdLister.Get(systemCRDKeyName)
+		crd, err := c.crdLister.Get(systemCRDKeyName)
 		if err != nil && !apierrors.IsNotFound(err) {
 			// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.
 			return nil, err
@@ -337,7 +362,7 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			if boundResource.Group == group && boundResource.Resource == resource {
 				crdKey := clusters.ToClusterAwareKey("system:bound-crds", boundResource.Schema.UID)
-				crd, err = c.crdLister.Get(crdKey)
+				crd, err := c.crdLister.Get(crdKey)
 				if err != nil && !apierrors.IsNotFound(err) {
 					// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.
 					return nil, err
@@ -356,7 +381,7 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 
 	// Priority 2: see if it exists in the current logical cluster
 	crdKey := clusters.ToClusterAwareKey(cluster.Name, name)
-	crd, err = c.crdLister.Get(crdKey)
+	crd, err := c.crdLister.Get(crdKey)
 	if err != nil && !apierrors.IsNotFound(err) {
 		// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.
 		return nil, err
@@ -369,9 +394,9 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 	return nil, apierrors.NewNotFound(schema.GroupResource{Group: apiextensionsv1.SchemeGroupVersion.Group, Resource: "customresourcedefinitions"}, name)
 }
 
-// findCRD tries to locate a CRD named crdName in crds. It returns the located CRD, if any, and a bool
+// findCRDWithEqualSpec tries to locate a CRD named crdName in crds. It returns the located CRD, if any, and a bool
 // indicating that if there were multiple matches, they all have the same spec (true) or not (false).
-func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, bool) {
+func findCRDWithEqualSpec(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, bool) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 
 	parts := strings.SplitN(crdName, ".", 2)
@@ -399,6 +424,23 @@ func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (
 	}
 
 	return crd, true
+}
+
+func findCRDIgnoringSpec(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
+	parts := strings.SplitN(crdName, ".", 2)
+	resource := parts[0]
+	group := parts[1]
+	if group == "core" {
+		group = ""
+	}
+
+	for _, aCRD := range crds {
+		if aCRD.Spec.Group == group && aCRD.Spec.Names.Plural == resource {
+			return aCRD
+		}
+	}
+
+	return nil
 }
 
 // kcpAPIExtensionsSharedInformerFactory wraps the apiextensionsinformers.SharedInformerFactory so

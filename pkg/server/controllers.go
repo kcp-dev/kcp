@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"time"
@@ -28,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -281,13 +283,25 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
-	dynamicClient := dynamicClusterClient
+
+	// create special client that only gets PartialObjectMetadata objects. For these we can do
+	// wildcard requests with different schemas without risking data loss.
+	metadataConfig := *config
+	metadataConfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		// we have to use this way because the dynamic client overrides the content-type :-/
+		return &metadataTransport{RoundTripper: rt}
+	})
+	metadataClusterClient, err := dynamic.NewClusterForConfig(&metadataConfig)
+	if err != nil {
+		return err
+	}
 
 	// TODO(ncdc): I dont' think this is used anywhere?
 	gvkTrans := gvk.NewGVKTranslator(config)
 
 	namespaceScheduler := kcpnamespace.NewController(
-		dynamicClient,
+		dynamicClusterClient,
+		metadataClusterClient,
 		kubeClient.DiscoveryClient,
 		kubeClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
@@ -583,4 +597,31 @@ func (s *Server) waitForSync(stop <-chan struct{}) error {
 	case <-s.syncedCh:
 		return nil
 	}
+}
+
+// metadataTransport does what client-go/metadata does, but injected into a dynamic client
+// that is expected by the dynamic informers.
+type metadataTransport struct {
+	http.RoundTripper
+	RequestInfoFactory request.RequestInfoFactory
+}
+
+func (t *metadataTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	info, err := t.RequestInfoFactory.NewRequestInfo(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var partialType string
+	switch info.Verb {
+	case "list":
+		partialType = "PartialObjectMetadata"
+	case "watch", "get":
+		partialType = "PartialObjectMetadataList"
+	default:
+		return nil, fmt.Errorf("unexpected verb %q for metadata client", info.Verb)
+	}
+
+	req.Header.Set("Accept", fmt.Sprintf("application/json;as=%s;g=meta.k8s.io;v=v1", partialType))
+	return t.RoundTripper.RoundTrip(req)
 }

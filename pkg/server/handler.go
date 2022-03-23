@@ -61,6 +61,23 @@ func init() {
 
 const passthroughHeader = "X-Kcp-Api-V1-Discovery-Passthrough"
 
+type acceptHeaderContextKeyType int
+
+const (
+	// clusterKey is the context key for the request namespace.
+	acceptHeaderContextKey acceptHeaderContextKeyType = iota
+)
+
+// WithAcceptHeader makes the Accept header available for code in the handler chain. It is needed for
+// Wildcard rquests when finding the CRD with a common schema. For PartialObjectMeta requests we cand
+// weaken the schema requirement and allow different schemas across workspaces.
+func WithAcceptHeader(apiHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := context.WithValue(req.Context(), acceptHeaderContextKey, req.Header.Get("Accept"))
+		apiHandler.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
+
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var clusterName string
