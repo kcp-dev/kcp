@@ -1,0 +1,10 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: serving-cert
+spec:
+  dnsNames:
+  - kuard.kcp-apps.127.0.0.1.nip.io
+  secretName: ca-cert-tls
+  issuerRef:
+    name: ca-issuer
