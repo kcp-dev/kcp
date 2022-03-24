@@ -55,13 +55,13 @@ import (
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspaceshard"
 	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -340,7 +340,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	workspaceController, err := workspace.NewController(
+	workspaceController, err := clusterworkspace.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
@@ -358,7 +358,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	organizationController, err := clusterworkspacetypebootstrap.NewController(
+	organizationController, err := bootstrap.NewController(
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -370,7 +370,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	universalController, err := clusterworkspacetypebootstrap.NewController(
+	universalController, err := bootstrap.NewController(
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
