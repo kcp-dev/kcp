@@ -55,11 +55,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/workloadclusterheartbeat"
 	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
-	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
+	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 )
@@ -526,7 +526,7 @@ func (s *Server) installClusterController(ctx context.Context, config *rest.Conf
 		return err
 	}
 
-	c, err := workloadclusterheartbeat.NewController(
+	c, err := heartbeat.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),

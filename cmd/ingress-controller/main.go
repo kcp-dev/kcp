@@ -33,7 +33,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/localenvoy/controllers/ingress"
 	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
-	"github.com/kcp-dev/kcp/pkg/reconciler/ingresssplitter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/ingresssplitter"
 )
 
 const numThreads = 2

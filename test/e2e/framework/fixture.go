@@ -36,7 +36,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 

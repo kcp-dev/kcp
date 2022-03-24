@@ -14,36 +14,64 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apiimporter
+package syncer
 
 import (
+	"context"
+
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
+type Controller struct {
+	name              string
+	crdClusterClient  *apiextensionsclient.Cluster
+	syncerManager     *syncerManager
+	clusterReconciler *clusterctl.ClusterReconciler
+}
+
 func NewController(
+	crdClusterClient *apiextensionsclient.Cluster,
 	kcpClusterClient *kcpclient.Cluster,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	upstreamKubeconfig *clientcmdapi.Config,
 	resourcesToSync []string,
-) (*clusterctl.ClusterReconciler, error) {
-
-	am := &apiImporterManager{
-		kcpClusterClient:         kcpClusterClient,
+	syncerManagerImpl SyncerManager,
+) (*Controller, error) {
+	sm := &syncerManager{
+		name:                     syncerManagerImpl.name(),
+		upstreamKubeconfig:       upstreamKubeconfig,
 		resourcesToSync:          resourcesToSync,
-		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
+		syncerManagerImpl:        syncerManagerImpl,
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
-		apiImporters:             map[string]*APIImporter{},
 	}
 
-	r, _, err := clusterctl.NewClusterReconciler(
-		"kcp-api-importer",
-		am,
+	cr, _, err := clusterctl.NewClusterReconciler(
+		syncerManagerImpl.name(),
+		sm,
 		kcpClusterClient,
 		clusterInformer,
 		apiResourceImportInformer,
 	)
-	return r, err
+	if err != nil {
+		return nil, err
+	}
+
+	return &Controller{
+		name:              syncerManagerImpl.name(),
+		crdClusterClient:  crdClusterClient,
+		syncerManager:     sm,
+		clusterReconciler: cr,
+	}, nil
+}
+
+// TODO(sttts): fix the many races due to unprotected field access and then increase worker count
+func (c *Controller) Start(ctx context.Context) {
+	c.clusterReconciler.Start(ctx)
 }

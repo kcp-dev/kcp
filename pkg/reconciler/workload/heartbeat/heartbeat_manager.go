@@ -14,19 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workloadclusterheartbeat
+package heartbeat
 
 import (
 	"context"
 	"time"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-var _ cluster.ClusterReconcileImpl = (*clusterManager)(nil)
+var _ basecontroller.ClusterReconcileImpl = (*clusterManager)(nil)
 
 type clusterManager struct {
 	heartbeatThreshold  time.Duration

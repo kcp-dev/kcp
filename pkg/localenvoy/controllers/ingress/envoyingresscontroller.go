@@ -35,7 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
-	"github.com/kcp-dev/kcp/pkg/reconciler/ingresssplitter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/ingresssplitter"
 )
 
 const controllerName = "kcp-envoy-ingress-status-aggregator"
