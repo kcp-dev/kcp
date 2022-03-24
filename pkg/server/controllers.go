@@ -55,11 +55,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/gvk"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/workloadclusterheartbeat"
 	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
-	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
+	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
 )
@@ -275,8 +275,8 @@ func readCA(file string) ([]byte, error) {
 	return rootCA, err
 }
 
-func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-namespace-scheduler")
+func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-namespace-scheduler")
 	kubeClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -399,8 +399,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	return nil
 }
 
-func (s *Server) installApiImportController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-api-import-controller")
+func (s *Server) installWorkloadApiImportController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-apiimport-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -475,8 +475,8 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	return nil
 }
 
-func (s *Server) installSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-syncer-controller")
+func (s *Server) installWorkloadSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-syncer-controller")
 	manager := s.options.Controllers.Syncer.CreateSyncerManager()
 	if manager == nil {
 		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
@@ -519,14 +519,14 @@ func (s *Server) installSyncerController(ctx context.Context, config *rest.Confi
 	return nil
 }
 
-func (s *Server) installClusterController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-cluster-heartbeat-controller")
+func (s *Server) installWorkloadClusterHeartbeatController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workloadcluster-heartbeat-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c, err := workloadclusterheartbeat.NewController(
+	c, err := heartbeat.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),

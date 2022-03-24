@@ -369,18 +369,18 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
 		// TODO(marun) Consider enabling each controller via a separate flag
 
-		if err := s.installApiImportController(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadApiImportController(ctx, controllerConfig); err != nil {
 			return err
 		}
 
 		// TODO(sttts): this is a hack, using the loopback config as a blueprint. Syncer should never use a loopback connection.
-		if err := s.installSyncerController(ctx, controllerConfig, CreateLoopbackUpstreamKubeConfig(server)); err != nil {
+		if err := s.installWorkloadSyncerController(ctx, controllerConfig, CreateLoopbackUpstreamKubeConfig(server)); err != nil {
 			return err
 		}
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installClusterController(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadClusterHeartbeatController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
@@ -392,7 +392,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
-		if err := s.installNamespaceScheduler(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}

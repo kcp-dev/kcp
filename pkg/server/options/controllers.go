@@ -30,9 +30,9 @@ import (
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/workloadclusterheartbeat"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
 
 type Controllers struct {
@@ -48,7 +48,7 @@ type Controllers struct {
 type ApiImporterController = apiimporter.Options
 type ApiResourceController = apiresource.Options
 type SyncerController = syncer.Options
-type WorkloadClusterHeartbeatController = workloadclusterheartbeat.Options
+type WorkloadClusterHeartbeatController = heartbeat.Options
 
 var kcmDefaults *kcmoptions.KubeControllerManagerOptions
 
@@ -68,7 +68,7 @@ func NewControllers() *Controllers {
 		ApiImporter:              *apiimporter.DefaultOptions(),
 		ApiResource:              *apiresource.DefaultOptions(),
 		Syncer:                   *syncer.DefaultOptions(),
-		WorkloadClusterHeartbeat: *workloadclusterheartbeat.DefaultOptions(),
+		WorkloadClusterHeartbeat: *heartbeat.DefaultOptions(),
 		SAController:             *kcmDefaults.SAController,
 	}
 }
@@ -82,7 +82,7 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	apiimporter.BindOptions(&c.ApiImporter, fs)
 	apiresource.BindOptions(&c.ApiResource, fs)
 	syncer.BindOptions(&c.Syncer, fs)
-	workloadclusterheartbeat.BindOptions(&c.WorkloadClusterHeartbeat, fs)
+	heartbeat.BindOptions(&c.WorkloadClusterHeartbeat, fs)
 
 	c.SAController.AddFlags(fs)
 }
