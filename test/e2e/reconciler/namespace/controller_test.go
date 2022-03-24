@@ -39,7 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )

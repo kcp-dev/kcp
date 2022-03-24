@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/component-base/logs"
 
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 )
 
 type Options struct {

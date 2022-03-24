@@ -292,7 +292,7 @@ func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
 
 // CreateWorkspace creates a workspace owned by the the current user
 // (kubeconfig user possibly overridden by CLI options).
-func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, workspaceName string, useAfterCreation bool) error {
+func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, workspaceName string, useAfterCreation bool, wsType string) error {
 	workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfigFromCurrentContext(opts, false)
 	if err != nil {
 		return err
@@ -307,7 +307,9 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, opts *Options, worksp
 		ObjectMeta: metav1.ObjectMeta{
 			Name: workspaceName,
 		},
-		Spec: tenancyv1beta1.WorkspaceSpec{},
+		Spec: tenancyv1beta1.WorkspaceSpec{
+			Type: wsType,
+		},
 	}, metav1.CreateOptions{}); err != nil {
 		return err
 	}

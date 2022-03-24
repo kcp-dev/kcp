@@ -56,6 +56,7 @@ type clusterDiscovery interface {
 // NewController returns a new Controller which schedules namespaced resources to a Cluster.
 func NewController(
 	dynamicClusterClient dynamic.ClusterInterface,
+	dynamicMetadataClusterClient dynamic.ClusterInterface,
 	clusterDiscoveryClient clusterDiscovery,
 	kubeClusterClient kubernetes.ClusterInterface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
@@ -107,7 +108,7 @@ func NewController(
 		DeleteFunc: nil, // Nothing to do.
 	})
 	// Always do a * list/watch
-	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicClusterClient.Cluster("*"),
+	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster("*"),
 		filterResource,
 		informer.GVREventHandlerFuncs{
 			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },

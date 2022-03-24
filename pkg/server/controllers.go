@@ -53,13 +53,15 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/gvk"
+	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/clusterworkspacetypebootstrap"
-	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workspace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceshard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspaceshard"
+	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
+	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -273,8 +275,8 @@ func readCA(file string) ([]byte, error) {
 	return rootCA, err
 }
 
-func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-namespace-scheduler")
+func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-namespace-scheduler")
 	kubeClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -283,13 +285,20 @@ func (s *Server) installNamespaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
-	dynamicClient := dynamicClusterClient
+
+	// create special client that only gets PartialObjectMetadata objects. For these we can do
+	// wildcard requests with different schemas without risking data loss.
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(config)
+	if err != nil {
+		return err
+	}
 
 	// TODO(ncdc): I dont' think this is used anywhere?
 	gvkTrans := gvk.NewGVKTranslator(config)
 
 	namespaceScheduler := kcpnamespace.NewController(
-		dynamicClient,
+		dynamicClusterClient,
+		metadataClusterClient,
 		kubeClient.DiscoveryClient,
 		kubeClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
@@ -331,7 +340,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	workspaceController, err := workspace.NewController(
+	workspaceController, err := clusterworkspace.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
@@ -349,7 +358,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	organizationController, err := clusterworkspacetypebootstrap.NewController(
+	organizationController, err := bootstrap.NewController(
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -361,7 +370,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	universalController, err := clusterworkspacetypebootstrap.NewController(
+	universalController, err := bootstrap.NewController(
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -390,8 +399,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	return nil
 }
 
-func (s *Server) installApiImportController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-api-import-controller")
+func (s *Server) installWorkloadApiImportController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-apiimport-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -466,8 +475,8 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	return nil
 }
 
-func (s *Server) installSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-syncer-controller")
+func (s *Server) installWorkloadSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-syncer-controller")
 	manager := s.options.Controllers.Syncer.CreateSyncerManager()
 	if manager == nil {
 		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
@@ -508,6 +517,38 @@ func (s *Server) installSyncerController(ctx context.Context, config *rest.Confi
 		return nil
 	})
 	return nil
+}
+
+func (s *Server) installWorkloadClusterHeartbeatController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workloadcluster-heartbeat-controller")
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := heartbeat.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		s.options.Controllers.WorkloadClusterHeartbeat.HeartbeatThreshold,
+	)
+	if err != nil {
+		return err
+	}
+
+	s.AddPostStartHook("kcp-install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-cluster-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(ctx)
+
+		return nil
+	})
+	return nil
+
 }
 
 func (s *Server) waitForSync(stop <-chan struct{}) error {

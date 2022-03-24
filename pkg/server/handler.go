@@ -45,7 +45,6 @@ import (
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 )
@@ -64,6 +63,23 @@ func init() {
 }
 
 const passthroughHeader = "X-Kcp-Api-V1-Discovery-Passthrough"
+
+type acceptHeaderContextKeyType int
+
+const (
+	// clusterKey is the context key for the request namespace.
+	acceptHeaderContextKey acceptHeaderContextKeyType = iota
+)
+
+// WithAcceptHeader makes the Accept header available for code in the handler chain. It is needed for
+// Wildcard rquests when finding the CRD with a common schema. For PartialObjectMeta requests we cand
+// weaken the schema requirement and allow different schemas across workspaces.
+func WithAcceptHeader(apiHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := context.WithValue(req.Context(), acceptHeaderContextKey, req.Header.Get("Accept"))
+		apiHandler.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
 
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
@@ -94,7 +110,7 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		} else {
 			clusterName = req.Header.Get("X-Kubernetes-Cluster")
 		}
-		var cluster genericapirequest.Cluster
+		var cluster request.Cluster
 		switch clusterName {
 		case "*":
 			// HACK: just a workaround for testing
@@ -112,14 +128,14 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 			}
 			cluster.Name = clusterName
 		}
-		ctx := genericapirequest.WithCluster(req.Context(), cluster)
+		ctx := request.WithCluster(req.Context(), cluster)
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
 
 func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		cluster := genericapirequest.ClusterFrom(req.Context())
+		cluster := request.ClusterFrom(req.Context())
 		if cluster != nil && cluster.Wildcard {
 			requestInfo, ok := request.RequestInfoFrom(req.Context())
 			if !ok {
@@ -184,7 +200,7 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler, unsafeServi
 func mergeCRDsIntoCoreGroup(crdLister v1.CustomResourceDefinitionLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
 	return func(req *restful.Request, res *restful.Response, chain *restful.FilterChain) {
 		ctx := req.Request.Context()
-		requestInfo, ok := genericapirequest.RequestInfoFrom(ctx)
+		requestInfo, ok := request.RequestInfoFrom(ctx)
 		if !ok {
 			responsewriters.ErrorNegotiated(
 				apierrors.NewInternalError(fmt.Errorf("no RequestInfo found in the context")),

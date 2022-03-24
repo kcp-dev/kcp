@@ -218,6 +218,7 @@ func (s *Server) Run(ctx context.Context) error {
 			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
+		apiHandler = WithAcceptHeader(apiHandler)
 		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
 
@@ -378,7 +379,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
 		// TODO(marun) Consider enabling each controller via a separate flag
 
-		if err := s.installApiImportController(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadApiImportController(ctx, controllerConfig); err != nil {
 			return err
 		}
 
@@ -386,10 +387,13 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := s.installSyncerController(ctx, controllerConfig, syncerConfig); err != nil {
+		if err := s.installWorkloadSyncerController(ctx, controllerConfig, syncerConfig); err != nil {
 			return err
 		}
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
+			return err
+		}
+		if err := s.installWorkloadClusterHeartbeatController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
@@ -401,7 +405,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
-		if err := s.installNamespaceScheduler(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}

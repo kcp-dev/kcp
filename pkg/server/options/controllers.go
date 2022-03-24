@@ -30,22 +30,25 @@ import (
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/apiimporter"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster/syncer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
 
 type Controllers struct {
-	EnableAll           bool
-	IndividuallyEnabled []string
-	ApiImporter         ApiImporterController
-	ApiResource         ApiResourceController
-	Syncer              SyncerController
-	SAController        kcmoptions.SAControllerOptions
+	EnableAll                bool
+	IndividuallyEnabled      []string
+	ApiImporter              ApiImporterController
+	ApiResource              ApiResourceController
+	Syncer                   SyncerController
+	WorkloadClusterHeartbeat WorkloadClusterHeartbeatController
+	SAController             kcmoptions.SAControllerOptions
 }
 
 type ApiImporterController = apiimporter.Options
 type ApiResourceController = apiresource.Options
 type SyncerController = syncer.Options
+type WorkloadClusterHeartbeatController = heartbeat.Options
 
 var kcmDefaults *kcmoptions.KubeControllerManagerOptions
 
@@ -62,10 +65,11 @@ func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		ApiImporter:  *apiimporter.DefaultOptions(),
-		ApiResource:  *apiresource.DefaultOptions(),
-		Syncer:       *syncer.DefaultOptions(),
-		SAController: *kcmDefaults.SAController,
+		ApiImporter:              *apiimporter.DefaultOptions(),
+		ApiResource:              *apiresource.DefaultOptions(),
+		Syncer:                   *syncer.DefaultOptions(),
+		WorkloadClusterHeartbeat: *heartbeat.DefaultOptions(),
+		SAController:             *kcmDefaults.SAController,
 	}
 }
 
@@ -78,6 +82,7 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	apiimporter.BindOptions(&c.ApiImporter, fs)
 	apiresource.BindOptions(&c.ApiResource, fs)
 	syncer.BindOptions(&c.Syncer, fs)
+	heartbeat.BindOptions(&c.WorkloadClusterHeartbeat, fs)
 
 	c.SAController.AddFlags(fs)
 }
@@ -118,6 +123,9 @@ func (c *Controllers) Validate() []error {
 		errs = append(errs, err)
 	}
 	if err := c.Syncer.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.WorkloadClusterHeartbeat.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if saErrs := c.SAController.Validate(); saErrs != nil {

@@ -31,7 +31,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workspaceindex"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspaceindex"
 )
 
 const resyncPeriod = 10 * time.Hour

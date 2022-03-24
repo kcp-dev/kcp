@@ -36,7 +36,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/namespace"
+	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
@@ -105,7 +105,7 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 	wg.Add(len(servers))
 	for i, srv := range servers {
 		var opts []RunOption
-		if cfgs[i].LogToConsole {
+		if LogToConsoleEnvSet() || cfgs[i].LogToConsole {
 			opts = append(opts, WithLogStreaming)
 		}
 		if InProcessEnvSet() || cfgs[i].RunInProcess {
@@ -134,6 +134,11 @@ func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
 
 func InProcessEnvSet() bool {
 	inProcess, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
+	return inProcess
+}
+
+func LogToConsoleEnvSet() bool {
+	inProcess, _ := strconv.ParseBool(os.Getenv("LOG_TO_CONSOLE"))
 	return inProcess
 }
 

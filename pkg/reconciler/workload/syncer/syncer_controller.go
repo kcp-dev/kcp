@@ -25,15 +25,14 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cluster"
-	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
 type Controller struct {
 	name              string
 	crdClusterClient  *apiextensionsclient.Cluster
 	syncerManager     *syncerManager
-	clusterReconciler *cluster.ClusterReconciler
+	clusterReconciler *clusterctl.ClusterReconciler
 }
 
 func NewController(
@@ -53,7 +52,7 @@ func NewController(
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
 	}
 
-	cr, err := clusterctl.NewClusterReconciler(
+	cr, _, err := clusterctl.NewClusterReconciler(
 		syncerManagerImpl.name(),
 		sm,
 		kcpClusterClient,

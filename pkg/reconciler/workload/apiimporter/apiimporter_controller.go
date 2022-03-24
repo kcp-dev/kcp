@@ -20,7 +20,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
 func NewController(
@@ -38,11 +38,12 @@ func NewController(
 		apiImporters:             map[string]*APIImporter{},
 	}
 
-	return clusterctl.NewClusterReconciler(
+	r, _, err := clusterctl.NewClusterReconciler(
 		"kcp-api-importer",
 		am,
 		kcpClusterClient,
 		clusterInformer,
 		apiResourceImportInformer,
 	)
+	return r, err
 }

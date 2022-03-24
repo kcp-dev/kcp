@@ -30,7 +30,7 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
-	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/cluster"
+	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
 var clusterKind = reflect.TypeOf(workloadv1alpha1.WorkloadCluster{}).Name()
