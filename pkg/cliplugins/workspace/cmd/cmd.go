@@ -109,6 +109,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	}
 
 	useFlag := "use"
+	var typeFlag string
 	createCmd := &cobra.Command{
 		Use:          "create",
 		Short:        "Creates a new personal workspace",
@@ -124,13 +125,14 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 			if err != nil {
 				return err
 			}
-			if err := kubeconfig.CreateWorkspace(c.Context(), opts, args[0], useAfterCreation); err != nil {
+			if err := kubeconfig.CreateWorkspace(c.Context(), opts, args[0], useAfterCreation, typeFlag); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
 	createCmd.Flags().Bool(useFlag, false, "Use the new workspace after a successful creation")
+	createCmd.Flags().StringVar(&typeFlag, "type", typeFlag, "The workspace type to create")
 
 	deleteCmd := &cobra.Command{
 		Use:          "delete",
