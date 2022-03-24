@@ -19,6 +19,7 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,7 +102,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			},
 		},
 		{
-			name: "create a workspace with a type that an initializer",
+			name: "create a workspace with a type that has an initializer",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("Create type Foo with an initializer")
 				_, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
@@ -147,6 +148,17 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				t.Logf("Expect workspace to become ready after initializers are done")
 				err = server.orgExpect(workspace, ready)
 				require.NoError(t, err, "workspace did not become ready")
+			},
+		},
+		{
+			name: "create a workspace with deeper nesting",
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				org := framework.NewOrganizationFixture(t, server)
+				team := framework.NewWorkspaceFixture(t, server, org, "Team")
+				universal := framework.NewWorkspaceFixture(t, server, team, "Universal")
+
+				require.Len(t, strings.Split(universal.String(), ":"), 4, "expecting root:org:team:universal, i.e. 4 levels")
+				require.True(t, strings.HasPrefix(universal.String(), team.String()), "expecting universal to be a child of team")
 			},
 		},
 	}
