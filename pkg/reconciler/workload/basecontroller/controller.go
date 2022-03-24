@@ -130,7 +130,12 @@ type queueAdapter struct {
 }
 
 func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.WorkloadCluster, dur time.Duration) {
-	a.queue.AddAfter(cl, dur)
+	key, err := cache.MetaNamespaceKeyFunc(cl)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	a.queue.AddAfter(key, dur)
 }
 
 type ClusterReconciler struct {

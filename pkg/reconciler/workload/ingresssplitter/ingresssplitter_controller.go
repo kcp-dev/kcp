@@ -231,7 +231,7 @@ func (c *Controller) ingressesFromService(obj interface{}) {
 	// One Service can be referenced by 0..n Ingresses, so we need to enqueue all the related ingreses.
 	for _, ingress := range ingresses.List() {
 		klog.Infof("tracked service %q triggered Ingress %q reconciliation", service.Name, ingress)
-		c.queue.Add(ingress)
+		c.enqueue(&ingress)
 	}
 }
 
