@@ -86,6 +86,7 @@ type WorkspaceExportReference struct {
 	// +required
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 	WorkspaceName string `json:"name"`
 
 	// Name of the APIExport that describes the API.
