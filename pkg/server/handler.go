@@ -23,6 +23,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -39,6 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
+	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -154,6 +157,44 @@ func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 		}
 		apiHandler.ServeHTTP(w, req)
 	}
+}
+
+// WithInClusterServiceAccountRequestRewrite adds the /clusters/<clusterName> prefix to the request path if the request comes
+// from an InCluster service account requests (InCluster clients don't support prefixes).
+func WithInClusterServiceAccountRequestRewrite(handler http.Handler, unsafeServiceAccountPreAuth authenticator.Request) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// some headers we set to set logical clusters, those are not the requests from InCluster clients
+		clusterHeader := req.Header.Get("X-Kubernetes-Cluster")
+		shardedHeader := req.Header.Get("X-Kubernetes-Sharded-Request")
+
+		if clusterHeader != "" || shardedHeader != "" {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		if strings.HasPrefix(req.RequestURI, "/clusters/") {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		// attempt to authenticate service account JWT
+		clone := utilnet.CloneRequest(req)
+		resp, ok, err := unsafeServiceAccountPreAuth.AuthenticateRequest(clone)
+		if err != nil {
+			// ignore errors. This is best effort, and downstream authn and authz will make sure this is safe
+			handler.ServeHTTP(w, req)
+			return
+		}
+		if ok && resp != nil {
+			if val, ok := resp.User.GetExtra()[authserviceaccount.ClusterNameKey]; ok && len(val) > 0 {
+				clusterName := val[0]
+				req.URL.Path = path.Join("/clusters", clusterName, req.URL.Path)
+				req.RequestURI = path.Join("/clusters", clusterName, req.RequestURI)
+			}
+		}
+
+		handler.ServeHTTP(w, req)
+	})
 }
 
 func mergeCRDsIntoCoreGroup(crdLister v1.CustomResourceDefinitionLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {

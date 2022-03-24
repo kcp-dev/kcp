@@ -42,6 +42,7 @@ import (
 	"k8s.io/klog/v2"
 
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
 
 const (
@@ -74,6 +75,7 @@ func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resourc
 	return nil
 }
 
+type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
 type UpsertFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
 type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
 type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
@@ -91,10 +93,11 @@ type Controller struct {
 
 	upstreamClusterName string
 	syncerNamespace     string
+	mutators            mutatorGvrMap
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction SyncDirection, syncedResourceTypes []string, pclusterID string) (*Controller, error) {
+func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction SyncDirection, syncedResourceTypes []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -105,6 +108,11 @@ func New(kcpClusterName, pcluster string, fromDiscovery discovery.DiscoveryInter
 		direction:           direction,
 		upstreamClusterName: kcpClusterName,
 		syncerNamespace:     os.Getenv(SyncerNamespaceKey),
+		mutators:            make(mutatorGvrMap),
+	}
+
+	if len(mutators) > 0 {
+		c.mutators = mutators
 	}
 
 	if direction == SyncDown {
@@ -445,20 +453,41 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 // - if the object is a configmap it handles the "kube-root-ca.crt" name mapping
 // - if the object is a serviceaccount it handles the "default" name mapping
 func transformName(syncedObject *unstructured.Unstructured, direction SyncDirection) {
+	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
+	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+
 	switch direction {
 	case SyncDown:
-		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kube-root-ca.crt" {
+		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
 			syncedObject.SetName("kcp-root-ca.crt")
 		}
-		if syncedObject.GetKind() == "ServiceAccount" && syncedObject.GetName() == "default" {
+		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
 			syncedObject.SetName("kcp-default")
 		}
+		// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
+		//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
+		//				  object. This must be fixed.
+		if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
+			syncedObject.SetName("kcp-default-token")
+		}
 	case SyncUp:
-		if syncedObject.GetKind() == "ConfigMap" && syncedObject.GetName() == "kcp-root-ca.crt" {
+		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
 			syncedObject.SetName("kube-root-ca.crt")
 		}
-		if syncedObject.GetKind() == "ServiceAccount" && syncedObject.GetName() == "kcp-default" {
+		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "kcp-default" {
 			syncedObject.SetName("default")
 		}
 	}
+}
+
+func getDefaultMutators(from *rest.Config) mutatorGvrMap {
+	mutatorsMap := make(mutatorGvrMap)
+
+	deploymentMutator := mutators.NewDeploymentMutator(from)
+	secretMutator := mutators.NewSecretMutator()
+
+	mutatorsMap[deploymentMutator.GVR()] = deploymentMutator.Mutate
+	mutatorsMap[secretMutator.GVR()] = secretMutator.Mutate
+	return mutatorsMap
 }

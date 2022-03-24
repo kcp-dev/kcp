@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: busybox
-          image: busybox:1.25
+          image: bitnami/kubectl:latest
           command:
             - /bin/sh
             - -ec
