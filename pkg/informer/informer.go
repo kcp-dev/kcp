@@ -56,7 +56,7 @@ type DynamicDiscoverySharedInformerFactory struct {
 	filterFunc      func(interface{}) bool
 	pollInterval    time.Duration
 
-	mu   sync.Mutex // guards gvrs
+	mu   sync.RWMutex // guards gvrs
 	gvrs sets.String
 }
 
@@ -72,6 +72,9 @@ func (d *DynamicDiscoverySharedInformerFactory) IndexerFor(gvr schema.GroupVersi
 // checked and processed later.
 func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.GroupVersionResource]cache.GenericLister, notSynced []schema.GroupVersionResource) {
 	listers = map[schema.GroupVersionResource]cache.GenericLister{}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
 	for _, gvrstr := range d.gvrs.UnsortedList() {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
@@ -170,9 +173,6 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(ctx context.Context) {
 }
 
 func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Context) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	latest := sets.NewString()
 	logicalClusterNames := sets.NewString()
 
@@ -227,6 +227,9 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 			}
 		}
 	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
 	// Set up informers for any new types that have been discovered.
 	// TODO: Stop informers for types we no longer have.
