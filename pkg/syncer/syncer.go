@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,6 +42,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
@@ -49,6 +51,9 @@ const (
 	resyncPeriod       = 10 * time.Hour
 	SyncerNamespaceKey = "SYNCER_NAMESPACE"
 	syncerApplyManager = "syncer"
+
+	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller
+	heartbeatInterval = 20 * time.Second
 )
 
 // SyncDirection indicates which direction data is flowing for this particular syncer
@@ -71,6 +76,37 @@ func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resourc
 	}
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
+
+	// TODO(marun) Report pcluster connectivity to kcp
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(upstream)
+	if err != nil {
+		return err
+	}
+	kcpClient := kcpClusterClient.Cluster(kcpClusterName)
+	workloadClustersClient := kcpClient.WorkloadV1alpha1().WorkloadClusters()
+
+	// Attempt to heartbeat every interval
+	go wait.UntilWithContext(ctx, func(ctx context.Context) {
+		var heartbeatTime time.Time
+
+		// TODO(marun) Figure out a strategy for backoff to avoid a thundering herd problem with lots of syncers
+
+		// Attempt to heartbeat every second until successful. Errors are logged instead of being returned so the
+		// poll error can be safely ignored.
+		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
+			patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
+			workloadCluster, err := workloadClustersClient.Patch(ctx, pcluster, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			if err != nil {
+				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for WorkloadCluster %s|%s: %v", kcpClusterName, pcluster, err)
+				return false, nil
+			}
+			heartbeatTime = workloadCluster.Status.LastSyncerHeartbeatTime.Time
+			return true, nil
+		})
+
+		klog.V(5).Infof("Heartbeat set for WorkloadCluster %s|%s: %s", kcpClusterName, pcluster, heartbeatTime)
+
+	}, heartbeatInterval)
 
 	return nil
 }

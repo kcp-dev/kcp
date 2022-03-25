@@ -45,13 +45,11 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/retry"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 //go:embed *.csv
@@ -278,9 +276,9 @@ func GetFreePort(t *testing.T) (string, error) {
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
-// CreateReadyCluster creates a new Cluster resource with the desired name on a
-// given server and sets it to a ready state.
-func CreateReadyCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
+// CreateWorkloadCluster creates a new WorkloadCluster resource with
+// the desired name on a given server.
+func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
 	config, err := pcluster.RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server config: %w", err)
@@ -312,23 +310,7 @@ func CreateReadyCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclien
 		return kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
 	})
 
-	// Manually mark the cluster ready.
-	//
-	// TODO(marun) Readiness should be determined by a controller monitoring
-	// syncer heartbeats reported via workload cluster status.
-	var updatedCluster *workloadv1alpha1.WorkloadCluster
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		current, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		conditions.MarkTrue(current, workloadv1alpha1.WorkloadClusterReadyCondition)
-		updatedCluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
-		return err
-	})
-	require.NoError(t, err, "failed to mark cluster ready")
-
-	return updatedCluster, nil
+	return cluster, nil
 }
 
 func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {

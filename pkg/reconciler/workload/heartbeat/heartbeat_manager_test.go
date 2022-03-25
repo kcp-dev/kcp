@@ -36,7 +36,7 @@ func TestManager(t *testing.T) {
 		wantReady         bool
 	}{{
 		desc:      "no last heartbeat",
-		wantReady: true, // For now, this doesn't update Ready-ness.
+		wantReady: false,
 	}, {
 		desc:              "recent enough heartbeat",
 		lastHeartbeatTime: time.Now().Add(-10 * time.Second),
@@ -57,15 +57,14 @@ func TestManager(t *testing.T) {
 				enqueueClusterAfter: enqueueFunc,
 			}
 			ctx := context.Background()
+			heartbeat := metav1.NewTime(c.lastHeartbeatTime)
 			cl := &workloadv1alpha1.WorkloadCluster{
 				Status: workloadv1alpha1.WorkloadClusterStatus{
-					Conditions: workloadv1alpha1.WorkloadClusterConditions{{
-						Condition: &conditionsv1alpha1.Condition{
-							Type:   workloadv1alpha1.WorkloadClusterReadyCondition,
-							Status: corev1.ConditionTrue,
-						},
-						LastHeartbeatTime: metav1.NewTime(c.lastHeartbeatTime),
+					Conditions: []conditionsv1alpha1.Condition{{
+						Type:   workloadv1alpha1.WorkloadClusterReadyCondition,
+						Status: corev1.ConditionTrue,
 					}},
+					LastSyncerHeartbeatTime: &heartbeat,
 				},
 			}
 			if err := mgr.Reconcile(ctx, cl); err != nil {

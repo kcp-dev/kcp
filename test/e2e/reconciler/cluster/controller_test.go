@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cowboy
+package cluster
 
 import (
 	"context"
@@ -193,12 +193,11 @@ func TestClusterController(t *testing.T) {
 
 			t.Log("Installing sink cluster...")
 			start := time.Now()
-			workloadCluster, err := framework.CreateReadyCluster(
-				t, source.Artifact, sourceKcpClusterClient.Cluster(wsClusterName), sink)
+			workloadCluster, err := framework.CreateWorkloadCluster(t, source.Artifact, sourceKcpClusterClient.Cluster(wsClusterName), sink)
 			require.NoError(t, err)
 			t.Logf("Installed sink cluster after %s", time.Since(start))
 
-			framework.StartWorkspaceSyncer(t, sets.NewString("cowboys.wildwest.dev"), workloadCluster, source, sink)
+			framework.StartWorkspaceSyncer(t, ctx, sets.NewString("cowboys.wildwest.dev"), workloadCluster, source, sink)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{

@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
@@ -35,25 +37,26 @@ type clusterManager struct {
 
 func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
 	latestHeartbeat := time.Time{}
-	for _, c := range cluster.Status.Conditions {
-		if c.LastHeartbeatTime.Time.After(latestHeartbeat) {
-			latestHeartbeat = c.LastHeartbeatTime.Time
-		}
+	if cluster.Status.LastSyncerHeartbeatTime != nil {
+		latestHeartbeat = cluster.Status.LastSyncerHeartbeatTime.Time
 	}
 	if latestHeartbeat.IsZero() {
-		// Never seen a heartbeat; for now, this means the syncer hasn't heartbeated -- in the future, this should be un-Ready.
-		return nil
-	}
-
-	if time.Since(latestHeartbeat) > c.heartbeatThreshold {
+		klog.V(5).Infof("Marking WorkloadCluster %s|%s not ready due to no heartbeat", cluster.ClusterName, cluster.Name)
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.WorkloadClusterReadyCondition,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
-			conditionsv1alpha1.ConditionSeverityError,
+			conditionsv1alpha1.ConditionSeverityWarning,
+			"No heartbeat yet seen")
+	} else if time.Since(latestHeartbeat) > c.heartbeatThreshold {
+		klog.V(5).Infof("Marking WorkloadCluster %s|%s not ready due to a stale heartbeat", cluster.ClusterName, cluster.Name)
+		conditions.MarkFalse(cluster,
+			workloadv1alpha1.WorkloadClusterReadyCondition,
+			workloadv1alpha1.ErrorHeartbeatMissedReason,
+			conditionsv1alpha1.ConditionSeverityWarning,
 			"No heartbeat since %s", latestHeartbeat)
 	} else {
-		conditions.MarkTrue(cluster,
-			workloadv1alpha1.WorkloadClusterReadyCondition)
+		klog.V(5).Infof("Marking WorkloadCluster %s|%s ready", cluster.ClusterName, cluster.Name)
+		conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
 
 		// Enqueue another check after which the heartbeat should have been updated again.
 		dur := time.Until(latestHeartbeat.Add(c.heartbeatThreshold))

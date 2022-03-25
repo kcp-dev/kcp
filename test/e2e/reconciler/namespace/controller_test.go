@@ -29,6 +29,7 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -51,6 +52,7 @@ func TestNamespaceScheduler(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
+		clusterName    string
 		client         kubernetes.Interface
 		orgKcpClient   versioned.Interface
 		kcpClient      clientset.Interface
@@ -84,9 +86,11 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Log("Creating a fake workload server")
 				logicalServer := framework.NewFakeWorkloadServer(t, server, server.orgClusterName)
 
-				t.Log("Create a ready cluster")
-				cluster1, err := framework.CreateReadyCluster(t, server.Artifact, server.kcpClient, logicalServer)
+				t.Log("Create a cluster")
+				cluster1, err := framework.CreateWorkloadCluster(t, server.Artifact, server.kcpClient, logicalServer)
 				require.NoError(t, err, "failed to create cluster1")
+
+				framework.StartWorkspaceSyncer(t, ctx, sets.NewString(), cluster1, server, logicalServer)
 
 				err = server.expect(namespace, scheduledMatcher(cluster1.Name))
 				require.NoError(t, err, "did not see namespace marked scheduled for cluster1 %q", cluster1.Name)
@@ -167,6 +171,7 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			s := runningServer{
 				RunningServer:  server,
+				clusterName:    clusterName,
 				client:         client,
 				orgKcpClient:   orgKcpClient,
 				kcpClient:      kcpClient,
