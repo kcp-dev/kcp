@@ -39,6 +39,7 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
+	"github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/pkg/authentication"
@@ -75,10 +76,12 @@ type Server struct {
 	syncedCh chan struct{}
 
 	kcpSharedInformerFactory           kcpexternalversions.SharedInformerFactory
-	rootKcpSharedInformerFactory       kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory          coreexternalversions.SharedInformerFactory
-	rootKubeSharedInformerFactory      coreexternalversions.SharedInformerFactory
 	apiextensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
+
+	// TODO(sttts): get rid of these. We have wildcard informers already.
+	rootKcpSharedInformerFactory  kcpexternalversions.SharedInformerFactory
+	rootKubeSharedInformerFactory coreexternalversions.SharedInformerFactory
 }
 
 // NewServer creates a new instance of Server which manages the KCP api-server.
@@ -264,13 +267,11 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
-	apiExtensionsConfig.ExtraConfig.NewInformerFactoryFunc = func(client apiextensionsclient.Interface, resyncPeriod time.Duration) apiextensionsexternalversions.SharedInformerFactory {
-		// TODO could we use s.apiextensionsSharedInformerFactory (ignoring client & resyncPeriod) instead of creating a 2nd factory here?
-		f := apiextensionsexternalversions.NewSharedInformerFactory(client, resyncPeriod)
-		return &kcpAPIExtensionsSharedInformerFactory{
-			SharedInformerFactory: f,
-			workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		}
+	apiExtensionsConfig.ExtraConfig.Informers = &kcpAPIExtensionsSharedInformerFactory{
+		SharedInformerFactory: s.apiextensionsSharedInformerFactory,
+		kcpClusterClient:      kcpClusterClient,
+		workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		apiBindingLister:      s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 	}
 	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
 	// try to issue Update() calls using the * client, which ends up with the cluster name being set to the default
@@ -301,19 +302,38 @@ func (s *Server) Run(ctx context.Context) error {
 	s.AddPostStartHook("kcp-start-informers", func(ctx genericapiserver.PostStartHookContext) error {
 		s.kubeSharedInformerFactory.Start(ctx.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
-		s.kcpSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKubeSharedInformerFactory.Start(ctx.StopCh)
+
+		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.rootKubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+		klog.Infof("Finished start kube informers")
+
+		if err := systemcrds.Bootstrap(
+			goContext(ctx),
+			apiextensionsClusterClient.Cluster(SystemCRDLogicalCluster),
+			apiextensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
+			dynamicClusterClient.Cluster(SystemCRDLogicalCluster),
+		); err != nil {
+			klog.Errorf("failed to bootstrap system CRDs: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		klog.Infof("Finished bootstrapping system CRDs")
+
+		s.kcpSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
 
-		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		// wait for CRD inheritance work through the custom informer
-		// TODO: merge with upper s.apiextensionsSharedInformerFactory
-		serverChain.CustomResourceDefinitions.Informers.WaitForCacheSync(ctx.StopCh)
+		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+		klog.Infof("Finished start kcp informers")
 
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
 		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(helper.RootCluster),
+			apiextensionsClusterClient.Cluster(helper.RootCluster).Discovery(),
 			dynamicClusterClient.Cluster(helper.RootCluster),
 			"root",
 
@@ -335,12 +355,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.rootKubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-
-		klog.Infof("Bootstrapped CRDs and synced all informers. Ready to start controllers")
+		klog.Infof("Bootstrapped resources and synced all informers. Ready to start controllers")
 		close(s.syncedCh)
 
 		return nil
@@ -406,6 +421,12 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
 		if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.options.Controllers.EnableAll || enabled.Has("apibinding") {
+		if err := s.installAPIBindingController(ctx, controllerConfig, server); err != nil {
 			return err
 		}
 	}

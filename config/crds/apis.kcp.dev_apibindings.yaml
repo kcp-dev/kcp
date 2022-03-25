@@ -54,6 +54,7 @@ spec:
                         type: string
                       name:
                         description: name is a workspace name in the same organization.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
                     required:
                     - exportName
@@ -83,6 +84,7 @@ spec:
                         type: string
                       name:
                         description: name is a workspace name in the same organization.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
                     required:
                     - exportName
