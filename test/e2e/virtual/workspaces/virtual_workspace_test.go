@@ -61,9 +61,14 @@ var testData = testDataType{
 }
 
 // TODO: move this into a controller and remove this method
-func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Interface, orgClusterName logicalcluster.LogicalCluster, groupNames ...string) error {
+func createOrgMemberRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.ClusterInterface, orgClusterName logicalcluster.LogicalCluster, groupNames ...string) {
+	parent, hasParent := orgClusterName.Parent()
+	require.True(t, hasParent, "org cluster %s should have a parent", orgClusterName)
+
+	t.Logf("Giving groups %v member access to workspace %q in %q", groupNames, orgClusterName.Base(), parent)
+
 	roleName := "org-" + orgClusterName.Base() + "-member"
-	if _, err := kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+	_, err := kubeClusterClient.Cluster(parent).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: roleName,
 		},
@@ -75,9 +80,8 @@ func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Inte
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},
 		},
-	}, metav1.CreateOptions{}); err != nil {
-		return err
-	}
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
 
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -97,11 +101,8 @@ func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Inte
 			Namespace: "",
 		})
 	}
-	if _, err := kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	return nil
+	_, err = kubeClusterClient.Cluster(parent).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
+	require.NoError(t, err)
 }
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
@@ -127,11 +128,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName                logicalcluster.LogicalCluster
-		orgKubeClient, rootKubeClient kubernetes.Interface
-		orgKcpClient, rootKcpClient   kcpclientset.Interface
-		virtualKcpClients             []kcpclientset.Interface
-		virtualWorkspaceExpectations  []framework.RegisterWorkspaceListExpectation
+		orgClusterName               logicalcluster.LogicalCluster
+		kubeClusterClient            kubernetes.ClusterInterface
+		kcpClusterClient             kcpclientset.ClusterInterface
+		virtualKcpClients            []kcpclientset.Interface
+		virtualWorkspaceExpectations []framework.RegisterWorkspaceListExpectation
 	}
 
 	var testCases = []struct {
@@ -157,8 +158,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				vwUser1Client := server.virtualKcpClients[0]
 				vwUser2Client := server.virtualKcpClients[1]
 
-				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1", "team-2")
-				require.NoError(t, err, "failed to create root workspace roles")
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1", "team-2")
 
 				t.Logf("Create Workspace workspace1 in the virtual workspace")
 				var workspace1 *tenancyv1beta1.Workspace
@@ -167,17 +167,17 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					var err error
 					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 					if err != nil {
-						klog.Errorf("Failed to create workspace1: %w", err)
+						klog.Errorf("Failed to create workspace1: %v", err)
 						return false
 					}
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				_, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Create Workspace workspace2 in the virtual workspace")
@@ -193,10 +193,10 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace2")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{})
+				_, err = server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{})
 				require.NoError(t, err, "expected to see workspace2 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
 				})
 
 				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
@@ -233,15 +233,14 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				vwUser1Client := server.virtualKcpClients[0]
 				vwUser2Client := server.virtualKcpClients[1]
 
-				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1", "team-2")
-				require.NoError(t, err, "failed to create root workspace roles")
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1", "team-2")
 
 				t.Logf("Create custom ClusterWorkspaceType 'Custom'")
-				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{ObjectMeta: metav1.ObjectMeta{Name: "custom"}}, metav1.CreateOptions{})
+				_, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{ObjectMeta: metav1.ObjectMeta{Name: "custom"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create custom ClusterWorkspaceType 'Custom'")
 
 				t.Logf("Give user1 access to the custom type")
-				_, err = server.orgKubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+				_, err = server.kubeClusterClient.Cluster(server.orgClusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "custom-type-access",
 					},
@@ -256,7 +255,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create custom ClusterRole 'custom-type-access'")
 
-				_, err = server.orgKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+				_, err = server.kubeClusterClient.Cluster(server.orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "user1-custom-type-access",
 					},
@@ -289,10 +288,10 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1 as user1")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				_, err = server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 				require.Equal(t, "Custom", workspace1.Spec.Type, "expected workspace1 to be of type Custom")
 
@@ -338,11 +337,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				org2Expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, org2Client)
 				require.NoError(t, err, "failed to start virtual workspace expecter")
 
-				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-1")
-				require.NoError(t, err, "failed to create member role for org %q", server.orgClusterName)
-
-				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, org2ClusterName, "team-1")
-				require.NoError(t, err, "failed to create member role for org %q", org2ClusterName)
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1")
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, org2ClusterName, "team-1")
 
 				t.Logf("Create workspace1 in org1")
 				var workspace1 *tenancyv1beta1.Workspace
@@ -357,10 +353,10 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-				_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				_, err = server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Create workspace2 in org2")
@@ -406,10 +402,9 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				orgName := server.orgClusterName.Base()
 
-				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-virtual-workspace-all-scope")
-				require.NoError(t, err, "failed to create root workspace roles")
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-virtual-workspace-all-scope")
 
-				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
+				err := server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
 					expectedOrgs := sets.NewString(orgName)
 					workspaceNames := sets.NewString()
 					for _, item := range w.Items {
@@ -437,8 +432,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				vwUser1Client := server.virtualKcpClients[0]
 
-				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-virtual-workspace-kubeconfig")
-				require.NoError(t, err, "failed to create root workspace roles")
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-virtual-workspace-kubeconfig")
 
 				kcpServerKubeconfig, err := server.RunningServer.RawConfig()
 				require.NoError(t, err, "failed to get KCP Kubeconfig")
@@ -455,11 +449,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
 				require.Eventually(t, func() bool {
-					ws, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+					ws, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 					if err != nil {
 						t.Logf("failed to retrieve workspace1: %v", err)
 						return false
@@ -467,7 +461,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 				}, wait.ForeverTestTimeout, time.Millisecond*100, " workspace1 did not become ready")
 
-				ws, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				ws, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "failed to get workspace1 as ClusterWorkspace")
 				workspaceURL := ws.Status.BaseURL
 
@@ -628,10 +622,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			testCase.work(ctx, t, runningServer{
 				RunningServer:                server,
 				orgClusterName:               orgClusterName,
-				orgKubeClient:                kubeClusterClient.Cluster(orgClusterName),
-				orgKcpClient:                 kcpClusterClient.Cluster(orgClusterName),
-				rootKubeClient:               kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-				rootKcpClient:                kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				kubeClusterClient:            kubeClusterClient,
+				kcpClusterClient:             kcpClusterClient,
 				virtualKcpClients:            virtualKcpClients,
 				virtualWorkspaceExpectations: virtualWorkspaceExpectations,
 			})
