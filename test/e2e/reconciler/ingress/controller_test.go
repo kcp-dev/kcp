@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
@@ -94,9 +95,14 @@ func TestIngressController(t *testing.T) {
 						return false
 					}
 					if len(got.Items) != 1 {
+						klog.Errorf("expected 1 ingress, got %d", len(got.Items))
 						return false
 					}
-					framework.RequireNoDiff(t, got.Items[0].Spec, rootIngress.Spec)
+					diff := cmp.Diff(got.Items[0].Spec, rootIngress.Spec)
+					if diff != "" {
+						klog.Errorf("Expected no diff, got %s", diff)
+						return false
+					}
 					return true
 				}, wait.ForeverTestTimeout, time.Second, "did not see the ingress synced on sink cluster")
 
