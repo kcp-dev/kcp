@@ -185,13 +185,12 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Installing sink cluster...")
 			start := time.Now()
-			workloadCluster, err := framework.CreateReadyCluster(
-				t, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
+			workloadCluster, err := framework.CreateWorkloadCluster(t, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
 			require.NoError(t, err)
 			t.Logf("Installed sink cluster after %s", time.Since(start))
 
 			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
-			framework.StartWorkspaceSyncer(t, resources, workloadCluster, source, sink)
+			framework.StartWorkspaceSyncer(t, ctx, resources, workloadCluster, source, sink)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{

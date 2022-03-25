@@ -83,10 +83,14 @@ type WorkloadClusterStatus struct {
 
 	// Current processing state of the WorkloadCluster.
 	// +optional
-	Conditions WorkloadClusterConditions `json:"conditions,omitempty"`
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// +optional
 	SyncedResources []string `json:"syncedResources,omitempty"`
+
+	// A timestamp indicating when the syncer last reported status.
+	// +optional
+	LastSyncerHeartbeatTime *metav1.Time `json:"lastSyncerHeartbeatTime,omitempty"`
 }
 
 // WorkloadClusterList is a list of WorkloadCluster resources
@@ -135,54 +139,10 @@ const (
 	ErrorHeartbeatMissedReason = "ErrorHeartbeat"
 )
 
-func (in *WorkloadCluster) SetConditions(c conditionsv1alpha1.Conditions) {
-	cc := WorkloadClusterConditions{}
-
-	for _, c := range c {
-		condition := WorkloadClusterCondition{
-			Condition: &conditionsv1alpha1.Condition{
-				Type:               c.Type,
-				Status:             c.Status,
-				Severity:           c.Severity,
-				LastTransitionTime: c.LastTransitionTime,
-				Reason:             c.Reason,
-				Message:            c.Message,
-			},
-			LastHeartbeatTime: metav1.Time{},
-		}
-		if c.Type == WorkloadClusterReadyCondition && c.Status == corev1.ConditionTrue {
-			condition.LastHeartbeatTime = metav1.Now()
-		}
-		cc = append(cc, condition)
-	}
-
-	in.Status.Conditions = cc
+func (in *WorkloadCluster) SetConditions(conditions conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = conditions
 }
 
 func (in *WorkloadCluster) GetConditions() conditionsv1alpha1.Conditions {
-	cond := conditionsv1alpha1.Conditions{}
-
-	for _, condition := range in.Status.Conditions {
-		cond = append(cond, conditionsv1alpha1.Condition{
-			Type:               condition.Type,
-			Status:             condition.Status,
-			Reason:             condition.Reason,
-			Message:            condition.Message,
-			Severity:           condition.Severity,
-			LastTransitionTime: condition.LastTransitionTime,
-		})
-	}
-
-	return cond
+	return in.Status.Conditions
 }
-
-type WorkloadClusterCondition struct {
-	*conditionsv1alpha1.Condition `json:",inline"`
-
-	// Last time the condition got an update.
-	// Can be used by the system to determine if the ConditionStatus is Unknown in certain cases.
-	// +optional
-	LastHeartbeatTime metav1.Time `json:"lastHeartbeatTime,omitempty"`
-}
-
-type WorkloadClusterConditions []WorkloadClusterCondition

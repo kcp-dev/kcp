@@ -92,13 +92,9 @@ spec:
               conditions:
                 description: Current processing state of the WorkloadCluster.
                 items:
+                  description: Condition defines an observation of a object operational
+                    state.
                   properties:
-                    lastHeartbeatTime:
-                      description: Last time the condition got an update. Can be used
-                        by the system to determine if the ConditionStatus is Unknown
-                        in certain cases.
-                      format: date-time
-                      type: string
                     lastTransitionTime:
                       description: Last time the condition transitioned from one status
                         to another. This should be when the underlying condition changed.
@@ -138,6 +134,11 @@ spec:
                   - type
                   type: object
                 type: array
+              lastSyncerHeartbeatTime:
+                description: A timestamp indicating when the syncer last reported
+                  status.
+                format: date-time
+                type: string
               syncedResources:
                 items:
                   type: string

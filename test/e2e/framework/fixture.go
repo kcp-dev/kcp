@@ -240,13 +240,11 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 // to the downstream server.
 func StartWorkspaceSyncer(
 	t *testing.T,
+	ctx context.Context,
 	resources sets.String,
 	workloadCluster *workloadv1alpha1.WorkloadCluster,
 	upstream, downstream RunningServer,
 ) {
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
 	upstreamConfig := upstream.DefaultConfig(t)
 	downstreamConfig := downstream.DefaultConfig(t)
 
