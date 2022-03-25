@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -126,13 +127,17 @@ func WithLogStreaming(o *runOptions) {
 	o.streamLogs = true
 }
 
+// RepositoryBinDir returns the absolute path of <repo-dir>/bin. That's where `make build` produces our binaries.
+func RepositoryBinDir() string {
+	_, sourceFile, _, _ := goruntime.Caller(0)
+	repoDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "..")
+	return filepath.Join(repoDir, "bin")
+}
+
 // Run runs the kcp server while the parent context is active. This call is not blocking,
 // callers should ensure that the server is Ready() before using it.
 func (c *kcpServer) Run(opts ...RunOption) error {
-	path, err := exec.LookPath("kcp")
-	if err != nil {
-		return err
-	}
+	path := filepath.Join(RepositoryBinDir(), "kcp")
 
 	runOpts := runOptions{}
 	for _, opt := range opts {

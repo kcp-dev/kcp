@@ -262,7 +262,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err, "failed to write kubeconfig to file")
 
 			ingressController := framework.NewAccessory(t, artifactDir,
-				"ingress-controller", // name
+				filepath.Join(framework.RepositoryBinDir(), "ingress-controller"), // name
 				"ingress-controller",
 				"--kubeconfig="+kubeconfigPath,
 				"--envoy-listener-port="+envoyListenerPort,

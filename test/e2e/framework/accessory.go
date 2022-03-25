@@ -77,7 +77,7 @@ func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
 	cmd := exec.CommandContext(ctx, a.cmd, a.args...)
 
 	a.t.Logf("running: %v", strings.Join(cmd.Args, " "))
-	logFile, err := os.Create(filepath.Join(a.artifactDir, fmt.Sprintf("%s.log", a.cmd)))
+	logFile, err := os.Create(filepath.Join(a.artifactDir, fmt.Sprintf("%s.log", a.name)))
 	if err != nil {
 		cleanupCancel()
 		return fmt.Errorf("could not create log file: %w", err)
