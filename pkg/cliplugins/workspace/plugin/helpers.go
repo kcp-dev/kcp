@@ -21,12 +21,15 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
+
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
@@ -49,11 +52,11 @@ func getWorkspaceFromInternalName(ctx context.Context, workspaceInternalName str
 
 // getWorkspaceAndBasePath gets the workspace name, org logical cluster name and the base URL for the current
 // workspace.
-func getWorkspaceAndBasePath(urlPath string) (orgClusterName, workspaceName, basePath string, err error) {
+func getWorkspaceAndBasePath(urlPath string) (orgClusterName logicalcluster.LogicalCluster, workspaceName, basePath string, err error) {
 	// get workspace from current server URL and check it point to an org or the root workspace
 	serverURL, err := url.Parse(urlPath)
 	if err != nil {
-		return "", "", "", err
+		return logicalcluster.LogicalCluster{}, "", "", err
 	}
 
 	possiblePrefixes := []string{
@@ -61,63 +64,50 @@ func getWorkspaceAndBasePath(urlPath string) (orgClusterName, workspaceName, bas
 		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
 	}
 
-	var clusterName string
+	var clusterName logicalcluster.LogicalCluster
 	for _, prefix := range possiblePrefixes {
 		clusterIndex := strings.Index(serverURL.Path, prefix)
 		if clusterIndex < 0 {
 			continue
 		}
-		clusterName = strings.SplitN(serverURL.Path[clusterIndex+len(prefix):], "/", 2)[0]
+		clusterName = logicalcluster.New(strings.SplitN(serverURL.Path[clusterIndex+len(prefix):], "/", 2)[0])
 		basePath = serverURL.Path[:clusterIndex]
 	}
 
-	if clusterName == "" {
-		return "", "", basePath, fmt.Errorf("current cluster URL %s is not pointing to a workspace", serverURL)
+	if !isValid(clusterName) {
+		return logicalcluster.LogicalCluster{}, "", basePath, fmt.Errorf("current cluster URL %s is not pointing to a workspace", serverURL)
 	}
 
-	var org string
-	if clusterName == tenancyhelpers.RootCluster {
-		orgClusterName = ""
-		workspaceName = tenancyhelpers.RootCluster
-	} else if org, workspaceName, err = tenancyhelpers.ParseLogicalClusterName(clusterName); err != nil {
-		return "", "", "", fmt.Errorf("unable to parse cluster name %s", clusterName)
-	} else if org == "system:" {
-		return "", "", "", fmt.Errorf("no workspaces are accessible from %s", clusterName)
-	} else if org == tenancyhelpers.RootCluster {
-		orgClusterName = tenancyhelpers.RootCluster
-	} else {
-		orgClusterName, err = tenancyhelpers.ParentClusterName(clusterName)
-		if err != nil {
-			// should never happen
-			return "", "", "", fmt.Errorf("unable to derive parent cluster name for %s", clusterName)
-		}
+	parent, workspaceName := clusterName.Split()
+	if parent.String() == "system" {
+		return logicalcluster.LogicalCluster{}, "", "", fmt.Errorf("no workspaces are accessible from %s", clusterName)
 	}
 
-	return orgClusterName, workspaceName, basePath, nil
+	return parent, workspaceName, basePath, nil
 }
 
 // upToOrg derives the org workspace cluster name to operate on,
 // from a given workspace logical cluster name.
-func upToOrg(orgClusterName, workspaceName string, always bool) string {
+func upToOrg(orgClusterName logicalcluster.LogicalCluster, workspaceName string, always bool) logicalcluster.LogicalCluster {
 
-	if orgClusterName == "" && workspaceName == tenancyhelpers.RootCluster {
-		return tenancyhelpers.RootCluster
+	if orgClusterName.Empty() && workspaceName == tenancyv1alpha1.RootCluster.String() {
+		return tenancyv1alpha1.RootCluster
 	}
 
-	if orgClusterName == tenancyhelpers.RootCluster && !always {
-		return tenancyhelpers.EncodeOrganizationAndClusterWorkspace(tenancyhelpers.RootCluster, workspaceName)
+	if orgClusterName == tenancyv1alpha1.RootCluster && !always {
+		return tenancyv1alpha1.RootCluster.Join(workspaceName)
 	}
 
 	return orgClusterName
 }
 
-func outputCurrentWorkspaceMessage(orgName, workspacePrettyName, workspaceName string, opts *Options) error {
+func outputCurrentWorkspaceMessage(orgName logicalcluster.LogicalCluster, workspacePrettyName, workspaceName string, opts *Options) error {
 	if workspaceName != "" {
 		message := fmt.Sprintf("Current workspace is %q", workspacePrettyName)
 		if workspaceName != workspacePrettyName {
 			message = fmt.Sprintf("%s (an alias for %q)", message, workspaceName)
 		}
-		if orgName != "" {
+		if !orgName.Empty() {
 			message = fmt.Sprintf("%s in organization %q", message, orgName)
 		}
 		err := write(opts, fmt.Sprintf("%s.\n", message))
@@ -129,4 +119,10 @@ func outputCurrentWorkspaceMessage(orgName, workspacePrettyName, workspaceName s
 func write(opts *Options, str string) error {
 	_, err := opts.Out.Write([]byte(str))
 	return err
+}
+
+var lclusterRegExp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9](:[a-z0-9][a-z0-9-]*[a-z0-9])*$`)
+
+func isValid(cluster logicalcluster.LogicalCluster) bool {
+	return lclusterRegExp.MatchString(cluster.String())
 }

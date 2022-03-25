@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -35,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	tenancyhelpers "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
@@ -110,13 +112,13 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requested
 		}
 
 		var err error
-		var orgName string
+		var orgName logicalcluster.LogicalCluster
 		orgName, requestedWorkspaceName, err = kc.getWorkspace(kcpPreviousWorkspaceContextKey)
 		if err != nil {
 			return err
 		}
 
-		if orgName == "" && requestedWorkspaceName == tenancyhelpers.RootCluster {
+		if orgName.Empty() && requestedWorkspaceName == tenancyv1alpha1.RootCluster.String() {
 			workspaceIsRoot = true
 		}
 
@@ -126,7 +128,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, opts *Options, requested
 			return err
 		}
 
-		if opts.Scope == registry.PersonalScope && orgName != "" && orgName != tenancyhelpers.RootCluster {
+		if opts.Scope == registry.PersonalScope && !orgName.Empty() && orgName != tenancyv1alpha1.RootCluster {
 			// If we're in the personal scope, and request a non-organization workspace, the workspaceName
 			// returned based on the current context URL might be different from the one visible to the end-user
 			// due to pretty names (== alias) management.
@@ -222,7 +224,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, opts *Options) error
 	}
 
 	workspacePrettyName := workspaceName
-	if org != "" {
+	if !org.Empty() {
 		workspaceDirectoryRestConfig, err := kc.workspaceDirectoryRestConfigFromCurrentContext(opts, true)
 		if err != nil {
 			return err
@@ -436,7 +438,7 @@ func (kc *KubeConfig) workspaceDirectoryRestConfigWithoutAuth(contextName string
 	orgClusterName = upToOrg(orgClusterName, workspaceName, alwaysUpToOrg)
 
 	// construct virtual workspace URL. This might redirect to another server if the virtual workspace apiserver is running standalone.
-	serverURL.Path = path.Join(basePath, virtualcommandoptions.DefaultRootPathPrefix, "workspaces", orgClusterName, opts.Scope)
+	serverURL.Path = path.Join(basePath, virtualcommandoptions.DefaultRootPathPrefix, "workspaces", orgClusterName.String(), opts.Scope)
 
 	workspaceDirectoryCluster := contextCluster.DeepCopy()
 	workspaceDirectoryCluster.Server = serverURL.String()
@@ -516,34 +518,24 @@ func (kc *KubeConfig) workspaceDirectoryRestConfigFromCurrentContext(opts *Optio
 }
 
 // getWorkspace gets the workspace from a kubeconfig context.
-func (kc *KubeConfig) getWorkspace(contextName string) (orgName, workspaceName string, err error) {
+func (kc *KubeConfig) getWorkspace(contextName string) (orgName logicalcluster.LogicalCluster, workspaceName string, err error) {
 	serverInfo, err := kc.getServer(contextName)
 	if err != nil {
-		return "", "", err
+		return logicalcluster.LogicalCluster{}, "", err
 	}
 
 	orgClusterName, workspaceName, _, err := getWorkspaceAndBasePath(serverInfo)
 	if err != nil {
-		return "", "", err
+		return logicalcluster.LogicalCluster{}, "", err
 	}
-
-	if orgClusterName == "" {
-		orgName = ""
-	} else {
-		_, orgName, err = tenancyhelpers.ParseLogicalClusterName(orgClusterName)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
-	return orgName, workspaceName, nil
+	return orgClusterName, workspaceName, err
 }
 
 // getCurrentWorkspace gets the current workspace from the kubeconfig.
-func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (orgName, workspaceName string, err error) {
+func (kc *KubeConfig) getCurrentWorkspace(opts *Options) (orgName logicalcluster.LogicalCluster, workspaceName string, err error) {
 	currentContextName, err := kc.getCurrentContextName(opts)
 	if err != nil {
-		return "", "", err
+		return logicalcluster.LogicalCluster{}, "", err
 	}
 
 	return kc.getWorkspace(currentContextName)
