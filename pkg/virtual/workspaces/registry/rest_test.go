@@ -469,7 +469,7 @@ func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: user \"test-user\" lacks access permission to workspace \"root:orgName\"")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: \"root\" workspace access not permitted")
 			assert.Nil(t, response, "response should be nil")
 		},
 	}
@@ -973,7 +973,7 @@ func TestCreatePersonalWorkspaceForbiddenToNonOrgMember(t *testing.T) {
 				},
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: user \"test-user\" lacks member permission to workspace \"root:orgName\"")
+			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: \"root\" workspace access not permitted")
 			require.Nil(t, response)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
@@ -1509,7 +1509,7 @@ func TestDeletePersonalWorkspaceForbiddenToUser(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: user \"test-user\" is not allowed to delete workspace \"foo\" in \"root:orgName\"")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: deletion in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
@@ -1602,7 +1602,7 @@ func TestDeletePersonalWorkspaceForbiddenToOrgAdmin(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: user \"test-user\" is not allowed to delete workspace \"foo\" in \"root:orgName\"")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: deletion in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
@@ -1692,7 +1692,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, kubeconfigSubResourceStorage *KubeconfigSubresourceREST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: user \"test-user\" is not allowed to delete workspace \"foo\" in \"root:orgName\"")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: deletion in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")

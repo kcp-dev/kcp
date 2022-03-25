@@ -233,7 +233,8 @@ func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcl
 	parent, orgName := orgClusterName.Split()
 	authz, err := s.delegatedAuthz(parent, s.kubeClusterClient)
 	if err != nil {
-		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q lacks %s permission to workspace %q", user.GetName(), verb, orgClusterName))
+		klog.Errorf("failed to get delegated authorizer for logical cluster %s", user.GetName(), parent)
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf("%q workspace access not permitted", parent))
 	}
 	typeUseAttr := authorizer.AttributesRecord{
 		User:            user,
@@ -245,10 +246,12 @@ func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcl
 		Name:            orgName,
 		ResourceRequest: true,
 	}
-	if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
-		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q lacks %s permission to workspace %q", user.GetName(), verb, orgClusterName))
+	if decision, reason, err := authz.Authorize(ctx, typeUseAttr); err != nil {
+		klog.Errorf("failed to authorize user %q to %q clusterworkspaces/content name %q in %s", user.GetName(), verb, orgName, parent)
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf("%q workspace access not permitted", parent))
 	} else if decision != authorizer.DecisionAllow {
-		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("user %q lacks %s permission to workspace %q", user.GetName(), verb, orgClusterName))
+		klog.Errorf("user %q lacks (%s) clusterworkspaces/content %q permission for %q in %s: %s", user.GetName(), decisions[decision], verb, orgName, parent, reason)
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf("%q workspace access not permitted", parent))
 	}
 
 	return nil
@@ -516,7 +519,8 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// check whether the user is allowed to use the cluster workspace type
 	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
 	if err != nil {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to authorize"))
+		klog.Errorf("failed to get delegated authorizer for logical cluster %s", userInfo.GetName(), orgClusterName)
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
 	}
 	typeName := strings.ToLower(workspace.Spec.Type)
 	if len(typeName) == 0 {
@@ -531,10 +535,12 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		Name:            typeName,
 		ResourceRequest: true,
 	}
-	if decision, _, err := authz.Authorize(ctx, typeUseAttr); err != nil {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine access to cluster workspace type"))
+	if decision, reason, err := authz.Authorize(ctx, typeUseAttr); err != nil {
+		klog.Errorf("failed to authorize user %q to %q clusterworkspacetypes name %q in %s", userInfo.GetName(), "use", typeName, orgClusterName)
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
 	} else if decision != authorizer.DecisionAllow {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", workspace.Spec.Type))
+		klog.Errorf("user %q lacks (%s) clusterworkspacetypes %q permission for %q in %s: %s", userInfo.GetName(), decisions[decision], "use", typeName, orgClusterName, reason)
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
 	}
 
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, userInfo)
@@ -663,7 +669,8 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	// check for delete permission on the ClusterWorkspace workspace subresource
 	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
 	if err != nil {
-		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), name, fmt.Errorf("unable to authorize"))
+		klog.Errorf("failed to get delegated authorizer for logical cluster %s", userInfo, orgClusterName)
+		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), name, fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
 	}
 	deleteWorkspaceAttr := authorizer.AttributesRecord{
 		User:            userInfo,
@@ -676,7 +683,8 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		ResourceRequest: true,
 	}
 	if decision, _, err := authz.Authorize(ctx, deleteWorkspaceAttr); err != nil {
-		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine permissions"))
+		klog.Errorf("failed to authorize user %q to %q clusterworkspaces/workspace name %q in %s", userInfo.GetName(), "delete", internalName, orgClusterName)
+		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
 	} else if decision != authorizer.DecisionAllow {
 		// check for admin verb on the content
 		contentAdminAttr := authorizer.AttributesRecord{
@@ -689,10 +697,12 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 			Name:            internalName,
 			ResourceRequest: true,
 		}
-		if decision, _, err := authz.Authorize(ctx, contentAdminAttr); err != nil {
-			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to determine permissions"))
+		if decision, reason, err := authz.Authorize(ctx, contentAdminAttr); err != nil {
+			klog.Errorf("failed to authorize user %q to %q clusterworkspaces/content name %q in %s", userInfo.GetName(), "admin", internalName, orgClusterName)
+			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
 		} else if decision != authorizer.DecisionAllow {
-			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("user %q is not allowed to delete workspace %q in %q", userInfo.GetName(), internalName, orgClusterName))
+			klog.Errorf("user %q lacks (%s) clusterworkspaces/content %q permission and clusterworkspaces/workspace %s permission for %q in %s: %s", userInfo.GetName(), decisions[decision], "admin", "delete", internalName, orgClusterName, reason)
+			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
 		}
 	}
 
@@ -713,4 +723,10 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	}
 
 	return nil, false, errorToReturn
+}
+
+var decisions = map[authorizer.Decision]string{
+	authorizer.DecisionAllow:     "allowed",
+	authorizer.DecisionDeny:      "denied",
+	authorizer.DecisionNoOpinion: "denied",
 }
