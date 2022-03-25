@@ -18,6 +18,7 @@ package authorization
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -68,10 +69,10 @@ type OrgWorkspaceAuthorizer struct {
 func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, "", err
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
 	}
 	if cluster == nil || cluster.Name == "" {
-		return authorizer.DecisionNoOpinion, "", nil
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 	}
 
 	parentClusterName, err := helper.ParentClusterName(cluster.Name)
@@ -99,7 +100,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		// TODO: using scoping when available
 		if ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, clusterWorkspace)); err != nil {
 			if errors.IsNotFound(err) {
-				return authorizer.DecisionDeny, "ClusterWorkspaceDoesNotExist", nil
+				return authorizer.DecisionDeny, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 			}
 			return authorizer.DecisionNoOpinion, "", err
 		} else if len(ws.Status.Initializers) > 0 {
@@ -119,7 +120,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 				return dec, reason, err
 			}
 			if dec != authorizer.DecisionAllow {
-				return dec, "workspace is initializing", nil
+				return dec, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 			}
 		}
 	}
@@ -173,7 +174,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		}
 	}
 	if len(extraGroups) == 0 {
-		return authorizer.DecisionNoOpinion, "workspace access not permitted", nil
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 	}
 
 	attrsWithExtraGroups := authorizer.AttributesRecord{
