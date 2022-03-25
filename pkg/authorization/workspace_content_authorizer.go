@@ -137,18 +137,16 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 			}
 		}
 	} else {
-		verbToGroupMembership := map[string]string{
-			"admin":  "system:kcp:clusterworkspace:admin",
-			"edit":   "system:kcp:clusterworkspace:edit",
-			"view":   "system:kcp:clusterworkspace:view",
-			"access": "system:kcp:authenticated",
+		verbToGroupMembership := map[string][]string{
+			"admin":  {"system:kcp:authenticated", "system:kcp:clusterworkspace:admin"},
+			"access": {"system:kcp:authenticated"},
 		}
 
 		var (
 			errList    []error
 			reasonList []string
 		)
-		for verb, group := range verbToGroupMembership {
+		for verb, groups := range verbToGroupMembership {
 			workspaceAttr := authorizer.AttributesRecord{
 				User:            attr.GetUser(),
 				Verb:            verb,
@@ -167,7 +165,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 				continue
 			}
 			if dec == authorizer.DecisionAllow {
-				extraGroups = append(extraGroups, group)
+				extraGroups = append(extraGroups, groups...)
 			}
 		}
 		if len(errList) > 0 {
