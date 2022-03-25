@@ -79,6 +79,12 @@ func createOrgMemberRoleForGroup(t *testing.T, ctx context.Context, kubeClusterC
 				ResourceNames: []string{orgClusterName.Base()},
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},
+			{
+				Verbs:         []string{"get"},
+				Resources:     []string{"clusterworkspaces/workspace"},
+				ResourceNames: []string{orgClusterName.Base()},
+				APIGroups:     []string{"tenancy.kcp.dev"},
+			},
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
