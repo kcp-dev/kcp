@@ -78,7 +78,7 @@ This in turn instructs the [Syncer](#syncer) for that cluster to see the Deploym
 
 <img alt="Diagram of kcp, Cluster Controller, Syncer and Deployment Splitter" src="./deployment-splitter.png"></img>
 
-The Deployment Splitter is _very simple_, and would need lots of improvements to make it useable in a real production scenario:
+The Deployment Splitter is _very simple_, and would need lots of improvements to make it usable in a real production scenario:
 
 - it should take into account whether the Cluster reports as `Ready`, in case the Syncer is having difficulty syncing to the cluster.
 - it should take into account user provided scheduling hints such as affinity, anti-affinity, etc.
