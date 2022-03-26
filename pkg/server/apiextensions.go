@@ -93,13 +93,13 @@ func newSystemCRDProvider(
 	}
 }
 
-func (p *systemCRDProvider) List(ctx context.Context, org logicalcluster.LogicalCluster, ws string) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+func (p *systemCRDProvider) List(ctx context.Context, clusterName logicalcluster.LogicalCluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	var ret []*apiextensionsv1.CustomResourceDefinition
 
-	for _, key := range p.Keys(ctx, org, ws).List() {
+	for _, key := range p.Keys(ctx, clusterName).List() {
 		crd, err := p.getCRD(key)
 		if err != nil {
-			klog.Errorf("Failed to get CRD %s for %s|%s: %v", key, org, ws, err)
+			klog.Errorf("Failed to get CRD %s for %s: %v", key, clusterName, err)
 			// we shouldn't see this because getCRD is backed by a quorum-read client on cache-miss
 			return nil, fmt.Errorf("error getting system CRD %q: %w", key, err)
 		}
@@ -110,14 +110,13 @@ func (p *systemCRDProvider) List(ctx context.Context, org logicalcluster.Logical
 	return ret, nil
 }
 
-func (p *systemCRDProvider) Keys(ctx context.Context, org logicalcluster.LogicalCluster, workspace string) sets.String {
+func (p *systemCRDProvider) Keys(ctx context.Context, clusterName logicalcluster.LogicalCluster) sets.String {
 	switch {
-	case org.Join(workspace) == tenancyv1alpha1.RootCluster:
+	case clusterName == tenancyv1alpha1.RootCluster:
 		return p.rootCRDs
-	case org.String() == "system":
-		// fall through
-	case !org.Empty():
-		workspaceKey := clusters.ToClusterAwareKey(org, workspace)
+	case clusterName.HasPrefix(tenancyv1alpha1.RootCluster):
+		parent, ws := clusterName.Split()
+		workspaceKey := clusters.ToClusterAwareKey(parent, ws)
 		clusterWorkspace, err := p.getClusterWorkspace(ctx, workspaceKey)
 		if err != nil {
 			// this shouldn't happen. The getters use quorum-read client on cache-miss.
@@ -128,6 +127,7 @@ func (p *systemCRDProvider) Keys(ctx context.Context, org logicalcluster.Logical
 		case "Universal":
 			return p.universalCRDs
 		case "Organization", "Team":
+			// TODO(sttts): this cannot be hardcoded. There might be other org-like types.y
 			return p.orgCRDs
 		}
 	}
@@ -167,12 +167,7 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
-	requestParentLogicalCluster, ws := cluster.Name.Split()
-	if err != nil {
-		return nil, fmt.Errorf("error determining workspace name from cluster name %q: %w", cluster.Name, err)
-	}
-
-	kcpSystemCRDs, err := c.systemCRDProvider.List(ctx, requestParentLogicalCluster, ws)
+	kcpSystemCRDs, err := c.systemCRDProvider.List(ctx, cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
@@ -316,13 +311,8 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 		return crd, nil
 	}
 
-	requestOrgLogicalCluster, ws := cluster.Name.Split()
-	if err != nil {
-		return nil, fmt.Errorf("error determining workspace name from cluster name %q: %w", cluster.Name, err)
-	}
-
 	// Priority 1: see in system CRDs
-	systemCRDKeys := c.systemCRDProvider.Keys(ctx, requestOrgLogicalCluster, ws)
+	systemCRDKeys := c.systemCRDProvider.Keys(ctx, cluster.Name)
 	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
 	if systemCRDKeys.Has(systemCRDKeyName) {
 		crd, err = c.crdLister.Get(systemCRDKeyName)
