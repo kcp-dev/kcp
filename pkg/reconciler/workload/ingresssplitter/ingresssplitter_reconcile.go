@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -85,7 +86,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 	for _, leaf := range toCreate {
 		klog.InfoS("Creating leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if _, err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil {
+		if _, err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			//TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to create leaf: %w", err)
 		}
@@ -95,7 +96,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 	for _, leaf := range toDelete {
 		klog.InfoS("Deleting leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil {
+		if err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			//TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to delete leaf: %w", err)
 		}
@@ -154,7 +155,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 	for _, currentLeaf := range currentLeaves {
 		found := false
 		for _, desiredLeaf := range desiredLeaves {
-			if desiredLeaf.GenerateName != currentLeaf.GenerateName || desiredLeaf.Labels[clusterLabel] != currentLeaf.Labels[clusterLabel] {
+			if desiredLeaf.Name != currentLeaf.Name || desiredLeaf.Labels[clusterLabel] != currentLeaf.Labels[clusterLabel] {
 				continue
 			}
 			found = true
@@ -181,7 +182,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 	for _, desiredLeaf := range desiredLeaves {
 		found := false
 		for _, currentLeaf := range currentLeaves {
-			if desiredLeaf.GenerateName == currentLeaf.GenerateName && desiredLeaf.Labels[clusterLabel] == currentLeaf.Labels[clusterLabel] {
+			if desiredLeaf.Name == currentLeaf.Name && desiredLeaf.Labels[clusterLabel] == currentLeaf.Labels[clusterLabel] {
 				found = true
 				break
 			}
@@ -219,9 +220,7 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 	desiredLeaves := make([]*networkingv1.Ingress, 0, len(clusterDests))
 	for _, cl := range clusterDests {
 		vd := root.DeepCopy()
-		vd.Name = ""
-
-		vd.GenerateName = root.Name + "-"
+		vd.Name = root.Name + "-" + cl
 
 		vd.Labels = map[string]string{}
 		vd.Labels[clusterLabel] = cl
