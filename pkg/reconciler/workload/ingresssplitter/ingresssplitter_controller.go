@@ -77,13 +77,14 @@ func NewController(
 			if !ok {
 				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 				if !ok {
-					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
+					runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
 					return
 				}
 
 				ingress, ok = tombstone.Obj.(*networkingv1.Ingress)
 				if !ok {
-					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
+					runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
+					return
 				}
 			}
 
