@@ -73,7 +73,7 @@ const (
 )
 
 // WithAcceptHeader makes the Accept header available for code in the handler chain. It is needed for
-// Wildcard rquests when finding the CRD with a common schema. For PartialObjectMeta requests we cand
+// Wildcard requests, when finding the CRD with a common schema. For PartialObjectMeta requests we cand
 // weaken the schema requirement and allow different schemas across workspaces.
 func WithAcceptHeader(apiHandler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

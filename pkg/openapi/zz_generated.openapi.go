@@ -324,7 +324,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 					},
 					"initializers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "initializers are set on creation by the system and must be cleared by a controller before the workspace can be used. The workspace will stay in the phase \"Initializing\" state until all initializers are cleared.\n\nA cluster workspace in \"Initializing\" state are gated via the RBAC clusterworkspaces/initilize resource permission.",
+							Description: "initializers are set on creation by the system and must be cleared by a controller before the workspace can be used. The workspace will stay in the phase \"Initializing\" state until all initializers are cleared.\n\nA cluster workspace in \"Initializing\" state are gated via the RBAC clusterworkspaces/initialize resource permission.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

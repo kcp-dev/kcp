@@ -293,7 +293,7 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 		return err
 	}
 
-	// TODO(ncdc): I dont' think this is used anywhere?
+	// TODO(ncdc): I don't think this is used anywhere?
 	gvkTrans := gvk.NewGVKTranslator(config)
 
 	namespaceScheduler := kcpnamespace.NewController(

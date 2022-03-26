@@ -88,6 +88,7 @@ type REST struct {
 	// getFilteredClusterWorkspaces returns a provider for ClusterWorkspaces.
 	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster) FilteredClusterWorkspaces
 
+	// crbInformer allows listing or searching for RBAC cluster role bindings through all orgs
 	crbInformer rbacinformers.ClusterRoleBindingInformer
 
 	kubeClusterClient kubernetes.ClusterInterface
