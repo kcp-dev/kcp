@@ -61,7 +61,7 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err
 	}
-	if cluster == nil || cluster.Name == "" {
+	if cluster == nil || cluster.Name.Empty() {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
 

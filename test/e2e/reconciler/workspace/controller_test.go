@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -126,9 +126,8 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard with the base URL stored in the credentials")
-				_, orgName, err := helper.ParseLogicalClusterName(workspace.ClusterName)
-				require.NoError(t, err, "failed to parse logical cluster name of workspace")
-				workspaceClusterName := helper.EncodeOrganizationAndClusterWorkspace(orgName, workspace.Name)
+				parentName := logicalcluster.From(workspace)
+				workspaceClusterName := parentName.Join(workspace.Name)
 				err = server.orgExpect(workspace, func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 					if err := scheduled(bostonShard.Name)(workspace); err != nil {
 						return err
@@ -136,7 +135,7 @@ func TestWorkspaceController(t *testing.T) {
 					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
 						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceShardValid))
 					}
-					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix/clusters/"+workspaceClusterName); diff != "" {
+					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix"+workspaceClusterName.Path()); diff != "" {
 						return fmt.Errorf("got incorrect base URL on workspace: %v", diff)
 					}
 					return nil
@@ -205,7 +204,7 @@ func TestWorkspaceController(t *testing.T) {
 			kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 			orgKcpClient := kcpClusterClient.Cluster(orgClusterName)
-			rootKcpClient := kcpClusterClient.Cluster(helper.RootCluster)
+			rootKcpClient := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster)
 
 			orgExpect, err := framework.ExpectClusterWorkspaces(ctx, t, orgKcpClient)
 			require.NoError(t, err, "failed to start expecter")
@@ -220,7 +219,7 @@ func TestWorkspaceController(t *testing.T) {
 				RunningServer:   server,
 				rootKcpClient:   rootKcpClient,
 				orgKcpClient:    orgKcpClient,
-				rootKubeClient:  kubeClusterClient.Cluster(helper.RootCluster),
+				rootKubeClient:  kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				orgKubeClient:   kubeClusterClient.Cluster(orgClusterName),
 				orgExpect:       orgExpect,
 				rootExpectShard: rootExpectShard,

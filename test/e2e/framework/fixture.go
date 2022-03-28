@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
@@ -142,7 +142,7 @@ func LogToConsoleEnvSet() bool {
 	return inProcess
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName string) {
+func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName logicalcluster.LogicalCluster) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -150,7 +150,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
 
-	org, err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+	org, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-org-",
 		},
@@ -161,7 +161,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	require.NoError(t, err, "failed to create organization workspace")
 
 	t.Cleanup(func() {
-		err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
 		}
@@ -169,7 +169,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	})
 
 	require.Eventuallyf(t, func() bool {
-		ws, err := clusterClient.Cluster(helper.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+		ws, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		if err != nil {
 			klog.Errorf("failed to get workspace %s: %v", org.Name, err)
@@ -178,21 +178,17 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
-	return helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, org.Name)
+	return tenancyv1alpha1.RootCluster.Join(org.Name)
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName string, workspaceType string) (clusterName string) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.LogicalCluster, workspaceType string) (clusterName logicalcluster.LogicalCluster) {
 	schedulable := workspaceType == "Universal"
 	return NewWorkspaceWithWorkloads(t, server, orgClusterName, workspaceType, schedulable)
 }
 
-func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterName string, workspaceType string, schedulable bool) (clusterName string) {
+func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterName logicalcluster.LogicalCluster, workspaceType string, schedulable bool) (clusterName logicalcluster.LogicalCluster) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-
-	rootOrg, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
-	require.NoErrorf(t, err, "failed to parse organization cluster name %q", orgClusterName)
-	require.Equalf(t, rootOrg, helper.RootCluster, "expected an org cluster name, i.e. with \"%s:\" prefix", helper.RootCluster)
 
 	cfg := server.DefaultConfig(t)
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
@@ -230,9 +226,9 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 			return false
 		}
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s:%s to become ready", orgName, ws.Name)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
-	return helper.EncodeOrganizationAndClusterWorkspace(orgName, ws.Name)
+	return orgClusterName.Join(ws.Name)
 }
 
 // StartWorkspaceSyncer starts a new syncer to synchronize the identified set of
@@ -248,6 +244,6 @@ func StartWorkspaceSyncer(
 	upstreamConfig := upstream.DefaultConfig(t)
 	downstreamConfig := downstream.DefaultConfig(t)
 
-	err := syncer.StartSyncer(ctx, upstreamConfig, downstreamConfig, resources, workloadCluster.ClusterName, workloadCluster.Name, 2)
+	err := syncer.StartSyncer(ctx, upstreamConfig, downstreamConfig, resources, logicalcluster.From(workloadCluster), workloadCluster.Name, 2)
 	require.NoError(t, err, "syncer failed to start")
 }

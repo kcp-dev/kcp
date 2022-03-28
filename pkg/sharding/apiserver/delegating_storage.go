@@ -142,7 +142,7 @@ func (s *delegatingStorage) routedRequest(ctx context.Context, resourceVersion *
 		return nil, nil, fmt.Errorf("failed to create sharded request: %w", err)
 	}
 	request.OverwriteParam("resourceVersion", rv)
-	request.SetHeader("X-Kubernetes-Cluster", clusterName)
+	request.SetHeader("X-Kubernetes-Cluster", clusterName.String())
 	return request, mutateOutputResourceVersion(identifier), nil
 }
 

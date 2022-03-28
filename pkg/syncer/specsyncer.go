@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +66,7 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 
 const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
-func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName, pclusterID string) (*Controller, error) {
+func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = specSyncerAgent
 	to = rest.CopyConfig(to)
@@ -116,7 +118,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
 	l := NamespaceLocator{
-		LogicalCluster: upstreamObj.GetClusterName(),
+		LogicalCluster: logicalcluster.From(upstreamObj),
 		Namespace:      upstreamObj.GetNamespace(),
 	}
 	b, err := json.Marshal(l)

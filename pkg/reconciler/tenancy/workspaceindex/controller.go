@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,7 +38,6 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
@@ -69,18 +70,18 @@ func NewController(
 		workspaceLister:       workspaceInformer.Lister(),
 		workspaceShardIndexer: workspaceShardInformer.Informer().GetIndexer(),
 		workspaceShardLister:  workspaceShardInformer.Lister(),
-		shardInformers:        map[string]map[string]organizationInformer{},
+		shardInformers:        map[string]map[logicalcluster.LogicalCluster]organizationInformer{},
 		index:                 index,
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueOrg(obj)
-			c.enqueueWorkspace(rootShard, rootShard, obj)
+			c.enqueueWorkspace(rootShard, tenancyv1alpha1.RootCluster, obj)
 		},
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueOrg(obj)
-			c.enqueueWorkspace(rootShard, rootShard, obj)
+			c.enqueueWorkspace(rootShard, tenancyv1alpha1.RootCluster, obj)
 		},
 		// TODO: handle deletes
 	})
@@ -132,7 +133,7 @@ type Controller struct {
 	shardInformersLock sync.RWMutex
 	// shardInformers are the set of informers we manage for each shard that orgs are on
 	// mapped from shard to logical cluster to informer
-	shardInformers map[string]map[string]organizationInformer
+	shardInformers map[string]map[logicalcluster.LogicalCluster]organizationInformer
 
 	// index holds resourceVersion-bound locations for workspaces through history.
 	index Index
@@ -253,11 +254,7 @@ func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.C
 		klog.Infof("org workspace %s/%s not ready, skipping...", workspace.ClusterName, workspace.Name)
 		return nil // not ready yet
 	}
-	logicalCluster, err := helper.EncodeLogicalClusterName(workspace)
-	if err != nil {
-		klog.Errorf("error creating client with workspace shard credentials: %v", err)
-		return nil
-	}
+	logicalCluster := logicalcluster.From(workspace)
 
 	shardKey, err := cache.MetaNamespaceKeyFunc(&metav1.ObjectMeta{
 		ClusterName: workspace.ObjectMeta.ClusterName,
@@ -303,7 +300,7 @@ func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.C
 		return nil
 	}
 
-	secret, err := c.kubeClient.Cluster(workspaceShard.ClusterName).CoreV1().Secrets(workspaceShard.Spec.Credentials.Namespace).Get(ctx, workspaceShard.Spec.Credentials.Name, metav1.GetOptions{})
+	secret, err := c.kubeClient.Cluster(logicalcluster.From(workspaceShard)).CoreV1().Secrets(workspaceShard.Spec.Credentials.Namespace).Get(ctx, workspaceShard.Spec.Credentials.Name, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("failed to get workspace shard credentials: %v", shardKey, err)
 		return err // retry since this could flake in an otherwise OK situation
@@ -350,7 +347,7 @@ func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.C
 		delete(c.shardInformers[workspace.Status.Location.Current], logicalCluster)
 	}
 	if _, recorded := c.shardInformers[workspace.Status.Location.Current]; !recorded {
-		c.shardInformers[workspace.Status.Location.Current] = map[string]organizationInformer{}
+		c.shardInformers[workspace.Status.Location.Current] = map[logicalcluster.LogicalCluster]organizationInformer{}
 	}
 	c.shardInformers[workspace.Status.Location.Current][logicalCluster] = organizationInformer{
 		ctx:              octx,
@@ -367,7 +364,7 @@ func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.C
 	return nil
 }
 
-func (c *Controller) enqueueWorkspace(shard, logicalCluster string, obj interface{}) {
+func (c *Controller) enqueueWorkspace(shard string, logicalCluster logicalcluster.LogicalCluster, obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -421,8 +418,9 @@ func (c *Controller) processWorkspace(ctx context.Context, key string) error {
 		klog.Errorf("invalid key in workspace queue: %s", key)
 		return nil
 	}
-	var shard, logicalCluster string
-	shard, logicalCluster, key = parts[0], parts[1], parts[2]
+	var shard string
+	var logicalCluster logicalcluster.LogicalCluster
+	shard, logicalCluster, key = parts[0], logicalcluster.New(parts[1]), parts[2]
 	var lister tenancylister.ClusterWorkspaceLister
 	if shard == rootShard {
 		lister = c.workspaceLister

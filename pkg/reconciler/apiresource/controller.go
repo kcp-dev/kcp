@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinfomer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
@@ -42,8 +44,8 @@ import (
 const clusterNameAndGVRIndexName = "clusterNameAndGVR"
 const controllerName = "apiresource"
 
-func GetClusterNameAndGVRIndexKey(clusterName string, gvr metav1.GroupVersionResource) string {
-	return clusterName + "$" + gvr.String()
+func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.LogicalCluster, gvr metav1.GroupVersionResource) string {
+	return clusterName.String() + "$" + gvr.String()
 }
 
 func NewController(
@@ -77,7 +79,7 @@ func NewController(
 	if err := c.negotiatedApiResourceIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if negotiatedApiResource, ok := obj.(*apiresourcev1alpha1.NegotiatedAPIResource); ok {
-				return []string{GetClusterNameAndGVRIndexKey(negotiatedApiResource.ClusterName, negotiatedApiResource.GVR())}, nil
+				return []string{GetClusterNameAndGVRIndexKey(logicalcluster.From(negotiatedApiResource), negotiatedApiResource.GVR())}, nil
 			}
 			return []string{}, nil
 		},
@@ -93,7 +95,7 @@ func NewController(
 	if err := c.apiResourceImportIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
-				return []string{GetClusterNameAndGVRIndexKey(apiResourceImport.ClusterName, apiResourceImport.GVR())}, nil
+				return []string{GetClusterNameAndGVRIndexKey(logicalcluster.From(apiResourceImport), apiResourceImport.GVR())}, nil
 			}
 			return []string{}, nil
 		},
@@ -109,7 +111,7 @@ func NewController(
 	if err := c.crdIndexer.AddIndexers(map[string]cache.IndexFunc{
 		clusterNameAndGVRIndexName: func(obj interface{}) ([]string, error) {
 			if crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition); ok {
-				return []string{GetClusterNameAndGVRIndexKey(crd.ClusterName, metav1.GroupVersionResource{
+				return []string{GetClusterNameAndGVRIndexKey(logicalcluster.From(crd), metav1.GroupVersionResource{
 					Group:    crd.Spec.Group,
 					Resource: crd.Spec.Names.Plural,
 				})}, nil
@@ -171,7 +173,7 @@ type queueElement struct {
 	theType       queueElementType
 	theKey        string
 	gvr           metav1.GroupVersionResource
-	clusterName   string
+	clusterName   logicalcluster.LogicalCluster
 	deletedObject interface{}
 }
 
@@ -282,7 +284,7 @@ func (c *Controller) enqueue(action resourceHandlerAction, oldObj, obj interface
 		theType:       theType,
 		theKey:        key,
 		gvr:           gvr,
-		clusterName:   newMeta.GetClusterName(),
+		clusterName:   logicalcluster.From(newMeta),
 		deletedObject: deletedObject,
 	})
 }
@@ -319,7 +321,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %v, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

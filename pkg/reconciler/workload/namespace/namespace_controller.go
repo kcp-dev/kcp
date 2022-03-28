@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -50,7 +52,7 @@ import (
 const controllerName = "namespace-scheduler"
 
 type clusterDiscovery interface {
-	WithCluster(name string) discovery.DiscoveryInterface
+	WithCluster(name logicalcluster.LogicalCluster) discovery.DiscoveryInterface
 }
 
 // NewController returns a new Controller which schedules namespaced resources to a Cluster.
@@ -108,7 +110,7 @@ func NewController(
 		DeleteFunc: nil, // Nothing to do.
 	})
 	// Always do a * list/watch
-	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster("*"),
+	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster(logicalcluster.Wildcard),
 		filterResource,
 		informer.GVREventHandlerFuncs{
 			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -79,7 +80,7 @@ func TestClusterController(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cowboy")
 
-				nsLocator := syncer.NamespaceLocator{LogicalCluster: cowboy.ClusterName, Namespace: cowboy.Namespace}
+				nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(cowboy), Namespace: cowboy.Namespace}
 				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
 				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)
 				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)

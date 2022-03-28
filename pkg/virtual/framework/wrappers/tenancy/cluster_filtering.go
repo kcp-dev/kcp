@@ -19,6 +19,8 @@ package tenancy
 import (
 	"context"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -28,7 +30,7 @@ import (
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-func FilterInformers(clusterName string, informers tenancyinformers.Interface) tenancyinformers.Interface {
+func FilterInformers(clusterName logicalcluster.LogicalCluster, informers tenancyinformers.Interface) tenancyinformers.Interface {
 	return &filteredInterface{
 		clusterName: clusterName,
 		informers:   informers,
@@ -38,7 +40,7 @@ func FilterInformers(clusterName string, informers tenancyinformers.Interface) t
 var _ tenancyinformers.Interface = (*filteredInterface)(nil)
 
 type filteredInterface struct {
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	informers   tenancyinformers.Interface
 }
 
@@ -54,7 +56,7 @@ func (i *filteredInterface) WorkspaceShards() tenancyinformers.WorkspaceShardInf
 	return FilterWorkspaceShardInformer(i.clusterName, i.informers.WorkspaceShards())
 }
 
-func FilterClusterWorkspaceTypeInformer(clusterName string, informer tenancyinformers.ClusterWorkspaceTypeInformer) tenancyinformers.ClusterWorkspaceTypeInformer {
+func FilterClusterWorkspaceTypeInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceTypeInformer) tenancyinformers.ClusterWorkspaceTypeInformer {
 	return &filteredClusterWorkspaceTypeInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -65,12 +67,12 @@ var _ tenancyinformers.ClusterWorkspaceTypeInformer = (*filteredClusterWorkspace
 var _ tenancylisters.ClusterWorkspaceTypeLister = (*filteredClusterWorkspaceTypeLister)(nil)
 
 type filteredClusterWorkspaceTypeInformer struct {
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	informer    tenancyinformers.ClusterWorkspaceTypeInformer
 }
 
 type filteredClusterWorkspaceTypeLister struct {
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	lister      tenancylisters.ClusterWorkspaceTypeLister
 }
 
@@ -91,7 +93,7 @@ func (l *filteredClusterWorkspaceTypeLister) List(selector labels.Selector) (ret
 		return nil, err
 	}
 	for _, item := range items {
-		if item.ClusterName == l.clusterName {
+		if logicalcluster.From(item) == l.clusterName {
 			ret = append(ret, item)
 		}
 	}
@@ -99,7 +101,7 @@ func (l *filteredClusterWorkspaceTypeLister) List(selector labels.Selector) (ret
 }
 
 func (l *filteredClusterWorkspaceTypeLister) Get(name string) (*tenancyapis.ClusterWorkspaceType, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName == "" {
+	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
@@ -111,7 +113,7 @@ func (l *filteredClusterWorkspaceTypeLister) ListWithContext(ctx context.Context
 		return nil, err
 	}
 	for _, item := range items {
-		if item.ClusterName == l.clusterName {
+		if logicalcluster.From(item) == l.clusterName {
 			ret = append(ret, item)
 		}
 	}
@@ -119,13 +121,13 @@ func (l *filteredClusterWorkspaceTypeLister) ListWithContext(ctx context.Context
 }
 
 func (l *filteredClusterWorkspaceTypeLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.ClusterWorkspaceType, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName == "" {
+	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.GetWithContext(ctx, name)
 }
 
-func FilterClusterWorkspaceInformer(clusterName string, informer tenancyinformers.ClusterWorkspaceInformer) tenancyinformers.ClusterWorkspaceInformer {
+func FilterClusterWorkspaceInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceInformer) tenancyinformers.ClusterWorkspaceInformer {
 	return &filteredClusterWorkspaceInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -136,12 +138,12 @@ var _ tenancyinformers.ClusterWorkspaceInformer = (*filteredClusterWorkspaceInfo
 var _ tenancylisters.ClusterWorkspaceLister = (*filteredClusterWorkspaceLister)(nil)
 
 type filteredClusterWorkspaceInformer struct {
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	informer    tenancyinformers.ClusterWorkspaceInformer
 }
 
 type filteredClusterWorkspaceLister struct {
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	lister      tenancylisters.ClusterWorkspaceLister
 }
 
@@ -162,7 +164,7 @@ func (l *filteredClusterWorkspaceLister) List(selector labels.Selector) (ret []*
 		return nil, err
 	}
 	for _, item := range items {
-		if item.ClusterName == l.clusterName {
+		if logicalcluster.From(item) == l.clusterName {
 			ret = append(ret, item)
 		}
 	}
@@ -170,7 +172,7 @@ func (l *filteredClusterWorkspaceLister) List(selector labels.Selector) (ret []*
 }
 
 func (l *filteredClusterWorkspaceLister) Get(name string) (*tenancyapis.ClusterWorkspace, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName == "" {
+	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
@@ -182,7 +184,7 @@ func (l *filteredClusterWorkspaceLister) ListWithContext(ctx context.Context, se
 		return nil, err
 	}
 	for _, item := range items {
-		if item.ClusterName == l.clusterName {
+		if logicalcluster.From(item) == l.clusterName {
 			ret = append(ret, item)
 		}
 	}
@@ -190,13 +192,13 @@ func (l *filteredClusterWorkspaceLister) ListWithContext(ctx context.Context, se
 }
 
 func (l *filteredClusterWorkspaceLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.ClusterWorkspace, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName == "" {
+	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.GetWithContext(ctx, name)
 }
 
-func FilterWorkspaceShardInformer(clusterName string, informer tenancyinformers.WorkspaceShardInformer) tenancyinformers.WorkspaceShardInformer {
+func FilterWorkspaceShardInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.WorkspaceShardInformer) tenancyinformers.WorkspaceShardInformer {
 	return &filteredWorkspaceShardInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -207,12 +209,12 @@ var _ tenancyinformers.WorkspaceShardInformer = (*filteredWorkspaceShardInformer
 var _ tenancylisters.WorkspaceShardLister = (*filteredWorkspaceShardLister)(nil)
 
 type filteredWorkspaceShardInformer struct {
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	informer    tenancyinformers.WorkspaceShardInformer
 }
 
 type filteredWorkspaceShardLister struct {
-	clusterName string
+	clusterName logicalcluster.LogicalCluster
 	lister      tenancylisters.WorkspaceShardLister
 }
 
@@ -233,7 +235,7 @@ func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*te
 		return nil, err
 	}
 	for _, item := range items {
-		if item.ClusterName == l.clusterName {
+		if logicalcluster.From(item) == l.clusterName {
 			ret = append(ret, item)
 		}
 	}
@@ -241,7 +243,7 @@ func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*te
 }
 
 func (l *filteredWorkspaceShardLister) Get(name string) (*tenancyapis.WorkspaceShard, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName == "" {
+	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
@@ -253,7 +255,7 @@ func (l *filteredWorkspaceShardLister) ListWithContext(ctx context.Context, sele
 		return nil, err
 	}
 	for _, item := range items {
-		if item.ClusterName == l.clusterName {
+		if logicalcluster.From(item) == l.clusterName {
 			ret = append(ret, item)
 		}
 	}
@@ -261,7 +263,7 @@ func (l *filteredWorkspaceShardLister) ListWithContext(ctx context.Context, sele
 }
 
 func (l *filteredWorkspaceShardLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.WorkspaceShard, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName == "" {
+	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.GetWithContext(ctx, name)

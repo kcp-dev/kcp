@@ -19,6 +19,8 @@ package delegated
 import (
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/server/options"
@@ -28,11 +30,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type DelegatedAuthorizerFactory func(clusterName string, client kubeclient.ClusterInterface) (authorizer.Authorizer, error)
+type DelegatedAuthorizerFactory func(clusterName logicalcluster.LogicalCluster, client kubeclient.ClusterInterface) (authorizer.Authorizer, error)
 
 // NewDelegatedAuthorizer returns a new authorizer for use in e.g. admission plugins that delegates
 // to the kube API server via SubjectAccessReview.
-func NewDelegatedAuthorizer(clusterName string, client kubeclient.ClusterInterface) (authorizer.Authorizer, error) {
+func NewDelegatedAuthorizer(clusterName logicalcluster.LogicalCluster, client kubeclient.ClusterInterface) (authorizer.Authorizer, error) {
 	delegatingAuthorizerConfig := &authorizerfactory.DelegatingAuthorizerConfig{
 		SubjectAccessReviewClient: &clusterAwareAuthorizationV1Client{
 			AuthorizationV1Interface: client.Cluster(clusterName).AuthorizationV1(),
@@ -57,7 +59,7 @@ func NewDelegatedAuthorizer(clusterName string, client kubeclient.ClusterInterfa
 // TODO(ncdc) replace with generated clientset wrappers that are logical cluster aware.
 type clusterAwareAuthorizationV1Client struct {
 	authorizationv1client.AuthorizationV1Interface
-	cluster string
+	cluster logicalcluster.LogicalCluster
 }
 
 // RESTClient returns a rest.Interface that supports logical clusters for POST calls.
@@ -71,7 +73,7 @@ func (c *clusterAwareAuthorizationV1Client) RESTClient() rest.Interface {
 // clusterAwareRESTClient supports logical clusters for POST calls.
 type clusterAwareRESTClient struct {
 	rest.Interface
-	cluster string
+	cluster logicalcluster.LogicalCluster
 }
 
 // Post returns a *rest.Request for a specific logical cluster.

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -60,7 +62,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 }
 
 func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.Ingress) error {
-	ownedByRootIngressSelector, err := createOwnedBySelector(ingress.ClusterName, ingress.Name, ingress.Namespace)
+	ownedByRootIngressSelector, err := createOwnedBySelector(logicalcluster.From(ingress), ingress.Name, ingress.Namespace)
 	if err != nil {
 		return err
 	}
@@ -86,7 +88,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 	for _, leaf := range toCreate {
 		klog.InfoS("Creating leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if _, err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if _, err := c.client.Cluster(logicalcluster.From(ingress)).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			//TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to create leaf: %w", err)
 		}
@@ -96,7 +98,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 	for _, leaf := range toDelete {
 		klog.InfoS("Deleting leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if err := c.client.Cluster(ingress.ClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		if err := c.client.Cluster(logicalcluster.From(ingress)).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			//TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to delete leaf: %w", err)
 		}
@@ -142,7 +144,7 @@ func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress 
 
 	// Update the rootIngress status with our desired LB.
 	// TODO(jmprusi): Use patch (safer) instead of update.
-	if _, err := c.client.Cluster(rootIngress.ClusterName).NetworkingV1().Ingresses(rootIngress.Namespace).UpdateStatus(ctx, rootIngress, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.client.Cluster(logicalcluster.From(rootIngress)).NetworkingV1().Ingresses(rootIngress.Namespace).UpdateStatus(ctx, rootIngress, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update root ingress status: %w", err)
 	}
 
@@ -168,7 +170,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 			klog.InfoS("Updating leaf", "ClusterName", currentLeaf.ClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
 			updated := currentLeaf.DeepCopy()
 			updated.Spec = desiredLeaf.Spec
-			if _, err := c.client.Cluster(currentLeaf.ClusterName).NetworkingV1().Ingresses(currentLeaf.Namespace).Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.client.Cluster(logicalcluster.From(currentLeaf)).NetworkingV1().Ingresses(currentLeaf.Namespace).Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
 				//TODO(jmprusi): Update root Ingress condition to reflect the error.
 				return nil, nil, err
 			}
@@ -227,7 +229,7 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 
 		// Label the leaf with the rootIngress information, so we can construct the ingress key
 		// from it.
-		vd.Labels[OwnedByCluster] = LabelEscapeClusterName(root.ClusterName)
+		vd.Labels[OwnedByCluster] = LabelEscapeClusterName(logicalcluster.From(root))
 		vd.Labels[OwnedByIngress] = root.Name
 		vd.Labels[OwnedByNamespace] = root.Namespace
 
@@ -248,7 +250,7 @@ func (c *Controller) getServices(ctx context.Context, ingress *networkingv1.Ingr
 	for _, rule := range ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
 			// TODO(jmprusi): Use a service lister
-			svc, err := c.client.Cluster(ingress.ClusterName).CoreV1().Services(ingress.Namespace).Get(ctx, path.Backend.Service.Name, metav1.GetOptions{})
+			svc, err := c.client.Cluster(logicalcluster.From(ingress)).CoreV1().Services(ingress.Namespace).Get(ctx, path.Backend.Service.Name, metav1.GetOptions{})
 			// TODO(jmprusi): If one of the services doesn't exist, we invalidate all the other ones.. review this.
 			if err != nil {
 				return nil, err
@@ -259,7 +261,7 @@ func (c *Controller) getServices(ctx context.Context, ingress *networkingv1.Ingr
 	return services, nil
 }
 
-func createOwnedBySelector(clusterName, name, namespace string) (labels.Selector, error) {
+func createOwnedBySelector(clusterName logicalcluster.LogicalCluster, name, namespace string) (labels.Selector, error) {
 	ownedClusterReq, err := labels.NewRequirement(OwnedByCluster, selection.Equals, []string{LabelEscapeClusterName(clusterName)})
 	if err != nil {
 		return nil, err
@@ -278,10 +280,10 @@ func createOwnedBySelector(clusterName, name, namespace string) (labels.Selector
 	return ownedBySelector, nil
 }
 
-func LabelEscapeClusterName(s string) string {
-	return strings.ReplaceAll(s, ":", "_")
+func LabelEscapeClusterName(n logicalcluster.LogicalCluster) string {
+	return strings.ReplaceAll(n.String(), ":", "_")
 }
 
-func UnescapeClusterNameLabel(s string) string {
-	return strings.ReplaceAll(s, "_", ":")
+func UnescapeClusterNameLabel(s string) logicalcluster.LogicalCluster {
+	return logicalcluster.New(strings.ReplaceAll(s, "_", ":"))
 }

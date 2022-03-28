@@ -22,6 +22,8 @@ import (
 	"context"
 	"time"
 
+	logicalcluster "github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -54,7 +56,7 @@ type WorkloadClusterInterface interface {
 // workloadClusters implements WorkloadClusterInterface
 type workloadClusters struct {
 	client  rest.Interface
-	cluster string
+	cluster logicalcluster.LogicalCluster
 }
 
 // newWorkloadClusters returns a WorkloadClusters

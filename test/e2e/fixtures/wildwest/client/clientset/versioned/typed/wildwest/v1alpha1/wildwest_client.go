@@ -21,6 +21,8 @@ package v1alpha1
 import (
 	"net/http"
 
+	logicalcluster "github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -35,7 +37,7 @@ type WildwestV1alpha1Interface interface {
 // WildwestV1alpha1Client is used to interact with features provided by the wildwest.dev group.
 type WildwestV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    string
+	cluster    logicalcluster.LogicalCluster
 }
 
 func (c *WildwestV1alpha1Client) Cowboys(namespace string) CowboyInterface {
@@ -87,7 +89,7 @@ func New(c rest.Interface) *WildwestV1alpha1Client {
 }
 
 // NewWithCluster creates a new WildwestV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster string) *WildwestV1alpha1Client {
+func NewWithCluster(c rest.Interface, cluster logicalcluster.LogicalCluster) *WildwestV1alpha1Client {
 	return &WildwestV1alpha1Client{restClient: c, cluster: cluster}
 }
 

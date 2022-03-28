@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
@@ -36,7 +37,6 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcp "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -50,9 +50,9 @@ type clients struct {
 	Dynamic    dynamic.Interface
 }
 
-func newUserClient(t *testing.T, username, clusterName string, cfg *rest.Config) *clients {
+func newUserClient(t *testing.T, username string, clusterName logicalcluster.LogicalCluster, cfg *rest.Config) *clients {
 	cfgCopy := rest.CopyConfig(cfg)
-	cfgCopy.Host = cfg.Host + "/clusters/" + clusterName
+	cfgCopy.Host = cfg.Host + clusterName.Path()
 	cfgCopy.BearerToken = username + "-token"
 	kubeClient, err := kubernetes.NewForConfig(cfgCopy)
 	require.NoError(t, err)
@@ -84,8 +84,6 @@ func TestAuthorizer(t *testing.T) {
 	require.NoError(t, err)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	_, org, err := helper.ParseLogicalClusterName(orgClusterName)
-	require.NoError(t, err)
 
 	orgKubeClient := kubeClusterClient.Cluster(orgClusterName)
 	orgKcpClient := kcpClusterClient.Cluster(orgClusterName)
@@ -97,7 +95,7 @@ func TestAuthorizer(t *testing.T) {
 			KcpClient:  orgKcpClient,
 			Dynamic:    orgDynamicClient,
 		},
-		"user-1": newUserClient(t, "user-1", helper.EncodeOrganizationAndClusterWorkspace(org, "workspace1"), kcpCfg),
+		"user-1": newUserClient(t, "user-1", orgClusterName.Join("workspace1"), kcpCfg),
 	}
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgKcpClient.Discovery()))
@@ -149,7 +147,7 @@ func TestAuthorizer(t *testing.T) {
 		},
 		"Cluster Admins can use wildcard clusters": func() {
 			var err error
-			_, err = kubeClusterClient.Cluster("*").CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			_, err = kubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			require.NoError(t, err)
 		},
 		"Non-Cluster Admins can not use wildcard clusters": func() {
@@ -159,7 +157,7 @@ func TestAuthorizer(t *testing.T) {
 			user1ClusterConfig, err := kubernetes.NewClusterForConfig(user1Config)
 			require.NoError(t, err)
 
-			_, err = user1ClusterConfig.Cluster("*").CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			_, err = user1ClusterConfig.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "Only cluster admins can use all clusters at once")
 		},
 	}

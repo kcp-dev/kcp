@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -30,7 +32,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
@@ -90,7 +91,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 				return true, rootPathPrefix + strings.Join(segments[:2], "/"),
 					context.WithValue(
 						context.WithValue(requestContext, virtualworkspacesregistry.WorkspacesScopeKey, scope),
-						virtualworkspacesregistry.WorkspacesOrgKey, org,
+						virtualworkspacesregistry.WorkspacesOrgKey, logicalcluster.New(org),
 					)
 			}
 			return
@@ -102,19 +103,19 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 				OpenAPIDefinitions: kcpopenapi.GetOpenAPIDefinitions,
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
 
-					rootTenancyClient := kcpClusterClient.Cluster(helper.RootCluster).TenancyV1alpha1()
-					rootRBACClient := kubeClusterClient.Cluster(helper.RootCluster).RbacV1()
+					rootTenancyClient := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1()
+					rootRBACClient := kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster).RbacV1()
 
 					globalClusterWorkspaceCache = workspacecache.NewClusterWorkspaceCache(
 						wildcardsClusterWorkspaces.Informer(),
 						kcpClusterClient,
 						"")
 
-					rootRBACInformers := rbacwrapper.FilterInformers(helper.RootCluster, wildcardsRbacInformers)
+					rootRBACInformers := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, wildcardsRbacInformers)
 					rootSubjectLocator := frameworkrbac.NewSubjectLocator(rootRBACInformers)
 					rootReviewer := workspaceauth.NewReviewer(rootSubjectLocator)
 
-					rootClusterWorkspaceInformer := tenancywrapper.FilterClusterWorkspaceInformer(helper.RootCluster, wildcardsClusterWorkspaces)
+					rootClusterWorkspaceInformer := tenancywrapper.FilterClusterWorkspaceInformer(tenancyv1alpha1.RootCluster, wildcardsClusterWorkspaces)
 
 					rootWorkspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
 						rootClusterWorkspaceInformer.Lister(),
@@ -129,7 +130,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 
 					rootOrg := virtualworkspacesregistry.NewRootOrg(rootRBACClient, rootRBACInformers.ClusterRoleBindings(), rootReviewer, rootTenancyClient.ClusterWorkspaces(), rootWorkspaceAuthorizationCache)
 
-					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgClusterName string) *virtualworkspacesregistry.Org {
+					orgListener = NewOrgListener(globalClusterWorkspaceCache, rootOrg, func(orgClusterName logicalcluster.LogicalCluster) *virtualworkspacesregistry.Org {
 						return virtualworkspacesregistry.CreateAndStartOrg(
 							kubeClusterClient.Cluster(orgClusterName).RbacV1(),
 							kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces(),
@@ -168,7 +169,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 						return nil, err
 					}
 
-					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(kcpClusterClient.Cluster(helper.RootCluster).TenancyV1alpha1(), kubeClusterClient, globalClusterWorkspaceCache, crbInformer, orgListener.GetOrg, rootReviewer)
+					workspacesRest, kubeconfigSubresourceRest := virtualworkspacesregistry.NewREST(kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1(), kubeClusterClient, globalClusterWorkspaceCache, crbInformer, orgListener.GetOrg, rootReviewer)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 							return workspacesRest, nil

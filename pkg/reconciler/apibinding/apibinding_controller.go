@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -50,7 +51,10 @@ const (
 	controllerName                     = "kcp-apibinding"
 	indexAPIBindingsByWorkspaceExport  = "apiBindingsByWorkspaceExport"
 	indexAPIExportsByAPIResourceSchema = "apiExportsByAPIResourceSchema"
-	ShadowWorkspaceName                = "system:bound-crds"
+)
+
+var (
+	ShadowWorkspaceName = logicalcluster.New("system:bound-crds")
 )
 
 // NewController returns a new controller for APIBindings.
@@ -99,7 +103,7 @@ func NewController(
 				return false
 			}
 
-			return crd.ClusterName == ShadowWorkspaceName
+			return logicalcluster.From(crd) == ShadowWorkspaceName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj) },
@@ -208,7 +212,8 @@ func (c *controller) enqueueCRD(obj interface{}) {
 		return
 	}
 
-	apiResourceSchemaKey := clusters.ToClusterAwareKey(crd.Annotations[annotationSchemaClusterKey], crd.Annotations[annotationSchemaNameKey])
+	clusterName := logicalcluster.New(crd.Annotations[annotationSchemaClusterKey])
+	apiResourceSchemaKey := clusters.ToClusterAwareKey(clusterName, crd.Annotations[annotationSchemaNameKey])
 	apiResourceSchema, err := c.apiResourceSchemaLister.Get(apiResourceSchemaKey)
 	if err != nil {
 		runtime.HandleError(err)

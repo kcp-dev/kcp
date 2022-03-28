@@ -27,6 +27,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +43,6 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -282,14 +282,14 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		// possibly de-schedule while still in scheduling phase
 		if current := workspace.Status.Location.Current; current != "" {
 			// make sure current shard still exists
-			if shard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyhelper.RootCluster, current)); errors.IsNotFound(err) {
-				klog.Infof("De-scheduling workspace %s|%s from nonexistent shard %q", tenancyhelper.RootCluster, workspace.Name, current)
+			if shard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, current)); errors.IsNotFound(err) {
+				klog.Infof("De-scheduling workspace %s|%s from nonexistent shard %q", tenancyv1alpha1.RootCluster, workspace.Name, current)
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
 			} else if err != nil {
 				return err
 			} else if valid, _, _ := isValidShard(shard); !valid {
-				klog.Infof("De-scheduling workspace %s|%s from invalid shard %q", tenancyhelper.RootCluster, workspace.Name, current)
+				klog.Infof("De-scheduling workspace %s|%s from invalid shard %q", tenancyv1alpha1.RootCluster, workspace.Name, current)
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
 			}
@@ -328,13 +328,8 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target WorkspaceShard: %v.", err)
 					return err // requeue
 				}
-				logicalCluster, err := tenancyhelper.EncodeLogicalClusterName(workspace)
-				if err != nil {
-					// shouldn't happen since clusterName is supposed to be a valid name
-					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid ClusterWorkspace cluster name %q: %v.", workspace.ClusterName, err)
-					return nil // no hope requeue fixes it
-				}
-				u.Path = path.Join(u.Path, targetShard.Status.ConnectionInfo.APIPath, "clusters", logicalCluster)
+				logicalCluster := logicalcluster.From(workspace)
+				u.Path = path.Join(u.Path, targetShard.Status.ConnectionInfo.APIPath, logicalCluster.Join(workspace.Name).Path())
 
 				workspace.Status.BaseURL = u.String()
 				workspace.Status.Location.Current = targetShard.Name
@@ -363,13 +358,13 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 			break
 		}
 
-		targetShard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyhelper.RootCluster, target))
+		targetShard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, target))
 		if errors.IsNotFound(err) {
-			klog.Infof("Cannot move to nonexistent shard %q", tenancyhelper.RootCluster, workspace.Name, target)
+			klog.Infof("Cannot move to nonexistent shard %q", tenancyv1alpha1.RootCluster, workspace.Name, target)
 		} else if err != nil {
 			return err
 		} else if !conditions.IsTrue(targetShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
-			klog.Infof("Cannot move to shard %q with invalid credentials", tenancyhelper.RootCluster, workspace.Name, target)
+			klog.Infof("Cannot move to shard %q with invalid credentials", tenancyv1alpha1.RootCluster, workspace.Name, target)
 		}
 
 		klog.Infof("Moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
@@ -402,7 +397,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	// check scheduled shard. This has no influence on the workspace baseURL or shard assignment. This might be a trigger for
 	// a movement controller in the future (or a human intervention) to move workspaces off a shard.
 	if workspace.Status.Location.Current != "" {
-		if shard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyhelper.RootCluster, workspace.Status.Location.Current)); errors.IsNotFound(err) {
+		if shard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, workspace.Status.Location.Current)); errors.IsNotFound(err) {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound, conditionsv1alpha1.ConditionSeverityError, fmt.Sprintf("WorkspaceShard %q got deleted.", workspace.Status.Location.Current))
 		} else if err != nil {
 			return err
@@ -421,7 +416,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		//              of acceptance of the workspace on that shard.
 		if workspace.Status.Location.Current != "" && workspace.Status.BaseURL != "" {
 			// do final quorum read to avoid race when the workspace shard is being deleted
-			_, err := c.kcpClient.Cluster(tenancyhelper.RootCluster).TenancyV1alpha1().WorkspaceShards().Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
+			_, err := c.kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().WorkspaceShards().Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
 			if err != nil {
 				// reschedule
 				workspace.Status.Location.Current = ""

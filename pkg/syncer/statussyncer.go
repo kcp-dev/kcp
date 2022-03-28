@@ -19,6 +19,8 @@ package syncer
 import (
 	"context"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,7 +46,7 @@ func deepEqualStatus(oldObj, newObj interface{}) bool {
 
 const statusSyncerAgent = "kcp#status-syncer/v0.0.0"
 
-func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName, pclusterID string) (*Controller, error) {
+func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = statusSyncerAgent
 	to = rest.CopyConfig(to)

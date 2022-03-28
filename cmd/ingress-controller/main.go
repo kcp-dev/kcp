@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -82,7 +83,7 @@ func main() {
 				return err
 			}
 
-			kubeInformerFactory := informers.NewSharedInformerFactory(kubeClient.Cluster("*"), resyncPeriod)
+			kubeInformerFactory := informers.NewSharedInformerFactory(kubeClient.Cluster(logicalcluster.Wildcard), resyncPeriod)
 			ingressInformer := kubeInformerFactory.Networking().V1().Ingresses()
 			serviceInformer := kubeInformerFactory.Core().V1().Services()
 

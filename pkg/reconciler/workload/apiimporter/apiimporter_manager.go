@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -44,7 +46,7 @@ type apiImporterManager struct {
 func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
 	klog.Infof("reconciling cluster %q", cluster.Name)
 
-	logicalCluster := cluster.GetClusterName()
+	logicalCluster := logicalcluster.From(cluster)
 
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
@@ -77,7 +79,7 @@ func (m *apiImporterManager) Cleanup(ctx context.Context, deletedCluster *worklo
 	}
 }
 
-func (m *apiImporterManager) startAPIImporter(config *rest.Config, location string, logicalClusterName string, pollInterval time.Duration) (*APIImporter, error) {
+func (m *apiImporterManager) startAPIImporter(config *rest.Config, location string, logicalClusterName logicalcluster.LogicalCluster, pollInterval time.Duration) (*APIImporter, error) {
 	apiImporter := APIImporter{
 		kcpClusterClient:         m.kcpClusterClient,
 		resourcesToSync:          m.resourcesToSync,

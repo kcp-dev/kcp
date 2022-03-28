@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -66,7 +68,7 @@ func TestValidate(t *testing.T) {
 	tests := []struct {
 		name        string
 		a           admission.Attributes
-		clusterName string
+		clusterName logicalcluster.LogicalCluster
 		wantErr     bool
 	}{
 		{
@@ -76,7 +78,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 			}),
-			clusterName: "foo:bar",
+			clusterName: logicalcluster.New("foo:bar"),
 			wantErr:     false,
 		},
 		{
@@ -86,7 +88,7 @@ func TestValidate(t *testing.T) {
 					Name: "organization",
 				},
 			}),
-			clusterName: "root",
+			clusterName: logicalcluster.New("root"),
 			wantErr:     false,
 		},
 		{
@@ -96,7 +98,7 @@ func TestValidate(t *testing.T) {
 					Name: "organization",
 				},
 			}),
-			clusterName: "foo:bar",
+			clusterName: logicalcluster.New("foo:bar"),
 			wantErr:     true,
 		},
 	}

@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -132,7 +133,7 @@ func TestIsWorkspaceSchedulable(t *testing.T) {
 					},
 				}, nil
 			}
-			actual, err := isWorkspaceSchedulable(getWorkspace, "org:ws")
+			actual, err := isWorkspaceSchedulable(getWorkspace, logicalcluster.New("org:ws"))
 			require.NoError(t, err)
 			require.Equal(t, testCase.expected, actual)
 		})

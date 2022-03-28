@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -165,13 +166,13 @@ func TestPhaseReconciler(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var requeuedAfter time.Duration
 			r := &phaseReconciler{
-				getAPIExport: func(clusterName, name string) (*apisv1alpha1.APIExport, error) {
-					require.Equal(t, "org:some-workspace", clusterName)
+				getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
+					require.Equal(t, "org:some-workspace", clusterName.String())
 					require.Equal(t, "some-export", name)
 					return tc.apiExport, tc.getAPIExportError
 				},
-				getAPIResourceSchema: func(clusterName, name string) (*apisv1alpha1.APIResourceSchema, error) {
-					require.Equal(t, "org:some-workspace", clusterName)
+				getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+					require.Equal(t, "org:some-workspace", clusterName.String())
 					return tc.apiResourceSchemas[name], nil
 				},
 				enqueueAfter: func(binding *apisv1alpha1.APIBinding, duration time.Duration) {
@@ -298,7 +299,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 			},
 			want: &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					ClusterName: ShadowWorkspaceName,
+					ClusterName: ShadowWorkspaceName.String(),
 					Name:        "my-uuid",
 					Annotations: map[string]string{
 						annotationBoundCRDKey:      "",
@@ -623,16 +624,16 @@ func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
 			createCRDCalled := false
 
 			r := &workspaceAPIExportReferenceReconciler{
-				getAPIExport: func(clusterName, name string) (*apisv1alpha1.APIExport, error) {
-					require.Equal(t, "org:some-workspace", clusterName)
+				getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
+					require.Equal(t, "org:some-workspace", clusterName.String())
 					require.Equal(t, "some-export", name)
 					return tc.apiExport, tc.getAPIExportError
 				},
-				getAPIResourceSchema: func(clusterName, name string) (*apisv1alpha1.APIResourceSchema, error) {
-					require.Equal(t, "org:some-workspace", clusterName)
+				getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+					require.Equal(t, "org:some-workspace", clusterName.String())
 					return tc.apiResourceSchemas[name], tc.getAPIResourceSchemaError
 				},
-				getCRD: func(clusterName, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+				getCRD: func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 					require.Equal(t, ShadowWorkspaceName, clusterName)
 					return tc.crds[name], tc.getCRDError
 				},

@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -44,7 +46,7 @@ type mockClusterClient struct {
 	mockClient kcpclient.Interface
 }
 
-func (m *mockClusterClient) Cluster(name string) kcpclient.Interface {
+func (m *mockClusterClient) Cluster(name logicalcluster.LogicalCluster) kcpclient.Interface {
 	return m.mockClient
 }
 
@@ -68,7 +70,7 @@ func newTestWatcher(username string, groups []string, predicate storage.Selectio
 	stopCh := make(chan struct{})
 	go workspaceCache.Run(stopCh)
 
-	return NewUserWorkspaceWatcher(&user.DefaultInfo{Name: username, Groups: groups}, "lclusterName", workspaceCache, fakeAuthCache, false, predicate), fakeAuthCache, stopCh
+	return NewUserWorkspaceWatcher(&user.DefaultInfo{Name: username, Groups: groups}, logicalcluster.New("lclusterName"), workspaceCache, fakeAuthCache, false, predicate), fakeAuthCache, stopCh
 }
 
 type fakeAuthCache struct {

@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -28,7 +30,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	virtualworkspacesregistry "github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
@@ -37,7 +39,7 @@ import (
 // orgListener listens for changes in the root WorkspaceAuthCache,
 // in order to manage the list of orgs
 type orgListener struct {
-	newOrg func(orgName string) *virtualworkspacesregistry.Org
+	newOrg func(orgName logicalcluster.LogicalCluster) *virtualworkspacesregistry.Org
 
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
@@ -51,14 +53,14 @@ type orgListener struct {
 	ready func() bool
 
 	orgMutex sync.RWMutex
-	orgs     map[string]*virtualworkspacesregistry.Org
+	orgs     map[logicalcluster.LogicalCluster]*virtualworkspacesregistry.Org
 }
 
-func NewOrgListener(clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg *virtualworkspacesregistry.Org, newOrg func(orgName string) *virtualworkspacesregistry.Org) *orgListener {
+func NewOrgListener(clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, rootOrg *virtualworkspacesregistry.Org, newOrg func(orgName logicalcluster.LogicalCluster) *virtualworkspacesregistry.Org) *orgListener {
 	w := &orgListener{
 		newOrg: newOrg,
-		orgs: map[string]*virtualworkspacesregistry.Org{
-			helper.RootCluster: rootOrg,
+		orgs: map[logicalcluster.LogicalCluster]*virtualworkspacesregistry.Org{
+			tenancyv1alpha1.RootCluster: rootOrg,
 		},
 
 		clusterWorkspaceCache: clusterWorkspaceCache,
@@ -81,7 +83,7 @@ func (l *orgListener) Initialize(authCache *workspaceauth.AuthorizationCache) {
 
 	workspaces, _ := authCache.ListAllWorkspaces(labels.Everything())
 	for _, workspace := range workspaces.Items {
-		orgName := helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, workspace.Name)
+		orgName := tenancyv1alpha1.RootCluster.Join(workspace.Name)
 		org := l.newOrg(orgName)
 		readys = append(readys, org.Ready)
 		l.knownWorkspaces.Insert(workspace.Name)
@@ -111,7 +113,7 @@ func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups
 	l.knownWorkspacesMutex.Lock()
 	defer l.knownWorkspacesMutex.Unlock()
 
-	orgName := helper.EncodeOrganizationAndClusterWorkspace(helper.RootCluster, workspaceName)
+	orgName := tenancyv1alpha1.RootCluster.Join(workspaceName)
 	// All the workspace objects are accessible to the "system:masters" group
 	// and we want to track changes to all workspaces here
 	hasAccess := groups.Has(user.SystemPrivilegedGroup)
@@ -124,7 +126,7 @@ func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups
 		l.RemoveOrg(orgName)
 
 	case hasAccess:
-		_, err := l.clusterWorkspaceCache.GetWorkspace(helper.RootCluster, workspaceName)
+		_, err := l.clusterWorkspaceCache.GetWorkspace(tenancyv1alpha1.RootCluster, workspaceName)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -142,7 +144,7 @@ func (l *orgListener) GroupMembershipChanged(workspaceName string, users, groups
 
 }
 
-func (l *orgListener) AddOrg(orgName string) error {
+func (l *orgListener) AddOrg(orgName logicalcluster.LogicalCluster) error {
 	l.orgMutex.Lock()
 	defer l.orgMutex.Unlock()
 
@@ -159,7 +161,7 @@ func (l *orgListener) AddOrg(orgName string) error {
 	return nil
 }
 
-func (l *orgListener) RemoveOrg(orgName string) {
+func (l *orgListener) RemoveOrg(orgName logicalcluster.LogicalCluster) {
 	l.orgMutex.Lock()
 	defer l.orgMutex.Unlock()
 
@@ -176,7 +178,7 @@ func (l *orgListener) Ready() bool {
 	return l.ready()
 }
 
-func (l *orgListener) GetOrg(orgName string) (*virtualworkspacesregistry.Org, error) {
+func (l *orgListener) GetOrg(orgName logicalcluster.LogicalCluster) (*virtualworkspacesregistry.Org, error) {
 	l.orgMutex.RLock()
 	defer l.orgMutex.RUnlock()
 

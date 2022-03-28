@@ -24,6 +24,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,7 +39,6 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -90,7 +90,7 @@ func init() {
 
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
-func (c *Controller) reconcileResource(ctx context.Context, lclusterName string, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.LogicalCluster, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
 	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
 		klog.V(2).Infof("Skipping reconciliation of ingress %s/%s", unstr.GetNamespace(), unstr.GetName())
 		return nil
@@ -185,7 +185,7 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 	klog.Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
 		ns.ClusterName, ns.Name, oldPClusterName, newPClusterName)
 	patchType, patchBytes := clusterLabelPatchBytes(newPClusterName)
-	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
+	_, err = c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
@@ -204,7 +204,7 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 		return err
 	}
 
-	_, err = c.kubeClient.Cluster(ns.ClusterName).CoreV1().Namespaces().
+	_, err = c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		return fmt.Errorf("failed to patch status on namespace %s|%s: %w", ns.ClusterName, ns.Name, err)
@@ -218,10 +218,10 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 //
 // After assigning (or if it's already assigned), this also updates all
 // resources in the namespace to be assigned to the namespace's cluster.
-func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName string, ns *corev1.Namespace) error {
+func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logicalcluster.LogicalCluster, ns *corev1.Namespace) error {
 	klog.Infof("Reconciling namespace %s|%s", lclusterName, ns.Name)
 
-	workspaceSchedulingEnabled, err := isWorkspaceSchedulable(c.workspaceLister.Get, ns.ClusterName)
+	workspaceSchedulingEnabled, err := isWorkspaceSchedulable(c.workspaceLister.Get, logicalcluster.From(ns))
 	if err != nil {
 		return err
 	}
@@ -421,18 +421,13 @@ type getWorkspaceFunc func(name string) (*tenancyv1alpha1.ClusterWorkspace, erro
 
 // isWorkspaceSchedulable indicates whether the contents of the workspace
 // identified by the logical cluster name are schedulable.
-func isWorkspaceSchedulable(getWorkspace getWorkspaceFunc, logicalClusterName string) (bool, error) {
-	org, ws, err := helper.ParseLogicalClusterName(logicalClusterName)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse logical cluster name %q", logicalClusterName)
-	}
-
-	// Clusters not backed by ClusterWorkspace resources should not have scheduling enabled.
-	if !helper.HasClusterWorkspace(org, ws) {
+func isWorkspaceSchedulable(getWorkspace getWorkspaceFunc, logicalClusterName logicalcluster.LogicalCluster) (bool, error) {
+	org, hasParent := logicalClusterName.Parent()
+	if !hasParent {
 		return false, nil
 	}
 
-	workspaceKey := helper.WorkspaceKey(org, ws)
+	workspaceKey := clusters.ToClusterAwareKey(org, logicalClusterName.Base())
 	workspace, err := getWorkspace(workspaceKey)
 	if err != nil {
 		return false, fmt.Errorf("failed to retrieve workspace with key %s", workspaceKey)

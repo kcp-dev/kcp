@@ -21,6 +21,8 @@ package v1alpha1
 import (
 	"net/http"
 
+	logicalcluster "github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -37,7 +39,7 @@ type ApisV1alpha1Interface interface {
 // ApisV1alpha1Client is used to interact with features provided by the apis.kcp.dev group.
 type ApisV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    string
+	cluster    logicalcluster.LogicalCluster
 }
 
 func (c *ApisV1alpha1Client) APIBindings() APIBindingInterface {
@@ -97,7 +99,7 @@ func New(c rest.Interface) *ApisV1alpha1Client {
 }
 
 // NewWithCluster creates a new ApisV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster string) *ApisV1alpha1Client {
+func NewWithCluster(c rest.Interface, cluster logicalcluster.LogicalCluster) *ApisV1alpha1Client {
 	return &ApisV1alpha1Client{restClient: c, cluster: cluster}
 }
 

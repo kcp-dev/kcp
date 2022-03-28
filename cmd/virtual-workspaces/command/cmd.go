@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,13 +94,13 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	wildcardKubeClient := kubeClusterClient.Cluster("*")
+	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
 	if err != nil {
 		return err
 	}
-	wildcardKcpClient := kcpClusterClient.Cluster("*")
+	wildcardKcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver

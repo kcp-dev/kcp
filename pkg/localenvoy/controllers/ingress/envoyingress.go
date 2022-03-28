@@ -22,6 +22,8 @@ import (
 	"hash/fnv"
 	"strings"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/klog/v2"
@@ -32,7 +34,7 @@ import (
 
 // reconcile is triggered on every change to an ingress resource.
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
-	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
+	klog.InfoS("reconciling Ingress", "ClusterName", logicalcluster.From(ingress), "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	if ingress.Labels[nscontroller.ClusterLabel] == "" {
 		// Root
@@ -53,7 +55,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 	// If the Ingress has no status, that means that the ingress controller on the pcluster has
 	// not picked up this leaf yet, so we should skip it.
 	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
-		klog.Infof("Ingress %s - %s/%s has no loadbalancer status set, skipping.", ingress.ClusterName, ingress.Namespace, ingress.Name)
+		klog.Infof("Ingress %s - %s/%s has no loadbalancer status set, skipping.", logicalcluster.From(ingress), ingress.Namespace, ingress.Name)
 		return nil
 	}
 
@@ -90,5 +92,5 @@ func generateStatusHost(domain string, ingress *networkingv1.Ingress) string {
 		return ingress.Spec.Rules[0].Host
 	}
 
-	return domainHashString(ingress.Name+ingress.Namespace+ingress.ClusterName) + "." + domain
+	return domainHashString(ingress.Name+ingress.Namespace+logicalcluster.From(ingress).String()) + "." + domain
 }

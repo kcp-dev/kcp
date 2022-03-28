@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"testing"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -197,7 +198,7 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "personal",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -288,7 +289,7 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "personal",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -379,7 +380,7 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -470,7 +471,7 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -564,7 +565,7 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -657,7 +658,7 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -750,7 +751,7 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -840,7 +841,7 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -921,7 +922,7 @@ func TestKubeconfigFailBecauseShardNotFound(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
@@ -988,7 +989,7 @@ func TestKubeconfigFailBecauseWorkspaceNotFound(t *testing.T) {
 		TestData: TestData{
 			user:    user,
 			scope:   "organization",
-			orgName: "orgName",
+			orgName: logicalcluster.New("root:orgName"),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {

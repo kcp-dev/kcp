@@ -21,6 +21,8 @@ package v1alpha1
 import (
 	"net/http"
 
+	logicalcluster "github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -36,7 +38,7 @@ type ApiresourceV1alpha1Interface interface {
 // ApiresourceV1alpha1Client is used to interact with features provided by the apiresource.kcp.dev group.
 type ApiresourceV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    string
+	cluster    logicalcluster.LogicalCluster
 }
 
 func (c *ApiresourceV1alpha1Client) APIResourceImports() APIResourceImportInterface {
@@ -92,7 +94,7 @@ func New(c rest.Interface) *ApiresourceV1alpha1Client {
 }
 
 // NewWithCluster creates a new ApiresourceV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster string) *ApiresourceV1alpha1Client {
+func NewWithCluster(c rest.Interface, cluster logicalcluster.LogicalCluster) *ApiresourceV1alpha1Client {
 	return &ApiresourceV1alpha1Client{restClient: c, cluster: cluster}
 }
 

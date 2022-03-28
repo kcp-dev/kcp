@@ -19,11 +19,13 @@ package apibinding
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -35,7 +37,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -58,8 +59,8 @@ type reconciler interface {
 }
 
 type phaseReconciler struct {
-	getAPIExport         func(clusterName, name string) (*apisv1alpha1.APIExport, error)
-	getAPIResourceSchema func(clusterName, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getAPIExport         func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error)
+	getAPIResourceSchema func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
 	enqueueAfter         func(*apisv1alpha1.APIBinding, time.Duration)
 }
 
@@ -68,15 +69,15 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 	case "":
 		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
 	case apisv1alpha1.APIBindingPhaseBound:
-		apiExportClusterName := getAPIExportClusterName(apiBinding)
-		if apiExportClusterName == "" {
+		apiExportClusterName, err := getAPIExportClusterName(apiBinding)
+		if err != nil {
 			// Should never happen
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.APIExportValid,
 				apisv1alpha1.APIExportNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				"unable to determine workspace for APIExport",
+				err.Error(),
 			)
 
 			// No way to proceed from here - don't retry
@@ -147,15 +148,15 @@ func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.
 	return reconcileStatusContinue, nil
 }
 
-func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) string {
-	org, _, err := helper.ParseLogicalClusterName(apiBinding.ClusterName)
-	if err != nil {
-		// should never happen
-		klog.Errorf("Error parsing logical cluster %q: %v", apiBinding.ClusterName, err)
-		return ""
+func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.LogicalCluster, error) {
+	parent, hasParent := logicalcluster.From(apiBinding).Parent()
+	if !hasParent {
+		return logicalcluster.LogicalCluster{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
 	}
-
-	return helper.EncodeOrganizationAndClusterWorkspace(org, apiBinding.Spec.Reference.Workspace.WorkspaceName)
+	if apiBinding.Spec.Reference.Workspace == nil {
+		return logicalcluster.LogicalCluster{}, fmt.Errorf("APIBinding does not specify an APIExport")
+	}
+	return parent.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName), nil
 }
 
 func referencedAPIExportChanged(apiBinding *apisv1alpha1.APIBinding) bool {
@@ -189,9 +190,9 @@ func apiExportLatestResourceSchemasChanged(apiBinding *apisv1alpha1.APIBinding, 
 }
 
 type workspaceAPIExportReferenceReconciler struct {
-	getAPIExport         func(clusterName, name string) (*apisv1alpha1.APIExport, error)
-	getAPIResourceSchema func(clusterName, name string) (*apisv1alpha1.APIResourceSchema, error)
-	getCRD               func(clusterName, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	getAPIExport         func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error)
+	getAPIResourceSchema func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getCRD               func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	createCRD            func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
 	updateCRD            func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
 
@@ -212,15 +213,15 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 		return reconcileStatusStop, nil
 	}
 
-	apiExportClusterName := getAPIExportClusterName(apiBinding)
-	if apiExportClusterName == "" {
+	apiExportClusterName, err := getAPIExportClusterName(apiBinding)
+	if err != nil {
 		// this should not happen because of OpenAPI
 		conditions.MarkFalse(
 			apiBinding,
 			apisv1alpha1.APIExportValid,
 			apisv1alpha1.APIExportInvalidReferenceReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			"Missing APIExport cluster name",
+			err.Error(),
 		)
 		return reconcileStatusStop, nil
 	}
@@ -421,30 +422,30 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	return errors.NewAggregate(errs)
 }
 
-func (c *controller) getAPIExport(clusterName, name string) (*apisv1alpha1.APIExport, error) {
+func (c *controller) getAPIExport(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
 	return c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, name))
 }
 
-func (c *controller) getAPIResourceSchema(clusterName, name string) (*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) getAPIResourceSchema(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
 	return c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(clusterName, name))
 }
 
-func (c *controller) getCRD(clusterName, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *controller) getCRD(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	return c.crdLister.Get(clusters.ToClusterAwareKey(clusterName, name))
 }
 
 func (c *controller) createCRD(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdClusterClient.Cluster(crd.ClusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
+	return c.crdClusterClient.Cluster(logicalcluster.From(crd)).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
 }
 
 func (c *controller) updateCRD(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdClusterClient.Cluster(crd.ClusterName).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{})
+	return c.crdClusterClient.Cluster(logicalcluster.From(crd)).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{})
 }
 
 func crdFromAPIResourceSchema(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			ClusterName: ShadowWorkspaceName,
+			ClusterName: ShadowWorkspaceName.String(),
 			Name:        string(schema.UID),
 			Annotations: map[string]string{
 				annotationBoundCRDKey:      "",

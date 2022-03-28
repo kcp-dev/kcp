@@ -33,6 +33,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -201,7 +202,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
 		require.NoError(t, err, "could not get discovery client for server")
 
-		scopedDiscoveryClient := discoveryClient.WithCluster(accessor.GetClusterName())
+		scopedDiscoveryClient := discoveryClient.WithCluster(logicalcluster.From(accessor))
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(scopedDiscoveryClient))
 		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		require.NoError(t, err, "could not get REST mapping for artifact's GVK")
@@ -294,7 +295,7 @@ func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpcl
 	// which is of the form `org:workspace`. Since `:` isn't allowed
 	// in resource names, replacing it with '.' results in a name safe
 	// for use as a resource name.
-	safeClusterName := strings.Replace(pcluster.Name(), ":", ".", 1)
+	safeClusterName := strings.ReplaceAll(pcluster.Name(), ":", ".")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -324,11 +325,11 @@ func RequireNoDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
 }
 
 // LogicalClusterConfig returns the logical cluster context of the given config.
-func LogicalClusterConfig(rawConfig *clientcmdapi.Config, logicalClusterName string) clientcmd.ClientConfig {
+func LogicalClusterConfig(rawConfig *clientcmdapi.Config, logicalClusterName logicalcluster.LogicalCluster) clientcmd.ClientConfig {
 	contextName := "system:admin"
 
 	var configCluster = *rawConfig.Clusters[contextName] // shallow copy
-	configCluster.Server += path.Join("/clusters", logicalClusterName)
+	configCluster.Server += logicalClusterName.Path()
 
 	kubeConfig := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{

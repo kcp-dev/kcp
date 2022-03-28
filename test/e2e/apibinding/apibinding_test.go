@@ -34,7 +34,6 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -83,7 +82,6 @@ func TestAPIBinding(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetWorkspace)
-	_, sourceWorkspaceName, err := helper.ParseLogicalClusterName(sourceWorkspace)
 	require.NoError(t, err)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -92,7 +90,7 @@ func TestAPIBinding(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					WorkspaceName: sourceWorkspaceName,
+					WorkspaceName: sourceWorkspace.Base(),
 					ExportName:    cowboysAPIExport.Name,
 				},
 			},

@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,21 +36,23 @@ import (
 const (
 	testClusterName      = "test-cluster"
 	otherTestClusterName = "other-test-cluster"
+)
 
-	testLclusterName      = "test:lcluster"
-	otherTestLclusterName = "test:other-lcluster"
+var (
+	testLclusterName      = logicalcluster.New("test:lcluster")
+	otherTestLclusterName = logicalcluster.New("test:other-lcluster")
 )
 
 type clusterFixture struct {
 	cluster *workloadv1alpha1.WorkloadCluster
 }
 
-func newClusterFixture(lclusterName, clusterName string) *clusterFixture {
+func newClusterFixture(lclusterName logicalcluster.LogicalCluster, clusterName string) *clusterFixture {
 	f := &clusterFixture{
 		cluster: &workloadv1alpha1.WorkloadCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        clusterName,
-				ClusterName: lclusterName,
+				ClusterName: lclusterName.String(),
 			},
 		},
 	}
@@ -90,7 +93,7 @@ func newTestScheduler(clusters []*workloadv1alpha1.WorkloadCluster) namespaceSch
 	return namespaceScheduler{
 		getCluster: func(name string) (*workloadv1alpha1.WorkloadCluster, error) {
 			for _, cluster := range clusters {
-				if clustertools.ToClusterAwareKey(cluster.ClusterName, cluster.Name) == name {
+				if clustertools.ToClusterAwareKey(logicalcluster.From(cluster), cluster.Name) == name {
 					return cluster, nil
 				}
 			}
@@ -148,7 +151,7 @@ func TestAssignCluster(t *testing.T) {
 			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
-					ClusterName: testLclusterName,
+					ClusterName: testLclusterName.String(),
 					Labels:      testCase.labels,
 				},
 			}

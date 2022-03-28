@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -63,7 +64,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	// make sure we don't break cross-logical cluster client listing.
 	clientutils.EnableMultiCluster(cfg, nil, true)
 
-	logicalClusters := []string{
+	logicalClusters := []logicalcluster.LogicalCluster{
 		framework.NewOrganizationFixture(t, server),
 		framework.NewOrganizationFixture(t, server),
 	}
@@ -93,7 +94,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		_, err = kcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating source workspace")
 
-		expectedWorkspaces.Insert(logicalCluster + "/" + wsName)
+		expectedWorkspaces.Insert(logicalCluster.Join(wsName).String())
 
 		server.Artifact(t, func() (runtime.Object, error) {
 			return kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
@@ -103,14 +104,14 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	t.Logf("Listing ClusterWorkspace CRs across logical clusters")
 	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
-	kcpClient := kcpClients.Cluster("*")
+	kcpClient := kcpClients.Cluster(logicalcluster.Wildcard)
 	workspaces, err := kcpClient.TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing workspaces")
 
 	t.Logf("Expecting at least those ClusterWorkspaces we created above")
 	got := sets.NewString()
 	for _, ws := range workspaces.Items {
-		got.Insert(ws.ClusterName + "/" + ws.Name)
+		got.Insert(logicalcluster.From(&ws).Join(ws.Name).String())
 	}
 	require.True(t, got.IsSuperset(expectedWorkspaces), "unexpected workspaces detected")
 }
@@ -146,7 +147,7 @@ func TestCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	sheriffs.Create(t, crdClusterClient.Cluster(w2).ApiextensionsV1().CustomResourceDefinitions(), sheriffGR)
 
 	t.Logf("Trying to wildcard list")
-	_, err = dynamicClusterClient.Cluster("*").Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
+	_, err = dynamicClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work because schemas are the same")
 
 	t.Logf("Install a different sheriffs CRD into workspace %q", w3)
@@ -154,14 +155,14 @@ func TestCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	t.Logf("Trying to wildcard list and expecting it to fail now")
 	require.Eventually(t, func() bool {
-		_, err = dynamicClusterClient.Cluster("*").Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
+		_, err = dynamicClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 		return err != nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected wildcard list to fail because schemas are different")
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")
 	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
-	_, err = metadataClusterClient.Cluster("*").Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
+	_, err = metadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work with metadata client even though schemas are different")
 
 	t.Logf("Create a sheriff")
@@ -179,7 +180,7 @@ func TestCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Log("Start dynamic metadata informers")
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
-	kcpInformer := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster("*"), time.Second*30)
+	kcpInformer := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(logicalcluster.Wildcard), time.Second*30)
 	kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 	kcpInformer.Start(ctx.Done())
 	kcpInformer.WaitForCacheSync(ctx.Done())
@@ -187,7 +188,7 @@ func TestCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	informerFactory := informer.NewDynamicDiscoverySharedInformerFactory(
 		kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
 		kcpClusterClient.DiscoveryClient,
-		metadataClusterClient.Cluster("*"),
+		metadataClusterClient.Cluster(logicalcluster.Wildcard),
 		func(obj interface{}) bool { return true },
 		informer.GVREventHandlerFuncs{},
 		time.Second*2,

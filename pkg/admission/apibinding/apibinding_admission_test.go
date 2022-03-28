@@ -21,6 +21,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -245,7 +246,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: func(clusterName string, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.LogicalCluster, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tc.authzDecision,
 						tc.authzError,
@@ -253,7 +254,7 @@ func TestValidate(t *testing.T) {
 				},
 			}
 
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
 
 			err := o.Validate(ctx, tc.attr, nil)
 

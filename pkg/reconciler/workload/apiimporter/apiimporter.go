@@ -20,6 +20,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -52,7 +54,7 @@ type APIImporter struct {
 	clusterIndexer           cache.Indexer
 
 	location           string
-	logicalClusterName string
+	logicalClusterName logicalcluster.LogicalCluster
 	schemaPuller       crdpuller.SchemaPuller
 	done               chan bool
 	SyncedGVRs         map[string]metav1.GroupVersionResource
@@ -130,7 +132,7 @@ func (i *APIImporter) ImportAPIs() {
 			clusterKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        i.location,
-					ClusterName: i.logicalClusterName,
+					ClusterName: i.logicalClusterName.String(),
 				},
 			})
 			if err != nil {
@@ -158,7 +160,7 @@ func (i *APIImporter) ImportAPIs() {
 			apiResourceImport := &apiresourcev1alpha1.APIResourceImport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        apiResourceImportName,
-					ClusterName: i.logicalClusterName,
+					ClusterName: i.logicalClusterName.String(),
 					OwnerReferences: []metav1.OwnerReference{
 						clusterAsOwnerReference(cluster, true),
 					},

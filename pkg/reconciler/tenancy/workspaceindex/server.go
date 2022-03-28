@@ -25,10 +25,10 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/klog/v2"
-
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 // NewServer creates a new server that can respond to requests for versioned data in workspaces.
@@ -93,16 +93,12 @@ func (s *server) handleShard(w http.ResponseWriter, r *http.Request) {
 	}
 	// first, validate the input from the user
 	q := r.URL.Query()
-	clusterName := q.Get(clusterNameQuery)
-	if clusterName == "" {
+	clusterName := logicalcluster.New(q.Get(clusterNameQuery))
+	if clusterName.Empty() {
 		http.Error(w, "clusterName query must not be empty", http.StatusBadRequest)
 		return
 	}
-	organization, workspace, err := helper.ParseLogicalClusterName(clusterName)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("clusterName query invalid: %v", err), http.StatusBadRequest)
-		return
-	}
+	organization, workspace := clusterName.Split()
 	resourceVersionString := q.Get(resourceVersionQuery)
 	if resourceVersionString == "" {
 		resourceVersionString = "0"
@@ -114,7 +110,7 @@ func (s *server) handleShard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// then, find the shard history for the workspace in question
-	history, err := s.index.Get(organization, workspace)
+	history, err := s.index.Get(organization.String(), workspace)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

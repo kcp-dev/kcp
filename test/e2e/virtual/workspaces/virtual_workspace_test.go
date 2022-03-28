@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -43,7 +44,6 @@ import (
 	virtualcommand "github.com/kcp-dev/kcp/cmd/virtual-workspaces/command"
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -61,13 +61,8 @@ var testData = testDataType{
 }
 
 // TODO: move this into a controller and remove this method
-func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Interface, orgClusterName string, groupNames ...string) error {
-	_, orgName, err := helper.ParseLogicalClusterName(orgClusterName)
-	if err != nil {
-		return err
-	}
-
-	roleName := "org-" + orgName + "-member"
+func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Interface, orgClusterName logicalcluster.LogicalCluster, groupNames ...string) error {
+	roleName := "org-" + orgClusterName.Base() + "-member"
 	if _, err := kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: roleName,
@@ -76,7 +71,7 @@ func createOrgMemberRoleForGroup(ctx context.Context, kubeClient kubernetes.Inte
 			{
 				Verbs:         []string{"access", "member"},
 				Resources:     []string{"clusterworkspaces/content"},
-				ResourceNames: []string{orgName},
+				ResourceNames: []string{orgClusterName.Base()},
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},
 		},
@@ -132,7 +127,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName                string
+		orgClusterName                logicalcluster.LogicalCluster
 		orgKubeClient, rootKubeClient kubernetes.Interface
 		orgKcpClient, rootKcpClient   kcpclientset.Interface
 		virtualKcpClients             []kcpclientset.Interface
@@ -141,20 +136,20 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 	var testCases = []struct {
 		name                           string
-		virtualWorkspaceClientContexts func(orgName string) []clientInfo
+		virtualWorkspaceClientContexts func(orgName logicalcluster.LogicalCluster) []clientInfo
 		work                           func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "create a workspace in personal virtual workspace and have only its owner list it",
-			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
 				return []clientInfo{
 					{
 						Token:  "user-1-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
 					},
 					{
 						Token:  "user-2-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
 					},
 				}
 			},
@@ -222,15 +217,15 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		},
 		{
 			name: "create a workspace of custom type and verify that clusteworkspacetype use authorization takes place",
-			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
 				return []clientInfo{
 					{
 						Token:  "user-1-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
 					},
 					{
 						Token:  "user-2-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
 					},
 				}
 			},
@@ -324,11 +319,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		},
 		{
 			name: "create a workspace in personal virtual workspace for an organization and don't see it in another organization",
-			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
 				return []clientInfo{
 					{
 						Token:  "user-1-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
 					},
 				}
 			},
@@ -338,7 +333,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 				org2ClusterName := framework.NewOrganizationFixture(t, server)
 				token := "user-1-token"
-				prefix := path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", org2ClusterName, "personal")
+				prefix := path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", org2ClusterName.String(), "personal")
 				org2Client := newVirtualKcpClient(t, server.DefaultConfig(t), token, prefix)
 				org2Expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, org2Client)
 				require.NoError(t, err, "failed to start virtual workspace expecter")
@@ -399,7 +394,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		},
 		{
 			name: "Checks that the org a user is member of is visible to him when pointing to the root workspace with the all scope",
-			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
 				return []clientInfo{
 					{
 						// Use a user unique to the test to ensure isolation from other tests
@@ -409,10 +404,9 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				_, orgName, err := helper.ParseLogicalClusterName(server.orgClusterName)
-				require.NoError(t, err, "failed to parse organization logical cluster")
+				orgName := server.orgClusterName.Base()
 
-				err = createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-virtual-workspace-all-scope")
+				err := createOrgMemberRoleForGroup(ctx, server.rootKubeClient, server.orgClusterName, "team-virtual-workspace-all-scope")
 				require.NoError(t, err, "failed to create root workspace roles")
 
 				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
@@ -431,12 +425,12 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		},
 		{
 			name: "create a workspace in personal virtual workspace and retrieve its kubeconfig",
-			virtualWorkspaceClientContexts: func(orgName string) []clientInfo {
+			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
 				return []clientInfo{
 					{
 						// Use a user unique to the test to ensure isolation from other tests
 						Token:  "user-virtual-workspace-kubeconfig-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName, "personal"),
+						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
 					},
 				}
 			},
@@ -636,8 +630,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				orgClusterName:               orgClusterName,
 				orgKubeClient:                kubeClusterClient.Cluster(orgClusterName),
 				orgKcpClient:                 kcpClusterClient.Cluster(orgClusterName),
-				rootKubeClient:               kubeClusterClient.Cluster(helper.RootCluster),
-				rootKcpClient:                kcpClusterClient.Cluster(helper.RootCluster),
+				rootKubeClient:               kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				rootKcpClient:                kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				virtualKcpClients:            virtualKcpClients,
 				virtualWorkspaceExpectations: virtualWorkspaceExpectations,
 			})

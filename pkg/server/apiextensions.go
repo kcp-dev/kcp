@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -42,7 +43,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -51,7 +51,7 @@ import (
 
 // SystemCRDLogicalCluster is the logical cluster we install system CRDs into for now. These are needed
 // to start wildcard informers until a "real" workspace gets them installed.
-const SystemCRDLogicalCluster = helper.LocalSystemClusterPrefix + "system-crds"
+var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
 type systemCRDProvider struct {
 	rootCRDs      sets.String
@@ -93,13 +93,13 @@ func newSystemCRDProvider(
 	}
 }
 
-func (p *systemCRDProvider) List(ctx context.Context, org, ws string) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+func (p *systemCRDProvider) List(ctx context.Context, clusterName logicalcluster.LogicalCluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	var ret []*apiextensionsv1.CustomResourceDefinition
 
-	for _, key := range p.Keys(ctx, org, ws).List() {
+	for _, key := range p.Keys(ctx, clusterName).List() {
 		crd, err := p.getCRD(key)
 		if err != nil {
-			klog.Errorf("Failed to get CRD %s for %s|%s: %v", key, err, org, ws)
+			klog.Errorf("Failed to get CRD %s for %s: %v", key, clusterName, err)
 			// we shouldn't see this because getCRD is backed by a quorum-read client on cache-miss
 			return nil, fmt.Errorf("error getting system CRD %q: %w", key, err)
 		}
@@ -110,14 +110,13 @@ func (p *systemCRDProvider) List(ctx context.Context, org, ws string) ([]*apiext
 	return ret, nil
 }
 
-func (p *systemCRDProvider) Keys(ctx context.Context, org, workspace string) sets.String {
+func (p *systemCRDProvider) Keys(ctx context.Context, clusterName logicalcluster.LogicalCluster) sets.String {
 	switch {
-	case workspace == helper.RootCluster:
+	case clusterName == tenancyv1alpha1.RootCluster:
 		return p.rootCRDs
-	case org == "system":
-		// fall through
-	case org != "":
-		workspaceKey := helper.WorkspaceKey(org, workspace)
+	case clusterName.HasPrefix(tenancyv1alpha1.RootCluster):
+		parent, ws := clusterName.Split()
+		workspaceKey := clusters.ToClusterAwareKey(parent, ws)
 		clusterWorkspace, err := p.getClusterWorkspace(ctx, workspaceKey)
 		if err != nil {
 			// this shouldn't happen. The getters use quorum-read client on cache-miss.
@@ -127,7 +126,8 @@ func (p *systemCRDProvider) Keys(ctx context.Context, org, workspace string) set
 		switch clusterWorkspace.Spec.Type {
 		case "Universal":
 			return p.universalCRDs
-		case "Organization":
+		case "Organization", "Team":
+			// TODO(sttts): this cannot be hardcoded. There might be other org-like types.y
 			return p.orgCRDs
 		}
 	}
@@ -167,12 +167,7 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
-	org, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
-	if err != nil {
-		return nil, fmt.Errorf("error determining workspace name from cluster name %q: %w", cluster.Name, err)
-	}
-
-	kcpSystemCRDs, err := c.systemCRDProvider.List(ctx, org, workspace)
+	kcpSystemCRDs, err := c.systemCRDProvider.List(ctx, cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
@@ -190,7 +185,7 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 
 	// TODO(sttts): optimize this looping by using an informer index
 	for _, apiBinding := range apiBindings {
-		if apiBinding.ClusterName != cluster.Name {
+		if logicalcluster.From(apiBinding) != cluster.Name {
 			continue
 		}
 		if apiBinding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
@@ -226,7 +221,7 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 	}
 	for i := range crds {
 		crd := crds[i]
-		if crd.ClusterName != cluster.Name {
+		if logicalcluster.From(crd) != cluster.Name {
 			continue
 		}
 
@@ -316,13 +311,8 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 		return crd, nil
 	}
 
-	org, workspace, err := helper.ParseLogicalClusterName(cluster.Name)
-	if err != nil {
-		return nil, fmt.Errorf("error determining workspace name from cluster name %q: %w", cluster.Name, err)
-	}
-
 	// Priority 1: see in system CRDs
-	systemCRDKeys := c.systemCRDProvider.Keys(ctx, org, workspace)
+	systemCRDKeys := c.systemCRDProvider.Keys(ctx, cluster.Name)
 	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
 	if systemCRDKeys.Has(systemCRDKeyName) {
 		crd, err = c.crdLister.Get(systemCRDKeyName)
@@ -353,7 +343,7 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 		return nil, err
 	}
 	for _, apiBinding := range apiBindings {
-		if apiBinding.ClusterName != cluster.Name {
+		if logicalcluster.From(apiBinding) != cluster.Name {
 			continue
 		}
 		if apiBinding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {

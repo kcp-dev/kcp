@@ -29,7 +29,6 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 // Validate ClusterWorkspaceTypes creation and updates for
@@ -73,7 +72,7 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 	if err != nil {
 		return apierrors.NewInternalError(err)
 	}
-	if cwt.Name == "organization" && clusterName != helper.RootCluster {
+	if cwt.Name == "organization" && clusterName != tenancyv1alpha1.RootCluster {
 		return errors.New("organization type can only be created in root workspace")
 	}
 

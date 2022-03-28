@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
@@ -167,7 +169,7 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 				// in our case the OpenAPI Spec will be published by the default OpenAPI Service Provider,
 				// which is served when the cluster name is empty.
 				if req.URL.Path != "/openapi/v2" {
-					context = genericapirequest.WithCluster(context, genericapirequest.Cluster{Name: "virtual"})
+					context = genericapirequest.WithCluster(context, genericapirequest.Cluster{Name: logicalcluster.New("virtual")})
 				}
 				req = req.WithContext(context)
 				delegatedHandler := delegateAPIServer.UnprotectedHandler()

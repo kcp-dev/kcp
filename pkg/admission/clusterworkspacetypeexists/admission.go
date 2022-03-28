@@ -23,6 +23,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -245,7 +247,7 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 
 	// verify that the type can be used by the given user
 	if a.GetOperation() == admission.Create {
-		authz, err := o.createAuthorizer(cwt.ClusterName, o.kubeClusterClient)
+		authz, err := o.createAuthorizer(logicalcluster.From(cwt), o.kubeClusterClient)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q", cw.Spec.Type))
 		}
