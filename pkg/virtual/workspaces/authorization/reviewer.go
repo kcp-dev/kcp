@@ -17,6 +17,8 @@ limitations under the License.
 package authorization
 
 import (
+	"context"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -54,12 +56,23 @@ func NewReviewer(subjectLocator rbac.SubjectLocator) *Reviewer {
 
 // Review returns a Review for attributes.
 func (r *Reviewer) Review(attributes kauthorizer.Attributes) Review {
+	if r.subjectLocater == nil {
+		return Review{}
+	}
 	subjects, err := r.subjectLocater.AllowedSubjects(attributes)
 	review := Review{
 		EvaluationError: err,
 	}
 	review.Users, review.Groups = rbacSubjectsToUsersAndGroups(subjects)
 	return review
+}
+
+func (r *Reviewer) Authorize(ctx context.Context, attributes kauthorizer.Attributes) (authorized kauthorizer.Decision, reason string, err error) {
+	review := r.Review(attributes)
+	if review.Allows(attributes.GetUser()) {
+		return kauthorizer.DecisionAllow, "", nil
+	}
+	return kauthorizer.DecisionNoOpinion, "SubjectNotAllowed", nil
 }
 
 func rbacSubjectsToUsersAndGroups(subjects []rbacv1.Subject) (users []string, groups []string) {

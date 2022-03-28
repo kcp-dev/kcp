@@ -165,7 +165,7 @@ func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, user
 		}
 
 	case hasAccess:
-		clusterWorkspace, err := w.clusterWorkspaceCache.GetWorkspace(w.lclusterName, workspaceName)
+		clusterWorkspace, err := w.clusterWorkspaceCache.Get(w.lclusterName, workspaceName)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
