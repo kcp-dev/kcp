@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -74,6 +75,14 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	}
 	if cluster == nil || cluster.Name.Empty() {
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+	}
+
+	// everybody authenticated has access to the root workspace
+	if cluster.Name == v1alpha1.RootCluster {
+		if sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated") {
+			return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), "system:kcp:authenticated")))
+		}
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
 	}
 
 	parentClusterName, hasParent := cluster.Name.Parent()
@@ -174,11 +183,15 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 	}
 
-	attrsWithExtraGroups := authorizer.AttributesRecord{
+	return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), extraGroups...)))
+}
+
+func attributesWithReplacedGroups(attr authorizer.Attributes, groups []string) authorizer.Attributes {
+	return authorizer.AttributesRecord{
 		User: &user.DefaultInfo{
 			Name:   attr.GetUser().GetName(),
 			UID:    attr.GetUser().GetUID(),
-			Groups: append(attr.GetUser().GetGroups(), extraGroups...),
+			Groups: groups,
 			Extra:  attr.GetUser().GetExtra(),
 		},
 		Verb:            attr.GetVerb(),
@@ -191,6 +204,4 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		ResourceRequest: attr.IsResourceRequest(),
 		Path:            attr.GetPath(),
 	}
-
-	return a.delegate.Authorize(ctx, attrsWithExtraGroups)
 }

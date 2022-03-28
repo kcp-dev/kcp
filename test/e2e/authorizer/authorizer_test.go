@@ -117,6 +117,8 @@ func TestAuthorizer(t *testing.T) {
 			return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace %s didn't get ready", wsName)
 	}
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1"}, nil, []string{"member"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-2"}, nil, []string{"access"})
 
 	tests := map[string]func(){
 		"Users can view their own resources": func() {
