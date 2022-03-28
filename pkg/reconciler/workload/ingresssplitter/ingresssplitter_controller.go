@@ -77,13 +77,14 @@ func NewController(
 			if !ok {
 				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 				if !ok {
-					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
+					runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
 					return
 				}
 
 				ingress, ok = tombstone.Obj.(*networkingv1.Ingress)
 				if !ok {
-					runtime.HandleError(fmt.Errorf("unexpected boject type: %T", obj))
+					runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
+					return
 				}
 			}
 
@@ -231,7 +232,7 @@ func (c *Controller) ingressesFromService(obj interface{}) {
 	// One Service can be referenced by 0..n Ingresses, so we need to enqueue all the related ingreses.
 	for _, ingress := range ingresses.List() {
 		klog.Infof("tracked service %q triggered Ingress %q reconciliation", service.Name, ingress)
-		c.enqueue(&ingress)
+		c.queue.Add(ingress)
 	}
 }
 
