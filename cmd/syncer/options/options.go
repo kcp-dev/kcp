@@ -30,6 +30,8 @@ import (
 
 type Options struct {
 	FromKubeconfig      string
+	FromContext         string
+	FromServer          string
 	FromClusterName     string
 	ToKubeconfig        string
 	ToContext           string
@@ -50,6 +52,8 @@ func NewOptions() *Options {
 
 func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.FromKubeconfig, "from-kubeconfig", options.FromKubeconfig, "Kubeconfig file for -from cluster.")
+	fs.StringVar(&options.FromContext, "from-context", options.FromContext, "Context to use in the Kubeconfig file for -from cluster, instead of the current context.")
+	fs.StringVar(&options.FromServer, "from-server", options.FromServer, "The overridden address and port of the Kubernetes API server to use in the Kubeconfig file for -from cluster.")
 	fs.StringVar(&options.FromClusterName, "from-cluster", options.FromClusterName, "Name of the -from logical cluster.")
 	fs.StringVar(&options.ToKubeconfig, "to-kubeconfig", options.ToKubeconfig, "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
 	fs.StringVar(&options.ToContext, "to-context", options.ToContext, "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")

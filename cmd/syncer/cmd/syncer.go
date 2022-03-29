@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
 	synceroptions "github.com/kcp-dev/kcp/cmd/syncer/options"
@@ -66,8 +67,17 @@ func NewSyncerCommand() *cobra.Command {
 func Run(options *synceroptions.Options, ctx context.Context) error {
 	klog.Infof("Syncing the following resource types: %s", options.SyncedResourceTypes)
 
+	kcpConfigOverrides := &clientcmd.ConfigOverrides{
+		CurrentContext: options.FromContext,
+	}
+	if options.FromServer != "" {
+		kcpConfigOverrides.ClusterInfo = api.Cluster{
+			Server: options.FromServer,
+		}
+	}
 	kcpConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.FromKubeconfig}, nil).ClientConfig()
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.FromKubeconfig},
+		kcpConfigOverrides).ClientConfig()
 	if err != nil {
 		return err
 	}
