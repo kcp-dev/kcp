@@ -40,8 +40,8 @@ GOLANGCI_LINT_VER := v1.44.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
-KUBE_MAJOR_VERSION := $(shell grep "k8s.io/kubernetes v" go.mod | sed "s/.*k8s.io\/kubernetes v\([0-9]*\)\..*/\1/")
-KUBE_MINOR_VERSION := $(shell grep "k8s.io/kubernetes v" go.mod | sed "s/.*k8s.io\/kubernetes v[0-9]*\.\([0-9]*\).*/\1/")
+KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
+KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_DIRTY := $(shell git diff --quiet && echo 'clean' || echo 'dirty')
 GIT_VERSION := $(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}" 2>/dev/null || echo v0.0.0-$(GIT_COMMIT))+kcp
@@ -63,12 +63,14 @@ LDFLAGS := \
 all: build
 .PHONY: all
 
+build: WHAT ?= ./cmd/...
 build: ## Build the project
-	go build -ldflags="$(LDFLAGS)" -o bin ./cmd/...
+	go build -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
+install: WHAT ?= ./cmd/...
 install:
-	go install -ldflags="$(LDFLAGS)" ./cmd/...
+	go install -ldflags="$(LDFLAGS)" $(WHAT)
 .PHONY: install
 
 $(GOLANGCI_LINT):
