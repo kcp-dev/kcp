@@ -492,7 +492,14 @@ func (kc *KubeConfig) workspaceDirectoryRestConfig(contextName string, opts *Opt
 	overrides := &clientcmd.ConfigOverrides{
 		AuthInfo: authInfoOverride,
 	}
-	return clientcmd.NewDefaultClientConfig(*workpaceDirectoryAwareConfig, overrides).ClientConfig()
+
+	config, err := clientcmd.NewDefaultClientConfig(*workpaceDirectoryAwareConfig, overrides).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	config.UserAgent = rest.DefaultKubernetesUserAgent()
+	return config, nil
 }
 
 // tenancyClient returns the tenancy client set to access the workspace directory
