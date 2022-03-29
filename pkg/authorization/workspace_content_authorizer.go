@@ -36,12 +36,13 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
-	return &OrgWorkspaceAuthorizer{
+	return &workspaceContentAuthorizer{
 		versionedInformers: versionedInformers,
 
 		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
@@ -54,7 +55,7 @@ func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedIn
 	}
 }
 
-type OrgWorkspaceAuthorizer struct {
+type workspaceContentAuthorizer struct {
 	roleLister               rbacv1listers.RoleLister
 	roleBindingLister        rbacv1listers.RoleBindingLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
@@ -68,7 +69,7 @@ type OrgWorkspaceAuthorizer struct {
 	delegate authorizer.Authorizer
 }
 
-func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
@@ -80,7 +81,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	// everybody authenticated has access to the root workspace
 	if cluster.Name == v1alpha1.RootCluster {
 		if sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated") {
-			return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), "system:kcp:authenticated")))
+			return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), bootstrap.SystemKcpClusterWorkspaceAccessGroup)))
 		}
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
 	}
@@ -91,12 +92,12 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 	}
 	clusterWorkspace := cluster.Name.Base()
 
-	orgWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.versionedInformers.Rbac().V1())
-	orgAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: orgWorkspaceKubeInformer.Roles().Lister()},
-		&rbac.RoleBindingLister{Lister: orgWorkspaceKubeInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: orgWorkspaceKubeInformer.ClusterRoles().Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: orgWorkspaceKubeInformer.ClusterRoleBindings().Lister()},
+	parentWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.versionedInformers.Rbac().V1())
+	parentAuthorizer := rbac.New(
+		&rbac.RoleGetter{Lister: parentWorkspaceKubeInformer.Roles().Lister()},
+		&rbac.RoleBindingLister{Lister: parentWorkspaceKubeInformer.RoleBindings().Lister()},
+		&rbac.ClusterRoleGetter{Lister: parentWorkspaceKubeInformer.ClusterRoles().Lister()},
+		&rbac.ClusterRoleBindingLister{Lister: parentWorkspaceKubeInformer.ClusterRoleBindings().Lister()},
 	)
 
 	// TODO: decide if we want to require workspaces for all kcp variations. For now, only check if the workspace controllers are running,
@@ -121,7 +122,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 				ResourceRequest: true,
 			}
 
-			dec, reason, err := orgAuthorizer.Authorize(ctx, workspaceAttr)
+			dec, reason, err := parentAuthorizer.Authorize(ctx, workspaceAttr)
 			if err != nil {
 				return dec, reason, err
 			}
@@ -139,14 +140,14 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 		// is not possible. Hence, we skip the authorization steps for the verb below.
 		for _, sc := range subjectCluster {
 			if logicalcluster.New(sc) == cluster.Name {
-				extraGroups = append(extraGroups, "system:kcp:authenticated")
+				extraGroups = append(extraGroups, bootstrap.SystemKcpClusterWorkspaceAccessGroup)
 				break
 			}
 		}
 	} else {
 		verbToGroupMembership := map[string][]string{
-			"admin":  {"system:kcp:authenticated", "system:kcp:clusterworkspace:admin"},
-			"access": {"system:kcp:authenticated"},
+			"admin":  {bootstrap.SystemKcpClusterWorkspaceAccessGroup, bootstrap.SystemKcpClusterWorkspaceAdminGroup},
+			"access": {bootstrap.SystemKcpClusterWorkspaceAccessGroup},
 		}
 
 		var (
@@ -165,7 +166,7 @@ func (a *OrgWorkspaceAuthorizer) Authorize(ctx context.Context, attr authorizer.
 				ResourceRequest: true,
 			}
 
-			dec, reason, err := orgAuthorizer.Authorize(ctx, workspaceAttr)
+			dec, reason, err := parentAuthorizer.Authorize(ctx, workspaceAttr)
 			if err != nil {
 				errList = append(errList, err)
 				reasonList = append(reasonList, reason)

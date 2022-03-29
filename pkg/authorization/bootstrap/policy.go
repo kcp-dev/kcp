@@ -22,6 +22,11 @@ import (
 	rbacrest "k8s.io/kubernetes/pkg/registry/rbac/rest"
 )
 
+const (
+	SystemKcpClusterWorkspaceAccessGroup = "system:kcp:clusterworkspace:access"
+	SystemKcpClusterWorkspaceAdminGroup  = "system:kcp:clusterworkspace:admin"
+)
+
 // ClusterRoleBindings return default rolebindings to the default roles
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
