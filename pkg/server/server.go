@@ -30,6 +30,7 @@ import (
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/dynamic"
@@ -224,6 +225,10 @@ func (s *Server) Run(ctx context.Context) error {
 		apiHandler = WithAcceptHeader(apiHandler)
 		apiHandler = WithClusterScope(genericapiserver.DefaultBuildHandlerChain(apiHandler, c))
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
+
+		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
+		// But this is not harmful as the kcp warnings are not many.
+		apiHandler = filters.WithWarningRecorder(apiHandler)
 
 		// add a mux before the chain, for other handlers with their own handler chain to hook in
 		mux := http.NewServeMux()
