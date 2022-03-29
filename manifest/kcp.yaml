@@ -82,6 +82,8 @@ spec:
   selector:
     matchLabels:
       app: kcp
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
