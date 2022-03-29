@@ -108,7 +108,7 @@ const (
 	// WorkloadClusterReadyCondition means the WorkloadCluster is available.
 	WorkloadClusterReadyCondition conditionsv1alpha1.ConditionType = "Ready"
 
-	// WorkloadClusterUnknownReason documents a WorkloadCluster which readyness is unknown.
+	// WorkloadClusterUnknownReason documents a WorkloadCluster which readiness is unknown.
 	WorkloadClusterUnknownReason = "WorkloadClusterStatusUnknown"
 
 	// WorkloadClusterReadyReason documents a WorkloadCluster that is ready.

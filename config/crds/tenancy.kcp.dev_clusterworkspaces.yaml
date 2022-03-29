@@ -135,7 +135,7 @@ spec:
                   be cleared by a controller before the workspace can be used. The
                   workspace will stay in the phase \"Initializing\" state until all
                   initializers are cleared. \n A cluster workspace in \"Initializing\"
-                  state are gated via the RBAC clusterworkspaces/initilize resource
+                  state are gated via the RBAC clusterworkspaces/initialize resource
                   permission."
                 items:
                   description: ClusterWorkspaceInitializer is a unique string corresponding

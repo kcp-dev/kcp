@@ -156,7 +156,7 @@ Principles are the high level guiding rules we'd like to frame designs around. T
 
 5. Be open to change
 
-    There is a massive ecosystem of users, vendors, service providers, hackers, operators, developers, and machine AIs (maybe not the last one) building and developing on Kubernetes. This is a starting point, a stake in the ground, a rallying cry. It should challenge, excite, and inspire others, but never limit. As we evolve, we should stay open to new ideas and also opening the door for dramatic rethinks of the possibilites by ourselves or others. Whether this becomes a project, inspires many projects, or fails gloriously, it's about making our lives a bit easier and our tools a bit more reliable, and a meaningful dialogue with the real world is fundamental to success.
+    There is a massive ecosystem of users, vendors, service providers, hackers, operators, developers, and machine AIs (maybe not the last one) building and developing on Kubernetes. This is a starting point, a stake in the ground, a rallying cry. It should challenge, excite, and inspire others, but never limit. As we evolve, we should stay open to new ideas and also opening the door for dramatic rethinks of the possibilities by ourselves or others. Whether this becomes a project, inspires many projects, or fails gloriously, it's about making our lives a bit easier and our tools a bit more reliable, and a meaningful dialogue with the real world is fundamental to success.
 
 6. Consolidate efforts in the ecosystem into a more focused effort
 

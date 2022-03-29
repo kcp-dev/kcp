@@ -71,7 +71,7 @@ func (c *Controller) process(ctx context.Context, key queueElement) error {
 		case deletedAction:
 			// - if no NegotiatedAPIResource owner
 			// => Delete the Negotiated API Resource of each CRD version
-			//    (they will be recreated from the related APIResourceImport ojects, and if requested a CRD will be created again)
+			//    (they will be recreated from the related APIResourceImport objects, and if requested a CRD will be created again)
 
 			if c.isManuallyCreatedCRD(ctx, crd) {
 				return c.deleteNegotiatedAPIResource(ctx, logicalcluster.From(crd), key.gvr, crd)
@@ -294,7 +294,7 @@ func (c *Controller) updatePublishingStatusOnNegotiatedAPIResources(ctx context.
 }
 
 // deleteNegotiatedAPIResource deletes the Negotiated API Resource of each CRD version
-// (they will be recreated from the related APIResourceImport ojects if necessary,
+// (they will be recreated from the related APIResourceImport objects if necessary,
 // and if requested a CRD will be created again as a consequence).
 func (c *Controller) deleteNegotiatedAPIResource(ctx context.Context, clusterName logicalcluster.LogicalCluster, gvr metav1.GroupVersionResource, crd *apiextensionsv1.CustomResourceDefinition) error {
 	var gvrsToDelete []metav1.GroupVersionResource
@@ -488,7 +488,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 			allowUpdateNegotiatedSchema := !newNegotiatedAPIResource.IsConditionTrue(apiresourcev1alpha1.Enforced) &&
 				apiResourceImport.Spec.SchemaUpdateStrategy.CanUpdate(newNegotiatedAPIResource.IsConditionTrue(apiresourcev1alpha1.Published))
 
-			// TODO Also check compatibility of non-schema things like group, names, short names, category, resourcescope, subresources, colums etc...
+			// TODO Also check compatibility of non-schema things like group, names, short names, category, resourcescope, subresources, columns etc...
 
 			importSchema, err := apiResourceImport.Spec.GetSchema()
 			if err != nil {

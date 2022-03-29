@@ -167,7 +167,7 @@ type ClusterWorkspaceStatus struct {
 	// stay in the phase "Initializing" state until all initializers are cleared.
 	//
 	// A cluster workspace in "Initializing" state are gated via the RBAC
-	// clusterworkspaces/initilize resource permission.
+	// clusterworkspaces/initialize resource permission.
 	//
 	// +optional
 	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
