@@ -531,7 +531,6 @@ func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) GetWit
 	}
 	if err != nil {
 		clusterName, name := clusters.SplitClusterAwareKey(name)
-		klog.Infof("GetWithQuorumReadOnCacheMiss name %q -> %s|%s", clusterName, name)
 		cws, err = i.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, metav1.GetOptions{})
 	}
 
