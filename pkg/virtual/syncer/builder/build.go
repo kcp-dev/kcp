@@ -123,7 +123,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				}))
 			})
 
-			// This should be replace by a real controller when the URLs should be added to the WorkloadCluster object
+			// This should be replaced by a real controller when the URLs should be added to the WorkloadCluster object
 			clusterInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					if workloadCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster); ok {
@@ -132,6 +132,12 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 							Name:               workloadCluster.Name,
 						}
 						installedAPIs.addWorkloadCluster(workloadClusterRef)
+						for _, api := range internalAPIs {
+							_ = installedAPIs.Upsert(syncer.WorkloadClusterAPI{
+								WorkloadClusterRef: workloadClusterRef,
+								Spec:               api,
+							})
+						}
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
