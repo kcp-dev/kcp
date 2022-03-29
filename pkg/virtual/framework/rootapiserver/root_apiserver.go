@@ -19,6 +19,7 @@ package rootapiserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -30,7 +31,9 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/client-go/rest"
+	componentbaseversion "k8s.io/component-base/version"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
@@ -159,6 +162,13 @@ func (c completedConfig) resolveRootPaths(urlPath string, requestContext context
 func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
 	return func(apiHandler http.Handler, genericConfig *genericapiserver.Config) http.Handler {
 		return genericapiserver.DefaultBuildHandlerChain(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// detect old kubectl plugins and inject warning headers
+			if req.UserAgent() == "Go-http-client/2.0" {
+				// TODO(sttts): in the future compare the plugin version to the server version and warn outside of skew compatibility guarantees.
+				warning.AddWarning(req.Context(), "",
+					fmt.Sprintf("You are using an old kubectl-kcp plugin. Please update to a version matching the kcp server version %q.", componentbaseversion.Get().GitVersion))
+			}
+
 			if accepted, prefixToStrip, context := c.resolveRootPaths(req.URL.Path, req.Context()); accepted {
 				req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
 				req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
