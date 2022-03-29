@@ -66,8 +66,12 @@ func NewSyncerCommand() *cobra.Command {
 func Run(options *synceroptions.Options, ctx context.Context) error {
 	klog.Infof("Syncing the following resource types: %s", options.SyncedResourceTypes)
 
+	kcpConfigOverrides := &clientcmd.ConfigOverrides{
+		CurrentContext: options.FromContext,
+	}
 	kcpConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.FromKubeconfig}, nil).ClientConfig()
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.FromKubeconfig},
+		kcpConfigOverrides).ClientConfig()
 	if err != nil {
 		return err
 	}
