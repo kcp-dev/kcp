@@ -30,114 +30,86 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	clientgoinformers "k8s.io/client-go/informers"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 // NewTopLevelOrganizationAccessAuthorizer returns an authorizer that checks for access+member verb in
 // clusterworkspaces/content of the top-level workspace the request workspace is nested in. If one of
-// these verbs are admitted, the system:kcp:org:authenticated group is added and the delegate authorizer
-// is called.
+// these verbs are admitted, the delegate authorizer is called. Otherwise, NoOpionion is returned if
+// the top-level workspace exists, and Deny otherwise.
 func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+	rootKubeInformer := rbacwrapper.FilterInformers(v1alpha1.RootCluster, versionedInformers.Rbac().V1())
+
 	return &topLevelOrgAccessAuthorizer{
-		versionedInformers: versionedInformers,
-
-		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
-		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
-		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
-		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		clusterWorkspaceLister:   clusterWorkspaceLister,
-
-		delegate: delegate,
+		rootAuthorizer: rbac.New(
+			&rbac.RoleGetter{Lister: rootKubeInformer.Roles().Lister()},
+			&rbac.RoleBindingLister{Lister: rootKubeInformer.RoleBindings().Lister()},
+			&rbac.ClusterRoleGetter{Lister: rootKubeInformer.ClusterRoles().Lister()},
+			&rbac.ClusterRoleBindingLister{Lister: rootKubeInformer.ClusterRoleBindings().Lister()},
+		),
+		clusterWorkspaceLister: clusterWorkspaceLister,
+		delegate:               delegate,
 	}
 }
 
 type topLevelOrgAccessAuthorizer struct {
-	roleLister               rbacv1listers.RoleLister
-	roleBindingLister        rbacv1listers.RoleBindingLister
-	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
-	clusterRoleLister        rbacv1listers.ClusterRoleLister
-	clusterWorkspaceLister   tenancyv1.ClusterWorkspaceLister
-
-	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
-	versionedInformers clientgoinformers.SharedInformerFactory
-
-	// union of local and bootstrap authorizer
-	delegate authorizer.Authorizer
+	rootAuthorizer         *rbac.RBACAuthorizer
+	clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister
+	delegate               authorizer.Authorizer
 }
 
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
-	if err != nil {
-		return authorizer.DecisionNoOpinion, "", err
-	}
-	if cluster == nil || cluster.Name.Empty() {
-		return authorizer.DecisionNoOpinion, "", nil
+	if err != nil || cluster == nil || cluster.Name.Empty() {
+		return authorizer.DecisionNoOpinion, "workspace access not permitted", err
 	}
 
-	// nobody other than system:masters (excluded from authz) has access to workspaces not based in root
+	workspaceAccessNotPermittedReason := fmt.Sprintf("%q workspace access not permitted", cluster.Name)
 	if !cluster.Name.HasPrefix(v1alpha1.RootCluster) {
-		return authorizer.DecisionNoOpinion, "", nil
+		// nobody other than system:masters (excluded from authz) has access to workspaces not based in root
+		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 	}
 
 	// everybody authenticated has access to the root workspace
 	if cluster.Name == v1alpha1.RootCluster {
 		if sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated") {
-			return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), bootstrap.SystemKcpTopLevelClusterWorkspaceAccessGroup)))
+			return a.delegate.Authorize(ctx, attr)
 		}
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
+		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 	}
 
 	// get org in the root
 	requestTopLevelOrg, ok := topLevelOrg(cluster.Name)
 	if !ok {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
+		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 	}
 
 	// check the org in the root exists
 	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(v1alpha1.RootCluster, requestTopLevelOrg)); err != nil {
 		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+			return authorizer.DecisionDeny, workspaceAccessNotPermittedReason, nil
 		}
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
+		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, err
 	}
 
-	extraGroups := []string{}
 	if subjectCluster := attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey]; len(subjectCluster) > 0 {
 		// service account will automatically get access to its top-level org
 		subjectTopLevelOrg, ok := topLevelOrg(logicalcluster.New(subjectCluster[0]))
-		if !ok {
-			return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
+		if !ok || subjectTopLevelOrg != requestTopLevelOrg {
+			return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 		}
-		if subjectTopLevelOrg != requestTopLevelOrg {
-			return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
-		}
-		extraGroups = append(extraGroups, bootstrap.SystemKcpTopLevelClusterWorkspaceAccessGroup)
+		return a.delegate.Authorize(ctx, attr)
 	} else {
-		rootKubeInformer := rbacwrapper.FilterInformers(v1alpha1.RootCluster, a.versionedInformers.Rbac().V1())
-		rootAuthorizer := rbac.New(
-			&rbac.RoleGetter{Lister: rootKubeInformer.Roles().Lister()},
-			&rbac.RoleBindingLister{Lister: rootKubeInformer.RoleBindings().Lister()},
-			&rbac.ClusterRoleGetter{Lister: rootKubeInformer.ClusterRoles().Lister()},
-			&rbac.ClusterRoleBindingLister{Lister: rootKubeInformer.ClusterRoleBindings().Lister()},
-		)
-
-		verbToGroupMembership := map[string][]string{
-			"member": {bootstrap.SystemKcpTopLevelClusterWorkspaceAccessGroup}, // members will get additional permissions through the virtual workspace, allowing workspace creation
-			"access": {bootstrap.SystemKcpTopLevelClusterWorkspaceAccessGroup},
-		}
-
 		var (
 			errList    []error
 			reasonList []string
 		)
-		for verb, groups := range verbToGroupMembership {
+		for _, verb := range []string{"access", "member"} {
 			workspaceAttr := authorizer.AttributesRecord{
 				User:        attr.GetUser(),
 				Verb:        verb,
@@ -150,25 +122,22 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 				ResourceRequest: true,
 			}
 
-			dec, reason, err := rootAuthorizer.Authorize(ctx, workspaceAttr)
+			dec, reason, err := a.rootAuthorizer.Authorize(ctx, workspaceAttr)
 			if err != nil {
 				errList = append(errList, err)
 				reasonList = append(reasonList, reason)
 				continue
 			}
 			if dec == authorizer.DecisionAllow {
-				extraGroups = append(extraGroups, groups...)
+				return a.delegate.Authorize(ctx, attr)
 			}
 		}
 		if len(errList) > 0 {
 			return authorizer.DecisionNoOpinion, strings.Join(reasonList, "\n"), utilerrors.NewAggregate(errList)
 		}
 	}
-	if len(extraGroups) == 0 {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
-	}
 
-	return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), extraGroups...)))
+	return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 }
 
 func topLevelOrg(clusterName logicalcluster.LogicalCluster) (string, bool) {

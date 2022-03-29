@@ -23,9 +23,8 @@ import (
 )
 
 const (
-	SystemKcpTopLevelClusterWorkspaceAccessGroup = "system:kcp:toplevel-clusterworkspace:access"
-	SystemKcpClusterWorkspaceAccessGroup         = "system:kcp:clusterworkspace:access"
-	SystemKcpClusterWorkspaceAdminGroup          = "system:kcp:clusterworkspace:admin"
+	SystemKcpClusterWorkspaceAccessGroup = "system:kcp:clusterworkspace:access"
+	SystemKcpClusterWorkspaceAdminGroup  = "system:kcp:clusterworkspace:admin"
 )
 
 // ClusterRoleBindings return default rolebindings to the default roles
