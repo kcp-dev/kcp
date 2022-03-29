@@ -40,15 +40,35 @@ GOLANGCI_LINT_VER := v1.44.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+GIT_DIRTY := $(shell git diff --quiet && echo 'clean' || echo 'dirty')
+GIT_VERSION := $(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}" 2>/dev/null)
+BUILD_MAJOR_VERSION := $(shell echo "$(GIT_VERSION)" | sed "s/v0\.\([0-9]*\).*/\1/")
+BUILD_MINOR_VERSION := $(shell echo "$(GIT_VERSION)" | sed "s/v0\.[0-9]*\.\([0-9]*\).*/\1/")
+BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+LDFLAGS := \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/client-go/pkg/version.gitVersion=${GIT_VERSION} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/client-go/pkg/version.gitMajor=${BUILD_MAJOR_VERSION} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/client-go/pkg/version.gitMinor=${BUILD_MINOR_VERSION} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/client-go/pkg/version.buildDate=${BUILD_DATE} \
+	\
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/component-base/pkg/version.gitCommit=${GIT_COMMIT} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/component-base/pkg/version.gitTreeState=${GIT_DIRTY} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/component-base/pkg/version.gitVersion=${GIT_VERSION} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/component-base/pkg/version.gitMajor=${BUILD_MAJOR_VERSION} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/component-base/pkg/version.gitMinor=${BUILD_MINOR_VERSION} \
+	-X github.com/kcp-dev/kcp/vendor/k8s.io/component-base/pkg/version.buildDate=${BUILD_DATE}
 all: build
 .PHONY: all
 
 build: ## Build the project
-	go build -o bin ./cmd/...
+	go build -ldflags="$(LDFLAGS)" -o bin ./cmd/...
 .PHONY: build
 
 install:
-	go install ./cmd/...
+	go install -ldflags="$(LDFLAGS)" ./cmd/...
 .PHONY: install
 
 $(GOLANGCI_LINT):
