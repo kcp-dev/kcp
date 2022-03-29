@@ -40,15 +40,37 @@ GOLANGCI_LINT_VER := v1.44.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
+KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
+KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+GIT_DIRTY := $(shell git diff --quiet && echo 'clean' || echo 'dirty')
+GIT_VERSION := $(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}" 2>/dev/null || echo v0.0.0-$(GIT_COMMIT))+kcp
+BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+LDFLAGS := \
+	-X k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
+	-X k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
+	-X k8s.io/client-go/pkg/version.gitVersion=${GIT_VERSION} \
+	-X k8s.io/client-go/pkg/version.gitMajor=${KUBE_MAJOR_VERSION} \
+	-X k8s.io/client-go/pkg/version.gitMinor=${KUBE_MINOR_VERSION} \
+	-X k8s.io/client-go/pkg/version.buildDate=${BUILD_DATE} \
+	\
+	-X k8s.io/component-base/version.gitCommit=${GIT_COMMIT} \
+	-X k8s.io/component-base/version.gitTreeState=${GIT_DIRTY} \
+	-X k8s.io/component-base/version.gitVersion=${GIT_VERSION} \
+	-X k8s.io/component-base/version.gitMajor=${KUBE_MAJOR_VERSION} \
+	-X k8s.io/component-base/version.gitMinor=${KUBE_MINOR_VERSION} \
+	-X k8s.io/component-base/version.buildDate=${BUILD_DATE}
 all: build
 .PHONY: all
 
+build: WHAT ?= ./cmd/...
 build: ## Build the project
-	go build -o bin ./cmd/...
+	go build -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
+install: WHAT ?= ./cmd/...
 install:
-	go install ./cmd/...
+	go install -ldflags="$(LDFLAGS)" $(WHAT)
 .PHONY: install
 
 $(GOLANGCI_LINT):
