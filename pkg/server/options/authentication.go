@@ -22,9 +22,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
-	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -110,9 +108,9 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newToken
 }
 
 // TODO(jmprusi): delete once push mode is removed.
-func (s *AdminAuthentication) GetPushModeSyncerKubeconfig(config *genericapiserver.Config, newToken string, tokenHash []byte, externalAddress string, servingPort int) (*clientcmdapi.Config, error) {
+func (s *AdminAuthentication) GetPushModeSyncerKubeconfig(config *genericapiserver.Config, newToken string, tokenHash []byte) (*clientcmdapi.Config, error) {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
-	externalKubeConfigHost := fmt.Sprintf("https://%s", net.JoinHostPort(externalAddress, strconv.Itoa(int(servingPort))))
+	externalKubeConfigHost := fmt.Sprintf("https://%s", config.ExternalAddress)
 
 	externalAdminUserName := "admin"
 	if newToken == "" {
@@ -138,9 +136,9 @@ func (s *AdminAuthentication) GetPushModeSyncerKubeconfig(config *genericapiserv
 	return externalKubeConfig, nil
 }
 
-func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte, externalAddress string, servingPort int) error {
+func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte) error {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
-	externalKubeConfigHost := fmt.Sprintf("https://%s:%d", externalAddress, servingPort)
+	externalKubeConfigHost := fmt.Sprintf("https://%s", config.ExternalAddress)
 
 	externalAdminUserName := "admin"
 	if newToken == "" {

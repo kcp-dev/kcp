@@ -193,10 +193,6 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	servingOpts := s.options.GenericControlPlane.SecureServing
-	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash, s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, servingOpts.BindPort); err != nil {
-		return err
-	}
 
 	// create service-account-only authenticator without any lookup for objects, just to extract the logical cluster name from the JWT.
 	// If the request hits us at a non-/clusters URL, we will re-add the /clusters/<cluster-name> prefix to the request. This is necessary
@@ -218,7 +214,7 @@ func (s *Server) Run(ctx context.Context) error {
 		// the lcluster handler is a pass-through, not a delegate, so the wrapping looks weird
 		if s.options.Extra.EnableSharding {
 			clientLoader := sharding.NewClientLoader()
-			clientLoader.Add(s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, genericConfig.LoopbackClientConfig)
+			clientLoader.Add(genericConfig.ExternalAddress, genericConfig.LoopbackClientConfig)
 			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
@@ -403,7 +399,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 
-		syncerConfig, err := s.options.AdminAuthentication.GetPushModeSyncerKubeconfig(genericConfig, newTokenOrEmpty, tokenHash, s.options.GenericControlPlane.GenericServerRunOptions.ExternalHost, servingOpts.BindPort)
+		syncerConfig, err := s.options.AdminAuthentication.GetPushModeSyncerKubeconfig(genericConfig, newTokenOrEmpty, tokenHash)
 		if err != nil {
 			return err
 		}
@@ -437,7 +433,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Virtual.Enabled {
-		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, preHandlerChainMux); err != nil {
+		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, genericConfig.ExternalAddress, preHandlerChainMux); err != nil {
 			return err
 		}
 	} else if err := s.installVirtualWorkspacesRedirect(ctx, preHandlerChainMux); err != nil {
@@ -456,6 +452,10 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash); err != nil {
+		return err
 	}
 
 	return server.PrepareRun().Run(ctx.Done())
