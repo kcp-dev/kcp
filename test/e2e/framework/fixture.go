@@ -40,6 +40,23 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
+// TestServerArgs returns the set of kcp args used to start a test
+// server using the token auth file from the working tree.
+func TestServerArgs() []string {
+	return TestServerArgsWithTokenAuthFile("test/e2e/framework/auth-tokens.csv")
+}
+
+// TestServerArgsWithTokenAuthFile returns the set of kcp args used to
+// start a test server with the given token auth file.
+func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
+	return []string{
+		"--auto-publish-apis",
+		"--discovery-poll-interval=5s",
+		"--token-auth-file", tokenAuthFile,
+		"--run-virtual-workspaces=true",
+	}
+}
+
 // KcpFixture manages the lifecycle of a set of kcp servers.
 type KcpFixture struct {
 	Servers map[string]RunningServer
@@ -71,12 +88,7 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	tokenAuthFile := WriteTokenAuthFile(t)
 	f := NewKcpFixture(t, KcpConfig{
 		Name: serverName,
-		Args: []string{
-			"--auto-publish-apis",
-			"--discovery-poll-interval=2s",
-			"--token-auth-file", tokenAuthFile,
-			"--run-virtual-workspaces=true",
-		},
+		Args: TestServerArgsWithTokenAuthFile(tokenAuthFile),
 	})
 	return f.Servers[serverName]
 }
