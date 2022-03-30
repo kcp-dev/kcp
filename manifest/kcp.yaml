@@ -1,4 +1,17 @@
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kcp
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: gp2
+  volumeMode: Filesystem
+---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -82,6 +95,8 @@ spec:
   selector:
     matchLabels:
       app: kcp
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
@@ -104,7 +119,7 @@ spec:
         - --etcd-cafile=/etc/etcd/tls/server/ca.crt
         - --tls-private-key-file=/etc/kcp/tls/server/tls.key
         - --tls-cert-file=/etc/kcp/tls/server/tls.crt
-        - --root-directory=/tmp/kcp
+        - --root-directory=/etc/kcp/config
         - --run-virtual-workspaces=false
         - --virtual-workspace-address=https://$(EXTERNAL_HOSTNAME)
         - --external-hostname=$(EXTERNAL_HOSTNAME)
@@ -139,7 +154,7 @@ spec:
         - name: kcp-certs
           mountPath: /etc/kcp/tls/server
         - name: kubeconfig
-          mountPath: /tmp/kcp
+          mountPath: /etc/kcp/config
       - name: virtual-workspaces
         image: ghcr.io/kcp-dev/kcp:latest
         ports:
@@ -148,11 +163,11 @@ spec:
         - sh
         - -c
         - >
-          cat /tmp/kcp/admin.kubeconfig | sed -e 's;://\([^/]*\);://localhost:6443;' > /tmp/kcp/localhost.kubeconfig &&
+          cat /etc/kcp/config/admin.kubeconfig | sed -e 's;://\([^/]*\);://localhost:6443;' > /etc/kcp/config/localhost.kubeconfig &&
           /virtual-workspaces
           workspaces
-          --kubeconfig=/tmp/kcp/localhost.kubeconfig
-          --authentication-kubeconfig=/tmp/kcp/localhost.kubeconfig
+          --kubeconfig=/etc/kcp/config/localhost.kubeconfig
+          --authentication-kubeconfig=/etc/kcp/config/localhost.kubeconfig
           --authentication-skip-lookup
           --tls-private-key-file=/etc/kcp/tls/server/tls.key
           --tls-cert-file=/etc/kcp/tls/server/tls.crt
@@ -177,7 +192,7 @@ spec:
         - name: virtual-workspaces-certs
           mountPath: /etc/kcp/tls/server
         - name: kubeconfig
-          mountPath: /tmp/kcp
+          mountPath: /etc/kcp/config
       volumes:
       - name: etcd-certs
         secret:
@@ -189,4 +204,5 @@ spec:
         secret:
           secretName: kcp-virtual-workspaces-cert
       - name: kubeconfig
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: kcp
