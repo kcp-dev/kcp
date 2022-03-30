@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -76,11 +78,13 @@ func TestAuthorizer(t *testing.T) {
 	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
 
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1"}, nil, []string{"member"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-2"}, nil, []string{"access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-2", "user-3"}, nil, []string{"access"})
 
 	user1KubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-1", cfg))
 	require.NoError(t, err)
 	user2KubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-2", cfg))
+	require.NoError(t, err)
+	user3KubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-3", cfg))
 	require.NoError(t, err)
 
 	t.Logf("Priming the authorization cache")
@@ -127,6 +131,55 @@ func TestAuthorizer(t *testing.T) {
 		"non-cluster admins can not use wildcard clusters": func(t *testing.T) {
 			_, err := user1KubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "Only cluster admins can use all clusters at once")
+		},
+		"with system:admin permissions, workspace2 non-admin user-3 can list Namespaces with a bootstrap ClusterRole": func(t *testing.T) {
+			_, err = user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			require.Error(t, err, "User-3 shouldn't be able to list Namespaces")
+
+			localAuthorizerClusterRoleBinding := &v12.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "user-3-k8s-ref",
+				},
+				Subjects: []v12.Subject{
+					{
+						Kind:     "User",
+						APIGroup: "rbac.authorization.k8s.io",
+						Name:     "user-3",
+					},
+				},
+				RoleRef: v12.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "ClusterRole",
+					Name:     "namespace-lister",
+				},
+			}
+
+			bootstrapClusterRole := &v12.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "namespace-lister",
+				},
+				Rules: []v12.PolicyRule{
+					{
+						Verbs:     []string{"*"},
+						APIGroups: []string{""},
+						Resources: []string{"namespaces"},
+					},
+				},
+			}
+
+			_, err = kubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			_, err = kubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			require.Eventually(t, func() bool {
+				if _, err := user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{}); err != nil {
+					t.Logf("failed to create test namespace: %v", err)
+					return false
+				}
+				return true
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "User-3 should now be able to list Namespaces")
 		},
 	}
 
