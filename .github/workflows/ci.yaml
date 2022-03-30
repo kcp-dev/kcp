@@ -142,7 +142,7 @@ jobs:
       - run: |-
           ARTIFACT_DIR=/tmp/e2e \
           PATH="${PATH}:$(pwd)/bin/" \
-          TEST_ARGS="-args --kubeconfig=$(pwd)/.kcp/admin.kubeconfig" \
+          TEST_ARGS='-args --use-default-server' \
           COUNT=2 \
           E2E_PARALLELISM=2 \
           make test-e2e

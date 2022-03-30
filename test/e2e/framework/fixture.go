@@ -64,16 +64,17 @@ type KcpFixture struct {
 
 // SharedKcpServer returns a kcp server fixture intended to be shared
 // between tests. A persistent server will be configured if
-// `--kubeconfig` is supplied to the test runner. Otherwise a
-// test-managed server will be started. Only tests that are known to
-// be hermetic are compatible with shared fixture.
+// `--kubeconfig` or `--use-default-server` is supplied to the test
+// runner. Otherwise a test-managed server will be started. Only tests
+// that are known to be hermetic are compatible with shared fixture.
 func SharedKcpServer(t *testing.T) RunningServer {
 	serverName := "shared"
-	if len(TestConfig.KubeConfig) > 0 {
+	kubeconfig := TestConfig.Kubeconfig()
+	if len(kubeconfig) > 0 {
 		// Use a persistent server
 
-		t.Logf("shared kcp server will target the persistent kcp server identified by --kubeconfig")
-		server, err := newPersistentKCPServer(serverName, TestConfig.KubeConfig)
+		t.Logf("shared kcp server will target configuration %q", kubeconfig)
+		server, err := newPersistentKCPServer(serverName, kubeconfig)
 		require.NoError(t, err, "failed to create persistent server fixture")
 		return server
 	}

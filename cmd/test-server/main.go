@@ -30,15 +30,15 @@ import (
 //
 // Repeatably start a persistent test server:
 //
-//   $ rm -r .kcp/ && go run ./cmd/test-server 2>&1 | tee kcp.log
+//   $ rm -rf .kcp/ && make build && ./bin/test-server 2>&1 | tee kcp.log
 //
 // Run the e2e suite against a persistent server:
 //
-//   $ TEST_ARGS="-args --kubeconfig=$(pwd)/.kcp/admin.kubeconfig" E2E_PARALLELISM=6 make test-e2e
+//   $ TEST_ARGS='-args --use-default-server' E2E_PARALLELISM=6 make test-e2e
 //
 // Run individual tests against a persistent server:
 //
-//   $ go test -v --kubeconfig=/path/to/.kcp/admin.kubeconfig"
+//   $ go test -v --use-default-server
 //
 func main() {
 	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
