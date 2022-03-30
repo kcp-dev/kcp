@@ -159,12 +159,20 @@ func RepositoryBinDir() string {
 // StartKcpCommand returns the string tokens required to start kcp in
 // the currently configured mode (direct or via `go run`).
 func StartKcpCommand() []string {
+	command := DirectOrGoRunCommand("kcp")
+	return append(command, "start")
+}
+
+// DirectOrGoRunCommand returns the string tokens required to start
+// the given executable in the currently configured mode (direct or
+// via `go run`).
+func DirectOrGoRunCommand(executableName string) []string {
 	if NoGoRunEnvSet() {
-		kcpPath := filepath.Join(RepositoryBinDir(), "kcp")
-		return []string{kcpPath, "start"}
+		cmdPath := filepath.Join(RepositoryBinDir(), executableName)
+		return []string{cmdPath}
 	} else {
-		kcpCmdPath := filepath.Join(RepositoryDir(), "cmd", "kcp")
-		return []string{"go", "run", kcpCmdPath, "start"}
+		cmdPath := filepath.Join(RepositoryDir(), "cmd", executableName)
+		return []string{"go", "run", cmdPath}
 	}
 }
 
