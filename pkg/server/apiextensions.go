@@ -516,14 +516,14 @@ func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) Lister
 	return l
 }
 
-func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) GetWithQuorumReadOnCacheMiss(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-	cws, err := i.workspaceLister.GetWithContext(ctx, name)
+func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) GetWithQuorumReadOnCacheMiss(ctx context.Context, key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+	cws, err := i.workspaceLister.GetWithContext(ctx, key)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
 	if err != nil {
-		clusterName, name := clusters.SplitClusterAwareKey(name)
-		klog.Infof("GetWithQuorumReadOnCacheMiss name %q -> %s|%s", clusterName, name)
+		clusterName, name := clusters.SplitClusterAwareKey(key)
+		klog.Infof("GetWithQuorumReadOnCacheMiss name %q -> %s|%s", key, clusterName, name)
 		cws, err = i.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, metav1.GetOptions{})
 	}
 
