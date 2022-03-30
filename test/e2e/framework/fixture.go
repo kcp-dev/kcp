@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
@@ -40,19 +41,22 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
-// TestServerArgs returns the set of kcp args used to start a test
-// server using the token auth file from the working tree.
-func TestServerArgs() []string {
-	return TestServerArgsWithTokenAuthFile("test/e2e/framework/auth-tokens.csv")
+// TokenAuthFileForTest returns the absolute path of the auth token
+// file required by some auth tests.
+func TokenAuthFileForTest() string {
+	return filepath.Join(
+		RepositoryDir(), "test", "e2e", "framework", "auth-tokens.csv",
+	)
 }
 
-// TestServerArgsWithTokenAuthFile returns the set of kcp args used to
-// start a test server with the given token auth file.
-func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
+// CommonTestServerArgs returns the set of kcp args used to start a
+// test server that are common between test-managed servers and
+// servers started before a test run.
+func CommonTestServerArgs() []string {
 	return []string{
 		"--auto-publish-apis",
 		"--discovery-poll-interval=5s",
-		"--token-auth-file", tokenAuthFile,
+		"--token-auth-file", TokenAuthFileForTest(),
 		"--run-virtual-workspaces=true",
 	}
 }
@@ -99,10 +103,9 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	// initializes the shared fixture before tests that rely on the
 	// fixture.
 
-	tokenAuthFile := WriteTokenAuthFile(t)
 	f := newKcpFixture(t, kcpConfig{
 		Name: serverName,
-		Args: TestServerArgsWithTokenAuthFile(tokenAuthFile),
+		Args: CommonTestServerArgs(),
 	})
 	return f.Servers[serverName]
 }

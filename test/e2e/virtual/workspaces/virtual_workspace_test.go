@@ -519,13 +519,12 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		portStr, err := framework.GetFreePort(t)
 		require.NoError(t, err)
 
-		tokenAuthFile := framework.WriteTokenAuthFile(t)
 		server = framework.PrivateKcpServer(t,
 			"--run-controllers=false",
 			"--unsupported-run-individual-controllers=workspace-scheduler",
 			"--run-virtual-workspaces=false",
 			fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
-			"--token-auth-file", tokenAuthFile,
+			"--token-auth-file", framework.TokenAuthFileForTest(),
 		)
 
 		// write kubeconfig to disk, next to kcp kubeconfig
