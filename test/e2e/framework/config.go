@@ -17,14 +17,30 @@ limitations under the License.
 package framework
 
 import (
+	"errors"
 	"flag"
+	"path/filepath"
 )
 
 type testConfig struct {
-	KubeConfig string
+	kubeconfig       string
+	useDefaultServer bool
 }
 
 var TestConfig *testConfig
+
+func (c *testConfig) Kubeconfig() string {
+	// TODO(marun) How to validate before use given that the testing package is calling flags.Parse()?
+	if c.useDefaultServer && len(c.kubeconfig) > 0 {
+		panic(errors.New("Only one of --use-default-server and --kubeconfig should be set."))
+	}
+
+	if c.useDefaultServer {
+		return filepath.Join(RepositoryDir(), ".kcp", "admin.kubeconfig")
+	} else {
+		return c.kubeconfig
+	}
+}
 
 func init() {
 	TestConfig = &testConfig{}
@@ -33,5 +49,6 @@ func init() {
 }
 
 func registerFlags(c *testConfig) {
-	flag.StringVar(&c.KubeConfig, "kubeconfig", "", "Path to kubeconfig for a kcp server.")
+	flag.StringVar(&c.kubeconfig, "kubeconfig", "", "Path to kubeconfig for a kcp server.")
+	flag.BoolVar(&c.useDefaultServer, "use-default-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 }
