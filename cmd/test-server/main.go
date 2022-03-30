@@ -30,7 +30,7 @@ import (
 //
 // Repeatably start a persistent test server:
 //
-//   $ rm -rf .kcp/ && make build && ./bin/test-server 2>&1 | tee kcp.log
+//   $ rm -rf .kcp/ && go run ./cmd/test-server 2>&1 | tee kcp.log
 //
 // Run the e2e suite against a persistent server:
 //
@@ -41,7 +41,11 @@ import (
 //   $ go test -v --use-default-server
 //
 func main() {
-	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
+	args, err := framework.TestServerArgsForConcurrent()
+	if err != nil {
+		log.Fatalf("failed to retrieve server args: %v", err)
+	}
+	commandLine := append(framework.StartKcpCommand(), args...)
 	log.Printf("running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.Command(commandLine[0], commandLine[1:]...)
@@ -49,7 +53,7 @@ func main() {
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		log.Fatal(err)
 	}

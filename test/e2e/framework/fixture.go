@@ -61,6 +61,31 @@ func CommonTestServerArgs() []string {
 	}
 }
 
+// TestServerArgsForConcurrent returns the set of kcp args used to
+// start a test server that will run concurrently with other test
+// servers. The etcd and server ports are randomized to ensure that
+// multiple servers can run in parallel without explicit port
+// configuration.
+func TestServerArgsForConcurrent() ([]string, error) {
+	etcdClientPort, err := GetMaybeFreePort()
+	if err != nil {
+		return nil, err
+	}
+	etcdPeerPort, err := GetMaybeFreePort()
+	if err != nil {
+		return nil, err
+	}
+
+	return append(CommonTestServerArgs(),
+		"--embedded-etcd-client-port="+etcdClientPort,
+		"--embedded-etcd-peer-port="+etcdPeerPort,
+
+		// Ensure kcp picks a random port to serve securely on
+		"--experimental-bind-free-port=true",
+		"--secure-port=0",
+	), nil
+}
+
 // KcpFixture manages the lifecycle of a set of kcp servers.
 //
 // Deprecated for use outside this package. Prefer PrivateKcpServer().

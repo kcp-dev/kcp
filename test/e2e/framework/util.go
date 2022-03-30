@@ -240,6 +240,26 @@ func GetFreePort(t *testing.T) (string, error) {
 	}
 }
 
+// GetMaybeFreePort returns a port that was free right before being
+// returned to the caller. This is good enough for interactive use
+// where process start could be trivially retried, but GetFreePort
+// should be preferred for parallel use cases where there may be
+// contention for port allocation.
+func GetMaybeFreePort() (string, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return "", err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return "", err
+	}
+
+	defer l.Close()
+	return fmt.Sprintf("%d", l.Addr().(*net.TCPAddr).Port), nil
+}
+
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
 // CreateWorkloadCluster creates a new WorkloadCluster resource with
