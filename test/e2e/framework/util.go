@@ -19,7 +19,6 @@ package framework
 import (
 	"bytes"
 	"context"
-	"embed"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -52,40 +51,6 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
-
-//go:embed *.csv
-var fs embed.FS
-
-// WriteTokenAuthFile writes the embedded token file to the current
-// test's data dir.
-//
-// Persistent servers can target the file in the source tree with
-// `--token-auth-file` and test-managed servers can target a file
-// written to a temp path. This avoids requiring a test to know the
-// location of the token file.
-//
-// TODO(marun) Is there a way to avoid embedding by determining the
-// path to the file during test execution?
-func WriteTokenAuthFile(t *testing.T) string {
-	dataDir, err := CreateTempDirForTest(t, "data")
-	require.NoError(t, err)
-
-	// This file is expected to be embedded from the package directory.
-	tokensFilename := "auth-tokens.csv"
-
-	data, err := fs.ReadFile(tokensFilename)
-	require.NoError(t, err, "error reading tokens file")
-
-	tokensPath := path.Join(dataDir, tokensFilename)
-	tokensFile, err := os.Create(tokensPath)
-	require.NoError(t, err, "failed to create tokens file")
-	defer tokensFile.Close()
-
-	_, err = tokensFile.Write(data)
-	require.NoError(t, err, "error writing tokens file")
-
-	return tokensPath
-}
 
 // Persistent mapping of test name to base temp dir used to ensure
 // artifact paths have a common root across servers for a given test.

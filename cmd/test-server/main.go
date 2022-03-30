@@ -41,7 +41,7 @@ import (
 //   $ go test -v --use-default-server
 //
 func main() {
-	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
+	commandLine := append(framework.StartKcpCommand(), framework.CommonTestServerArgs()...)
 	log.Printf("running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.Command(commandLine[0], commandLine[1:]...)
