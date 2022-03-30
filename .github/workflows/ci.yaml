@@ -137,11 +137,7 @@ jobs:
       - run: |-
           export LOG_DIR=/tmp/e2e/shared-server/artifacts &&
           mkdir -p ${LOG_DIR} &&
-          ./bin/kcp start \
-          --discovery-poll-interval=5s \
-          --token-auth-file=test/e2e/framework/auth-tokens.csv \
-          --auto-publish-apis \
-          --run-virtual-workspaces=true \
+          NO_GORUN=1 ./bin/test-server \
           > ${LOG_DIR}/kcp.log 2>&1 &
       - run: |-
           ARTIFACT_DIR=/tmp/e2e \
