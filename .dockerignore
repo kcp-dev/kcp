@@ -1,0 +1,2 @@
+# Ignore server only used for e2e testing
+cmd/test-server
