@@ -33,7 +33,6 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -106,11 +105,11 @@ func TestAPIBinding(t *testing.T) {
 	require.False(t, groupExists(groups, wildwest.GroupName),
 		"should not have seen %s API group in workspace %q group discovery", wildwest.GroupName, sourceWorkspace)
 
-	t.Logf("Make sure %q API group shows up in workspace %q group discovery", tenancy.GroupName, sourceWorkspace)
+	t.Logf("Make sure %q API group shows up in workspace %q group discovery", wildwest.GroupName, targetWorkspace)
 	err = wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {
 		groups, err := kcpClients.Cluster(targetWorkspace).Discovery().ServerGroups()
 		if err != nil {
-			return false, fmt.Errorf("error retrieving source workspace group discovery: %w", err)
+			return false, fmt.Errorf("error retrieving target workspace group discovery: %w", err)
 		}
 		if groupExists(groups, wildwest.GroupName) {
 			return true, nil
