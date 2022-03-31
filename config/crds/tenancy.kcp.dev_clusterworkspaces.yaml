@@ -25,6 +25,10 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
+    - description: URL to access the workspace
+      jsonPath: .status.baseURL
+      name: URL
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:

@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -29,13 +30,25 @@ import (
 var (
 	workspaceExample = `
 	# Shows the workspace you are currently using
-	%[1]s workspace current
+	%[1]s workspace
 
-	# use a given workspace (this will change the current-context of your current KUBECONFIG)
-	%[1]s workspace use
-
+	# enter a given workspace (this will change the current-context of your current KUBECONFIG)
+	%[1]s workspace use my-workspace
+	
 	# list all your personal workspaces
 	%[1]s workspace list
+
+	# enter a given absolute workspace
+	%[1]s workspace root:default:my-workspace
+
+	# enter the parent workspace
+	%[1]s workspace ..
+
+	# enter the previous workspace
+	%[1]s workspace -
+
+	# create a workspace and immediately enter it
+	%[1]s workspace create my-workspace --use
 `
 )
 
@@ -43,51 +56,57 @@ var (
 func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	opts := plugin.NewOptions(streams)
 
+	useRunE := func(cmd *cobra.Command, args []string) error {
+		if err := opts.Validate(); err != nil {
+			return err
+		}
+
+		kubeconfig, err := plugin.NewKubeConfig(opts)
+		if err != nil {
+			return err
+		}
+		if len(args) > 1 {
+			return cmd.Help()
+		}
+
+		arg := ""
+		if len(args) == 1 {
+			arg = args[0]
+		}
+		return kubeconfig.UseWorkspace(cmd.Context(), arg)
+	}
+
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
-		Use:              "workspace [--scope=<personal|all>] <create|list|use|current|delete>",
+		Use:              "workspace [list|create|<workspace>|..|-|<root:absolute:workspace>]",
 		Short:            "Manages KCP workspaces",
 		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
 		SilenceUsage:     true,
 		TraverseChildren: true,
+		RunE:             useRunE,
 	}
-
 	opts.BindFlags(cmd)
+
 	useCmd := &cobra.Command{
-		Use:          "use < workspace name | - >",
-		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace",
-		Example:      "kcp workspace use my-worspace",
+		Use:          "use <workspace>|..|-|<root:absolute:workspace>",
+		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace, .. means parent workspace",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeconfig, err := plugin.NewKubeConfig(opts)
-			if err != nil {
-				return err
+			if len(args) == 0 {
+				return c.Help()
 			}
-			if len(args) != 1 {
-				return fmt.Errorf("the workspace name (or -) should be given")
-			}
-
-			if err := kubeconfig.UseWorkspace(c.Context(), opts, args[0]); err != nil {
-				return err
-			}
-			return nil
+			return useRunE(c, args)
 		},
 	}
 
 	currentCmd := &cobra.Command{
 		Use:          "current",
-		Short:        "Returns the name of the current workspace",
+		Short:        "Replaced with \"kubectl kcp workspace\" or \"kubectl workspace\" or shorter \"kubectl ws\"",
 		Example:      "kcp workspace current",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeconfig, err := plugin.NewKubeConfig(opts)
-			if err != nil {
-				return err
-			}
-			if err := kubeconfig.CurrentWorkspace(c.Context(), opts); err != nil {
-				return err
-			}
-			return nil
+			fmt.Println("The \"current\" command being replaced. Please do instead:\n\n  kubectl kcp workspaces\n\nor shorter:\n\n  kubectl ws")
+			return useRunE(c, nil)
 		},
 	}
 
@@ -97,6 +116,9 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		Example:      "kcp workspace list",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return err
+			}
 			kubeconfig, err := plugin.NewKubeConfig(opts)
 			if err != nil {
 				return err
@@ -108,47 +130,46 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		},
 	}
 
-	useFlag := "use"
-	var typeFlag string
+	var workspaceType string
+	var enterAfterCreation bool
+	var ignoreExisting bool
 	createCmd := &cobra.Command{
 		Use:          "create",
 		Short:        "Creates a new personal workspace",
-		Example:      "kcp workspace create <workspace name>",
+		Example:      "kcp workspace create <workspace name> [--type=<type>] [--enter [--ignore-not-ready]] --ignore-existing",
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			useAfterCreation, err := c.Flags().GetBool(useFlag)
-			if err != nil {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
 				return err
 			}
+
 			kubeconfig, err := plugin.NewKubeConfig(opts)
 			if err != nil {
 				return err
 			}
-			if err := kubeconfig.CreateWorkspace(c.Context(), opts, args[0], useAfterCreation, typeFlag); err != nil {
+			if err := kubeconfig.CreateWorkspace(cmd.Context(), args[0], workspaceType, ignoreExisting, enterAfterCreation, time.Minute); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	createCmd.Flags().Bool(useFlag, false, "Use the new workspace after a successful creation")
-	createCmd.Flags().StringVar(&typeFlag, "type", typeFlag, "The workspace type to create")
+	createCmd.Flags().StringVar(&workspaceType, "type", "", "A workspace type (default: Universal)")
+	createCmd.Flags().BoolVar(&enterAfterCreation, "enter", enterAfterCreation, "Immediately enter the created workspace")
+	createCmd.Flags().BoolVar(&ignoreExisting, "ignore-existing", ignoreExisting, "Ignore if the workspace already exists")
+	createCmd.Flags().BoolVar(&enterAfterCreation, "use", enterAfterCreation, "Use the new workspace after a successful creation")
+	if err := createCmd.Flags().MarkDeprecated("use", "Use --enter instead"); err != nil {
+		return nil, err
+	}
 
 	deleteCmd := &cobra.Command{
 		Use:          "delete",
-		Short:        "Deletes a personal workspace",
-		Example:      "kcp workspace delete <workspace name>",
+		Short:        "Replaced with \"kubectl delete workspace <workspace-name>\"",
+		Example:      "kcp workspace delete <workspace-name>",
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			kubeconfig, err := plugin.NewKubeConfig(opts)
-			if err != nil {
-				return err
-			}
-			if err := kubeconfig.DeleteWorkspace(c.Context(), opts, args[0]); err != nil {
-				return err
-			}
-			return nil
+		Run: func(c *cobra.Command, args []string) {
+			fmt.Println("The \"delete\" command is gone. Please do instead:\n\n  kubectl delete workspace <workspace-name>")
 		},
 	}
 

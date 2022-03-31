@@ -39,19 +39,19 @@ func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
 			Name:        "Type",
 			Type:        "string",
 			Description: "Workspace type",
-			Priority:    1,
+			Priority:    0,
 		},
 		{
 			Name:        "Phase",
 			Type:        "string",
 			Description: "Workspace phase",
-			Priority:    1,
+			Priority:    0,
 		},
 		{
 			Name:        "URL",
 			Type:        "string",
 			Description: "Workspace API Server URL",
-			Priority:    2,
+			Priority:    0,
 		},
 	}
 

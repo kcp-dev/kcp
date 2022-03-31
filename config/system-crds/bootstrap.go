@@ -53,6 +53,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
 		{Group: tenancy.GroupName, Resource: "clusterworkspacetypes"},
 		{Group: tenancy.GroupName, Resource: "workspaceshards"},
+		{Group: tenancy.GroupName, Resource: "workspaces"},
 		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
 		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
 		{Group: workload.GroupName, Resource: "workloadclusters"},
