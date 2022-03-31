@@ -191,9 +191,7 @@ func TestWorkspaceController(t *testing.T) {
 				// Destructive tests require their own server
 				//
 				// TODO(marun) Could the testing currently requiring destructive e2e be performed with less cost?
-				const serverName = "main"
-				f := framework.NewKcpFixture(t, framework.KcpConfig{Name: serverName})
-				server = f.Servers[serverName]
+				server = framework.PrivateKcpServer(t)
 			}
 
 			cfg := server.DefaultConfig(t)
