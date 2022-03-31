@@ -110,7 +110,12 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newToken
 // TODO(jmprusi): delete once push mode is removed.
 func (s *AdminAuthentication) GetPushModeSyncerKubeconfig(config *genericapiserver.Config, newToken string, tokenHash []byte) (*clientcmdapi.Config, error) {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
-	externalKubeConfigHost := fmt.Sprintf("https://%s", config.ExternalAddress)
+	_, port, err := config.SecureServing.HostPort()
+	if err != nil {
+		return nil, err
+	}
+	// localhost is hardcoded so push-mode syncer will work when kcp is run as a service.
+	externalKubeConfigHost := fmt.Sprintf("https://localhost:%d", port)
 
 	externalAdminUserName := "admin"
 	if newToken == "" {
