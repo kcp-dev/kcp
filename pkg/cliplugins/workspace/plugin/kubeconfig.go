@@ -253,7 +253,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context) error {
 func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType string) error {
 	_, clusterName, err := parseClusterURL(host)
 	if err != nil {
-		_, err = fmt.Fprintf(kc.Out, "Current workspace is the URL %q\n", host)
+		_, err = fmt.Fprintf(kc.Out, "Current workspace is the URL %q.\n", host)
 		return err
 	}
 
@@ -274,7 +274,7 @@ func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType 
 	if workspaceName != workspacePrettyName {
 		message += fmt.Sprintf(" aliased as %q", workspacePrettyName)
 	}
-	_, err = fmt.Fprintln(kc.Out, message)
+	_, err = fmt.Fprintln(kc.Out, message+".")
 	return err
 }
 
