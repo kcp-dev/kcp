@@ -261,13 +261,13 @@ func TestIngressController(t *testing.T) {
 			err = clientcmd.WriteToFile(ingressConfig, kubeconfigPath)
 			require.NoError(t, err, "failed to write kubeconfig to file")
 
-			ingressController := framework.NewAccessory(t, artifactDir,
-				filepath.Join(framework.RepositoryBinDir(), "ingress-controller"), // name
-				"ingress-controller",
+			executableName := "ingress-controller"
+			cmd := append(framework.DirectOrGoRunCommand(executableName),
 				"--kubeconfig="+kubeconfigPath,
 				"--envoy-listener-port="+envoyListenerPort,
 				"--envoy-xds-port="+xdsListenerPort,
 			)
+			ingressController := framework.NewAccessory(t, artifactDir, executableName, cmd...)
 			err = ingressController.Run(t, framework.WithLogStreaming)
 			require.NoError(t, err, "failed to start ingress controller")
 

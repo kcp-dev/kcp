@@ -37,13 +37,12 @@ import (
 )
 
 // NewAccessory creates a new accessory process.
-func NewAccessory(t *testing.T, artifactDir string, cmd string, name string, args ...string) *Accessory {
+func NewAccessory(t *testing.T, artifactDir string, name string, cmd ...string) *Accessory {
 	return &Accessory{
 		t:           t,
 		artifactDir: artifactDir,
 		name:        name,
 		cmd:         cmd,
-		args:        args,
 	}
 }
 
@@ -53,8 +52,7 @@ type Accessory struct {
 	t           *testing.T
 	artifactDir string
 	name        string
-	cmd         string
-	args        []string
+	cmd         []string
 }
 
 func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
@@ -68,13 +66,13 @@ func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
 
 	ctx, cleanupCancel := context.WithCancel(context.Background())
 	a.t.Cleanup(func() {
-		a.t.Logf("cleanup: ending `%s`", a.cmd)
+		a.t.Logf("cleanup: ending `%s`", a.name)
 		cleanupCancel()
 		<-ctx.Done()
 	})
 
 	a.ctx = ctx
-	cmd := exec.CommandContext(ctx, a.cmd, a.args...)
+	cmd := exec.CommandContext(ctx, a.cmd[0], a.cmd[1:]...)
 
 	a.t.Logf("running: %v", strings.Join(cmd.Args, " "))
 	logFile, err := os.Create(filepath.Join(a.artifactDir, fmt.Sprintf("%s.log", a.name)))
@@ -99,7 +97,7 @@ func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
 		defer func() { cleanupCancel() }()
 		err := cmd.Wait()
 		if err != nil && ctx.Err() == nil {
-			a.t.Errorf("`%s` failed: %v output: %s", a.cmd, err, log.String())
+			a.t.Errorf("`%s` failed: %v output: %s", a.name, err, log.String())
 		}
 	}()
 	return nil
