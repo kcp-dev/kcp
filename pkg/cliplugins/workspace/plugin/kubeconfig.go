@@ -118,7 +118,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 	// Store the currentContext content for later to set as previous context
 	currentContext, found := kc.startingConfig.Contexts[kc.currentContext]
 	if !found {
-		return fmt.Errorf("current %q context not found", currentContext)
+		return fmt.Errorf("current %q context not found", kc.currentContext)
 	}
 
 	var newServerHost, workspaceType string
