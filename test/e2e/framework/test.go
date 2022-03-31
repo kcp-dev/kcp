@@ -32,8 +32,10 @@ type RunningServer interface {
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
-// KcpConfig qualify a kcp server to start
-type KcpConfig struct {
+// kcpConfig qualify a kcp server to start
+//
+// Deprecated for use outside this package. Prefer PrivateKcpServer().
+type kcpConfig struct {
 	Name string
 	Args []string
 

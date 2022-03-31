@@ -70,7 +70,7 @@ type kcpServer struct {
 	t *testing.T
 }
 
-func newKcpServer(t *testing.T, cfg KcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
+func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
 	t.Helper()
 
 	kcpListenPort, err := GetFreePort(t)

@@ -58,8 +58,21 @@ func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
 }
 
 // KcpFixture manages the lifecycle of a set of kcp servers.
-type KcpFixture struct {
+//
+// Deprecated for use outside this package. Prefer PrivateKcpServer().
+type kcpFixture struct {
 	Servers map[string]RunningServer
+}
+
+// PrivateKcpServer returns a new kcp server fixture managing a new
+// server process that is not intended to be shared between tests.
+func PrivateKcpServer(t *testing.T, args ...string) RunningServer {
+	serverName := "main"
+	f := newKcpFixture(t, kcpConfig{
+		Name: serverName,
+		Args: args,
+	})
+	return f.Servers[serverName]
 }
 
 // SharedKcpServer returns a kcp server fixture intended to be shared
@@ -87,15 +100,16 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	// fixture.
 
 	tokenAuthFile := WriteTokenAuthFile(t)
-	f := NewKcpFixture(t, KcpConfig{
+	f := newKcpFixture(t, kcpConfig{
 		Name: serverName,
 		Args: TestServerArgsWithTokenAuthFile(tokenAuthFile),
 	})
 	return f.Servers[serverName]
 }
 
-func NewKcpFixture(t *testing.T, cfgs ...KcpConfig) *KcpFixture {
-	f := &KcpFixture{}
+// Deprecated for use outside this package. Prefer PrivateKcpServer().
+func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
+	f := &kcpFixture{}
 
 	artifactDir, dataDir, err := ScratchDirs(t)
 	require.NoError(t, err, "failed to create scratch dirs: %v", err)
