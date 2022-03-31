@@ -49,6 +49,12 @@ var (
 
 	# create a workspace and immediately enter it
 	%[1]s workspace create my-workspace --use
+
+	# create a context with the current workspace, e.g. root:default:my-workspace
+	%[1]s workspace create-context
+
+	# create a context with the current workspace, named context-name
+	%[1]s workspace create-context context-name
 `
 )
 
@@ -78,7 +84,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
-		Use:              "workspace [list|create|<workspace>|..|-|<root:absolute:workspace>]",
+		Use:              "workspace [list|create|create-context|<workspace>|..|-|<root:absolute:workspace>]",
 		Short:            "Manages KCP workspaces",
 		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
 		SilenceUsage:     true,
@@ -143,15 +149,11 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 			if err := opts.Validate(); err != nil {
 				return err
 			}
-
 			kubeconfig, err := plugin.NewKubeConfig(opts)
 			if err != nil {
 				return err
 			}
-			if err := kubeconfig.CreateWorkspace(cmd.Context(), args[0], workspaceType, ignoreExisting, enterAfterCreation, time.Minute); err != nil {
-				return err
-			}
-			return nil
+			return kubeconfig.CreateWorkspace(cmd.Context(), args[0], workspaceType, ignoreExisting, enterAfterCreation, time.Minute)
 		},
 	}
 	createCmd.Flags().StringVar(&workspaceType, "type", "", "A workspace type (default: Universal)")
@@ -161,6 +163,35 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	if err := createCmd.Flags().MarkDeprecated("use", "Use --enter instead"); err != nil {
 		return nil, err
 	}
+
+	var overwriteContext bool
+	createContextCmd := &cobra.Command{
+		Use:          "create-context [<context-name>] [--overwrite]",
+		Short:        "Create a kubeconfig context for the current workspace",
+		Example:      "kcp workspace create-context",
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
+
+			if len(args) > 1 {
+				return cmd.Help()
+			}
+
+			arg := ""
+			if len(args) == 1 {
+				arg = args[0]
+			}
+
+			return kubeconfig.CreateContext(cmd.Context(), arg, overwriteContext)
+		},
+	}
+	createContextCmd.Flags().BoolVar(&overwriteContext, "overwrite", overwriteContext, "Overwrite the context if it already exists")
 
 	deleteCmd := &cobra.Command{
 		Use:          "delete",
@@ -177,6 +208,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	cmd.AddCommand(currentCmd)
 	cmd.AddCommand(listCmd)
 	cmd.AddCommand(createCmd)
+	cmd.AddCommand(createContextCmd)
 	cmd.AddCommand(deleteCmd)
 	return cmd, nil
 }

@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -205,7 +206,7 @@ func TestCreate(t *testing.T) {
 				},
 				IOStreams: genericclioptions.NewTestIOStreamsDiscard(),
 			}
-			err := kc.CreateWorkspace(context.TODO(), tt.newWorkspaceName, tt.newWorkspaceType, tt.ignoreExisting, tt.useAfterCreation, time.Second)
+			err := kc.CreateWorkspace(context.Background(), tt.newWorkspaceName, tt.newWorkspaceType, tt.ignoreExisting, tt.useAfterCreation, time.Second)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -671,7 +672,224 @@ func TestUse(t *testing.T) {
 				},
 				IOStreams: streams,
 			}
-			err := kc.UseWorkspace(context.TODO(), tt.param)
+			err := kc.UseWorkspace(context.Background(), tt.param)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			t.Logf("stdout:\n%s", stdout.String())
+			t.Logf("stderr:\n%s", stderr.String())
+
+			if got != nil && tt.expected == nil {
+				t.Errorf("unexpected kubeconfig write")
+			} else if got == nil && tt.expected != nil {
+				t.Errorf("expected a kubeconfig write, but didn't see one")
+			} else if got != nil && !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("unexpected config, diff (expected, got): %s", cmp.Diff(tt.expected, got))
+			}
+
+			for _, s := range tt.wantStdout {
+				require.Contains(t, stdout.String(), s)
+			}
+			if err != nil {
+				for _, s := range tt.wantErrors {
+					require.Contains(t, err.Error(), s)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateContext(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    clientcmdapi.Config
+		overrides *clientcmd.ConfigOverrides
+
+		param     string
+		overwrite bool
+
+		expected   *clientcmdapi.Config
+		wantStdout []string
+		wantErrors []string
+		wantErr    bool
+	}{
+		{
+			name: "current, no arg",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param: "",
+			expected: &clientcmdapi.Config{CurrentContext: "root:foo:bar",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"root:foo:bar":              {Cluster: "root:foo:bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"root:foo:bar":              {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{"Created context \"root:foo:bar\" and switched to it."},
+		},
+		{
+			name: "current, with arg",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "bar",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"bar":                       {Cluster: "bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"bar":                       {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{"Created context \"bar\" and switched to it."},
+		},
+		{
+			name: "current, no cluster URL",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param:   "",
+			wantErr: true,
+		},
+		{
+			name: "current, existing",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"root:foo:bar":              {Cluster: "root:foo:bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"root:foo:bar":              {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param:   "",
+			wantErr: true,
+		},
+		{
+			name: "current, existing, overwrite",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"root:foo:bar":              {Cluster: "root:foo:bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"root:foo:bar":              {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param:     "",
+			overwrite: true,
+			expected: &clientcmdapi.Config{CurrentContext: "root:foo:bar",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"root:foo:bar":              {Cluster: "root:foo:bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"root:foo:bar":              {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{"Updated context \"root:foo:bar\" and switched to it."},
+		},
+		{
+			name: "current, existing, context already set, overwrite",
+			config: clientcmdapi.Config{CurrentContext: "root:foo:bar",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"root:foo:bar":              {Cluster: "root:foo:bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"root:foo:bar":              {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param:     "",
+			overwrite: true,
+			expected: &clientcmdapi.Config{CurrentContext: "root:foo:bar",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"root:foo:bar":              {Cluster: "root:foo:bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"root:foo:bar":              {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{"Updated context \"root:foo:bar\"."},
+		},
+		{
+			name: "current, no arg, overrides don't apply",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			overrides: &clientcmd.ConfigOverrides{
+				AuthInfo: clientcmdapi.AuthInfo{
+					Token: "new-token",
+				},
+			},
+			param: "",
+			expected: &clientcmdapi.Config{CurrentContext: "root:foo:bar",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"root:foo:bar":              {Cluster: "root:foo:bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"},
+					"root:foo:bar":              {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{"Created context \"root:foo:bar\" and switched to it."},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got *clientcmdapi.Config
+
+			clusterName := tt.config.Contexts[tt.config.CurrentContext].Cluster
+			cluster := tt.config.Clusters[clusterName]
+			u := parseURLOrDie(cluster.Server)
+			u.Path = ""
+
+			streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
+
+			kc := &KubeConfig{
+				startingConfig: tt.config.DeepCopy(),
+				currentContext: tt.config.CurrentContext,
+				overrides:      tt.overrides,
+
+				modifyConfig: func(config *clientcmdapi.Config) error {
+					got = config
+					return nil
+				},
+				IOStreams: streams,
+			}
+			err := kc.CreateContext(context.Background(), tt.param, tt.overwrite)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
