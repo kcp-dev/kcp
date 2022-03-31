@@ -322,6 +322,19 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		return fmt.Errorf("workspace %q (type %q) created but not ready", workspaceName, ws.Spec.Type)
 	}
 
+	// STOP THE BLEEDING: the virtual workspace is still informer based (not good). We have to wait until it shows up.
+	if err := wait.PollImmediate(time.Millisecond*100, time.Second*5, func() (bool, error) {
+		if _, err := kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	}); err != nil {
+		return err
+	}
+
 	// wait for being ready
 	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
 		if err := wait.PollImmediate(time.Millisecond*500, readyWaitTimeout, func() (bool, error) {
