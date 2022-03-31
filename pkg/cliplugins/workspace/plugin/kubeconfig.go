@@ -100,7 +100,7 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 		currentContext: currentContext,
 
 		clusterClient:  clusterClient,
-		personalClient: &personalClusterClient{config},
+		personalClient: &personalClusterClient{clusterConfig},
 		modifyConfig: func(newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
