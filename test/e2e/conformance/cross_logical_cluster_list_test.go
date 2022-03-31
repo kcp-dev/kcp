@@ -53,7 +53,8 @@ import (
 func TestCrossLogicalClusterList(t *testing.T) {
 	t.Parallel()
 
-	server := framework.SharedKcpServer(t)
+	// This test changes global state and is not compatible with shared fixture.
+	server := framework.PrivateKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -120,7 +121,8 @@ func TestCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	// ensure PartialObjectMetadata wildcard list works even with different CRD schemas
 	t.Parallel()
 
-	server := framework.SharedKcpServer(t)
+	// This test changes global state and is not compatible with shared fixture.
+	server := framework.PrivateKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
