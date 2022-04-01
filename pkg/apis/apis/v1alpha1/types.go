@@ -156,24 +156,29 @@ const (
 	// APIExportValid is a condition for APIBinding that reflects the validity of the referenced APIExport.
 	APIExportValid conditionsv1alpha1.ConditionType = "APIExportValid"
 
-	// APIExportInvalidReferenceReason is a reason for APIExportValid condition of APIBinding that the referenced APIExport reference is invalid.
+	// APIExportInvalidReferenceReason is a reason for the APIExportValid condition of APIBinding that the referenced
+	// APIExport reference is invalid.
 	APIExportInvalidReferenceReason = "APIExportInvalidReference"
-	// APIExportNotFoundReason is a reason for APIExportValid condition that the referenced APIExport is not found.
+	// APIExportNotFoundReason is a reason for the APIExportValid condition that the referenced APIExport is not found.
 	APIExportNotFoundReason = "APIExportNotFound"
 
-	// CRDReady is a condition for APIBinding that reflects that the referenced CRDs are ready.
-	CRDReady conditionsv1alpha1.ConditionType = "CRDReady"
+	// InternalErrorReason is a reason used by multiple conditions that something went wrong.
+	InternalErrorReason = "InternalError"
 
-	// APIResourceSchemaNotFoundReason is a reason for CRDReady condition that the referenced APIResourceSchemas has not been found.
-	APIResourceSchemaNotFoundReason = "APIResourceSchemaNotFound"
-	// InvalidSchemaReason is a reason for CRDReady condition that the referenced APIResoureSchema cannot be converted to a CRD.
-	InvalidSchemaReason = "InvalidSchema"
-	// CreateErrorReason is a reason for CRDReady condition that the referenced CRDs cannot be created.
-	CreateErrorReason = "CreateError"
-	// UpdateErrorReason is a reason for CRDReady condition that the referenced CRDs cannot be updated.
-	UpdateErrorReason = "UpdateError"
-	// WaitingForEstablishedReason is a reason for CRDReady condition that the referenced CRDs are not ready.
+	// InitialBindingCompleted is a condition for APIBinding that indicates the initial binding completed successfully.
+	// Once true, this can never be reset to false.
+	InitialBindingCompleted conditionsv1alpha1.ConditionType = "InitialBindingCompleted"
+
+	// WaitingForEstablishedReason is a reason for the InitialBindingCompleted condition that the bound CRDs are not ready.
 	WaitingForEstablishedReason = "WaitingForEstablished"
+
+	// BindingUpToDate is a condition for APIBinding that indicates that the APIs currently bound are up-to-date with
+	// the binding's desired export.
+	BindingUpToDate conditionsv1alpha1.ConditionType = "BindingUpToDate"
+
+	// NamingConflictsReason is a reason for the BindingUpToDate condition that at least one API coming in from the APIBinding
+	// has a naming conflict with other APIs.
+	NamingConflictsReason = "NamingConflicts"
 )
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..

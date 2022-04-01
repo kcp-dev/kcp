@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -39,26 +39,49 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-type wantCondition struct {
-	Type     conditionsv1alpha1.ConditionType
-	Status   corev1.ConditionStatus
-	Reason   string
-	Severity conditionsv1alpha1.ConditionSeverity
-}
+// requireConditionMatches looks for a condition matching c in g. Only fields that are set in c are compared (Type is
+// required, though). If c.Message is set, the test performed is contains rather than an exact match.
+func requireConditionMatches(t *testing.T, g conditions.Getter, c *conditionsv1alpha1.Condition) {
+	actual := conditions.Get(g, c.Type)
 
-func requireConditionMatches(t *testing.T, g conditions.Getter, w wantCondition) {
-	c := conditions.Get(g, w.Type)
-	require.NotNil(t, c, "missing condition %q", w.Type)
-	require.Equal(t, w.Status, c.Status)
-	require.Equal(t, w.Severity, c.Severity)
-	require.Equal(t, w.Reason, c.Reason)
+	require.NotNil(t, actual, "missing condition %q", c.Type)
+
+	if c.Status != "" {
+		require.Equal(t, c.Status, actual.Status)
+	}
+
+	if c.Severity != "" {
+		require.Equal(t, c.Severity, actual.Severity)
+	}
+
+	if c.Reason != "" {
+		require.Equal(t, c.Reason, actual.Reason)
+	}
+
+	if c.Message != "" {
+		require.Contains(t, actual.Message, c.Message)
+	}
 }
 
 var (
-	unbound = new(bindingBuilder).
+	unbound = newBindingBuilder().
 		WithClusterName("org:ws").
 		WithName("my-binding").
 		WithWorkspaceReference("some-workspace", "some-export")
+
+	binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
+
+	rebinding = binding.DeepCopy().
+			WithBoundAPIExport("some-workspace", "some-export").
+			WithBoundResources(
+			new(boundAPIResourceBuilder).
+				WithGroupResource("kcp.dev", "widgets").
+				WithSchema("today.widgets.kcp.dev", "todaywidgetsuid").
+				WithStorageVersions("v0", "v1").
+				BoundAPIResource,
+		)
+
+	invalidSchema = binding.DeepCopy().WithWorkspaceReference("some-workspace", "invalid-schema")
 
 	bound = unbound.DeepCopy().
 		WithPhase(apisv1alpha1.APIBindingPhaseBound).
@@ -73,32 +96,528 @@ var (
 				WithSchema("today.someresources.anothergroup", "uid2").
 				BoundAPIResource,
 		)
+
+	conflicting = unbound.DeepCopy().
+			WithName("conflicting").
+			WithPhase(apisv1alpha1.APIBindingPhaseBound).
+			WithWorkspaceReference("some-workspace", "conflict").
+			WithBoundAPIExport("some-workspace", "conflict").
+			WithBoundResources(
+			new(boundAPIResourceBuilder).
+				WithGroupResource("other.io", "widgets").
+				WithSchema("another.widgets.other.io", "anotherwidgetsuid").
+				BoundAPIResource,
+		)
+
+	todayWidgetsAPIResourceSchema = &apisv1alpha1.APIResourceSchema{
+		ObjectMeta: metav1.ObjectMeta{
+			ClusterName: "some-workspace",
+			Name:        "today.widgets.kcp.dev",
+			UID:         "todaywidgetsuid",
+		},
+		Spec: apisv1alpha1.APIResourceSchemaSpec{
+			Group: "kcp.dev",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "widgets",
+				Singular: "widget",
+				Kind:     "Widget",
+				ListKind: "WidgetList",
+			},
+			Scope: "Namespace",
+			Versions: []apisv1alpha1.APIResourceVersion{
+				{
+					Name:    "v1",
+					Served:  true,
+					Storage: true,
+					Schema: runtime.RawExtension{
+						Raw: []byte(`{"description":"foo","type":"object"}`),
+					},
+				},
+			},
+		},
+	}
+
+	someOtherWidgetsAPIResourceSchema = &apisv1alpha1.APIResourceSchema{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "another.widgets.other.io",
+			UID:  "anotherwidgetsuid",
+		},
+		Spec: apisv1alpha1.APIResourceSchemaSpec{
+			Group: "other.io",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "widgets",
+				Singular: "widget",
+				Kind:     "Widget",
+				ListKind: "WidgetList",
+			},
+			Scope: "Namespace",
+			Versions: []apisv1alpha1.APIResourceVersion{
+				{
+					Name:    "v1",
+					Served:  true,
+					Storage: true,
+					Schema: runtime.RawExtension{
+						Raw: []byte(`{"description":"foo","type":"object"}`),
+					},
+				},
+			},
+		},
+	}
 )
 
-func TestPhaseReconciler(t *testing.T) {
+func TestReconcileNew(t *testing.T) {
+	apiBinding := unbound.Build()
+
+	c := &controller{}
+
+	err := c.reconcile(context.Background(), apiBinding)
+	require.NoError(t, err)
+	require.Equal(t, apisv1alpha1.APIBindingPhaseBinding, apiBinding.Status.Phase)
+	requireConditionMatches(t, apiBinding, conditions.FalseCondition(conditionsv1alpha1.ReadyCondition, "", "", ""))
+}
+
+func TestReconcileBinding(t *testing.T) {
 	tests := map[string]struct {
-		apiBinding          *apisv1alpha1.APIBinding
-		apiExport           *apisv1alpha1.APIExport
-		getAPIExportError   error
-		apiResourceSchemas  map[string]*apisv1alpha1.APIResourceSchema
-		wantReconcileStatus reconcileStatus
-		wantBinding         bool
-		wantBound           bool
-		wantCondition       *wantCondition
-		wantRequeue         time.Duration
-		wantError           bool
+		apiBinding                              *apisv1alpha1.APIBinding
+		getAPIExportError                       error
+		getAPIResourceSchemaError               error
+		existingAPIBindings                     []*apisv1alpha1.APIBinding
+		crdExists                               bool
+		getCRDError                             error
+		wantCreateCRD                           bool
+		createCRDError                          error
+		wantUpdateCRD                           bool
+		updateCRDError                          error
+		deletedCRDs                             []string
+		wantError                               bool
+		wantInvalidReference                    bool
+		wantAPIExportNotFound                   bool
+		wantAPIExportInternalError              bool
+		wantWaitingForEstablished               bool
+		wantAPIExportValid                      bool
+		wantReady                               bool
+		wantBoundAPIExport                      bool
+		wantInitialBindingComplete              bool
+		wantInitialBindingCompleteInternalError bool
+		wantPhaseBound                          bool
+		wantBoundResources                      []apisv1alpha1.BoundAPIResource
+		wantNamingConflict                      bool
+		crdEstablished                          bool
+		crdStorageVerions                       []string
 	}{
-		"empty phase becomes binding": {
-			apiBinding:          unbound.Build(),
-			wantBinding:         true,
-			wantReconcileStatus: reconcileStatusContinue,
+		"Update to nil workspace ref reports invalid APIExport": {
+			apiBinding:           binding.DeepCopy().WithoutWorkspaceReference().Build(),
+			wantInvalidReference: true,
 		},
+		"APIExport not found": {
+			apiBinding:            binding.Build(),
+			getAPIExportError:     apierrors.NewNotFound(apisv1alpha1.SchemeGroupVersion.WithResource("apiexports").GroupResource(), "some-export"),
+			wantAPIExportNotFound: true,
+		},
+		"APIExport get error - random error": {
+			apiBinding:                 binding.Build(),
+			getAPIExportError:          errors.New("foo"),
+			wantAPIExportInternalError: true,
+			wantError:                  true,
+		},
+		"APIResourceSchema get error - not found": {
+			apiBinding:                 binding.Build(),
+			getAPIResourceSchemaError:  apierrors.NewNotFound(schema.GroupResource{}, "foo"),
+			wantAPIExportInternalError: true,
+			wantError:                  false,
+		},
+		"APIResourceSchema get error - random error": {
+			apiBinding:                 binding.Build(),
+			getAPIResourceSchemaError:  errors.New("foo"),
+			wantAPIExportInternalError: true,
+			wantError:                  true,
+		},
+		"APIResourceSchema invalid": {
+			apiBinding:                 invalidSchema.Build(),
+			wantAPIExportInternalError: true,
+		},
+		"CRD get error": {
+			apiBinding:                 binding.Build(),
+			getCRDError:                errors.New("foo"),
+			wantAPIExportInternalError: true,
+			wantError:                  true,
+		},
+		"create CRD fails - invalid": {
+			apiBinding:                              binding.Build(),
+			getCRDError:                             apierrors.NewNotFound(schema.GroupResource{}, ""),
+			wantCreateCRD:                           true,
+			createCRDError:                          apierrors.NewInvalid(apiextensionsv1.Kind("CustomResourceDefinition"), "todaywidgetsuid", field.ErrorList{field.Forbidden(field.NewPath("foo"), "details")}),
+			wantInitialBindingCompleteInternalError: true,
+			wantError:                               false,
+		},
+		"create CRD fails - other error": {
+			apiBinding:                              binding.Build(),
+			getCRDError:                             apierrors.NewNotFound(schema.GroupResource{}, ""),
+			wantCreateCRD:                           true,
+			createCRDError:                          errors.New("foo"),
+			wantInitialBindingCompleteInternalError: true,
+			wantError:                               true,
+		},
+		"create CRD - no other bindings": {
+			apiBinding:                binding.Build(),
+			getCRDError:               apierrors.NewNotFound(schema.GroupResource{}, ""),
+			wantCreateCRD:             true,
+			wantWaitingForEstablished: true,
+			wantAPIExportValid:        true,
+			wantBoundAPIExport:        true,
+			wantBoundResources: []apisv1alpha1.BoundAPIResource{
+				{
+					Group:    "kcp.dev",
+					Resource: "widgets",
+					Schema: apisv1alpha1.BoundAPIResourceSchema{
+						Name: "today.widgets.kcp.dev",
+						UID:  "todaywidgetsuid",
+					},
+					StorageVersions: []string{},
+				},
+			},
+		},
+		"create CRD - other bindings - no conflicts": {
+			apiBinding: binding.Build(),
+			existingAPIBindings: []*apisv1alpha1.APIBinding{
+				bound.Build(),
+			},
+			getCRDError:               apierrors.NewNotFound(schema.GroupResource{}, ""),
+			wantCreateCRD:             true,
+			wantWaitingForEstablished: true,
+			wantAPIExportValid:        true,
+			wantBoundAPIExport:        true,
+			wantBoundResources: []apisv1alpha1.BoundAPIResource{
+				{
+					Group:    "kcp.dev",
+					Resource: "widgets",
+					Schema: apisv1alpha1.BoundAPIResourceSchema{
+						Name: "today.widgets.kcp.dev",
+						UID:  "todaywidgetsuid",
+					},
+					StorageVersions: []string{},
+				},
+			},
+		},
+		"create CRD - other bindings - conflicts": {
+			apiBinding: binding.Build(),
+			existingAPIBindings: []*apisv1alpha1.APIBinding{
+				conflicting.Build(),
+			},
+			getCRDError:        apierrors.NewNotFound(schema.GroupResource{}, ""),
+			wantNamingConflict: true,
+		},
+		"bind existing CRD - other bindings - conflicts": {
+			apiBinding: binding.Build(),
+			crdExists:  true,
+			existingAPIBindings: []*apisv1alpha1.APIBinding{
+				conflicting.Build(),
+			},
+			wantNamingConflict: true,
+		},
+		"CRD already exists but isn't established yet": {
+			apiBinding:         binding.Build(),
+			getCRDError:        nil,
+			crdExists:          true,
+			crdEstablished:     false,
+			crdStorageVerions:  []string{"v0", "v1"},
+			wantAPIExportValid: true,
+			wantReady:          false,
+			wantBoundAPIExport: true,
+			wantBoundResources: []apisv1alpha1.BoundAPIResource{
+				{
+					Group:    "kcp.dev",
+					Resource: "widgets",
+					Schema: apisv1alpha1.BoundAPIResourceSchema{
+						Name: "today.widgets.kcp.dev",
+						UID:  "todaywidgetsuid",
+					},
+					StorageVersions: []string{"v0", "v1"},
+				},
+			},
+			wantWaitingForEstablished: true,
+		},
+		"CRD already exists and is established": {
+			apiBinding:         binding.Build(),
+			getCRDError:        nil,
+			crdExists:          true,
+			crdEstablished:     true,
+			crdStorageVerions:  []string{"v0", "v1"},
+			wantAPIExportValid: true,
+			wantReady:          true,
+			wantBoundAPIExport: true,
+			wantBoundResources: []apisv1alpha1.BoundAPIResource{
+				{
+					Group:    "kcp.dev",
+					Resource: "widgets",
+					Schema: apisv1alpha1.BoundAPIResourceSchema{
+						Name: "today.widgets.kcp.dev",
+						UID:  "todaywidgetsuid",
+					},
+					StorageVersions: []string{"v0", "v1"},
+				},
+			},
+			wantPhaseBound:             true,
+			wantInitialBindingComplete: true,
+		},
+		"Ensure merging storage versions works": {
+			apiBinding:         rebinding.Build(),
+			getCRDError:        nil,
+			crdExists:          true,
+			crdEstablished:     true,
+			crdStorageVerions:  []string{"v2"},
+			wantAPIExportValid: true,
+			wantReady:          true,
+			wantBoundAPIExport: true,
+			wantBoundResources: []apisv1alpha1.BoundAPIResource{
+				{
+					Group:    "kcp.dev",
+					Resource: "widgets",
+					Schema: apisv1alpha1.BoundAPIResourceSchema{
+						Name: "today.widgets.kcp.dev",
+						UID:  "todaywidgetsuid",
+					},
+					StorageVersions: []string{"v0", "v1", "v2"},
+				},
+			},
+			wantPhaseBound:             true,
+			wantInitialBindingComplete: true,
+		},
+	}
+
+	for testName, tc := range tests {
+		t.Run(testName, func(t *testing.T) {
+			createCRDCalled := false
+
+			apiExports := map[string]*apisv1alpha1.APIExport{
+				"some-export": {
+					ObjectMeta: metav1.ObjectMeta{ClusterName: "some-workspace", Name: "some-export"},
+					Spec: apisv1alpha1.APIExportSpec{
+						LatestResourceSchemas: []string{"today.widgets.kcp.dev"},
+					},
+				},
+				"conflict": {
+					ObjectMeta: metav1.ObjectMeta{ClusterName: "some-workspace", Name: "conflict"},
+					Spec: apisv1alpha1.APIExportSpec{
+						LatestResourceSchemas: []string{"another.widgets.other.io"},
+					},
+				},
+				"invalid-schema": {
+					ObjectMeta: metav1.ObjectMeta{ClusterName: "some-workspace", Name: "invalid-schema"},
+					Spec: apisv1alpha1.APIExportSpec{
+						LatestResourceSchemas: []string{"invalid.schema.io"},
+					},
+				},
+			}
+
+			apiResourceSchemas := map[string]*apisv1alpha1.APIResourceSchema{
+				"invalid.schema.io": {
+					ObjectMeta: metav1.ObjectMeta{ClusterName: "some-workspace", Name: "invalid.schema.io"},
+					Spec: apisv1alpha1.APIResourceSchemaSpec{
+						Versions: []apisv1alpha1.APIResourceVersion{
+							{
+								Schema: runtime.RawExtension{
+									Raw: []byte("invalid schema"),
+								},
+							},
+						},
+					},
+				},
+				"today.widgets.kcp.dev":    todayWidgetsAPIResourceSchema,
+				"another.widgets.other.io": someOtherWidgetsAPIResourceSchema,
+			}
+
+			c := &controller{
+				listAPIBindings: func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error) {
+					return tc.existingAPIBindings, nil
+				},
+				getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
+					require.Equal(t, "org:some-workspace", clusterName.String())
+					return apiExports[name], tc.getAPIExportError
+				},
+				getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+					if tc.getAPIResourceSchemaError != nil {
+						return nil, tc.getAPIResourceSchemaError
+					}
+
+					require.Equal(t, "org:some-workspace", clusterName.String())
+
+					schema, ok := apiResourceSchemas[name]
+					if !ok {
+						return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiresourceschemas"), name)
+					}
+
+					return schema, nil
+				},
+				getCRD: func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+					require.Equal(t, ShadowWorkspaceName, clusterName)
+
+					// for conflicts
+					if name == "anotherwidgetsuid" {
+						return &apiextensionsv1.CustomResourceDefinition{
+							Status: apiextensionsv1.CustomResourceDefinitionStatus{
+								AcceptedNames: apiextensionsv1.CustomResourceDefinitionNames{
+									Plural: "widgets",
+								},
+							},
+						}, nil
+					}
+
+					if !tc.crdExists {
+						return nil, tc.getCRDError
+					}
+
+					crd := &apiextensionsv1.CustomResourceDefinition{
+						Status: apiextensionsv1.CustomResourceDefinitionStatus{
+							StoredVersions: tc.crdStorageVerions,
+						},
+					}
+
+					if tc.crdEstablished {
+						crd.Status.Conditions = append(crd.Status.Conditions, apiextensionsv1.CustomResourceDefinitionCondition{
+							Type:   apiextensionsv1.Established,
+							Status: apiextensionsv1.ConditionTrue,
+						})
+					}
+
+					return crd, nil
+				},
+				createCRD: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+					createCRDCalled = true
+					return crd, tc.createCRDError
+				},
+				deletedCRDTracker: &lockedStringSet{},
+			}
+
+			err := c.reconcile(context.Background(), tc.apiBinding)
+
+			if tc.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, tc.wantCreateCRD, createCRDCalled, "mismatch on CRD creation expectation")
+
+			if tc.wantInvalidReference {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.APIExportValid,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.APIExportInvalidReferenceReason,
+				})
+			}
+
+			if tc.wantAPIExportNotFound {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.APIExportValid,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.APIExportNotFoundReason,
+				})
+			}
+
+			if tc.wantAPIExportInternalError {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.APIExportValid,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.InternalErrorReason,
+				})
+			}
+
+			if tc.wantWaitingForEstablished {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.InitialBindingCompleted,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityInfo,
+					Reason:   apisv1alpha1.WaitingForEstablishedReason,
+				})
+			}
+
+			if tc.wantAPIExportValid {
+				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha1.APIExportValid))
+			}
+
+			if tc.wantReady {
+				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(conditionsv1alpha1.ReadyCondition))
+			} else {
+				requireConditionMatches(t, tc.apiBinding, conditions.FalseCondition(conditionsv1alpha1.ReadyCondition, "", "", ""))
+			}
+
+			if tc.wantBoundAPIExport {
+				require.NotNil(t, tc.apiBinding.Status.BoundAPIExport)
+				require.Equal(t, tc.apiBinding.Spec.Reference, *tc.apiBinding.Status.BoundAPIExport)
+			} else {
+				require.Nil(t, tc.apiBinding.Status.BoundAPIExport)
+			}
+
+			if tc.wantInitialBindingComplete {
+				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha1.InitialBindingCompleted))
+			}
+
+			if tc.wantPhaseBound {
+				require.Equal(t, apisv1alpha1.APIBindingPhaseBound, tc.apiBinding.Status.Phase)
+			} else {
+				require.Equal(t, apisv1alpha1.APIBindingPhaseBinding, tc.apiBinding.Status.Phase)
+			}
+
+			require.Len(t, tc.apiBinding.Status.BoundResources, len(tc.wantBoundResources), "unexpected bound resources")
+
+			for _, want := range tc.wantBoundResources {
+				found := false
+
+				for _, got := range tc.apiBinding.Status.BoundResources {
+					if got.Group != want.Group || got.Resource != want.Resource {
+						continue
+					}
+
+					found = true
+
+					require.Equal(t, want, got)
+				}
+
+				require.True(t, found, "expected bound resource group=%s resource=%s", want.Group, want.Resource)
+			}
+
+			if tc.wantNamingConflict {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.InitialBindingCompleted,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.NamingConflictsReason,
+					Message:  "naming conflict with APIBinding conflicting",
+				})
+			}
+
+			if tc.wantInitialBindingCompleteInternalError {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.InitialBindingCompleted,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.InternalErrorReason,
+				})
+			}
+		})
+	}
+}
+
+func TestReconcileBound(t *testing.T) {
+	tests := map[string]struct {
+		apiBinding            *apisv1alpha1.APIBinding
+		apiExport             *apisv1alpha1.APIExport
+		getAPIExportError     error
+		apiResourceSchemas    map[string]*apisv1alpha1.APIResourceSchema
+		wantBinding           bool
+		wantBound             bool
+		wantError             bool
+		wantAPIExportNotFound bool
+	}{
 		"bound becomes binding when referenced export changes": {
 			apiBinding: bound.DeepCopy().
 				WithWorkspaceReference("new-workspace", "new-export").
 				Build(),
-			wantBinding:         true,
-			wantReconcileStatus: reconcileStatusStop,
+			wantBinding: true,
 		},
 		"bound becomes binding when export changes what it's exporting": {
 			apiBinding: bound.Build(),
@@ -121,8 +640,7 @@ func TestPhaseReconciler(t *testing.T) {
 					},
 				},
 			},
-			wantBinding:         true,
-			wantReconcileStatus: reconcileStatusStop,
+			wantBinding: true,
 		},
 		"bound becomes binding when bound APIResourceSchema UID changes": {
 			apiBinding: bound.Build(),
@@ -145,27 +663,18 @@ func TestPhaseReconciler(t *testing.T) {
 					},
 				},
 			},
-			wantBinding:         true,
-			wantReconcileStatus: reconcileStatusStop,
+			wantBinding: true,
 		},
 		"APIExportValid warning condition set when error getting previously bound APIExport": {
-			apiBinding:          bound.Build(),
-			getAPIExportError:   apierrors.NewNotFound(schema.GroupResource{}, "foo"),
-			wantRequeue:         time.Minute,
-			wantReconcileStatus: reconcileStatusStop,
-			wantCondition: &wantCondition{
-				Type:     apisv1alpha1.APIExportValid,
-				Status:   corev1.ConditionFalse,
-				Reason:   apisv1alpha1.APIExportNotFoundReason,
-				Severity: conditionsv1alpha1.ConditionSeverityWarning,
-			},
+			apiBinding:            bound.Build(),
+			getAPIExportError:     apierrors.NewNotFound(schema.GroupResource{}, "foo"),
+			wantAPIExportNotFound: true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			var requeuedAfter time.Duration
-			r := &phaseReconciler{
+			c := &controller{
 				getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
 					require.Equal(t, "org:some-workspace", clusterName.String())
 					require.Equal(t, "some-export", name)
@@ -175,20 +684,14 @@ func TestPhaseReconciler(t *testing.T) {
 					require.Equal(t, "org:some-workspace", clusterName.String())
 					return tc.apiResourceSchemas[name], nil
 				},
-				enqueueAfter: func(binding *apisv1alpha1.APIBinding, duration time.Duration) {
-					requeuedAfter = duration
-				},
 			}
 
-			status, err := r.reconcile(context.Background(), tc.apiBinding)
+			err := c.reconcile(context.Background(), tc.apiBinding)
 			if tc.wantError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
-
-			require.Equal(t, status, tc.wantReconcileStatus)
-			require.Equal(t, tc.wantRequeue, requeuedAfter)
 
 			switch {
 			case tc.wantBinding:
@@ -197,8 +700,13 @@ func TestPhaseReconciler(t *testing.T) {
 				require.Equal(t, apisv1alpha1.APIBindingPhaseBound, tc.apiBinding.Status.Phase)
 			}
 
-			if tc.wantCondition != nil {
-				requireConditionMatches(t, tc.apiBinding, *tc.wantCondition)
+			if tc.wantAPIExportNotFound {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.APIExportValid,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityWarning,
+					Reason:   apisv1alpha1.APIExportNotFoundReason,
+				})
 			}
 		})
 	}
@@ -418,257 +926,15 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 	}
 }
 
-func TestWorkspaceAPIExportReferenceReconciler(t *testing.T) {
-	tests := map[string]struct {
-		apiBinding                *apisv1alpha1.APIBinding
-		apiExport                 *apisv1alpha1.APIExport
-		getAPIExportError         error
-		apiResourceSchemas        map[string]*apisv1alpha1.APIResourceSchema
-		getAPIResourceSchemaError error
-		crds                      map[string]*apiextensionsv1.CustomResourceDefinition
-		getCRDError               error
-		wantCreateCRD             bool
-		createCRDError            error
-		wantUpdateCRD             bool
-		updateCRDError            error
-		deletedCRDs               []string
-		wantReconcileStatus       reconcileStatus
-		wantError                 bool
-		wantConditions            []wantCondition
-	}{
-		"Bound updated with nil workspace ref reports invalid APIExport": {
-			apiBinding:          bound.DeepCopy().WithoutWorkspaceReference().Build(),
-			wantReconcileStatus: reconcileStatusStop,
-			wantConditions: []wantCondition{
-				{
-					Type:     apisv1alpha1.APIExportValid,
-					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.APIExportInvalidReferenceReason,
-					Severity: conditionsv1alpha1.ConditionSeverityError,
-				},
-			},
-		},
-		"Bound, APIExport not found": {
-			apiBinding:          bound.Build(),
-			getAPIExportError:   apierrors.NewNotFound(apisv1alpha1.SchemeGroupVersion.WithResource("apiexports").GroupResource(), "some-export"),
-			wantReconcileStatus: reconcileStatusStop,
-			wantConditions: []wantCondition{
-				{
-					Type:     apisv1alpha1.APIExportValid,
-					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.APIExportNotFoundReason,
-					Severity: conditionsv1alpha1.ConditionSeverityError,
-				},
-			},
-		},
-		"APIExport get error": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:some-workspace").
-				WithName("binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("group", "resource").
-						WithSchema("schema1", "uid1").
-						BoundAPIResource,
-				).
-				Build(),
-			getAPIExportError:   apierrors.NewNotFound(schema.GroupResource{}, "foo"),
-			wantReconcileStatus: reconcileStatusStop,
-			wantConditions: []wantCondition{
-				{
-					Type:     apisv1alpha1.APIExportValid,
-					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.APIExportNotFoundReason,
-					Severity: conditionsv1alpha1.ConditionSeverityError,
-				},
-			},
-		},
-		"APIResourceSchema get error": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:some-workspace").
-				WithName("binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("group", "resource").
-						WithSchema("schema1", "uid1").
-						BoundAPIResource,
-				).
-				Build(),
-			apiExport: &apisv1alpha1.APIExport{
-				Spec: apisv1alpha1.APIExportSpec{
-					LatestResourceSchemas: []string{"schema1"},
-				},
-			},
-			getAPIResourceSchemaError: apierrors.NewNotFound(schema.GroupResource{}, "foo"),
-			wantReconcileStatus:       reconcileStatusStop,
-			wantConditions: []wantCondition{
-				{
-					Type:     apisv1alpha1.APIExportValid,
-					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.APIResourceSchemaNotFoundReason,
-					Severity: conditionsv1alpha1.ConditionSeverityError,
-				},
-			},
-		},
-		"APIResourceSchema invalid": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:some-workspace").
-				WithName("binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("group", "resource").
-						WithSchema("schema1", "uid1").
-						BoundAPIResource,
-				).
-				Build(),
-			apiExport: &apisv1alpha1.APIExport{
-				Spec: apisv1alpha1.APIExportSpec{
-					LatestResourceSchemas: []string{"schema1"},
-				},
-			},
-			apiResourceSchemas: map[string]*apisv1alpha1.APIResourceSchema{
-				"schema1": {
-					Spec: apisv1alpha1.APIResourceSchemaSpec{
-						Versions: []apisv1alpha1.APIResourceVersion{
-							{
-								Schema: runtime.RawExtension{
-									Raw: []byte("invalid schema"),
-								},
-							},
-						},
-					},
-				},
-			},
-			wantReconcileStatus: reconcileStatusStop,
-			wantConditions: []wantCondition{
-				{
-					Type:     apisv1alpha1.APIExportValid,
-					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.InvalidSchemaReason,
-					Severity: conditionsv1alpha1.ConditionSeverityError,
-				},
-			},
-		},
-		"CRD get error": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:some-workspace").
-				WithName("binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("group", "resource").
-						WithSchema("schema1", "uid1").
-						BoundAPIResource,
-				).
-				Build(),
-			apiExport: &apisv1alpha1.APIExport{
-				Spec: apisv1alpha1.APIExportSpec{
-					LatestResourceSchemas: []string{"schema1"},
-				},
-			},
-			apiResourceSchemas: map[string]*apisv1alpha1.APIResourceSchema{
-				"schema1": {},
-			},
-			getCRDError:         errors.New("foo"),
-			wantReconcileStatus: reconcileStatusStop,
-			wantError:           true,
-		},
-		"create CRD": {
-			apiBinding: new(bindingBuilder).
-				WithClusterName("org:some-workspace").
-				WithName("binding").
-				WithWorkspaceReference("some-workspace", "some-export").
-				WithBoundAPIExport("some-workspace", "some-export").
-				WithBoundResources(
-					new(boundAPIResourceBuilder).
-						WithGroupResource("group", "resource").
-						WithSchema("schema1", "uid1").
-						BoundAPIResource,
-				).
-				Build(),
-			apiExport: &apisv1alpha1.APIExport{
-				Spec: apisv1alpha1.APIExportSpec{
-					LatestResourceSchemas: []string{"schema1"},
-				},
-			},
-			apiResourceSchemas: map[string]*apisv1alpha1.APIResourceSchema{
-				"schema1": {},
-			},
-			getCRDError:         apierrors.NewNotFound(schema.GroupResource{}, ""),
-			wantCreateCRD:       true,
-			wantReconcileStatus: reconcileStatusStop,
-			wantConditions: []wantCondition{
-				{
-					Type:     apisv1alpha1.CRDReady,
-					Status:   corev1.ConditionFalse,
-					Reason:   apisv1alpha1.WaitingForEstablishedReason,
-					Severity: conditionsv1alpha1.ConditionSeverityInfo,
-				},
-				{
-					Type:   apisv1alpha1.APIExportValid,
-					Status: corev1.ConditionTrue,
-				},
-			},
-		},
-	}
-
-	for testName, tc := range tests {
-		t.Run(testName, func(t *testing.T) {
-			createCRDCalled := false
-
-			r := &workspaceAPIExportReferenceReconciler{
-				getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
-					require.Equal(t, "org:some-workspace", clusterName.String())
-					require.Equal(t, "some-export", name)
-					return tc.apiExport, tc.getAPIExportError
-				},
-				getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
-					require.Equal(t, "org:some-workspace", clusterName.String())
-					return tc.apiResourceSchemas[name], tc.getAPIResourceSchemaError
-				},
-				getCRD: func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-					require.Equal(t, ShadowWorkspaceName, clusterName)
-					return tc.crds[name], tc.getCRDError
-				},
-				createCRD: func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-					createCRDCalled = true
-					// We don't use the returned CRD - update in the future if we need it
-					return &apiextensionsv1.CustomResourceDefinition{}, tc.createCRDError
-				},
-				updateCRD: func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-					return nil, nil
-				},
-				deletedCRDTracker: &lockedStringSet{},
-			}
-
-			status, err := r.reconcile(context.Background(), tc.apiBinding)
-
-			if tc.wantError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			require.Equal(t, status, tc.wantReconcileStatus)
-			require.Equal(t, tc.wantCreateCRD, createCRDCalled, "expected CRD to be created")
-
-			for _, wantCondition := range tc.wantConditions {
-				requireConditionMatches(t, tc.apiBinding, wantCondition)
-			}
-		})
-	}
-}
-
 // TODO(ncdc): this is a modified copy from apibinding admission. Unify these into a reusable package.
 type bindingBuilder struct {
 	apisv1alpha1.APIBinding
+}
+
+func newBindingBuilder() *bindingBuilder {
+	b := new(bindingBuilder)
+	conditions.MarkFalse(b, apisv1alpha1.InitialBindingCompleted, "", "", "")
+	return b
 }
 
 func (b *bindingBuilder) DeepCopy() *bindingBuilder {
@@ -739,5 +1005,10 @@ func (b *boundAPIResourceBuilder) WithSchema(name, uid string) *boundAPIResource
 		Name: name,
 		UID:  uid,
 	}
+	return b
+}
+
+func (b *boundAPIResourceBuilder) WithStorageVersions(v ...string) *boundAPIResourceBuilder {
+	b.StorageVersions = v
 	return b
 }

@@ -28,11 +28,11 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
-	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -69,19 +69,50 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
-		queue:                    queue,
-		enqueueAfter:             func(binding *apisv1alpha1.APIBinding, duration time.Duration) { queue.AddAfter(binding, duration) },
-		crdClusterClient:         crdClusterClient,
-		kcpClusterClient:         kcpClusterClient,
-		apiBindingsLister:        apiBindingInformer.Lister(),
-		apiBindingsIndexer:       apiBindingInformer.Informer().GetIndexer(),
-		apiExportsLister:         apiExportInformer.Lister(),
-		apiExportsIndexer:        apiExportInformer.Informer().GetIndexer(),
-		apiResourceSchemaLister:  apiResourceSchemaInformer.Lister(),
+		queue:            queue,
+		enqueueAfter:     func(binding *apisv1alpha1.APIBinding, duration time.Duration) { queue.AddAfter(binding, duration) },
+		crdClusterClient: crdClusterClient,
+		kcpClusterClient: kcpClusterClient,
+
+		apiBindingsLister: apiBindingInformer.Lister(),
+		listAPIBindings: func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error) {
+			list, err := apiBindingInformer.Lister().List(labels.Everything())
+			if err != nil {
+				return nil, err
+			}
+
+			var ret []*apisv1alpha1.APIBinding
+
+			for i := range list {
+				if list[i].ClusterName != clusterName.String() {
+					continue
+				}
+
+				ret = append(ret, list[i])
+			}
+
+			return ret, nil
+		},
+		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
+
+		getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
+			return apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+		},
+		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
+
+		getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			return apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+		},
 		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
-		crdLister:                crdInformer.Lister(),
-		crdIndexer:               crdInformer.Informer().GetIndexer(),
-		deletedCRDTracker:        newLockedStringSet(),
+
+		createCRD: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
+		},
+		getCRD: func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			return crdInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+		},
+		crdIndexer:        crdInformer.Informer().GetIndexer(),
+		deletedCRDTracker: newLockedStringSet(),
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -156,14 +187,19 @@ type controller struct {
 	crdClusterClient apiextensionclientset.ClusterInterface
 	kcpClusterClient kcpclient.ClusterInterface
 
-	apiBindingsLister        apislisters.APIBindingLister
-	apiBindingsIndexer       cache.Indexer
-	apiExportsLister         apislisters.APIExportLister
-	apiExportsIndexer        cache.Indexer
-	apiResourceSchemaLister  apislisters.APIResourceSchemaLister
+	apiBindingsLister  apislisters.APIBindingLister
+	listAPIBindings    func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error)
+	apiBindingsIndexer cache.Indexer
+
+	getAPIExport      func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error)
+	apiExportsIndexer cache.Indexer
+
+	getAPIResourceSchema     func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
 	apiResourceSchemaIndexer cache.Indexer
-	crdLister                apiextensionslisters.CustomResourceDefinitionLister
-	crdIndexer               cache.Indexer
+
+	createCRD  func(ctx context.Context, clusterName logicalcluster.LogicalCluster, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
+	getCRD     func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	crdIndexer cache.Indexer
 
 	deletedCRDTracker *lockedStringSet
 }
@@ -176,7 +212,7 @@ func (c *controller) enqueueAPIBinding(obj interface{}) {
 		return
 	}
 
-	klog.Infof("Queueing APIBinding %q", key)
+	klog.V(2).Infof("Queueing APIBinding %q", key)
 	c.queue.Add(key)
 }
 
@@ -188,7 +224,7 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 		return
 	}
 
-	klog.Infof("Mapping APIExport %q", key)
+	klog.V(2).Infof("Mapping APIExport %q", key)
 	bindingsForExport, err := c.apiBindingsIndexer.ByIndex(indexAPIBindingsByWorkspaceExport, key)
 	if err != nil {
 		runtime.HandleError(err)
@@ -213,8 +249,7 @@ func (c *controller) enqueueCRD(obj interface{}) {
 	}
 
 	clusterName := logicalcluster.New(crd.Annotations[annotationSchemaClusterKey])
-	apiResourceSchemaKey := clusters.ToClusterAwareKey(clusterName, crd.Annotations[annotationSchemaNameKey])
-	apiResourceSchema, err := c.apiResourceSchemaLister.Get(apiResourceSchemaKey)
+	apiResourceSchema, err := c.getAPIResourceSchema(clusterName, crd.Annotations[annotationSchemaNameKey])
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -301,9 +336,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 	old := obj
 	obj = obj.DeepCopy()
 
-	if err := c.reconcile(ctx, obj); err != nil {
-		return err
-	}
+	reconcileErr := c.reconcile(ctx, obj)
+
+	// Regardless of whether reconcile returned an error or not, always try to patch status if needed. Return the
+	// reconciliation error at the end.
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
@@ -333,5 +369,5 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return uerr
 	}
 
-	return nil
+	return reconcileErr
 }

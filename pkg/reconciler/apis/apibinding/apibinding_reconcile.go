@@ -20,20 +20,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"sync"
-	"time"
+	"sort"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -47,159 +42,45 @@ const (
 	annotationSchemaNameKey    = "apis.kcp.dev/schema-name"
 )
 
-type reconcileStatus int
+func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+	// The only condition that reflects if the APIBinding is Ready is InitialBindingCompleted. Other conditions
+	// (e.g. APIExportValid) may revert to false after the initial binding has completed, but those must not affect
+	// the readiness.
+	defer conditions.SetSummary(
+		apiBinding,
+		conditions.WithConditions(
+			apisv1alpha1.InitialBindingCompleted,
+		),
+	)
 
-const (
-	reconcileStatusStop reconcileStatus = iota
-	reconcileStatusContinue
-)
-
-type reconciler interface {
-	reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error)
-}
-
-type phaseReconciler struct {
-	getAPIExport         func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error)
-	getAPIResourceSchema func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
-	enqueueAfter         func(*apisv1alpha1.APIBinding, time.Duration)
-}
-
-func (r *phaseReconciler) reconcile(_ context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
 	switch apiBinding.Status.Phase {
 	case "":
-		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+		return c.reconcileNew(ctx, apiBinding)
+	case apisv1alpha1.APIBindingPhaseBinding:
+		return c.reconcileBinding(ctx, apiBinding)
 	case apisv1alpha1.APIBindingPhaseBound:
-		apiExportClusterName, err := getAPIExportClusterName(apiBinding)
-		if err != nil {
-			// Should never happen
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.APIExportNotFoundReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				err.Error(),
-			)
-
-			// No way to proceed from here - don't retry
-			return reconcileStatusStop, nil
-		}
-
-		if referencedAPIExportChanged(apiBinding) {
-			klog.Infof("APIBinding %s|%s needs rebinding because it now points to a different APIExport", apiBinding.ClusterName, apiBinding.Name)
-
-			apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
-
-			// Commit the phase change, then wait for next update event to process binding changes
-			return reconcileStatusStop, nil
-		}
-
-		apiExport, err := r.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
-		if err != nil && apierrors.IsNotFound(err) {
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.APIExportNotFoundReason,
-				conditionsv1alpha1.ConditionSeverityWarning,
-				"APIExport %s|%s not found",
-				apiExportClusterName,
-				apiBinding.Spec.Reference.Workspace.ExportName,
-			)
-
-			// Stop reconciling, but retry
-			r.enqueueAfter(apiBinding, time.Minute)
-			return reconcileStatusStop, nil
-		} else if err != nil {
-			return reconcileStatusStop, err
-		}
-
-		var exportedSchemas []*apisv1alpha1.APIResourceSchema
-		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-			apiResourceSchema, err := r.getAPIResourceSchema(apiExportClusterName, schemaName)
-			if err != nil && apierrors.IsNotFound(err) {
-				conditions.MarkFalse(
-					apiBinding,
-					apisv1alpha1.APIExportValid,
-					apisv1alpha1.APIResourceSchemaNotFoundReason,
-					conditionsv1alpha1.ConditionSeverityError,
-					"Associated APIResourceSchema %s|%s not found",
-					apiExportClusterName,
-					schemaName,
-				)
-
-				// No way to proceed from here - don't retry
-				return reconcileStatusStop, nil
-			} else if err != nil {
-				return reconcileStatusStop, err
-			}
-
-			exportedSchemas = append(exportedSchemas, apiResourceSchema)
-		}
-
-		if apiExportLatestResourceSchemasChanged(apiBinding, exportedSchemas) {
-			klog.V(2).Infof("APIBinding %s|%s needs rebinding because the APIExport's latestResourceSchemas has changed", apiBinding.ClusterName, apiBinding.Name)
-
-			apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
-
-			// Commit the phase change, then wait for next update event to process binding changes
-			return reconcileStatusStop, nil
-		}
+		return c.reconcileBound(ctx, apiBinding)
+	default:
+		klog.Errorf("Invalid phase %q for APIBinding %s|%s", apiBinding.Status.Phase, apiBinding.ClusterName, apiBinding.Name)
+		return nil
 	}
-
-	return reconcileStatusContinue, nil
 }
 
-func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.LogicalCluster, error) {
-	parent, hasParent := logicalcluster.From(apiBinding).Parent()
-	if !hasParent {
-		return logicalcluster.LogicalCluster{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
-	}
-	if apiBinding.Spec.Reference.Workspace == nil {
-		return logicalcluster.LogicalCluster{}, fmt.Errorf("APIBinding does not specify an APIExport")
-	}
-	return parent.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName), nil
+func (c *controller) reconcileNew(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+	apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+
+	conditions.MarkFalse(
+		apiBinding,
+		apisv1alpha1.InitialBindingCompleted,
+		apisv1alpha1.WaitingForEstablishedReason,
+		conditionsv1alpha1.ConditionSeverityInfo,
+		"Waiting for API(s) to be established",
+	)
+
+	return nil
 }
 
-func referencedAPIExportChanged(apiBinding *apisv1alpha1.APIBinding) bool {
-	// Can't happen because of OpenAPI, but just in case
-	if apiBinding.Spec.Reference.Workspace == nil {
-		return false
-	}
-
-	if apiBinding.Status.BoundAPIExport == nil {
-		return false
-	}
-	if apiBinding.Status.BoundAPIExport.Workspace == nil {
-		return false
-	}
-
-	return *apiBinding.Spec.Reference.Workspace != *apiBinding.Status.BoundAPIExport.Workspace
-}
-
-func apiExportLatestResourceSchemasChanged(apiBinding *apisv1alpha1.APIBinding, exportedSchemas []*apisv1alpha1.APIResourceSchema) bool {
-	exportedSchemaUIDs := sets.NewString()
-	for _, exportedSchema := range exportedSchemas {
-		exportedSchemaUIDs.Insert(string(exportedSchema.UID))
-	}
-
-	boundSchemaUIDs := sets.NewString()
-	for _, boundResource := range apiBinding.Status.BoundResources {
-		boundSchemaUIDs.Insert(boundResource.Schema.UID)
-	}
-
-	return !exportedSchemaUIDs.Equal(boundSchemaUIDs)
-}
-
-type workspaceAPIExportReferenceReconciler struct {
-	getAPIExport         func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error)
-	getAPIResourceSchema func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
-	getCRD               func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	createCRD            func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
-	updateCRD            func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
-
-	deletedCRDTracker *lockedStringSet
-}
-
-func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
+func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
 	workspaceRef := apiBinding.Spec.Reference.Workspace
 	if workspaceRef == nil {
 		// this should not happen because of OpenAPI
@@ -210,7 +91,7 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 			conditionsv1alpha1.ConditionSeverityError,
 			"Missing APIExport reference",
 		)
-		return reconcileStatusStop, nil
+		return nil
 	}
 
 	apiExportClusterName, err := getAPIExportClusterName(apiBinding)
@@ -223,11 +104,11 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 			conditionsv1alpha1.ConditionSeverityError,
 			err.Error(),
 		)
-		return reconcileStatusStop, nil
+		return nil
 	}
 
-	apiExport, err := r.getAPIExport(apiExportClusterName, workspaceRef.ExportName)
-	if err != nil && apierrors.IsNotFound(err) {
+	apiExport, err := c.getAPIExport(apiExportClusterName, workspaceRef.ExportName)
+	if apierrors.IsNotFound(err) {
 		conditions.MarkFalse(
 			apiBinding,
 			apisv1alpha1.APIExportValid,
@@ -237,132 +118,193 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 			apiExportClusterName,
 			workspaceRef.ExportName,
 		)
-		return reconcileStatusStop, nil // don't retry, only when APIExport shows up with new event
-	} else if err != nil {
-		return reconcileStatusStop, err // temporary error, retry
+		return nil
+	}
+	if err != nil {
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.APIExportValid,
+			apisv1alpha1.InternalErrorReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"Error getting APIExport %s|%s: %v",
+			apiExportClusterName,
+			workspaceRef.ExportName,
+			err,
+		)
+		return err
 	}
 
 	var boundResources []apisv1alpha1.BoundAPIResource
 	needToWaitForRequeue := false
 
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		schema, err := r.getAPIResourceSchema(apiExportClusterName, schemaName)
-		if err != nil && apierrors.IsNotFound(err) {
-			klog.Errorf("APIResourceSchema %s|%s not found", apiExportClusterName, schemaName)
-			// TODO(ncdc): not sure if we should expose this level of detail to the binding user?
+		schema, err := c.getAPIResourceSchema(apiExportClusterName, schemaName)
+		if err != nil {
+			klog.Errorf(
+				"Error binding APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
+				apiBinding.ClusterName, apiBinding.Name,
+				apiExport.ClusterName, apiExport.Name,
+				apiExport.ClusterName, schemaName,
+				err,
+			)
+
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.APIExportValid,
-				apisv1alpha1.APIResourceSchemaNotFoundReason,
+				apisv1alpha1.InternalErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				"Associated APIResourceSchema %s|%s not found",
-				apiExportClusterName,
-				schemaName,
+				"Invalid APIExport. Please contact the APIExport owner to resolve",
 			)
 
-			return reconcileStatusStop, nil // don't retry
-		} else if err != nil {
-			return reconcileStatusStop, err // temporary error, retry
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+
+			return err
 		}
 
 		crd, err := crdFromAPIResourceSchema(schema)
 		if err != nil {
-			// TODO(ncdc): not sure if we should expose this level of detail to the binding user?
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.InvalidSchemaReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				"error converting APIResourceSchema %s|%s to a CRD: %v",
-				schema.ClusterName,
-				schema.Name,
+			klog.Errorf(
+				"Error generating CRD for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
+				apiBinding.ClusterName, apiBinding.Name,
+				apiExport.ClusterName, apiExport.Name,
+				apiExport.ClusterName, schemaName,
 				err,
 			)
 
-			return reconcileStatusStop, nil // don't retry
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.APIExportValid,
+				apisv1alpha1.InternalErrorReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Invalid APIExport. Please contact the APIExport owner to resolve",
+			)
+
+			return nil
 		}
 
-		existingCRD, err := r.getCRD(ShadowWorkspaceName, crd.Name)
+		// Check for naming conflicts
+		nameConflictChecker := &nameConflictChecker{
+			listAPIBindings:      c.listAPIBindings,
+			getAPIExport:         c.getAPIExport,
+			getAPIResourceSchema: c.getAPIResourceSchema,
+			getCRD:               c.getCRD,
+		}
+
+		if err := nameConflictChecker.checkForConflicts(crd, apiBinding); err != nil {
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.BindingUpToDate,
+				apisv1alpha1.NamingConflictsReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Unable to bind APIs: %v",
+				err,
+			)
+
+			// Only change InitialBindingCompleted if it's false
+			if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha1.InitialBindingCompleted,
+					apisv1alpha1.NamingConflictsReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"Unable to bind APIs: %v",
+					err,
+				)
+			}
+			return nil
+		}
+
+		existingCRD, err := c.getCRD(ShadowWorkspaceName, crd.Name)
 		if err != nil && !apierrors.IsNotFound(err) {
-			return reconcileStatusStop, err // temporary error, retry
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.APIExportValid,
+				apisv1alpha1.InternalErrorReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Invalid APIExport. Please contact the APIExport owner to resolve",
+			)
+
+			return fmt.Errorf(
+				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
+				ShadowWorkspaceName, crd.Name,
+				apiBinding.ClusterName, apiBinding.Name,
+				apiExport.ClusterName, apiExport.Name,
+				apiExport.ClusterName, schemaName,
+				err,
+			)
 		}
 
 		// The crd was deleted and needs to be recreated. `existingCRD` might be non-nil if
 		// the lister is behind, so explicitly set to nil to ensure recreation.
-		if r.deletedCRDTracker.Has(crd.Name) {
-			klog.Infof("Bound CRD %s|%s was deleted - need to recreate", ShadowWorkspaceName, crd.Name)
+		if c.deletedCRDTracker.Has(crd.Name) {
+			klog.V(4).Infof("Bound CRD %s|%s was deleted - need to recreate", ShadowWorkspaceName, crd.Name)
 			existingCRD = nil
 		}
 
 		if existingCRD == nil {
 			// Create flow
-			if _, err := r.createCRD(ctx, crd); err != nil {
-				switch {
-				case !apierrors.IsAlreadyExists(err):
-					// fall through
-				case apierrors.IsInvalid(err):
-					// this means that APIResourceSchema->CRD conversion failed
+
+			if _, err := c.createCRD(ctx, ShadowWorkspaceName, crd); err != nil {
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha1.BindingUpToDate,
+					apisv1alpha1.InternalErrorReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
+				)
+				// Only change InitialBindingCompleted if it's false
+				if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 					conditions.MarkFalse(
 						apiBinding,
-						apisv1alpha1.CRDReady,
-						apisv1alpha1.CreateErrorReason,
+						apisv1alpha1.InitialBindingCompleted,
+						apisv1alpha1.InternalErrorReason,
 						conditionsv1alpha1.ConditionSeverityError,
-						"error creating CRD %s: %v",
-						crd.Name,
+						"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
+					)
+				}
+
+				if apierrors.IsInvalid(err) {
+					klog.Errorf(
+						"Error creating CRD for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
+						apiBinding.ClusterName, apiBinding.Name,
+						apiExport.ClusterName, apiExport.Name,
+						apiExport.ClusterName, schemaName,
 						err,
 					)
-					return reconcileStatusStop, nil // don't retry
-				default:
-					return reconcileStatusStop, err // temporary error, retry
+
+					return nil
 				}
+
+				return err
 			}
-			// If we got an already-exists error, proceed below to set condition
 
-			r.deletedCRDTracker.Remove(crd.Name)
-
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha1.CRDReady,
-				apisv1alpha1.WaitingForEstablishedReason,
-				conditionsv1alpha1.ConditionSeverityInfo,
-				"waiting for CRD to be established",
-			)
+			c.deletedCRDTracker.Remove(crd.Name)
 
 			needToWaitForRequeue = true
 		} else {
-			// We never set Conversion, so nil it out before comparing
-			existingCRD = existingCRD.DeepCopy()
-			existingCRD.Spec.Conversion = nil
-
-			if !reflect.DeepEqual(existingCRD.Spec, crd.Spec) {
-				klog.Infof("CRD diff: %s", cmp.Diff(existingCRD.Spec, crd.Spec))
-				crd.ResourceVersion = existingCRD.ResourceVersion
-
-				if _, err := r.updateCRD(ctx, crd); err != nil {
-					if apierrors.IsInvalid(err) {
-						// this means that APIResourceSchema->CRD conversion failed
-						conditions.MarkFalse(
-							apiBinding,
-							apisv1alpha1.CRDReady,
-							apisv1alpha1.CreateErrorReason,
-							conditionsv1alpha1.ConditionSeverityError,
-							"error creating CRD %s: %v",
-							crd.Name,
-							err,
-						)
-						return reconcileStatusStop, nil // don't retry
-					}
-
-					return reconcileStatusStop, err // retry, temporary error
-				}
-
+			// Existing CRD flow
+			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) || apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
 				needToWaitForRequeue = true
-			} else {
-				if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) || apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
-					needToWaitForRequeue = true
-				}
 			}
 		}
+
+		// Merge any current storage versions with new ones
+		storageVersions := sets.NewString()
+		if existingCRD != nil {
+			storageVersions.Insert(existingCRD.Status.StoredVersions...)
+		}
+
+		for _, b := range apiBinding.Status.BoundResources {
+			if b.Group == schema.Spec.Group && b.Resource == schema.Spec.Names.Plural {
+				storageVersions.Insert(b.StorageVersions...)
+				break
+			}
+		}
+
+		sortedStorageVersions := storageVersions.List()
+		sort.Strings(sortedStorageVersions)
 
 		boundResources = append(boundResources, apisv1alpha1.BoundAPIResource{
 			Group:    schema.Spec.Group,
@@ -371,75 +313,127 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 				Name: schema.Name,
 				UID:  string(schema.UID),
 			},
-			StorageVersions: crd.Status.StoredVersions,
+			StorageVersions: sortedStorageVersions,
 		})
 	}
 
 	conditions.MarkTrue(apiBinding, apisv1alpha1.APIExportValid)
 
-	if needToWaitForRequeue {
-		return reconcileStatusStop, nil
-	}
-
-	conditions.MarkTrue(apiBinding, apisv1alpha1.CRDReady)
-	apiBinding.Status.Initializers = []string{}
-	apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBound
 	apiBinding.Status.BoundAPIExport = &apiBinding.Spec.Reference
 	apiBinding.Status.BoundResources = boundResources
 
-	return reconcileStatusContinue, nil
-}
-
-func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
-	reconcilers := []reconciler{
-		&phaseReconciler{
-			getAPIExport:         c.getAPIExport,
-			getAPIResourceSchema: c.getAPIResourceSchema,
-			enqueueAfter:         c.enqueueAfter,
-		},
-		&workspaceAPIExportReferenceReconciler{
-			getAPIExport:         c.getAPIExport,
-			getAPIResourceSchema: c.getAPIResourceSchema,
-			getCRD:               c.getCRD,
-			createCRD:            c.createCRD,
-			updateCRD:            c.updateCRD,
-			deletedCRDTracker:    c.deletedCRDTracker,
-		},
+	if needToWaitForRequeue {
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.BindingUpToDate,
+			apisv1alpha1.WaitingForEstablishedReason,
+			conditionsv1alpha1.ConditionSeverityInfo,
+			"Waiting for API(s) to be established",
+		)
+		// Only change InitialBindingCompleted if it's false
+		if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.InitialBindingCompleted,
+				apisv1alpha1.WaitingForEstablishedReason,
+				conditionsv1alpha1.ConditionSeverityInfo,
+				"Waiting for API(s) to be established",
+			)
+		}
+	} else {
+		conditions.MarkTrue(apiBinding, apisv1alpha1.InitialBindingCompleted)
+		conditions.MarkTrue(apiBinding, apisv1alpha1.BindingUpToDate)
+		apiBinding.Status.Initializers = []string{}
+		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBound
 	}
 
-	var errs []error
+	return nil
+}
 
-	for _, r := range reconcilers {
-		status, err := r.reconcile(ctx, apiBinding)
+func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+	apiExportClusterName, err := getAPIExportClusterName(apiBinding)
+	if err != nil {
+		// Should never happen
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.APIExportValid,
+			apisv1alpha1.APIExportNotFoundReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			err.Error(),
+		)
+
+		return nil
+	}
+
+	if referencedAPIExportChanged(apiBinding) {
+		klog.V(4).Infof("APIBinding %s|%s needs rebinding because it now points to a different APIExport", apiBinding.ClusterName, apiBinding.Name)
+
+		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+
+		return nil
+	}
+
+	apiExport, err := c.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
+	if apierrors.IsNotFound(err) {
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.APIExportValid,
+			apisv1alpha1.APIExportNotFoundReason,
+			conditionsv1alpha1.ConditionSeverityWarning,
+			"APIExport %s|%s not found",
+			apiExportClusterName,
+			apiBinding.Spec.Reference.Workspace.ExportName,
+		)
+
+		// Return nil here so we don't retry. If/when there is an informer event for the correct APIExport, this
+		// APIBinding will automatically be requeued.
+		return nil
+	}
+	if err != nil {
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.APIExportValid,
+			apisv1alpha1.InternalErrorReason,
+			conditionsv1alpha1.ConditionSeverityWarning,
+			"Error getting APIExport %s|%s: %v",
+			apiExportClusterName,
+			apiBinding.Spec.Reference.Workspace.ExportName,
+			err,
+		)
+
+		return err
+	}
+
+	var exportedSchemas []*apisv1alpha1.APIResourceSchema
+	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+		apiResourceSchema, err := c.getAPIResourceSchema(apiExportClusterName, schemaName)
 		if err != nil {
-			errs = append(errs, err)
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.APIExportValid,
+				apisv1alpha1.InternalErrorReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"An internal error occurred with the APIExport",
+			)
+			if apierrors.IsNotFound(err) {
+				// Return nil here so we don't retry. If/when there is an informer event for the correct APIExport, this
+				// APIBinding will automatically be requeued.
+				return nil
+			}
+
+			return err
 		}
-		if status == reconcileStatusStop {
-			break
-		}
+
+		exportedSchemas = append(exportedSchemas, apiResourceSchema)
 	}
 
-	return errors.NewAggregate(errs)
-}
+	if apiExportLatestResourceSchemasChanged(apiBinding, exportedSchemas) {
+		klog.V(4).Infof("APIBinding %s|%s needs rebinding because the APIExport's latestResourceSchemas has changed", apiBinding.ClusterName, apiBinding.Name)
 
-func (c *controller) getAPIExport(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
-	return c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, name))
-}
+		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+	}
 
-func (c *controller) getAPIResourceSchema(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	return c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(clusterName, name))
-}
-
-func (c *controller) getCRD(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdLister.Get(clusters.ToClusterAwareKey(clusterName, name))
-}
-
-func (c *controller) createCRD(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdClusterClient.Cluster(logicalcluster.From(crd)).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
-}
-
-func (c *controller) updateCRD(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdClusterClient.Cluster(logicalcluster.From(crd)).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{})
+	return nil
 }
 
 func crdFromAPIResourceSchema(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -483,32 +477,37 @@ func crdFromAPIResourceSchema(schema *apisv1alpha1.APIResourceSchema) (*apiexten
 	return crd, nil
 }
 
-// lockedStringSet guards a sets.String with an RWMutex.
-type lockedStringSet struct {
-	lock sync.RWMutex
-	s    sets.String
-}
-
-func newLockedStringSet(s ...string) *lockedStringSet {
-	return &lockedStringSet{
-		s: sets.NewString(s...),
+func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.LogicalCluster, error) {
+	parent, hasParent := logicalcluster.From(apiBinding).Parent()
+	if !hasParent {
+		return logicalcluster.LogicalCluster{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
 	}
+	if apiBinding.Spec.Reference.Workspace == nil {
+		// cannot happen due to APIBinding validation
+		return logicalcluster.LogicalCluster{}, fmt.Errorf("APIBinding does not specify an APIExport")
+	}
+	return parent.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName), nil
 }
 
-func (l *lockedStringSet) Add(s string) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-	l.s.Insert(s)
+func referencedAPIExportChanged(apiBinding *apisv1alpha1.APIBinding) bool {
+	// Can't happen because of OpenAPI, but just in case
+	if apiBinding.Spec.Reference.Workspace == nil {
+		return false
+	}
+
+	return *apiBinding.Spec.Reference.Workspace != *apiBinding.Status.BoundAPIExport.Workspace
 }
 
-func (l *lockedStringSet) Remove(s string) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-	l.s.Delete(s)
-}
+func apiExportLatestResourceSchemasChanged(apiBinding *apisv1alpha1.APIBinding, exportedSchemas []*apisv1alpha1.APIResourceSchema) bool {
+	exportedSchemaUIDs := sets.NewString()
+	for _, exportedSchema := range exportedSchemas {
+		exportedSchemaUIDs.Insert(string(exportedSchema.UID))
+	}
 
-func (l *lockedStringSet) Has(s string) bool {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-	return l.s.Has(s)
+	boundSchemaUIDs := sets.NewString()
+	for _, boundResource := range apiBinding.Status.BoundResources {
+		boundSchemaUIDs.Insert(boundResource.Schema.UID)
+	}
+
+	return !exportedSchemaUIDs.Equal(boundSchemaUIDs)
 }
