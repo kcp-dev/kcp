@@ -53,7 +53,7 @@ clear
 pe "kubectl config use-context root"
 pe "kubectl kcp workspace use demo"
 
-c "Now we swtich roles. We are the customer now, in need of certificate generation for our web application. We are lucky: kcp has a cert-manager service 🎉"
+c "Now we switch roles. We are the customer now, in need of certificate generation for our web application. We are lucky: kcp has a cert-manager service 🎉"
 pe "kubectl kcp workspace create webapp"
 pe "kubectl kcp workspace use webapp"
 
