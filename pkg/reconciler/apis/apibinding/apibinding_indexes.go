@@ -37,7 +37,7 @@ func indexAPIBindingByWorkspaceExport(obj interface{}) ([]string, error) {
 	if apiBinding.Spec.Reference.Workspace != nil {
 		parent, hasParent := logicalcluster.From(apiBinding).Parent()
 		if !hasParent {
-			return []string{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
+			return []string{}, fmt.Errorf("an APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
 		}
 		apiExportClusterName := parent.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName)
 		key := clusters.ToClusterAwareKey(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
