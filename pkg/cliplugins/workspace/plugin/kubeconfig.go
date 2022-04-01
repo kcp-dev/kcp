@@ -118,7 +118,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 	// Store the currentContext content for later to set as previous context
 	currentContext, found := kc.startingConfig.Contexts[kc.currentContext]
 	if !found {
-		return fmt.Errorf("current %q context not found", currentContext)
+		return fmt.Errorf("current %q context not found", kc.currentContext)
 	}
 
 	var newServerHost, workspaceType string
@@ -253,7 +253,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context) error {
 func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType string) error {
 	_, clusterName, err := parseClusterURL(host)
 	if err != nil {
-		_, err = fmt.Fprintf(kc.Out, "Current workspace is the URL %q\n", host)
+		_, err = fmt.Fprintf(kc.Out, "Current workspace is the URL %q.\n", host)
 		return err
 	}
 
@@ -274,7 +274,7 @@ func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType 
 	if workspaceName != workspacePrettyName {
 		message += fmt.Sprintf(" aliased as %q", workspacePrettyName)
 	}
-	_, err = fmt.Fprintln(kc.Out, message)
+	_, err = fmt.Fprintln(kc.Out, message+".")
 	return err
 }
 
@@ -405,4 +405,56 @@ func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
 	})
 
 	return printer.PrintObj(table, opts.Out)
+}
+
+func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite bool) error {
+	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, nil).RawConfig()
+	if err != nil {
+		return err
+	}
+	currentContext, ok := config.Contexts[config.CurrentContext]
+	if !ok {
+		return fmt.Errorf("current context %q is not found in kubeconfig", config.CurrentContext)
+	}
+	currentCluster, ok := config.Clusters[currentContext.Cluster]
+	if !ok {
+		return fmt.Errorf("current cluster %q is not found in kubeconfig", currentContext.Cluster)
+	}
+	_, currentClusterName, err := parseClusterURL(currentCluster.Server)
+	if err != nil {
+		return fmt.Errorf("current URL %q does not point to cluster workspace", currentCluster.Server)
+	}
+
+	if name == "" {
+		name = currentClusterName.String()
+	}
+
+	_, existedBefore := kc.startingConfig.Contexts[name]
+	if existedBefore && !overwrite {
+		return fmt.Errorf("context %q already exists in kubeconfig, use --overwrite to update it", name)
+	}
+
+	newKubeConfig := kc.startingConfig.DeepCopy()
+	newCluster := *currentCluster
+	newKubeConfig.Clusters[name] = &newCluster
+	newContext := *currentContext
+	newContext.Cluster = name
+	newKubeConfig.Contexts[name] = &newContext
+	newKubeConfig.CurrentContext = name
+
+	if err := kc.modifyConfig(newKubeConfig); err != nil {
+		return err
+	}
+
+	if existedBefore {
+		if kc.startingConfig.CurrentContext == name {
+			fmt.Fprintf(kc.Out, "Updated context %q.\n", name) // nolint: errcheck
+		} else {
+			fmt.Fprintf(kc.Out, "Updated context %q and switched to it.\n", name) // nolint:	errcheck
+		}
+	} else {
+		fmt.Fprintf(kc.Out, "Created context %q and switched to it.\n", name) // nolint: errcheck
+	}
+
+	return nil
 }

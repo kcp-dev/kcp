@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // Options provides options that will drive the update of the current context
@@ -31,13 +30,6 @@ import (
 type Options struct {
 	KubectlOverrides *clientcmd.ConfigOverrides
 	Scope            string
-
-	genericclioptions.IOStreams
-}
-
-type Config struct {
-	Scope      string
-	KubeConfig *clientcmdapi.Config
 
 	genericclioptions.IOStreams
 }
