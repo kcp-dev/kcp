@@ -1,0 +1,45 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kuard
+  name: kuard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kuard
+  template:
+    metadata:
+      labels:
+        app: kuard
+    spec:
+      containers:
+        - image: gcr.io/kuar-demo/kuard-ARCH:blue
+          name: kuard
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          command: ["/kuard"]
+          args:
+          - --tls-dir=/tls
+          volumeMounts:
+            - mountPath: /tls
+              name: tls
+      volumes:
+        - name: tls
+          secret:
+            secretName: ca-cert-tls
+            items:
+            - key: tls.crt
+              path: kuard.crt
+            - key: tls.key
+              path: kuard.key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kuard
+  name: kuard

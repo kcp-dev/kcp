@@ -53,6 +53,8 @@ if ! kubectl get namespaces &>/dev/null; then
 fi
 
 pe "kubectl config use-context root"
+pe "kubectl kcp workspace create demo --type Organization"
+sleep 1
 pe "kubectl kcp workspace use demo"
 
 clear

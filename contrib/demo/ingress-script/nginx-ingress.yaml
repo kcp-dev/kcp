@@ -345,6 +345,7 @@ spec:
             - --validating-webhook-key=/usr/local/certificates/key
             - --watch-ingress-without-class=true
             - --report-node-internal-ip-address
+            - --enable-ssl-passthrough
           securityContext:
             capabilities:
               drop:
