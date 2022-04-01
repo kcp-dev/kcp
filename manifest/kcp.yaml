@@ -122,7 +122,7 @@ spec:
         - --root-directory=/etc/kcp/config
         - --run-virtual-workspaces=false
         - --virtual-workspace-address=https://$(EXTERNAL_HOSTNAME)
-        - --external-hostname=$(EXTERNAL_HOSTNAME)
+        - --external-hostname=$(EXTERNAL_HOSTNAME):443
         - --oidc-issuer-url=https://sso.redhat.com/auth/realms/redhat-external
         - --oidc-client-id=rhoas-cli-prod
         - --oidc-groups-claim=org_id
