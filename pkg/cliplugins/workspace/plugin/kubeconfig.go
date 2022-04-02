@@ -89,6 +89,7 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 
 	clusterConfig := rest.CopyConfig(config)
 	clusterConfig.Host = u.String()
+	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
 	clusterClient, err := tenancyclient.NewClusterForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
