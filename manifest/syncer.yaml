@@ -2,13 +2,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kcp-system 
+  name: kcp-system
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: syncer
-  namespace: kcp-system 
+  namespace: kcp-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -54,22 +54,13 @@ metadata:
   name: syncer-kcp-sa
   namespace: kcp-system
 data:
-  ca.crt: KCP_SYNCER_CACRT
-  token: KCP_SYNCER_TOKEN
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: syncer-kcp-config
-  namespace: kcp-system
-data:
   kubeconfig: |
     apiVersion: v1
     kind: Config
     clusters:
     - name: default-cluster
       cluster:
-        certificate-authority: /kcp/sa/ca.crt
+        certificate-authority-data: KCP_SYNCER_CACRT
         server: KCP_SERVER_URL
     contexts:
     - name: default-context
@@ -81,7 +72,7 @@ data:
     users:
     - name: default-user
       user:
-        tokenFile:  /kcp/sa/token
+        token: KCP_SYNCER_TOKEN
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -103,7 +94,9 @@ spec:
         app: kcp-syncer-ID
     spec:
       containers:
-      - args:
+      - command:
+        - /ko-app/syncer
+        args:
         - --from-kubeconfig=/kcp/config/kubeconfig
         - --workload-cluster-name=WORKLOAD_CLUSTER_NAME   # ID of the -to cluster. Resources with this ID set in the 'workloads.kcp.dev/cluster' label will be synced
         - --from-cluster=KCP_LOGICAL_CLUSTER_NAME         # Name of the -from logical cluster
@@ -118,9 +111,6 @@ spec:
         - name: kcp-kubeconfig
           mountPath: /kcp/config
           readOnly: true
-        - name: kcp-service-account
-          mountPath: /kcp/sa
-          readOnly: true
         env:
         - name: SYNCER_NAMESPACE
           valueFrom:
@@ -128,10 +118,6 @@ spec:
               fieldPath: metadata.namespace
       serviceAccountName: syncer
       volumes:
-        - name: kcp-service-account
-          secret:
-            secretName: syncer-kcp-sa
-            optional: false
         - name: kcp-kubeconfig
           configMap:
             name: syncer-kcp-config

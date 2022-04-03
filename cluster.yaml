@@ -1,6 +1,0 @@
-apiVersion: workload.kcp.dev/v1alpha1
-kind: WorkloadCluster
-metadata:
-  name: my-cluster
-spec:
-  kubeconfig: hello # invalid
