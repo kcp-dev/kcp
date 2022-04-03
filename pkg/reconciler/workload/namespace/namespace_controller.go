@@ -45,7 +45,6 @@ import (
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/gvk"
 	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
@@ -66,7 +65,6 @@ func NewController(
 	clusterLister workloadlisters.WorkloadClusterLister,
 	namespaceInformer coreinformers.NamespaceInformer,
 	namespaceLister corelisters.NamespaceLister,
-	gvkTrans *gvk.GVKTranslator,
 	pollInterval time.Duration,
 ) *Controller {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
@@ -89,7 +87,6 @@ func NewController(
 		clusterLister:   clusterLister,
 		namespaceLister: namespaceLister,
 		kubeClient:      kubeClusterClient,
-		gvkTrans:        gvkTrans,
 	}
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueCluster(obj) },
@@ -134,7 +131,6 @@ type Controller struct {
 	workspaceLister tenancylisters.ClusterWorkspaceLister
 	kubeClient      kubernetes.ClusterInterface
 	ddsif           informer.DynamicDiscoverySharedInformerFactory
-	gvkTrans        *gvk.GVKTranslator
 }
 
 func filterResource(obj interface{}) bool {
