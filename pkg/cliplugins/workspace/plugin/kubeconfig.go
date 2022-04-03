@@ -157,7 +157,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 			return err
 		}
 
-		return kc.currentWorkspace(ctx, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, "")
+		return kc.currentWorkspace(ctx, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, "", false)
 
 	case "..":
 		config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
@@ -179,7 +179,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		newServerHost = u.String()
 
 	case "":
-		return kc.CurrentWorkspace(ctx)
+		return kc.CurrentWorkspace(ctx, false)
 
 	default:
 		config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
@@ -237,24 +237,32 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, newServerHost, workspaceType)
+	return kc.currentWorkspace(ctx, newServerHost, workspaceType, false)
 }
 
 // CurrentWorkspace outputs the current workspace.
-func (kc *KubeConfig) CurrentWorkspace(ctx context.Context) error {
+func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, shortWorkspaceOutput bool) error {
 	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, config.Host, "")
+	return kc.currentWorkspace(ctx, config.Host, "", shortWorkspaceOutput)
 }
 
-func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType string) error {
+func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType string, shortWorkspaceOutput bool) error {
 	_, clusterName, err := parseClusterURL(host)
 	if err != nil {
+		if shortWorkspaceOutput {
+			return nil
+		}
 		_, err = fmt.Fprintf(kc.Out, "Current workspace is the URL %q.\n", host)
 		return err
+	}
+
+	if shortWorkspaceOutput {
+		fmt.Fprintf(kc.Out, "%s\n", clusterName) // nolint: errcheck
+		return nil
 	}
 
 	parentClusterName, workspaceName := clusterName.Split()
