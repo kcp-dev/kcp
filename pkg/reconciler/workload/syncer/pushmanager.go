@@ -40,13 +40,13 @@ const numSyncerThreads = 2
 
 type pushSyncerManager struct {
 	syncerCancelFuncs map[string]func()
-	externalAddress   string
+	externalURL       string
 }
 
-func newPushSyncerManager(externalAddress string) SyncerManager {
+func newPushSyncerManager(externalURL string) SyncerManager {
 	return &pushSyncerManager{
 		syncerCancelFuncs: map[string]func(){},
-		externalAddress:   externalAddress,
+		externalURL:       externalURL,
 	}
 }
 
@@ -77,7 +77,7 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *workloadv1alpha
 	kcpClusterName := logicalcluster.From(cluster)
 	klog.Infof("Starting syncer for clusterName %s to pcluster %s, resources %v", kcpClusterName, cluster.Name, groupResources)
 	syncerCtx, syncerCancel := context.WithCancel(ctx)
-	if err := syncer.StartManagedSyncer(syncerCtx, upstream, downstream, groupResources, kcpClusterName, cluster.Name, numSyncerThreads, m.externalAddress); err != nil {
+	if err := syncer.StartManagedSyncer(syncerCtx, upstream, downstream, groupResources, kcpClusterName, cluster.Name, numSyncerThreads, m.externalURL); err != nil {
 		klog.Errorf("error starting syncer in push mode: %v", err)
 		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error starting syncer in push mode: %v", err.Error())
 

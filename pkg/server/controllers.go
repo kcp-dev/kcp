@@ -480,9 +480,9 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	return nil
 }
 
-func (s *Server) installWorkloadSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config, externalAddress string) error {
+func (s *Server) installWorkloadSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config, externalURL string) error {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-syncer-controller")
-	manager := s.options.Controllers.Syncer.CreateSyncerManager(externalAddress)
+	manager := s.options.Controllers.Syncer.CreateSyncerManager(externalURL)
 	if manager == nil {
 		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
 		return nil

@@ -69,16 +69,16 @@ const SyncDown SyncDirection = "down"
 const SyncUp SyncDirection = "up"
 
 // TODO(marun) Remove this function and rename startSyncer to StartSyncer once push-mode syncer management goes away.
-func StartManagedSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int, externalAddress string) error {
-	return startSyncer(ctx, upstream, downstream, resources, kcpClusterName, pcluster, numSyncerThreads, externalAddress)
+func StartManagedSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int, externalURL string) error {
+	return startSyncer(ctx, upstream, downstream, resources, kcpClusterName, pcluster, numSyncerThreads, externalURL)
 }
 
 func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int) error {
 	return startSyncer(ctx, upstream, downstream, resources, kcpClusterName, pcluster, numSyncerThreads, "")
 }
 
-func startSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int, externalAddress string) error {
-	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster, externalAddress)
+func startSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int, externalURL string) error {
+	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster, externalURL)
 	if err != nil {
 		return err
 	}
