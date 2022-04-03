@@ -408,7 +408,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := s.installWorkloadSyncerController(ctx, controllerConfig, syncerConfig); err != nil {
+		if err := s.installWorkloadSyncerController(ctx, controllerConfig, syncerConfig, genericConfig.ExternalAddress); err != nil {
 			return err
 		}
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {

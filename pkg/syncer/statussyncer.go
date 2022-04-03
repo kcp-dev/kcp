@@ -65,8 +65,8 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClu
 	}
 	toClient := toClients.Cluster(kcpClusterName)
 
-	// Register the default mutators
-	mutatorsMap := getDefaultMutators(from)
+	// Status is not currently mutated
+	mutatorsMap := mutatorGvrMap{}
 
 	return New(kcpClusterName, pclusterID, discoveryClient, fromClient, toClient, SyncUp, syncedResourceTypes, pclusterID, mutatorsMap)
 }

@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -67,8 +68,17 @@ const SyncDown SyncDirection = "down"
 // SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
 const SyncUp SyncDirection = "up"
 
+// TODO(marun) Remove this function and rename startSyncer to StartSyncer once push-mode syncer management goes away.
+func StartManagedSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int, externalAddress string) error {
+	return startSyncer(ctx, upstream, downstream, resources, kcpClusterName, pcluster, numSyncerThreads, externalAddress)
+}
+
 func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int) error {
-	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster)
+	return startSyncer(ctx, upstream, downstream, resources, kcpClusterName, pcluster, numSyncerThreads, "")
+}
+
+func startSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int, externalAddress string) error {
+	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster, externalAddress)
 	if err != nil {
 		return err
 	}
@@ -519,10 +529,10 @@ func transformName(syncedObject *unstructured.Unstructured, direction SyncDirect
 	}
 }
 
-func getDefaultMutators(from *rest.Config) mutatorGvrMap {
+func getDefaultMutators(externalURL *url.URL) mutatorGvrMap {
 	mutatorsMap := make(mutatorGvrMap)
 
-	deploymentMutator := mutators.NewDeploymentMutator(from)
+	deploymentMutator := mutators.NewDeploymentMutator(externalURL)
 	secretMutator := mutators.NewSecretMutator()
 
 	mutatorsMap[deploymentMutator.GVR()] = deploymentMutator.Mutate

@@ -19,6 +19,7 @@ package mutators
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
 	utilspointer "k8s.io/utils/pointer"
 )
 
@@ -93,7 +93,7 @@ func TestMutate(t *testing.T) {
 	for _, c := range []struct {
 		desc                                   string
 		originalDeployment, expectedDeployment *appsv1.Deployment
-		config                                 *rest.Config
+		externalAddress                        string
 	}{{
 		desc: "Deployment without Envs or volumes is mutated.",
 		originalDeployment: &appsv1.Deployment{
@@ -162,9 +162,7 @@ func TestMutate(t *testing.T) {
 				},
 			},
 		},
-		config: &rest.Config{
-			Host: "https://4.5.6.7:12345",
-		},
+		externalAddress: "https://4.5.6.7:12345",
 	}, {
 		desc: "Deployment with one env var gets mutated but the already existing env var remains the same",
 		originalDeployment: &appsv1.Deployment{
@@ -243,9 +241,7 @@ func TestMutate(t *testing.T) {
 				},
 			},
 		},
-		config: &rest.Config{
-			Host: "https://4.5.6.7:12345",
-		},
+		externalAddress: "https://4.5.6.7:12345",
 	},
 		{desc: "Deployment with an env var named KUBERNETES_SERVICE_PORT gets mutated and it is overridden and not duplicated",
 			originalDeployment: &appsv1.Deployment{
@@ -320,9 +316,8 @@ func TestMutate(t *testing.T) {
 					},
 				},
 			},
-			config: &rest.Config{
-				Host: "https://4.5.6.7:12345",
-			}},
+			externalAddress: "https://4.5.6.7:12345",
+		},
 		{desc: "Deployment with an existing VolumeMount named kcp-api-access gets mutated and it is overridden and not duplicated",
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
@@ -403,10 +398,8 @@ func TestMutate(t *testing.T) {
 					},
 				},
 			},
-			config: &rest.Config{
-				Host: "https://4.5.6.7:12345",
-			}},
-
+			externalAddress: "https://4.5.6.7:12345",
+		},
 		{desc: "Deployment with an existing Volume named kcp-api-access gets mutated and it is overridden and not duplicated",
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
@@ -497,13 +490,14 @@ func TestMutate(t *testing.T) {
 					},
 				},
 			},
-			config: &rest.Config{
-				Host: "https://4.5.6.7:12345",
-			}},
+			externalAddress: "https://4.5.6.7:12345",
+		},
 	} {
 		{
 			t.Run(c.desc, func(t *testing.T) {
-				dm := NewDeploymentMutator(c.config)
+				externalURL, err := url.Parse(c.externalAddress)
+				require.NoError(t, err)
+				dm := NewDeploymentMutator(externalURL)
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toRuntimeObject() = %v", err)
 
