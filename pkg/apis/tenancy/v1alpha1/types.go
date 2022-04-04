@@ -212,30 +212,8 @@ type ClusterWorkspaceLocation struct {
 	// Target workspace placement (shard).
 	//
 	// +optional
+	// +kubebuilder:validation:Enum=""
 	Target string `json:"target,omitempty"`
-
-	// Historical placement details (including current and target).
-	//
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	// +patchStrategy=merge
-	// +patchMergeKey=name
-	History []ShardStatus `json:"history,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
-}
-
-// ShardStatus contains details for the current status of a workspace shard.
-type ShardStatus struct {
-	// Name of an active ClusterWorkspaceShard.
-	//
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-
-	// Resource version at which writes to this shard should not be accepted.
-	LiveBeforeResourceVersion string `json:"liveBeforeResourceVersion,omitempty"`
-
-	// Resource version after which writes can be accepted on this shard.
-	LiveAfterResourceVersion string `json:"liveAfterResourceVersion,omitempty"`
 }
 
 // ClusterWorkspaceList is a list of ClusterWorkspace resources

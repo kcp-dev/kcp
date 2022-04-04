@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -370,28 +369,6 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		klog.Infof("Moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
 		workspace.Status.Location.Current = workspace.Status.Location.Target
 		workspace.Status.Location.Target = ""
-
-		// TODO: actually handle the RV resolution and double-sided accept we need for movement
-		if len(workspace.Status.Location.History) == 0 {
-			workspace.Status.Location.History = []tenancyv1alpha1.ShardStatus{
-				{Name: workspace.Status.Location.Current, LiveAfterResourceVersion: "1"},
-			}
-		} else {
-			previous := workspace.Status.Location.History[len(workspace.Status.Location.History)-1]
-			startingRV, err := strconv.ParseInt(previous.LiveAfterResourceVersion, 10, 64)
-			if err != nil {
-				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "Invalid status.location.history[%d].liveAfterResourceVersion: %v.", len(workspace.Status.Location.History)-1, err)
-				return nil
-			}
-			endingRV := strconv.FormatInt(startingRV+10, 10)
-			previous.LiveBeforeResourceVersion = endingRV
-			current := tenancyv1alpha1.ShardStatus{
-				Name:                     workspace.Status.Location.Current,
-				LiveAfterResourceVersion: endingRV,
-			}
-			workspace.Status.Location.History[len(workspace.Status.Location.History)-1] = previous
-			workspace.Status.Location.History = append(workspace.Status.Location.History, current)
-		}
 	}
 
 	// check scheduled shard. This has no influence on the workspace baseURL or shard assignment. This might be a trigger for

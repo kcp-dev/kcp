@@ -44,7 +44,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeList":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ConnectionInfo":                  schema_pkg_apis_tenancy_v1alpha1_ConnectionInfo(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardStatus":                     schema_pkg_apis_tenancy_v1alpha1_ShardStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                        schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                    schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                    schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
@@ -222,35 +221,9 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref common.Refere
 							Format:      "",
 						},
 					},
-					"history": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"name",
-								},
-								"x-kubernetes-list-type":       "map",
-								"x-kubernetes-patch-merge-key": "name",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "Historical placement details (including current and target).",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardStatus"),
-									},
-								},
-							},
-						},
-					},
 				},
 			},
 		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardStatus"},
 	}
 }
 
@@ -679,42 +652,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ConnectionInfo(ref common.ReferenceCallbac
 					},
 				},
 				Required: []string{"host", "apiPath"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_ShardStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ShardStatus contains details for the current status of a workspace shard.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of an active ClusterWorkspaceShard.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"liveBeforeResourceVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Resource version at which writes to this shard should not be accepted.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"liveAfterResourceVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Resource version after which writes can be accepted on this shard.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"name"},
 			},
 		},
 	}
