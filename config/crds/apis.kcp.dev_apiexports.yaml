@@ -40,6 +40,34 @@ spec:
           spec:
             description: Spec holds the desired state.
             properties:
+              identity:
+                description: "identity points to a secret that contains the API identity
+                  in the 'key' file. The API identity determines an unique etcd prefix
+                  for objects stored via this APIExport. \n Different APIExport in
+                  a workspace can share a common identity, or have different ones.
+                  The identity (the secret) can also be transferred to another workspace
+                  when the APIExport is moved. \n The identity is a secret of the
+                  API provider. The APIBindings referencing this APIExport will store
+                  a derived, non-sensitive value of this identity. \n The identity
+                  of an APIExport cannot be changed. A derived, non-sensitive value
+                  of the identity key is stored in the APIExport status and this value
+                  is immutable. \n The identity is defaulted. A secret with the name
+                  of the APIExport is automatically created."
+                properties:
+                  secretRef:
+                    description: secretRef is a reference to a secret that contains
+                      the API identity in the 'key' file.
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                type: object
               latestResourceSchemas:
                 description: "latestResourceSchemas records the latest APIResourceSchemas
                   that are exposed with this APIExport. \n The schemas can be changed
@@ -54,6 +82,11 @@ spec:
             type: object
           status:
             description: Status communicates the observed state.
+            properties:
+              identityHash:
+                description: identityHash is the hash of the API identity key of this
+                  APIExport. This value is immutable as soon as it is set.
+                type: string
             type: object
         type: object
     served: true
