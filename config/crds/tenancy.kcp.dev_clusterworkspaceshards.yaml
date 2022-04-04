@@ -18,7 +18,16 @@ spec:
     singular: clusterworkspaceshard
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: Type URL to directly connect to the shard
+      jsonPath: .spec.baseURL
+      name: URL
+      type: string
+    - description: The URL exposed in workspaces created on that shard
+      jsonPath: .spec.externalURL
+      name: External URL
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ClusterWorkspaceShard describes a Shard (== KCP instance) on

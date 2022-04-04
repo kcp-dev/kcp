@@ -226,6 +226,8 @@ type ClusterWorkspaceList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.baseURL`,description="Type URL to directly connect to the shard"
+// +kubebuilder:printcolumn:name="External URL",type=string,JSONPath=`.spec.externalURL`,description="The URL exposed in workspaces created on that shard"
 type ClusterWorkspaceShard struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
