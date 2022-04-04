@@ -51,7 +51,6 @@ import (
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/gvk"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
@@ -293,9 +292,6 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 		return err
 	}
 
-	// TODO(ncdc): I don't think this is used anywhere?
-	gvkTrans := gvk.NewGVKTranslator(config)
-
 	namespaceScheduler := kcpnamespace.NewController(
 		dynamicClusterClient,
 		metadataClusterClient,
@@ -306,7 +302,6 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters().Lister(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
-		gvkTrans,
 		s.options.Extra.DiscoveryPollInterval,
 	)
 
