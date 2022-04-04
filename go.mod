@@ -34,7 +34,8 @@ require (
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 	k8s.io/kubernetes v1.23.4
 	k8s.io/utils v0.0.0-20211208161948-7d6a63dca704
-	sigs.k8s.io/yaml v1.2.0
+	sigs.k8s.io/kind v0.12.0
+	sigs.k8s.io/yaml v1.3.0
 )
 
 replace (

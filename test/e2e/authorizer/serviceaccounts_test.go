@@ -37,6 +37,27 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+// Testing ... testing
+func TestKindServiceAccounts(t *testing.T) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	cfg := framework.KindConfig{
+		Name: t.Name(),
+	}
+	kindClusters := framework.NewKindFixture(t, cfg)
+
+	kindClusterConfig := kindClusters.Servers[cfg.Name].DefaultConfig(t)
+	kubeClusterClient := kubernetes.NewForConfigOrDie(kindClusterConfig)
+
+	namespacesList, err := kubeClusterClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+
+	for _, namespace := range namespacesList.Items {
+		t.Log(namespace.Name)
+	}
+}
+
 func TestServiceAccounts(t *testing.T) {
 	t.Parallel()
 

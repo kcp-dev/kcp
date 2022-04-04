@@ -64,6 +64,11 @@ type kcpFixture struct {
 	Servers map[string]RunningServer
 }
 
+// KindFixture manages the lifecycle of a set of kind servers.
+type KindFixture struct {
+	Servers map[string]RunningServer
+}
+
 // PrivateKcpServer returns a new kcp server fixture managing a new
 // server process that is not intended to be shared between tests.
 func PrivateKcpServer(t *testing.T, args ...string) RunningServer {
@@ -273,4 +278,27 @@ func StartWorkspaceSyncer(
 
 	err := syncer.StartSyncer(ctx, upstreamConfig, downstreamConfig, resources, logicalcluster.From(workloadCluster), workloadCluster.Name, 2)
 	require.NoError(t, err, "syncer failed to start")
+}
+
+func NewKindFixture(t *testing.T, cfgs ...KindConfig) *KindFixture {
+	artifactDir, dataDir, err := ScratchDirs(t)
+	require.NoError(t, err, "failed to create scratch dirs: %v", err)
+
+	kindClusters := make(map[string]RunningServer)
+	for _, cfg := range cfgs {
+		kindCluster, err := NewKindCluster(t, cfg, artifactDir, dataDir)
+		require.NoError(t, err, "failed to create kind cluster: %v", err)
+
+		err = kindCluster.Run(t)
+		require.NoError(t, err, "failed to start kind cluster: %v", err)
+
+		err = kindCluster.WaitForReady()
+		require.NoError(t, err, "failed to wait for kind cluster to become ready: %v", err)
+
+		kindClusters[cfg.Name] = kindCluster
+	}
+
+	return &KindFixture{
+		Servers: kindClusters,
+	}
 }

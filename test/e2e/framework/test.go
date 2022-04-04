@@ -42,3 +42,8 @@ type kcpConfig struct {
 	LogToConsole bool
 	RunInProcess bool
 }
+
+// KindConfig qualify a Kind cluster to be created
+type KindConfig struct {
+	Name string
+}
