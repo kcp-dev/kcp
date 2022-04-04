@@ -7,13 +7,14 @@ on:
   push:
     branches:
       - main
+      - 'release-*'
 
 jobs:
   kcp-image:
     if: github.repository_owner == 'kcp-dev'
     name: Build and Publish KCP Image
+    environment: stable
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2

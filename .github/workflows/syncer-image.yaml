@@ -5,7 +5,9 @@ permissions:
 
 on:
   push:
-    branches: ["main"]
+    branches:
+    - main
+    - 'release-*'
 
 jobs:
   syncer-image:
