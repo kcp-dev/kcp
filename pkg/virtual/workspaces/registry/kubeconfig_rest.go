@@ -44,7 +44,7 @@ type KubeconfigSubresourceREST struct {
 	// rootCoreClient is useful to get secrets
 	rootCoreClient corev1client.CoreV1Interface
 	// workspaceShardClient can get KCP workspace shards
-	workspaceShardClient tenancyclient.WorkspaceShardInterface
+	workspaceShardClient tenancyclient.ClusterWorkspaceShardInterface
 }
 
 var _ rest.Getter = &KubeconfigSubresourceREST{}
@@ -80,9 +80,9 @@ func (s *KubeconfigSubresourceREST) Get(ctx context.Context, name string, option
 	if err != nil {
 		return nil, wrapError(err)
 	}
-	data, ok := secret.Data[tenancyv1alpha1.WorkspaceShardCredentialsKey]
+	data, ok := secret.Data[tenancyv1alpha1.ClusterWorkspaceShardCredentialsKey]
 	if !ok {
-		return nil, wrapError(fmt.Errorf("Key '%s' not found in workspace shard Kubeconfig secret", tenancyv1alpha1.WorkspaceShardCredentialsKey))
+		return nil, wrapError(fmt.Errorf("Key '%s' not found in workspace shard Kubeconfig secret", tenancyv1alpha1.ClusterWorkspaceShardCredentialsKey))
 	}
 	shardKubeConfig, err := clientcmd.Load(data)
 	if err != nil {

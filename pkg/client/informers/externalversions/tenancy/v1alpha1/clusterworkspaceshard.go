@@ -33,58 +33,58 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-// WorkspaceShardInformer provides access to a shared informer and lister for
-// WorkspaceShards.
-type WorkspaceShardInformer interface {
+// ClusterWorkspaceShardInformer provides access to a shared informer and lister for
+// ClusterWorkspaceShards.
+type ClusterWorkspaceShardInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.WorkspaceShardLister
+	Lister() v1alpha1.ClusterWorkspaceShardLister
 }
 
-type workspaceShardInformer struct {
+type clusterWorkspaceShardInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewWorkspaceShardInformer constructs a new informer for WorkspaceShard type.
+// NewClusterWorkspaceShardInformer constructs a new informer for ClusterWorkspaceShard type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewWorkspaceShardInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredWorkspaceShardInformer(client, resyncPeriod, indexers, nil)
+func NewClusterWorkspaceShardInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterWorkspaceShardInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredWorkspaceShardInformer constructs a new informer for WorkspaceShard type.
+// NewFilteredClusterWorkspaceShardInformer constructs a new informer for ClusterWorkspaceShard type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredWorkspaceShardInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterWorkspaceShardInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.TenancyV1alpha1().WorkspaceShards().List(context.TODO(), options)
+				return client.TenancyV1alpha1().ClusterWorkspaceShards().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.TenancyV1alpha1().WorkspaceShards().Watch(context.TODO(), options)
+				return client.TenancyV1alpha1().ClusterWorkspaceShards().Watch(context.TODO(), options)
 			},
 		},
-		&tenancyv1alpha1.WorkspaceShard{},
+		&tenancyv1alpha1.ClusterWorkspaceShard{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *workspaceShardInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredWorkspaceShardInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *clusterWorkspaceShardInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterWorkspaceShardInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *workspaceShardInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&tenancyv1alpha1.WorkspaceShard{}, f.defaultInformer)
+func (f *clusterWorkspaceShardInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&tenancyv1alpha1.ClusterWorkspaceShard{}, f.defaultInformer)
 }
 
-func (f *workspaceShardInformer) Lister() v1alpha1.WorkspaceShardLister {
-	return v1alpha1.NewWorkspaceShardLister(f.Informer().GetIndexer())
+func (f *clusterWorkspaceShardInformer) Lister() v1alpha1.ClusterWorkspaceShardLister {
+	return v1alpha1.NewClusterWorkspaceShardLister(f.Informer().GetIndexer())
 }

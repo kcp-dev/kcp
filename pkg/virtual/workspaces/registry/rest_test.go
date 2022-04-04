@@ -75,7 +75,7 @@ type TestData struct {
 	clusterRoles        []rbacv1.ClusterRole
 	clusterRoleBindings []rbacv1.ClusterRoleBinding
 	clusterWorkspaces   []tenancyv1alpha1.ClusterWorkspace
-	workspaceShards     []tenancyv1alpha1.WorkspaceShard
+	workspaceShards     []tenancyv1alpha1.ClusterWorkspaceShard
 	secrets             []corev1.Secret
 	workspaceLister     *mockLister
 	user                kuser.Info
@@ -99,7 +99,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	workspaceList := tenancyv1alpha1.ClusterWorkspaceList{
 		Items: test.clusterWorkspaces,
 	}
-	workspaceShardList := tenancyv1alpha1.WorkspaceShardList{
+	workspaceShardList := tenancyv1alpha1.ClusterWorkspaceShardList{
 		Items: test.workspaceShards,
 	}
 	crbList := rbacv1.ClusterRoleBindingList{
@@ -221,7 +221,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	kubeconfigSubresourceStorage := KubeconfigSubresourceREST{
 		mainRest:             &storage,
 		rootCoreClient:       mockKubeClient.CoreV1(),
-		workspaceShardClient: mockKCPClient.TenancyV1alpha1().WorkspaceShards(),
+		workspaceShardClient: mockKCPClient.TenancyV1alpha1().ClusterWorkspaceShards(),
 	}
 	ctx = apirequest.WithUser(ctx, test.user)
 	ctx = apirequest.WithValue(ctx, WorkspacesScopeKey, test.scope)

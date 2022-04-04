@@ -160,9 +160,9 @@ func (c *Controller) enqueueOrg(obj interface{}) {
 }
 
 func (c *Controller) enqueueOrgsForShard(obj interface{}) {
-	shard, ok := obj.(*tenancyv1alpha1.WorkspaceShard)
+	shard, ok := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
 	if !ok {
-		klog.V(2).Infof("Enqueued object that is not a WorkspaceShard: %#v", obj)
+		klog.V(2).Infof("Enqueued object that is not a ClusterWorkspaceShard: %#v", obj)
 		return
 	}
 	klog.Infof("handling shard %q", shard.Name)
@@ -306,7 +306,7 @@ func (c *Controller) handleOrg(ctx context.Context, workspace *tenancyv1alpha1.C
 		return err // retry since this could flake in an otherwise OK situation
 	}
 
-	data, ok := secret.Data[tenancyv1alpha1.WorkspaceShardCredentialsKey]
+	data, ok := secret.Data[tenancyv1alpha1.ClusterWorkspaceShardCredentialsKey]
 	if !ok {
 		klog.Error("workspace shard credentials missing data")
 		return nil

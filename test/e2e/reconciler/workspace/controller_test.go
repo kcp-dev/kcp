@@ -79,7 +79,7 @@ func TestWorkspaceController(t *testing.T) {
 			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+				err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Create a workspace without shards")
@@ -113,16 +113,16 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err, "failed to create credentials secret")
 
 				t.Logf("Add a shard, pointing to the credentials/credentials kubeconfig secret")
-				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{Name: "boston"},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{Credentials: corev1.SecretReference{
 						Name:      "kubeconfig",
 						Namespace: "credentials",
 					}},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
+					return server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard with the base URL stored in the credentials")
@@ -166,7 +166,7 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err, "did not see workspace scheduled")
 
 				t.Logf("Delete the current shard")
-				err = server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
+				err = server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete workspace shard")
 
 				t.Logf("Expect WorkspaceShardValid condition to turn false")

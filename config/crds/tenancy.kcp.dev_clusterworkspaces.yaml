@@ -169,7 +169,7 @@ spec:
                             should not be accepted.
                           type: string
                         name:
-                          description: Name of an active WorkspaceShard.
+                          description: Name of an active ClusterWorkspaceShard.
                           minLength: 1
                           type: string
                       required:

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workspaceshard
+package clusterworkspaceshard
 
 import (
 	"context"
@@ -52,13 +52,13 @@ import (
 
 const (
 	secretIndex    = "secret"
-	controllerName = "workspaceshard"
+	controllerName = "clusterworkspaceshard"
 )
 
 func NewController(
 	rootKcpClient kcpclient.Interface,
 	rootSecretInformer coreinformer.SecretInformer,
-	rootWorkspaceShardInformer tenancyinformer.WorkspaceShardInformer,
+	rootWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspaceshard")
 
@@ -83,7 +83,7 @@ func NewController(
 	})
 	if err := c.rootWorkspaceShardIndexer.AddIndexers(map[string]cache.IndexFunc{
 		secretIndex: func(obj interface{}) ([]string, error) {
-			if shard, ok := obj.(*tenancyv1alpha1.WorkspaceShard); ok {
+			if shard, ok := obj.(*tenancyv1alpha1.ClusterWorkspaceShard); ok {
 				key, err := cache.MetaNamespaceKeyFunc(&metav1.ObjectMeta{
 					ClusterName: shard.ObjectMeta.ClusterName,
 					Namespace:   shard.Spec.Credentials.Namespace,
@@ -103,7 +103,7 @@ func NewController(
 	return c, nil
 }
 
-// Controller watches WorkspaceShards and Secrets in order to make sure every WorkspaceShard
+// Controller watches WorkspaceShards and Secrets in order to make sure every ClusterWorkspaceShard
 // has its URL exposed when a valid kubeconfig is connected to it.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
@@ -113,7 +113,7 @@ type Controller struct {
 	rootSecretLister  corelister.SecretLister
 
 	rootWorkspaceShardIndexer cache.Indexer
-	rootWorkspaceShardLister  tenancylister.WorkspaceShardLister
+	rootWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -166,8 +166,8 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting WorkspaceShard controller")
-	defer klog.Info("Shutting down WorkspaceShard controller")
+	klog.Info("Starting ClusterWorkspaceShard controller")
+	defer klog.Info("Shutting down ClusterWorkspaceShard controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -211,7 +211,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if namespace != "" {
-		klog.Errorf("namespace %q found in key for cluster-wide WorkspaceShard object", namespace)
+		klog.Errorf("namespace %q found in key for cluster-wide ClusterWorkspaceShard object", namespace)
 		return nil
 	}
 
@@ -231,14 +231,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, obj.Status) {
-		oldData, err := json.Marshal(tenancyv1alpha1.WorkspaceShard{
+		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
 			Status: previous.Status,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 
-		newData, err := json.Marshal(tenancyv1alpha1.WorkspaceShard{
+		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             previous.UID,
 				ResourceVersion: previous.ResourceVersion,
@@ -253,38 +253,38 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
-		_, uerr := c.kcpClient.TenancyV1alpha1().WorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
 	return nil
 }
 
-func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alpha1.WorkspaceShard) error {
+func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alpha1.ClusterWorkspaceShard) error {
 	secret, err := c.rootSecretLister.Secrets(workspaceShard.Spec.Credentials.Namespace).Get(clusters.ToClusterAwareKey(logicalcluster.From(workspaceShard), workspaceShard.Spec.Credentials.Name))
 	if errors.IsNotFound(err) {
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing, conditionsapi.ConditionSeverityWarning, "Referenced secret %s/%s could not be found.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name)
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonMissing, conditionsapi.ConditionSeverityWarning, "Referenced secret %s/%s could not be found.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name)
 		return nil
 	} else if err != nil {
 		return err
 	}
 
-	data, ok := secret.Data[tenancyv1alpha1.WorkspaceShardCredentialsKey]
+	data, ok := secret.Data[tenancyv1alpha1.ClusterWorkspaceShardCredentialsKey]
 	if !ok {
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced secret %s/%s did not contain key %s.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name, tenancyv1alpha1.WorkspaceShardCredentialsKey)
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced secret %s/%s did not contain key %s.", workspaceShard.Spec.Credentials.Namespace, workspaceShard.Spec.Credentials.Name, tenancyv1alpha1.ClusterWorkspaceShardCredentialsKey)
 		return nil
 	}
 
 	cfg, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced credentials invalid: %v.", err.Error())
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced credentials invalid: %v.", err.Error())
 		return nil
 	}
 
 	hash := sha256.New()
 	if _, err := hash.Write(data); err != nil {
 		// TODO: our hash cannot ever return an error on Write, but the interface makes it possible, do we care to do something better?
-		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced credentials could not be hashed: %v.", err.Error())
+		conditions.MarkFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid, conditionsapi.ConditionSeverityError, "Referenced credentials could not be hashed: %v.", err.Error())
 		return nil
 	}
 
@@ -293,6 +293,6 @@ func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alp
 		Host:    cfg.Host,
 		APIPath: cfg.APIPath,
 	}
-	conditions.MarkTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid)
+	conditions.MarkTrue(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid)
 	return nil
 }

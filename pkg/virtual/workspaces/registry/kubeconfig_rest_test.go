@@ -223,13 +223,13 @@ func TestKubeconfigPersonalWorkspaceWithPrettyName(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",
@@ -314,13 +314,13 @@ func TestKubeconfigPersonalWorkspace(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",
@@ -405,13 +405,13 @@ func TestKubeconfigOrganizationWorkspace(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",
@@ -496,13 +496,13 @@ func TestKubeconfigFailBecauseInvalidCADataBase64(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",
@@ -590,13 +590,13 @@ func TestKubeconfigFailBecauseWithoutContext(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",
@@ -683,13 +683,13 @@ func TestKubeconfigFailBecauseInvalid(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",
@@ -776,13 +776,13 @@ func TestKubeconfigFailSecretDataNotFound(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",
@@ -866,13 +866,13 @@ func TestKubeconfigFailBecauseSecretNotFound(t *testing.T) {
 					},
 				},
 			},
-			workspaceShards: []tenancyv1alpha1.WorkspaceShard{
+			workspaceShards: []tenancyv1alpha1.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "theOneAndOnlyShard",
 						ClusterName: "root",
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "kubeconfig",
 							Namespace: "kcp",

@@ -313,16 +313,16 @@ func TestValidate(t *testing.T) {
 		{
 			name: "ignores different resources",
 			a: admission.NewAttributesRecord(
-				&tenancyv1alpha1.WorkspaceShard{
+				&tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
 				},
 				nil,
-				tenancyv1alpha1.Kind("WorkspaceShard").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("workspaceshards").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},

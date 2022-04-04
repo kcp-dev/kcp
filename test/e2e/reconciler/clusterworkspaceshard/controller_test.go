@@ -46,7 +46,7 @@ func TestWorkspaceShardController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		rootShardClient               tenancyv1alpha1client.WorkspaceShardInterface
+		rootShardClient               tenancyv1alpha1client.ClusterWorkspaceShardInterface
 		rootKubeClient, orgKubeClient kubernetesclientset.Interface
 		expect                        framework.RegisterWorkspaceShardExpectation
 	}
@@ -59,7 +59,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			name: "create a workspace shard without credentials, expect to see status reflect missing credentials",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("create a workspace shard without credentials")
-				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: namePrefix,
 					},
@@ -70,23 +70,23 @@ func TestWorkspaceShardController(t *testing.T) {
 					return server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonMissing)
 				require.Eventually(t, func() bool {
 					workspaceShard, err = server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace shard")
-					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) == tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing
-				}, wait.ForeverTestTimeout, time.Second, "expected workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
+					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) == tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonMissing
+				}, wait.ForeverTestTimeout, time.Second, "expected workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonMissing)
 			},
 		},
 		{
 			name: "create a workspace shard referencing missing credentials, expect to see status reflect missing credentials",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("create a workspace shard referencing missing credentials")
-				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: namePrefix,
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						Credentials: corev1.SecretReference{
 							Name:      "not",
 							Namespace: "real",
@@ -99,12 +99,12 @@ func TestWorkspaceShardController(t *testing.T) {
 					return server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonMissing)
 				require.Eventually(t, func() bool {
 					workspaceShard, err = server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace shard")
-					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) == tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing
-				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonMissing)
+					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) == tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonMissing
+				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonMissing)
 			},
 		},
 		{
@@ -134,11 +134,11 @@ func TestWorkspaceShardController(t *testing.T) {
 				})
 
 				t.Logf("create a workspace shard referencing the secret above")
-				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: namePrefix,
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{Credentials: corev1.SecretReference{
 						Name:      secret.Name,
 						Namespace: secret.Namespace,
 					}},
@@ -149,12 +149,12 @@ func TestWorkspaceShardController(t *testing.T) {
 					return server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid)
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid)
 				require.Eventually(t, func() bool {
 					workspaceShard, err = server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace shard")
-					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) == tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid
-				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid)
+					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) == tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid
+				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid)
 			},
 		},
 		{
@@ -184,11 +184,11 @@ func TestWorkspaceShardController(t *testing.T) {
 				})
 
 				t.Logf("create a workspace shard referencing the secret above")
-				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: namePrefix,
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{Credentials: corev1.SecretReference{
 						Name:      secret.Name,
 						Namespace: secret.Namespace,
 					}},
@@ -199,12 +199,12 @@ func TestWorkspaceShardController(t *testing.T) {
 					return server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid)
+				t.Logf("expecting workspace shard condition %s status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid)
 				require.Eventually(t, func() bool {
 					workspaceShard, err = server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace shard")
-					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) == tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid
-				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.WorkspaceShardCredentialsValid, tenancyv1alpha1.WorkspaceShardCredentialsReasonInvalid)
+					return utilconditions.IsFalse(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) && utilconditions.GetReason(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) == tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid
+				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=False reason=%q", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid, tenancyv1alpha1.ClusterWorkspaceShardCredentialsReasonInvalid)
 			},
 		},
 		{
@@ -249,11 +249,11 @@ func TestWorkspaceShardController(t *testing.T) {
 				})
 
 				t.Logf("create a workspace shard referencing the secret above")
-				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+				workspaceShard, err := server.rootShardClient.Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: namePrefix,
 					},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{Credentials: corev1.SecretReference{
 						Name:      secret.Name,
 						Namespace: secret.Namespace,
 					}},
@@ -263,12 +263,12 @@ func TestWorkspaceShardController(t *testing.T) {
 					return server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("expecting workspace shard condition %s status=True with correct connection info", tenancyv1alpha1.WorkspaceShardCredentialsValid)
+				t.Logf("expecting workspace shard condition %s status=True with correct connection info", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid)
 				var originalHash string
 				require.Eventually(t, func() bool {
 					workspaceShard, err = server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace shard")
-					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
+					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) {
 						return false
 					}
 					if diff := cmp.Diff(workspaceShard.Status.ConnectionInfo, &tenancyv1alpha1.ConnectionInfo{
@@ -280,7 +280,7 @@ func TestWorkspaceShardController(t *testing.T) {
 					}
 					originalHash = workspaceShard.Status.CredentialsHash
 					return true
-				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=True", tenancyv1alpha1.WorkspaceShardCredentialsValid)
+				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=True", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid)
 
 				t.Logf("update credential secret with a valid kubeconfig file")
 				rawCfg.AuthInfos["user"].Password = "rotated"
@@ -291,11 +291,11 @@ func TestWorkspaceShardController(t *testing.T) {
 				_, err = server.rootKubeClient.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
 				require.NoError(t, err, "failed to create credentials secret")
 
-				t.Logf("expecting workspace shard condition %s status=True with new credential hash", tenancyv1alpha1.WorkspaceShardCredentialsValid)
+				t.Logf("expecting workspace shard condition %s status=True with new credential hash", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid)
 				require.Eventually(t, func() bool {
 					workspaceShard, err = server.rootShardClient.Get(ctx, workspaceShard.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace shard")
-					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
+					if !utilconditions.IsTrue(workspaceShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) {
 						return false
 					}
 					if workspaceShard.Status.CredentialsHash == originalHash {
@@ -303,7 +303,7 @@ func TestWorkspaceShardController(t *testing.T) {
 						return false
 					}
 					return true
-				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=True with new credential hash", tenancyv1alpha1.WorkspaceShardCredentialsValid)
+				}, wait.ForeverTestTimeout, time.Second, "workspace shard condition %s updated to status=True with new credential hash", tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid)
 			},
 		},
 	}
@@ -342,7 +342,7 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootShardClient: rootKcpClient.TenancyV1alpha1().WorkspaceShards(),
+				rootShardClient: rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards(),
 				rootKubeClient:  kubeClients.Cluster(tenancyv1alpha1.RootCluster),
 				orgKubeClient:   kubeClients.Cluster(orgClusterName),
 				expect:          expect,

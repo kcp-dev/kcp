@@ -26,10 +26,10 @@ import (
 type Interface interface {
 	// ClusterWorkspaces returns a ClusterWorkspaceInformer.
 	ClusterWorkspaces() ClusterWorkspaceInformer
+	// ClusterWorkspaceShards returns a ClusterWorkspaceShardInformer.
+	ClusterWorkspaceShards() ClusterWorkspaceShardInformer
 	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
 	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
-	// WorkspaceShards returns a WorkspaceShardInformer.
-	WorkspaceShards() WorkspaceShardInformer
 }
 
 type version struct {
@@ -48,12 +48,12 @@ func (v *version) ClusterWorkspaces() ClusterWorkspaceInformer {
 	return &clusterWorkspaceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// ClusterWorkspaceShards returns a ClusterWorkspaceShardInformer.
+func (v *version) ClusterWorkspaceShards() ClusterWorkspaceShardInformer {
+	return &clusterWorkspaceShardInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
 func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer {
 	return &clusterWorkspaceTypeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// WorkspaceShards returns a WorkspaceShardInformer.
-func (v *version) WorkspaceShards() WorkspaceShardInformer {
-	return &workspaceShardInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

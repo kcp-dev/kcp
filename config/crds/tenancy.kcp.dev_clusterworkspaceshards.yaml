@@ -6,23 +6,23 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: workspaceshards.tenancy.kcp.dev
+  name: clusterworkspaceshards.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
     categories:
     - kcp
-    kind: WorkspaceShard
-    listKind: WorkspaceShardList
-    plural: workspaceshards
-    singular: workspaceshard
+    kind: ClusterWorkspaceShard
+    listKind: ClusterWorkspaceShardList
+    plural: clusterworkspaceshards
+    singular: clusterworkspaceshard
   scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: WorkspaceShard describes a Shard (== KCP instance) on which a
-          number of workspaces will live
+        description: ClusterWorkspaceShard describes a Shard (== KCP instance) on
+          which a number of workspaces will live
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -37,7 +37,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: WorkspaceShardSpec holds the desired state of the WorkspaceShard.
+            description: ClusterWorkspaceShardSpec holds the desired state of the
+              ClusterWorkspaceShard.
             properties:
               credentials:
                 description: Credentials is a reference to the administrative credentials
@@ -56,8 +57,8 @@ spec:
             - credentials
             type: object
           status:
-            description: WorkspaceShardStatus communicates the observed state of the
-              WorkspaceShard.
+            description: ClusterWorkspaceShardStatus communicates the observed state
+              of the ClusterWorkspaceShard.
             properties:
               capacity:
                 additionalProperties:
@@ -70,7 +71,7 @@ spec:
                   into
                 type: object
               conditions:
-                description: Current processing state of the WorkspaceShard.
+                description: Current processing state of the ClusterWorkspaceShard.
                 items:
                   description: Condition defines an observation of a object operational
                     state.
@@ -115,7 +116,7 @@ spec:
                   type: object
                 type: array
               connectionInfo:
-                description: Connection information for the WorkspaceShard.
+                description: Connection information for the ClusterWorkspaceShard.
                 properties:
                   apiPath:
                     description: APIPath is a sub-path that points to an API root.
