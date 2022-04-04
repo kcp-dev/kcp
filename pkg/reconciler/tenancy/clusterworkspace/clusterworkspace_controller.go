@@ -321,14 +321,14 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 			if len(validShards) > 0 {
 				targetShard := validShards[rand.Intn(len(validShards))]
 
-				u, err := url.Parse(targetShard.Status.ConnectionInfo.Host)
+				u, err := url.Parse(targetShard.Spec.ExternalURL)
 				if err != nil {
 					// shouldn't happen since we just checked in isValidShard
 					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target ClusterWorkspaceShard: %v.", err)
 					return err // requeue
 				}
 				logicalCluster := logicalcluster.From(workspace)
-				u.Path = path.Join(u.Path, targetShard.Status.ConnectionInfo.APIPath, logicalCluster.Join(workspace.Name).Path())
+				u.Path = path.Join(u.Path, logicalCluster.Join(workspace.Name).Path())
 
 				workspace.Status.BaseURL = u.String()
 				workspace.Status.Location.Current = targetShard.Name
@@ -357,13 +357,11 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 			break
 		}
 
-		targetShard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, target))
+		_, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, target))
 		if errors.IsNotFound(err) {
 			klog.Infof("Cannot move to nonexistent shard %q", tenancyv1alpha1.RootCluster, workspace.Name, target)
 		} else if err != nil {
 			return err
-		} else if !conditions.IsTrue(targetShard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) {
-			klog.Infof("Cannot move to shard %q with invalid credentials", tenancyv1alpha1.RootCluster, workspace.Name, target)
 		}
 
 		klog.Infof("Moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
@@ -413,17 +411,5 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 }
 
 func isValidShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason, message string) {
-	if !conditions.IsTrue(shard, tenancyv1alpha1.ClusterWorkspaceShardCredentialsValid) {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonMissingCredentials, "Invalid connection information on target ClusterWorkspaceShard."
-	}
-	if shard.Status.ConnectionInfo == nil {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonMissingConnectionInfo, "ClusterWorkspaceShard %q has no connection info."
-	}
-	if shard.Status.ConnectionInfo.Host == "" {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonURLInvalid, "Empty host on target ClusterWorkspaceShard: %v."
-	}
-	if _, err := url.Parse(shard.Status.ConnectionInfo.Host); err != nil {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonURLInvalid, fmt.Sprintf("Invalid host on target ClusterWorkspaceShard: %v.", err)
-	}
 	return true, "", ""
 }

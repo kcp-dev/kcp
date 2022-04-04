@@ -351,7 +351,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 	workspaceShardController, err := clusterworkspaceshard.NewController(
 		kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-		s.rootKubeSharedInformerFactory.Core().V1().Secrets(),
 		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {

@@ -185,20 +185,11 @@ const (
 	// some unexpected reason.
 	WorkspaceReasonReasonUnknown = "Unknown"
 
-	// WorkspaceShardValid represents status of the connection process for this workspace.
+	// WorkspaceShardValid represents status of the connection process for this cluster workspace.
 	WorkspaceShardValid conditionsv1alpha1.ConditionType = "WorkspaceShardValid"
-	// WorkspaceShardValidReasonMissingCredentials reason in WorkspaceShardValid condition means that the
-	// connection information in the referenced ClusterWorkspaceShard could not be found.
-	WorkspaceShardValidReasonMissingCredentials = "MissingShardCredentials"
-	// WorkspaceShardValidReasonURLInvalid reason in WorkspaceShardValid condition means that the
-	// connection information in the referenced ClusterWorkspaceShard were invalid.
-	WorkspaceShardValidReasonURLInvalid = "InvalidShardURL"
 	// WorkspaceShardValidReasonShardNotFound reason in WorkspaceShardValid condition means that the
 	// referenced ClusterWorkspaceShard object got deleted.
 	WorkspaceShardValidReasonShardNotFound = "ShardNotFound"
-	// WorkspaceShardValidReasonMissingConnectionInfo reason in WorkspaceShardValid condition means that the
-	// referenced ClusterWorkspaceShard object lacks connection info.
-	WorkspaceShardValidReasonMissingConnectionInfo = "MissingConnectionInfo"
 )
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
@@ -260,8 +251,36 @@ var _ conditions.Setter = &ClusterWorkspaceShard{}
 
 // ClusterWorkspaceShardSpec holds the desired state of the ClusterWorkspaceShard.
 type ClusterWorkspaceShardSpec struct {
-	// Credentials is a reference to the administrative credentials for this shard.
-	Credentials corev1.SecretReference `json:"credentials"`
+	// baseURL is the address of the KCP shard for direct connections, e.g. by some
+	// front-proxy doing the fan-out to the shards.
+	//
+	// This will be defaulted to the shard's external address if not specified. Note that this
+	// is only sensible in single-shards setups.
+	//
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	BaseURL string `json:"baseURL"`
+
+	// ExternalURL is the externally visible address presented to users in Workspace URLs.
+	// Changing this will break all existing workspaces on that shard, i.e. existing
+	// kubeconfigs of clients will be invalid. Hence, when changing this value, the old
+	// URL used by clients must keep working.
+	//
+	// The external address will not be unique if a front-proxy does a fan-out to
+	// shards, but all workspace client will talk to the front-proxy. In that case,
+	// put the address of the front-proxy here.
+	//
+	// Note that movement of shards is only possible (in the future) between shards
+	// that share a common external URL.
+	//
+	// This will be defaulted to the value of the baseURL.
+	//
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:Required
+	// +required
+	ExternalURL string `json:"externalURL"`
 }
 
 // ClusterWorkspaceShardStatus communicates the observed state of the ClusterWorkspaceShard.
@@ -273,41 +292,7 @@ type ClusterWorkspaceShardStatus struct {
 	// Current processing state of the ClusterWorkspaceShard.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// Connection information for the ClusterWorkspaceShard.
-	// +optional
-	ConnectionInfo *ConnectionInfo `json:"connectionInfo,omitempty"`
-
-	// Version of credentials last successfully loaded.
-	// +optional
-	CredentialsHash string `json:"credentialsHash,omitempty"`
 }
-
-// ConnectionInfo holds the information necessary to connect to a shard.
-type ConnectionInfo struct {
-	// Host must be a host string, a host:port pair, or a URL to the base of the apiserver.
-	// If a URL is given then the (optional) Path of that URL represents a prefix that must
-	// be appended to all request URIs used to access the apiserver. This allows a frontend
-	// proxy to easily relocate all of the apiserver endpoints.
-	// +kubebuilder:validation:Format=uri
-	Host string `json:"host"`
-	// APIPath is a sub-path that points to an API root.
-	APIPath string `json:"apiPath"`
-}
-
-const (
-	// ClusterWorkspaceShardCredentialsKey is the key in the referenced credentials secret where kubeconfig data lives.
-	ClusterWorkspaceShardCredentialsKey = "kubeconfig"
-
-	// ClusterWorkspaceShardCredentialsValid represents status of the credentialing process for this workspace shard.
-	ClusterWorkspaceShardCredentialsValid conditionsv1alpha1.ConditionType = "ClusterWorkspaceShardCredentialsValid"
-	// ClusterWorkspaceShardCredentialsReasonMissing reason in ClusterWorkspaceShardCredentialsValid condition means that the
-	// credentials referenced in the ClusterWorkspaceShard could not be found.
-	ClusterWorkspaceShardCredentialsReasonMissing = "Missing"
-	// ClusterWorkspaceShardCredentialsReasonInvalid reason in ClusterWorkspaceShardCredentialsValid condition means that the
-	// credentials referenced in the ClusterWorkspaceShard did not contain valid data in the correct key.
-	ClusterWorkspaceShardCredentialsReasonInvalid = "Invalid"
-)
 
 // ClusterWorkspaceShardList is a list of workspace shards
 //
