@@ -81,7 +81,6 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		}
 		return kubeconfig.UseWorkspace(cmd.Context(), arg)
 	}
-
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
 		Use:              "workspace [list|create|create-context|<workspace>|..|-|<root:absolute:workspace>]",
@@ -105,16 +104,28 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		},
 	}
 
+	var shortWorkspaceOutput bool
 	currentCmd := &cobra.Command{
-		Use:          "current",
-		Short:        "Replaced with \"kubectl kcp workspace\" or \"kubectl workspace\" or shorter \"kubectl ws\"",
+		Use:          "current [--short]",
+		Short:        "Print the current workspace",
 		Example:      "kcp workspace current",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
-			fmt.Println("The \"current\" command being replaced. Please do instead:\n\n  kubectl kcp workspaces\n\nor shorter:\n\n  kubectl ws")
-			return useRunE(c, nil)
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
+			if len(args) != 0 {
+				return cmd.Help()
+			}
+			return kubeconfig.CurrentWorkspace(c.Context(), shortWorkspaceOutput)
 		},
 	}
+	currentCmd.Flags().BoolVar(&shortWorkspaceOutput, "short", shortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
 
 	listCmd := &cobra.Command{
 		Use:          "list",
