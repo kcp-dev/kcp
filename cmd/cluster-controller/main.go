@@ -143,7 +143,7 @@ func main() {
 	}
 
 	var optionalSyncer *syncer.Controller
-	if manager := options.SyncerOptions.CreateSyncerManager(); manager == nil {
+	if manager := options.SyncerOptions.CreateSyncerManager(""); manager == nil {
 		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
 	} else {
 		optionalSyncer, err = syncer.NewController(
