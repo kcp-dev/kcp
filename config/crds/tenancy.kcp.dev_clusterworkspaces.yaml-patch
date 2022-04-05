@@ -2,9 +2,9 @@
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/metadata/properties
   value:
     name:
-      pattern: "^[a-z]([a-z0-9-]{0,29}[a-z0-9])?$"
+      pattern: "^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$"
       minLength: 1
-      maxLength: 31 # half of max name length
+      maxLength: 63 # a quarter of max name length, so the workspace FQN can be a valid DNS subdomain name
       type: string
       not:
         enum:
