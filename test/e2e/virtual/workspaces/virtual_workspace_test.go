@@ -200,6 +200,42 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			},
 		},
 		{
+			name: "create a universal workspaces and verify that the workspace list is empty, but does not error",
+			clientInfos: []clientInfo{
+				{
+					Token: "user-1-token",
+					Scope: "personal",
+				},
+			},
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				vwUser1Client := server.virtualUserKcpClients[0]
+
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1")
+
+				t.Logf("Create Workspace workspace1 in the virtual workspace")
+				var workspace1 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace1, err = vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					if err != nil {
+						klog.Errorf("Failed to create workspace1: %v", err)
+						return false
+					}
+					return true
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
+
+				t.Logf("Wait until informer based virtual workspace sees the new workspace")
+				require.Eventually(t, func() bool {
+					_, err := vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to get workspace1")
+
+				_, err := server.kcpClusterClient.Cluster(server.orgClusterName.Join(workspace1.Name)).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				require.NoError(t, err, "failed to list workspaces in the universal cluster")
+			},
+		},
+		{
 			name: "create a workspace of custom type and verify that clusteworkspacetype use authorization takes place",
 			clientInfos: []clientInfo{
 				{
