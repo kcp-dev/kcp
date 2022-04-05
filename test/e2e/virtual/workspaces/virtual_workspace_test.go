@@ -33,7 +33,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -128,41 +127,38 @@ func TestWorkspacesVirtualWorkspaces(t *testing.T) {
 
 func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 	type clientInfo struct {
-		Token  string
-		Prefix string
+		Token string
+		Scope string
 	}
 
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName               logicalcluster.LogicalCluster
-		kubeClusterClient            kubernetes.ClusterInterface
-		kcpClusterClient             kcpclientset.ClusterInterface
-		virtualKcpClients            []kcpclientset.Interface
-		virtualWorkspaceExpectations []framework.RegisterWorkspaceListExpectation
+		orgClusterName        logicalcluster.LogicalCluster
+		kubeClusterClient     kubernetes.ClusterInterface
+		kcpClusterClient      kcpclientset.ClusterInterface
+		virtualUserKcpClients []kcpclientset.ClusterInterface
 	}
 
 	var testCases = []struct {
-		name                           string
-		virtualWorkspaceClientContexts func(orgName logicalcluster.LogicalCluster) []clientInfo
-		work                           func(ctx context.Context, t *testing.T, server runningServer)
+		name        string
+		clientInfos []clientInfo
+		work        func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "create a workspace in personal virtual workspace and have only its owner list it",
-			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
-				return []clientInfo{
-					{
-						Token:  "user-1-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
-					},
-					{
-						Token:  "user-2-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
-					},
-				}
+			clientInfos: []clientInfo{
+				{
+					Token: "user-1-token",
+					Scope: "personal",
+				},
+				{
+					Token: "user-2-token",
+					Scope: "personal",
+				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				vwUser1Client := server.virtualKcpClients[0]
-				vwUser2Client := server.virtualKcpClients[1]
+				vwUser1Client := server.virtualUserKcpClients[0]
+				vwUser2Client := server.virtualUserKcpClients[1]
 
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1", "team-2")
 
@@ -171,7 +167,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				require.Eventually(t, func() bool {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
-					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
+					workspace1, err = vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 					if err != nil {
 						klog.Errorf("Failed to create workspace1: %v", err)
 						return false
@@ -186,58 +182,38 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("Create Workspace workspace2 in the virtual workspace")
-				var workspace2 *tenancyv1beta1.Workspace
+				t.Logf("Workspace will show up in list of user1")
 				require.Eventually(t, func() bool {
-					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
-					var err error
-					workspace2, err = vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, testData.workspace2.DeepCopy(), metav1.CreateOptions{})
+					list, err := vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 					if err != nil {
-						t.Logf("failed to create workspace2: %v", err)
+						t.Logf("failed to get workspaces: %v", err)
 					}
-					return err == nil
-				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace2")
+					return len(list.Items) == 1 && list.Items[0].Name == workspace1.Name
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to list workspace1")
 
-				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-				_, err = server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace2.Name, metav1.GetOptions{})
-				require.NoError(t, err, "expected to see workspace2 as ClusterWorkspace")
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace2.Name, metav1.GetOptions{})
-				})
-
-				err = server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
-					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
-						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
-					}
-					return nil
-				})
-				require.NoError(t, err, "did not see the workspace created in personal virtual workspace")
-				err = server.virtualWorkspaceExpectations[1](func(w *tenancyv1beta1.WorkspaceList) error {
-					if len(w.Items) != 1 || w.Items[0].Name != workspace2.Name {
-						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace2.Name, w)
-					}
-					return nil
-				})
-				require.NoError(t, err, "did not see workspace2 created in personal virtual workspace")
+				t.Logf("Workspace will not show up in list of user2")
+				list, err := vwUser2Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Logf("failed to get workspaces: %v", err)
+				}
+				require.Equal(t, 0, len(list.Items), "expected to see no workspaces as user 2")
 			},
 		},
 		{
 			name: "create a workspace of custom type and verify that clusteworkspacetype use authorization takes place",
-			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
-				return []clientInfo{
-					{
-						Token:  "user-1-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
-					},
-					{
-						Token:  "user-2-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
-					},
-				}
+			clientInfos: []clientInfo{
+				{
+					Token: "user-1-token",
+					Scope: "personal",
+				},
+				{
+					Token: "user-2-token",
+					Scope: "personal",
+				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				vwUser1Client := server.virtualKcpClients[0]
-				vwUser2Client := server.virtualKcpClients[1]
+				vwUser1Client := server.virtualUserKcpClients[0]
+				vwUser2Client := server.virtualUserKcpClients[1]
 
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1", "team-2")
 
@@ -284,7 +260,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				require.Eventually(t, func() bool {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
-					workspace1, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+					workspace1, err = vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "workspace1"},
 						Spec: tenancyv1beta1.WorkspaceSpec{
 							Type: "Custom",
@@ -304,7 +280,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				t.Logf("Create Workspace workspace2 in the virtual workspace")
 
 				t.Logf("Try to create custom workspace as user2")
-				_, err = vwUser2Client.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+				_, err = vwUser2Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "workspace2"},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: "Custom",
@@ -313,7 +289,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				require.Errorf(t, err, "expected to fail to create workspace2 as user2")
 
 				t.Logf("Try to create custom2 workspace as user1")
-				_, err = vwUser1Client.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+				_, err = vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "workspace2"},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: "Custom2",
@@ -324,27 +300,19 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		},
 		{
 			name: "create a workspace in personal virtual workspace for an organization and don't see it in another organization",
-			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
-				return []clientInfo{
-					{
-						Token:  "user-1-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", orgName.String(), "personal"),
-					},
-				}
+			clientInfos: []clientInfo{
+				{
+					Token: "user-1-token",
+					Scope: "personal",
+				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				org1Client := server.virtualKcpClients[0]
-				org1Expecter := server.virtualWorkspaceExpectations[0]
-
 				org2ClusterName := framework.NewOrganizationFixture(t, server)
-				token := "user-1-token"
-				prefix := path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", org2ClusterName.String(), "personal")
-				org2Client := newVirtualKcpClient(t, server.DefaultConfig(t), token, prefix)
-				org2Expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, org2Client)
-				require.NoError(t, err, "failed to start virtual workspace expecter")
-
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1")
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, org2ClusterName, "team-1")
+
+				org1Client := server.virtualUserKcpClients[0].Cluster(server.orgClusterName)
+				org2Client := server.virtualUserKcpClients[0].Cluster(org2ClusterName)
 
 				t.Logf("Create workspace1 in org1")
 				var workspace1 *tenancyv1beta1.Workspace
@@ -359,7 +327,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-				_, err = server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				_, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
@@ -377,51 +345,51 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace2")
 
-				err = org1Expecter(func(w *tenancyv1beta1.WorkspaceList) error {
-					if len(w.Items) != 1 || w.Items[0].Name != workspace1.Name {
-						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace1.Name, w)
-					}
-					return nil
-				})
-				require.NoError(t, err, "did not see the workspace1 created in org1")
+				t.Logf("Workspace2 will show up via get")
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					_, err := org2Client.TenancyV1beta1().Workspaces().Get(ctx, workspace2.Name, metav1.GetOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see workspace1 in org1 via get")
 
-				err = org2Expecter(func(w *tenancyv1beta1.WorkspaceList) error {
-					if len(w.Items) != 1 || w.Items[0].Name != workspace2.Name {
-						return fmt.Errorf("expected only one workspace (%s), got %#v", workspace2.Name, w)
+				t.Logf("Workspace2 will show up via list in org1, workspace1 won't")
+				require.Eventually(t, func() bool {
+					list, err := org2Client.TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+					if err != nil {
+						t.Logf("failed to create workspace2 in org2: %v", err)
+						return false
 					}
-					return nil
-				})
-				require.NoError(t, err, "did not see workspace2 created in org2")
+					return len(list.Items) == 1 && list.Items[0].Name == workspace2.Name
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see workspace1 in org1 via list")
 			},
 		},
 		{
 			name: "Checks that the org a user is member of is visible to him when pointing to the root workspace with the all scope",
-			virtualWorkspaceClientContexts: func(orgName logicalcluster.LogicalCluster) []clientInfo {
-				return []clientInfo{
-					{
-						// Use a user unique to the test to ensure isolation from other tests
-						Token:  "user-virtual-workspace-all-scope-token",
-						Prefix: path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", "root", "all"),
-					},
-				}
+			clientInfos: []clientInfo{
+				{
+					// Use a user unique to the test to ensure isolation from other tests
+					Token: "user-virtual-workspace-all-scope-token",
+					Scope: "all",
+				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				orgName := server.orgClusterName.Base()
+				orgUserClient := server.virtualUserKcpClients[0].Cluster(tenancyv1alpha1.RootCluster)
 
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-virtual-workspace-all-scope")
 
-				err := server.virtualWorkspaceExpectations[0](func(w *tenancyv1beta1.WorkspaceList) error {
-					expectedOrgs := sets.NewString(orgName)
-					workspaceNames := sets.NewString()
-					for _, item := range w.Items {
-						workspaceNames.Insert(item.Name)
+				require.Eventually(t, func() bool {
+					list, err := orgUserClient.TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+					if err != nil {
+						t.Logf("failed to list workspaces: %v", err)
+						return false
 					}
-					if workspaceNames.Equal(expectedOrgs) {
-						return nil
+					for _, workspace := range list.Items {
+						if workspace.Name == server.orgClusterName.Base() {
+							return true
+						}
 					}
-					return fmt.Errorf("expected 1 workspaces (%#v), got %#v", expectedOrgs, w)
-				})
-				require.NoError(t, err, "did not see the workspace1 created in test org")
+					return false
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see org workspace in root")
 			},
 		},
 	}
@@ -519,37 +487,32 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			require.NoError(t, err, "failed to construct client for server")
 
 			// create virtual clients for all paths and users requested
-			var virtualKcpClients []kcpclientset.Interface
-			var virtualWorkspaceExpectations []framework.RegisterWorkspaceListExpectation
-			for _, cc := range testCase.virtualWorkspaceClientContexts(orgClusterName) {
-				client := newVirtualKcpClient(t, kcpConfig, cc.Token, cc.Prefix)
-				virtualKcpClients = append(virtualKcpClients, client)
-
-				// create expectations
-				expecter, err := framework.ExpectWorkspaceListPolling(ctx, t, client)
-				require.NoError(t, err, "failed to start virtual workspace expecter")
-				virtualWorkspaceExpectations = append(virtualWorkspaceExpectations, expecter)
+			var virtualUserlKcpClients []kcpclientset.ClusterInterface
+			for _, ci := range testCase.clientInfos {
+				userConfig := rest.CopyConfig(kcpConfig)
+				userConfig.BearerToken = ci.Token
+				userClient := &virtualClusterClient{scope: ci.Scope, config: userConfig}
+				virtualUserlKcpClients = append(virtualUserlKcpClients, userClient)
 			}
 
 			testCase.work(ctx, t, runningServer{
-				RunningServer:                server,
-				orgClusterName:               orgClusterName,
-				kubeClusterClient:            kubeClusterClient,
-				kcpClusterClient:             kcpClusterClient,
-				virtualKcpClients:            virtualKcpClients,
-				virtualWorkspaceExpectations: virtualWorkspaceExpectations,
+				RunningServer:         server,
+				orgClusterName:        orgClusterName,
+				kubeClusterClient:     kubeClusterClient,
+				kcpClusterClient:      kcpClusterClient,
+				virtualUserKcpClients: virtualUserlKcpClients,
 			})
 		})
 	}
 }
 
-func newVirtualKcpClient(t *testing.T, kcpConfig *rest.Config, token, prefix string) kcpclientset.Interface {
-	// create virtual clients
-	virtualConfig := rest.CopyConfig(kcpConfig)
-	virtualConfig.Host = virtualConfig.Host + prefix
-	// Token must be defined in test/e2e/framework/auth-tokens.csv
-	virtualConfig.BearerToken = token
-	client, err := kcpclientset.NewForConfig(virtualConfig)
-	require.NoError(t, err, "failed to construct kcp client")
-	return client
+type virtualClusterClient struct {
+	scope  string
+	config *rest.Config
+}
+
+func (c *virtualClusterClient) Cluster(cluster logicalcluster.LogicalCluster) kcpclientset.Interface {
+	config := rest.CopyConfig(c.config)
+	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", cluster.String(), c.scope)
+	return kcpclientset.NewForConfigOrDie(config)
 }
