@@ -20,6 +20,6 @@ package v1alpha1
 
 type ClusterWorkspaceExpansion interface{}
 
-type ClusterWorkspaceTypeExpansion interface{}
+type ClusterWorkspaceShardExpansion interface{}
 
-type WorkspaceShardExpansion interface{}
+type ClusterWorkspaceTypeExpansion interface{}

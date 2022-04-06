@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workspace
+package clusterworkspace
 
 import (
 	"context"
@@ -25,12 +25,9 @@ import (
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -79,7 +76,7 @@ func TestWorkspaceController(t *testing.T) {
 			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+				err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Create a workspace without shards")
@@ -93,39 +90,20 @@ func TestWorkspaceController(t *testing.T) {
 				err = server.orgExpect(workspace, unschedulable)
 				require.NoError(t, err, "did not see workspace marked unschedulable")
 
-				t.Logf("Create a kubeconfig secret for a workspace shard in the root workspace")
-				_, err = server.rootKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "credentials"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create credentials namespace")
-				rawCfg := clientcmdapi.Config{
-					Clusters:       map[string]*clientcmdapi.Cluster{"cluster": {Server: "https://kcp.dev/apiprefix"}},
-					Contexts:       map[string]*clientcmdapi.Context{"context": {Cluster: "cluster", AuthInfo: "user"}},
-					CurrentContext: "context",
-					AuthInfos:      map[string]*clientcmdapi.AuthInfo{"user": {Username: "user", Password: "password"}},
-				}
-				rawBytes, err := clientcmd.Write(rawCfg)
-				require.NoError(t, err, "could not serialize raw config")
-				_, err = server.rootKubeClient.CoreV1().Secrets("credentials").Create(ctx, &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Name: "kubeconfig"},
-					Data: map[string][]byte{
-						"kubeconfig": rawBytes,
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create credentials secret")
-
-				t.Logf("Add a shard, pointing to the credentials/credentials kubeconfig secret")
-				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Create(ctx, &tenancyv1alpha1.WorkspaceShard{
+				t.Logf("Add a shard with custom external address")
+				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{Name: "boston"},
-					Spec: tenancyv1alpha1.WorkspaceShardSpec{Credentials: corev1.SecretReference{
-						Name:      "kubeconfig",
-						Namespace: "credentials",
-					}},
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+						BaseURL:     "https://boston.kcp.dev",
+						ExternalURL: "https://kcp.dev",
+					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
+					return server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
 				})
 
-				t.Logf("Expect workspace to be scheduled to the shard with the base URL stored in the credentials")
+				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
 				parentName := logicalcluster.From(workspace)
 				workspaceClusterName := parentName.Join(workspace.Name)
 				err = server.orgExpect(workspace, func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
@@ -135,7 +113,7 @@ func TestWorkspaceController(t *testing.T) {
 					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
 						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceShardValid))
 					}
-					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev/apiprefix"+workspaceClusterName.Path()); diff != "" {
+					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev"+workspaceClusterName.Path()); diff != "" {
 						return fmt.Errorf("got incorrect base URL on workspace: %v", diff)
 					}
 					return nil
@@ -166,7 +144,7 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err, "did not see workspace scheduled")
 
 				t.Logf("Delete the current shard")
-				err = server.rootKcpClient.TenancyV1alpha1().WorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
+				err = server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete workspace shard")
 
 				t.Logf("Expect WorkspaceShardValid condition to turn false")

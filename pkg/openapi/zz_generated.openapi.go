@@ -34,17 +34,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspace":                schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceList":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShard":           schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShard(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardList":       schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardSpec":       schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardStatus":     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceSpec":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceStatus":          schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceType":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeList":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ConnectionInfo":                  schema_pkg_apis_tenancy_v1alpha1_ConnectionInfo(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardStatus":                     schema_pkg_apis_tenancy_v1alpha1_ShardStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShard":                  schema_pkg_apis_tenancy_v1alpha1_WorkspaceShard(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShardList":              schema_pkg_apis_tenancy_v1alpha1_WorkspaceShardList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShardSpec":              schema_pkg_apis_tenancy_v1alpha1_WorkspaceShardSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShardStatus":            schema_pkg_apis_tenancy_v1alpha1_WorkspaceShardStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                        schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                    schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                    schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
@@ -222,25 +220,169 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref common.Refere
 							Format:      "",
 						},
 					},
-					"history": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"name",
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShard(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterWorkspaceShard describes a Shard (== KCP instance) on which a number of workspaces will live",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardSpec", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterWorkspaceShardList is a list of workspace shards",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShard"),
+									},
 								},
-								"x-kubernetes-list-type":       "map",
-								"x-kubernetes-patch-merge-key": "name",
-								"x-kubernetes-patch-strategy":  "merge",
 							},
 						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShard", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterWorkspaceShardSpec holds the desired state of the ClusterWorkspaceShard.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"baseURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Historical placement details (including current and target).",
+							Description: "baseURL is the address of the KCP shard for direct connections, e.g. by some front-proxy doing the fan-out to the shards.\n\nThis will be defaulted to the shard's external address if not specified. Note that this is only sensible in single-shards setups.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"externalURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExternalURL is the externally visible address presented to users in Workspace URLs. Changing this will break all existing workspaces on that shard, i.e. existing kubeconfigs of clients will be invalid. Hence, when changing this value, the old URL used by clients must keep working.\n\nThe external address will not be unique if a front-proxy does a fan-out to shards, but all workspace client will talk to the front-proxy. In that case, put the address of the front-proxy here.\n\nNote that movement of shards is only possible (in the future) between shards that share a common external URL.\n\nThis will be defaulted to the value of the baseURL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"externalURL"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterWorkspaceShardStatus communicates the observed state of the ClusterWorkspaceShard.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"capacity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set of integer resources that workspaces can be scheduled into",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current processing state of the ClusterWorkspaceShard.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardStatus"),
+										Ref:     ref("github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -250,7 +392,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardStatus"},
+			"github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -475,248 +617,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 				},
 			},
 		},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_ConnectionInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ConnectionInfo holds the information necessary to connect to a shard.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"host": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Host must be a host string, a host:port pair, or a URL to the base of the apiserver. If a URL is given then the (optional) Path of that URL represents a prefix that must be appended to all request URIs used to access the apiserver. This allows a frontend proxy to easily relocate all of the apiserver endpoints.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiPath": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIPath is a sub-path that points to an API root.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"host", "apiPath"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_ShardStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ShardStatus contains details for the current status of a workspace shard.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of an active WorkspaceShard.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"liveBeforeResourceVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Resource version at which writes to this shard should not be accepted.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"liveAfterResourceVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Resource version after which writes can be accepted on this shard.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"name"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceShard(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceShard describes a Shard (== KCP instance) on which a number of workspaces will live",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShardSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShardStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShardSpec", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShardStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceShardList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceShardList is a list of workspace shards",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShard"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"metadata", "items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceShard", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceShardSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceShardSpec holds the desired state of the WorkspaceShard.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"credentials": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Credentials is a reference to the administrative credentials for this shard.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.SecretReference"),
-						},
-					},
-				},
-				Required: []string{"credentials"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/api/core/v1.SecretReference"},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceShardStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceShardStatus communicates the observed state of the WorkspaceShard.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"capacity": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Set of integer resources that workspaces can be scheduled into",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-									},
-								},
-							},
-						},
-					},
-					"conditions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Current processing state of the WorkspaceShard.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"),
-									},
-								},
-							},
-						},
-					},
-					"connectionInfo": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Connection information for the WorkspaceShard.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ConnectionInfo"),
-						},
-					},
-					"credentialsHash": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Version of credentials last successfully loaded.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ConnectionInfo", "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

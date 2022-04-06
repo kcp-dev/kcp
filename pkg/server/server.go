@@ -242,6 +242,7 @@ func (s *Server) Run(ctx context.Context) error {
 		kcpadmissioninitializers.NewKcpInformersInitializer(s.kcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(kubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(kcpClusterClient),
+		kcpadmissioninitializers.NewExternalAddressInitializer(genericConfig.ExternalAddress),
 	}
 
 	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, admissionPluginInitializers, storageFactory)

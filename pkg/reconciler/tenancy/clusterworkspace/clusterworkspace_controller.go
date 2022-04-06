@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -59,7 +58,7 @@ const (
 func NewController(
 	kcpClient kcpclient.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	rootWorkspaceShardInformer tenancyinformer.WorkspaceShardInformer,
+	rootWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -105,7 +104,7 @@ func NewController(
 }
 
 // Controller watches Workspaces and WorkspaceShards in order to make sure every ClusterWorkspace
-// is scheduled to a valid WorkspaceShard.
+// is scheduled to a valid ClusterWorkspaceShard.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -114,7 +113,7 @@ type Controller struct {
 	workspaceLister  tenancylister.ClusterWorkspaceLister
 
 	rootWorkspaceShardIndexer cache.Indexer
-	rootWorkspaceShardLister  tenancylister.WorkspaceShardLister
+	rootWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -128,9 +127,9 @@ func (c *Controller) enqueue(obj interface{}) {
 }
 
 func (c *Controller) enqueueUpsertedShard(obj interface{}, verb string) {
-	shard, ok := obj.(*tenancyv1alpha1.WorkspaceShard)
+	shard, ok := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
 	if !ok {
-		runtime.HandleError(fmt.Errorf("got %T when handling added WorkspaceShard", obj))
+		runtime.HandleError(fmt.Errorf("got %T when handling added ClusterWorkspaceShard", obj))
 		return
 	}
 	klog.Infof("Handling %sed shard %q", verb, shard.Name)
@@ -151,16 +150,16 @@ func (c *Controller) enqueueUpsertedShard(obj interface{}, verb string) {
 }
 
 func (c *Controller) enqueueDeletedShard(obj interface{}) {
-	shard, ok := obj.(*tenancyv1alpha1.WorkspaceShard)
+	shard, ok := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			klog.V(2).Infof("Couldn't get object from tombstone %#v", obj)
 			return
 		}
-		shard, ok = tombstone.Obj.(*tenancyv1alpha1.WorkspaceShard)
+		shard, ok = tombstone.Obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
 		if !ok {
-			klog.V(2).Infof("Tombstone contained object that is not a WorkspaceShard: %#v", obj)
+			klog.V(2).Infof("Tombstone contained object that is not a ClusterWorkspaceShard: %#v", obj)
 			return
 		}
 	}
@@ -302,7 +301,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 				return err
 			}
 
-			validShards := make([]*tenancyv1alpha1.WorkspaceShard, 0, len(shards))
+			validShards := make([]*tenancyv1alpha1.ClusterWorkspaceShard, 0, len(shards))
 			invalidShards := map[string]struct {
 				reason, message string
 			}{}
@@ -322,14 +321,14 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 			if len(validShards) > 0 {
 				targetShard := validShards[rand.Intn(len(validShards))]
 
-				u, err := url.Parse(targetShard.Status.ConnectionInfo.Host)
+				u, err := url.Parse(targetShard.Spec.ExternalURL)
 				if err != nil {
 					// shouldn't happen since we just checked in isValidShard
-					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target WorkspaceShard: %v.", err)
+					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target ClusterWorkspaceShard: %v.", err)
 					return err // requeue
 				}
 				logicalCluster := logicalcluster.From(workspace)
-				u.Path = path.Join(u.Path, targetShard.Status.ConnectionInfo.APIPath, logicalCluster.Join(workspace.Name).Path())
+				u.Path = path.Join(u.Path, logicalCluster.Join(workspace.Name).Path())
 
 				workspace.Status.BaseURL = u.String()
 				workspace.Status.Location.Current = targetShard.Name
@@ -358,47 +357,23 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 			break
 		}
 
-		targetShard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, target))
+		_, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, target))
 		if errors.IsNotFound(err) {
 			klog.Infof("Cannot move to nonexistent shard %q", tenancyv1alpha1.RootCluster, workspace.Name, target)
 		} else if err != nil {
 			return err
-		} else if !conditions.IsTrue(targetShard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
-			klog.Infof("Cannot move to shard %q with invalid credentials", tenancyv1alpha1.RootCluster, workspace.Name, target)
 		}
 
 		klog.Infof("Moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
 		workspace.Status.Location.Current = workspace.Status.Location.Target
 		workspace.Status.Location.Target = ""
-
-		// TODO: actually handle the RV resolution and double-sided accept we need for movement
-		if len(workspace.Status.Location.History) == 0 {
-			workspace.Status.Location.History = []tenancyv1alpha1.ShardStatus{
-				{Name: workspace.Status.Location.Current, LiveAfterResourceVersion: "1"},
-			}
-		} else {
-			previous := workspace.Status.Location.History[len(workspace.Status.Location.History)-1]
-			startingRV, err := strconv.ParseInt(previous.LiveAfterResourceVersion, 10, 64)
-			if err != nil {
-				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "Invalid status.location.history[%d].liveAfterResourceVersion: %v.", len(workspace.Status.Location.History)-1, err)
-				return nil
-			}
-			endingRV := strconv.FormatInt(startingRV+10, 10)
-			previous.LiveBeforeResourceVersion = endingRV
-			current := tenancyv1alpha1.ShardStatus{
-				Name:                     workspace.Status.Location.Current,
-				LiveAfterResourceVersion: endingRV,
-			}
-			workspace.Status.Location.History[len(workspace.Status.Location.History)-1] = previous
-			workspace.Status.Location.History = append(workspace.Status.Location.History, current)
-		}
 	}
 
 	// check scheduled shard. This has no influence on the workspace baseURL or shard assignment. This might be a trigger for
 	// a movement controller in the future (or a human intervention) to move workspaces off a shard.
 	if workspace.Status.Location.Current != "" {
 		if shard, err := c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, workspace.Status.Location.Current)); errors.IsNotFound(err) {
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound, conditionsv1alpha1.ConditionSeverityError, fmt.Sprintf("WorkspaceShard %q got deleted.", workspace.Status.Location.Current))
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound, conditionsv1alpha1.ConditionSeverityError, fmt.Sprintf("ClusterWorkspaceShard %q got deleted.", workspace.Status.Location.Current))
 		} else if err != nil {
 			return err
 		} else if valid, reason, message := isValidShard(shard); !valid {
@@ -416,7 +391,7 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 		//              of acceptance of the workspace on that shard.
 		if workspace.Status.Location.Current != "" && workspace.Status.BaseURL != "" {
 			// do final quorum read to avoid race when the workspace shard is being deleted
-			_, err := c.kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().WorkspaceShards().Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
+			_, err := c.kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, workspace.Status.Location.Current, metav1.GetOptions{})
 			if err != nil {
 				// reschedule
 				workspace.Status.Location.Current = ""
@@ -435,18 +410,6 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	return nil
 }
 
-func isValidShard(shard *tenancyv1alpha1.WorkspaceShard) (valid bool, reason, message string) {
-	if !conditions.IsTrue(shard, tenancyv1alpha1.WorkspaceShardCredentialsValid) {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonMissingCredentials, "Invalid connection information on target WorkspaceShard."
-	}
-	if shard.Status.ConnectionInfo == nil {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonMissingConnectionInfo, "WorkspaceShard %q has no connection info."
-	}
-	if shard.Status.ConnectionInfo.Host == "" {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonURLInvalid, "Empty host on target WorkspaceShard: %v."
-	}
-	if _, err := url.Parse(shard.Status.ConnectionInfo.Host); err != nil {
-		return false, tenancyv1alpha1.WorkspaceShardValidReasonURLInvalid, fmt.Sprintf("Invalid host on target WorkspaceShard: %v.", err)
-	}
+func isValidShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason, message string) {
 	return true, "", ""
 }
