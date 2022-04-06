@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
+	"github.com/kcp-dev/kcp/pkg/admission/locationdomain"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
@@ -78,6 +79,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	clusterworkspacetypeexists.Register(plugins)
 	apiresourceschema.Register(plugins)
 	apibinding.Register(plugins)
+	locationdomain.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.NewString(
@@ -96,6 +98,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	clusterworkspacetypeexists.PluginName,
 	apiresourceschema.PluginName,
 	apibinding.PluginName,
+	locationdomain.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.
