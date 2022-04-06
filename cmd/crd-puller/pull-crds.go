@@ -19,12 +19,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-
 	"github.com/spf13/cobra"
-
+	viper "github.com/spf13/viper"
+	"io/ioutil"
 	"k8s.io/client-go/tools/clientcmd"
+	"os"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
@@ -46,6 +45,7 @@ func main() {
 		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeconfigPath := cmd.Flag("kubeconfig").Value.String()
+			resourcesToSync := viper.GetStringSlice("resources-to-sync")
 			config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 			if err != nil {
 				return err
@@ -54,7 +54,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			crds, err := puller.PullCRDs(context.TODO(), args...)
+			crds, err := puller.PullCRDs(context.TODO(), resourcesToSync...)
 			if err != nil {
 				return err
 			}
@@ -71,6 +71,8 @@ func main() {
 		},
 	}
 	cmd.Flags().String("kubeconfig", ".kubeconfig", "kubeconfig file used to contact the cluster.")
+	cmd.Flags().StringSliceP("resources-to-sync", "r", nil, "Resources to be synced from physical cluster into kcp")
+	viper.BindPFlag("resources-to-sync", cmd.Flags().Lookup("resources-to-sync"))
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
