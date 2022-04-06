@@ -77,6 +77,7 @@ spec:
                   of the \"Universal\" type whose existence is not required but respected
                   if it exists. The type is immutable after creation. The use of a
                   type is gated via the RBAC clusterworkspacetypes/use resource permission."
+                pattern: ^[A-Z][a-z0-9]*[a-z0-9]$
                 type: string
             type: object
           status:
