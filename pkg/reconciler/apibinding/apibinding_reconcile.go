@@ -368,8 +368,9 @@ func (r *workspaceAPIExportReferenceReconciler) reconcile(ctx context.Context, a
 			Group:    schema.Spec.Group,
 			Resource: schema.Spec.Names.Plural,
 			Schema: apisv1alpha1.BoundAPIResourceSchema{
-				Name: schema.Name,
-				UID:  string(schema.UID),
+				Name:         schema.Name,
+				UID:          string(schema.UID),
+				IdentityHash: "placeholder",
 			},
 			StorageVersions: crd.Status.StoredVersions,
 		})

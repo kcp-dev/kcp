@@ -736,8 +736,9 @@ func (b *boundAPIResourceBuilder) WithGroupResource(group, resource string) *bou
 
 func (b *boundAPIResourceBuilder) WithSchema(name, uid string) *boundAPIResourceBuilder {
 	b.Schema = apisv1alpha1.BoundAPIResourceSchema{
-		Name: name,
-		UID:  uid,
+		Name:         name,
+		UID:          uid,
+		IdentityHash: "placeholder",
 	}
 	return b
 }
