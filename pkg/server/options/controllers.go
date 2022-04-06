@@ -29,7 +29,7 @@ import (
 	"k8s.io/klog/v2"
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 
-	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
