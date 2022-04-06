@@ -432,7 +432,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 		nsObj, err := nsInformer.Lister().Get(nsKey)
 		if err != nil {
 			klog.Errorf("%s: error retrieving namespace %q from physical cluster lister: %v", c.name, nsKey, err)
-			return err
+			return nil
 		}
 
 		nsMeta, ok := nsObj.(metav1.Object)
