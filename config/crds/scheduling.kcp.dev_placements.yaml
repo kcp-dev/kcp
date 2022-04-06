@@ -1,0 +1,328 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: placements.scheduling.kcp.dev
+spec:
+  group: scheduling.kcp.dev
+  names:
+    categories:
+    - kcp
+    kind: Placement
+    listKind: PlacementList
+    plural: placements
+    singular: placement
+  scope: Namespace
+  versions:
+  - additionalPrinterColumns:
+    - description: Type of the workspace
+      jsonPath: .spec.type
+      name: Type
+      type: string
+    - description: The current phase (e.g. Scheduling, Initializing, Ready)
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: "Placement specifies how a namespace is scheduled on instances
+          of locations. \n TODO(sttts): maybe we also need non-namespaced ClusterPlacement?"
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PlacementSpec is the specification of a placement.
+            properties:
+              locations:
+                description: "locations selects a number of different locations. The
+                  scheduler will schedule the namespace to all of these, potentially
+                  to multiple instances of each location (depending on strategy).
+                  \n scheduling.kcp.dev/placement: { # <location_name> -> “Pending|Bound|Removing|Unbound”,
+                  equivalent of spec.nodeName  “location-a+instance-id”: “Removing”,
+                  \ “location-b+instance-id”: “Bound\",  “location-c+instance-id”:
+                  “Pending” } \n Note: we could add another state \"Active\", meaning
+                  the syncer has done its work. A little bit like \"Running\". But
+                  that       might get confusing because e.g. a pod is not really
+                  running just because the object exists. \n The namespace scheduler
+                  for workloads will watch objects for scheduling.kcp.dev/placement
+                  and do: - adds the `cluster.workloads.kcp.dev/<workload-cluster-id>:
+                  \"\"` when state is Pending, and sets placement state `Bound`. -
+                  sets the state to `Unbound` if the state is `Removing` and there
+                  is no `cluster.workloads.kcp.dev/<workload-cluster-id>`. \n   The
+                  placement flow for workloads is this: \n   1. the `cluster.workloads.kcp.dev/<workload-cluster-id>:
+                  \"\"` label is set.   2. some actor (depending on (spreading) strategy)
+                  will notice the empty string, and replace it with      \"Sync\"
+                  after adding a `workloads.kcp.dev/strategy-details-<workload-cluster-id>`
+                  annotation that will      contains concrete syncing strategy details
+                  (not modelled here, some API from syncer and virtual workspace      to
+                  be defined; possibly different per object kind). \n         labels:
+                  \  \t     cluster.workloads.kcp.dev/<workload-cluster-id>: \"Sync\"
+                  \        annotations:   \t     transformation.workloads.kcp.dev/<workload-cluster-id>:
+                  \"<some workload-service specific placement details, e.g. instances>\"
+                  \n      Examples of those strategy detail annotations: TODO(davidfestal):
+                  to be modelled in detail      - ingress will need draining parameters:
+                  {\"apiVersion\":\"syncer.kcp.dev/v1\", \"kind\":\"IngressSplitter\",
+                  \"state\": \"drain\", \"drain_timeout\": \"30s\", \"drain_grace_period\":
+                  \"5s\"}      - deployment will need replica counts: {\"apiVersion\":\"syncer.kcp.dev/v1\",
+                  \"kind\":\"DeploymentSplitter\" \"replicas\": 3}      - potentially
+                  even: {\"apiVersion\":\"syncer.kcp.dev/v1\", \"kind\": \"CEL\",
+                  \"transformation\": \"<CEL>\"} \n   3. the syncer and the syncer
+                  virtual workspace apiserver play together to follow those syncing
+                  strategy details as soon as the `cluster.workloads.kcp.dev/<workload-cluster-id>`
+                  has the `Sync` value \n   The deletion flow for workloads is this:
+                  \  1. some external actor decides that the object should be removed
+                  from a location instance, and for that sets the      state to `Removing`
+                  in the `location.kcp.dev/placement` annotation.   2. the namespace
+                  scheduler will notice the `Removing` state and will set the `cluster.workloads.kcp.dev/<workload-cluster-id>`
+                  label value to `Delete`   3. the syncer virtual workspace apiserver
+                  will notice the `Delete` value of the `cluster.workloads.kcp.dev/<workload-cluster-id>`
+                  label.      It will check that the annotation is not present or
+                  empty: \n        finalizers.workloads.kcp.dev/<workload-cluster-id>
+                  = \"controller1,controller2\" \n      and in that case, will virtually
+                  mark the object as deleting (by setting a DeletionTimestamp) for
+                  that location instance.   4. the syncer will notice the deletion
+                  timestamp, delete the object downstream (this means that the deletion
+                  timestamp      is set downstream), then waits for deletion to complete
+                  (all finalizers are removed downstream).      Then the syncer will
+                  remove its (virtual) finalizer upstream in the syncer virtual workspace
+                  apiserver view.   4. the syncer virtual workspace apiserver is waiting
+                  for the syncer finalizer being removed, and then will      virtually
+                  delete the object for the syncer by removing the `cluster.workloads.kcp.dev/<workload-cluster-id>`
+                  \     label.   5. the syncer will notice a delete event from upstream,
+                  but there is nothing to do for the syncer.   6. the namespace scheduler
+                  will notice the removed `cluster.workloads.kcp.dev/<workload-cluster-id>`
+                  and will set \t    placement state to Unbound."
+                items:
+                  description: "PlacementLocationSelector is a selector for a location.
+                    This selects different locations according to the given labels.
+                    \n In the future, concepts like affinity and anti-affinity might
+                    be supported."
+                  properties:
+                    labels:
+                      description: labels select the location.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                    strategy:
+                      description: strategy defines which instances of selected location
+                        will be scheduled to.
+                      properties:
+                        highlyAvailable:
+                          properties:
+                            strategy:
+                              enum:
+                              - FailOver
+                              - ColdStandby
+                              type: string
+                          type: object
+                        spread:
+                          properties:
+                            count:
+                              description: The number of instances to schedule.
+                              format: int32
+                              type: integer
+                          type: object
+                        type:
+                          enum:
+                          - Spread
+                          - HihghlyAvailable
+                          type: string
+                      type: object
+                  type: object
+                type: array
+              type:
+                description: type is the location instance type, e.g. "Workloads".
+                minLength: 1
+                type: string
+            required:
+            - type
+            type: object
+          status:
+            properties:
+              conditions:
+                description: conditions is a list of conditions that apply to the
+                  Placement as a whole.
+                items:
+                  description: Condition defines an observation of a object operational
+                    state.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              locations:
+                description: locations are the selected locations for the namespace
+                  according to the spec.
+                items:
+                  properties:
+                    conditions:
+                      description: conditions is a list of conditions that apply to
+                        one location of the Placement.
+                      items:
+                        description: Condition defines an observation of a object
+                          operational state.
+                        properties:
+                          lastTransitionTime:
+                            description: Last time the condition transitioned from
+                              one status to another. This should be when the underlying
+                              condition changed. If that is not known, then using
+                              the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: A human readable message indicating details
+                              about the transition. This field may be empty.
+                            type: string
+                          reason:
+                            description: The reason for the condition's last transition
+                              in CamelCase. The specific API may choose whether or
+                              not this field is considered a guaranteed API. This
+                              field may not be empty.
+                            type: string
+                          severity:
+                            description: Severity provides an explicit classification
+                              of Reason code, so the users or machines can immediately
+                              understand the current situation and act accordingly.
+                              The Severity field MUST be set only when Status=False.
+                            type: string
+                          status:
+                            description: Status of the condition, one of True, False,
+                              Unknown.
+                            type: string
+                          type:
+                            description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                              Many .condition.type values are consistent across resources
+                              like Available, but because arbitrary conditions can
+                              be useful (see .node.status.conditions), the ability
+                              to deconflict is important.
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - status
+                        - type
+                        type: object
+                      type: array
+                    instance:
+                      description: instance is the identifier of the location instance.
+                      type: string
+                    name:
+                      description: name of the location.
+                      type: string
+                    phase:
+                      description: phase is the current state of the location for
+                        the namespace.
+                      enum:
+                      - Pending
+                      - Bound
+                      - Removing
+                      - Unbound
+                      type: string
+                  required:
+                  - instance
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

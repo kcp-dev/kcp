@@ -28,6 +28,8 @@ type Interface interface {
 	Locations() LocationInformer
 	// LocationDomains returns a LocationDomainInformer.
 	LocationDomains() LocationDomainInformer
+	// Placements returns a PlacementInformer.
+	Placements() PlacementInformer
 }
 
 type version struct {
@@ -49,4 +51,9 @@ func (v *version) Locations() LocationInformer {
 // LocationDomains returns a LocationDomainInformer.
 func (v *version) LocationDomains() LocationDomainInformer {
 	return &locationDomainInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Placements returns a PlacementInformer.
+func (v *version) Placements() PlacementInformer {
+	return &placementInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

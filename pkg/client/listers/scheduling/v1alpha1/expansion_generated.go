@@ -25,3 +25,11 @@ type LocationListerExpansion interface{}
 // LocationDomainListerExpansion allows custom methods to be added to
 // LocationDomainLister.
 type LocationDomainListerExpansion interface{}
+
+// PlacementListerExpansion allows custom methods to be added to
+// PlacementLister.
+type PlacementListerExpansion interface{}
+
+// PlacementNamespaceListerExpansion allows custom methods to be added to
+// PlacementNamespaceLister.
+type PlacementNamespaceListerExpansion interface{}

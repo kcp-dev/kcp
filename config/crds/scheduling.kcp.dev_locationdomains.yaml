@@ -48,6 +48,15 @@ spec:
             description: LocationDomainSpec holds the desired state of the location
               domain.
             properties:
+              availableLocationPolicies:
+                description: availableLocationPolicies are the possible location policies.
+                items:
+                  type: string
+                type: array
+              defaultLocationPolicy:
+                description: defaultLocationPolicy is the default policy. This must
+                  be one of availableLocationPolicies.
+                type: string
               instances:
                 description: instances is a references to instance objects subject
                   to this location domain. Depending on type this will usually be
@@ -259,6 +268,15 @@ spec:
                       their workspace selector match. The largest number wins.
                     format: int32
                     type: integer
+                  types:
+                    description: Types is a list of workspace types that matches this
+                      location. Empty list means that all workspaces match.
+                    items:
+                      description: WorkspaceType is a case-insensitive ClusterWorkspaceType
+                        name to be used in Workspace.spec.type.
+                      pattern: ^[a-zA-Z][A-Za-z0-9-]*[a-zA-Z0-9]$
+                      type: string
+                    type: array
                 type: object
             required:
             - instances

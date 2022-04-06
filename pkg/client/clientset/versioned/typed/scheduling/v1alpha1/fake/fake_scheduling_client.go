@@ -37,6 +37,10 @@ func (c *FakeSchedulingV1alpha1) LocationDomains() v1alpha1.LocationDomainInterf
 	return &FakeLocationDomains{c}
 }
 
+func (c *FakeSchedulingV1alpha1) Placements(namespace string) v1alpha1.PlacementInterface {
+	return &FakePlacements{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeSchedulingV1alpha1) RESTClient() rest.Interface {

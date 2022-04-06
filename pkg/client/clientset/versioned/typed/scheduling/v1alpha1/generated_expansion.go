@@ -21,3 +21,5 @@ package v1alpha1
 type LocationExpansion interface{}
 
 type LocationDomainExpansion interface{}
+
+type PlacementExpansion interface{}
