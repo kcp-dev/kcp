@@ -74,7 +74,8 @@ func newSystemCRDProvider(
 		rootCRDs: sets.NewString(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaceshards.tenancy.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "workspaceshards.tenancy.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locationdomains.scheduling.kcp.dev"),
 
 			// the following is installed to get discovery and OpenAPI right. But it is actually
 			// served by a native rest storage, projecting the clusterworkspaces.
@@ -83,6 +84,7 @@ func newSystemCRDProvider(
 		orgCRDs: sets.NewString(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locationdomains.scheduling.kcp.dev"),
 
 			// the following is installed to get discovery and OpenAPI right. But it is actually
 			// served by a native rest storage, projecting the clusterworkspaces.
@@ -95,6 +97,10 @@ func newSystemCRDProvider(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiexports.apis.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apibindings.apis.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiresourceschemas.apis.kcp.dev"),
+
+			// the following is installed to get discovery and OpenAPI right. But it is actually
+			// served by a native rest storage, projecting the clusterworkspaces.
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
 		),
 		getClusterWorkspace: getClusterWorkspace,
 		getCRD:              getCRD,
