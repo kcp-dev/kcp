@@ -65,6 +65,11 @@ type LocationDomainSpec struct {
 	// +optional
 	WorkspaceSelector *WorkspaceSelector `json:"workspaceSelector,omitempty"`
 
+	// defaultLocationPolicy is the default policy. This must be one of availableLocationPolicies.
+	DefaultLocationPolicy string `json:"defaultLocationPolicy,omitempty"`
+	// availableLocationPolicies are the possible location policies.
+	AvailableLocationPolicies []string `json:"availableLocationPolicies,omitempty"`
+
 	// locations
 	Locations []LocationDomainLocationDefinition `json:"locations,omitempty"`
 }
@@ -134,9 +139,21 @@ type WorkspaceSelector struct {
 	// +optional
 	Labels metav1.LabelSelector `json:"labels,omitempty"`
 
+	// Types is a list of workspace types that matches this location.
+	// Empty list means that all workspaces match.
+	//
+	// +optional
+	Types []WorkspaceType `json:"types,omitempty"`
+
 	// priority is used when multiple LocationDomains and their workspace selector match. The largest number wins.
 	Priority uint32 `json:"priority,omitempty"`
 }
+
+// WorkspaceType is a case-insensitive ClusterWorkspaceType name to be used in Workspace.spec.type.
+//
+// +kube:validation:MinLength=1
+// +kubebuilder:validation:Pattern=`^[a-zA-Z][A-Za-z0-9-]*[a-zA-Z0-9]$`
+type WorkspaceType string
 
 type LocationDomainLocationDefinition struct {
 	LocationSpecBase `json:",inline"`
