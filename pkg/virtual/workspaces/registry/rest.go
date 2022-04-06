@@ -143,7 +143,7 @@ func NewREST(
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 	wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
 	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster) FilteredClusterWorkspaces,
-) (*REST, *KubeconfigSubresourceREST) {
+) *REST {
 	mainRest := &REST{
 		getFilteredClusterWorkspaces: getFilteredClusterWorkspaces,
 
@@ -161,12 +161,7 @@ func NewREST(
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(workspaceprinters.AddWorkspacePrintHandlers)},
 	}
 
-	return mainRest,
-		&KubeconfigSubresourceREST{
-			mainRest:             mainRest,
-			rootCoreClient:       kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster).CoreV1(),
-			workspaceShardClient: rootTenancyClient.WorkspaceShards(),
-		}
+	return mainRest
 }
 
 // New returns a new ClusterWorkspace

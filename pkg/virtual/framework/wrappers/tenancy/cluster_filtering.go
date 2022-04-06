@@ -52,8 +52,8 @@ func (i *filteredInterface) ClusterWorkspaces() tenancyinformers.ClusterWorkspac
 	return FilterClusterWorkspaceInformer(i.clusterName, i.informers.ClusterWorkspaces())
 }
 
-func (i *filteredInterface) WorkspaceShards() tenancyinformers.WorkspaceShardInformer {
-	return FilterWorkspaceShardInformer(i.clusterName, i.informers.WorkspaceShards())
+func (i *filteredInterface) ClusterWorkspaceShards() tenancyinformers.ClusterWorkspaceShardInformer {
+	return FilterWorkspaceShardInformer(i.clusterName, i.informers.ClusterWorkspaceShards())
 }
 
 func FilterClusterWorkspaceTypeInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceTypeInformer) tenancyinformers.ClusterWorkspaceTypeInformer {
@@ -198,38 +198,38 @@ func (l *filteredClusterWorkspaceLister) GetWithContext(ctx context.Context, nam
 	return l.lister.GetWithContext(ctx, name)
 }
 
-func FilterWorkspaceShardInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.WorkspaceShardInformer) tenancyinformers.WorkspaceShardInformer {
+func FilterWorkspaceShardInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceShardInformer) tenancyinformers.ClusterWorkspaceShardInformer {
 	return &filteredWorkspaceShardInformer{
 		clusterName: clusterName,
 		informer:    informer,
 	}
 }
 
-var _ tenancyinformers.WorkspaceShardInformer = (*filteredWorkspaceShardInformer)(nil)
-var _ tenancylisters.WorkspaceShardLister = (*filteredWorkspaceShardLister)(nil)
+var _ tenancyinformers.ClusterWorkspaceShardInformer = (*filteredWorkspaceShardInformer)(nil)
+var _ tenancylisters.ClusterWorkspaceShardLister = (*filteredWorkspaceShardLister)(nil)
 
 type filteredWorkspaceShardInformer struct {
 	clusterName logicalcluster.LogicalCluster
-	informer    tenancyinformers.WorkspaceShardInformer
+	informer    tenancyinformers.ClusterWorkspaceShardInformer
 }
 
 type filteredWorkspaceShardLister struct {
 	clusterName logicalcluster.LogicalCluster
-	lister      tenancylisters.WorkspaceShardLister
+	lister      tenancylisters.ClusterWorkspaceShardLister
 }
 
 func (i *filteredWorkspaceShardInformer) Informer() cache.SharedIndexInformer {
 	return i.informer.Informer()
 }
 
-func (i *filteredWorkspaceShardInformer) Lister() tenancylisters.WorkspaceShardLister {
+func (i *filteredWorkspaceShardInformer) Lister() tenancylisters.ClusterWorkspaceShardLister {
 	return &filteredWorkspaceShardLister{
 		clusterName: i.clusterName,
 		lister:      i.informer.Lister(),
 	}
 }
 
-func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*tenancyapis.WorkspaceShard, err error) {
+func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*tenancyapis.ClusterWorkspaceShard, err error) {
 	items, err := l.lister.List(selector)
 	if err != nil {
 		return nil, err
@@ -242,14 +242,14 @@ func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*te
 	return
 }
 
-func (l *filteredWorkspaceShardLister) Get(name string) (*tenancyapis.WorkspaceShard, error) {
+func (l *filteredWorkspaceShardLister) Get(name string) (*tenancyapis.ClusterWorkspaceShard, error) {
 	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }
 
-func (l *filteredWorkspaceShardLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyapis.WorkspaceShard, err error) {
+func (l *filteredWorkspaceShardLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyapis.ClusterWorkspaceShard, err error) {
 	items, err := l.lister.ListWithContext(ctx, selector)
 	if err != nil {
 		return nil, err
@@ -262,7 +262,7 @@ func (l *filteredWorkspaceShardLister) ListWithContext(ctx context.Context, sele
 	return
 }
 
-func (l *filteredWorkspaceShardLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.WorkspaceShard, error) {
+func (l *filteredWorkspaceShardLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.ClusterWorkspaceShard, error) {
 	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}

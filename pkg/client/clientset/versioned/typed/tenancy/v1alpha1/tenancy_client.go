@@ -32,8 +32,8 @@ import (
 type TenancyV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterWorkspacesGetter
+	ClusterWorkspaceShardsGetter
 	ClusterWorkspaceTypesGetter
-	WorkspaceShardsGetter
 }
 
 // TenancyV1alpha1Client is used to interact with features provided by the tenancy.kcp.dev group.
@@ -46,12 +46,12 @@ func (c *TenancyV1alpha1Client) ClusterWorkspaces() ClusterWorkspaceInterface {
 	return newClusterWorkspaces(c)
 }
 
-func (c *TenancyV1alpha1Client) ClusterWorkspaceTypes() ClusterWorkspaceTypeInterface {
-	return newClusterWorkspaceTypes(c)
+func (c *TenancyV1alpha1Client) ClusterWorkspaceShards() ClusterWorkspaceShardInterface {
+	return newClusterWorkspaceShards(c)
 }
 
-func (c *TenancyV1alpha1Client) WorkspaceShards() WorkspaceShardInterface {
-	return newWorkspaceShards(c)
+func (c *TenancyV1alpha1Client) ClusterWorkspaceTypes() ClusterWorkspaceTypeInterface {
+	return newClusterWorkspaceTypes(c)
 }
 
 // NewForConfig creates a new TenancyV1alpha1Client for the given config.

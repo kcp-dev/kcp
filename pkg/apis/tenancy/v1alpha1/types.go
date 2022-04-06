@@ -185,20 +185,11 @@ const (
 	// some unexpected reason.
 	WorkspaceReasonReasonUnknown = "Unknown"
 
-	// WorkspaceShardValid represents status of the connection process for this workspace.
+	// WorkspaceShardValid represents status of the connection process for this cluster workspace.
 	WorkspaceShardValid conditionsv1alpha1.ConditionType = "WorkspaceShardValid"
-	// WorkspaceShardValidReasonMissingCredentials reason in WorkspaceShardValid condition means that the
-	// connection information in the referenced WorkspaceShard could not be found.
-	WorkspaceShardValidReasonMissingCredentials = "MissingShardCredentials"
-	// WorkspaceShardValidReasonURLInvalid reason in WorkspaceShardValid condition means that the
-	// connection information in the referenced WorkspaceShard were invalid.
-	WorkspaceShardValidReasonURLInvalid = "InvalidShardURL"
 	// WorkspaceShardValidReasonShardNotFound reason in WorkspaceShardValid condition means that the
-	// referenced WorkspaceShard object got deleted.
+	// referenced ClusterWorkspaceShard object got deleted.
 	WorkspaceShardValidReasonShardNotFound = "ShardNotFound"
-	// WorkspaceShardValidReasonMissingConnectionInfo reason in WorkspaceShardValid condition means that the
-	// referenced WorkspaceShard object lacks connection info.
-	WorkspaceShardValidReasonMissingConnectionInfo = "MissingConnectionInfo"
 )
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
@@ -212,30 +203,8 @@ type ClusterWorkspaceLocation struct {
 	// Target workspace placement (shard).
 	//
 	// +optional
+	// +kubebuilder:validation:Enum=""
 	Target string `json:"target,omitempty"`
-
-	// Historical placement details (including current and target).
-	//
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	// +patchStrategy=merge
-	// +patchMergeKey=name
-	History []ShardStatus `json:"history,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
-}
-
-// ShardStatus contains details for the current status of a workspace shard.
-type ShardStatus struct {
-	// Name of an active WorkspaceShard.
-	//
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-
-	// Resource version at which writes to this shard should not be accepted.
-	LiveBeforeResourceVersion string `json:"liveBeforeResourceVersion,omitempty"`
-
-	// Resource version after which writes can be accepted on this shard.
-	LiveAfterResourceVersion string `json:"liveAfterResourceVersion,omitempty"`
 }
 
 // ClusterWorkspaceList is a list of ClusterWorkspace resources
@@ -248,7 +217,7 @@ type ClusterWorkspaceList struct {
 	Items []ClusterWorkspace `json:"items"`
 }
 
-// WorkspaceShard describes a Shard (== KCP instance) on which a number of
+// ClusterWorkspaceShard describes a Shard (== KCP instance) on which a number of
 // workspaces will live
 //
 // +crd
@@ -257,86 +226,82 @@ type ClusterWorkspaceList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-type WorkspaceShard struct {
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.baseURL`,description="Type URL to directly connect to the shard"
+// +kubebuilder:printcolumn:name="External URL",type=string,JSONPath=`.spec.externalURL`,description="The URL exposed in workspaces created on that shard"
+type ClusterWorkspaceShard struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +optional
-	Spec WorkspaceShardSpec `json:"spec,omitempty"`
+	Spec ClusterWorkspaceShardSpec `json:"spec,omitempty"`
 
 	// +optional
-	Status WorkspaceShardStatus `json:"status,omitempty"`
+	Status ClusterWorkspaceShardStatus `json:"status,omitempty"`
 }
 
-func (in *WorkspaceShard) SetConditions(c conditionsv1alpha1.Conditions) {
+func (in *ClusterWorkspaceShard) SetConditions(c conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = c
 }
 
-func (in *WorkspaceShard) GetConditions() conditionsv1alpha1.Conditions {
+func (in *ClusterWorkspaceShard) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
 }
 
-var _ conditions.Getter = &WorkspaceShard{}
-var _ conditions.Setter = &WorkspaceShard{}
+var _ conditions.Getter = &ClusterWorkspaceShard{}
+var _ conditions.Setter = &ClusterWorkspaceShard{}
 
-// WorkspaceShardSpec holds the desired state of the WorkspaceShard.
-type WorkspaceShardSpec struct {
-	// Credentials is a reference to the administrative credentials for this shard.
-	Credentials corev1.SecretReference `json:"credentials"`
+// ClusterWorkspaceShardSpec holds the desired state of the ClusterWorkspaceShard.
+type ClusterWorkspaceShardSpec struct {
+	// baseURL is the address of the KCP shard for direct connections, e.g. by some
+	// front-proxy doing the fan-out to the shards.
+	//
+	// This will be defaulted to the shard's external address if not specified. Note that this
+	// is only sensible in single-shards setups.
+	//
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	BaseURL string `json:"baseURL"`
+
+	// ExternalURL is the externally visible address presented to users in Workspace URLs.
+	// Changing this will break all existing workspaces on that shard, i.e. existing
+	// kubeconfigs of clients will be invalid. Hence, when changing this value, the old
+	// URL used by clients must keep working.
+	//
+	// The external address will not be unique if a front-proxy does a fan-out to
+	// shards, but all workspace client will talk to the front-proxy. In that case,
+	// put the address of the front-proxy here.
+	//
+	// Note that movement of shards is only possible (in the future) between shards
+	// that share a common external URL.
+	//
+	// This will be defaulted to the value of the baseURL.
+	//
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:Required
+	// +required
+	ExternalURL string `json:"externalURL"`
 }
 
-// WorkspaceShardStatus communicates the observed state of the WorkspaceShard.
-type WorkspaceShardStatus struct {
+// ClusterWorkspaceShardStatus communicates the observed state of the ClusterWorkspaceShard.
+type ClusterWorkspaceShardStatus struct {
 	// Set of integer resources that workspaces can be scheduled into
 	// +optional
 	Capacity corev1.ResourceList `json:"capacity,omitempty"`
 
-	// Current processing state of the WorkspaceShard.
+	// Current processing state of the ClusterWorkspaceShard.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// Connection information for the WorkspaceShard.
-	// +optional
-	ConnectionInfo *ConnectionInfo `json:"connectionInfo,omitempty"`
-
-	// Version of credentials last successfully loaded.
-	// +optional
-	CredentialsHash string `json:"credentialsHash,omitempty"`
 }
 
-// ConnectionInfo holds the information necessary to connect to a shard.
-type ConnectionInfo struct {
-	// Host must be a host string, a host:port pair, or a URL to the base of the apiserver.
-	// If a URL is given then the (optional) Path of that URL represents a prefix that must
-	// be appended to all request URIs used to access the apiserver. This allows a frontend
-	// proxy to easily relocate all of the apiserver endpoints.
-	// +kubebuilder:validation:Format=uri
-	Host string `json:"host"`
-	// APIPath is a sub-path that points to an API root.
-	APIPath string `json:"apiPath"`
-}
-
-const (
-	// WorkspaceShardCredentialsKey is the key in the referenced credentials secret where kubeconfig data lives.
-	WorkspaceShardCredentialsKey = "kubeconfig"
-
-	// WorkspaceShardCredentialsValid represents status of the credentialing process for this workspace shard.
-	WorkspaceShardCredentialsValid conditionsv1alpha1.ConditionType = "WorkspaceShardCredentialsValid"
-	// WorkspaceShardCredentialsReasonMissing reason in WorkspaceShardCredentialsValid condition means that the
-	// credentials referenced in the WorkspaceShard could not be found.
-	WorkspaceShardCredentialsReasonMissing = "Missing"
-	// WorkspaceShardCredentialsReasonInvalid reason in WorkspaceShardCredentialsValid condition means that the
-	// credentials referenced in the WorkspaceShard did not contain valid data in the correct key.
-	WorkspaceShardCredentialsReasonInvalid = "Invalid"
-)
-
-// WorkspaceShardList is a list of workspace shards
+// ClusterWorkspaceShardList is a list of workspace shards
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type WorkspaceShardList struct {
+type ClusterWorkspaceShardList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []WorkspaceShard `json:"items"`
+	Items []ClusterWorkspaceShard `json:"items"`
 }

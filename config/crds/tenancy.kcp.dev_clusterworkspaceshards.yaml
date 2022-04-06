@@ -6,23 +6,32 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: workspaceshards.tenancy.kcp.dev
+  name: clusterworkspaceshards.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
     categories:
     - kcp
-    kind: WorkspaceShard
-    listKind: WorkspaceShardList
-    plural: workspaceshards
-    singular: workspaceshard
+    kind: ClusterWorkspaceShard
+    listKind: ClusterWorkspaceShardList
+    plural: clusterworkspaceshards
+    singular: clusterworkspaceshard
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: Type URL to directly connect to the shard
+      jsonPath: .spec.baseURL
+      name: URL
+      type: string
+    - description: The URL exposed in workspaces created on that shard
+      jsonPath: .spec.externalURL
+      name: External URL
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: WorkspaceShard describes a Shard (== KCP instance) on which a
-          number of workspaces will live
+        description: ClusterWorkspaceShard describes a Shard (== KCP instance) on
+          which a number of workspaces will live
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -37,27 +46,37 @@ spec:
           metadata:
             type: object
           spec:
-            description: WorkspaceShardSpec holds the desired state of the WorkspaceShard.
+            description: ClusterWorkspaceShardSpec holds the desired state of the
+              ClusterWorkspaceShard.
             properties:
-              credentials:
-                description: Credentials is a reference to the administrative credentials
-                  for this shard.
-                properties:
-                  name:
-                    description: Name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: Namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
+              baseURL:
+                description: "baseURL is the address of the KCP shard for direct connections,
+                  e.g. by some front-proxy doing the fan-out to the shards. \n This
+                  will be defaulted to the shard's external address if not specified.
+                  Note that this is only sensible in single-shards setups."
+                format: uri
+                minLength: 1
+                type: string
+              externalURL:
+                description: "ExternalURL is the externally visible address presented
+                  to users in Workspace URLs. Changing this will break all existing
+                  workspaces on that shard, i.e. existing kubeconfigs of clients will
+                  be invalid. Hence, when changing this value, the old URL used by
+                  clients must keep working. \n The external address will not be unique
+                  if a front-proxy does a fan-out to shards, but all workspace client
+                  will talk to the front-proxy. In that case, put the address of the
+                  front-proxy here. \n Note that movement of shards is only possible
+                  (in the future) between shards that share a common external URL.
+                  \n This will be defaulted to the value of the baseURL."
+                format: uri
+                minLength: 1
+                type: string
             required:
-            - credentials
+            - externalURL
             type: object
           status:
-            description: WorkspaceShardStatus communicates the observed state of the
-              WorkspaceShard.
+            description: ClusterWorkspaceShardStatus communicates the observed state
+              of the ClusterWorkspaceShard.
             properties:
               capacity:
                 additionalProperties:
@@ -70,7 +89,7 @@ spec:
                   into
                 type: object
               conditions:
-                description: Current processing state of the WorkspaceShard.
+                description: Current processing state of the ClusterWorkspaceShard.
                 items:
                   description: Condition defines an observation of a object operational
                     state.
@@ -114,28 +133,6 @@ spec:
                   - type
                   type: object
                 type: array
-              connectionInfo:
-                description: Connection information for the WorkspaceShard.
-                properties:
-                  apiPath:
-                    description: APIPath is a sub-path that points to an API root.
-                    type: string
-                  host:
-                    description: Host must be a host string, a host:port pair, or
-                      a URL to the base of the apiserver. If a URL is given then the
-                      (optional) Path of that URL represents a prefix that must be
-                      appended to all request URIs used to access the apiserver. This
-                      allows a frontend proxy to easily relocate all of the apiserver
-                      endpoints.
-                    format: uri
-                    type: string
-                required:
-                - apiPath
-                - host
-                type: object
-              credentialsHash:
-                description: Version of credentials last successfully loaded.
-                type: string
             type: object
         type: object
     served: true

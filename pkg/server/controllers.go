@@ -56,7 +56,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspaceshard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
@@ -338,16 +338,15 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	workspaceController, err := clusterworkspace.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
 		return err
 	}
 
-	workspaceShardController, err := workspaceshard.NewController(
+	workspaceShardController, err := clusterworkspaceshard.NewController(
 		kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-		s.rootKubeSharedInformerFactory.Core().V1().Secrets(),
-		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceShards(),
+		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
 		return err

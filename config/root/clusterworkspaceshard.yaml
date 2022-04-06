@@ -1,5 +1,5 @@
 apiVersion: tenancy.kcp.dev/v1alpha1
-kind: WorkspaceShard
+kind: ClusterWorkspaceShard
 metadata:
   name: SHARD_NAME
 spec:

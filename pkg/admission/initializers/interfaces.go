@@ -40,3 +40,9 @@ type WantsKubeClusterClient interface {
 type WantsKcpClusterClient interface {
 	SetKcpClusterClient(kubeClusterClient *kcpclientset.Cluster)
 }
+
+// WantExternalAddress interface should be implemented by admission plugins
+// that want to have a external shard address injected.
+type WantExternalAddress interface {
+	SetExternalAddress(externalAddress string)
+}

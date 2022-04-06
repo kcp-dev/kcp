@@ -83,3 +83,23 @@ func (i *kcpClusterClientInitializer) Initialize(plugin admission.Interface) {
 		wants.SetKcpClusterClient(i.kcpClusterClient)
 	}
 }
+
+// NewExternalAddressInitializer returns an admission plugin initializer that injects
+// the external address of the shard into the admission plugin.
+func NewExternalAddressInitializer(
+	externalAddress string,
+) *externalAddressInitializer {
+	return &externalAddressInitializer{
+		externalAddress: externalAddress,
+	}
+}
+
+type externalAddressInitializer struct {
+	externalAddress string
+}
+
+func (i *externalAddressInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantExternalAddress); ok {
+		wants.SetExternalAddress(i.externalAddress)
+	}
+}

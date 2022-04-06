@@ -153,34 +153,10 @@ spec:
                   current:
                     description: Current workspace placement (shard).
                     type: string
-                  history:
-                    description: Historical placement details (including current and
-                      target).
-                    items:
-                      description: ShardStatus contains details for the current status
-                        of a workspace shard.
-                      properties:
-                        liveAfterResourceVersion:
-                          description: Resource version after which writes can be
-                            accepted on this shard.
-                          type: string
-                        liveBeforeResourceVersion:
-                          description: Resource version at which writes to this shard
-                            should not be accepted.
-                          type: string
-                        name:
-                          description: Name of an active WorkspaceShard.
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    type: array
-                    x-kubernetes-list-map-keys:
-                    - name
-                    x-kubernetes-list-type: map
                   target:
                     description: Target workspace placement (shard).
+                    enum:
+                    - ""
                     type: string
                 type: object
               phase:

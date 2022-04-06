@@ -233,31 +233,32 @@ func TestAdmit(t *testing.T) {
 			a: admission.NewAttributesRecord(
 				&unstructured.Unstructured{Object: map[string]interface{}{
 					"apiVersion": tenancyv1alpha1.SchemeGroupVersion.String(),
-					"kind":       "WorkspaceShard",
+					"kind":       "ClusterWorkspaceShard",
 					"metadata": map[string]interface{}{
 						"name":              "test",
 						"creationTimestamp": nil,
 					},
 					"spec": map[string]interface{}{
-						"credentials": map[string]interface{}{},
+						"baseURL":     "",
+						"externalURL": "",
 					},
 					"status": map[string]interface{}{},
 				}},
 				nil,
-				tenancyv1alpha1.Kind("WorkspaceShard").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("workspaceshards").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},
 				false,
 				&user.DefaultInfo{},
 			),
-			expectedObj: &tenancyv1alpha1.WorkspaceShard{
+			expectedObj: &tenancyv1alpha1.ClusterWorkspaceShard{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: tenancyv1alpha1.SchemeGroupVersion.String(),
-					Kind:       "WorkspaceShard",
+					Kind:       "ClusterWorkspaceShard",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -549,16 +550,16 @@ func TestValidate(t *testing.T) {
 			name:  "ignores different resources",
 			types: nil,
 			attr: admission.NewAttributesRecord(
-				&tenancyv1alpha1.WorkspaceShard{
+				&tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
 				},
 				nil,
-				tenancyv1alpha1.Kind("WorkspaceShard").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("workspaceshards").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},

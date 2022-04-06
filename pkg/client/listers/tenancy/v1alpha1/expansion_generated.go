@@ -22,10 +22,10 @@ package v1alpha1
 // ClusterWorkspaceLister.
 type ClusterWorkspaceListerExpansion interface{}
 
+// ClusterWorkspaceShardListerExpansion allows custom methods to be added to
+// ClusterWorkspaceShardLister.
+type ClusterWorkspaceShardListerExpansion interface{}
+
 // ClusterWorkspaceTypeListerExpansion allows custom methods to be added to
 // ClusterWorkspaceTypeLister.
 type ClusterWorkspaceTypeListerExpansion interface{}
-
-// WorkspaceShardListerExpansion allows custom methods to be added to
-// WorkspaceShardLister.
-type WorkspaceShardListerExpansion interface{}

@@ -52,7 +52,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 	crds := []metav1.GroupResource{
 		{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
 		{Group: tenancy.GroupName, Resource: "clusterworkspacetypes"},
-		{Group: tenancy.GroupName, Resource: "workspaceshards"},
+		{Group: tenancy.GroupName, Resource: "clusterworkspaceshards"},
 		{Group: tenancy.GroupName, Resource: "workspaces"},
 		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
 		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
