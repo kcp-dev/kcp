@@ -37,11 +37,11 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -317,7 +317,7 @@ func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Con
 	require.NoError(t, err)
 	kcpClient := sourceKcpClusterClient.Cluster(sf.workspaceClusterName)
 
-	t.Logf("Waiting for cluster %q condition %q to have reason %q", sf.WorkloadClusterName, workloadv1alpha1.WorkloadClusterReadyCondition, reason)
+	t.Logf("Waiting for cluster %q condition %q to have reason %q", sf.WorkloadClusterName, conditionsapi.ReadyCondition, reason)
 	require.Eventually(t, func() bool {
 
 		cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, sf.WorkloadClusterName, metav1.GetOptions{})
@@ -329,14 +329,14 @@ func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Con
 		// A reason is only supplied to indicate why a cluster is 'not ready'
 		wantReady := len(reason) == 0
 		if wantReady {
-			return conditions.IsTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
+			return conditions.IsTrue(cluster, conditionsapi.ReadyCondition)
 		} else {
-			conditionReason := conditions.GetReason(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
-			return conditions.IsFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition) && reason == conditionReason
+			conditionReason := conditions.GetReason(cluster, conditionsapi.ReadyCondition)
+			return conditions.IsFalse(cluster, conditionsapi.ReadyCondition) && reason == conditionReason
 		}
 
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
-	t.Logf("Cluster %q condition %s has reason %q", workloadv1alpha1.WorkloadClusterReadyCondition, sf.WorkloadClusterName, reason)
+	t.Logf("Cluster %q condition %s has reason %q", conditionsapi.ReadyCondition, sf.WorkloadClusterName, reason)
 }
 
 // Start starts the Syncer.

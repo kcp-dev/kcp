@@ -30,6 +30,7 @@ import (
 	clustertools "k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -68,7 +69,7 @@ func otherClusterFixture() *clusterFixture {
 }
 
 func (f *clusterFixture) withReady() *clusterFixture {
-	conditions.MarkTrue(f.cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
+	conditions.MarkTrue(f.cluster, conditionsapi.ReadyCondition)
 	return f
 }
 

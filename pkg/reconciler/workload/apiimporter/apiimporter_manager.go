@@ -47,13 +47,22 @@ type apiImporterManager struct {
 func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
 	klog.Infof("reconciling cluster %q", cluster.Name)
 
+	defer conditions.SetSummary(
+		cluster,
+		conditions.WithConditions(
+			workloadv1alpha1.SyncerReady,
+			workloadv1alpha1.APIImporterReady,
+			workloadv1alpha1.HeartbeatHealthy,
+		),
+	)
+
 	logicalCluster := logicalcluster.From(cluster)
 
 	// Get client from kubeconfig
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("invalid kubeconfig: %v", err)
-		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.APIImporterReady, workloadv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
 		return nil // Don't retry.
 	}
 
@@ -64,12 +73,13 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1a
 		apiImporter, err := m.startAPIImporter(cfg, cluster.Name, logicalCluster, time.Minute)
 		if err != nil {
 			klog.Errorf("error starting the API importer: %v", err)
-			conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingAPIImporterReason, conditionsv1alpha1.ConditionSeverityError, "Error starting the API importer: %v", err.Error())
+			conditions.MarkFalse(cluster, workloadv1alpha1.APIImporterReady, workloadv1alpha1.ErrorStartingAPIImporterReason, conditionsv1alpha1.ConditionSeverityError, "Error starting the API importer: %v", err.Error())
 			return nil // Don't retry.
 		}
 		m.apiImporters[key] = apiImporter
 	}
 
+	conditions.MarkTrue(cluster, workloadv1alpha1.APIImporterReady)
 	return nil
 }
 
