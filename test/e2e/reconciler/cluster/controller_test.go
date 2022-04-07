@@ -39,7 +39,6 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
@@ -160,25 +159,12 @@ func TestClusterController(t *testing.T) {
 			require.NoError(t, err)
 			sourceCrdClusterClient, err := apiextensionsclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sourceConfig)
-			require.NoError(t, err)
 			sourceWildwestClusterClient, err := wildwestclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
 
 			sourceCrdClient := sourceCrdClusterClient.Cluster(wsClusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
-
-			t.Log("Creating a fake workload server")
-			sink := framework.NewFakeWorkloadServer(t, source, orgClusterName)
-
-			sinkConfig := sink.DefaultConfig(t)
-			sinkKubeClient, err := kubernetesclient.NewForConfig(sinkConfig)
-			require.NoError(t, err)
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
-			require.NoError(t, err)
-			sinkWildwestClient, err := wildwestclientset.NewForConfig(sinkConfig)
-			require.NoError(t, err)
 
 			t.Log("Installing test CRDs into source cluster...")
 			err = configcrds.Create(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
@@ -189,16 +175,20 @@ func TestClusterController(t *testing.T) {
 			require.NoError(t, err)
 			fixturewildwest.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
+			syncerFixture := framework.NewSyncerFixture(t, sets.NewString("cowboys.wildwest.dev"), source, orgClusterName, wsClusterName)
+			sink := syncerFixture.RunningServer
+
+			sinkConfig := sink.DefaultConfig(t)
+			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
+			require.NoError(t, err)
+			sinkWildwestClient, err := wildwestclientset.NewForConfig(sinkConfig)
+			require.NoError(t, err)
+
 			t.Log("Installing test CRDs into sink cluster...")
 			fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
-			t.Log("Installing sink cluster...")
-			start := time.Now()
-			workloadCluster, err := framework.CreateWorkloadCluster(t, source.Artifact, sourceKcpClusterClient.Cluster(wsClusterName), sink)
-			require.NoError(t, err)
-			t.Logf("Installed sink cluster after %s", time.Since(start))
-
-			framework.StartWorkspaceSyncer(t, ctx, sets.NewString("cowboys.wildwest.dev"), workloadCluster, source, sink)
+			t.Log("Starting syncer...")
+			syncerFixture.Start(t, ctx)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -215,7 +205,7 @@ func TestClusterController(t *testing.T) {
 				sinkClusterName: {
 					RunningServer: sink,
 					client:        sinkWildwestClient.WildwestV1alpha1(),
-					coreClient:    sinkKubeClient.CoreV1(),
+					coreClient:    syncerFixture.KubeClient.CoreV1(),
 				},
 			}
 
