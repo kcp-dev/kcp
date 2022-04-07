@@ -149,6 +149,13 @@ spec:
             path: readyz
             port: 6443
             scheme: HTTPS
+        resources:
+          limits:
+            cpu: '2'
+            memory: 2Gi
+          requests:
+            cpu: '1'
+            memory: 1Gi
         volumeMounts:
         - name: etcd-certs
           mountPath: /etc/etcd/tls/server
@@ -189,6 +196,13 @@ spec:
             path: readyz
             port: 6444
             scheme: HTTPS
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
         volumeMounts:
         - name: virtual-workspaces-certs
           mountPath: /etc/kcp/tls/server
