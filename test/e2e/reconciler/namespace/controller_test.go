@@ -84,22 +84,16 @@ func TestNamespaceScheduler(t *testing.T) {
 				err = server.expect(namespace, unscheduledMatcher(nscontroller.NamespaceReasonUnschedulable))
 				require.NoError(t, err, "did not see namespace marked unschedulable")
 
-				t.Log("Creating a fake workload server")
-				logicalServer := framework.NewFakeWorkloadServer(t, server, server.orgClusterName)
-
-				t.Log("Create a cluster")
-				cluster1, err := framework.CreateWorkloadCluster(t, server.Artifact, server.kcpClient, logicalServer)
-				require.NoError(t, err, "failed to create cluster1")
-
-				framework.StartWorkspaceSyncer(t, ctx, sets.NewString(), cluster1, server, logicalServer)
-
-				err = server.expect(namespace, scheduledMatcher(cluster1.Name))
-				require.NoError(t, err, "did not see namespace marked scheduled for cluster1 %q", cluster1.Name)
+				// Create and Start a syncer against a workload cluster so that theres a ready cluster to schedule to.
+				syncerFixture := framework.NewSyncerFixture(t, sets.NewString(), server, server.orgClusterName, server.clusterName)
+				syncerFixture.Start(t, ctx)
+				err = server.expect(namespace, scheduledMatcher(syncerFixture.WorkloadClusterName))
+				require.NoError(t, err, "did not see namespace marked scheduled for cluster1 %q", syncerFixture.WorkloadClusterName)
 
 				t.Log("Cordon the cluster and expect the namespace to end up unscheduled")
 
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					cluster, err := server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster1.Name, metav1.GetOptions{})
+					cluster, err := server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, syncerFixture.WorkloadClusterName, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
