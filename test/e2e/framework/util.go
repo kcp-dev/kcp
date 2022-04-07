@@ -277,9 +277,11 @@ func GetFreePort(t *testing.T) (string, error) {
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
+type WorkloadClusterOption func(cluster *workloadv1alpha1.WorkloadCluster)
+
 // CreateWorkloadCluster creates a new WorkloadCluster resource with
 // the desired name on a given server.
-func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer) (*workloadv1alpha1.WorkloadCluster, error) {
+func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer, opts ...WorkloadClusterOption) (*workloadv1alpha1.WorkloadCluster, error) {
 	config, err := pcluster.RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server config: %w", err)
@@ -300,10 +302,15 @@ func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpcl
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, &workloadv1alpha1.WorkloadCluster{
+	cluster := &workloadv1alpha1.WorkloadCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: safeClusterName},
 		Spec:       workloadv1alpha1.WorkloadClusterSpec{KubeConfig: string(bs)},
-	}, metav1.CreateOptions{})
+	}
+	for _, opt := range opts {
+		opt(cluster)
+	}
+
+	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, cluster, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
 	}
