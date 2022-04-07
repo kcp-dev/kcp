@@ -61,7 +61,7 @@ func TestManager(t *testing.T) {
 			cl := &workloadv1alpha1.WorkloadCluster{
 				Status: workloadv1alpha1.WorkloadClusterStatus{
 					Conditions: []conditionsv1alpha1.Condition{{
-						Type:   workloadv1alpha1.WorkloadClusterReadyCondition,
+						Type:   workloadv1alpha1.HeartbeatHealthy,
 						Status: corev1.ConditionTrue,
 					}},
 					LastSyncerHeartbeatTime: &heartbeat,
