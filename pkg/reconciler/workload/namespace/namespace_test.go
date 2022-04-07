@@ -27,6 +27,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -94,7 +95,7 @@ func TestEnqueueStrategyForCluster(t *testing.T) {
 				},
 			}
 			if testCase.ready {
-				conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
+				conditions.MarkTrue(cluster, conditionsapi.ReadyCondition)
 			}
 			if testCase.evictAfter != nil {
 				evictAfter := metav1.NewTime(*testCase.evictAfter)

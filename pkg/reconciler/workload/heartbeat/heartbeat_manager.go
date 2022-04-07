@@ -24,7 +24,7 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -36,27 +36,37 @@ type clusterManager struct {
 }
 
 func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
+
+	defer conditions.SetSummary(
+		cluster,
+		conditions.WithConditions(
+			workloadv1alpha1.SyncerReady,
+			workloadv1alpha1.APIImporterReady,
+			workloadv1alpha1.HeartbeatHealthy,
+		),
+	)
+
 	latestHeartbeat := time.Time{}
 	if cluster.Status.LastSyncerHeartbeatTime != nil {
 		latestHeartbeat = cluster.Status.LastSyncerHeartbeatTime.Time
 	}
 	if latestHeartbeat.IsZero() {
-		klog.V(5).Infof("Marking WorkloadCluster %s|%s not ready due to no heartbeat", cluster.ClusterName, cluster.Name)
+		klog.V(5).Infof("Marking Syncer %s|%s not ready due to no heartbeat", cluster.ClusterName, cluster.Name)
 		conditions.MarkFalse(cluster,
-			workloadv1alpha1.WorkloadClusterReadyCondition,
+			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
-			conditionsv1alpha1.ConditionSeverityWarning,
+			conditionsapi.ConditionSeverityWarning,
 			"No heartbeat yet seen")
 	} else if time.Since(latestHeartbeat) > c.heartbeatThreshold {
-		klog.V(5).Infof("Marking WorkloadCluster %s|%s not ready due to a stale heartbeat", cluster.ClusterName, cluster.Name)
+		klog.V(5).Infof("Marking Syncer %s|%s not ready due to a stale heartbeat", cluster.ClusterName, cluster.Name)
 		conditions.MarkFalse(cluster,
-			workloadv1alpha1.WorkloadClusterReadyCondition,
+			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
-			conditionsv1alpha1.ConditionSeverityWarning,
+			conditionsapi.ConditionSeverityWarning,
 			"No heartbeat since %s", latestHeartbeat)
 	} else {
-		klog.V(5).Infof("Marking WorkloadCluster %s|%s ready", cluster.ClusterName, cluster.Name)
-		conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
+		klog.V(5).Infof("Marking Heartbeat healthy for %s|%s", cluster.ClusterName, cluster.Name)
+		conditions.MarkTrue(cluster, workloadv1alpha1.HeartbeatHealthy)
 
 		// Enqueue another check after which the heartbeat should have been updated again.
 		dur := time.Until(latestHeartbeat.Add(c.heartbeatThreshold))

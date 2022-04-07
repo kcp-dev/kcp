@@ -40,6 +40,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -364,7 +365,7 @@ const (
 // indication of whether to enqueue the cluster in the future to respond to a
 // impending cordon event.
 func enqueueStrategyForCluster(cl *workloadv1alpha1.WorkloadCluster) (strategy clusterEnqueueStrategy, pendingCordon bool) {
-	ready := conditions.IsTrue(cl, workloadv1alpha1.WorkloadClusterReadyCondition)
+	ready := conditions.IsTrue(cl, conditionsapi.ReadyCondition)
 	cordoned := cl.Spec.EvictAfter != nil && cl.Spec.EvictAfter.Time.Before(time.Now())
 	if !ready || cordoned {
 		// An unready or cordoned cluster requires revisiting the scheduling
