@@ -429,6 +429,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.options.Controllers.EnableAll || enabled.Has("scheduling") {
+		if err := s.installSchedulingLocationDomainController(ctx, controllerConfig, server); err != nil {
+			return err
+		}
+	}
+
 	if s.options.Virtual.Enabled {
 		if err := s.installVirtualWorkspaces(ctx, kubeClusterClient, kcpClusterClient, genericConfig.Authentication, genericConfig.ExternalAddress, preHandlerChainMux); err != nil {
 			return err

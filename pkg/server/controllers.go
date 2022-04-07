@@ -51,8 +51,11 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apibinding"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
+	schedulinglocationdomain "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/locationdomain"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
@@ -499,6 +502,41 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err := server.AddPostStartHook("kcp-install-apibinding-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) installSchedulingLocationDomainController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-scheduling-locationdomain-controller"
+	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := schedulinglocationdomain.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Scheduling().V1alpha1().LocationDomains(),
+		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
