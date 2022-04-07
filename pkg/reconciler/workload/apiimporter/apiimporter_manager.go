@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -56,7 +57,9 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1a
 		return nil // Don't retry.
 	}
 
-	if m.apiImporters[cluster.Name] == nil {
+	// TODO(fgiloux): temporary. This will get replaced by syncers running on workload clusters
+	key := clusters.ToClusterAwareKey(logicalCluster, cluster.Name)
+	if m.apiImporters[key] == nil {
 		// TODO(sttts): make polling interval configurable for testing. This might flake otherwise.
 		apiImporter, err := m.startAPIImporter(cfg, cluster.Name, logicalCluster, time.Minute)
 		if err != nil {
@@ -64,7 +67,7 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1a
 			conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorStartingAPIImporterReason, conditionsv1alpha1.ConditionSeverityError, "Error starting the API importer: %v", err.Error())
 			return nil // Don't retry.
 		}
-		m.apiImporters[cluster.Name] = apiImporter
+		m.apiImporters[key] = apiImporter
 	}
 
 	return nil
@@ -73,7 +76,10 @@ func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1a
 func (m *apiImporterManager) Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster) {
 	klog.Infof("cleanup resources for cluster %q", deletedCluster.Name)
 
-	if apiImporter := m.apiImporters[deletedCluster.Name]; apiImporter != nil {
+	logicalCluster := logicalcluster.From(deletedCluster)
+	key := clusters.ToClusterAwareKey(logicalCluster, deletedCluster.Name)
+
+	if apiImporter := m.apiImporters[key]; apiImporter != nil {
 		apiImporter.Stop()
 		delete(m.apiImporters, deletedCluster.Name)
 	}
