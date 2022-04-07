@@ -31,13 +31,15 @@ COPY config/ config/
 COPY pkg/ pkg/
 COPY cmd/ cmd/
 COPY third_party/ third_party/
+COPY .git/ .git/
 
-RUN mkdir bin; CGO_ENABLED=0 go build -o bin ./cmd/...
+RUN apt-get update && apt-get install -y jq && mkdir bin
+RUN CGO_ENABLED=0 make
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 # FROM gcr.io/distroless/static:nonroot
 FROM alpine:3.15
 WORKDIR /
-COPY --from=builder workspace/bin/* /
+COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
 USER 65532:65532
