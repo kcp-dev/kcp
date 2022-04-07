@@ -231,7 +231,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to get workspace1")
 
-				_, err := server.kcpClusterClient.Cluster(server.orgClusterName.Join(workspace1.Name)).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				_, err := vwUser1Client.Cluster(server.orgClusterName.Join(workspace1.Name)).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list workspaces in the universal cluster")
 			},
 		},
