@@ -425,7 +425,7 @@ var roleRules = map[RoleType][]rbacv1.PolicyRule{
 		},
 		{
 			Resources: []string{"clusterworkspaces/content"},
-			Verbs:     []string{"admin"},
+			Verbs:     []string{"admin", "access"},
 		},
 	},
 }

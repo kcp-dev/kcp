@@ -1067,7 +1067,7 @@ func TestCreateWorkspace(t *testing.T) {
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
-							Verbs:         []string{"admin"},
+							Verbs:         []string{"admin", "access"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
@@ -1153,7 +1153,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
-							Verbs:         []string{"admin"},
+							Verbs:         []string{"admin", "access"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
@@ -1232,7 +1232,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
-							Verbs:         []string{"admin"},
+							Verbs:         []string{"admin", "access"},
 							ResourceNames: []string{clusterWorkspace.Name},
 							Resources:     []string{"clusterworkspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
