@@ -113,6 +113,7 @@ spec:
         - start
         - --auto-publish-apis
         - --push-mode
+        - --resources-to-sync=deployments.apps,services,ingresses.networking.k8s.io
         - --etcd-servers=https://etcd:2379
         - --etcd-keyfile=/etc/etcd/tls/server/tls.key
         - --etcd-certfile=/etc/etcd/tls/server/tls.crt
