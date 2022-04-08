@@ -111,7 +111,7 @@ const (
 	// APIImporterReady means the APIImport component is ready to import APIs from the WorkloadCluster.
 	APIImporterReady conditionsv1alpha1.ConditionType = "APIImporterReady"
 
-	// HeartbeatHealthy means the HeartbeatManager is able to contact the WorkloadCluster at a specified internval.
+	// HeartbeatHealthy means the HeartbeatManager has seen a heartbeat for the WorkloadCluster within the expected interval.
 	HeartbeatHealthy conditionsv1alpha1.ConditionType = "HeartbeatHealthy"
 
 	// WorkloadClusterUnknownReason documents a WorkloadCluster which readiness is unknown.
