@@ -48,7 +48,6 @@ func TestClusterWorkspaceNamePattern(t *testing.T) {
 }
 
 func TestReCluster(t *testing.T) {
-
 	tests := []struct {
 		cluster string
 		valid   bool
@@ -63,13 +62,15 @@ func TestReCluster(t *testing.T) {
 		{"system:foo", true},
 		{"system:foo:bar", true},
 
-		{"foo", true},
-		{"foo:bar", true},
-		{"foo:bar-bar", true},
-		{"foo:b", true},
-		{"foo:bar0", true},
-		{"foo:b123456789012345678901234567891", true},
 		{"f", true},
+		{"foo", true},
+		{"foo:b", true},
+		{"foo:bar", true},
+		{"foo:bar0", true},
+		{"foo:bar-bar", true},
+		{"foo:b123456789012345678901234567891", true},
+		{"foo:b1234567890123456789012345678912", true},
+		{"test-8827a131-f796-4473-8904-a0fa527696eb:b1234567890123456789012345678912", true},
 
 		{"root:", false},
 		{":root", false},
@@ -81,7 +82,7 @@ func TestReCluster(t *testing.T) {
 		{"foo/bar", false},
 		{"foo:bar-", false},
 		{"foo:-bar", false},
-		{"foo:b1234567890123456789012345678912", false},
+		{"test-too-long-org-0020-4473-0030-a0fa-0040-5276-0050-sdg2-0060-w:b1234567890123456789012345678912", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.cluster, func(t *testing.T) {

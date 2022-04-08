@@ -33,11 +33,15 @@ func TestReCluster(t *testing.T) {
 		{"root", true},
 		{"root:foo", true},
 		{"root:foo:bar", true},
-		{"root:b1234567890123456789012345678912", true}, // the plugin does not decide about segment length, the server does
 
 		{"system", true},
 		{"system:foo", true},
 		{"system:foo:bar", true},
+
+		// the plugin does not decide about segment length, the server does
+		{"root:b1234567890123456789012345678912", true},
+		{"root:test-8827a131-f796-4473-8904-a0fa527696eb:b1234567890123456789012345678912", true},
+		{"root:test-too-long-org-0020-4473-0030-a0fa-0040-5276-0050-sdg2-0060:b1234567890123456789012345678912", true},
 
 		{"foo", false},
 		{"foo:bar", false},
