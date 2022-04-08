@@ -84,6 +84,7 @@ type ClusterWorkspaceSpec struct {
 	//
 	// +optional
 	// +kubebuilder:default:="Universal"
+	// +kubebuilder:validation:Pattern=`^[A-Z][a-z0-9]*[a-z0-9]$`
 	Type string `json:"type,omitempty"`
 }
 
