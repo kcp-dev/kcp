@@ -43,7 +43,6 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -147,20 +146,9 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err)
 			sourceCrdClusterClient, err := apiextensionsclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceKcpClusterClient, err := kcpclientset.NewClusterForConfig(sourceConfig)
-			require.NoError(t, err)
 
 			sourceCrdClient := sourceCrdClusterClient.Cluster(clusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(clusterName)
-
-			t.Log("Creating a fake workload server")
-			sink := framework.NewFakeWorkloadServer(t, source, orgClusterName)
-
-			sinkConfig := sink.DefaultConfig(t)
-			sinkKubeClient, err := kubernetesclientset.NewForConfig(sinkConfig)
-			require.NoError(t, err)
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
-			require.NoError(t, err)
 
 			t.Log("Installing test CRDs into source cluster...")
 			err = configcrds.Create(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
@@ -176,6 +164,15 @@ func TestIngressController(t *testing.T) {
 			)
 			require.NoError(t, err)
 
+			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
+			syncerFixture := framework.NewSyncerFixture(t, resources, source, orgClusterName, clusterName)
+
+			sink := syncerFixture.RunningServer
+			sinkConfig := sink.DefaultConfig(t)
+			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
+			require.NoError(t, err, "failed to create apiextensions client")
+
+			// TODO(jmprusi): Remove this one once Kind e2e is a thing.
 			t.Logf("Installing test CRDs into sink cluster...")
 			err = configcrds.CreateFromFS(ctx, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), embeddedResources,
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
@@ -184,14 +181,8 @@ func TestIngressController(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			t.Log("Installing sink cluster...")
-			start := time.Now()
-			workloadCluster, err := framework.CreateWorkloadCluster(t, source.Artifact, sourceKcpClusterClient.Cluster(clusterName), sink)
-			require.NoError(t, err)
-			t.Logf("Installed sink cluster after %s", time.Since(start))
-
-			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
-			framework.StartWorkspaceSyncer(t, ctx, resources, workloadCluster, source, sink)
+			t.Log("Starting syncer")
+			syncerFixture.Start(t, ctx)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -228,7 +219,7 @@ func TestIngressController(t *testing.T) {
 				},
 				sinkServerName: {
 					RunningServer: sink,
-					client:        sinkKubeClient.NetworkingV1(),
+					client:        syncerFixture.KubeClient.NetworkingV1(),
 				},
 			}
 
