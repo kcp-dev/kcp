@@ -433,6 +433,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installSchedulingLocationDomainController(ctx, controllerConfig, server); err != nil {
 			return err
 		}
+		if err := s.installSchedulingClusterWorkspaceController(ctx, controllerConfig, server); err != nil {
+			return err
+		}
 	}
 
 	if s.options.Virtual.Enabled {
