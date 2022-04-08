@@ -357,6 +357,10 @@ func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, reason string) 
 	t.Logf("Cluster %q condition %s has reason %q", conditionsapi.ReadyCondition, sf.WorkloadClusterName, reason)
 }
 
+func (sf *SyncerFixture) DefaultConfig(_ *testing.T) *rest.Config {
+	return sf.downstreamConfig
+}
+
 // Start starts the Syncer.
 func (sf *SyncerFixture) Start(t *testing.T, ctx context.Context) {
 	err := syncer.StartSyncer(ctx, sf.upstreamConfig, sf.downstreamConfig, sf.resources, sf.orgClusterName, sf.WorkloadClusterName, 2, 5*time.Second)

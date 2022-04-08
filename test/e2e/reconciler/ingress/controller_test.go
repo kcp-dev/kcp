@@ -53,22 +53,17 @@ var embeddedResources embed.FS
 
 const testNamespace = "ingress-controller-test"
 const existingServiceName = "existing-service"
-const sourceServerName, sinkServerName = "source", "sink"
 
 func TestIngressController(t *testing.T) {
 	t.Parallel()
 
-	type runningServer struct {
-		framework.RunningServer
-		client networkingclient.NetworkingV1Interface
-	}
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t *testing.T, servers map[string]runningServer)
+		work func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface)
 	}{
 		{
 			name: "ingress lifecycle",
-			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer) {
+			work: func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface) {
 				// We create a root ingress. Ingress is excluded (through a hack) in namespace controller to be labeled.
 				// The ingress-controller will take over the labelling of the leaves. After that the normal syncer will
 				// sync the leaves into the physical cluster.
@@ -79,7 +74,7 @@ func TestIngressController(t *testing.T) {
 				var rootIngress *v1.Ingress
 				err = yaml.Unmarshal(ingressYaml, &rootIngress)
 				require.NoError(t, err, "failed to unmarshal ingress")
-				rootIngress, err = servers[sourceServerName].client.Ingresses(testNamespace).Create(ctx, rootIngress, metav1.CreateOptions{})
+				rootIngress, err = sourceClient.Ingresses(testNamespace).Create(ctx, rootIngress, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ingress")
 
 				nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(rootIngress), Namespace: rootIngress.Namespace}
@@ -88,7 +83,7 @@ func TestIngressController(t *testing.T) {
 
 				t.Logf("Waiting for ingress to be synced to sink cluster to namespace %s", targetNamespace)
 				require.Eventually(t, func() bool {
-					got, err := servers[sinkServerName].client.Ingresses(targetNamespace).List(ctx, metav1.ListOptions{})
+					got, err := sinkClient.Ingresses(targetNamespace).List(ctx, metav1.ListOptions{})
 					if err != nil {
 						klog.Errorf("failed to list ingresses in sink cluster: %v", err)
 						return false
@@ -102,19 +97,19 @@ func TestIngressController(t *testing.T) {
 
 				t.Logf("Updating root ingress in source cluster")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					got, err := servers[sourceServerName].client.Ingresses(testNamespace).Get(ctx, rootIngress.Name, metav1.GetOptions{})
+					got, err := sourceClient.Ingresses(testNamespace).Get(ctx, rootIngress.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					got.Spec.Rules[0].Host = "valid-ingress-2.kcp-apps.127.0.0.1.nip.io"
-					_, err = servers[sourceServerName].client.Ingresses(testNamespace).Update(ctx, got, metav1.UpdateOptions{})
+					_, err = sourceClient.Ingresses(testNamespace).Update(ctx, got, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err, "failed updating the ingress object in the source cluster")
 
 				t.Logf("Waiting for ingress update to be synced to sink cluster")
 				require.Eventually(t, func() bool {
-					got, err := servers[sinkServerName].client.Ingresses(targetNamespace).List(ctx, metav1.ListOptions{})
+					got, err := sinkClient.Ingresses(targetNamespace).List(ctx, metav1.ListOptions{})
 					if err != nil {
 						klog.Errorf("failed to list ingresses in sink cluster: %v", err)
 						return false
@@ -178,7 +173,6 @@ func TestIngressController(t *testing.T) {
 				require.NoError(t, err)
 			})
 			syncerFixture.Start(t, ctx)
-			sink := syncerFixture.RunningServer
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -207,17 +201,6 @@ func TestIngressController(t *testing.T) {
 				Status: corev1.ServiceStatus{},
 			}, metav1.CreateOptions{})
 			require.NoError(t, err, "failed to install service in source cluster")
-
-			runningServers := map[string]runningServer{
-				sourceServerName: {
-					RunningServer: source,
-					client:        sourceKubeClient.NetworkingV1(),
-				},
-				sinkServerName: {
-					RunningServer: sink,
-					client:        syncerFixture.KubeClient.NetworkingV1(),
-				},
-			}
 
 			t.Log("Starting ingress-controller...")
 			envoyListenerPort, err := framework.GetFreePort(t)
@@ -259,7 +242,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err, "failed to start ingress controller")
 
 			t.Log("Starting test...")
-			testCase.work(ctx, t, runningServers)
+			testCase.work(ctx, t, sourceKubeClient.NetworkingV1(), syncerFixture.KubeClient.NetworkingV1())
 		})
 	}
 }

@@ -57,7 +57,6 @@ func TestClusterController(t *testing.T) {
 	t.Parallel()
 
 	type runningServer struct {
-		framework.RunningServer
 		client     wildwestclient.WildwestV1alpha1Interface
 		coreClient corev1client.CoreV1Interface
 	}
@@ -185,8 +184,7 @@ func TestClusterController(t *testing.T) {
 			})
 			syncerFixture.Start(t, ctx)
 
-			sink := syncerFixture.RunningServer
-			sinkConfig := sink.DefaultConfig(t)
+			sinkConfig := syncerFixture.DefaultConfig(t)
 			sinkWildwestClient, err := wildwestclientset.NewForConfig(sinkConfig)
 			require.NoError(t, err)
 
@@ -198,14 +196,12 @@ func TestClusterController(t *testing.T) {
 
 			runningServers := map[string]runningServer{
 				sourceClusterName: {
-					RunningServer: source,
-					client:        sourceWildwestClient.WildwestV1alpha1(),
-					coreClient:    sourceKubeClient.CoreV1(),
+					client:     sourceWildwestClient.WildwestV1alpha1(),
+					coreClient: sourceKubeClient.CoreV1(),
 				},
 				sinkClusterName: {
-					RunningServer: sink,
-					client:        sinkWildwestClient.WildwestV1alpha1(),
-					coreClient:    syncerFixture.KubeClient.CoreV1(),
+					client:     sinkWildwestClient.WildwestV1alpha1(),
+					coreClient: syncerFixture.KubeClient.CoreV1(),
 				},
 			}
 
