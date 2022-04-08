@@ -186,8 +186,13 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 	klog.Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
 		ns.ClusterName, ns.Name, oldPClusterName, newPClusterName)
 	patchType, patchBytes := clusterLabelPatchBytes(newPClusterName)
-	_, err = c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
+	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{})
+	if err == nil {
+		// Update the label to enable the caller to detect a scheduling change.
+		ns.Labels[ClusterLabel] = patchedNamespace.Labels[ClusterLabel]
+	}
+
 	return err
 }
 
@@ -243,18 +248,24 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 		return err
 	}
 
-	// Update all resources in the namespace with the cluster assignment.
-	//
-	// TODO(sttts): don't requeue all gvr just because of a tiny update on a namespace
-	//
-	// including updates that don't affect cluster assignment (e.g.,
-	// annotation). This will be especially painful at startup, since all
-	// resources are already enqueued and reconciled separately. Add some
-	// logic to filter out un-interesting updates, and consider only
-	// enqueueing items here if they're not already enqueued.
+	return c.enqueueResourcesForNamespace(ns)
+}
+
+// enqueueResourcesForNamespace adds the resources contained by the given
+// namespace to the queue if the contents have never been successfully enqueued
+// or if the namespace's scheduling has changed since the last successful
+// enqueue. This ensures that the contents of a namespace eventually have the
+// same scheduling as their containing namespace.
+func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
+	lastScheduling, previouslyEnqueued := c.namepaceContentsEnqueuedFor(ns)
+	if previouslyEnqueued && lastScheduling == ns.Labels[ClusterLabel] {
+		return nil
+	}
+
+	// TODO(marun) Consider only enqueueing items here if they're not already enqueued.
 	listers, notSynced := c.ddsif.Listers()
 	for gvr, lister := range listers {
-		klog.Infof("Enqueuing resources in namespace %s|%s for GVR %q", lclusterName, ns.Name, gvr)
+		klog.Infof("Enqueuing resources in namespace %s|%s for GVR %q", ns.ClusterName, ns.Name, gvr)
 		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			return err
@@ -270,7 +281,33 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 		c.enqueueGVR(gvr)
 	}
 
+	// Only record the scheduling decision once enqueueing was
+	// successful to ensure that requeueing for a given scheduling
+	// decision will be retried until successful.
+	c.setNamepaceContentsEnqueuedFor(ns)
+
 	return nil
+}
+
+// namepaceContentsEnqueuedFor retrieves the last scheduling decision
+// for which the contents of the given namespace were successfully
+// enqueued.
+func (c *Controller) namepaceContentsEnqueuedFor(ns *corev1.Namespace) (string, bool) {
+	key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+	c.namespaceContentsEnqueuedForLock.RLock()
+	defer c.namespaceContentsEnqueuedForLock.RUnlock()
+	scheduling, ok := c.namespaceContentsEnqueuedForMap[key]
+	return scheduling, ok
+}
+
+// setNamepaceContentsEnqueuedFor sets the last scheduling decision
+// for which the contents of the given namespace were successfully
+// enqueued.
+func (c *Controller) setNamepaceContentsEnqueuedFor(ns *corev1.Namespace) {
+	key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+	c.namespaceContentsEnqueuedForLock.Lock()
+	defer c.namespaceContentsEnqueuedForLock.Unlock()
+	c.namespaceContentsEnqueuedForMap[key] = ns.Labels[ClusterLabel]
 }
 
 // clusterLabelPatchBytes returns JSON patch bytes expressing an operation
