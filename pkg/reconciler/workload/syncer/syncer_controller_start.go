@@ -58,11 +58,11 @@ func (o *Options) Validate() error {
 	return nil
 }
 
-func (o *Options) CreateSyncerManager(externalAddress string) SyncerManager {
+func (o *Options) CreateSyncerManager(externalURL string) SyncerManager {
 	if o.PullMode {
 		return newPullSyncerManager(o.SyncerImage)
 	} else if o.PushMode {
-		return newPushSyncerManager(externalAddress)
+		return newPushSyncerManager(externalURL)
 	}
 
 	// No mode, no controller required

@@ -67,8 +67,8 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 
 const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
-// TODO(marun) Update this function to not accept externalAddress when push-mode syncer management goes away.
-func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string, externalAddress string) (*Controller, error) {
+// TODO(marun) Update this function to not accept externalURL when push-mode syncer management goes away.
+func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string, externalURL string) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = specSyncerAgent
 	to = rest.CopyConfig(to)
@@ -88,16 +88,16 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClust
 	fromClient := fromClients.Cluster(kcpClusterName)
 	toClient := dynamic.NewForConfigOrDie(to)
 
-	if externalAddress == "" {
-		externalAddress = from.Host
+	if externalURL == "" {
+		externalURL = from.Host
 	}
-	externalURL, err := url.Parse(externalAddress)
+	parsedExternalURL, err := url.Parse(externalURL)
 	if err != nil {
 		return nil, err
 	}
 
 	// Register the default mutators
-	mutatorsMap := getDefaultMutators(externalURL)
+	mutatorsMap := getDefaultMutators(parsedExternalURL)
 
 	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, SyncDown, syncedResourceTypes, pclusterID, mutatorsMap)
 }
