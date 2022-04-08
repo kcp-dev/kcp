@@ -91,6 +91,7 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *workloadv1alpha
 	}
 
 	klog.Infof("Started push mode syncer from clusterName %s for pcluster %s", kcpClusterName, cluster.Name)
+	conditions.MarkTrue(cluster, workloadv1alpha1.SyncerReady)
 
 	return true, nil
 }
