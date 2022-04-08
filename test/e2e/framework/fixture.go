@@ -90,12 +90,12 @@ func PrivateKcpServer(t *testing.T, args ...string) RunningServer {
 
 // SharedKcpServer returns a kcp server fixture intended to be shared
 // between tests. A persistent server will be configured if
-// `--kubeconfig` or `--use-default-server` is supplied to the test
+// `--kcp-kubeconfig` or `--use-default-kcp-server` is supplied to the test
 // runner. Otherwise a test-managed server will be started. Only tests
 // that are known to be hermetic are compatible with shared fixture.
 func SharedKcpServer(t *testing.T) RunningServer {
 	serverName := "shared"
-	kubeconfig := TestConfig.Kubeconfig()
+	kubeconfig := TestConfig.KCPKubeconfig()
 	if len(kubeconfig) > 0 {
 		// Use a persistent server
 
@@ -271,89 +271,187 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 	return orgClusterName.Join(ws.Name)
 }
 
-// SyncerFixture contains the information to run a syncer fixture.
+// SyncerFixture configures a syncer fixture. Its `Start` method does the work of starting a syncer.
 type SyncerFixture struct {
-	RunningServer        RunningServer
-	DownstreamKubeClient kubernetes.Interface
-	SyncerConfig         *syncer.SyncerConfig
-}
-
-// SyncerFixtureConfig defines the configuration required for instantiating a syncer fixture.
-type SyncerFixtureConfig struct {
 	ResourcesToSync      sets.String
 	UpstreamServer       RunningServer
 	WorkspaceClusterName logicalcluster.LogicalCluster
 	WorkloadClusterName  string
+	InstallCRDs          func(config *rest.Config, isLogicalCluster bool)
 }
 
 // SetDefaults ensures a valid configuration even if not all values are explicitly provided.
-func (cfg *SyncerFixtureConfig) SetDefaults() {
+func (sf *SyncerFixture) setDefaults() {
 	// Default configuration to avoid tests having to be exaustive
-	if len(cfg.WorkloadClusterName) == 0 {
+	if len(sf.WorkloadClusterName) == 0 {
 		// This only needs to vary when more than one syncer need to be tested in a workspace
-		cfg.WorkloadClusterName = "pcluster-01"
+		sf.WorkloadClusterName = "pcluster-01"
 	}
-	if cfg.ResourcesToSync == nil {
+	if sf.ResourcesToSync == nil {
 		// resources-to-sync is additive to the core set of resources so not providing any
 		// values means default types will still be synced.
-		cfg.ResourcesToSync = sets.NewString()
+		sf.ResourcesToSync = sets.NewString()
 	}
 }
 
-// NewSyncerFixture creates a downstream server (fakeWorkloadServer), and then creates a workloadClusters on the provided upstream server
-// returns a SyncerFixture with the downstream server information, and its kubeclient.
-func NewSyncerFixture(t *testing.T, cfg *SyncerFixtureConfig) *SyncerFixture {
-	cfg.SetDefaults()
+// Start starts a new syncer against the given upstream kcp workspace. Whether the syncer run
+// in-process or deployed on a pcluster will depend whether --pcluster-kubeconfig and
+// --syncer-image are supplied to the test invocation.
+func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
+	sf.setDefaults()
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
-	upstreamRawConfig, err := cfg.UpstreamServer.RawConfig()
+	upstreamRawConfig, err := sf.UpstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := writeLogicalClusterConfig(t, upstreamRawConfig, cfg.WorkspaceClusterName)
+	_, kubeconfigPath := writeLogicalClusterConfig(t, upstreamRawConfig, sf.WorkspaceClusterName)
 
-	// TODO(marun) Configure this with a test arg to support syncer deployment to a pcluster
-	image := "foo"
+	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
+
+	syncerImage := TestConfig.SyncerImage()
+	if useDeployedSyncer {
+		require.NotZero(t, len(syncerImage), "--syncer-image must be specified if testing with a deployed syncer")
+	} else {
+		// The image needs to be a non-empty string for the plugin command but the value
+		// doesn't matter if not deploying a syncer.
+		syncerImage = "not-a-valid-image"
+	}
 
 	// Run the plugin command to enable the syncer and collect the resulting yaml
-	t.Logf("Configuring workspace %s for syncing", cfg.WorkspaceClusterName)
+	t.Logf("Configuring workspace %s for syncing", sf.WorkspaceClusterName)
 	pluginArgs := []string{
 		"workload",
 		"sync",
-		cfg.WorkloadClusterName,
-		"--syncer-image", image,
+		sf.WorkloadClusterName,
+		"--syncer-image", syncerImage,
 	}
-	for _, resource := range cfg.ResourcesToSync.List() {
+	for _, resource := range sf.ResourcesToSync.List() {
 		pluginArgs = append(pluginArgs, "--resources", resource)
 	}
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
 
-	// Create a fake server from a workspace that is a peer to the current workspace
-	// TODO(marun) Only use a fake workload server if a pcluster is not configured
-	parentClusterName, ok := cfg.WorkspaceClusterName.Parent()
-	require.True(t, ok, "%s does not have a parent", cfg.WorkspaceClusterName)
-	downstreamServer := NewFakeWorkloadServer(t, cfg.UpstreamServer, parentClusterName)
-	downstreamConfig := downstreamServer.DefaultConfig(t)
+	var downstreamConfig *rest.Config
+	var downstreamKubeconfigPath string
+	if useDeployedSyncer {
+		// The syncer will target the pcluster identified by `--pcluster-kubeconfig`.
+		downstreamKubeconfigPath = TestConfig.PClusterKubeconfig()
+		fs, err := os.Stat(downstreamKubeconfigPath)
+		require.NoError(t, err)
+		require.NotZero(t, fs.Size(), "%s points to an empty file", downstreamKubeconfigPath)
+		rawConfig, err := clientcmd.LoadFromFile(downstreamKubeconfigPath)
+		require.NoError(t, err, "failed to load pcluster kubeconfig")
+		config := clientcmd.NewNonInteractiveClientConfig(*rawConfig, rawConfig.CurrentContext, nil, nil)
+		downstreamConfig, err = config.ClientConfig()
+		require.NoError(t, err)
+	} else {
+		// The syncer will target a logical cluster that is a peer to the current workspace. A
+		// logical server provides as a lightweight approximation of a pcluster for tests that
+		// don't need to validate running workloads or interaction with kube controllers.
+		parentClusterName, ok := sf.WorkspaceClusterName.Parent()
+		require.True(t, ok, "%s does not have a parent", sf.WorkspaceClusterName)
+		downstreamServer := NewFakeWorkloadServer(t, sf.UpstreamServer, parentClusterName)
+		downstreamConfig = downstreamServer.DefaultConfig(t)
+		downstreamKubeconfigPath = downstreamServer.KubeconfigPath()
+	}
+
+	if sf.InstallCRDs != nil {
+		// Attempt crd installation to ensure the downstream server has an api surface
+		// compatible with the test.
+		sf.InstallCRDs(downstreamConfig, !useDeployedSyncer)
+	}
 
 	// Apply the yaml output from the plugin to the downstream server
-	KubectlApply(t, downstreamServer.KubeconfigPath(), syncerYAML)
+	KubectlApply(t, downstreamKubeconfigPath, syncerYAML)
 
 	// Extract the configuration for an in-process syncer from the resources that were
 	// applied to the downstream server. This maximizes the parity between the
 	// configuration of a deployed and in-process syncer.
-	syncerNamespace := workloadcliplugin.GetSyncerID(cfg.WorkspaceClusterName.String(), cfg.WorkloadClusterName)
+	syncerNamespace := workloadcliplugin.GetSyncerID(sf.WorkspaceClusterName.String(), sf.WorkloadClusterName)
 	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerNamespace)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
 
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
-	return &SyncerFixture{
-		RunningServer:        downstreamServer,
-		DownstreamKubeClient: downstreamKubeClient,
-		SyncerConfig:         syncerConfig,
+	if useDeployedSyncer {
+		// Ensure cleanup of pcluster resources
+
+		syncerID := syncerConfig.ID()
+		t.Cleanup(func() {
+			t.Logf("Deleting syncer resources for logical cluster %q, workload cluster %q", syncerConfig.KCPClusterName, syncerConfig.WorkloadClusterName)
+			err := downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
+			if err != nil {
+				t.Errorf("failed to delete Namespace %q: %v", syncerID, err)
+			}
+			err = downstreamKubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, syncerID, metav1.DeleteOptions{})
+			if err != nil {
+				t.Errorf("failed to delete ClusterRoleBinding %q: %v", syncerID, err)
+			}
+			err = downstreamKubeClient.RbacV1().ClusterRoles().Delete(ctx, syncerID, metav1.DeleteOptions{})
+			if err != nil {
+				t.Errorf("failed to delete ClusterRole %q: %v", syncerID, err)
+			}
+
+			t.Logf("Deleting synced resources for logical cluster %q, workload cluster %q", syncerConfig.KCPClusterName, syncerConfig.WorkloadClusterName)
+			namespaces, err := downstreamKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Errorf("failed to list namespaces: %v", err)
+			}
+			for _, ns := range namespaces.Items {
+				locator, err := syncer.LocatorFromAnnotations(ns.Annotations)
+				if err != nil {
+					t.Errorf("failed to retrieve locator from ns %q: %v", ns.Name, err)
+					continue
+				}
+				if locator == nil {
+					// Not a kcp-synced namespace
+					continue
+				}
+				if locator.LogicalCluster != syncerConfig.KCPClusterName {
+					// Not a namespace synced by this syncer
+					continue
+				}
+				err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
+				if err != nil {
+					t.Errorf("failed to delete Namespace %q: %v", ns.Name, err)
+				}
+			}
+		})
+
+	} else {
+		// Start an in-process syncer
+
+		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
+		require.NoError(t, err, "syncer failed to start")
 	}
+
+	startedSyncer := &StartedSyncerFixture{
+		SyncerConfig:         syncerConfig,
+		DownstreamConfig:     downstreamConfig,
+		DownstreamKubeClient: downstreamKubeClient,
+	}
+
+	// The workload cluster becoming ready indicates the syncer is healthy and has
+	// successfully sent a heartbeat to kcp.
+	startedSyncer.WaitForClusterReadyReason(t, ctx, "")
+
+	return startedSyncer
+}
+
+// StartedSyncerFixture contains the configuration used to start a syncer and interact with its
+// downstream cluster.
+type StartedSyncerFixture struct {
+	SyncerConfig *syncer.SyncerConfig
+
+	// Provide cluster-admin config and client for test purposes. The downstream config in
+	// SyncerConfig will be less privileged.
+	DownstreamConfig     *rest.Config
+	DownstreamKubeClient kubernetes.Interface
 }
 
 // WaitForClusterReadyReason waits for the cluster to be ready with the given reason.
-func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Context, reason string) {
+func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Context, reason string) {
 	cfg := sf.SyncerConfig
 
 	t.Logf("Waiting for cluster %q condition %q to have reason %q", cfg.WorkloadClusterName, conditionsapi.ReadyCondition, reason)
@@ -382,15 +480,6 @@ func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Con
 	} else {
 		t.Logf("Cluster %q condition %s has reason %q", conditionsapi.ReadyCondition, cfg.WorkloadClusterName, reason)
 	}
-}
-
-// Start starts the Syncer.
-func (sf *SyncerFixture) Start(t *testing.T, ctx context.Context) {
-	err := syncer.StartSyncer(ctx, sf.SyncerConfig, 2, 5*time.Second)
-	require.NoError(t, err, "syncer failed to start")
-
-	// The workload cluster becoming ready indicates the syncer has successfully heartbeat to kcp.
-	sf.WaitForClusterReadyReason(t, ctx, "")
 }
 
 // writeLogicalClusterConfig creates a logical cluster config for the given config and

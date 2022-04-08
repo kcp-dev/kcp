@@ -34,11 +34,11 @@ import (
 //
 // Run the e2e suite against a persistent server:
 //
-//   $ TEST_ARGS='-args --use-default-server' E2E_PARALLELISM=6 make test-e2e
+//   $ TEST_ARGS='-args --use-default-kcp-server' E2E_PARALLELISM=6 make test-e2e
 //
 // Run individual tests against a persistent server:
 //
-//   $ go test -v --use-default-server
+//   $ go test -v --use-default-kcp-server
 //
 func main() {
 	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)

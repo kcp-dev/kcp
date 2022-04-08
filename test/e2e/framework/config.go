@@ -23,22 +23,32 @@ import (
 )
 
 type testConfig struct {
-	kubeconfig       string
-	useDefaultServer bool
+	syncerImage         string
+	pclusterKubeconfig  string
+	kcpKubeconfig       string
+	useDefaultKCPServer bool
 }
 
 var TestConfig *testConfig
 
-func (c *testConfig) Kubeconfig() string {
+func (c *testConfig) SyncerImage() string {
+	return c.syncerImage
+}
+
+func (c *testConfig) PClusterKubeconfig() string {
+	return c.pclusterKubeconfig
+}
+
+func (c *testConfig) KCPKubeconfig() string {
 	// TODO(marun) How to validate before use given that the testing package is calling flags.Parse()?
-	if c.useDefaultServer && len(c.kubeconfig) > 0 {
-		panic(errors.New("Only one of --use-default-server and --kubeconfig should be set."))
+	if c.useDefaultKCPServer && len(c.kcpKubeconfig) > 0 {
+		panic(errors.New("Only one of --use-default-kcp-server and --kcp-kubeconfig should be set."))
 	}
 
-	if c.useDefaultServer {
+	if c.useDefaultKCPServer {
 		return filepath.Join(RepositoryDir(), ".kcp", "admin.kubeconfig")
 	} else {
-		return c.kubeconfig
+		return c.kcpKubeconfig
 	}
 }
 
@@ -49,6 +59,8 @@ func init() {
 }
 
 func registerFlags(c *testConfig) {
-	flag.StringVar(&c.kubeconfig, "kubeconfig", "", "Path to kubeconfig for a kcp server.")
-	flag.BoolVar(&c.useDefaultServer, "use-default-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
+	flag.StringVar(&c.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
+	flag.StringVar(&c.pclusterKubeconfig, "pcluster-kubeconfig", "", "Path to the kubeconfig for a kubernetes cluster to sync to. Requires --syncer-image.")
+	flag.StringVar(&c.syncerImage, "syncer-image", "", "The syncer image to use with the pcluster. Requires --pcluster-kubeconfig")
+	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 }

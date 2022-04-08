@@ -51,18 +51,17 @@ func TestSyncerLifecycle(t *testing.T) {
 	t.Log("Creating a workspace")
 	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
 
-	syncerFixture := framework.NewSyncerFixture(t, &framework.SyncerFixtureConfig{
+	// The Start method of the fixture will initiate syncer start and then wait for
+	// its workload cluster to go ready. This implicitly validates the syncer
+	// heartbeating and the heartbeat controller setting the workload cluster ready in
+	// response.
+	syncerFixture := framework.SyncerFixture{
 		UpstreamServer:       upstreamServer,
 		WorkspaceClusterName: wsClusterName,
-	})
-
-	downstreamServer := syncerFixture.RunningServer
-	downstreamConfig := downstreamServer.DefaultConfig(t)
+	}.Start(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-
-	syncerFixture.Start(t, ctx)
 
 	upstreamConfig := upstreamServer.DefaultConfig(t)
 	upstreamKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(upstreamConfig)
@@ -77,7 +76,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	downstreamKubeClient, err := kubernetesclientset.NewForConfig(syncerFixture.DownstreamConfig)
 	require.NoError(t, err)
 
 	// Determine downstream name of the namespace
@@ -145,6 +144,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	upstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create deployment")
 
+	expectedAvailableReplicas := int32(1)
 	t.Logf("Waiting for downstream deployment %s/%s to be created...", downstreamNamespaceName, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
 		deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
@@ -155,9 +155,12 @@ func TestSyncerLifecycle(t *testing.T) {
 			t.Errorf("saw an error waiting for downstream deployment %s/%s to be created: %v", downstreamNamespaceName, upstreamDeployment.Name, err)
 			return false
 		}
+		// Check for available replicas if downstream is capable of actually running the deployment
+		if len(framework.TestConfig.PClusterKubeconfig()) > 0 && expectedAvailableReplicas != deployment.Status.AvailableReplicas {
+			return false
+		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s was not synced", downstreamNamespaceName, upstreamDeployment.Name)
 
-	// TODO(marun) Check that the deployment had available replicas
 	// TODO(marun) Check that the deployment was able to contact kcp
 }

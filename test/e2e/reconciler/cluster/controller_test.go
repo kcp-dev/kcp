@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
@@ -53,7 +54,6 @@ func TestClusterController(t *testing.T) {
 	t.Parallel()
 
 	type runningServer struct {
-		framework.RunningServer
 		client     wildwestclient.WildwestV1alpha1Interface
 		coreClient corev1client.CoreV1Interface
 	}
@@ -165,24 +165,22 @@ func TestClusterController(t *testing.T) {
 
 			fixturewildwest.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
-			syncerFixture := framework.NewSyncerFixture(t, &framework.SyncerFixtureConfig{
+			syncerFixture := framework.SyncerFixture{
 				ResourcesToSync:      sets.NewString("cowboys.wildwest.dev"),
 				UpstreamServer:       source,
 				WorkspaceClusterName: wsClusterName,
-			})
-			sink := syncerFixture.RunningServer
+				InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
+					// Always install the crd regardless of whether the target is
+					// logical or not since cowboys is not a native type.
+					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
+					require.NoError(t, err)
+					t.Log("Installing test CRDs into sink cluster...")
+					fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+				},
+			}.Start(t)
 
-			sinkConfig := sink.DefaultConfig(t)
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
+			sinkWildwestClient, err := wildwestclientset.NewForConfig(syncerFixture.DownstreamConfig)
 			require.NoError(t, err)
-			sinkWildwestClient, err := wildwestclientset.NewForConfig(sinkConfig)
-			require.NoError(t, err)
-
-			t.Log("Installing test CRDs into sink cluster...")
-			fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-
-			t.Log("Starting syncer...")
-			syncerFixture.Start(t, ctx)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -192,14 +190,12 @@ func TestClusterController(t *testing.T) {
 
 			runningServers := map[string]runningServer{
 				sourceClusterName: {
-					RunningServer: source,
-					client:        sourceWildwestClient.WildwestV1alpha1(),
-					coreClient:    sourceKubeClient.CoreV1(),
+					client:     sourceWildwestClient.WildwestV1alpha1(),
+					coreClient: sourceKubeClient.CoreV1(),
 				},
 				sinkClusterName: {
-					RunningServer: sink,
-					client:        sinkWildwestClient.WildwestV1alpha1(),
-					coreClient:    syncerFixture.DownstreamKubeClient.CoreV1(),
+					client:     sinkWildwestClient.WildwestV1alpha1(),
+					coreClient: syncerFixture.DownstreamKubeClient.CoreV1(),
 				},
 			}
 
