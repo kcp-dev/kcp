@@ -55,7 +55,7 @@ type syncerManager struct {
 }
 
 func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
-	klog.Infof("%s: reconciling cluster %q", m.name, cluster.Name)
+	klog.Infof("%s: reconciling cluster %s|%s", m.name, cluster.ClusterName, cluster.Name)
 
 	logicalCluster := logicalcluster.From(cluster)
 

@@ -336,14 +336,14 @@ func clusterLabelPatchBytes(val string) (types.PatchType, []byte) {
 // After the namespace is unassigned, it will be picked up by
 // reconcileNamespace above and assigned to another happy cluster if one can be
 // found.
-func (c *Controller) observeCluster(ctx context.Context, cl *workloadv1alpha1.WorkloadCluster) error {
-	klog.Infof("Observing Cluster %s", cl.Name)
+func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
+	klog.Infof("Observing Cluster %s|%s", cluster.ClusterName, cluster.Name)
 
-	strategy, pendingCordon := enqueueStrategyForCluster(cl)
+	strategy, pendingCordon := enqueueStrategyForCluster(cluster)
 
 	if pendingCordon {
-		dur := time.Until(cl.Spec.EvictAfter.Time)
-		c.enqueueClusterAfter(cl, dur)
+		dur := time.Until(cluster.Spec.EvictAfter.Time)
+		c.enqueueClusterAfter(cluster, dur)
 	}
 
 	switch strategy {
@@ -356,7 +356,7 @@ func (c *Controller) observeCluster(ctx context.Context, cl *workloadv1alpha1.Wo
 		return errors.NewAggregate(errs)
 
 	case enqueueScheduled:
-		scheduledToCluster, err := labels.NewRequirement(ClusterLabel, selection.Equals, []string{cl.Name})
+		scheduledToCluster, err := labels.NewRequirement(ClusterLabel, selection.Equals, []string{cluster.Name})
 		if err != nil {
 			return err
 		}
