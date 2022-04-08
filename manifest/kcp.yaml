@@ -113,7 +113,7 @@ spec:
         - start
         - --auto-publish-apis
         - --push-mode
-        - --resources-to-sync=deployments.apps,services,ingresses.networking.k8s.io
+        - --resources-to-sync=deployments.apps,services,ingresses.networking.k8s.io,conditions.tekton.dev,pipelines.tekton.dev,pipelineruns.tekton.dev,pipelineresources.tekton.dev,runs.tekton.dev,tasks.tekton.dev,taskruns.tekton.dev
         - --etcd-servers=https://etcd:2379
         - --etcd-keyfile=/etc/etcd/tls/server/tls.key
         - --etcd-certfile=/etc/etcd/tls/server/tls.crt
