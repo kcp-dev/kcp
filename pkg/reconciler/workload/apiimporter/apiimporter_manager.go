@@ -45,7 +45,7 @@ type apiImporterManager struct {
 }
 
 func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
-	klog.Infof("reconciling cluster %q", cluster.Name)
+	klog.Infof("reconciling cluster %s|%s", cluster.ClusterName, cluster.Name)
 
 	logicalCluster := logicalcluster.From(cluster)
 
