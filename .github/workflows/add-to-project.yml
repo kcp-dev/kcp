@@ -9,6 +9,7 @@ jobs:
   add-to-project:
     name: Add issues to project
     runs-on: ubuntu-latest
+    environment: projects
     steps:
       - uses: actions/add-to-project@main
         with:
