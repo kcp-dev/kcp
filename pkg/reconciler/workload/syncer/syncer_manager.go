@@ -101,15 +101,6 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1
 		}.String())
 	}
 
-	defer conditions.SetSummary(
-		cluster,
-		conditions.WithConditions(
-			workloadv1alpha1.SyncerReady,
-			workloadv1alpha1.APIImporterReady,
-			workloadv1alpha1.HeartbeatHealthy,
-		),
-	)
-
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("%s: invalid kubeconfig: %v", m.name, err)

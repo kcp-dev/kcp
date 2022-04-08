@@ -47,15 +47,6 @@ type apiImporterManager struct {
 func (m *apiImporterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
 	klog.Infof("reconciling cluster %q", cluster.Name)
 
-	defer conditions.SetSummary(
-		cluster,
-		conditions.WithConditions(
-			workloadv1alpha1.SyncerReady,
-			workloadv1alpha1.APIImporterReady,
-			workloadv1alpha1.HeartbeatHealthy,
-		),
-	)
-
 	logicalCluster := logicalcluster.From(cluster)
 
 	// Get client from kubeconfig
