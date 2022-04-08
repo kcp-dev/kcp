@@ -419,6 +419,9 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig, server); err != nil {
 				return err
 			}
+			if err := s.installSchedulingPlacementController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
 		}
 	}
 
