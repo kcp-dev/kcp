@@ -278,6 +278,14 @@ type APIExport struct {
 	Status APIExportStatus `json:"status,omitempty"`
 }
 
+func (in *APIExport) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+func (in *APIExport) SetConditions(conditions conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = conditions
+}
+
 // APIExportSpec defines the desired state of APIExport.
 type APIExportSpec struct {
 	// latestResourceSchemas records the latest APIResourceSchemas that are exposed
@@ -330,6 +338,11 @@ type APIExportStatus struct {
 	//
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+
+	// conditions is a list of conditions that apply to the APIExport.
+	//
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 // APIExportList is a list of APIExport resources
