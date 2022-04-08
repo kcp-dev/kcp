@@ -29,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -90,7 +91,7 @@ func (s *namespaceScheduler) isValidCluster(lclusterName logicalcluster.LogicalC
 		return false, "", err
 	}
 	// TODO(marun) Stop duplicating these checks here and in pickCluster
-	if ready := conditions.IsTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition); !ready {
+	if ready := conditions.IsTrue(cluster, conditionsapi.ReadyCondition); !ready {
 		return false, "is not reporting ready", nil
 	}
 	if evictAfter := cluster.Spec.EvictAfter; evictAfter != nil && evictAfter.Time.Before(time.Now()) {
@@ -121,7 +122,7 @@ func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName l
 				"metadata.name", allClusters[i].Name)
 			continue
 		}
-		if !conditions.IsTrue(allClusters[i], workloadv1alpha1.WorkloadClusterReadyCondition) {
+		if !conditions.IsTrue(allClusters[i], conditionsapi.ReadyCondition) {
 			klog.V(2).InfoS("pickCluster: excluding not-ready cluster", "metadata.name", allClusters[i].Name)
 			continue
 		}

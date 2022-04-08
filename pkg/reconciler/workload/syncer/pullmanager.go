@@ -58,18 +58,18 @@ func (m *pullSyncerManager) update(ctx context.Context, cluster *workloadv1alpha
 	bytes, err := clientcmd.Write(*upstreamKubeConfig)
 	if err != nil {
 		klog.Errorf("error writing kubeconfig for syncer: %v", err)
-		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.SyncerReady, workloadv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error writing kubeconfig for syncer: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 	logicalCluster := cluster.GetClusterName()
 	if err := installSyncer(ctx, client, m.syncerImage, string(bytes), cluster.Name, logicalCluster, groupResources.List()); err != nil {
 		klog.Errorf("error installing syncer: %v", err)
-		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error installing syncer: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.SyncerReady, workloadv1alpha1.ErrorInstallingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error installing syncer: %v", err.Error())
 		return false, nil // Don't retry.
 	}
 
 	klog.Info("syncer installing...")
-	conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
+	conditions.MarkTrue(cluster, workloadv1alpha1.SyncerReady)
 
 	return true, nil
 }
@@ -78,10 +78,10 @@ func (m *pullSyncerManager) checkHealth(ctx context.Context, cluster *workloadv1
 	logicalCluster := cluster.GetClusterName()
 	if err := healthcheckSyncer(ctx, client, logicalCluster); err != nil {
 		klog.Error("syncer not yet ready")
-		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.WorkloadClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityInfo, "Syncer not yet ready")
+		conditions.MarkFalse(cluster, workloadv1alpha1.SyncerReady, workloadv1alpha1.WorkloadClusterNotReadyReason, conditionsv1alpha1.ConditionSeverityInfo, "Syncer not yet ready")
 	} else {
 		klog.Infof("started pull mode syncer for cluster %s in logical cluster %s!", cluster.Name, logicalCluster)
-		conditions.MarkTrue(cluster, workloadv1alpha1.WorkloadClusterReadyCondition)
+		conditions.MarkTrue(cluster, workloadv1alpha1.SyncerReady)
 	}
 	return true
 }

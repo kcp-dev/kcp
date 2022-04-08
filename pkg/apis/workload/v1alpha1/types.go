@@ -105,8 +105,14 @@ type WorkloadClusterList struct {
 
 // Conditions and ConditionReasons for the kcp WorkloadCluster object.
 const (
-	// WorkloadClusterReadyCondition means the WorkloadCluster is available.
-	WorkloadClusterReadyCondition conditionsv1alpha1.ConditionType = "Ready"
+	// SyncerReady means the syncer is ready to transfer resources between KCP and the WorkloadCluster.
+	SyncerReady conditionsv1alpha1.ConditionType = "SyncerReady"
+
+	// APIImporterReady means the APIImport component is ready to import APIs from the WorkloadCluster.
+	APIImporterReady conditionsv1alpha1.ConditionType = "APIImporterReady"
+
+	// HeartbeatHealthy means the HeartbeatManager has seen a heartbeat for the WorkloadCluster within the expected interval.
+	HeartbeatHealthy conditionsv1alpha1.ConditionType = "HeartbeatHealthy"
 
 	// WorkloadClusterUnknownReason documents a WorkloadCluster which readiness is unknown.
 	WorkloadClusterUnknownReason = "WorkloadClusterStatusUnknown"
