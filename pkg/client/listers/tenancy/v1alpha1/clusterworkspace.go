@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type ClusterWorkspaceLister interface {
 	// List lists all ClusterWorkspaces in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error)
-	// ListWithContext lists all ClusterWorkspaces in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error)
 	// Get retrieves the ClusterWorkspace from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ClusterWorkspace, error)
-	// GetWithContext retrieves the ClusterWorkspace from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspace, error)
 	ClusterWorkspaceListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewClusterWorkspaceLister(indexer cache.Indexer) ClusterWorkspaceLister {
 
 // List lists all ClusterWorkspaces in the indexer.
 func (s *clusterWorkspaceLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all ClusterWorkspaces in the indexer.
-func (s *clusterWorkspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspace, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.ClusterWorkspace))
 	})
@@ -71,11 +58,6 @@ func (s *clusterWorkspaceLister) ListWithContext(ctx context.Context, selector l
 
 // Get retrieves the ClusterWorkspace from the index for a given name.
 func (s *clusterWorkspaceLister) Get(name string) (*v1alpha1.ClusterWorkspace, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the ClusterWorkspace from the index for a given name.
-func (s *clusterWorkspaceLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspace, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

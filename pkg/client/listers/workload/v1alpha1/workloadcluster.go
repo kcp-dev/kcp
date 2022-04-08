@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type WorkloadClusterLister interface {
 	// List lists all WorkloadClusters in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.WorkloadCluster, err error)
-	// ListWithContext lists all WorkloadClusters in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.WorkloadCluster, err error)
 	// Get retrieves the WorkloadCluster from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.WorkloadCluster, error)
-	// GetWithContext retrieves the WorkloadCluster from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.WorkloadCluster, error)
 	WorkloadClusterListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewWorkloadClusterLister(indexer cache.Indexer) WorkloadClusterLister {
 
 // List lists all WorkloadClusters in the indexer.
 func (s *workloadClusterLister) List(selector labels.Selector) (ret []*v1alpha1.WorkloadCluster, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all WorkloadClusters in the indexer.
-func (s *workloadClusterLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.WorkloadCluster, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.WorkloadCluster))
 	})
@@ -71,11 +58,6 @@ func (s *workloadClusterLister) ListWithContext(ctx context.Context, selector la
 
 // Get retrieves the WorkloadCluster from the index for a given name.
 func (s *workloadClusterLister) Get(name string) (*v1alpha1.WorkloadCluster, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the WorkloadCluster from the index for a given name.
-func (s *workloadClusterLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.WorkloadCluster, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

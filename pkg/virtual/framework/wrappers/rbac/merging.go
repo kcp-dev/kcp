@@ -17,8 +17,6 @@ limitations under the License.
 package rbac
 
 import (
-	"context"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -59,17 +57,9 @@ func (i *mergedClusterRoleInformer) Lister() rbaclisters.ClusterRoleLister {
 }
 
 func (l *mergedClusterRoleLister) List(selector labels.Selector) (ret []*rbacv1.ClusterRole, err error) {
-	return l.ListWithContext(context.TODO(), selector)
-}
-
-func (l *mergedClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error) {
-	return l.GetWithContext(context.TODO(), name)
-}
-
-func (l *mergedClusterRoleLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*rbacv1.ClusterRole, err error) {
 	aggregatedList := make([]*rbacv1.ClusterRole, 0)
 	for _, lister := range l.listers {
-		list, err := lister.ListWithContext(ctx, selector)
+		list, err := lister.List(selector)
 		if err != nil {
 			return nil, err
 		}
@@ -78,11 +68,11 @@ func (l *mergedClusterRoleLister) ListWithContext(ctx context.Context, selector 
 	return aggregatedList, nil
 }
 
-func (l *mergedClusterRoleLister) GetWithContext(ctx context.Context, name string) (*rbacv1.ClusterRole, error) {
+func (l *mergedClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error) {
 	var errorHolder error
 	var mergedItem *rbacv1.ClusterRole
 	for _, lister := range l.listers {
-		item, err := lister.GetWithContext(ctx, name)
+		item, err := lister.Get(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				errorHolder = err
@@ -138,13 +128,9 @@ func (i *mergedRoleInformer) Lister() rbaclisters.RoleLister {
 }
 
 func (l *mergedRoleLister) List(selector labels.Selector) (ret []*rbacv1.Role, err error) {
-	return l.ListWithContext(context.TODO(), selector)
-}
-
-func (l *mergedRoleLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*rbacv1.Role, err error) {
 	aggregatedList := make([]*rbacv1.Role, 0)
 	for _, lister := range l.listers {
-		list, err := lister.ListWithContext(ctx, selector)
+		list, err := lister.List(selector)
 		if err != nil {
 			return nil, err
 		}

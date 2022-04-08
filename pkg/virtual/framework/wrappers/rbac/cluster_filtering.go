@@ -17,8 +17,6 @@ limitations under the License.
 package rbac
 
 import (
-	"context"
-
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -110,26 +108,6 @@ func (l *filteredClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRole
 	return l.lister.Get(name)
 }
 
-func (l *filteredClusterRoleBindingLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*rbacv1.ClusterRoleBinding, err error) {
-	items, err := l.lister.ListWithContext(ctx, selector)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		if logicalcluster.From(item) == l.clusterName {
-			ret = append(ret, item)
-		}
-	}
-	return
-}
-
-func (l *filteredClusterRoleBindingLister) GetWithContext(ctx context.Context, name string) (*rbacv1.ClusterRoleBinding, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
-	}
-	return l.lister.GetWithContext(ctx, name)
-}
-
 func FilterClusterRoleInformer(clusterName logicalcluster.LogicalCluster, informer rbacinformers.ClusterRoleInformer) rbacinformers.ClusterRoleInformer {
 	return &filteredClusterRoleInformer{
 		clusterName: clusterName,
@@ -181,26 +159,6 @@ func (l *filteredClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error
 	return l.lister.Get(name)
 }
 
-func (l *filteredClusterRoleLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*rbacv1.ClusterRole, err error) {
-	items, err := l.lister.ListWithContext(ctx, selector)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		if logicalcluster.From(item) == l.clusterName {
-			ret = append(ret, item)
-		}
-	}
-	return
-}
-
-func (l *filteredClusterRoleLister) GetWithContext(ctx context.Context, name string) (*rbacv1.ClusterRole, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
-	}
-	return l.lister.GetWithContext(ctx, name)
-}
-
 func FilterRoleBindingInformer(clusterName logicalcluster.LogicalCluster, informer rbacinformers.RoleBindingInformer) rbacinformers.RoleBindingInformer {
 	return &filteredRoleBindingInformer{
 		clusterName: clusterName,
@@ -240,19 +198,6 @@ func (i *filteredRoleBindingInformer) Lister() rbaclisters.RoleBindingLister {
 
 func (l *filteredRoleBindingLister) List(selector labels.Selector) (ret []*rbacv1.RoleBinding, err error) {
 	items, err := l.lister.List(selector)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		if logicalcluster.From(item) == l.clusterName {
-			ret = append(ret, item)
-		}
-	}
-	return
-}
-
-func (l *filteredRoleBindingLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*rbacv1.RoleBinding, err error) {
-	items, err := l.lister.ListWithContext(ctx, selector)
 	if err != nil {
 		return nil, err
 	}
@@ -330,19 +275,6 @@ func (i *filteredRoleInformer) Lister() rbaclisters.RoleLister {
 
 func (l *filteredRoleLister) List(selector labels.Selector) (ret []*rbacv1.Role, err error) {
 	items, err := l.lister.List(selector)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		if logicalcluster.From(item) == l.clusterName {
-			ret = append(ret, item)
-		}
-	}
-	return
-}
-
-func (l *filteredRoleLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*rbacv1.Role, err error) {
-	items, err := l.lister.ListWithContext(ctx, selector)
 	if err != nil {
 		return nil, err
 	}

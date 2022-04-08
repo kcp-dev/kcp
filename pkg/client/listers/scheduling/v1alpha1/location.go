@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type LocationLister interface {
 	// List lists all Locations in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Location, err error)
-	// ListWithContext lists all Locations in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.Location, err error)
 	// Get retrieves the Location from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.Location, error)
-	// GetWithContext retrieves the Location from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.Location, error)
 	LocationListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewLocationLister(indexer cache.Indexer) LocationLister {
 
 // List lists all Locations in the indexer.
 func (s *locationLister) List(selector labels.Selector) (ret []*v1alpha1.Location, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all Locations in the indexer.
-func (s *locationLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.Location, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.Location))
 	})
@@ -71,11 +58,6 @@ func (s *locationLister) ListWithContext(ctx context.Context, selector labels.Se
 
 // Get retrieves the Location from the index for a given name.
 func (s *locationLister) Get(name string) (*v1alpha1.Location, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the Location from the index for a given name.
-func (s *locationLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.Location, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

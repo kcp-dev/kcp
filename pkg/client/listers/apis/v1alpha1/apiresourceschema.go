@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type APIResourceSchemaLister interface {
 	// List lists all APIResourceSchemas in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.APIResourceSchema, err error)
-	// ListWithContext lists all APIResourceSchemas in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.APIResourceSchema, err error)
 	// Get retrieves the APIResourceSchema from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.APIResourceSchema, error)
-	// GetWithContext retrieves the APIResourceSchema from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.APIResourceSchema, error)
 	APIResourceSchemaListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewAPIResourceSchemaLister(indexer cache.Indexer) APIResourceSchemaLister {
 
 // List lists all APIResourceSchemas in the indexer.
 func (s *aPIResourceSchemaLister) List(selector labels.Selector) (ret []*v1alpha1.APIResourceSchema, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all APIResourceSchemas in the indexer.
-func (s *aPIResourceSchemaLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.APIResourceSchema, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.APIResourceSchema))
 	})
@@ -71,11 +58,6 @@ func (s *aPIResourceSchemaLister) ListWithContext(ctx context.Context, selector 
 
 // Get retrieves the APIResourceSchema from the index for a given name.
 func (s *aPIResourceSchemaLister) Get(name string) (*v1alpha1.APIResourceSchema, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the APIResourceSchema from the index for a given name.
-func (s *aPIResourceSchemaLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.APIResourceSchema, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
