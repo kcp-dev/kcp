@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"context"
+	"k8s.io/client-go/rest"
 	"testing"
 	"time"
 
@@ -175,20 +176,19 @@ func TestClusterController(t *testing.T) {
 			require.NoError(t, err)
 			fixturewildwest.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
-			syncerFixture := framework.NewSyncerFixture(t, sets.NewString("cowboys.wildwest.dev"), source, orgClusterName, wsClusterName)
-			sink := syncerFixture.RunningServer
+			syncerFixture := framework.NewSyncerFixtureWithCRDs(t, sets.NewString("cowboys.wildwest.dev"), source, orgClusterName, wsClusterName, func(config *rest.Config) {
+				sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
+				require.NoError(t, err)
+				t.Log("Installing test CRDs into sink cluster...")
+				fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
+			})
+			syncerFixture.Start(t, ctx)
+
+			sink := syncerFixture.RunningServer
 			sinkConfig := sink.DefaultConfig(t)
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
-			require.NoError(t, err)
 			sinkWildwestClient, err := wildwestclientset.NewForConfig(sinkConfig)
 			require.NoError(t, err)
-
-			t.Log("Installing test CRDs into sink cluster...")
-			fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-
-			t.Log("Starting syncer...")
-			syncerFixture.Start(t, ctx)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{

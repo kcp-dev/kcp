@@ -19,6 +19,7 @@ package workspace
 import (
 	"context"
 	"embed"
+	"k8s.io/client-go/rest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -44,7 +45,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	"github.com/kcp-dev/kcp/pkg/syncer"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -158,31 +158,27 @@ func TestIngressController(t *testing.T) {
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
 			)
 			require.NoError(t, err)
-			kubefixtures.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
-				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-			)
-
-			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
-			syncerFixture := framework.NewSyncerFixture(t, resources, source, orgClusterName, clusterName)
-
-			sink := syncerFixture.RunningServer
-			sinkConfig := sink.DefaultConfig(t)
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
-			require.NoError(t, err, "failed to create apiextensions client")
-
-			// TODO(jmprusi): Remove this one once Kind e2e is a thing.
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
+			err = configcrds.CreateFromFS(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), embeddedResources,
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 			)
 			require.NoError(t, err)
 
-			t.Log("Starting syncer")
+			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
+			syncerFixture := framework.NewSyncerFixtureWithCRDs(t, resources, source, orgClusterName, clusterName, func(sinkConfig *rest.Config) {
+				sinkCrdClient, err := apiextensionsclientset.NewForConfig(sinkConfig)
+				require.NoError(t, err, "failed to create apiextensions client")
+				t.Logf("Installing test CRDs into sink cluster...")
+				err = configcrds.CreateFromFS(ctx, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), embeddedResources,
+					metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+					metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
+					metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
+				)
+				require.NoError(t, err)
+			})
 			syncerFixture.Start(t, ctx)
+			sink := syncerFixture.RunningServer
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{

@@ -41,8 +41,7 @@ func TestSyncerHeartbeat(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	syncerFixture := framework.NewSyncerFixture(t, sets.NewString(), source, orgClusterName, wsClusterName)
-	// Initially the heartbeat controller will indicate not ready due to missing heartbeat.
-	syncerFixture.WaitForClusterReadyReason(t, ctx, workloadv1alpha1.ErrorHeartbeatMissedReason)
-	// Fixture start will check for successful heartbeat.
+	syncerFixture.WaitForClusterReadyReason(t, workloadv1alpha1.ErrorHeartbeatMissedReason)
 	syncerFixture.Start(t, ctx)
+	syncerFixture.WaitForClusterReadyReason(t, "")
 }

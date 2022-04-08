@@ -285,6 +285,19 @@ func NewSyncerFixture(
 	orgClusterName logicalcluster.LogicalCluster,
 	wsClusterName logicalcluster.LogicalCluster,
 ) *SyncerFixture {
+	return NewSyncerFixtureWithCRDs(t, resources, upstream, orgClusterName, wsClusterName, func(*rest.Config) {})
+}
+
+// NewSyncerFixtureWithCRDs has the same functionality of NewSyncerFixture but accepts a function to handle
+// the creation of CRDs on the created cluster
+func NewSyncerFixtureWithCRDs(
+	t *testing.T,
+	resources sets.String,
+	upstream RunningServer,
+	orgClusterName logicalcluster.LogicalCluster,
+	wsClusterName logicalcluster.LogicalCluster,
+	installCRDs func(*rest.Config),
+) *SyncerFixture {
 	downstreamServer := NewFakeWorkloadServer(t, upstream, orgClusterName)
 
 	upstreamKcpClusterClient, err := kcpclientset.NewClusterForConfig(upstream.DefaultConfig(t))
@@ -299,6 +312,8 @@ func NewSyncerFixture(
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
+	installCRDs(downstreamConfig)
+
 	return &SyncerFixture{
 		RunningServer:        downstreamServer,
 		KubeClient:           downstreamKubeClient,
@@ -312,7 +327,10 @@ func NewSyncerFixture(
 }
 
 // WaitForClusterReadyReason waits for the cluster to be ready with the given reason.
-func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Context, reason string) {
+func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, reason string) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
 	sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sf.upstreamConfig)
 	require.NoError(t, err)
 	kcpClient := sourceKcpClusterClient.Cluster(sf.workspaceClusterName)
