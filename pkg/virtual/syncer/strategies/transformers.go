@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transforming"
 )
 
 const (
