@@ -111,7 +111,7 @@ func createOrgMemberRoleForGroup(t *testing.T, ctx context.Context, kubeClusterC
 }
 
 func TestWorkspacesVirtualWorkspaces(t *testing.T) {
-	if len(framework.TestConfig.Kubeconfig()) == 0 {
+	if len(framework.TestConfig.KCPKubeconfig()) == 0 {
 		// Skip testing standalone when running against persistent fixture to minimize
 		// test execution cost for development.
 		t.Run("Standalone virtual workspace apiserver", func(t *testing.T) {

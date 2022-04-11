@@ -18,7 +18,6 @@ package cluster
 
 import (
 	"context"
-	"k8s.io/client-go/rest"
 	"testing"
 	"time"
 
@@ -35,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"

@@ -19,7 +19,6 @@ package workspace
 import (
 	"context"
 	"embed"
-	"k8s.io/client-go/rest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	networkingclient "k8s.io/client-go/kubernetes/typed/networking/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/retry"

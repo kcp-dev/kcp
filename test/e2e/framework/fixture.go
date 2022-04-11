@@ -82,12 +82,12 @@ func PrivateKcpServer(t *testing.T, args ...string) RunningServer {
 
 // SharedKcpServer returns a kcp server fixture intended to be shared
 // between tests. A persistent server will be configured if
-// `--kubeconfig` or `--use-default-server` is supplied to the test
+// `--kcp-kubeconfig` or `--use-default-kcp-server` is supplied to the test
 // runner. Otherwise a test-managed server will be started. Only tests
 // that are known to be hermetic are compatible with shared fixture.
 func SharedKcpServer(t *testing.T) RunningServer {
 	serverName := "shared"
-	kubeconfig := TestConfig.Kubeconfig()
+	kubeconfig := TestConfig.KCPKubeconfig()
 	if len(kubeconfig) > 0 {
 		// Use a persistent server
 
@@ -365,7 +365,6 @@ func (sf *SyncerFixture) DefaultConfig(_ *testing.T) *rest.Config {
 func (sf *SyncerFixture) Start(t *testing.T, ctx context.Context) {
 	err := syncer.StartSyncer(ctx, sf.upstreamConfig, sf.downstreamConfig, sf.resources, sf.orgClusterName, sf.WorkloadClusterName, 2, 5*time.Second)
 	require.NoError(t, err, "syncer failed to start")
-
 	// The workload cluster becoming ready indicates the syncer has successfully heartbeat to kcp.
-	sf.WaitForClusterReadyReason(t, ctx, "")
+	sf.WaitForClusterReadyReason(t, "")
 }
