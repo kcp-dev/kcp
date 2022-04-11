@@ -32,11 +32,11 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/klog/v2"
 
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 const (
-	clusterLabel     = nscontroller.ClusterLabel
 	OwnedByCluster   = "ingress.kcp.dev/owned-by-cluster"
 	OwnedByIngress   = "ingress.kcp.dev/owned-by-ingress"
 	OwnedByNamespace = "ingress.kcp.dev/owned-by-namespace"
@@ -46,7 +46,8 @@ const (
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
 	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
-	if ingress.Labels[clusterLabel] == "" {
+	//nolint:staticcheck
+	if syncer.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
 		// we have a root ingress here
 		if err := c.reconcileLeaves(ctx, ingress); err != nil {
 			return err
@@ -157,7 +158,8 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 	for _, currentLeaf := range currentLeaves {
 		found := false
 		for _, desiredLeaf := range desiredLeaves {
-			if desiredLeaf.Name != currentLeaf.Name || desiredLeaf.Labels[clusterLabel] != currentLeaf.Labels[clusterLabel] {
+			//nolint:staticcheck
+			if desiredLeaf.Name != currentLeaf.Name || syncer.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) != syncer.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
 				continue
 			}
 			found = true
@@ -184,7 +186,8 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 	for _, desiredLeaf := range desiredLeaves {
 		found := false
 		for _, currentLeaf := range currentLeaves {
-			if desiredLeaf.Name == currentLeaf.Name && desiredLeaf.Labels[clusterLabel] == currentLeaf.Labels[clusterLabel] {
+			//nolint:staticcheck
+			if desiredLeaf.Name == currentLeaf.Name && syncer.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) == syncer.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
 				found = true
 				break
 			}
@@ -209,8 +212,9 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 
 	var clusterDests []string
 	for _, service := range services {
-		if service.Labels[clusterLabel] != "" {
-			clusterDests = append(clusterDests, service.Labels[clusterLabel])
+		//nolint:staticcheck
+		if syncer.DeprecatedGetAssignedWorkloadCluster(service.Labels) != "" {
+			clusterDests = append(clusterDests, syncer.DeprecatedGetAssignedWorkloadCluster(service.Labels))
 		} else {
 			klog.Infof("Skipping service %q because it is not assigned to any cluster", service.Name)
 		}
@@ -225,7 +229,7 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 		vd.Name = root.Name + "-" + cl
 
 		vd.Labels = map[string]string{}
-		vd.Labels[clusterLabel] = cl
+		vd.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+cl] = string(workloadv1alpha1.ResourceStateSync)
 
 		// Label the leaf with the rootIngress information, so we can construct the ingress key
 		// from it.

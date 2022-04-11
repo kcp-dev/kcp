@@ -115,27 +115,27 @@ func TestAssignCluster(t *testing.T) {
 	}{
 		"scheduling disabled set to empty -> no change even for unknown cluster name": {
 			labels: map[string]string{
-				ClusterLabel:            unknownClusterName,
-				SchedulingDisabledLabel: "",
+				DeprecatedScheduledClusterNamespaceLabel: unknownClusterName,
+				SchedulingDisabledLabel:                  "",
 			},
 			expectedCluster: unknownClusterName,
 		},
 		"scheduling disabled set to any value -> no change even for unknown cluster name": {
 			labels: map[string]string{
-				ClusterLabel:            unknownClusterName,
-				SchedulingDisabledLabel: "foo",
+				DeprecatedScheduledClusterNamespaceLabel: unknownClusterName,
+				SchedulingDisabledLabel:                  "foo",
 			},
 			expectedCluster: unknownClusterName,
 		},
 		"valid assignment -> no change": {
 			labels: map[string]string{
-				ClusterLabel: testClusterName,
+				DeprecatedScheduledClusterNamespaceLabel: testClusterName,
 			},
 			expectedCluster: testClusterName,
 		},
 		"invalid assignment -> new assignment": {
 			labels: map[string]string{
-				ClusterLabel: unknownClusterName,
+				DeprecatedScheduledClusterNamespaceLabel: unknownClusterName,
 			},
 			expectedCluster: testClusterName,
 		},

@@ -41,13 +41,14 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const (
-	ClusterLabel            = "workloads.kcp.dev/cluster"
-	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
+	DeprecatedScheduledClusterNamespaceLabel = "workloads.kcp.dev/cluster"
+	SchedulingDisabledLabel                  = "experimental.workloads.kcp.dev/scheduling-disabled"
 
 	// The presence of `workloads.kcp.dev/schedulable: true` on a workspace
 	// enables scheduling for the contents of the workspace. It is applied by
@@ -65,13 +66,13 @@ var (
 
 func init() {
 	// This matches namespaces that haven't been scheduled yet
-	if req, err := labels.NewRequirement(ClusterLabel, selection.DoesNotExist, []string{}); err != nil {
+	if req, err := labels.NewRequirement(DeprecatedScheduledClusterNamespaceLabel, selection.DoesNotExist, []string{}); err != nil {
 		klog.Fatalf("error creating the cluster label requirement: %v", err)
 	} else {
 		unscheduledRequirement = *req
 	}
 	// This matches namespaces with the cluster label set to ""
-	if req, err := labels.NewRequirement(ClusterLabel, selection.Equals, []string{""}); err != nil {
+	if req, err := labels.NewRequirement(DeprecatedScheduledClusterNamespaceLabel, selection.Equals, []string{""}); err != nil {
 		klog.Fatalf("error creating the cluster label requirement: %v", err)
 	} else {
 		scheduleEmptyLabelRequirement = *req
@@ -130,23 +131,27 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	if lbls == nil {
 		lbls = map[string]string{}
 	}
-
-	old, new := lbls[ClusterLabel], ns.Labels[ClusterLabel]
-	if old == new {
+	//nolint:staticcheck
+	previousCluster, newCluster := syncer.DeprecatedGetAssignedWorkloadCluster(lbls), syncer.DeprecatedGetAssignedWorkloadCluster(ns.Labels)
+	if previousCluster == newCluster {
 		// Already assigned to the right cluster.
 		return nil
 	}
 
 	// Update the resource's assignment.
-	patchType, patchBytes := clusterLabelPatchBytes(new)
+	patchType, patchBytes, err := clusterLabelPatchBytes(previousCluster, newCluster)
+	if err != nil {
+		klog.Errorf("error creating patch for %s %s|%s: %v", gvr.String(), unstr.GetClusterName(), unstr.GetName(), err)
+		return err
+	}
+
 	if updated, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	} else {
 		klog.Infof("Patched cluster assignment for %q %s|%s/%s: %q -> %q. Labels=%v",
-			gvr, lclusterName, ns.Name, unstr.GetName(), old, new, updated.GetLabels())
+			gvr, lclusterName, ns.Name, unstr.GetName(), previousCluster, newCluster, updated.GetLabels())
 	}
-
 	return nil
 }
 
@@ -175,7 +180,7 @@ func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionRe
 // to assign to. The condition of not being scheduled to a cluster will be reflected in
 // the namespace's status rather than by returning an error.
 func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) (*corev1.Namespace, bool, error) {
-	oldPClusterName := ns.Labels[ClusterLabel]
+	oldPClusterName := ns.Labels[DeprecatedScheduledClusterNamespaceLabel]
 
 	scheduler := namespaceScheduler{
 		getCluster:   c.clusterLister.Get,
@@ -192,7 +197,12 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 
 	klog.Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
 		ns.ClusterName, ns.Name, oldPClusterName, newPClusterName)
-	patchType, patchBytes := clusterLabelPatchBytes(newPClusterName)
+	patchType, patchBytes, err := schedulingClusterLabelPatchBytes(oldPClusterName, newPClusterName)
+	if err != nil {
+		klog.Errorf("Failed to create patch for cluster assignment: %v", err)
+		return ns, false, err
+	}
+
 	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
@@ -270,8 +280,7 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 // namespace to the queue if there scheduling label differs from the namespace's.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	clusterName := logicalcluster.From(ns)
-
-	nsLocation := ns.Labels[ClusterLabel]
+	nsLocation := ns.Labels[DeprecatedScheduledClusterNamespaceLabel]
 
 	klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): getting listers", clusterName, ns.Name)
 	listers, notSynced := c.ddsif.Listers()
@@ -292,7 +301,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 				continue
 			}
 
-			objLocation := u.GetLabels()[ClusterLabel]
+			objLocation := u.GetLabels()[DeprecatedScheduledClusterNamespaceLabel]
 			if objLocation != nsLocation {
 				c.enqueueResource(gvr, obj)
 
@@ -324,23 +333,51 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	return nil
 }
 
-// clusterLabelPatchBytes returns JSON patch bytes expressing an operation
-// to add, replace to the given value, or delete the cluster assignment label.
-func clusterLabelPatchBytes(val string) (types.PatchType, []byte) {
-	if val == "" {
-		return types.JSONPatchType,
-			[]byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/labels/%s"}]`, strings.ReplaceAll(ClusterLabel, "/", "~1")))
+// clusterLabelPatchBytes returns a patch expressing an operation
+// to add, replace to the given value, or delete the cluster assignment label on
+// a resource.
+func clusterLabelPatchBytes(old, new string) (types.PatchType, []byte, error) {
+	patches := make(map[string]interface{})
+
+	if new == "" && old != "" {
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+old] = nil
+	} else if new != "" && old == "" {
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+new] = string(workloadv1alpha1.ResourceStateSync)
+	} else {
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+old] = nil
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+new] = string(workloadv1alpha1.ResourceStateSync)
 	}
 
-	return types.MergePatchType,
-		[]byte(fmt.Sprintf(`
-{
-  "metadata":{
-    "labels":{
-      %q: %q
-    }
-  }
-}`, ClusterLabel, val))
+	bs, err := json.Marshal(map[string]interface{}{"metadata": map[string]interface{}{"labels": patches}})
+	if err != nil {
+		return "", nil, err
+	}
+	return types.MergePatchType, bs, nil
+}
+
+// schedulingClusterLabelPatchBytes returns a patch expressing an operation
+// to add, replace to the given value, or delete the cluster assignment label on a
+// namespace.
+func schedulingClusterLabelPatchBytes(oldClusterName, newClusterName string) (types.PatchType, []byte, error) {
+	patches := make(map[string]interface{})
+
+	if newClusterName == "" && oldClusterName != "" {
+		patches[DeprecatedScheduledClusterNamespaceLabel] = nil
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+oldClusterName] = nil
+	} else if newClusterName != "" && oldClusterName == "" {
+		patches[DeprecatedScheduledClusterNamespaceLabel] = newClusterName
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+newClusterName] = string(workloadv1alpha1.ResourceStateSync)
+	} else {
+		patches[DeprecatedScheduledClusterNamespaceLabel] = newClusterName
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+oldClusterName] = nil
+		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+newClusterName] = string(workloadv1alpha1.ResourceStateSync)
+	}
+
+	bs, err := json.Marshal(map[string]interface{}{"metadata": map[string]interface{}{"labels": patches}})
+	if err != nil {
+		return "", nil, err
+	}
+	return types.MergePatchType, bs, nil
 }
 
 // observeCluster is responsible for watching to see if the Cluster is happy;
@@ -370,7 +407,7 @@ func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alph
 		return errors.NewAggregate(errs)
 
 	case enqueueScheduled:
-		scheduledToCluster, err := labels.NewRequirement(ClusterLabel, selection.Equals, []string{cluster.Name})
+		scheduledToCluster, err := labels.NewRequirement(DeprecatedScheduledClusterNamespaceLabel, selection.Equals, []string{cluster.Name})
 		if err != nil {
 			return err
 		}

@@ -46,7 +46,7 @@ type namespaceScheduler struct {
 // the automatic scheduling is disabled for the namespace. An new assignment will
 // be attempted if the current assignment is empty or invalid.
 func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error) {
-	assignedCluster := ns.Labels[ClusterLabel]
+	assignedCluster := ns.Labels[DeprecatedScheduledClusterNamespaceLabel]
 
 	schedulingDisabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
 	if schedulingDisabled {

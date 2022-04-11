@@ -35,7 +35,6 @@ import (
 // +kubebuilder:printcolumn:name="Location",type="string",JSONPath=`.metadata.name`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`,priority=2
 // +kubebuilder:printcolumn:name="Synced API resources",type="string",JSONPath=`.status.syncedResources`,priority=3
-
 type WorkloadCluster struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

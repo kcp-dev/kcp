@@ -34,6 +34,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: WorkloadCluster describes a member cluster capable of running
+          workloads.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
@@ -69,7 +69,7 @@ func TestClusterController(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
-							nscontroller.ClusterLabel: sinkClusterName,
+							"state.internal.workloads.kcp.dev/" + sinkClusterName: string(workloadv1alpha1.ResourceStateSync),
 						},
 					},
 					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},

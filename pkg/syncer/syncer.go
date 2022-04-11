@@ -26,6 +26,7 @@ import (
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,13 +44,19 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
 
 const (
+	advancedSchedulingFeatureAnnotation = "featuregates.experimental.workloads.kcp.dev/advancedscheduling"
+
+	// syncerFinalizerNamePrefix is the finalizer put onto resources by the syncer to claim ownership,
+	// *before* a downstream object is created. It is only removed when the downstream object is deleted.
+	syncerFinalizerNamePrefix = "workloads.kcp.dev/syncer-"
+
 	resyncPeriod       = 10 * time.Hour
 	syncerApplyManager = "syncer"
 
@@ -134,28 +141,37 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
-	specSyncer, err := NewSpecSyncer(cfg.UpstreamConfig, cfg.DownstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName)
-	if err != nil {
-		return err
-	}
-
-	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
-	statusSyncer, err := NewStatusSyncer(cfg.DownstreamConfig, cfg.UpstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName)
-	if err != nil {
-		return err
-	}
-
-	go specSyncer.Start(ctx, numSyncerThreads)
-	go statusSyncer.Start(ctx, numSyncerThreads)
-
-	// TODO(marun) Report pcluster connectivity to kcp
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
 	if err != nil {
 		return err
 	}
 	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
 	workloadClustersClient := kcpClient.WorkloadV1alpha1().WorkloadClusters()
+	// Check whether we're in the Advanced Scheduling feature-gated mode.
+	workloadCluster, err := workloadClustersClient.Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	advancedSchedulingEnabled := false
+	if workloadCluster.GetAnnotations()[advancedSchedulingFeatureAnnotation] == "true" {
+		klog.Infof("Advanced Scheduling feature is enabled for workloadCluster %s", cfg.WorkloadClusterName)
+		advancedSchedulingEnabled = true
+	}
+
+	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
+	specSyncer, err := NewSpecSyncer(cfg.UpstreamConfig, cfg.DownstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
+	statusSyncer, err := NewStatusSyncer(cfg.DownstreamConfig, cfg.UpstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled)
+	if err != nil {
+		return err
+	}
+
+	go specSyncer.Start(ctx, numSyncerThreads)
+	go statusSyncer.Start(ctx, numSyncerThreads)
 
 	// Attempt to heartbeat every interval
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
@@ -189,10 +205,12 @@ type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, names
 type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
 
 type Controller struct {
-	name  string
-	queue workqueue.RateLimitingInterface
+	name                string
+	workloadClusterName string
+	queue               workqueue.RateLimitingInterface
 
 	fromInformers dynamicinformer.DynamicSharedInformerFactory
+	fromClient    dynamic.Interface
 	toClient      dynamic.Interface
 
 	upsertFn  UpsertFunc
@@ -201,20 +219,25 @@ type Controller struct {
 
 	upstreamClusterName logicalcluster.LogicalCluster
 	mutators            mutatorGvrMap
+
+	advancedSchedulingEnabled bool
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
+func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
 	c := Controller{
-		name:                controllerName,
-		queue:               queue,
-		toClient:            toClient,
-		direction:           direction,
-		upstreamClusterName: kcpClusterName,
-		mutators:            make(mutatorGvrMap),
+		name:                      controllerName,
+		workloadClusterName:       pcluster,
+		queue:                     queue,
+		toClient:                  toClient,
+		fromClient:                fromClient,
+		direction:                 direction,
+		upstreamClusterName:       kcpClusterName,
+		mutators:                  make(mutatorGvrMap),
+		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
 	if len(mutators) > 0 {
@@ -226,29 +249,42 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClie
 		c.deleteFn = c.deleteFromDownstream
 	} else {
 		c.upsertFn = c.updateStatusInUpstream
+		c.deleteFn = func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
+			if c.advancedSchedulingEnabled {
+				return ensureUpstreamFinalizerRemoved(ctx, gvr, c.toClient, namespace, c.workloadClusterName, c.upstreamClusterName, name)
+			}
+			return nil
+		}
 	}
 
 	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("%s=%s", nscontroller.ClusterLabel, pclusterID)
+		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + pclusterID + "=" + string(workloadv1alpha1.ResourceStateSync)
 	})
 
 	for _, gvrstr := range gvrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 
 		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+			AddFunc: func(obj interface{}) {
+				c.AddToQueue(*gvr, obj)
+			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldUnstrob := oldObj.(*unstructured.Unstructured)
+				newUnstrob := newObj.(*unstructured.Unstructured)
+
 				if c.direction == SyncDown {
-					if !deepEqualApartFromStatus(oldObj, newObj) {
-						c.AddToQueue(*gvr, newObj)
+					if !deepEqualApartFromStatus(oldUnstrob, newUnstrob) {
+						c.AddToQueue(*gvr, newUnstrob)
 					}
 				} else {
-					if !deepEqualStatus(oldObj, newObj) {
-						c.AddToQueue(*gvr, newObj)
+					if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
+						c.AddToQueue(*gvr, newUnstrob)
 					}
 				}
 			},
-			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+			DeleteFunc: func(obj interface{}) {
+				c.AddToQueue(*gvr, obj)
+			},
 		})
 		klog.InfoS("Set up informer", "direction", c.direction, "clusterName", kcpClusterName, "pcluster", pcluster, "gvr", gvr)
 	}
@@ -605,4 +641,53 @@ func getDefaultMutators(from *rest.Config) mutatorGvrMap {
 	mutatorsMap[deploymentMutator.GVR()] = deploymentMutator.Mutate
 	mutatorsMap[secretMutator.GVR()] = secretMutator.Mutate
 	return mutatorsMap
+}
+
+func ensureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.LogicalCluster, resourceName string) error {
+	upstreamObj, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, resourceName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if errors.IsNotFound(err) {
+		return nil
+	}
+
+	// TODO(jmprusi): This check will need to be against "GetDeletionTimestamp()" when using the syncer virtual  workspace.
+	if upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+workloadClusterName] == "" {
+		// Do nothing: the object should not be deleted anymore for this location on the KCP side
+		return nil
+	}
+
+	// Remove the syncer finalizer.
+	currentFinalizers := upstreamObj.GetFinalizers()
+	desiredFinalizers := []string{}
+	for _, finalizer := range currentFinalizers {
+		if finalizer != syncerFinalizerNamePrefix+workloadClusterName {
+			desiredFinalizers = append(desiredFinalizers, finalizer)
+		}
+	}
+	upstreamObj.SetFinalizers(desiredFinalizers)
+
+	//  TODO(jmprusi): This code block will be handled by the syncer virtual workspace, so we can remove it once
+	//                 the virtual workspace syncer is integrated
+	//  - Begin -
+	// Clean up the status annotation and the locationDeletionAnnotation.
+	annotations := upstreamObj.GetAnnotations()
+	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+workloadClusterName)
+	delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+workloadClusterName)
+	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+workloadClusterName)
+	upstreamObj.SetAnnotations(annotations)
+
+	// remove the cluster label.
+	upstreamLabels := upstreamObj.GetLabels()
+	delete(upstreamLabels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+workloadClusterName)
+	upstreamObj.SetLabels(upstreamLabels)
+	// - End of block to be removed once the virtual workspace syncer is integrated -
+
+	if _, err := upstreamClient.Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("Failed updating after removing the finalizers of resource %s|%s/%s: %v", logicalClusterName, upstreamNamespace, upstreamObj.GetName(), err)
+		return err
+	}
+	klog.V(2).Infof("Updated resource %s|%s/%s after removing the finalizers", logicalClusterName, upstreamNamespace, upstreamObj.GetName())
+	return nil
 }

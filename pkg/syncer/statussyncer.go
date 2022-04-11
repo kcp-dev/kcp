@@ -18,6 +18,8 @@ package syncer
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
@@ -28,24 +30,23 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-func deepEqualStatus(oldObj, newObj interface{}) bool {
-	oldUnstrob, isOldObjUnstructured := oldObj.(*unstructured.Unstructured)
-	newUnstrob, isNewObjUnstructured := newObj.(*unstructured.Unstructured)
-	if !isOldObjUnstructured || !isNewObjUnstructured || oldObj == nil || newObj == nil {
-		return false
-	}
+func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
+	newFinalizers := newUnstrob.GetFinalizers()
+	oldFinalizers := oldUnstrob.GetFinalizers()
 
 	newStatus := newUnstrob.UnstructuredContent()["status"]
 	oldStatus := oldUnstrob.UnstructuredContent()["status"]
 
-	return equality.Semantic.DeepEqual(oldStatus, newStatus)
+	return equality.Semantic.DeepEqual(oldFinalizers, newFinalizers) && equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
 const statusSyncerAgent = "kcp#status-syncer/v0.0.0"
 
-func NewStatusSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string) (*Controller, error) {
+func NewStatusSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string, advancedSchedulingEnabled bool) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = statusSyncerAgent
 	to = rest.CopyConfig(to)
@@ -61,7 +62,7 @@ func NewStatusSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logica
 	// Register the default mutators
 	mutatorsMap := getDefaultMutators(from)
 
-	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncUp, gvrs, pclusterID, mutatorsMap)
+	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncUp, gvrs, pclusterID, mutatorsMap, advancedSchedulingEnabled)
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
@@ -73,9 +74,18 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	// Run name transformations on upstreamObj
 	transformName(upstreamObj, SyncUp)
 
-	existing, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, upstreamObj.GetName(), metav1.GetOptions{})
+	name := upstreamObj.GetName()
+	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(upstreamObj.UnstructuredContent(), "status")
 	if err != nil {
-		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, upstreamObj.GetName(), err)
+		return err
+	} else if !statusExists {
+		klog.Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from workloadClusterName namespace %s", c.upstreamClusterName, upstreamNamespace, name, downstreamObj.GetNamespace())
+		return nil
+	}
+
+	existing, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, name, err)
 		return err
 	}
 
@@ -90,11 +100,37 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	//       I believe to remember that we had resources where that happened.
 
 	upstreamObj.SetResourceVersion(existing.GetResourceVersion())
+
+	if c.advancedSchedulingEnabled {
+		newUpstream := existing.DeepCopy()
+		statusAnnotationValue, err := json.Marshal(downstreamStatus)
+		if err != nil {
+			return err
+		}
+		newUpstreamAnnotations := newUpstream.GetAnnotations()
+		if newUpstreamAnnotations == nil {
+			newUpstreamAnnotations = make(map[string]string)
+		}
+		newUpstreamAnnotations[workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.workloadClusterName] = string(statusAnnotationValue)
+		newUpstream.SetAnnotations(newUpstreamAnnotations)
+
+		if reflect.DeepEqual(existing, newUpstream) {
+			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from workloadClusterName namespace %s", c.upstreamClusterName, upstreamNamespace, name, downstreamObj.GetNamespace())
+			return nil
+		}
+
+		if _, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
+			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from workloadClusterName namespace %s: %v", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+			return err
+		}
+		klog.Infof("Updated status of resource %s|%s/%s from workloadClusterName namespace %s", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
+		return nil
+	}
+
 	if _, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("Failed updating status of resource %q %s|%s/%s from pcluster namespace %s: %v", gvr.String(), c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
 		return err
 	}
 	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
-
 	return nil
 }

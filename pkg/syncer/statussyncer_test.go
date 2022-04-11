@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func TestDeepEqualStatus(t *testing.T) {
+func TestDeepEqualFinalizersAndStatus(t *testing.T) {
 	for _, c := range []struct {
 		desc     string
 		old, new *unstructured.Unstructured
@@ -89,9 +89,169 @@ func TestDeepEqualStatus(t *testing.T) {
 			},
 		},
 		want: true,
-	}} {
+	}, {
+		desc: "both objects have the same finalizers",
+		old: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"finalizers": []interface{}{
+						"finalizer.1",
+						"finalizer.2",
+					},
+				},
+			},
+		},
+		new: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"finalizers": []interface{}{
+						"finalizer.1",
+						"finalizer.2",
+					},
+				},
+			},
+		},
+		want: true,
+	}, {
+		desc: "one object doesn't have finalizers",
+		old: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"finalizers": []interface{}{
+						"finalizer.1",
+						"finalizer.2",
+					},
+				},
+			},
+		},
+		new: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{},
+			},
+		},
+		want: false,
+	}, {
+		desc: "both objects don't have finalizers",
+		old: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{},
+			},
+		},
+		new: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{},
+			},
+		},
+		want: true,
+	}, {
+		desc: "objects have different finalizers",
+		old: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"finalizers": []interface{}{
+						"finalizer.1",
+						"finalizer.2",
+					},
+				},
+			},
+		},
+		new: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"finalizers": []interface{}{
+						"finalizer.2",
+						"finalizer.3",
+					},
+				},
+			},
+		},
+		want: false,
+	}, {
+		desc: "one object doesn't have finalizers",
+		old: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"finalizers": []interface{}{
+						"finalizer.1",
+						"finalizer.2",
+					},
+				},
+			},
+		},
+		new: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{},
+			},
+		},
+		want: false,
+	}, {
+		desc: "objects have the same status and finalizers but different labels",
+		old: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"cool": "yes",
+					},
+					"finalizers": []interface{}{
+						"finalizer.1",
+						"finalizer.2",
+					},
+				},
+				"status": map[string]string{
+					"cool": "yes",
+				},
+			},
+		},
+		new: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"cool": "no!",
+					},
+					"finalizers": []interface{}{
+						"finalizer.1",
+						"finalizer.2",
+					},
+				},
+				"status": map[string]string{
+					"cool": "yes",
+				},
+			},
+		},
+		want: true,
+	},
+		{
+			desc: "objects have equal finalizers and statuses",
+			old: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"finalizers": []interface{}{
+							"finalizer.1",
+							"finalizer.2",
+						},
+					},
+					"status": map[string]string{
+						"cool": "yes",
+					},
+				},
+			},
+			new: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"finalizers": []interface{}{
+							"finalizer.1",
+							"finalizer.2",
+						},
+					},
+					"status": map[string]string{
+						"cool": "yes",
+					},
+				},
+			},
+			want: true,
+		}} {
 		t.Run(c.desc, func(t *testing.T) {
-			got := deepEqualStatus(c.old, c.new)
+			got := deepEqualFinalizersAndStatus(c.old, c.new)
 			if got != c.want {
 				t.Fatalf("got %t, want %t", got, c.want)
 			}
