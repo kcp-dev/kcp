@@ -22,9 +22,11 @@ import (
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -37,10 +39,13 @@ func deepEqualStatus(oldObj, newObj interface{}) bool {
 		return false
 	}
 
+	newFinalizers := newUnstrob.GetFinalizers()
+	oldFinalizers := oldUnstrob.GetFinalizers()
+
 	newStatus := newUnstrob.UnstructuredContent()["status"]
 	oldStatus := oldUnstrob.UnstructuredContent()["status"]
 
-	return equality.Semantic.DeepEqual(oldStatus, newStatus)
+	return equality.Semantic.DeepEqual(oldFinalizers, newFinalizers) && equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
 const statusSyncerAgent = "kcp#status-syncer/v0.0.0"
@@ -64,7 +69,34 @@ func NewStatusSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logica
 	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncUp, gvrs, pclusterID, mutatorsMap)
 }
 
-func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
+func (c *Controller) deleteFromUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace, name string) error {
+	return c.removeFinalizersAndUpdate(ctx, c.toClient, gvr, upstreamNamespace, name)
+}
+
+func (c *Controller) removeFinalizersAndUpdate(ctx context.Context, upstreamClient dynamic.Interface, gvr schema.GroupVersionResource, upstreamNamespace, name string) error {
+	upstreamObj, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if errors.IsNotFound(err) {
+		return nil
+	}
+
+	if upstreamObj.GetDeletionTimestamp() == nil {
+		// Do nothing: the object should not be deleted anymore for this location on the KCP side
+		return nil
+	}
+	upstreamObj.SetFinalizers(nil)
+
+	if _, err := upstreamClient.Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("Failed updating after removing the finalizers of resource %s|%s/%s: %v", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), err)
+		return err
+	}
+	klog.Infof("Updated resource %s|%s/%s after removing the finalizers", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName())
+	return nil
+}
+
+func (c *Controller) updateStatusInUpstream(ctx context.Context, eventType watch.EventType, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
 	upstreamObj := downstreamObj.DeepCopy()
 	upstreamObj.SetUID("")
 	upstreamObj.SetResourceVersion("")
@@ -73,9 +105,17 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	// Run name transformations on upstreamObj
 	transformName(upstreamObj, SyncUp)
 
-	existing, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, upstreamObj.GetName(), metav1.GetOptions{})
+	name := upstreamObj.GetName()
+	if _, statusExists, err := unstructured.NestedFieldCopy(upstreamObj.UnstructuredContent(), "status"); err != nil {
+		return err
+	} else if !statusExists {
+		klog.Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from pcluster namespace %s", c.upstreamClusterName, upstreamNamespace, name, downstreamObj.GetNamespace())
+		return nil
+	}
+
+	existing, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, upstreamObj.GetName(), err)
+		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, name, err)
 		return err
 	}
 
@@ -90,11 +130,11 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	//       I believe to remember that we had resources where that happened.
 
 	upstreamObj.SetResourceVersion(existing.GetResourceVersion())
+
 	if _, err := c.toClient.Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("Failed updating status of resource %s|%s/%s from pcluster namespace %s: %v", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
 		return err
 	}
 	klog.Infof("Updated status of resource %s|%s/%s from pcluster namespace %s", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
-
 	return nil
 }

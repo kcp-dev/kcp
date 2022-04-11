@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -45,8 +46,8 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
 )
 
 const (
@@ -180,15 +181,17 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 }
 
 type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
-type UpsertFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
+type UpsertFunc func(ctx context.Context, eventType watch.EventType, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
 type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
 type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
 
 type Controller struct {
-	name  string
-	queue workqueue.RateLimitingInterface
+	name     string
+	pcluster string
+	queue    workqueue.RateLimitingInterface
 
 	fromInformers dynamicinformer.DynamicSharedInformerFactory
+	fromClient    dynamic.Interface
 	toClient      dynamic.Interface
 
 	upsertFn  UpsertFunc
@@ -206,8 +209,10 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClie
 
 	c := Controller{
 		name:                controllerName,
+		pcluster:            pcluster,
 		queue:               queue,
 		toClient:            toClient,
+		fromClient:          fromClient,
 		direction:           direction,
 		upstreamClusterName: kcpClusterName,
 		mutators:            make(mutatorGvrMap),
@@ -222,29 +227,34 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClie
 		c.deleteFn = c.deleteFromDownstream
 	} else {
 		c.upsertFn = c.updateStatusInUpstream
+		c.deleteFn = c.deleteFromUpstream
 	}
 
 	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("%s=%s", nscontroller.ClusterLabel, pclusterID)
+		o.LabelSelector = fmt.Sprintf("%s", syncer.WorkloadClusterLabelName(pclusterID))
 	})
 
 	for _, gvrstr := range gvrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 
 		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+			AddFunc: func(obj interface{}) {
+				c.AddToQueue(watch.Added, *gvr, obj)
+			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if c.direction == SyncDown {
 					if !deepEqualApartFromStatus(oldObj, newObj) {
-						c.AddToQueue(*gvr, newObj)
+						c.AddToQueue(watch.Modified, *gvr, newObj)
 					}
 				} else {
 					if !deepEqualStatus(oldObj, newObj) {
-						c.AddToQueue(*gvr, newObj)
+						c.AddToQueue(watch.Modified, *gvr, newObj)
 					}
 				}
 			},
-			DeleteFunc: func(obj interface{}) { c.AddToQueue(*gvr, obj) },
+			DeleteFunc: func(obj interface{}) {
+				c.AddToQueue(watch.Deleted, *gvr, obj)
+			},
 		})
 		klog.InfoS("Set up informer", "direction", c.direction, "clusterName", kcpClusterName, "pcluster", pcluster, "gvr", gvr)
 	}
@@ -340,9 +350,10 @@ type holder struct {
 	clusterName logicalcluster.LogicalCluster
 	namespace   string
 	name        string
+	eventType   watch.EventType
 }
 
-func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
+func (c *Controller) AddToQueue(eventType watch.EventType, gvr schema.GroupVersionResource, obj interface{}) {
 	objToCheck := obj
 
 	tombstone, ok := objToCheck.(cache.DeletedFinalStateUnknown)
@@ -371,6 +382,7 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 			clusterName: logicalcluster.From(metaObj),
 			namespace:   metaObj.GetNamespace(),
 			name:        metaObj.GetName(),
+			eventType:   eventType,
 		},
 	)
 }
@@ -554,7 +566,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 	}
 
 	if c.upsertFn != nil {
-		return c.upsertFn(ctx, h.gvr, toNamespace, unstrob)
+		return c.upsertFn(ctx, h.eventType, h.gvr, toNamespace, unstrob)
 	}
 
 	return err

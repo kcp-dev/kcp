@@ -23,18 +23,20 @@ import (
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
 )
 
 func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
@@ -47,6 +49,15 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 		return false
 	}
 	if !equality.Semantic.DeepEqual(oldUnstrob.GetLabels(), newUnstrob.GetLabels()) {
+		return false
+	}
+	if !equality.Semantic.DeepEqual(oldUnstrob.GetFinalizers(), newUnstrob.GetFinalizers()) {
+		return false
+	}
+
+	oldIsBeingDeleted := oldUnstrob.GetDeletionTimestamp() != nil
+	newIsBeingDeleted := newUnstrob.GetDeletionTimestamp() != nil
+	if oldIsBeingDeleted != newIsBeingDeleted {
 		return false
 	}
 
@@ -88,7 +99,11 @@ func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupV
 	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
 	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
 
-	return c.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	if err := c.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); errors.IsNotFound(err) {
+		return nil
+	} else {
+		return err
+	}
 }
 
 const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"
@@ -124,7 +139,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			nscontroller.ClusterLabel: upstreamObj.GetLabels()[nscontroller.ClusterLabel],
+			syncer.WorkloadClusterLabelName(c.pcluster): "",
 		})
 	}
 
@@ -143,9 +158,27 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	return nil
 }
 
-func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+func (c *Controller) notifySyncerOwnership(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
+	name := upstreamObj.GetName()
+	namespace := upstreamObj.GetNamespace()
+
+	if _, err := c.fromClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("Failed updating to notify syncer ownership on resource %s|%s/%s: %v", c.upstreamClusterName, namespace, name, err)
+		return err
+	}
+	klog.Infof("Updated resource %s|%s/%s to notify syncer ownership", c.upstreamClusterName, namespace, name)
+	return nil
+}
+
+func (c *Controller) applyToDownstream(ctx context.Context, eventType watch.EventType, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
 	if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
 		return err
+	}
+
+	if eventType == watch.Added {
+		if err := c.notifySyncerOwnership(ctx, gvr, upstreamObj); err != nil {
+			return err
+		}
 	}
 
 	downstreamObj := upstreamObj.DeepCopy()
@@ -175,6 +208,24 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
 	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
+
+	if deletionTimestamp := upstreamObj.GetDeletionTimestamp(); deletionTimestamp != nil {
+		if err := c.toClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				// That's not an error.
+				// Just think about removing the finalizer from the KCP location-specific resource:
+				if err := c.removeFinalizersAndUpdate(ctx, c.fromClient, gvr, upstreamObj.GetNamespace(), upstreamObj.GetName()); err != nil {
+					return err
+				}
+				return nil
+			}
+
+			klog.Infof("Error deleting %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
+			return err
+		}
+		klog.Infof("Deleted %s %s/%s from downstream %s|%s/%s", gvr.Resource, upstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName())
+		return nil
+	}
 
 	// Marshalling the unstructured object is good enough as SSA patch
 	data, err := json.Marshal(downstreamObj)
