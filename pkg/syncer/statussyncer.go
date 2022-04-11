@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -46,18 +45,12 @@ func deepEqualStatus(oldObj, newObj interface{}) bool {
 
 const statusSyncerAgent = "kcp#status-syncer/v0.0.0"
 
-func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string) (*Controller, error) {
+func NewStatusSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = statusSyncerAgent
 	to = rest.CopyConfig(to)
 	to.UserAgent = statusSyncerAgent
 
-	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", kcpClusterName, pclusterID, syncedResourceTypes)
-
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(from)
-	if err != nil {
-		return nil, err
-	}
 	fromClient := dynamic.NewForConfigOrDie(from)
 	toClients, err := dynamic.NewClusterForConfig(to)
 	if err != nil {
@@ -68,7 +61,7 @@ func NewStatusSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClu
 	// Register the default mutators
 	mutatorsMap := getDefaultMutators(from)
 
-	return New(kcpClusterName, pclusterID, discoveryClient, fromClient, toClient, SyncUp, syncedResourceTypes, pclusterID, mutatorsMap)
+	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncUp, gvrs, pclusterID, mutatorsMap)
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {

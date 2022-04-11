@@ -14,23 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apiimporter
+package syncer
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
@@ -39,7 +45,7 @@ var clusterKind = reflect.TypeOf(workloadv1alpha1.WorkloadCluster{}).Name()
 
 func clusterAsOwnerReference(obj *workloadv1alpha1.WorkloadCluster, controller bool) metav1.OwnerReference {
 	return metav1.OwnerReference{
-		APIVersion: apiresourcev1alpha1.SchemeGroupVersion.String(),
+		APIVersion: workloadv1alpha1.SchemeGroupVersion.String(),
 		Kind:       clusterKind,
 		Name:       obj.Name,
 		UID:        obj.UID,
@@ -47,7 +53,71 @@ func clusterAsOwnerReference(obj *workloadv1alpha1.WorkloadCluster, controller b
 	}
 }
 
+func NewAPIImporter(
+	upstreamConfig, downstreamConfig *rest.Config,
+	resourcesToSync []string,
+	logicalClusterName logicalcluster.LogicalCluster,
+	location string,
+) (*APIImporter, error) {
+	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", logicalClusterName, location)
+	upstreamConfig = rest.AddUserAgent(rest.CopyConfig(upstreamConfig), agent)
+	downstreamConfig = rest.AddUserAgent(rest.CopyConfig(downstreamConfig), agent)
+
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(upstreamConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	kcpClient := kcpClusterClient.Cluster(logicalClusterName)
+	kcpInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
+	clusterIndexer := kcpInformerFactory.Workload().V1alpha1().WorkloadClusters().Informer().GetIndexer()
+	importIndexer := kcpInformerFactory.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
+
+	indexers := map[string]cache.IndexFunc{
+		clusterctl.GVRForLocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
+			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
+				return []string{clusterctl.GetGVRForLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport), apiResourceImport.GVR())}, nil
+			}
+			return []string{}, nil
+		},
+		clusterctl.LocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
+			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
+				return []string{clusterctl.GetLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport))}, nil
+			}
+			return []string{}, nil
+		},
+	}
+
+	// Ensure the indexers are only added if not already present.
+	for indexName := range importIndexer.GetIndexers() {
+		delete(indexers, indexName)
+	}
+	if len(indexers) > 0 {
+		if err := importIndexer.AddIndexers(indexers); err != nil {
+			return nil, fmt.Errorf("failed to add indexer for API Importer: %w", err)
+		}
+	}
+
+	schemaPuller, err := crdpuller.NewSchemaPuller(downstreamConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &APIImporter{
+		kcpInformerFactory:       kcpInformerFactory,
+		kcpClusterClient:         kcpClusterClient,
+		resourcesToSync:          resourcesToSync,
+		apiresourceImportIndexer: importIndexer,
+		clusterIndexer:           clusterIndexer,
+
+		location:           location,
+		logicalClusterName: logicalClusterName,
+		schemaPuller:       schemaPuller,
+	}, nil
+}
+
 type APIImporter struct {
+	kcpInformerFactory       kcpexternalversions.SharedInformerFactory
 	kcpClusterClient         *kcpclient.Cluster
 	resourcesToSync          []string
 	apiresourceImportIndexer cache.Indexer
@@ -56,15 +126,28 @@ type APIImporter struct {
 	location           string
 	logicalClusterName logicalcluster.LogicalCluster
 	schemaPuller       crdpuller.SchemaPuller
-	done               chan bool
 	SyncedGVRs         map[string]metav1.GroupVersionResource
-	context            context.Context
+}
+
+func (i *APIImporter) Start(ctx context.Context, pollInterval time.Duration) {
+	defer runtime.HandleCrash()
+
+	i.kcpInformerFactory.Start(ctx.Done())
+	i.kcpInformerFactory.WaitForCacheSync(ctx.Done())
+
+	klog.Infof("Starting API Importer for location %s in cluster %s", i.location, i.logicalClusterName)
+
+	clusterContext := request.WithCluster(ctx, request.Cluster{Name: i.logicalClusterName})
+	go wait.UntilWithContext(clusterContext, func(innerCtx context.Context) {
+		i.ImportAPIs(innerCtx)
+	}, pollInterval)
+
+	<-ctx.Done()
+	i.Stop()
 }
 
 func (i *APIImporter) Stop() {
 	klog.Infof("Stopping API Importer for location %s in cluster %s", i.location, i.logicalClusterName)
-
-	i.done <- true
 
 	objs, err := i.apiresourceImportIndexer.ByIndex(
 		clusterctl.LocationInLogicalClusterIndexName,
@@ -82,9 +165,9 @@ func (i *APIImporter) Stop() {
 	}
 }
 
-func (i *APIImporter) ImportAPIs() {
+func (i *APIImporter) ImportAPIs(ctx context.Context) {
 	klog.Infof("Importing APIs from location %s in logical cluster %s", i.location, i.logicalClusterName)
-	crds, err := i.schemaPuller.PullCRDs(i.context, i.resourcesToSync...)
+	crds, err := i.schemaPuller.PullCRDs(ctx, i.resourcesToSync...)
 	if err != nil {
 		klog.Errorf("error pulling CRDs: %v", err)
 		return
@@ -117,7 +200,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Update(i.context, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Update(ctx, apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -187,7 +270,7 @@ func (i *APIImporter) ImportAPIs() {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Create(i.context, apiResourceImport, metav1.CreateOptions{}); err != nil {
+			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Create(ctx, apiResourceImport, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
 			}
@@ -212,7 +295,7 @@ func (i *APIImporter) ImportAPIs() {
 		}
 		if len(objs) == 1 {
 			apiResourceImportToRemove := objs[0].(*apiresourcev1alpha1.APIResourceImport)
-			err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Delete(i.context, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
+			err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Delete(ctx, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToRemove.Name, err)
 				continue

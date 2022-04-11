@@ -37,9 +37,7 @@ func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
 	fs.StringVar(&o.SyncerImage, "syncer-image", o.SyncerImage, "Syncer image to install on clusters")
 	fs.BoolVar(&o.PullMode, "pull-mode", o.PullMode, "Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP")
 	fs.BoolVar(&o.PushMode, "push-mode", o.PushMode, "If true, run syncer for each cluster from inside cluster controller")
-	// TODO(marun) --resources-to-sync is currently defined in options for the api importer
-	// controller. How to best to define the option once for reuse by both api importer and
-	// sync controllers?
+	fs.StringSliceVar(&o.ResourcesToSync, "resources-to-sync", o.ResourcesToSync, "Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters")
 	return o
 }
 

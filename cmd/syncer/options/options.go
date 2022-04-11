@@ -19,6 +19,7 @@ package options
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/spf13/pflag"
 
@@ -35,12 +36,15 @@ type Options struct {
 	PclusterID          string
 	Logs                *logs.Options
 	SyncedResourceTypes []string
+
+	APIImportPollInterval time.Duration
 }
 
 func NewOptions() *Options {
 	return &Options{
-		SyncedResourceTypes: []string{},
-		Logs:                logs.NewOptions(),
+		SyncedResourceTypes:   []string{},
+		Logs:                  logs.NewOptions(),
+		APIImportPollInterval: 1 * time.Minute,
 	}
 }
 
@@ -52,6 +56,7 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.PclusterID, "workload-cluster-name", options.PclusterID,
 		fmt.Sprintf("ID of the -to cluster. Resources with this ID set in the '%s' label will be synced.", nscontroller.ClusterLabel))
 	fs.StringArrayVarP(&options.SyncedResourceTypes, "sync-resources", "r", options.SyncedResourceTypes, "Resources to be synchronized in kcp.")
+	fs.DurationVar(&options.APIImportPollInterval, "api-import-poll-interval", options.APIImportPollInterval, "Polling interval for API import.")
 
 	options.Logs.AddFlags(fs)
 }

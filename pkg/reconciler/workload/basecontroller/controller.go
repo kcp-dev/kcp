@@ -98,12 +98,6 @@ func NewClusterReconciler(
 	})
 
 	indexers := map[string]cache.IndexFunc{
-		GVRForLocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
-			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
-				return []string{GetGVRForLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport), apiResourceImport.GVR())}, nil
-			}
-			return []string{}, nil
-		},
 		LocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
 				return []string{GetLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport))}, nil

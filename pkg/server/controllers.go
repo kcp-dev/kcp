@@ -57,7 +57,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
-	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
@@ -400,37 +399,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		go organizationController.Start(ctx, 2)
 		go teamController.Start(ctx, 2)
 		go universalController.Start(ctx, 2)
-
-		return nil
-	})
-	return nil
-}
-
-func (s *Server) installWorkloadApiImportController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-apiimport-controller")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	c, err := clusterapiimporter.NewController(
-		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
-		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		s.options.Controllers.ApiImporter.ResourcesToSync,
-	)
-	if err != nil {
-		return err
-	}
-
-	s.AddPostStartHook("kcp-install-api-importer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			klog.Errorf("failed to finish post-start-hook kcp-install-api-importer-controller: %v", err)
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(ctx)
 
 		return nil
 	})
