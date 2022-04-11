@@ -38,8 +38,8 @@ func GetSyncing(kcpResource metav1.Object) Syncing {
 	syncing := make(Syncing, len(labels))
 	annotations := kcpResource.GetAnnotations()
 	for labelName, labelValue := range labels {
-		if strings.HasPrefix(labelName, v1alpha1.InternalClusterResourceStateLabelPrefix) {
-			syncTarget := strings.TrimPrefix(labelName, v1alpha1.InternalClusterResourceStateLabelPrefix)
+		if strings.HasPrefix(labelName, v1alpha1.ClusterResourceStateLabelPrefix) {
+			syncTarget := strings.TrimPrefix(labelName, v1alpha1.ClusterResourceStateLabelPrefix)
 			syncTargetSyncing := SyncTargetSyncing{
 				RequestedState: RequestedSyncingState(labelValue),
 				Detail:         annotations[SyncingTransformationAnnotationPrefix+syncTarget],

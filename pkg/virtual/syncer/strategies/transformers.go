@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transforming"
 )
 
 const (
@@ -47,7 +47,7 @@ func syncerViewTransformer(gvr schema.GroupVersionResource, syncStrategy SyncStr
 
 		// Update from a syncer view object (status) to the virtual workspace resource
 		func(client dynamic.ResourceInterface, ctx context.Context, newSyncerViewObject *unstructured.Unstructured, subresources ...string) (newKCPViewObject *unstructured.Unstructured, err error) {
-			workloadClusterName, err := syncercontext.WorkloadClusterNameFrom(ctx)
+			workloadClusterName, err := syncercontext.SyncTargetNameFrom(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -137,7 +137,7 @@ func syncerViewTransformer(gvr schema.GroupVersionResource, syncStrategy SyncStr
 			return newKCPViewObject, nil
 		},
 		func(client dynamic.ResourceInterface, ctx context.Context, returnedKCPResource *unstructured.Unstructured, eventType *watch.EventType, subresources ...string) (transformedSyncerViewResource *unstructured.Unstructured, err error) {
-			workloadClusterName, err := syncercontext.WorkloadClusterNameFrom(ctx)
+			workloadClusterName, err := syncercontext.SyncTargetNameFrom(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -229,7 +229,7 @@ func cleanupSyncTarget(gvr schema.GroupVersionResource) transforming.Transformer
 	return transforming.Transformer{
 		Name: "CleanupSyncTarget",
 		AfterUpdate: func(client dynamic.ResourceInterface, ctx context.Context, updatedKCPObject *unstructured.Unstructured, options metav1.UpdateOptions, subresources []string, result *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-			workloadClusterName, err := syncercontext.WorkloadClusterNameFrom(ctx)
+			workloadClusterName, err := syncercontext.SyncTargetNameFrom(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -246,7 +246,7 @@ func cleanupSyncTarget(gvr schema.GroupVersionResource) transforming.Transformer
 					updatedKCPObject.SetAnnotations(updatedKCPViewAnnotations)
 				}
 				if labels := updatedKCPObject.GetLabels(); labels != nil {
-					delete(labels, v1alpha1.InternalClusterResourceStateLabelPrefix+workloadClusterName)
+					delete(labels, v1alpha1.ClusterResourceStateLabelPrefix+workloadClusterName)
 					updatedKCPObject.SetLabels(labels)
 				}
 				if updated, err := client.Update(ctx, updatedKCPObject, metav1.UpdateOptions{}); err != nil {
