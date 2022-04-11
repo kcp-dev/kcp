@@ -467,3 +467,18 @@ func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite 
 
 	return nil
 }
+
+// EnableSyncer prepares a kcp workspace for use with a syncer and outputs the
+// configuration required to deploy a syncer to the pcluster to stdout.
+func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, syncerImage string, resourcesToSync []string) error {
+	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	_, err = EnableSyncer(ctx, config, workloadClusterName, syncerImage, resourcesToSync)
+	if err != nil {
+		return err
+	}
+	return nil
+}

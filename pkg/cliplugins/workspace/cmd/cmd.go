@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -34,7 +35,7 @@ var (
 
 	# enter a given workspace (this will change the current-context of your current KUBECONFIG)
 	%[1]s workspace use my-workspace
-	
+
 	# list all your personal workspaces
 	%[1]s workspace list
 
@@ -55,6 +56,9 @@ var (
 
 	# create a context with the current workspace, named context-name
 	%[1]s workspace create-context context-name
+
+	# enable a syncer for my-pcluster
+	%[1]s workspace enable-syncer my-pcluster
 `
 )
 
@@ -204,6 +208,43 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	}
 	createContextCmd.Flags().BoolVar(&overwriteContext, "overwrite", overwriteContext, "Overwrite the context if it already exists")
 
+	// TODO(marun) Maybe require secrets and serviceaccounts if deployments.apps is manually specified to ensure access to kcp api?
+	resourcesToSync := []string{"deployment.apps", "secrets", "configmaps", "serviceaccounts"}
+	var syncerImage string
+	enableSyncerCmd := &cobra.Command{
+		Use:          "enable-syncer <workload-cluster-name> [--sync-resources=<resource1>,<resource2>..]",
+		Short:        "Enable a syncer to be deployed for the named workload cluster",
+		Example:      "kcp workspace enable-syncer my-workload-cluster",
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
+
+			if len(args) != 1 {
+				return cmd.Help()
+			}
+
+			if len(resourcesToSync) == 0 {
+				return errors.New("One or more values must be specified for --sync-resources")
+			}
+
+			if len(syncerImage) == 0 {
+				return errors.New("A value must be specified for --syncer-image")
+			}
+
+			workloadClusterName := args[0]
+
+			return kubeconfig.EnableSyncer(c.Context(), workloadClusterName, syncerImage, resourcesToSync)
+		},
+	}
+	enableSyncerCmd.Flags().StringSliceVar(&resourcesToSync, "sync-resources", resourcesToSync, "Resources to synchronize with kcp.")
+	enableSyncerCmd.Flags().StringVar(&syncerImage, "image", syncerImage, "The syncer image to use in the syncer's deployment YAML.")
+
 	deleteCmd := &cobra.Command{
 		Use:          "delete",
 		Short:        "Replaced with \"kubectl delete workspace <workspace-name>\"",
@@ -220,6 +261,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	cmd.AddCommand(listCmd)
 	cmd.AddCommand(createCmd)
 	cmd.AddCommand(createContextCmd)
+	cmd.AddCommand(enableSyncerCmd)
 	cmd.AddCommand(deleteCmd)
 	return cmd, nil
 }
