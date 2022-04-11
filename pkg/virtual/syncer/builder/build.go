@@ -154,7 +154,15 @@ func BuildVirtualWorkspace(
 		},
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			genericTransformers := transforming.Transformers{}
-			typedTransformers := transforming.TypedTransformers{}
+
+			deployments := schema.GroupVersionResource{
+				Group:    "apps",
+				Version:  "v1",
+				Resource: "deployments",
+			}
+			typedTransformers := transforming.TypedTransformers{
+				deployments: strategies.StrategyTransformers(deployments, strategies.ScalableSpreadStrategy(deployments)),
+			}
 
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
