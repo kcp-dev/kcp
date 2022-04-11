@@ -420,7 +420,11 @@ const (
 var roleRules = map[RoleType][]rbacv1.PolicyRule{
 	OwnerRoleType: {
 		{
-			Verbs:     []string{"get", "delete"},
+			Verbs: []string{
+				"get",
+				// TODO: Allow deleting workspaces after kcp supports it
+				//"delete",
+			},
 			Resources: []string{"clusterworkspaces/workspace"},
 		},
 		{
@@ -683,28 +687,33 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		Name:            internalName,
 		ResourceRequest: true,
 	}
-	if decision, _, err := authz.Authorize(ctx, deleteWorkspaceAttr); err != nil {
+	if decision, reason, err := authz.Authorize(ctx, deleteWorkspaceAttr); err != nil {
 		klog.Errorf("failed to authorize user %q to %q clusterworkspaces/workspace name %q in %s", userInfo.GetName(), "delete", internalName, orgClusterName)
 		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
 	} else if decision != authorizer.DecisionAllow {
+		klog.Errorf("user %q lacks (%s) clusterworkspaces/workspace %q permission for %q in %s: %s", userInfo.GetName(), decisions[decision], "delete", internalName, orgClusterName, reason)
+		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
+
+		// TODO: Uncomment the following code that allows users with admin verb on content subresource to delete after workspace deletion is more stable
+		//
 		// check for admin verb on the content
-		contentAdminAttr := authorizer.AttributesRecord{
-			User:            userInfo,
-			Verb:            "admin",
-			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-			Resource:        "clusterworkspaces",
-			Subresource:     "content",
-			Name:            internalName,
-			ResourceRequest: true,
-		}
-		if decision, reason, err := authz.Authorize(ctx, contentAdminAttr); err != nil {
-			klog.Errorf("failed to authorize user %q to %q clusterworkspaces/content name %q in %s", userInfo.GetName(), "admin", internalName, orgClusterName)
-			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
-		} else if decision != authorizer.DecisionAllow {
-			klog.Errorf("user %q lacks (%s) clusterworkspaces/content %q permission and clusterworkspaces/workspace %s permission for %q in %s: %s", userInfo.GetName(), decisions[decision], "admin", "delete", internalName, orgClusterName, reason)
-			return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
-		}
+		// contentAdminAttr := authorizer.AttributesRecord{
+		// 	User:            userInfo,
+		// 	Verb:            "admin",
+		// 	APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+		// 	APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+		// 	Resource:        "clusterworkspaces",
+		// 	Subresource:     "content",
+		// 	Name:            internalName,
+		// 	ResourceRequest: true,
+		// }
+		// if decision, reason, err := authz.Authorize(ctx, contentAdminAttr); err != nil {
+		// 	klog.Errorf("failed to authorize user %q to %q clusterworkspaces/content name %q in %s", userInfo.GetName(), "admin", internalName, orgClusterName)
+		// 	return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
+		// } else if decision != authorizer.DecisionAllow {
+		// 	klog.Errorf("user %q lacks (%s) clusterworkspaces/content %q permission and clusterworkspaces/workspace %s permission for %q in %s: %s", userInfo.GetName(), decisions[decision], "admin", "delete", internalName, orgClusterName, reason)
+		// 	return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), internalName, fmt.Errorf("deletion in workspace %q is not allowed", orgClusterName))
+		// }
 	}
 
 	errorToReturn := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, internalName, *options)
