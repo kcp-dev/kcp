@@ -209,7 +209,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	createContextCmd.Flags().BoolVar(&overwriteContext, "overwrite", overwriteContext, "Overwrite the context if it already exists")
 
 	// TODO(marun) Maybe require secrets and serviceaccounts if deployments.apps is manually specified to ensure access to kcp api?
-	resourcesToSync := []string{"deployment.apps", "secrets", "configmaps", "serviceaccounts"}
+	resourcesToSync := []string{"deployment.apps.k8s.io/v1", "secrets/v1", "configmaps/v1", "serviceaccounts/v1"}
 	var syncerImage string
 	enableSyncerCmd := &cobra.Command{
 		Use:          "enable-syncer <workload-cluster-name> [--sync-resources=<resource1>,<resource2>..]",
@@ -243,7 +243,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 		},
 	}
 	enableSyncerCmd.Flags().StringSliceVar(&resourcesToSync, "sync-resources", resourcesToSync, "Resources to synchronize with kcp.")
-	enableSyncerCmd.Flags().StringVar(&syncerImage, "image", syncerImage, "The syncer image to use in the syncer's deployment YAML.")
+	enableSyncerCmd.Flags().StringVar(&syncerImage, "syncer-image", syncerImage, "The syncer image to use in the syncer's deployment YAML.")
 
 	deleteCmd := &cobra.Command{
 		Use:          "delete",

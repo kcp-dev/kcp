@@ -468,7 +468,7 @@ func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite 
 	return nil
 }
 
-// EnableSyncer prepares a kcp workspace for use with a syncer and outputs the
+// enableSyncer prepares a kcp workspace for use with a syncer and outputs the
 // configuration required to deploy a syncer to the pcluster to stdout.
 func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, syncerImage string, resourcesToSync []string) error {
 	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
@@ -476,9 +476,33 @@ func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, syn
 		return err
 	}
 
-	_, err = EnableSyncer(ctx, config, workloadClusterName, syncerImage, resourcesToSync)
+	kcpNamespaceName := "default"
+
+	args, err := enableSyncer(ctx, config, workloadClusterName, kcpNamespaceName)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	_, currentClusterName, err := parseClusterURL(config.Host)
+	if err != nil {
+		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+	}
+
+	input := templateInput{
+		syncerConfigArgs: *args,
+		KCPNamespace:     kcpNamespaceName,
+		FromCluster:      currentClusterName.String(),
+		WorkloadCluster:  workloadClusterName,
+		Image:            syncerImage,
+		ResourcesToSync:  resourcesToSync,
+		ServerURL:        config.Host,
+	}
+
+	resources, err := renderPClusterResources(input)
+	if err != nil {
+		return err
+	}
+
+	_, err = kc.Out.Write(resources)
+	return err
 }

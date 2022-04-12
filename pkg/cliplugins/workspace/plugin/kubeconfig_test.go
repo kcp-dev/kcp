@@ -849,7 +849,7 @@ func TestCreateContext(t *testing.T) {
 			},
 			overrides: &clientcmd.ConfigOverrides{
 				AuthInfo: clientcmdapi.AuthInfo{
-					Token: "new-token",
+					Token: "new-Token",
 				},
 			},
 			param: "",
