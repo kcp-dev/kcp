@@ -30,7 +30,6 @@ import (
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
@@ -38,14 +37,12 @@ import (
 type Controllers struct {
 	EnableAll                bool
 	IndividuallyEnabled      []string
-	ApiImporter              ApiImporterController
 	ApiResource              ApiResourceController
 	Syncer                   SyncerController
 	WorkloadClusterHeartbeat WorkloadClusterHeartbeatController
 	SAController             kcmoptions.SAControllerOptions
 }
 
-type ApiImporterController = apiimporter.Options
 type ApiResourceController = apiresource.Options
 type SyncerController = syncer.Options
 type WorkloadClusterHeartbeatController = heartbeat.Options
@@ -65,7 +62,6 @@ func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		ApiImporter:              *apiimporter.DefaultOptions(),
 		ApiResource:              *apiresource.DefaultOptions(),
 		Syncer:                   *syncer.DefaultOptions(),
 		WorkloadClusterHeartbeat: *heartbeat.DefaultOptions(),
@@ -79,7 +75,6 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&c.IndividuallyEnabled, "unsupported-run-individual-controllers", c.IndividuallyEnabled, "Run individual controllers in-process. The controller names can change at any time.")
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
-	apiimporter.BindOptions(&c.ApiImporter, fs)
 	apiresource.BindOptions(&c.ApiResource, fs)
 	syncer.BindOptions(&c.Syncer, fs)
 	heartbeat.BindOptions(&c.WorkloadClusterHeartbeat, fs)
@@ -116,9 +111,6 @@ func (c *Controllers) Complete(rootDir string) error {
 func (c *Controllers) Validate() []error {
 	var errs []error
 
-	if err := c.ApiImporter.Validate(); err != nil {
-		errs = append(errs, err)
-	}
 	if err := c.ApiResource.Validate(); err != nil {
 		errs = append(errs, err)
 	}

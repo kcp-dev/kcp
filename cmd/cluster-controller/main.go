@@ -33,8 +33,6 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
-	clusterapiimporter "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiimporter"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
 
@@ -42,7 +40,6 @@ const resyncPeriod = 10 * time.Hour
 
 func bindOptions(fs *pflag.FlagSet) *options {
 	o := options{
-		ApiImporterOptions: apiimporter.BindOptions(apiimporter.DefaultOptions(), fs),
 		ApiResourceOptions: apiresource.BindOptions(apiresource.DefaultOptions(), fs),
 		SyncerOptions:      syncer.BindOptions(syncer.DefaultOptions(), fs),
 	}
@@ -55,7 +52,6 @@ type options struct {
 	// standalone startup, we need to load credentials ourselves
 	kubeconfigPath string
 
-	ApiImporterOptions *apiimporter.Options
 	ApiResourceOptions *apiresource.Options
 	SyncerOptions      *syncer.Options
 }
@@ -63,9 +59,6 @@ type options struct {
 func (o *options) Validate() error {
 	if o.kubeconfigPath == "" {
 		return errors.New("--kubeconfig is required")
-	}
-	if err := o.ApiImporterOptions.Validate(); err != nil {
-		return err
 	}
 	if err := o.ApiResourceOptions.Validate(); err != nil {
 		return err
@@ -118,17 +111,6 @@ func main() {
 	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(config), resyncPeriod)
 	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(config), resyncPeriod)
 
-	apiImporter, err := clusterapiimporter.NewController(
-		kcpClusterClient,
-		kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
-		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		options.ApiImporterOptions.ResourcesToSync,
-	)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
 	apiResource, err := apiresource.NewController(
 		crdClusterClient,
 		kcpClusterClient,
@@ -167,7 +149,6 @@ func main() {
 	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
-	go apiImporter.Start(ctx)
 	go apiResource.Start(ctx, options.ApiResourceOptions.NumThreads)
 	if optionalSyncer != nil {
 		go optionalSyncer.Start(ctx)

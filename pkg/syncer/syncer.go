@@ -56,6 +56,9 @@ const (
 
 	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller
 	heartbeatInterval = 20 * time.Second
+
+	// TODO(marun) Ensure backoff rather than using a constant to avoid thundering herds
+	gvrQueryInterval = 1 * time.Second
 )
 
 // SyncDirection indicates which direction data is flowing for this particular syncer
@@ -67,15 +70,65 @@ const SyncDown SyncDirection = "down"
 // SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
 const SyncUp SyncDirection = "up"
 
-func StartSyncer(ctx context.Context, upstream, downstream *rest.Config, resources sets.String, kcpClusterName logicalcluster.LogicalCluster, pcluster string, numSyncerThreads int) error {
-	specSyncer, err := NewSpecSyncer(upstream, downstream, resources.List(), kcpClusterName, pcluster)
+func StartSyncer(
+	ctx context.Context,
+	upstream, downstream *rest.Config,
+	resources sets.String,
+	kcpClusterName logicalcluster.LogicalCluster,
+	pcluster string,
+	numSyncerThreads int,
+	importPollInterval time.Duration,
+) error {
+	// Start api import first because spec and status syncers are blocked by
+	// gvr discovery finding all the configured resource types in the kcp
+	// workspace.
+	apiImporter, err := NewAPIImporter(upstream, downstream, resources.List(), kcpClusterName, pcluster)
 	if err != nil {
 		return err
 	}
-	statusSyncer, err := NewStatusSyncer(downstream, upstream, resources.List(), kcpClusterName, pcluster)
+	go apiImporter.Start(ctx, importPollInterval)
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(upstream)
 	if err != nil {
 		return err
 	}
+	fromDiscovery := discoveryClient.WithCluster(kcpClusterName)
+
+	// Block syncer start on gvr discovery completing successfully and
+	// including the resources configured for syncing. The spec and status
+	// syncers depend on the types being present to start their informers.
+	var gvrs []string
+	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
+		klog.Info("Attempting to retrieve GVRs from kcp")
+
+		var err error
+		// Get all types the upstream API server knows about.
+		// TODO: watch this and learn about new types, or forget about old ones.
+		gvrs, err = getAllGVRs(fromDiscovery, resources.List()...)
+		// TODO(marun) Should some of these errors be fatal?
+		if err != nil {
+			klog.Errorf("Failed to retrieve GVRs from kcp: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		// Should never happen
+		return err
+	}
+
+	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", kcpClusterName, pcluster, resources.List())
+	specSyncer, err := NewSpecSyncer(upstream, downstream, gvrs, kcpClusterName, pcluster)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", kcpClusterName, pcluster, resources.List())
+	statusSyncer, err := NewStatusSyncer(downstream, upstream, gvrs, kcpClusterName, pcluster)
+	if err != nil {
+		return err
+	}
+
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 
@@ -135,7 +188,7 @@ type Controller struct {
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromDiscovery discovery.DiscoveryInterface, fromClient, toClient dynamic.Interface, direction SyncDirection, syncedResourceTypes []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
+func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -164,13 +217,7 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromDisc
 		o.LabelSelector = fmt.Sprintf("%s=%s", nscontroller.ClusterLabel, pclusterID)
 	})
 
-	// Get all types the upstream API server knows about.
-	// TODO: watch this and learn about new types, or forget about old ones.
-	gvrstrs, err := getAllGVRs(fromDiscovery, syncedResourceTypes...)
-	if err != nil {
-		return nil, err
-	}
-	for _, gvrstr := range gvrstrs {
+	for _, gvrstr := range gvrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 
 		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

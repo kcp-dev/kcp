@@ -75,7 +75,7 @@ func (m *pushSyncerManager) update(ctx context.Context, cluster *workloadv1alpha
 	kcpClusterName := logicalcluster.From(cluster)
 	klog.Infof("Starting syncer for clusterName %s to pcluster %s, resources %v", kcpClusterName, cluster.Name, groupResources)
 	syncerCtx, syncerCancel := context.WithCancel(ctx)
-	if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, kcpClusterName, cluster.Name, numSyncerThreads); err != nil {
+	if err := syncer.StartSyncer(syncerCtx, upstream, downstream, groupResources, kcpClusterName, cluster.Name, numSyncerThreads, 1*time.Minute); err != nil {
 		klog.Errorf("error starting syncer in push mode: %v", err)
 		conditions.MarkFalse(cluster, workloadv1alpha1.SyncerReady, workloadv1alpha1.ErrorStartingSyncerReason, conditionsv1alpha1.ConditionSeverityError, "Error starting syncer in push mode: %v", err.Error())
 

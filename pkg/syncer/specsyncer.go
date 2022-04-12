@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -66,19 +65,12 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 
 const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
-func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string) (*Controller, error) {
+func NewSpecSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = specSyncerAgent
 	to = rest.CopyConfig(to)
 	to.UserAgent = specSyncerAgent
 
-	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", kcpClusterName, pclusterID, syncedResourceTypes)
-
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(from)
-	if err != nil {
-		return nil, err
-	}
-	fromDiscovery := discoveryClient.WithCluster(kcpClusterName)
 	fromClients, err := dynamic.NewClusterForConfig(from)
 	if err != nil {
 		return nil, err
@@ -89,7 +81,7 @@ func NewSpecSyncer(from, to *rest.Config, syncedResourceTypes []string, kcpClust
 	// Register the default mutators
 	mutatorsMap := getDefaultMutators(from)
 
-	return New(kcpClusterName, pclusterID, fromDiscovery, fromClient, toClient, SyncDown, syncedResourceTypes, pclusterID, mutatorsMap)
+	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncDown, gvrs, pclusterID, mutatorsMap)
 }
 
 func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {

@@ -341,6 +341,9 @@ func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Con
 
 // Start starts the Syncer.
 func (sf *SyncerFixture) Start(t *testing.T, ctx context.Context) {
-	err := syncer.StartSyncer(ctx, sf.upstreamConfig, sf.downstreamConfig, sf.resources, sf.orgClusterName, sf.WorkloadClusterName, 2)
+	err := syncer.StartSyncer(ctx, sf.upstreamConfig, sf.downstreamConfig, sf.resources, sf.orgClusterName, sf.WorkloadClusterName, 2, 5*time.Second)
 	require.NoError(t, err, "syncer failed to start")
+
+	// The workload cluster becoming ready indicates the syncer has successfully heartbeat to kcp.
+	sf.WaitForClusterReadyReason(t, ctx, "")
 }

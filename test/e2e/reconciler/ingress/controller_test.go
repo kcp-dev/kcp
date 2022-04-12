@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -157,12 +158,11 @@ func TestIngressController(t *testing.T) {
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
 			)
 			require.NoError(t, err)
-			err = configcrds.CreateFromFS(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), embeddedResources,
+			kubefixtures.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 			)
-			require.NoError(t, err)
 
 			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
 			syncerFixture := framework.NewSyncerFixture(t, resources, source, orgClusterName, clusterName)
@@ -174,7 +174,7 @@ func TestIngressController(t *testing.T) {
 
 			// TODO(jmprusi): Remove this one once Kind e2e is a thing.
 			t.Logf("Installing test CRDs into sink cluster...")
-			err = configcrds.CreateFromFS(ctx, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), embeddedResources,
+			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
