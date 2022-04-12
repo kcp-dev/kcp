@@ -136,8 +136,9 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 			klog.Errorf("Error while creating namespace %q: %v", downstreamNamespace, err)
 			return err
 		}
+	} else {
+		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetNamespace())
 	}
-	klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetNamespace())
 
 	return nil
 }
