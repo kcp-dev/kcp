@@ -10,10 +10,9 @@ on:
       - 'release-*'
 
 jobs:
-  kcp-image:
+  build:
     if: github.repository_owner == 'kcp-dev'
-    name: Build and Publish KCP Image
-    environment: unstable
+    name: Build KCP Image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -44,6 +43,16 @@ jobs:
           registry: ghcr.io/${{ github.repository_owner }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
+  deploy:
+    if: "github.repository_owner == 'kcp-dev' && github.ref_name == 'main'"
+    name: Deploy KCP
+    environment: unstable
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the short sha
+        id: vars
+        run: echo "::set-output name=sha_short::$(echo ${{ github.sha }} | cut -b -7)"
 
       - name: Set up kubectl and kustomize
         run: |-
