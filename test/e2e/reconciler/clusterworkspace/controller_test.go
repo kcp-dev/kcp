@@ -19,6 +19,7 @@ package clusterworkspace
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -53,7 +54,24 @@ func TestWorkspaceController(t *testing.T) {
 		work        func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
-			name: "create a workspace with a shard, expect it to be scheduled",
+			name: "check the root workspace shard has the correct base URL",
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				cws, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, "root", metav1.GetOptions{})
+				require.NoError(t, err, "did not see root workspace shard")
+
+				err = server.rootExpectShard(cws, func(current *tenancyv1alpha1.ClusterWorkspaceShard) error {
+					if u, err := url.Parse(cws.Spec.BaseURL); err != nil {
+						return err
+					} else if cfg := server.RunningServer.DefaultConfig(t); u.Scheme+"://"+u.Host != cfg.Host {
+						return fmt.Errorf("expected ClusterWorkspaceShard baseURL to equal %q, got %q", cfg.Host, u.Host)
+					}
+					return nil
+				})
+				require.NoError(t, err, "did not see the root workspace shard updated with the expected base URL")
+			},
+		},
+		{
+			name: "create a workspace with the default shard, expect it to be scheduled",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				// note that the root shard always exists if not deleted
 

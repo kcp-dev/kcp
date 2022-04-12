@@ -28,6 +28,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 // Validate ClusterWorkspace creation and updates for
@@ -51,13 +52,13 @@ func Register(plugins *admission.Plugins) {
 type clusterWorkspaceShard struct {
 	*admission.Handler
 
-	externalAddress string
+	externalAddressProvider func() string
 }
 
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&clusterWorkspaceShard{})
 var _ = admission.MutationInterface(&clusterWorkspaceShard{})
-var _ = initializers.WantExternalAddress(&clusterWorkspaceShard{})
+var _ = initializers.WantsExternalAddressProvider(&clusterWorkspaceShard{})
 
 // Validate ensures that
 // - baseURL is set
@@ -98,11 +99,18 @@ func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attribute
 	}
 	cws := &tenancyv1alpha1.ClusterWorkspaceShard{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cws); err != nil {
-		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
+		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceShard: %w", err)
 	}
 
 	if cws.Spec.BaseURL == "" {
-		cws.Spec.BaseURL = "https://" + o.externalAddress
+		if o.externalAddressProvider == nil {
+			return fmt.Errorf("cannot default baseURL for ClusterWorkspaceShard %q: no external address provider", tenancyhelper.QualifiedObjectName(cws))
+		}
+		if externalAddress := o.externalAddressProvider(); externalAddress == "" {
+			return fmt.Errorf("cannot default baseURL for ClusterWorkspaceShard %q: external address is nil", tenancyhelper.QualifiedObjectName(cws))
+		} else {
+			cws.Spec.BaseURL = "https://" + externalAddress
+		}
 	}
 	if cws.Spec.ExternalURL == "" {
 		cws.Spec.ExternalURL = cws.Spec.BaseURL
@@ -117,6 +125,6 @@ func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attribute
 	return nil
 }
 
-func (o *clusterWorkspaceShard) SetExternalAddress(externalAddress string) {
-	o.externalAddress = externalAddress
+func (o *clusterWorkspaceShard) SetExternalAddressProvider(externalAddressProvider func() string) {
+	o.externalAddressProvider = externalAddressProvider
 }
