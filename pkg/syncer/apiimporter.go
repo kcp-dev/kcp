@@ -166,7 +166,7 @@ func (i *APIImporter) Stop() {
 }
 
 func (i *APIImporter) ImportAPIs(ctx context.Context) {
-	klog.Infof("Importing APIs from location %s in logical cluster %s", i.location, i.logicalClusterName)
+	klog.Infof("Importing APIs from location %s in logical cluster %s (resources=%v)", i.location, i.logicalClusterName, i.resourcesToSync)
 	crds, err := i.schemaPuller.PullCRDs(ctx, i.resourcesToSync...)
 	if err != nil {
 		klog.Errorf("error pulling CRDs: %v", err)

@@ -99,7 +99,7 @@ func StartSyncer(
 	// syncers depend on the types being present to start their informers.
 	var gvrs []string
 	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
-		klog.Info("Attempting to retrieve GVRs from kcp")
+		klog.Info("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", kcpClusterName, pcluster)
 
 		var err error
 		// Get all types the upstream API server knows about.
