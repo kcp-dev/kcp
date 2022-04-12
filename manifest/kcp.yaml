@@ -130,6 +130,7 @@ spec:
         - --oidc-username-claim=preferred_username
         - "--oidc-username-prefix=rh-sso:"
         - "--oidc-groups-prefix=rh-sso:"
+        - --v=2
         env:
         - name: EXTERNAL_HOSTNAME
           value: kcp
