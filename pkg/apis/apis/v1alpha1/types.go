@@ -162,9 +162,6 @@ const (
 	APIExportInvalidReferenceReason = "APIExportInvalidReference"
 	// APIExportNotFoundReason is a reason for the APIExportValid condition that the referenced APIExport is not found.
 	APIExportNotFoundReason = "APIExportNotFound"
-	// APIExportIdentityMismatch is a reason for APIExportValid condition that the referenced APIExport has a different identity than
-	// the existin bound APIResourceSchemas.
-	APIExportIdentityMismatch = "APIExportIdentityMismatch"
 
 	// InternalErrorReason is a reason used by multiple conditions that something went wrong.
 	InternalErrorReason = "InternalError"
@@ -183,6 +180,22 @@ const (
 	// NamingConflictsReason is a reason for the BindingUpToDate condition that at least one API coming in from the APIBinding
 	// has a naming conflict with other APIs.
 	NamingConflictsReason = "NamingConflicts"
+)
+
+// These are annotations for bound CRDs
+const (
+	// AnnotationBoundCRDKey is the annotation key that indicates a CRD is for an APIExport (a "bound CRD").
+	AnnotationBoundCRDKey = "apis.kcp.dev/bound-crd"
+	// AnnotationSchemaClusterKey is the annotation key for a bound CRD indicating the cluster name of the
+	// APIResourceSchema for the CRD.
+	AnnotationSchemaClusterKey = "apis.kcp.dev/schema-cluster"
+	// AnnotationSchemaNameKey is the annotation key for a bound CRD indicating the name of the APIResourceSchema for
+	// the CRD.
+	AnnotationSchemaNameKey = "apis.kcp.dev/schema-name"
+	// AnnotationAPIIdentityKey is the annotation key for a bound CRD indicating the identity hash of the APIExport
+	// for the request. This data is synthetic; it is not stored in etcd and instead is only applied when retrieving
+	// CRs for the CRD.
+	AnnotationAPIIdentityKey = "apis.kcp.dev/identity"
 )
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..
@@ -250,6 +263,20 @@ type APIBindingList struct {
 
 	Items []APIBinding `json:"items"`
 }
+
+// These are valid conditions of APIExport.
+const (
+	APIExportIdentityValid conditionsv1alpha1.ConditionType = "IdentityValid"
+
+	IdentityVerificationFailedReason = "IdentityVerificationFailed"
+	IdentityGenerationFailedReason   = "IdentityGenerationFailed"
+)
+
+// These are for APIExport identity.
+const (
+	// SecretKeyAPIExportIdentity is the key in an identity secret for the identity of an APIExport.
+	SecretKeyAPIExportIdentity = "key"
+)
 
 // APIExport registers an API and implementation to allow consumption by others
 // through APIBindings.

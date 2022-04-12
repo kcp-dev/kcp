@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -91,11 +92,13 @@ func NewController(
 
 		namespaceContentsEnqueuedForMap: map[string]string{},
 	}
+
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueCluster(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueCluster(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueCluster(obj) },
 	})
+
 	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filterNamespace,
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -114,11 +117,13 @@ func NewController(
 			},
 		},
 	})
+
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueWorkspace(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkspace(obj) },
 		DeleteFunc: nil, // Nothing to do.
 	})
+
 	// Always do a * list/watch
 	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster(logicalcluster.Wildcard),
 		filterResource,
@@ -386,24 +391,34 @@ func (c *Controller) processCluster(ctx context.Context, key string) error {
 		// convergence if cluster deletion events are missed by this
 		// controller. Rescheduling will always happen eventually due
 		// to namespace informer resync.
-		return c.enqueueNamespaces(ctx, labels.Everything())
+
+		clusterName, err := request.ClusterNameFrom(ctx)
+		if err != nil {
+			klog.Errorf("Unable to enqueue namespaces related to WorkloadCluster %s: %v", key, err)
+			return nil
+		}
+
+		return c.enqueueNamespaces(clusterName, labels.Everything())
 	} else if err != nil {
 		return err
 	}
+
 	return c.observeCluster(ctx, cluster.DeepCopy())
 }
 
 func (c *Controller) processWorkspace(ctx context.Context, key string) error {
-	_, err := c.workspaceLister.Get(key)
+	workspace, err := c.workspaceLister.Get(key)
 	if k8serrors.IsNotFound(err) {
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 
 	// Ensure any workspace changes result in contained namespaces being enqueued
 	// for possible rescheduling.
-	//
-	// TODO(marun) Enqueue only the namespaces in the workspace.
-	return c.enqueueNamespaces(ctx, labels.Everything())
+
+	clusterName := logicalcluster.From(workspace)
+
+	return c.enqueueNamespaces(clusterName, labels.Everything())
 }

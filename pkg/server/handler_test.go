@@ -19,6 +19,8 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -27,6 +29,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"sigs.k8s.io/yaml"
 )
 
@@ -89,6 +93,133 @@ func TestReCluster(t *testing.T) {
 			if got := reClusterName.MatchString(tt.cluster); got != tt.valid {
 				t.Errorf("reCluster.MatchString(%q) = %v, want %v", tt.cluster, got, tt.valid)
 			}
+		})
+	}
+}
+
+func TestProcessResourceIdentity(t *testing.T) {
+	tests := map[string]struct {
+		path             string
+		expectError      bool
+		expectedPath     string
+		expectedResource string
+		expectedIdentity string
+	}{
+		"/api - not a resource request": {
+			path:         "/api",
+			expectedPath: "/api",
+		},
+		"/apis - not a resource request": {
+			path:         "/apis",
+			expectedPath: "/apis",
+		},
+		"legacy - without identity - list all": {
+			path:             "/api/v1/pods",
+			expectedPath:     "/api/v1/pods",
+			expectedResource: "pods",
+		},
+		"legacy - with identity - list all": {
+			path:             "/api/v1/pods:abcd1234",
+			expectedPath:     "/api/v1/pods",
+			expectedResource: "pods",
+			expectedIdentity: "abcd1234",
+		},
+		"legacy - without identity - list namespace": {
+			path:             "/api/v1/namespaces/default/pods",
+			expectedPath:     "/api/v1/namespaces/default/pods",
+			expectedResource: "pods",
+		},
+		"legacy - with identity - list namespace": {
+			path:             "/api/v1/namespaces/default/pods:abcd1234",
+			expectedPath:     "/api/v1/namespaces/default/pods",
+			expectedResource: "pods",
+			expectedIdentity: "abcd1234",
+		},
+		"legacy - without identity - single pod": {
+			path:             "/api/v1/namespaces/default/pods/foo",
+			expectedPath:     "/api/v1/namespaces/default/pods/foo",
+			expectedResource: "pods",
+		},
+		"legacy - with identity - single pod": {
+			path:             "/api/v1/namespaces/default/pods:abcd1234/foo",
+			expectedPath:     "/api/v1/namespaces/default/pods/foo",
+			expectedResource: "pods",
+			expectedIdentity: "abcd1234",
+		},
+		"apis - without identity - list all": {
+			path:             "/apis/somegroup.io/v1/pods",
+			expectedPath:     "/apis/somegroup.io/v1/pods",
+			expectedResource: "pods",
+		},
+		"apis - with identity - list all": {
+			path:             "/apis/somegroup.io/v1/pods:abcd1234",
+			expectedPath:     "/apis/somegroup.io/v1/pods",
+			expectedResource: "pods",
+			expectedIdentity: "abcd1234",
+		},
+		"apis - without identity - list namespace": {
+			path:             "/apis/somegroup.io/v1/namespaces/default/pods",
+			expectedPath:     "/apis/somegroup.io/v1/namespaces/default/pods",
+			expectedResource: "pods",
+		},
+		"apis - with identity - list namespace": {
+			path:             "/apis/somegroup.io/v1/namespaces/default/pods:abcd1234",
+			expectedPath:     "/apis/somegroup.io/v1/namespaces/default/pods",
+			expectedResource: "pods",
+			expectedIdentity: "abcd1234",
+		},
+		"apis - without identity - single pod": {
+			path:             "/apis/somegroup.io/v1/namespaces/default/pods/foo",
+			expectedPath:     "/apis/somegroup.io/v1/namespaces/default/pods/foo",
+			expectedResource: "pods",
+		},
+		"apis - with identity - single pod": {
+			path:             "/apis/somegroup.io/v1/namespaces/default/pods:abcd1234/foo",
+			expectedPath:     "/apis/somegroup.io/v1/namespaces/default/pods/foo",
+			expectedResource: "pods",
+			expectedIdentity: "abcd1234",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			url, err := url.Parse(test.path)
+			require.NoError(t, err, "error parsing path %q to URL", test.path)
+
+			checkRawPath := url.RawPath != ""
+
+			req := &http.Request{
+				URL:    url,
+				Method: "GET",
+			}
+
+			requestInfoFactory := &request.RequestInfoFactory{
+				APIPrefixes:          sets.NewString("api", "apis"),
+				GrouplessAPIPrefixes: sets.NewString("api"),
+			}
+
+			requestInfo, err := requestInfoFactory.NewRequestInfo(req)
+			require.NoError(t, err, "error creating requestInfo")
+
+			req, err = processResourceIdentity(req, requestInfo)
+			if test.expectError {
+				require.Errorf(t, err, "expected error")
+				return
+			}
+
+			require.NoError(t, err, "unexpected error")
+
+			require.Equal(t, test.expectedPath, req.URL.Path, "unexpected req.URL.Path")
+			if checkRawPath {
+				require.Equal(t, test.expectedPath, req.URL.RawPath, "unexpected req.URL.RawPath")
+			} else {
+				require.Empty(t, req.URL.RawPath, "RawPath should be empty")
+			}
+
+			require.Equal(t, test.expectedResource, requestInfo.Resource, "unexpected requestInfo.Resource")
+
+			identity := IdentityFromContext(req.Context())
+			require.Equal(t, test.expectedIdentity, identity, "unexpected identity")
 		})
 	}
 }

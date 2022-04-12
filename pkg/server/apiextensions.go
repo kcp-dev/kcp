@@ -23,22 +23,20 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions"
-	apiextensionsinformerv1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
@@ -61,7 +59,7 @@ type systemCRDProvider struct {
 	orgCRDs       sets.String
 	universalCRDs sets.String
 
-	getClusterWorkspace func(ctx context.Context, key string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
 	getCRD              func(key string) (*apiextensionsv1.CustomResourceDefinition, error)
 }
 
@@ -70,7 +68,7 @@ type systemCRDProvider struct {
 //              using APIBindings. For now, this is our way to enforce to have no schema drift of these CRDs
 //              as that would break wildcard informers.
 func newSystemCRDProvider(
-	getClusterWorkspace func(ctx context.Context, key string) (*tenancyv1alpha1.ClusterWorkspace, error),
+	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error),
 	getCRD func(key string) (*apiextensionsv1.CustomResourceDefinition, error),
 ) *systemCRDProvider {
 	p := &systemCRDProvider{
@@ -119,10 +117,10 @@ func newSystemCRDProvider(
 	return p
 }
 
-func (p *systemCRDProvider) List(ctx context.Context, clusterName logicalcluster.LogicalCluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+func (p *systemCRDProvider) List(clusterName logicalcluster.LogicalCluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	var ret []*apiextensionsv1.CustomResourceDefinition
 
-	for _, key := range p.Keys(ctx, clusterName).List() {
+	for _, key := range p.Keys(clusterName).List() {
 		crd, err := p.getCRD(key)
 		if err != nil {
 			klog.Errorf("Failed to get CRD %s for %s: %v", key, clusterName, err)
@@ -136,14 +134,14 @@ func (p *systemCRDProvider) List(ctx context.Context, clusterName logicalcluster
 	return ret, nil
 }
 
-func (p *systemCRDProvider) Keys(ctx context.Context, clusterName logicalcluster.LogicalCluster) sets.String {
+func (p *systemCRDProvider) Keys(clusterName logicalcluster.LogicalCluster) sets.String {
 	switch {
 	case clusterName == tenancyv1alpha1.RootCluster:
 		return p.rootCRDs
 	case clusterName.HasPrefix(tenancyv1alpha1.RootCluster):
 		parent, ws := clusterName.Split()
 		workspaceKey := clusters.ToClusterAwareKey(parent, ws)
-		clusterWorkspace, err := p.getClusterWorkspace(ctx, workspaceKey)
+		clusterWorkspace, err := p.getClusterWorkspace(workspaceKey)
 		if err != nil {
 			// this shouldn't happen. The getters use quorum-read client on cache-miss.
 			klog.Errorf("error getting cluster workspace %q: %v", workspaceKey, err)
@@ -163,25 +161,22 @@ func (p *systemCRDProvider) Keys(ctx context.Context, clusterName logicalcluster
 
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
-	kcpClusterClient  kcpclientset.ClusterInterface
-	crdLister         apiextensionslisters.CustomResourceDefinitionLister
-	workspaceLister   tenancylisters.ClusterWorkspaceLister
-	apiBindingLister  apislisters.APIBindingLister
-	systemCRDProvider *systemCRDProvider
+	kcpClusterClient     kcpclientset.ClusterInterface
+	crdLister            apiextensionslisters.CustomResourceDefinitionLister
+	workspaceLister      tenancylisters.ClusterWorkspaceLister
+	apiBindingLister     apislisters.APIBindingLister
+	apiBindingIndexer    cache.Indexer
+	apiExportIndexer     cache.Indexer
+	systemCRDProvider    *systemCRDProvider
+	getAPIResourceSchema func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
-var _ apiextensionslisters.CustomResourceDefinitionLister = (*apiBindingAwareCRDLister)(nil)
+var _ kcp.ClusterAwareCRDLister = &apiBindingAwareCRDLister{}
 
-// List lists those CustomResourceDefinitions in the underlying store matching selector. This method does not
-// support scoping to logical clusters or APIBindings.
-func (c *apiBindingAwareCRDLister) List(selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdLister.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all CustomResourceDefinitions that come in via APIBindings as well as all in the current
-// logical cluster.
-func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
+// List lists all CustomResourceDefinitions that come in via APIBindings as well as all in the current
+// logical cluster retrieved from the context.
+func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+	clusterName, err := request.ClusterNameFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -190,10 +185,19 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 		return crd.Spec.Names.Plural + "." + crd.Spec.Group
 	}
 
+	selectAll := selector.Empty()
+	matchesSelector := func(crd *apiextensionsv1.CustomResourceDefinition) bool {
+		if selectAll {
+			return true
+		}
+
+		return selector.Matches(labels.Set(crd.Labels))
+	}
+
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
-	kcpSystemCRDs, err := c.systemCRDProvider.List(ctx, cluster.Name)
+	kcpSystemCRDs, err := c.systemCRDProvider.List(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
@@ -204,14 +208,14 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 		seen.Insert(crdName(kcpSystemCRDs[i]))
 	}
 
-	apiBindings, err := c.apiBindingLister.ListWithContext(ctx, labels.Everything())
+	apiBindings, err := c.apiBindingLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO(sttts): optimize this looping by using an informer index
 	for _, apiBinding := range apiBindings {
-		if logicalcluster.From(apiBinding) != cluster.Name {
+		if logicalcluster.From(apiBinding) != clusterName {
 			continue
 		}
 		if !conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
@@ -220,9 +224,13 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			crdKey := clusters.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundResource.Schema.UID)
-			crd, err := c.crdLister.GetWithContext(ctx, crdKey)
+			crd, err := c.crdLister.Get(crdKey)
 			if err != nil {
 				klog.Errorf("Error getting bound CRD %q: %v", crdKey, err)
+				continue
+			}
+
+			if !matchesSelector(crd) {
 				continue
 			}
 
@@ -234,18 +242,25 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 			}
 
 			// Priority 2: Add APIBinding CRDs. These take priority over those from the local workspace.
+
+			// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
+			// the correct etcd resource prefix.
+			crd = shallowCopyCRD(crd)
+			crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = boundResource.Schema.IdentityHash
+
 			ret = append(ret, crd)
 			seen.Insert(crdName(crd))
 		}
 	}
 
-	crds, err := c.crdLister.List(labels.Everything())
+	// TODO use scoping lister when available
+	crds, err := c.crdLister.List(selector)
 	if err != nil {
 		return nil, err
 	}
 	for i := range crds {
 		crd := crds[i]
-		if logicalcluster.From(crd) != cluster.Name {
+		if logicalcluster.From(crd) != clusterName {
 			continue
 		}
 
@@ -262,117 +277,240 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 	return ret, nil
 }
 
-// Get gets a CustomResourceDefinitions in the underlying store by name. This method does not
-// support scoping to logical clusters or workspace inheritance.
-func (c *apiBindingAwareCRDLister) Get(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdLister.GetWithContext(context.Background(), name)
+func isPartialMetadataRequest(ctx context.Context) bool {
+	if accept := ctx.Value(acceptHeaderContextKey).(string); len(accept) > 0 {
+		if _, params, err := mime.ParseMediaType(accept); err == nil {
+			return params["as"] == "PartialObjectMetadata" || params["as"] == "PartialObjectMetadataList"
+		}
+	}
+
+	return false
 }
 
-// GetWithContext gets a CustomResourceDefinitions in the logical cluster associated with ctx by
-// name. ClusterWorkspace API inheritance is also supported: if ctx's logical cluster does not contain the
-// CRD, and if the ClusterWorkspace for ctx's logical cluster has spec.inheritFrom set, it will try to find
-// the CRD in the referenced ClusterWorkspace/logical cluster.
-func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
+func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+	crdKey := clusters.ToClusterAwareKey(logicalcluster.From(crd), crd.Name)
+
+	updatedCRD, err := c.crdLister.Get(crdKey)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.HasSuffix(name, ".") {
-		name = name + "core"
+	// Start with a shallow copy
+	refreshed := shallowCopyCRD(updatedCRD)
+
+	// If crd has the identity annotation, make sure it's added to refreshed
+	if identity := crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey]; identity != "" {
+		refreshed.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = identity
 	}
 
+	// If crd was only partial metadata, make sure refreshed is too
+	if _, partialMetadata := crd.Annotations[annotationKeyPartialMetadata]; partialMetadata {
+		partialMetadataCRD(refreshed)
+	}
+
+	return refreshed, nil
+}
+
+// Get gets a CustomResourceDefinition.
+func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	var (
+		crd *apiextensionsv1.CustomResourceDefinition
+		err error
+	)
+
+	clusterName, err := request.ClusterNameFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Priority 1: system CRD
+	crd, err = c.getSystemCRD(clusterName, name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+
+	if crd == nil {
+		// Not a system CRD
+
+		if identity := IdentityFromContext(ctx); identity != "" {
+			// Priority 2: identity request
+			crd, err = c.getForIdentity(name, identity)
+		} else if isPartialMetadataRequest(ctx) {
+			// Priority 3: partial metadata
+			crd, err = c.getForPartialMetadata(name)
+		} else {
+			// Priority 4: full data
+			crd, err = c.getForFullData(clusterName, name)
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if isPartialMetadataRequest(ctx) {
+		crd = shallowCopyCRD(crd)
+		partialMetadataCRD(crd)
+	}
+
+	return crd, nil
+}
+
+// shallowCopyCRD makes a shallow copy of in, with a deep copy of in.ObjectMeta.Annotations.
+func shallowCopyCRD(in *apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
+	out := *in
+
+	out.Annotations = make(map[string]string)
+
+	for k, v := range in.Annotations {
+		out.Annotations[k] = v
+	}
+
+	return &out
+}
+
+// partialMetadataCRD modifies CRD and replaces all version schemas with minimal ones suitable for partial object
+// metadata.
+func partialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
+	crd.Annotations[annotationKeyPartialMetadata] = ""
+
+	// set minimal schema that prunes everything but ObjectMeta
+	for _, v := range crd.Spec.Versions {
+		v.Schema = &apiextensionsv1.CustomResourceValidation{
+			OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+				Type: "object",
+			},
+		}
+	}
+}
+
+func (c *apiBindingAwareCRDLister) getForFullData(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	if clusterName == logicalcluster.Wildcard {
+		return c.getWildcard(name)
+	}
+
+	return c.get(clusterName, name)
+}
+
+func (c *apiBindingAwareCRDLister) getWildcard(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	// TODO use an index by group+resource
+	crds, err := c.crdLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	crd, equivalentSchemas := findCRD(name, crds)
+	if !equivalentSchemas {
+		err = apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
+		return nil, err
+	}
+
+	if crd == nil {
+		return nil, errors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+	}
+
+	return crd, nil
+}
+
+// getForIdentity handles finding the right CRD for an incoming wildcard request with identity, such as
+// /clusters/*/apis/$group/$version/$resource:$identity.
+func (c *apiBindingAwareCRDLister) getForIdentity(name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	group, resource := crdNameToGroupResource(name)
+
+	indexKey := apibinding.IdentityGroupResourceKeyFunc(identity, group, resource)
+
+	apiBindings, err := c.apiBindingIndexer.ByIndex(apibinding.IndexAPIBindingsByIdentityGroupResource, indexKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(apiBindings) == 0 {
+		return nil, errors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+	}
+
+	// TODO(ncdc): if there are multiple bindings that match on identity/group/resource, do we need to consider some
+	// sort of greatest-common-denominator for the CRD/schema?
+	apiBinding := apiBindings[0].(*apisv1alpha1.APIBinding)
+
+	var boundCRDName string
+
+	for _, r := range apiBinding.Status.BoundResources {
+		if r.Group == group && r.Resource == resource && r.Schema.IdentityHash == identity {
+			boundCRDName = r.Schema.UID
+			break
+		}
+	}
+
+	if boundCRDName == "" {
+		return nil, errors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+	}
+
+	crdKey := clusters.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundCRDName)
+	crd, err := c.crdLister.Get(crdKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
+	// the correct etcd resource prefix. Use a shallow copy because deep copy is expensive (but deep copy the annotations).
+	crd = shallowCopyCRD(crd)
+	crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = identity
+
+	return crd, nil
+}
+
+const annotationKeyPartialMetadata = "crd.kcp.dev/partial-metadata"
+
+func (c *apiBindingAwareCRDLister) getForPartialMetadata(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	// TODO add index on CRDs by group+resource
+	crds, err := c.crdLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	group, resource := crdNameToGroupResource(name)
+
+	crd := findFirstCRDMatchingGroupResource(group, resource, crds)
+	if crd == nil {
+		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+	}
+
+	return crd, nil
+}
+
+func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	if clusterName == logicalcluster.Wildcard {
+		systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
+		return c.crdLister.Get(systemCRDKeyName)
+	}
+
+	systemCRDKeys := c.systemCRDProvider.Keys(clusterName)
+
+	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
+
+	if !systemCRDKeys.Has(systemCRDKeyName) {
+		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+	}
+
+	return c.crdLister.Get(systemCRDKeyName)
+}
+
+func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 
-	if cluster.Wildcard {
-		// HACK: Search for the right logical cluster hosting the given CRD when watching or listing with wildcards.
-		// This is a temporary fix for issue https://github.com/kcp-dev/kcp/issues/183: One cannot watch with wildcards
-		// (across logical clusters) if the CRD of the related API Resource hasn't been added in the root logical cluster first.
-		// The fix in this HACK is limited since the request will fail if 2 logical clusters contain CRDs for the same GVK
-		// with non-equal specs (especially non-equal schemas).
-		var crds []*apiextensionsv1.CustomResourceDefinition
-		crds, err = c.crdLister.List(labels.Everything())
-		if err != nil {
-			return nil, err
-		}
+	// Priority 1: see if it comes from any APIBindings
+	group, resource := crdNameToGroupResource(name)
 
-		// for PartialObjectMetadata we weaken the schema requirement and let requests through although the schemas differ
-		pruneEverythingButObjectMeta := false
-		if accept := ctx.Value(acceptHeaderContextKey).(string); len(accept) > 0 {
-			if _, params, err := mime.ParseMediaType(accept); err == nil {
-				pruneEverythingButObjectMeta = params["as"] == "PartialObjectMetadata" || params["as"] == "PartialObjectMetadataList"
-			}
-		}
-
-		var crd *apiextensionsv1.CustomResourceDefinition
-		if pruneEverythingButObjectMeta {
-			crd := findCRDIgnoringSpec(name, crds)
-			if crd != nil {
-				crd := crd.DeepCopy()
-				// set minimal schema that prunes everything but ObjectMeta
-				for _, v := range crd.Spec.Versions {
-					v.Schema = &apiextensionsv1.CustomResourceValidation{
-						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
-							Type: "object",
-						},
-					}
-				}
-				return crd, nil
-			}
-		} else {
-			var equal bool // true if all the found CRDs have the same spec
-			crd, equal = findCRD(name, crds)
-			if !equal {
-				err = apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
-				return nil, err
-			}
-		}
-
-		if crd == nil {
-			return nil, apierrors.NewNotFound(schema.GroupResource{Group: apiextensionsv1.SchemeGroupVersion.Group, Resource: "customresourcedefinitions"}, name)
-		}
-
-		return crd, nil
-	}
-
-	// Priority 1: see in system CRDs
-	systemCRDKeys := c.systemCRDProvider.Keys(ctx, cluster.Name)
-	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
-	if systemCRDKeys.Has(systemCRDKeyName) {
-		crd, err = c.crdLister.Get(systemCRDKeyName)
-		if err != nil && !apierrors.IsNotFound(err) {
-			// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.
-			return nil, err
-		}
-
-		if crd != nil {
-			return crd, nil
-		}
-
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: apiextensionsv1.SchemeGroupVersion.Group, Resource: "customresourcedefinitions"}, name)
-	}
-
-	// Priority 2: see if it comes from any APIBindings
-	parts := strings.SplitN(name, ".", 2)
-	resource, group := parts[0], parts[1]
-
-	// TODO(ncdc): APIResourceSchema requires that its group be "" for the core group,
-	// See if we can unify things.
-	if group == "core" {
-		group = ""
-	}
-
-	apiBindings, err := c.apiBindingLister.ListWithContext(ctx, labels.Everything())
+	// TODO use scoped lister when ready
+	apiBindings, err := c.apiBindingLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	for _, apiBinding := range apiBindings {
-		if logicalcluster.From(apiBinding) != cluster.Name {
+		if logicalcluster.From(apiBinding) != clusterName {
 			continue
 		}
-		if apiBinding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
-			// TODO(ncdc): what if it's in the middle of rebinding and it takes some time - we won't include any
-			// CRDs that were previously bound...
+		if !conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 			continue
 		}
 
@@ -388,13 +526,19 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 					// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.
 					return nil, err
 				}
+
+				// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
+				// the correct etcd resource prefix.
+				crd = shallowCopyCRD(crd)
+				crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = boundResource.Schema.IdentityHash
+
 				return crd, nil
 			}
 		}
 	}
 
-	// Priority 3: see if it exists in the current logical cluster
-	crdKey := clusters.ToClusterAwareKey(cluster.Name, name)
+	// Priority 2: see if it exists in the current logical cluster
+	crdKey := clusters.ToClusterAwareKey(clusterName, name)
 	crd, err = c.crdLister.Get(crdKey)
 	if err != nil && !apierrors.IsNotFound(err) {
 		// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.
@@ -410,16 +554,10 @@ func (c *apiBindingAwareCRDLister) GetWithContext(ctx context.Context, name stri
 
 // findCRD tries to locate a CRD named crdName in crds. It returns the located CRD, if any, and a bool
 // indicating that if there were multiple matches, they all have the same spec (true) or not (false).
-func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, bool) {
+func findCRD(name string, crds []*apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, bool) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 
-	parts := strings.SplitN(crdName, ".", 2)
-	resource := parts[0]
-	group := parts[1]
-
-	if group == "core" {
-		group = ""
-	}
+	group, resource := crdNameToGroupResource(name)
 
 	for _, aCRD := range crds {
 		if aCRD.Spec.Group != group || aCRD.Spec.Names.Plural != resource {
@@ -430,8 +568,6 @@ func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (
 			crd = aCRD
 		} else {
 			if !equality.Semantic.DeepEqual(crd.Spec, aCRD.Spec) {
-				//TODO(jmprusi): Review the logging level (https://github.com/kcp-dev/kcp/pull/328#discussion_r770683200)
-				klog.Infof("Found multiple CRDs with the same name group.resource %s.%s, but different specs: %v", group, resource, cmp.Diff(crd.Spec, aCRD.Spec))
 				return nil, false
 			}
 		}
@@ -440,115 +576,32 @@ func findCRD(crdName string, crds []*apiextensionsv1.CustomResourceDefinition) (
 	return crd, true
 }
 
-func findCRDIgnoringSpec(name string, crds []*apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
-	for _, aCRD := range crds {
-		if aCRD.Name == name {
-			return aCRD
+func findFirstCRDMatchingGroupResource(group, resource string, crds []*apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
+	for _, crd := range crds {
+		if _, bound := crd.Annotations[apisv1alpha1.AnnotationBoundCRDKey]; bound {
+			continue
+		}
+
+		if crd.Spec.Group == group && crd.Spec.Names.Plural == resource {
+			return crd
 		}
 	}
 
 	return nil
 }
 
-// kcpAPIExtensionsSharedInformerFactory wraps the apiextensionsinformers.SharedInformerFactory so
-// we can supply our own inheritance-aware CRD lister.
-type kcpAPIExtensionsSharedInformerFactory struct {
-	apiextensionsexternalversions.SharedInformerFactory
-	kcpClusterClient kcpclientset.ClusterInterface
-	workspaceLister  tenancylisters.ClusterWorkspaceLister
-	apiBindingLister apislisters.APIBindingLister
-}
+func crdNameToGroupResource(name string) (group, resource string) {
+	parts := strings.SplitN(name, ".", 2)
 
-// Apiextensions returns an apiextensions.Interface that supports inheritance when getting and
-// listing CRDs.
-func (f *kcpAPIExtensionsSharedInformerFactory) Apiextensions() apiextensions.Interface {
-	i := f.SharedInformerFactory.Apiextensions()
-	return &kcpAPIExtensionsApiextensions{
-		Interface:        i,
-		kcpClusterClient: f.kcpClusterClient,
-		workspaceLister:  f.workspaceLister,
-		apiBindingLister: f.apiBindingLister,
-	}
-}
+	resource = parts[0]
 
-// kcpAPIExtensionsApiextensions wraps the apiextensions.Interface so
-// we can supply our own inheritance-aware CRD lister.
-type kcpAPIExtensionsApiextensions struct {
-	apiextensions.Interface
-	kcpClusterClient kcpclientset.ClusterInterface
-	workspaceLister  tenancylisters.ClusterWorkspaceLister
-	apiBindingLister apislisters.APIBindingLister
-}
-
-// V1 returns an apiextensionsinformerv1.Interface that supports inheritance when getting and
-// listing CRDs.
-func (i *kcpAPIExtensionsApiextensions) V1() apiextensionsinformerv1.Interface {
-	v1i := i.Interface.V1()
-	return &kcpAPIExtensionsApiextensionsV1{
-		Interface:        v1i,
-		kcpClusterClient: i.kcpClusterClient,
-		workspaceLister:  i.workspaceLister,
-		apiBindingLister: i.apiBindingLister,
-	}
-}
-
-// kcpAPIExtensionsApiextensionsV1 wraps the apiextensionsinformerv1.Interface so
-// we can supply our own inheritance-aware CRD lister.
-type kcpAPIExtensionsApiextensionsV1 struct {
-	apiextensionsinformerv1.Interface
-	kcpClusterClient kcpclientset.ClusterInterface
-	workspaceLister  tenancylisters.ClusterWorkspaceLister
-	apiBindingLister apislisters.APIBindingLister
-}
-
-// CustomResourceDefinitions returns an apiextensionsinformerv1.CustomResourceDefinitionInformer
-// that supports inheritance when getting and listing CRDs.
-func (i *kcpAPIExtensionsApiextensionsV1) CustomResourceDefinitions() apiextensionsinformerv1.CustomResourceDefinitionInformer {
-	c := i.Interface.CustomResourceDefinitions()
-	return &kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer{
-		CustomResourceDefinitionInformer: c,
-		kcpClusterClient:                 i.kcpClusterClient,
-		workspaceLister:                  i.workspaceLister,
-		apiBindingLister:                 i.apiBindingLister,
-	}
-}
-
-// kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer wraps the
-// apiextensionsinformerv1.CustomResourceDefinitionInformer so we can supply our own
-// inheritance-aware CRD lister.
-type kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer struct {
-	apiextensionsinformerv1.CustomResourceDefinitionInformer
-	kcpClusterClient kcpclientset.ClusterInterface
-	workspaceLister  tenancylisters.ClusterWorkspaceLister
-	apiBindingLister apislisters.APIBindingLister
-}
-
-// Lister returns an apiextensionslisters.CustomResourceDefinitionLister
-// that supports inheritance when getting and listing CRDs.
-func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) Lister() apiextensionslisters.CustomResourceDefinitionLister {
-	originalLister := i.CustomResourceDefinitionInformer.Lister()
-	l := &apiBindingAwareCRDLister{
-		kcpClusterClient: i.kcpClusterClient,
-		crdLister:        originalLister,
-		workspaceLister:  i.workspaceLister,
-		apiBindingLister: i.apiBindingLister,
-		systemCRDProvider: newSystemCRDProvider(
-			i.GetWithQuorumReadOnCacheMiss,
-			originalLister.Get,
-		),
-	}
-	return l
-}
-
-func (i *kcpAPIExtensionsApiextensionsV1CustomResourceDefinitionInformer) GetWithQuorumReadOnCacheMiss(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-	cws, err := i.workspaceLister.GetWithContext(ctx, name)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, err
-	}
-	if err != nil {
-		clusterName, name := clusters.SplitClusterAwareKey(name)
-		cws, err = i.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, metav1.GetOptions{})
+	if len(parts) > 1 {
+		group = parts[1]
 	}
 
-	return cws, err
+	if group == "core" {
+		group = ""
+	}
+
+	return group, resource
 }

@@ -36,12 +36,6 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-const (
-	annotationBoundCRDKey      = "apis.kcp.dev/bound-crd"
-	annotationSchemaClusterKey = "apis.kcp.dev/schema-cluster"
-	annotationSchemaNameKey    = "apis.kcp.dev/schema-name"
-)
-
 func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
 	// The only condition that reflects if the APIBinding is Ready is InitialBindingCompleted. Other conditions
 	// (e.g. APIExportValid) may revert to false after the initial binding has completed, but those must not affect
@@ -134,6 +128,19 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		return err
 	}
 
+	if apiExport.Status.IdentityHash == "" {
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.APIExportValid,
+			"MissingIdentityHash",
+			conditionsv1alpha1.ConditionSeverityWarning,
+			"APIExport %s|%s is missing status.identityHash",
+			apiExportClusterName,
+			workspaceRef.ExportName,
+		)
+		return nil
+	}
+
 	var boundResources []apisv1alpha1.BoundAPIResource
 	needToWaitForRequeue := false
 
@@ -163,7 +170,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			return err
 		}
 
-		crd, err := crdFromAPIResourceSchema(schema)
+		crd, err := generateCRD(schema)
 		if err != nil {
 			klog.Errorf(
 				"Error generating CRD for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
@@ -310,8 +317,9 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			Group:    schema.Spec.Group,
 			Resource: schema.Spec.Names.Plural,
 			Schema: apisv1alpha1.BoundAPIResourceSchema{
-				Name: schema.Name,
-				UID:  string(schema.UID),
+				Name:         schema.Name,
+				UID:          string(schema.UID),
+				IdentityHash: apiExport.Status.IdentityHash,
 			},
 			StorageVersions: sortedStorageVersions,
 		})
@@ -436,15 +444,15 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 	return nil
 }
 
-func crdFromAPIResourceSchema(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
+func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			ClusterName: ShadowWorkspaceName.String(),
 			Name:        string(schema.UID),
 			Annotations: map[string]string{
-				annotationBoundCRDKey:      "",
-				annotationSchemaClusterKey: schema.ClusterName,
-				annotationSchemaNameKey:    schema.Name,
+				apisv1alpha1.AnnotationBoundCRDKey:      "",
+				apisv1alpha1.AnnotationSchemaClusterKey: schema.ClusterName,
+				apisv1alpha1.AnnotationSchemaNameKey:    schema.Name,
 			},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{

@@ -32,7 +32,6 @@ import (
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	v1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -130,7 +129,8 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		case clusterName == logicalcluster.Wildcard:
 			// HACK: just a workaround for testing
 			cluster.Wildcard = true
-			fallthrough
+			//fallthrough
+			cluster.Name = logicalcluster.Wildcard
 		case clusterName.Empty():
 			cluster.Name = genericcontrolplane.LocalAdminCluster
 		default:
@@ -234,7 +234,74 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler, unsafeServi
 	})
 }
 
-func mergeCRDsIntoCoreGroup(crdLister v1.CustomResourceDefinitionLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
+// WithWildcardIdentity checks wildcard list/watch requests for an APIExport identity for the resource in the path.
+// If it finds one (e.g. /api/v1/services:identityabcd1234/default/my-service), it places the identity from the path
+// to the context, updates the request to remove the identity from the path, and updates requestInfo.Resource to also
+// remove the identity. Finally, it hands off to the passed in handler to handle the request.
+func WithWildcardIdentity(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cluster := request.ClusterFrom(req.Context())
+		if cluster == nil || !cluster.Wildcard {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		requestInfo, ok := request.RequestInfoFrom(req.Context())
+		if !ok {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewInternalError(fmt.Errorf("missing requestInfo")),
+				errorCodecs, schema.GroupVersion{}, w, req,
+			)
+			return
+		}
+
+		updatedReq, err := processResourceIdentity(req, requestInfo)
+		if err != nil {
+			klog.Errorf("WithWildcardIdentity: unable to determine resource from path %s", req.URL.Path)
+
+			responsewriters.ErrorNegotiated(
+				apierrors.NewInternalError(err),
+				errorCodecs, schema.GroupVersion{}, w, req,
+			)
+
+			return
+		}
+
+		handler.ServeHTTP(w, updatedReq)
+	})
+}
+
+func processResourceIdentity(req *http.Request, requestInfo *request.RequestInfo) (*http.Request, error) {
+	if !requestInfo.IsResourceRequest {
+		return req, nil
+	}
+
+	i := strings.Index(requestInfo.Resource, ":")
+
+	if i < 0 {
+		return req, nil
+	}
+
+	resource := requestInfo.Resource[:i]
+	identity := requestInfo.Resource[i+1:]
+
+	if identity == "" {
+		return nil, fmt.Errorf("invalid resource %q: missing identity", resource)
+	}
+
+	req = utilnet.CloneRequest(req)
+
+	req = req.WithContext(WithIdentity(req.Context(), identity))
+
+	req.URL.Path = strings.Replace(req.URL.Path, requestInfo.Resource, resource, 1)
+	req.URL.RawPath = strings.Replace(req.URL.RawPath, requestInfo.Resource, resource, 1)
+
+	requestInfo.Resource = resource
+
+	return req, nil
+}
+
+func mergeCRDsIntoCoreGroup(crdLister *apiBindingAwareCRDLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
 	return func(req *restful.Request, res *restful.Response, chain *restful.FilterChain) {
 		ctx := req.Request.Context()
 		requestInfo, ok := request.RequestInfoFrom(ctx)
@@ -287,7 +354,8 @@ func mergeCRDsIntoCoreGroup(crdLister v1.CustomResourceDefinitionLister, crdHand
 			// This is a CRUD request for something like pods. Try to see if there is a CRD for the resource. If so, let the CRD
 			// server handle it.
 			crdName := requestInfo.Resource + ".core"
-			if _, err := crdLister.GetWithContext(ctx, crdName); err == nil {
+
+			if _, err := crdLister.Get(req.Request.Context(), crdName); err == nil {
 				crdHandler(res.ResponseWriter, req.Request)
 				return
 			}
@@ -300,9 +368,9 @@ func mergeCRDsIntoCoreGroup(crdLister v1.CustomResourceDefinitionLister, crdHand
 	}
 }
 
-func serveCoreV1Discovery(ctx context.Context, crdLister v1.CustomResourceDefinitionLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
-	// Get all the CRDs (in the context's logical cluster) to see if any of them are in v1
-	crds, err := crdLister.ListWithContext(ctx, labels.Everything())
+func serveCoreV1Discovery(ctx context.Context, crdLister *apiBindingAwareCRDLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
+	// Get all the CRDs to see if any of them are in v1
+	crds, err := crdLister.List(ctx, labels.Everything())
 	if err != nil {
 		// Listing from a lister can really only ever fail if invoking meta.Accesor() on an item in the list fails.
 		// Which means it essentially will never fail. But just in case...
