@@ -16,4 +16,5 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package,register
 // +groupName=workload.kcp.dev
+// +k8s:openapi-gen=true
 package v1alpha1
