@@ -242,7 +242,9 @@ func (s *Server) Run(ctx context.Context) error {
 		kcpadmissioninitializers.NewKcpInformersInitializer(s.kcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(kubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(kcpClusterClient),
-		kcpadmissioninitializers.NewExternalAddressInitializer(genericConfig.ExternalAddress),
+		// The external address is provided as a function, as its value may be updated
+		// with the default secure port, when the config is later completed.
+		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return genericConfig.ExternalAddress }),
 	}
 
 	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, admissionPluginInitializers, storageFactory)

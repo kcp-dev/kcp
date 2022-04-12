@@ -70,10 +70,12 @@ func updateAttr(ws, old *tenancyv1alpha1.ClusterWorkspaceShard) admission.Attrib
 
 func TestAdmit(t *testing.T) {
 	tests := []struct {
-		name        string
-		a           admission.Attributes
-		expectedObj runtime.Object
-		wantErr     bool
+		name                      string
+		a                         admission.Attributes
+		emptyExternalAddress      bool
+		noExternalAddressProvider bool
+		expectedObj               runtime.Object
+		wantErr                   bool
 	}{
 		{
 			name: "does nothing on update when baseURL and externalURL are set",
@@ -305,12 +307,96 @@ func TestAdmit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "default externalURL on create when baseURL is set",
+			a: createAttr(&tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+					BaseURL: "https://boston2.kcp.dev",
+				},
+			}),
+			noExternalAddressProvider: true,
+			expectedObj: &tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+					BaseURL:     "https://boston2.kcp.dev",
+					ExternalURL: "https://boston2.kcp.dev",
+				},
+			},
+		},
+		{
+			name: "fails on create when baseURL is not set and external address provider is nil",
+			a: createAttr(&tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{},
+			}),
+			noExternalAddressProvider: true,
+			wantErr:                   true,
+		},
+		{
+			name: "fails on update when baseURL is not set and external address provider is nil",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{},
+			},
+				&tenancyv1alpha1.ClusterWorkspaceShard{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{},
+				}),
+			noExternalAddressProvider: true,
+			wantErr:                   true,
+		},
+		{
+			name: "fails on create when baseURL is not set and external address provider returns empty string",
+			a: createAttr(&tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{},
+			}),
+			emptyExternalAddress: true,
+			wantErr:              true,
+		},
+		{
+			name: "fails on update when baseURL is not set and external address provider returns empty string",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{},
+			},
+				&tenancyv1alpha1.ClusterWorkspaceShard{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{},
+				}),
+			emptyExternalAddress: true,
+			wantErr:              true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &clusterWorkspaceShard{
-				Handler:         admission.NewHandler(admission.Create, admission.Update),
-				externalAddress: "external.kcp.dev",
+				Handler:                 admission.NewHandler(admission.Create, admission.Update),
+				externalAddressProvider: func() string { return "external.kcp.dev" },
+			}
+			if tt.noExternalAddressProvider {
+				o.externalAddressProvider = nil
+			} else if tt.emptyExternalAddress {
+				o.externalAddressProvider = func() string {
+					return ""
+				}
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {

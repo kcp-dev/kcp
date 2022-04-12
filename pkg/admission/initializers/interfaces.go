@@ -24,7 +24,7 @@ import (
 )
 
 // WantsKcpInformers interface should be implemented by admission plugins
-// that want to have an kcp informer factory injected.
+// that want to have a kcp informer factory injected.
 type WantsKcpInformers interface {
 	SetKcpInformers(informers kcpinformers.SharedInformerFactory)
 }
@@ -41,8 +41,8 @@ type WantsKcpClusterClient interface {
 	SetKcpClusterClient(kubeClusterClient *kcpclientset.Cluster)
 }
 
-// WantExternalAddress interface should be implemented by admission plugins
-// that want to have a external shard address injected.
-type WantExternalAddress interface {
-	SetExternalAddress(externalAddress string)
+// WantsExternalAddressProvider interface should be implemented by admission plugins
+// that want to have an external address provider injected.
+type WantsExternalAddressProvider interface {
+	SetExternalAddressProvider(externalAddressProvider func() string)
 }
