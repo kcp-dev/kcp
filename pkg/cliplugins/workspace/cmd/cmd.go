@@ -17,11 +17,13 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/plugin"
@@ -34,7 +36,7 @@ var (
 
 	# enter a given workspace (this will change the current-context of your current KUBECONFIG)
 	%[1]s workspace use my-workspace
-	
+
 	# list all your personal workspaces
 	%[1]s workspace list
 
@@ -55,6 +57,9 @@ var (
 
 	# create a context with the current workspace, named context-name
 	%[1]s workspace create-context context-name
+
+	# enable a syncer for my-pcluster
+	%[1]s workspace enable-syncer my-pcluster
 `
 )
 
@@ -204,6 +209,58 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	}
 	createContextCmd.Flags().BoolVar(&overwriteContext, "overwrite", overwriteContext, "Overwrite the context if it already exists")
 
+	// Any user-specified types will be synced in addition to the required types
+	// to ensure support for the use case of a synced deployment capable of
+	// talking to kcp.
+	//
+	// TODO(marun) Consider allowing a user-specified and exclusive set of types.
+	requiredResourcesToSync := sets.NewString("deployments.apps", "secrets", "configmaps", "serviceaccounts")
+
+	var resourcesToSync []string
+	var syncerImage string
+	disableDeployment := false
+	kcpNamespaceName := "default"
+	enableSyncerCmd := &cobra.Command{
+		Use:          "enable-syncer <workload-cluster-name> [--sync-resources=<resource1>,<resource2>..]",
+		Short:        "Enable a syncer to be deployed for the named workload cluster",
+		Example:      "kcp workspace enable-syncer my-workload-cluster",
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			kubeconfig, err := plugin.NewKubeConfig(opts)
+			if err != nil {
+				return err
+			}
+
+			if len(args) != 1 {
+				return cmd.Help()
+			}
+
+			if len(syncerImage) == 0 {
+				return errors.New("A value must be specified for --syncer-image")
+			}
+
+			if len(kcpNamespaceName) == 0 {
+				return errors.New("A value must be specified for --kcp-namespace")
+			}
+
+			workloadClusterName := args[0]
+			if len(workloadClusterName)+len(plugin.SyncerAuthResourcePrefix) > plugin.MaxSyncerAuthResourceName {
+				return fmt.Errorf("The maximum length of the workload-cluster-name is %d", plugin.MaxSyncerAuthResourceName)
+			}
+
+			requiredResourcesToSync.Insert(resourcesToSync...)
+
+			return kubeconfig.EnableSyncer(c.Context(), workloadClusterName, kcpNamespaceName, syncerImage, resourcesToSync, disableDeployment)
+		},
+	}
+	enableSyncerCmd.Flags().StringSliceVar(&resourcesToSync, "sync-resources", resourcesToSync, "Resources to synchronize with kcp.")
+	enableSyncerCmd.Flags().StringVar(&syncerImage, "syncer-image", syncerImage, "The syncer image to use in the syncer's deployment YAML.")
+	enableSyncerCmd.Flags().BoolVar(&disableDeployment, "disable-deployment", disableDeployment, "Whether to configure the syncer deployment with zero replicas.")
+	enableSyncerCmd.Flags().StringVar(&kcpNamespaceName, "kcp-namespace", kcpNamespaceName, "The name of the kcp namespace to create a service account in.")
+
 	deleteCmd := &cobra.Command{
 		Use:          "delete",
 		Short:        "Replaced with \"kubectl delete workspace <workspace-name>\"",
@@ -220,6 +277,7 @@ func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error
 	cmd.AddCommand(listCmd)
 	cmd.AddCommand(createCmd)
 	cmd.AddCommand(createContextCmd)
+	cmd.AddCommand(enableSyncerCmd)
 	cmd.AddCommand(deleteCmd)
 	return cmd, nil
 }

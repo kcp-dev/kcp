@@ -18,6 +18,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -466,4 +467,55 @@ func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite 
 	}
 
 	return nil
+}
+
+// enableSyncer prepares a kcp workspace for use with a syncer and outputs the
+// configuration required to deploy a syncer to the pcluster to stdout.
+func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, kcpNamespaceName, image string, resourcesToSync []string, disableDeployment bool) error {
+	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	token, err := enableSyncerForWorkspace(ctx, config, workloadClusterName, kcpNamespaceName)
+	if err != nil {
+		return err
+	}
+
+	configURL, currentClusterName, err := parseClusterURL(config.Host)
+	if err != nil {
+		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+	}
+
+	// Compose the syncer's upstream configuration server URL without any path. This is
+	// required so long as the API importer and syncer expect to require cluster clients.
+	//
+	// TODO(marun) It's probably preferable that the syncer and importer are provided a
+	// cluster configuration since they only operate against a single workspace.
+	serverURL := configURL.Scheme + "://" + configURL.Host
+
+	replicas := 1
+	if disableDeployment {
+		replicas = 0
+	}
+
+	input := templateInput{
+		ServerURL:       serverURL,
+		CAData:          base64.StdEncoding.EncodeToString(config.CAData),
+		Token:           token,
+		KCPNamespace:    kcpNamespaceName,
+		LogicalCluster:  currentClusterName.String(),
+		WorkloadCluster: workloadClusterName,
+		Image:           image,
+		Replicas:        replicas,
+		ResourcesToSync: resourcesToSync,
+	}
+
+	resources, err := renderSyncerResources(input)
+	if err != nil {
+		return err
+	}
+
+	_, err = kc.Out.Write(resources)
+	return err
 }

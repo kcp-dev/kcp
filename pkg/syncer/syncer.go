@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -45,13 +44,13 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/plugin"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
 
 const (
 	resyncPeriod       = 10 * time.Hour
-	SyncerNamespaceKey = "SYNCER_NAMESPACE"
 	syncerApplyManager = "syncer"
 
 	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller
@@ -183,7 +182,6 @@ type Controller struct {
 	direction SyncDirection
 
 	upstreamClusterName logicalcluster.LogicalCluster
-	syncerNamespace     string
 	mutators            mutatorGvrMap
 }
 
@@ -198,7 +196,6 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClie
 		toClient:            toClient,
 		direction:           direction,
 		upstreamClusterName: kcpClusterName,
-		syncerNamespace:     os.Getenv(SyncerNamespaceKey),
 		mutators:            make(mutatorGvrMap),
 	}
 
@@ -462,7 +459,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 			return nil
 		}
 	} else {
-		if h.namespace == c.syncerNamespace {
+		if strings.HasPrefix(plugin.SyncerIDPrefix, h.namespace) {
 			// skip syncer namespace
 			return nil
 		}
