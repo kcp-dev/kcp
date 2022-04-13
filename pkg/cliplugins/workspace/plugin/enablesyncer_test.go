@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -171,16 +173,16 @@ func TestGetClusterRoles(t *testing.T) {
 			},
 			expected: []clusterRole{
 				{
-					APIGroup: "apps",
-					Resources: []string{
-						"deployments",
-					},
-				},
-				{
 					APIGroup: "",
 					Resources: []string{
 						"services",
 						"secrets",
+					},
+				},
+				{
+					APIGroup: "apps",
+					Resources: []string{
+						"deployments",
 					},
 				},
 			},
@@ -195,6 +197,8 @@ func TestGetClusterRoles(t *testing.T) {
 			if !tc.expectError && err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
+			sortClusterRoles(actual)
+			sortClusterRoles(tc.expected)
 			if len(tc.input) == 0 {
 				if len(actual) != 0 {
 					t.Errorf("expected no cluster roles, got %v", actual)
@@ -204,4 +208,14 @@ func TestGetClusterRoles(t *testing.T) {
 			}
 		})
 	}
+}
+
+// sortClusterRoles sorts cluster roles by APIGroup, then by Resources
+func sortClusterRoles(roles []clusterRole) {
+	sort.Slice(roles, func(i, j int) bool {
+		if roles[i].APIGroup == roles[j].APIGroup {
+			return strings.Join(roles[i].Resources, ",") < strings.Join(roles[j].Resources, ",")
+		}
+		return roles[i].APIGroup < roles[j].APIGroup
+	})
 }
