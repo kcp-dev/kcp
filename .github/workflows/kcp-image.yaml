@@ -51,6 +51,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - name: Get the short sha
         id: vars
         run: echo "::set-output name=sha_short::$(echo ${{ github.sha }} | cut -b -7)"
