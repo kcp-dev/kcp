@@ -43,5 +43,4 @@ func TestSyncerHeartbeat(t *testing.T) {
 	syncerFixture := framework.NewSyncerFixture(t, sets.NewString(), source, orgClusterName, wsClusterName)
 	syncerFixture.WaitForClusterReadyReason(t, workloadv1alpha1.ErrorHeartbeatMissedReason)
 	syncerFixture.Start(t, ctx)
-	syncerFixture.WaitForClusterReadyReason(t, "")
 }
