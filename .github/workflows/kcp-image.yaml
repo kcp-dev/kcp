@@ -48,6 +48,7 @@ jobs:
     if: "github.repository_owner == 'kcp-dev' && github.ref_name == 'main'"
     name: Deploy KCP
     environment: stable
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Get the short sha
