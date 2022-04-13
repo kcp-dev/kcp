@@ -153,12 +153,6 @@ func TestIngressController(t *testing.T) {
 				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
 			)
 			require.NoError(t, err)
-			err = configcrds.CreateFromFS(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), embeddedResources,
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
-				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-			)
-			require.NoError(t, err)
 
 			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
 			syncerFixture := framework.NewSyncerFixtureWithCRDs(t, resources, source, orgClusterName, clusterName, func(sinkConfig *rest.Config) {
