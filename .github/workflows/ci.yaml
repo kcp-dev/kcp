@@ -146,7 +146,7 @@ jobs:
       - run: |-
           ARTIFACT_DIR=/tmp/e2e \
           PATH="${PATH}:$(pwd)/bin/" \
-          TEST_ARGS='-args --use-default-server' \
+          TEST_ARGS='-args --use-default-kcp-server' \
           COUNT=1 \
           E2E_PARALLELISM=2 \
           make test-e2e
