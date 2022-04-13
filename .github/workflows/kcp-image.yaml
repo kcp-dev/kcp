@@ -30,7 +30,7 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: kcp
-          tags: latest ${{ steps.vars.outputs.sha_short }}
+          tags: latest ${{ steps.vars.outputs.sha_short }} ${{ github.ref_name }}
           containerfiles: |
             ./Dockerfile
 
@@ -39,7 +39,7 @@ jobs:
         uses: redhat-actions/push-to-registry@v2
         with:
           image: ${{ steps.build-image.outputs.image }}
-          tags: ${{ steps.build-image.outputs.tags }}
+          tags: ${{ steps.build-image.outputs.tags }} ${{ github.ref_name }}
           registry: ghcr.io/${{ github.repository_owner }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
