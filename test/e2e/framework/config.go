@@ -30,6 +30,10 @@ type testConfig struct {
 
 var TestConfig *testConfig
 
+func (c *testConfig) PClusterKubeconfig() string {
+	return c.pclusterKubeconfig
+}
+
 func (c *testConfig) KCPKubeconfig() string {
 	// TODO(marun) How to validate before use given that the testing package is calling flags.Parse()?
 	if c.useDefaultKCPServer && len(c.kcpKubeconfig) > 0 {
