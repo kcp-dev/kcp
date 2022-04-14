@@ -36,9 +36,6 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 
-	configcrds "github.com/kcp-dev/kcp/config/crds"
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
@@ -166,16 +163,13 @@ func TestClusterController(t *testing.T) {
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
 
-			t.Log("Installing test CRDs into source cluster...")
-			err = configcrds.Create(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
-				metav1.GroupResource{Group: apiresource.GroupName, Resource: "apiresourceimports"},
-				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-			)
-			require.NoError(t, err)
 			fixturewildwest.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
-			syncerFixture := framework.NewSyncerFixture(t, sets.NewString("cowboys.wildwest.dev"), source, orgClusterName, wsClusterName)
+			syncerFixture := framework.NewSyncerFixture(t, &framework.SyncerFixtureConfig{
+				ResourcesToSync:      sets.NewString("cowboys.wildwest.dev"),
+				UpstreamServer:       source,
+				WorkspaceClusterName: wsClusterName,
+			})
 			sink := syncerFixture.RunningServer
 
 			sinkConfig := sink.DefaultConfig(t)
@@ -205,7 +199,7 @@ func TestClusterController(t *testing.T) {
 				sinkClusterName: {
 					RunningServer: sink,
 					client:        sinkWildwestClient.WildwestV1alpha1(),
-					coreClient:    syncerFixture.KubeClient.CoreV1(),
+					coreClient:    syncerFixture.DownstreamKubeClient.CoreV1(),
 				},
 			}
 

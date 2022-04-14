@@ -40,9 +40,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
-	configcrds "github.com/kcp-dev/kcp/config/crds"
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -145,27 +142,13 @@ func TestIngressController(t *testing.T) {
 			sourceConfig := source.DefaultConfig(t)
 			sourceKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceCrdClusterClient, err := apiextensionsclientset.NewClusterForConfig(sourceConfig)
-			require.NoError(t, err)
-
-			sourceCrdClient := sourceCrdClusterClient.Cluster(clusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(clusterName)
 
-			t.Log("Installing test CRDs into source cluster...")
-			err = configcrds.Create(ctx, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
-				metav1.GroupResource{Group: apiresource.GroupName, Resource: "apiresourceimports"},
-				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-			)
-			require.NoError(t, err)
-			kubefixtures.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
-				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-			)
-
-			resources := sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services")
-			syncerFixture := framework.NewSyncerFixture(t, resources, source, orgClusterName, clusterName)
+			syncerFixture := framework.NewSyncerFixture(t, &framework.SyncerFixtureConfig{
+				ResourcesToSync:      sets.NewString("ingresses.networking.k8s.io", "deployments.apps", "services"),
+				UpstreamServer:       source,
+				WorkspaceClusterName: clusterName,
+			})
 
 			sink := syncerFixture.RunningServer
 			sinkConfig := sink.DefaultConfig(t)
@@ -176,13 +159,32 @@ func TestIngressController(t *testing.T) {
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 			)
 			require.NoError(t, err)
 
 			t.Log("Starting syncer")
 			syncerFixture.Start(t, ctx)
+
+			t.Log("Waiting for ingresses crd to be imported and available in the source cluster...")
+			require.Eventually(t, func() bool {
+				_, err := sourceKubeClient.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Logf("error seen waiting for ingresses crd to become active: %v", err)
+					return false
+				}
+				return true
+			}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+			t.Log("Waiting for services crd to be imported and available in the source cluster...")
+			require.Eventually(t, func() bool {
+				_, err := sourceKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Logf("error seen waiting for services crd to become active: %v", err)
+					return false
+				}
+				return true
+			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Creating namespace in source cluster...")
 			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -219,7 +221,7 @@ func TestIngressController(t *testing.T) {
 				},
 				sinkServerName: {
 					RunningServer: sink,
-					client:        syncerFixture.KubeClient.NetworkingV1(),
+					client:        syncerFixture.DownstreamKubeClient.NetworkingV1(),
 				},
 			}
 

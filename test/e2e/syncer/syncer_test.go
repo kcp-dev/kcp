@@ -27,16 +27,13 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/pkg/syncer"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -54,21 +51,16 @@ func TestSyncerLifecycle(t *testing.T) {
 	t.Log("Creating a workspace")
 	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
 
-	resourcesToSync := sets.NewString("deployments.apps")
-	syncerFixture := framework.NewSyncerFixture(t, resourcesToSync, upstreamServer, orgClusterName, wsClusterName)
+	syncerFixture := framework.NewSyncerFixture(t, &framework.SyncerFixtureConfig{
+		UpstreamServer:       upstreamServer,
+		WorkspaceClusterName: wsClusterName,
+	})
 
 	downstreamServer := syncerFixture.RunningServer
 	downstreamConfig := downstreamServer.DefaultConfig(t)
-	downstreamCrdClient, err := apiextensionsclientset.NewForConfig(downstreamConfig)
-	require.NoError(t, err)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-
-	t.Log("Install deployment crd in the downstream server to trigger the api importer")
-	kubefixtures.Create(t, downstreamCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
-	)
 
 	syncerFixture.Start(t, ctx)
 
@@ -85,6 +77,59 @@ func TestSyncerLifecycle(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
+	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	require.NoError(t, err)
+
+	// Determine downstream name of the namespace
+	nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(upstreamNamespace), Namespace: upstreamNamespace.Name}
+	downstreamNamespaceName, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+	require.NoError(t, err)
+
+	// TODO(marun) The name mapping should be defined for reuse outside of the transformName method in pkg/syncer
+	serviceAccountName := "kcp-default"
+	secretName := "kcp-default-token"
+	configMapName := "kcp-root-ca.crt"
+
+	t.Logf("Waiting for downstream service account %s/%s to be created...", downstreamNamespaceName, serviceAccountName)
+	require.Eventually(t, func() bool {
+		// TODO(marun) The name mapping should be defined for reuse outside of the transformName method in pkg/syncer
+		_, err = downstreamKubeClient.CoreV1().ServiceAccounts(downstreamNamespaceName).Get(ctx, serviceAccountName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for downstream service account %s/%s to be created: %v", downstreamNamespaceName, serviceAccountName, err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream service account %s/%s was not created", downstreamNamespaceName, serviceAccountName)
+
+	t.Logf("Waiting for downstream service account secret %s/%s to be created...", downstreamNamespaceName, secretName)
+	require.Eventually(t, func() bool {
+		_, err = downstreamKubeClient.CoreV1().Secrets(downstreamNamespaceName).Get(ctx, secretName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for downstream service account secret %s/%s to be created: %v", downstreamNamespaceName, secretName, err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream service account secret %s/%s was not created", downstreamNamespaceName, secretName)
+
+	t.Logf("Waiting for downstream configmap %s/%s to be created...", downstreamNamespaceName, configMapName)
+	require.Eventually(t, func() bool {
+		_, err = downstreamKubeClient.CoreV1().ConfigMaps(downstreamNamespaceName).Get(ctx, configMapName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for downstream configmap %s/%s to be created: %v", downstreamNamespaceName, configMapName, err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream configmap %s/%s was not created", downstreamNamespaceName, configMapName)
+
 	t.Log("Creating upstream deployment...")
 
 	deploymentYAML, err := embeddedResources.ReadFile("deployment.yaml")
@@ -100,27 +145,19 @@ func TestSyncerLifecycle(t *testing.T) {
 	upstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create deployment")
 
-	t.Log("Checking that deployment was synced...")
-
-	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
-	require.NoError(t, err)
-
-	nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(upstreamNamespace), Namespace: upstreamNamespace.Name}
-	downstreamNamespaceName, err := syncer.PhysicalClusterNamespaceName(nsLocator)
-	require.NoError(t, err)
-
+	t.Logf("Waiting for downstream deployment %s/%s to be created...", downstreamNamespaceName, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
 		deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false
 		}
 		if err != nil {
-			t.Errorf("saw an error waiting for deployment to be synced: %v", err)
+			t.Errorf("saw an error waiting for downstream deployment %s/%s to be created: %v", downstreamNamespaceName, upstreamDeployment.Name, err)
 			return false
 		}
 		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "deployment was not synced")
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s was not synced", downstreamNamespaceName, upstreamDeployment.Name)
 
-	// TODO(marun) Validate that a deployment pod can interact with
-	// the kcp api once the syncer can be tested with kind
+	// TODO(marun) Check that the deployment had available replicas
+	// TODO(marun) Check that the deployment was able to contact kcp
 }

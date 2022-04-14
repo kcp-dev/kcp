@@ -39,9 +39,12 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -49,6 +52,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/options"
+	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 )
 
 // kcpServer exposes a kcp invocation to a test and
@@ -505,16 +509,39 @@ func newPersistentKCPServer(name, kubeconfigPath string) (RunningServer, error) 
 // and creates a server fixture for the logical cluster that results.
 func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.LogicalCluster) RunningServer {
 	logicalClusterName := NewWorkspaceWithWorkloads(t, server, org, "Universal", false)
-
-	serverKubeConfig, err := server.RawConfig()
+	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
-
-	logicalConfig := LogicalClusterConfig(&serverKubeConfig, logicalClusterName)
-
-	return &unmanagedKCPServer{
-		name: logicalClusterName.String(),
-		cfg:  logicalConfig,
+	logicalConfig, kubeconfigPath := writeLogicalClusterConfig(t, rawConfig, logicalClusterName)
+	fakeServer := &unmanagedKCPServer{
+		name:           logicalClusterName.String(),
+		cfg:            logicalConfig,
+		kubeconfigPath: kubeconfigPath,
 	}
+
+	downstreamConfig := fakeServer.DefaultConfig(t)
+
+	// Install the deployment crd in the fake cluster to allow creation of the syncer deployment.
+	crdClient, err := apiextensionsclientset.NewForConfig(downstreamConfig)
+	require.NoError(t, err)
+	kubefixtures.Create(t, crdClient.ApiextensionsV1().CustomResourceDefinitions(),
+		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
+	)
+
+	// Wait for the deployment crd to become ready
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+	kubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		_, err := kubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error seen waiting for deployment crd to become active: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	return fakeServer
 }
 
 func (s *unmanagedKCPServer) Name() string {
