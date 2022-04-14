@@ -21,19 +21,13 @@ TOOLS_DIR=hack/tools
 GOBIN_DIR := $(abspath $(TOOLS_DIR))
 TMPDIR := $(shell mktemp -d)
 
-CONTROLLER_GEN_VER := v0.7.0
-CONTROLLER_GEN_BIN := controller-gen
-CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
+CONTROLLER_GEN := go run sigs.k8s.io/controller-tools/cmd/controller-gen
 export CONTROLLER_GEN # so hack scripts can use it
 
-YAML_PATCH_VER ?= v0.0.11
-YAML_PATCH_BIN := yaml-patch
-YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
+YAML_PATCH := go run github.com/pivotal-cf/yaml-patch/cmd/yaml-patch
 export YAML_PATCH # so hack scripts can use it
 
-OPENSHIFT_GOIMPORTS_VER := b92214262c6ce8598aefdee87aae6b8cf1a9fc86
-OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
-OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
+OPENSHIFT_GOIMPORTS := go run github.com/openshift-eng/openshift-goimports
 export OPENSHIFT_GOIMPORTS # so hack scripts can use it
 
 GOLANGCI_LINT_VER := v1.44.2
@@ -85,13 +79,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-$(CONTROLLER_GEN):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
-
-$(YAML_PATCH):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
-
-codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
+codegen: ## Run the codegenerators
 	./hack/update-codegen.sh
 	$(MAKE) imports
 .PHONY: codegen
@@ -113,11 +101,8 @@ verify-codegen:
 		exit 1; \
 	fi
 
-$(OPENSHIFT_GOIMPORTS):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/coreydaley/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
-
 .PHONY: imports
-imports: $(OPENSHIFT_GOIMPORTS)
+imports:
 	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
 
 COUNT ?= 1

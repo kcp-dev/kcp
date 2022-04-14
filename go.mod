@@ -11,9 +11,13 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.5
+	github.com/jessevdk/go-flags v1.5.0 // indirect
 	github.com/kcp-dev/apimachinery v0.0.0-20220326161941-461c06dd2b07
+	github.com/krishicks/yaml-patch v0.0.10 // indirect
 	github.com/muesli/reflow v0.1.0
-	github.com/onsi/gomega v1.10.1
+	github.com/onsi/gomega v1.14.0
+	github.com/openshift-eng/openshift-goimports v0.0.0-20220223184248-59452e271488 // indirect
+	github.com/pivotal-cf/yaml-patch v0.0.11 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
@@ -22,8 +26,8 @@ require (
 	go.uber.org/multierr v1.7.0
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
-	k8s.io/api v0.0.0
-	k8s.io/apiextensions-apiserver v0.0.0
+	k8s.io/api v0.22.2
+	k8s.io/apiextensions-apiserver v0.22.2
 	k8s.io/apimachinery v0.23.5
 	k8s.io/apiserver v0.0.0
 	k8s.io/cli-runtime v0.0.0
@@ -34,6 +38,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 	k8s.io/kubernetes v1.23.4
 	k8s.io/utils v0.0.0-20211208161948-7d6a63dca704
+	sigs.k8s.io/controller-tools v0.7.0 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
