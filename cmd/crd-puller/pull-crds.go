@@ -32,7 +32,6 @@ import (
 )
 
 func main() {
-	help.FitTerminal()
 	cmd := &cobra.Command{
 		Use:        "pull-crds",
 		Aliases:    []string{},
@@ -70,7 +69,10 @@ func main() {
 			return nil
 		},
 	}
+
 	cmd.Flags().String("kubeconfig", ".kubeconfig", "kubeconfig file used to contact the cluster.")
+
+	help.FitTerminal(cmd.OutOrStdout())
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

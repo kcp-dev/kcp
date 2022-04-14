@@ -17,7 +17,6 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
-	github.com/wayneashleyberry/terminal-dimensions v1.0.0
 	go.etcd.io/etcd/server/v3 v3.5.0
 	go.uber.org/multierr v1.7.0
 	google.golang.org/grpc v1.40.0
