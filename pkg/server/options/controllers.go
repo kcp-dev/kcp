@@ -31,20 +31,17 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
 
 type Controllers struct {
 	EnableAll                bool
 	IndividuallyEnabled      []string
 	ApiResource              ApiResourceController
-	Syncer                   SyncerController
 	WorkloadClusterHeartbeat WorkloadClusterHeartbeatController
 	SAController             kcmoptions.SAControllerOptions
 }
 
 type ApiResourceController = apiresource.Options
-type SyncerController = syncer.Options
 type WorkloadClusterHeartbeatController = heartbeat.Options
 
 var kcmDefaults *kcmoptions.KubeControllerManagerOptions
@@ -63,7 +60,6 @@ func NewControllers() *Controllers {
 		EnableAll: true,
 
 		ApiResource:              *apiresource.DefaultOptions(),
-		Syncer:                   *syncer.DefaultOptions(),
 		WorkloadClusterHeartbeat: *heartbeat.DefaultOptions(),
 		SAController:             *kcmDefaults.SAController,
 	}
@@ -76,7 +72,6 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
 	apiresource.BindOptions(&c.ApiResource, fs)
-	syncer.BindOptions(&c.Syncer, fs)
 	heartbeat.BindOptions(&c.WorkloadClusterHeartbeat, fs)
 
 	c.SAController.AddFlags(fs)
@@ -112,9 +107,6 @@ func (c *Controllers) Validate() []error {
 	var errs []error
 
 	if err := c.ApiResource.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.Syncer.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := c.WorkloadClusterHeartbeat.Validate(); err != nil {

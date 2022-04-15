@@ -137,12 +137,8 @@ var (
 		// KCP Controllers flags
 		"auto-publish-apis",                      // If true, the APIs imported from physical clusters will be published automatically as CRDs
 		"apiresource-controller-threads",         // Number of threads to use for the apiresource controller.
-		"pull-mode",                              // Deploy the syncer in registered physical clusters in POD, and have it sync resources from KCP
-		"push-mode",                              // If true, run syncer for each cluster from inside cluster controller
-		"resources-to-sync",                      // Provides the list of resources that should be synced from KCP logical cluster to underlying physical clusters
 		"run-controllers",                        // Run the controllers in-process
 		"run-virtual-workspaces",                 // Run the virtual workspaces apiservers in-process
-		"syncer-image",                           // Syncer image to install on clusters
 		"unsupported-run-individual-controllers", // Run individual controllers in-process. The controller names can change at any time.
 		"workload-cluster-heartbeat-threshold",   // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
 

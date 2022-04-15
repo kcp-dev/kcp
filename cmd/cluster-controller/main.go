@@ -28,12 +28,10 @@ import (
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -41,7 +39,6 @@ const resyncPeriod = 10 * time.Hour
 func bindOptions(fs *pflag.FlagSet) *options {
 	o := options{
 		ApiResourceOptions: apiresource.BindOptions(apiresource.DefaultOptions(), fs),
-		SyncerOptions:      syncer.BindOptions(syncer.DefaultOptions(), fs),
 	}
 	fs.StringVar(&o.kubeconfigPath, "kubeconfig", "", "Path to kubeconfig")
 	return &o
@@ -53,18 +50,13 @@ type options struct {
 	kubeconfigPath string
 
 	ApiResourceOptions *apiresource.Options
-	SyncerOptions      *syncer.Options
 }
 
 func (o *options) Validate() error {
 	if o.kubeconfigPath == "" {
 		return errors.New("--kubeconfig is required")
 	}
-	if err := o.ApiResourceOptions.Validate(); err != nil {
-		return err
-	}
-
-	return o.SyncerOptions.Validate()
+	return o.ApiResourceOptions.Validate()
 }
 
 func main() {
@@ -87,11 +79,6 @@ func main() {
 		&clientcmd.ConfigOverrides{})
 
 	config, err := configLoader.ClientConfig()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	kubeconfig, err := configLoader.RawConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -124,25 +111,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	var optionalSyncer *syncer.Controller
-	if manager := options.SyncerOptions.CreateSyncerManager(); manager == nil {
-		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
-	} else {
-		optionalSyncer, err = syncer.NewController(
-			crdClusterClient,
-			kcpClusterClient,
-			kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
-			kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-			&kubeconfig, // TODO: remove this once the syncer is started externally
-			options.SyncerOptions.ResourcesToSync,
-			manager,
-		)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	}
-
 	kcpSharedInformerFactory.Start(ctx.Done())
 	crdSharedInformerFactory.Start(ctx.Done())
 
@@ -150,9 +118,6 @@ func main() {
 	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
 	go apiResource.Start(ctx, options.ApiResourceOptions.NumThreads)
-	if optionalSyncer != nil {
-		go optionalSyncer.Start(ctx)
-	}
 
 	<-ctx.Done()
 }
