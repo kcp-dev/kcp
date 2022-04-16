@@ -58,7 +58,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	// TODO(marun) Consider allowing a user-specified and exclusive set of types.
 	requiredResourcesToSync := sets.NewString("deployments.apps", "secrets", "configmaps", "serviceaccounts")
 
-	var resourcesToSync []string
+	var userResourcesToSync []string
 	var syncerImage string
 	var replicas int = 1
 	kcpNamespaceName := "default"
@@ -101,12 +101,12 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 				return fmt.Errorf("the maximum length of the workload-cluster-name is %d", plugin.MaxSyncerAuthResourceName)
 			}
 
-			requiredResourcesToSync.Insert(resourcesToSync...)
+			resourcesToSync := sets.NewString(userResourcesToSync...).Union(requiredResourcesToSync).List()
 
 			return kubeconfig.Sync(c.Context(), workloadClusterName, kcpNamespaceName, syncerImage, resourcesToSync, replicas)
 		},
 	}
-	enableSyncerCmd.Flags().StringSliceVar(&resourcesToSync, "resources", resourcesToSync, "Resources to synchronize with kcp.")
+	enableSyncerCmd.Flags().StringSliceVar(&userResourcesToSync, "resources", userResourcesToSync, "Resources to synchronize with kcp.")
 	enableSyncerCmd.Flags().StringVar(&syncerImage, "syncer-image", syncerImage, "The syncer image to use in the syncer's deployment YAML.")
 	enableSyncerCmd.Flags().IntVar(&replicas, "replicas", replicas, "Number of replicas of the syncer deployment.")
 	enableSyncerCmd.Flags().StringVar(&kcpNamespaceName, "kcp-namespace", kcpNamespaceName, "The name of the kcp namespace to create a service account in.")
