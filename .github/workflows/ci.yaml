@@ -156,7 +156,7 @@ jobs:
           ARTIFACT_DIR=/tmp/e2e \
           PATH="${PATH}:$(pwd)/bin/" \
           TEST_ARGS="-args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --pcluster-kubeconfig=${KUBECONFIG}" \
-          COUNT=1 \
+          COUNT=2 \
           E2E_PARALLELISM=2 \
           make test-e2e
 
