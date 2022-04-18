@@ -55,6 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
@@ -269,6 +270,46 @@ func readCA(file string) ([]byte, error) {
 	}
 
 	return rootCA, err
+}
+
+func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workspace-deletion-controller")
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+	metadata, err := metadata.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	discoverResourcesFn := func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error) {
+		logicalClusterConfig := rest.CopyConfig(config)
+		logicalClusterConfig.Host += clusterName.Path()
+		discoveryClient, err := discovery.NewDiscoveryClientForConfig(logicalClusterConfig)
+		if err != nil {
+			return nil, err
+		}
+		return discoveryClient.ServerPreferredResources()
+	}
+
+	workspaceGCController := clusterworkspacedeletion.NewController(
+		kcpClusterClient,
+		metadata,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		discoverResourcesFn,
+	)
+
+	s.AddPostStartHook("kcp-workspace-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-workspace-deletion-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go workspaceGCController.Start(ctx, 2)
+		return nil
+	})
+	return nil
 }
 
 func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config) error {

@@ -398,6 +398,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkspaceScheduler(ctx, controllerConfig); err != nil {
 			return err
 		}
+		if err := s.installWorkspaceDeletionController(ctx, controllerConfig); err != nil {
+			return err
+		}
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
