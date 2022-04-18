@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"time"
 
+	"go.etcd.io/etcd/client/pkg/v3/fileutil"
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.etcd.io/etcd/server/v3/wal"
 
@@ -73,7 +74,7 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBy
 	cfg.ACUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 
-	if err := os.MkdirAll(cfg.Dir, 0700); err != nil {
+	if err := fileutil.TouchDirAll(cfg.Dir); err != nil {
 		return ClientInfo{}, err
 	}
 

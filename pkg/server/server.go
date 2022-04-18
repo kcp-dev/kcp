@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
 	"time"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
@@ -42,7 +41,7 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
-	"github.com/kcp-dev/kcp/config/system-crds"
+	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authentication"
@@ -116,22 +115,6 @@ func (s *Server) Run(ctx context.Context) error {
 		// nolint:errcheck
 		go http.ListenAndServe(s.options.Extra.ProfilerAddress, nil)
 	}
-
-	if dir := s.options.Extra.RootDirectory; len(dir) != 0 {
-		if fi, err := os.Stat(dir); err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return err
-			}
-		} else {
-			if !fi.IsDir() {
-				return fmt.Errorf("%q is a file, please delete or select another location", dir)
-			}
-		}
-	}
-
 	if s.options.EmbeddedEtcd.Enabled {
 		es := &etcd.Server{
 			Dir: s.options.EmbeddedEtcd.Directory,
