@@ -31,13 +31,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 // TestServerArgs returns the set of kcp args used to start a test
@@ -258,19 +263,84 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 	return orgClusterName.Join(ws.Name)
 }
 
-// StartWorkspaceSyncer starts a new syncer to synchronize the identified set of
-// resource types scheduled for the given workload cluster from the upstream server
-// to the downstream server.
-func StartWorkspaceSyncer(
-	t *testing.T,
-	ctx context.Context,
-	resources sets.String,
-	workloadCluster *workloadv1alpha1.WorkloadCluster,
-	upstream, downstream RunningServer,
-) {
-	upstreamConfig := upstream.DefaultConfig(t)
-	downstreamConfig := downstream.DefaultConfig(t)
+// SyncerFixture contains the information to run a syncer fixture.
+type SyncerFixture struct {
+	RunningServer       RunningServer
+	KubeClient          kubernetes.Interface
+	WorkloadClusterName string
 
-	err := syncer.StartSyncer(ctx, upstreamConfig, downstreamConfig, resources, logicalcluster.From(workloadCluster), workloadCluster.Name, 2)
+	upstreamConfig       *rest.Config
+	downstreamConfig     *rest.Config
+	resources            sets.String
+	orgClusterName       logicalcluster.LogicalCluster
+	workspaceClusterName logicalcluster.LogicalCluster
+}
+
+// NewSyncerFixture creates a downstream server (fakeWorkloadServer), and then creates a workloadClusters on the provided upstream server
+// returns a SyncerFixture with the downstream server information, and its kubeclient.
+func NewSyncerFixture(
+	t *testing.T,
+	resources sets.String,
+	upstream RunningServer,
+	orgClusterName logicalcluster.LogicalCluster,
+	wsClusterName logicalcluster.LogicalCluster,
+) *SyncerFixture {
+	downstreamServer := NewFakeWorkloadServer(t, upstream, orgClusterName)
+
+	upstreamKcpClusterClient, err := kcpclientset.NewClusterForConfig(upstream.DefaultConfig(t))
+	require.NoError(t, err)
+
+	workloadCluster, err := CreateWorkloadCluster(t, upstream.Artifact, upstreamKcpClusterClient.Cluster(wsClusterName), downstreamServer)
+	require.NoError(t, err)
+
+	upstreamConfig := upstream.DefaultConfig(t)
+	downstreamConfig := downstreamServer.DefaultConfig(t)
+
+	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	require.NoError(t, err)
+
+	return &SyncerFixture{
+		RunningServer:        downstreamServer,
+		KubeClient:           downstreamKubeClient,
+		upstreamConfig:       upstreamConfig,
+		downstreamConfig:     downstreamConfig,
+		resources:            resources,
+		orgClusterName:       logicalcluster.From(workloadCluster),
+		WorkloadClusterName:  workloadCluster.Name,
+		workspaceClusterName: wsClusterName,
+	}
+}
+
+// WaitForClusterReadyReason waits for the cluster to be ready with the given reason.
+func (sf *SyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Context, reason string) {
+	sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sf.upstreamConfig)
+	require.NoError(t, err)
+	kcpClient := sourceKcpClusterClient.Cluster(sf.workspaceClusterName)
+
+	t.Logf("Waiting for cluster %q condition %q to have reason %q", sf.WorkloadClusterName, conditionsapi.ReadyCondition, reason)
+	require.Eventually(t, func() bool {
+
+		cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, sf.WorkloadClusterName, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("Error getting cluster %q: %v", sf.WorkloadClusterName, err)
+			return false
+		}
+
+		// A reason is only supplied to indicate why a cluster is 'not ready'
+		wantReady := len(reason) == 0
+		if wantReady {
+			return conditions.IsTrue(cluster, conditionsapi.ReadyCondition)
+		} else {
+			conditionReason := conditions.GetReason(cluster, conditionsapi.ReadyCondition)
+			return conditions.IsFalse(cluster, conditionsapi.ReadyCondition) && reason == conditionReason
+		}
+
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	t.Logf("Cluster %q condition %s has reason %q", conditionsapi.ReadyCondition, sf.WorkloadClusterName, reason)
+}
+
+// Start starts the Syncer.
+func (sf *SyncerFixture) Start(t *testing.T, ctx context.Context) {
+	err := syncer.StartSyncer(ctx, sf.upstreamConfig, sf.downstreamConfig, sf.resources, sf.orgClusterName, sf.WorkloadClusterName, 2)
 	require.NoError(t, err, "syncer failed to start")
 }

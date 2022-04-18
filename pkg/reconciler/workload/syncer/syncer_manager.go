@@ -104,14 +104,14 @@ func (m *syncerManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1
 	cfg, err := clientcmd.RESTConfigFromKubeConfig([]byte(cluster.Spec.KubeConfig))
 	if err != nil {
 		klog.Errorf("%s: invalid kubeconfig: %v", m.name, err)
-		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.SyncerReady, workloadv1alpha1.InvalidKubeConfigReason, conditionsv1alpha1.ConditionSeverityError, "Error invalid kubeconfig: %v", err.Error())
 		return nil
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Errorf("%s: error creating client: %v", m.name, err)
-		conditions.MarkFalse(cluster, workloadv1alpha1.WorkloadClusterReadyCondition, workloadv1alpha1.ErrorCreatingClientReason, conditionsv1alpha1.ConditionSeverityError, "Error creating client: %v", err.Error())
+		conditions.MarkFalse(cluster, workloadv1alpha1.SyncerReady, workloadv1alpha1.ErrorCreatingClientReason, conditionsv1alpha1.ConditionSeverityError, "Error creating client: %v", err.Error())
 		return nil
 	}
 
