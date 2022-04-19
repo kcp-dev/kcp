@@ -44,9 +44,9 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/plugin"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
+	"github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 )
 
 const (

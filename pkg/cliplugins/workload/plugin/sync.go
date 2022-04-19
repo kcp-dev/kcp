@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"embed"
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -65,6 +67,57 @@ const (
 	// TODO(marun) Would a shorter hash be sufficient?
 	SyncerIDPrefix = "kcpsync"
 )
+
+// EnableSyncer prepares a kcp workspace for use with a syncer and outputs the
+// configuration required to deploy a syncer to the pcluster to stdout.
+func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, kcpNamespaceName, image string, resourcesToSync []string, disableDeployment bool) error {
+	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	token, err := enableSyncerForWorkspace(ctx, config, workloadClusterName, kcpNamespaceName)
+	if err != nil {
+		return err
+	}
+
+	configURL, currentClusterName, err := parseClusterURL(config.Host)
+	if err != nil {
+		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+	}
+
+	// Compose the syncer's upstream configuration server URL without any path. This is
+	// required so long as the API importer and syncer expect to require cluster clients.
+	//
+	// TODO(marun) It's probably preferable that the syncer and importer are provided a
+	// cluster configuration since they only operate against a single workspace.
+	serverURL := configURL.Scheme + "://" + configURL.Host
+
+	replicas := 1
+	if disableDeployment {
+		replicas = 0
+	}
+
+	input := templateInput{
+		ServerURL:       serverURL,
+		CAData:          base64.StdEncoding.EncodeToString(config.CAData),
+		Token:           token,
+		KCPNamespace:    kcpNamespaceName,
+		LogicalCluster:  currentClusterName.String(),
+		WorkloadCluster: workloadClusterName,
+		Image:           image,
+		Replicas:        replicas,
+		ResourcesToSync: resourcesToSync,
+	}
+
+	resources, err := renderSyncerResources(input)
+	if err != nil {
+		return err
+	}
+
+	_, err = kc.Out.Write(resources)
+	return err
+}
 
 // GetSyncerID returns the resource identifier of a syncer for the given logical
 // cluster and workload cluster. The ID is unique for unique pairs of inputs to ensure
