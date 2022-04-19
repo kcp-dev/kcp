@@ -403,13 +403,6 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
 		// TODO(marun) Consider enabling each controller via a separate flag
 
-		syncerConfig, err := s.options.AdminAuthentication.GetPushModeSyncerKubeconfig(genericConfig, newTokenOrEmpty, tokenHash)
-		if err != nil {
-			return err
-		}
-		if err := s.installWorkloadSyncerController(ctx, controllerConfig, syncerConfig); err != nil {
-			return err
-		}
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
 			return err
 		}

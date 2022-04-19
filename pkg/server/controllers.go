@@ -36,7 +36,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -59,7 +58,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/syncer"
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -436,50 +434,6 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 		}
 
 		go c.Start(ctx, s.options.Controllers.ApiResource.NumThreads)
-
-		return nil
-	})
-	return nil
-}
-
-func (s *Server) installWorkloadSyncerController(ctx context.Context, config *rest.Config, pclusterKubeconfig *clientcmdapi.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-syncer-controller")
-	manager := s.options.Controllers.Syncer.CreateSyncerManager()
-	if manager == nil {
-		klog.Info("syncer not enabled. To enable, supply --pull-mode or --push-mode")
-		return nil
-	}
-
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
-	if err != nil {
-		return err
-	}
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	c, err := syncer.NewController(
-		crdClusterClient,
-		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
-		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		pclusterKubeconfig,
-		s.options.Controllers.Syncer.ResourcesToSync,
-		manager,
-	)
-	if err != nil {
-		return err
-	}
-
-	s.AddPostStartHook("kcp-install-syncer-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			klog.Errorf("failed to finish post-start-hook kcp-install-syncer-controller: %v", err)
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(ctx)
 
 		return nil
 	})
