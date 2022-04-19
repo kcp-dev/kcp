@@ -324,14 +324,14 @@ func RequireNoDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
 	require.Empty(t, diff, msgAndArgs...)
 }
 
-// LogicalClusterConfig returns the logical cluster context of the given config.
-func LogicalClusterConfig(rawConfig *clientcmdapi.Config, logicalClusterName logicalcluster.LogicalCluster) clientcmd.ClientConfig {
+// LogicalClusterRawConfig returns the raw cluster config of the given config.
+func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.LogicalCluster) clientcmdapi.Config {
 	contextName := "system:admin"
 
 	var configCluster = *rawConfig.Clusters[contextName] // shallow copy
 	configCluster.Server += logicalClusterName.Path()
 
-	kubeConfig := clientcmdapi.Config{
+	return clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
 			contextName: &configCluster,
 		},
@@ -346,6 +346,4 @@ func LogicalClusterConfig(rawConfig *clientcmdapi.Config, logicalClusterName log
 		},
 		CurrentContext: contextName,
 	}
-
-	return clientcmd.NewNonInteractiveClientConfig(kubeConfig, contextName, &clientcmd.ConfigOverrides{}, nil)
 }

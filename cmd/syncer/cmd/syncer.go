@@ -83,11 +83,13 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 
 	if err := syncer.StartSyncer(
 		ctx,
-		kcpConfig,
-		toConfig,
-		sets.NewString(options.SyncedResourceTypes...),
-		logicalcluster.New(options.FromClusterName),
-		options.PclusterID,
+		&syncer.SyncerConfig{
+			UpstreamConfig:      kcpConfig,
+			DownstreamConfig:    toConfig,
+			ResourcesToSync:     sets.NewString(options.SyncedResourceTypes...),
+			KCPClusterName:      logicalcluster.New(options.FromClusterName),
+			WorkloadClusterName: options.PclusterID,
+		},
 		numThreads,
 		options.APIImportPollInterval,
 	); err != nil {

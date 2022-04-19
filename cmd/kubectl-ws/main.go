@@ -33,7 +33,7 @@ func main() {
 	flags := pflag.NewFlagSet("kubectl-kcp", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
-	workspaceCmd, err := cmd.NewCmdWorkspace(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	workspaceCmd, err := cmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

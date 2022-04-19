@@ -41,6 +41,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
 
 const (
@@ -165,7 +166,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		if err != nil {
 			return err
 		}
-		u, currentClusterName, err := parseClusterURL(config.Host)
+		u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 		if err != nil {
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 		}
@@ -187,7 +188,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		if err != nil {
 			return err
 		}
-		u, currentClusterName, err := parseClusterURL(config.Host)
+		u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 		if err != nil {
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 		}
@@ -252,7 +253,7 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, shortWorkspaceOutput
 }
 
 func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType string, shortWorkspaceOutput bool) error {
-	_, clusterName, err := parseClusterURL(host)
+	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		if shortWorkspaceOutput {
 			return nil
@@ -294,7 +295,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 	if err != nil {
 		return err
 	}
-	_, currentClusterName, err := parseClusterURL(config.Host)
+	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 	if err != nil {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
@@ -380,7 +381,7 @@ func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
 	if err != nil {
 		return err
 	}
-	_, currentClusterName, err := parseClusterURL(config.Host)
+	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 	if err != nil {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
@@ -429,7 +430,7 @@ func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite 
 	if !ok {
 		return fmt.Errorf("current cluster %q is not found in kubeconfig", currentContext.Cluster)
 	}
-	_, currentClusterName, err := parseClusterURL(currentCluster.Server)
+	_, currentClusterName, err := pluginhelpers.ParseClusterURL(currentCluster.Server)
 	if err != nil {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", currentCluster.Server)
 	}

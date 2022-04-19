@@ -14,37 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package plugin
 
 import (
-	goflags "flag"
-	"fmt"
-	"os"
-
-	"github.com/spf13/pflag"
-
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/klog/v2"
-
-	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/cmd"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-func main() {
-	flags := pflag.NewFlagSet("kubectl-kcp", pflag.ExitOnError)
-	pflag.CommandLine = flags
+type Config struct {
+	startingConfig *clientcmdapi.Config
+	overrides      *clientcmd.ConfigOverrides
 
-	workspaceCmd, err := cmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	genericclioptions.IOStreams
+}
+
+// NewConfig load a kubeconfig with default config access
+func NewConfig(opts *Options) (*Config, error) {
+	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
+	startingConfig, err := configAccess.GetStartingConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
-	// setup klog
-	fs := goflags.NewFlagSet("klog", goflags.PanicOnError)
-	klog.InitFlags(fs)
-	workspaceCmd.PersistentFlags().AddGoFlagSet(fs)
+	return &Config{
+		startingConfig: startingConfig,
+		overrides:      opts.KubectlOverrides,
 
-	if err := workspaceCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+		IOStreams: opts.IOStreams,
+	}, nil
 }

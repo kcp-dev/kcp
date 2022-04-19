@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -45,13 +44,13 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
 
 const (
 	resyncPeriod       = 10 * time.Hour
-	SyncerNamespaceKey = "SYNCER_NAMESPACE"
 	syncerApplyManager = "syncer"
 
 	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller
@@ -70,41 +69,51 @@ const SyncDown SyncDirection = "down"
 // SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
 const SyncUp SyncDirection = "up"
 
-func StartSyncer(
-	ctx context.Context,
-	upstream, downstream *rest.Config,
-	resources sets.String,
-	kcpClusterName logicalcluster.LogicalCluster,
-	pcluster string,
-	numSyncerThreads int,
-	importPollInterval time.Duration,
-) error {
+// SyncerConfig defines the syncer configuration that is guaranteed to
+// vary across syncer deployments. Capturing these details in a struct
+// simplifies defining these details in test fixture.
+type SyncerConfig struct {
+	UpstreamConfig      *rest.Config
+	DownstreamConfig    *rest.Config
+	ResourcesToSync     sets.String
+	KCPClusterName      logicalcluster.LogicalCluster
+	WorkloadClusterName string
+}
+
+func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
+	klog.Infof("Starting syncer for logical-cluster: %s, workload-cluster: %s", cfg.KCPClusterName, cfg.WorkloadClusterName)
+
+	// Resources are accepted as a set to ensure the provision of a
+	// unique set of resources, but all subsequent consumption is via
+	// slice whose entries are assumed to be unique.
+	resources := cfg.ResourcesToSync.List()
+
 	// Start api import first because spec and status syncers are blocked by
 	// gvr discovery finding all the configured resource types in the kcp
 	// workspace.
-	apiImporter, err := NewAPIImporter(upstream, downstream, resources.List(), kcpClusterName, pcluster)
+	apiImporter, err := NewAPIImporter(cfg.UpstreamConfig, cfg.DownstreamConfig, resources, cfg.KCPClusterName, cfg.WorkloadClusterName)
 	if err != nil {
 		return err
 	}
 	go apiImporter.Start(ctx, importPollInterval)
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(upstream)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg.UpstreamConfig)
 	if err != nil {
 		return err
 	}
-	fromDiscovery := discoveryClient.WithCluster(kcpClusterName)
+	fromDiscovery := discoveryClient.WithCluster(cfg.KCPClusterName)
 
 	// Block syncer start on gvr discovery completing successfully and
 	// including the resources configured for syncing. The spec and status
 	// syncers depend on the types being present to start their informers.
 	var gvrs []string
 	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
-		klog.Infof("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", kcpClusterName, pcluster)
+		klog.Infof("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
 		var err error
 		// Get all types the upstream API server knows about.
 		// TODO: watch this and learn about new types, or forget about old ones.
-		gvrs, err = getAllGVRs(fromDiscovery, resources.List()...)
+		gvrs, err = getAllGVRs(fromDiscovery, resources...)
 		// TODO(marun) Should some of these errors be fatal?
 		if err != nil {
 			klog.Errorf("Failed to retrieve GVRs from kcp: %v", err)
@@ -117,14 +126,14 @@ func StartSyncer(
 		return err
 	}
 
-	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", kcpClusterName, pcluster, resources.List())
-	specSyncer, err := NewSpecSyncer(upstream, downstream, gvrs, kcpClusterName, pcluster)
+	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
+	specSyncer, err := NewSpecSyncer(cfg.UpstreamConfig, cfg.DownstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName)
 	if err != nil {
 		return err
 	}
 
-	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", kcpClusterName, pcluster, resources.List())
-	statusSyncer, err := NewStatusSyncer(downstream, upstream, gvrs, kcpClusterName, pcluster)
+	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
+	statusSyncer, err := NewStatusSyncer(cfg.DownstreamConfig, cfg.UpstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName)
 	if err != nil {
 		return err
 	}
@@ -133,11 +142,11 @@ func StartSyncer(
 	go statusSyncer.Start(ctx, numSyncerThreads)
 
 	// TODO(marun) Report pcluster connectivity to kcp
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(upstream)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
 	if err != nil {
 		return err
 	}
-	kcpClient := kcpClusterClient.Cluster(kcpClusterName)
+	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
 	workloadClustersClient := kcpClient.WorkloadV1alpha1().WorkloadClusters()
 
 	// Attempt to heartbeat every interval
@@ -150,16 +159,16 @@ func StartSyncer(
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
-			workloadCluster, err := workloadClustersClient.Patch(ctx, pcluster, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			workloadCluster, err := workloadClustersClient.Patch(ctx, cfg.WorkloadClusterName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
-				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for WorkloadCluster %s|%s: %v", kcpClusterName, pcluster, err)
+				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for WorkloadCluster %s|%s: %v", cfg.KCPClusterName, cfg.WorkloadClusterName, err)
 				return false, nil
 			}
 			heartbeatTime = workloadCluster.Status.LastSyncerHeartbeatTime.Time
 			return true, nil
 		})
 
-		klog.V(5).Infof("Heartbeat set for WorkloadCluster %s|%s: %s", kcpClusterName, pcluster, heartbeatTime)
+		klog.V(5).Infof("Heartbeat set for WorkloadCluster %s|%s: %s", cfg.KCPClusterName, cfg.WorkloadClusterName, heartbeatTime)
 
 	}, heartbeatInterval)
 
@@ -183,7 +192,6 @@ type Controller struct {
 	direction SyncDirection
 
 	upstreamClusterName logicalcluster.LogicalCluster
-	syncerNamespace     string
 	mutators            mutatorGvrMap
 }
 
@@ -198,7 +206,6 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClie
 		toClient:            toClient,
 		direction:           direction,
 		upstreamClusterName: kcpClusterName,
-		syncerNamespace:     os.Getenv(SyncerNamespaceKey),
 		mutators:            make(mutatorGvrMap),
 	}
 
@@ -462,7 +469,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 			return nil
 		}
 	} else {
-		if h.namespace == c.syncerNamespace {
+		if strings.HasPrefix(workloadcliplugin.SyncerIDPrefix, h.namespace) {
 			// skip syncer namespace
 			return nil
 		}
