@@ -172,6 +172,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	}
 
 	// Grant the service account cluster-admin on the workspace
+	// TODO(sttts): remove this once syncer workspace access goes through the virtual workspace
 	if _, err := kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            authResourceName,
