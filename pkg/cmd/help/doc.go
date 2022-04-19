@@ -17,6 +17,7 @@ limitations under the License.
 package help
 
 import (
+	"io"
 	"regexp"
 	"strings"
 	"unicode"
@@ -24,7 +25,8 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
-	terminal "github.com/wayneashleyberry/terminal-dimensions"
+
+	"k8s.io/component-base/term"
 )
 
 var reEmptyLine = regexp.MustCompile(`(?m)([\w[:punct:]])[ ]*\n([\w[:punct:]])`)
@@ -35,12 +37,13 @@ func Doc(s string) string {
 	return s
 }
 
-func FitTerminal() {
+func FitTerminal(out io.Writer) {
+	cols, _, err := term.TerminalSize(out)
+	if err != nil {
+		cols = 80
+	}
+
 	cobra.AddTemplateFunc("trimTrailingWhitespaces", func(s string) string {
-		w, err := terminal.Width()
-		if err != nil {
-			w = 80
-		}
-		return strings.TrimRightFunc(wordwrap.String(s, int(w)), unicode.IsSpace)
+		return strings.TrimRightFunc(wordwrap.String(s, cols), unicode.IsSpace)
 	})
 }

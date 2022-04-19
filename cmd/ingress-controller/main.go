@@ -41,8 +41,6 @@ const numThreads = 2
 const resyncPeriod = 10 * time.Hour
 
 func main() {
-	help.FitTerminal()
-
 	options := NewDefaultOptions()
 
 	cmd := &cobra.Command{
@@ -114,6 +112,8 @@ func main() {
 	}
 
 	options.BindFlags(cmd.Flags())
+
+	help.FitTerminal(cmd.OutOrStdout())
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

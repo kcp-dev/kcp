@@ -35,8 +35,6 @@ import (
 )
 
 func main() {
-	help.FitTerminal()
-
 	cmd := &cobra.Command{
 		Use:   "kcp",
 		Short: "Kube for Control Plane (KCP)",
@@ -138,6 +136,8 @@ func main() {
 		"run-controllers",
 		"run-virtual-workspaces",
 	})
+
+	help.FitTerminal(cmd.OutOrStdout())
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
