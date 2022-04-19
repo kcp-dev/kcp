@@ -58,8 +58,8 @@ var (
 `
 )
 
-// NewCmdWorkspace provides a cobra command wrapping WorkspaceOptions
-func NewCmdWorkspace(streams genericclioptions.IOStreams) (*cobra.Command, error) {
+// New provides a cobra command wrapping WorkspaceOptions
+func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	opts := plugin.NewOptions(streams)
 
 	useRunE := func(cmd *cobra.Command, args []string) error {

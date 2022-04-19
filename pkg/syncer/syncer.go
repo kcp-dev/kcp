@@ -44,9 +44,9 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
-	"github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 )
 
 const (
@@ -469,7 +469,7 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 			return nil
 		}
 	} else {
-		if strings.HasPrefix(plugin.SyncerIDPrefix, h.namespace) {
+		if strings.HasPrefix(workloadcliplugin.SyncerIDPrefix, h.namespace) {
 			// skip syncer namespace
 			return nil
 		}

@@ -39,6 +39,7 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
 
 //go:embed *.yaml
@@ -58,20 +59,19 @@ const (
 	// Max length of service account name (cluster role has no limit)
 	MaxSyncerAuthResourceName = 254
 
-	// The syncer id prefix is only 7 characters so that the 224 bits
+	// SyncerIDPrefix is the syncer id prefix is only 7 characters so that the 224 bits
 	// of an sha hash can be suffixed and still be within kube's 63
 	// char resource name limit.
 	//
-	// TODO(marun) This prefix should be reserved to avoid user
-	// resources being misidentified as syncer resources.
+	// TODO(marun) This prefix should be reserved to avoid user resources being misidentified as syncer resources.
 	// TODO(marun) Would a shorter hash be sufficient?
 	SyncerIDPrefix = "kcpsync"
 )
 
-// EnableSyncer prepares a kcp workspace for use with a syncer and outputs the
+// Sync prepares a kcp workspace for use with a syncer and outputs the
 // configuration required to deploy a syncer to the pcluster to stdout.
-func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, kcpNamespaceName, image string, resourcesToSync []string, disableDeployment bool) error {
-	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+func (c *Config) Sync(ctx context.Context, workloadClusterName, kcpNamespaceName, image string, resourcesToSync []string, replicas int) error {
+	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, kcp
 		return err
 	}
 
-	configURL, currentClusterName, err := parseClusterURL(config.Host)
+	configURL, currentClusterName, err := helpers.ParseClusterURL(config.Host)
 	if err != nil {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
@@ -92,11 +92,6 @@ func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, kcp
 	// TODO(marun) It's probably preferable that the syncer and importer are provided a
 	// cluster configuration since they only operate against a single workspace.
 	serverURL := configURL.Scheme + "://" + configURL.Host
-
-	replicas := 1
-	if disableDeployment {
-		replicas = 0
-	}
 
 	input := templateInput{
 		ServerURL:       serverURL,
@@ -115,7 +110,7 @@ func (kc *KubeConfig) EnableSyncer(ctx context.Context, workloadClusterName, kcp
 		return err
 	}
 
-	_, err = kc.Out.Write(resources)
+	_, err = c.Out.Write(resources)
 	return err
 }
 

@@ -46,11 +46,11 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
-	"github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 )
 
 // TestServerArgs returns the set of kcp args used to start a test
@@ -316,14 +316,15 @@ func NewSyncerFixture(t *testing.T, cfg *SyncerFixtureConfig) *SyncerFixture {
 	// Run the plugin command to enable the syncer and collect the resulting yaml
 	t.Logf("Configuring workspace %s for syncing", cfg.WorkspaceClusterName)
 	pluginArgs := []string{
-		"enable-syncer",
+		"workload",
+		"sync",
 		cfg.WorkloadClusterName,
 		"--syncer-image", image,
 	}
 	for _, resource := range cfg.ResourcesToSync.List() {
 		pluginArgs = append(pluginArgs, "--sync-resources", resource)
 	}
-	syncerYAML := RunWorkspacePlugin(t, kubeconfigPath, pluginArgs)
+	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
 
 	// Create a fake server from a workspace that is a peer to the current workspace
 	// TODO(marun) Only use a fake workload server if a pcluster is not configured
@@ -338,7 +339,7 @@ func NewSyncerFixture(t *testing.T, cfg *SyncerFixtureConfig) *SyncerFixture {
 	// Extract the configuration for an in-process syncer from the resources that were
 	// applied to the downstream server. This maximizes the parity between the
 	// configuration of a deployed and in-process syncer.
-	syncerNamespace := plugin.GetSyncerID(cfg.WorkspaceClusterName.String(), cfg.WorkloadClusterName)
+	syncerNamespace := workloadcliplugin.GetSyncerID(cfg.WorkspaceClusterName.String(), cfg.WorkloadClusterName)
 	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerNamespace)
 
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
@@ -417,15 +418,15 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	require.NoError(t, err)
 
 	// Read the upstream kubeconfig from the syncer secret
-	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, plugin.SyncerSecretName, metav1.GetOptions{})
+	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, workloadcliplugin.SyncerSecretName, metav1.GetOptions{})
 	require.NoError(t, err)
-	upstreamConfigBytes := secret.Data[plugin.SyncerSecretConfigKey]
+	upstreamConfigBytes := secret.Data[workloadcliplugin.SyncerSecretConfigKey]
 	require.NotEmpty(t, upstreamConfigBytes, "upstream config is required")
 	upstreamConfig, err := clientcmd.RESTConfigFromKubeConfig(upstreamConfigBytes)
 	require.NoError(t, err, "failed to load upstream config")
 
 	// Read the arguments from the syncer deployment
-	deployment, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, plugin.SyncerResourceName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, workloadcliplugin.SyncerResourceName, metav1.GetOptions{})
 	require.NoError(t, err)
 	containers := deployment.Spec.Template.Spec.Containers
 	require.NotEmpty(t, containers, "expected at least one container in syncer deployment")
@@ -453,7 +454,7 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 			return false
 		}
 		for _, secret := range secrets.Items {
-			if secret.Annotations[corev1.ServiceAccountNameKey] == plugin.SyncerResourceName {
+			if secret.Annotations[corev1.ServiceAccountNameKey] == workloadcliplugin.SyncerResourceName {
 				tokenSecret = secret
 				return true
 			}
@@ -495,25 +496,25 @@ func syncerArgsToMap(args []string) (map[string][]string, error) {
 	return argMap, nil
 }
 
-// WorkspacePluginCommand returns the cli args to run the workspace plugin directly or
+// KcpCliPluginCommand returns the cli args to run the workspace plugin directly or
 // via go run (depending on whether NO_GORUN is set).
-func WorkspacePluginCommand() []string {
+func KcpCliPluginCommand() []string {
 	if NoGoRunEnvSet() {
-		return []string{"kubectl", "kcp", "workspace"}
+		return []string{"kubectl", "kcp"}
 
 	} else {
-		cmdPath := filepath.Join(RepositoryDir(), "cmd", "kubectl-workspaces")
+		cmdPath := filepath.Join(RepositoryDir(), "cmd", "kubectl-kcp")
 		return []string{"go", "run", cmdPath}
 	}
 }
 
-// RunWorkspacePlugin runs the kcp workspace plugin with the provided subcommand and
+// RunKcpCliPlugin runs the kcp workspace plugin with the provided subcommand and
 // returns the combined stderr and stdout output.
-func RunWorkspacePlugin(t *testing.T, kubeconfigPath string, subcommand []string) []byte {
+func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, subcommand []string) []byte {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cmdParts := append(WorkspacePluginCommand(), subcommand...)
+	cmdParts := append(KcpCliPluginCommand(), subcommand...)
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
 
 	cmd.Env = os.Environ()
@@ -523,8 +524,8 @@ func RunWorkspacePlugin(t *testing.T, kubeconfigPath string, subcommand []string
 	t.Logf("running: KUBECONFIG=%s %s", kubeconfigPath, strings.Join(cmdParts, " "))
 
 	output, err := cmd.CombinedOutput()
-	t.Logf("workspace plugin output:\n%s", output)
-	require.NoError(t, err, "error running workspace plugin command")
+	t.Logf("kcp plugin output:\n%s", output)
+	require.NoError(t, err, "error running kcp plugin command")
 	return output
 }
 
