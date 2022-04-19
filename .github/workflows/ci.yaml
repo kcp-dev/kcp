@@ -138,6 +138,15 @@ jobs:
         with:
           go-version: v1.17
       - run: make build
+
+      # Install kind with a local registry
+      - uses: container-tools/kind-action@v1
+        name: Kubernetes KinD Cluster w/local registry
+
+      # Publish a syncer image to the local registry
+      - uses: imjasonh/setup-ko@v0.4
+      - run: KO_DOCKER_REPO=localhost:5000 ko publish ./cmd/syncer --insecure-registry -t $(git rev-parse --short "$GITHUB_SHA") > /tmp/syncer-image
+
       - run: |-
           export LOG_DIR=/tmp/e2e/shared-server/artifacts &&
           mkdir -p ${LOG_DIR} &&
@@ -146,10 +155,13 @@ jobs:
       - run: |-
           ARTIFACT_DIR=/tmp/e2e \
           PATH="${PATH}:$(pwd)/bin/" \
-          TEST_ARGS='-args --use-default-server' \
+          TEST_ARGS="-args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --pcluster-kubeconfig=${KUBECONFIG}" \
           COUNT=1 \
           E2E_PARALLELISM=2 \
           make test-e2e
+
+      # TODO(marun) Collect syncer pod logs?
+
       - uses: actions/upload-artifact@v2
         if: ${{ always() }}
         with:

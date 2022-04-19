@@ -88,11 +88,10 @@ func TestNamespaceScheduler(t *testing.T) {
 				// TODO(marun) Extract the heartbeater out of the syncer for reuse in a test fixture. The namespace
 				// controller just needs ready clusters which can be accomplished without a syncer by having the
 				// heartbeater update the workload cluster so the heartbeat controller can set the cluster ready.
-				syncerFixture := framework.NewSyncerFixture(t, &framework.SyncerFixtureConfig{
+				syncerFixture := framework.SyncerFixture{
 					UpstreamServer:       server,
 					WorkspaceClusterName: server.clusterName,
-				})
-				syncerFixture.Start(t, ctx)
+				}.Start(t)
 				workloadClusterName := syncerFixture.SyncerConfig.WorkloadClusterName
 				err = server.expect(namespace, scheduledMatcher(workloadClusterName))
 				require.NoError(t, err, "did not see namespace marked scheduled for cluster1 %q", workloadClusterName)

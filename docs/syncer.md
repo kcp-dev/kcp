@@ -11,77 +11,79 @@ users have to install a special component named [syncer](https://github.com/kcp-
 
 ## Instructions
 
-1. Create a workspace
+1. Create a workspace and immediately enter it:
 
 ```sh
-$ kubectl kcp workspace create my-workspace --use
-Workspace "my-workspace" created.
-Current workspace is "my-workspace".
+$ kubectl kcp workspace create my-workspace --enter
+Workspace "my-workspace" (type "Universal") created. Waiting for being ready.
+Current workspace is "root:default:my-workspace".
 ```
 
-Check that it has been created correctly and is ready:
+1. Enable the syncer for a new cluster
 
 ```sh
-$ kubectl kcp workspace list
-NAME           TYPE        PHASE   URL
-my-workspace   Universal   Ready   https://192.168.1.150:6443/clusters/default:my-workspace--1
+$ kubectl kcp workload sync <mycluster> --syncer-image <image name> > syncer.yaml
 ```
 
-Obtain the KCP server URL and the logical cluster name:
-
-- KCP_SERVER_URL=https://192.168.1.150:6443
-- KCP_LOGICAL_CLUSTER_NAME=default:my-workspace--1
-
-2. Create a service account for the syncer on current workspace:
+1. Create a kind cluster to back the workload cluster
 
 ```sh
-$ kubectl create serviceaccount syncer
-serviceaccount/syncer created
+$ kind create cluster
+Creating cluster "kind" ...
+<snip>
+Set kubectl context to "kind-kind"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-kind
 ```
 
-3. Generate a kubeconfig from the service account:
+## For syncer development
+
+Alternately, create a `kind` cluster with a local registry to simplify syncer development by executing the
+following script:
+
+https://raw.githubusercontent.com/kubernetes-sigs/kind/main/site/static/examples/kind-with-registry.sh
+
+### Building the syncer image
+
+Install `ko`:
 
 ```sh
-$ kubectl get secret
-NAME                  TYPE                                  DATA   AGE
-default-token-nkpxj   kubernetes.io/service-account-token   3      29m
-syncer-token-2mtgf    kubernetes.io/service-account-token   3      29m
-
+go install github.com/google/ko@latest
 ```
 
-Obtain the cluster certificate and the token associated to the service account:
+Build image and push to the local registry integrated with `kind`:
 
 ```sh
-$ KCP_SYNCER_TOKEN=$(kubectl get secret/syncer-token-2mtgf -o jsonpath='{.data.token}')
-$ KCP_SYNCER_CACRT=$(kubectl get configmap/kube-root-ca.crt -o jsonpath='{.data.ca\.crt}'| base64 -w 0)
+KO_DOCKER_REPO=localhost:5001 ko publish ./cmd/syncer -t <your tag>
 ```
 
+By default `ko` will build for `amd64`. To build for `arm64` (e.g. apple silicon), specify
+`--platform=linux/arm64`.
 
-4. Complete the [syncer manifest](../manifest/syncer.yaml) with the information obtained in previous steps:
+To use the image pushed to the local registry, supply `--image=<image tag>` to the
+`enable-syncer` plugin command, where `<image tag>` is from the output of `ko publish`.
 
-- KCP_SYNCER_CACRT
-- KCP_SYNCER_TOKEN
-- KCP_SERVER_URL
-- KCP_LOGICAL_CLUSTER_NAME
-- WORKLOAD_CLUSTER_NAME (defined by the user to identify the workload cluster)
-
-5.  Apply the manifest to the p-cluster
+1. Apply the manifest to the p-cluster
 
 ```sh
-$ kubect --kubeconfig pcluster.kubeconfig apply -f syncer.yaml
-namespace/kcp-system created
-serviceaccount/syncer created
-clusterrole.rbac.authorization.k8s.io/syncer created
-clusterrolebinding.rbac.authorization.k8s.io/syncer created
-secret/syncer-kcp-sa created
-configmap/syncer-kcp-config created
-deployment.apps/syncer created
+$ kubectl apply -f syncer.yaml
+namespace/kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d created
+serviceaccount/kcp-syncer created
+clusterrole.rbac.authorization.k8s.io/kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d created
+clusterrolebinding.rbac.authorization.k8s.io/kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d created
+secret/kcp-syncer-config created
+deployment.apps/kcp-syncer created
 ```
 
-and it will create a deployment with the `syncer`:
+and it will create a `kcp-syncer` deployment:
 
 ```sh
-$ kubectl -n kcp-system get deployments
+$ kubectl -n kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d get deployments
 NAME     READY   UP-TO-DATE   AVAILABLE   AGE
-syncer   1/1     1            1           13m
+kcp-syncer   1/1     1            1           13m
 ```
+
+1. Wait for the kcp workload cluster to go ready.
+
+TODO(marun)

@@ -80,6 +80,10 @@ type SyncerConfig struct {
 	WorkloadClusterName string
 }
 
+func (sc *SyncerConfig) ID() string {
+	return workloadcliplugin.GetSyncerID(sc.KCPClusterName.String(), sc.WorkloadClusterName)
+}
+
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
 	klog.Infof("Starting syncer for logical-cluster: %s, workload-cluster: %s", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
@@ -424,6 +428,18 @@ type NamespaceLocator struct {
 	Namespace      string                        `json:"namespace"`
 }
 
+func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, error) {
+	annotation := annotations[namespaceLocatorAnnotation]
+	if len(annotation) == 0 {
+		return nil, nil
+	}
+	var locator NamespaceLocator
+	if err := json.Unmarshal([]byte(annotation), &locator); err != nil {
+		return nil, err
+	}
+	return &locator, nil
+}
+
 // PhysicalClusterNamespaceName encodes the NamespaceLocator to a new
 // namespace name for use on a physical cluster. The encoding is repeatable.
 func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
@@ -495,13 +511,16 @@ func (c *Controller) process(ctx context.Context, h holder) error {
 			return nil
 		}
 
-		if namespaceLocationAnnotation := nsMeta.GetAnnotations()[namespaceLocatorAnnotation]; namespaceLocationAnnotation != "" {
-			var l NamespaceLocator
-			if err := json.Unmarshal([]byte(namespaceLocationAnnotation), &l); err != nil {
-				klog.Errorf("%s: namespace %q: error decoding annotation: %v", c.name, nsKey, err)
-				return nil
-			}
-			toNamespace = l.Namespace
+		namespaceLocator, err := LocatorFromAnnotations(nsMeta.GetAnnotations())
+		if err != nil {
+			klog.Errorf("%s: namespace %q: error decoding annotation: %v", c.name, nsKey, err)
+			return nil
+		}
+
+		if namespaceLocator != nil && namespaceLocator.LogicalCluster == c.upstreamClusterName {
+			// Only sync resources for the configured logical cluster to ensure
+			// that syncers for multiple logical clusters can coexist.
+			toNamespace = namespaceLocator.Namespace
 		} else {
 			// this is not our namespace, silently skipping
 			return nil
