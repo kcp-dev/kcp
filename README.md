@@ -147,8 +147,25 @@ However, `kcp` is not an acronym.
 
 ## How do I get started?
 
-Check out our [Contributing](CONTRIBUTING.md) and [Development](DEVELOPMENT.md) guides.
+After cloning the repository, you can start kcp on your machine using this command:
 
+```
+go run ./cmd/kcp start
+```
+
+This will build and run your kcp server, and generate a kubeconfig in `.kcp/admin.kubeconfig` you can use to connect to it:
+
+```
+export KUBECONFIG=.kcp/admin.kubeconfig
+kubectl api-resources
+```
+
+Check out our [Contributing](CONTRIBUTING.md) and [Developer](docs/developers) guides.
+
+## Using VSCode
+
+A pre-configured VSCode workspace is available in `contrib/kcp.code-workspace`. You can use the `Launch kcp` configuration
+to start the KCP lightweight API Server in debug mode inside VSCode.
 
 ## This sounds cool and I want to help!
 
