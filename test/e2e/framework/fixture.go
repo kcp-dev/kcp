@@ -322,7 +322,7 @@ func NewSyncerFixture(t *testing.T, cfg *SyncerFixtureConfig) *SyncerFixture {
 		"--syncer-image", image,
 	}
 	for _, resource := range cfg.ResourcesToSync.List() {
-		pluginArgs = append(pluginArgs, "--sync-resources", resource)
+		pluginArgs = append(pluginArgs, "--resources", resource)
 	}
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
 
@@ -442,8 +442,8 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	require.NotEmpty(t, fromCluster, "a value for --from-cluster is required")
 	kcpClusterName := logicalcluster.New(fromCluster)
 
-	resourcesToSync := argMap["--sync-resources"]
-	require.NotEmpty(t, fromCluster, "--sync-resources is required")
+	resourcesToSync := argMap["--resources"]
+	require.NotEmpty(t, fromCluster, "--resources is required")
 
 	// Read the downstream token from the deployment's service account secret
 	var tokenSecret corev1.Secret

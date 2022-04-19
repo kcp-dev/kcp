@@ -131,8 +131,8 @@ spec:
         - --from-kubeconfig=/kcp/kubeconfig
         - --workload-cluster-name=workload-cluster-name
         - --from-cluster=root:default:foo
-        - --sync-resources=resource1
-        - --sync-resources=resource2
+        - --resources=resource1
+        - --resources=resource2
         image: image
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError

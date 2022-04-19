@@ -107,9 +107,9 @@ spec:
         - --from-kubeconfig=/kcp/config/kubeconfig
         - --workload-cluster-name=WORKLOAD_CLUSTER_NAME   # ID of the -to cluster. Resources with this ID set in the 'workloads.kcp.dev/cluster' label will be synced
         - --from-cluster=KCP_LOGICAL_CLUSTER_NAME         # Name of the -from logical cluster
-        - --sync-resources=deployments.apps               # List of resources to be synchronized in kcp
-        - --sync-resources=ingresses.networking.k8s
-        - --sync-resources=services
+        - --resources=deployments.apps               # List of resources to be synchronized in kcp
+        - --resources=ingresses.networking.k8s
+        - --resources=services
         image: ghcr.io/kcp-dev/kcp/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:7005a96@sha256:9735cbe04f4a5c7137e1f544fa29520f1624304629371d6bd185fcfe15f3b7af
         imagePullPolicy: IfNotPresent
         name: syncer

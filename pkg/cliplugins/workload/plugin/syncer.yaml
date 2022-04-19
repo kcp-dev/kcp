@@ -110,7 +110,7 @@ spec:
         - --workload-cluster-name={{.WorkloadCluster}}
         - --from-cluster={{.LogicalCluster}}
 {{- range $resourceToSync := .ResourcesToSync}}
-        - --sync-resources={{$resourceToSync}}
+        - --resources={{$resourceToSync}}
 {{- end}}
         image: {{.Image}}
         imagePullPolicy: IfNotPresent

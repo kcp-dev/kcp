@@ -63,7 +63,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	var replicas int = 1
 	kcpNamespaceName := "default"
 	enableSyncerCmd := &cobra.Command{
-		Use:          "sync <workload-cluster-name> --syncer-image <kcp-syncer-image> [--sync-resources=<resource1>,<resource2>..]",
+		Use:          "sync <workload-cluster-name> --syncer-image <kcp-syncer-image> [--resources=<resource1>,<resource2>..]",
 		Short:        "Deploy a syncer for the given workload cluster",
 		Example:      fmt.Sprintf(syncExample, "kubectl kcp"),
 		SilenceUsage: true,
@@ -106,7 +106,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 			return kubeconfig.Sync(c.Context(), workloadClusterName, kcpNamespaceName, syncerImage, resourcesToSync, replicas)
 		},
 	}
-	enableSyncerCmd.Flags().StringSliceVar(&resourcesToSync, "sync-resources", resourcesToSync, "Resources to synchronize with kcp.")
+	enableSyncerCmd.Flags().StringSliceVar(&resourcesToSync, "resources", resourcesToSync, "Resources to synchronize with kcp.")
 	enableSyncerCmd.Flags().StringVar(&syncerImage, "syncer-image", syncerImage, "The syncer image to use in the syncer's deployment YAML.")
 	enableSyncerCmd.Flags().IntVar(&replicas, "replicas", replicas, "Number of replicas of the syncer deployment.")
 	enableSyncerCmd.Flags().StringVar(&kcpNamespaceName, "kcp-namespace", kcpNamespaceName, "The name of the kcp namespace to create a service account in.")
