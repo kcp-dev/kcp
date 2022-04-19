@@ -19,45 +19,16 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"path"
-	"regexp"
-	"strings"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
-
-func parseClusterURL(host string) (*url.URL, logicalcluster.LogicalCluster, error) {
-	u, err := url.Parse(host)
-	if err != nil {
-		return nil, logicalcluster.LogicalCluster{}, err
-	}
-	ret := *u
-	var clusterName logicalcluster.LogicalCluster
-	for _, prefix := range []string{
-		"/clusters/",
-		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
-	} {
-		if clusterIndex := strings.Index(u.Path, prefix); clusterIndex >= 0 {
-			clusterName = logicalcluster.New(strings.SplitN(ret.Path[clusterIndex+len(prefix):], "/", 2)[0])
-			ret.Path = ret.Path[:clusterIndex]
-			break
-		}
-	}
-	if clusterName.Empty() || !isValid(clusterName) {
-		return nil, logicalcluster.LogicalCluster{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
-	}
-
-	return &ret, clusterName, nil
-}
 
 // getWorkspaceFromInternalName retrieves the workspace with this internal name in the
 // user workspace directory, by requesting the `workspaces` virtual workspace.
@@ -73,16 +44,6 @@ func getWorkspaceFromInternalName(ctx context.Context, workspaceInternalName str
 	} else {
 		return &list.Items[0], nil
 	}
-}
-
-var lclusterRegExp = regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9](:[a-z][a-z0-9-]*[a-z0-9])*$`)
-
-func isValid(cluster logicalcluster.LogicalCluster) bool {
-	if !lclusterRegExp.MatchString(cluster.String()) {
-		return false
-	}
-
-	return cluster.HasPrefix(v1alpha1.RootCluster) || cluster.HasPrefix(logicalcluster.New("system"))
 }
 
 type personalClusterClient struct {

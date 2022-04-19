@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package plugin
+package helpers
 
 import (
 	"testing"
@@ -59,7 +59,7 @@ func TestReCluster(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.workspace, func(t *testing.T) {
-			if got := isValid(logicalcluster.New(tt.workspace)); got != tt.valid {
+			if got := IsValid(logicalcluster.New(tt.workspace)); got != tt.valid {
 				t.Errorf("isValid(%q) = %v, want %v", tt.workspace, got, tt.valid)
 			}
 		})
@@ -92,7 +92,7 @@ func TestParseClusterURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.host, func(t *testing.T) {
-			gotURL, gotCluster, err := parseClusterURL(tt.host)
+			gotURL, gotCluster, err := ParseClusterURL(tt.host)
 			if tt.wantErr {
 				require.Error(t, err, "instead of error got %q, %q", gotURL, gotCluster)
 			} else {
