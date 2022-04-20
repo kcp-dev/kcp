@@ -26,7 +26,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/api/rbac/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -136,29 +137,29 @@ func TestAuthorizer(t *testing.T) {
 			_, err = user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "User-3 shouldn't be able to list Namespaces")
 
-			localAuthorizerClusterRoleBinding := &v12.ClusterRoleBinding{
+			localAuthorizerClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "user-3-k8s-ref",
 				},
-				Subjects: []v12.Subject{
+				Subjects: []rbacv1.Subject{
 					{
 						Kind:     "User",
 						APIGroup: "rbac.authorization.k8s.io",
 						Name:     "user-3",
 					},
 				},
-				RoleRef: v12.RoleRef{
+				RoleRef: rbacv1.RoleRef{
 					APIGroup: "rbac.authorization.k8s.io",
 					Kind:     "ClusterRole",
-					Name:     "namespace-lister",
+					Name:     "kcp-authorizer-test-namespace-lister",
 				},
 			}
 
-			bootstrapClusterRole := &v12.ClusterRole{
+			bootstrapClusterRole := &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "namespace-lister",
+					Name: "kcp-authorizer-test-namespace-lister",
 				},
-				Rules: []v12.PolicyRule{
+				Rules: []rbacv1.PolicyRule{
 					{
 						Verbs:     []string{"*"},
 						APIGroups: []string{""},
@@ -166,12 +167,13 @@ func TestAuthorizer(t *testing.T) {
 					},
 				},
 			}
-
 			_, err = kubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			_, err = kubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
-			require.NoError(t, err)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				require.NoError(t, err)
+			}
 
 			require.Eventually(t, func() bool {
 				if _, err := user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{}); err != nil {
