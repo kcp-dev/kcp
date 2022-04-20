@@ -439,6 +439,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installSchedulingPlacementController(ctx, controllerConfig, server); err != nil {
 			return err
 		}
+		if err := s.installWorkloadsAPIExportController(ctx, controllerConfig, server); err != nil {
+			return err
+		}
 	}
 
 	if s.options.Virtual.Enabled {
