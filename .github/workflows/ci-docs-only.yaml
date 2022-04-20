@@ -54,3 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: 'echo "No build required"'
+
+  e2e-shared-server:
+    name: e2e-shared-server
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
