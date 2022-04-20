@@ -41,36 +41,45 @@ type namespaceScheduler struct {
 	listClusters listClustersFunc
 }
 
-// AssignCluster returns the name of the cluster to assign to the provided
+// AssignClusters returns the name of the cluster to assign to the provided
 // namespace. The current cluster assignment will be returned if it is valid or if
 // the automatic scheduling is disabled for the namespace. An new assignment will
 // be attempted if the current assignment is empty or invalid.
-func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error) {
-	assignedCluster := ns.Labels[ClusterLabel]
+func (s *namespaceScheduler) AssignClusters(ns *corev1.Namespace) ([]string, error) {
+	assignedClusters := workloadClustersFromLabels(ns.Labels)
 
 	schedulingDisabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
 	if schedulingDisabled {
 		klog.Infof("Automatic scheduling is disabled for namespace %s|%s", ns.ClusterName, ns.Name)
-		return assignedCluster, nil
+		return assignedClusters, nil
 	}
 
-	if assignedCluster != "" {
-		isValid, invalidMsg, err := s.isValidCluster(logicalcluster.From(ns), assignedCluster)
+	for i, clusterName := range assignedClusters {
+		isValid, invalidMsg, err := s.isValidCluster(logicalcluster.From(ns), clusterName)
 		if err != nil {
-			return "", err
+			return assignedClusters, err
 		}
-		if isValid {
-			return assignedCluster, nil
+		// Check if the already assigned cluster is in a valid state, if not, remove it from the list.
+		if !isValid {
+			// A new cluster needs to be assigned
+			klog.V(5).Infof("Assigned cluster is not valid: %s|%s %s", ns.ClusterName, clusterName, invalidMsg)
+			assignedClusters = append(assignedClusters[:i], assignedClusters[i+1:]...)
 		}
-		// A new cluster needs to be assigned
-		klog.V(5).Infof("Cluster %s|%s %s", ns.ClusterName, assignedCluster, invalidMsg)
 	}
 
+	// If we have a valid cluster, return it.
+	if len(assignedClusters) != 0 {
+		return assignedClusters, nil
+	}
+
+	// If there is no valid cluster, try to assign a new one.
 	allClusters, err := s.listClusters(labels.Everything())
 	if err != nil {
-		return "", err
+		return assignedClusters, err
 	}
-	return pickCluster(allClusters, logicalcluster.From(ns)), nil
+
+	pickedCluster := pickCluster(allClusters, logicalcluster.From(ns))
+	return []string{pickedCluster}, nil
 }
 
 // isValidCluster checks whether the given cluster name exists and is valid for

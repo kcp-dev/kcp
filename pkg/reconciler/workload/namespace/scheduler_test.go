@@ -17,6 +17,7 @@ limitations under the License.
 package namespace
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -115,27 +116,27 @@ func TestAssignCluster(t *testing.T) {
 	}{
 		"scheduling disabled set to empty -> no change even for unknown cluster name": {
 			labels: map[string]string{
-				ClusterLabel:            unknownClusterName,
-				SchedulingDisabledLabel: "",
+				ClusterLabel + "/" + unknownClusterName: "Sync",
+				SchedulingDisabledLabel:                 "",
 			},
 			expectedCluster: unknownClusterName,
 		},
 		"scheduling disabled set to any value -> no change even for unknown cluster name": {
 			labels: map[string]string{
-				ClusterLabel:            unknownClusterName,
-				SchedulingDisabledLabel: "foo",
+				ClusterLabel + "/" + unknownClusterName: "Sync",
+				SchedulingDisabledLabel:                 "foo",
 			},
 			expectedCluster: unknownClusterName,
 		},
 		"valid assignment -> no change": {
 			labels: map[string]string{
-				ClusterLabel: testClusterName,
+				ClusterLabel + "/" + testClusterName: "Sync",
 			},
 			expectedCluster: testClusterName,
 		},
 		"invalid assignment -> new assignment": {
 			labels: map[string]string{
-				ClusterLabel: unknownClusterName,
+				ClusterLabel + "/" + unknownClusterName: "Sync",
 			},
 			expectedCluster: testClusterName,
 		},
@@ -156,9 +157,11 @@ func TestAssignCluster(t *testing.T) {
 					Labels:      testCase.labels,
 				},
 			}
-			clusterName, err := scheduler.AssignCluster(ns)
+			clusterNames, err := scheduler.AssignClusters(ns)
 			require.NoError(t, err)
-			require.Equal(t, testCase.expectedCluster, clusterName)
+			for _, clusterName := range clusterNames {
+				assert.Equal(t, testCase.expectedCluster, clusterName)
+			}
 		})
 	}
 }
