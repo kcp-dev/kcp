@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +39,7 @@ import (
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 //go:embed *.yaml
@@ -52,8 +54,10 @@ func TestAPIBinding(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	sourceWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	targetWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
 
 	cfg := server.DefaultConfig(t)
 
@@ -63,92 +67,120 @@ func TestAPIBinding(t *testing.T) {
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	t.Logf("Install a cowboys APIResourceSchema into workspace %q", sourceWorkspace)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(sourceWorkspace).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourceWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
-	require.NoError(t, err)
+	serviceProviderWorkspaces := []logicalcluster.LogicalCluster{serviceProvider1Workspace, serviceProvider2Workspace}
 
-	t.Logf("Create an APIExport for it")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "today-cowboys",
-		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
-		},
+	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
+		t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
+		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(serviceProviderWorkspace).Discovery()))
+		err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
+		require.NoError(t, err)
+
+		t.Logf("Create an APIExport for it")
+		cowboysAPIExport := &apisv1alpha1.APIExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "today-cowboys",
+			},
+			Spec: apisv1alpha1.APIExportSpec{
+				LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+			},
+		}
+		_, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+		require.NoError(t, err)
 	}
-	_, err = kcpClients.Cluster(sourceWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
-	require.NoError(t, err)
 
-	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetWorkspace)
-	require.NoError(t, err)
-	apiBinding := &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cowboys",
-		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					WorkspaceName: sourceWorkspace.Base(),
-					ExportName:    cowboysAPIExport.Name,
+	consumerWorkspaces := []logicalcluster.LogicalCluster{consumer1Workspace, consumer2Workspace}
+	for _, consumerWorkspace := range consumerWorkspaces {
+		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from serviceProvider1", consumerWorkspace)
+		apiBinding := &apisv1alpha1.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cowboys",
+			},
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.ExportReference{
+					Workspace: &apisv1alpha1.WorkspaceExportReference{
+						WorkspaceName: serviceProvider1Workspace.Base(),
+						ExportName:    "today-cowboys",
+					},
 				},
 			},
-		},
-	}
-
-	_, err = kcpClients.Cluster(targetWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Make sure %s API group does NOT show up in workspace %q group discovery", wildwest.GroupName, sourceWorkspace)
-	groups, err := kcpClients.Cluster(sourceWorkspace).Discovery().ServerGroups()
-	require.NoError(t, err, "error retrieving workspace %q group discovery", sourceWorkspace)
-	require.False(t, groupExists(groups, wildwest.GroupName),
-		"should not have seen %s API group in workspace %q group discovery", wildwest.GroupName, sourceWorkspace)
-
-	t.Logf("Make sure %q API group shows up in workspace %q group discovery", wildwest.GroupName, targetWorkspace)
-	err = wait.PollImmediateUntilWithContext(ctx, 100*time.Millisecond, func(c context.Context) (done bool, err error) {
-		groups, err := kcpClients.Cluster(targetWorkspace).Discovery().ServerGroups()
-		if err != nil {
-			return false, fmt.Errorf("error retrieving target workspace group discovery: %w", err)
 		}
-		if groupExists(groups, wildwest.GroupName) {
-			return true, nil
+
+		_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		t.Logf("Make sure %s API group does NOT show up in workspace %q group discovery", wildwest.GroupName, serviceProvider1Workspace)
+		groups, err := kcpClients.Cluster(serviceProvider1Workspace).Discovery().ServerGroups()
+		require.NoError(t, err, "error retrieving service provider workspace %q group discovery", serviceProvider1Workspace)
+		require.False(t, groupExists(groups, wildwest.GroupName),
+			"should not have seen %s API group in service provider workspace %q group discovery", wildwest.GroupName, serviceProvider1Workspace)
+
+		t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
+		err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+			groups, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerGroups()
+			if err != nil {
+				return false, fmt.Errorf("error retrieving consumer workspace %q group discovery: %w", consumerWorkspace, err)
+			}
+			return groupExists(groups, wildwest.GroupName), nil
+		})
+		require.NoError(t, err)
+
+		t.Logf("Make sure cowboys API resource shows up in consumer workspace %q group version discovery", consumerWorkspace)
+		resources, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
+		require.True(t, resourceExists(resources, "cowboys"), "consumer workspace %q discovery is missing cowboys resource", consumerWorkspace)
+
+		wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(cfg)
+		require.NoError(t, err)
+
+		t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumerWorkspace)
+
+		t.Logf("Make sure list shows nothing to start")
+		cowboyClient := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default")
+		cowboys, err := cowboyClient.List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "error listing cowboys inside consumer workspace %q", consumerWorkspace)
+		require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumerWorkspace)
+
+		t.Logf("Create a cowboy CR in consumer workspace %q", consumerWorkspace)
+		cowboy := &wildwestv1alpha1.Cowboy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cowboy",
+				Namespace: "default",
+			},
 		}
-		return false, nil
-	})
-	require.NoError(t, err)
+		_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
+		require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
 
-	t.Logf("Make sure cowboys API resource shows up in workspace %q group version discovery", targetWorkspace)
-	resources, err := kcpClients.Cluster(targetWorkspace).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
-	require.NoError(t, err, "error retrieving workspace %q API discovery", targetWorkspace)
-	require.True(t, resourceExists(resources, "cowboys"), "workspace %q discovery is missing cowboys resource", targetWorkspace)
+		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumerWorkspace)
+		cowboys, err = cowboyClient.List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumerWorkspace)
+		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumerWorkspace)
+		require.Equal(t, "cowboy", cowboys.Items[0].Name, "unexpected name for cowboy in consumer workspace %q", consumerWorkspace)
 
-	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(cfg)
-	require.NoError(t, err)
+		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from serviceProvider2 (which should conflict)", consumerWorkspace)
+		apiBinding = &apisv1alpha1.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cowboys2",
+			},
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.ExportReference{
+					Workspace: &apisv1alpha1.WorkspaceExportReference{
+						WorkspaceName: serviceProvider2Workspace.Base(),
+						ExportName:    "today-cowboys",
+					},
+				},
+			},
+		}
 
-	t.Logf("Make sure we can perform CRUD operations workspace %q for the bound API", targetWorkspace)
+		_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		require.NoError(t, err)
 
-	t.Logf("Make sure list shows nothing to start")
-	targetCowboyClient := wildwestClusterClient.Cluster(targetWorkspace).WildwestV1alpha1().Cowboys("default")
-	cowboys, err := targetCowboyClient.List(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "error listing cowboys inside workspace %q", targetWorkspace)
-	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside workspace %q", targetWorkspace)
-
-	t.Logf("Create a cowboy CR in workspace %q", targetWorkspace)
-	targetWorkspaceCowboy := &wildwestv1alpha1.Cowboy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "target-cowboy",
-			Namespace: "default",
-		},
+		t.Logf("Make sure it shows as conflicting")
+		require.Eventually(t, func() bool {
+			b, err := kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys2", metav1.GetOptions{})
+			require.NoError(t, err)
+			return conditions.IsFalse(b, apisv1alpha1.InitialBindingCompleted) && conditions.GetReason(b, apisv1alpha1.InitialBindingCompleted) == apisv1alpha1.NamingConflictsReason
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected naming conflict")
 	}
-	_, err = targetCowboyClient.Create(ctx, targetWorkspaceCowboy, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating targetWorkspaceCowboy in workspace %q", targetWorkspace)
-
-	t.Logf("Make sure there is 1 cowboy in workspace %q", targetWorkspace)
-	cowboys, err = targetCowboyClient.List(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "error listing cowboys in workspace %q", targetWorkspace)
-	require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in workspace %q", targetWorkspace)
-	require.Equal(t, "target-cowboy", cowboys.Items[0].Name, "unexpected name for cowboy in workspace %q", targetWorkspace)
 }
 
 func groupExists(list *metav1.APIGroupList, group string) bool {

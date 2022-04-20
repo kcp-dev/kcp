@@ -47,6 +47,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 // SystemCRDLogicalCluster is the logical cluster we install system CRDs into for now. These are needed
@@ -196,9 +197,7 @@ func (c *apiBindingAwareCRDLister) ListWithContext(ctx context.Context, selector
 		if logicalcluster.From(apiBinding) != cluster.Name {
 			continue
 		}
-		if apiBinding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
-			// TODO(ncdc): what if it's in the middle of rebinding and it takes some time - we won't include any
-			// CRDs that were previously bound...
+		if !conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 			continue
 		}
 
