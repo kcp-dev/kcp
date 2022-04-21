@@ -26,13 +26,17 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	crdvalidation "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/util/sets"
 	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-var namePrefixRE = regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])?$")
+var (
+	namePrefixRE                 = regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])?$")
+	singleSegmentGroupExceptions = sets.NewString("apps", "batch", "extensions", "policy") // these are the sins of Kubernetes of single-word group names
+)
 
 // ValidateAPIResourceSchema validates an APIResourceSchema.
 func ValidateAPIResourceSchema(s *apisv1alpha1.APIResourceSchema) field.ErrorList {
@@ -77,7 +81,7 @@ func ValidateAPIResourceSchemaSpec(spec *apisv1alpha1.APIResourceSchemaSpec, fld
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("group"), spec.Group, "must be empty string for the core group"))
 	} else if errs := utilvalidation.IsDNS1123Subdomain(spec.Group); len(errs) > 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("group"), spec.Group, strings.Join(errs, ",")))
-	} else if len(strings.Split(spec.Group, ".")) < 2 {
+	} else if len(strings.Split(spec.Group, ".")) < 2 && !singleSegmentGroupExceptions.Has(spec.Group) {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("group"), spec.Group, "should be a domain with at least one dot"))
 	}
 
