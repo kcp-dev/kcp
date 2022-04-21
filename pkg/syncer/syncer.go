@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"strings"
 	"time"
 
@@ -47,7 +48,6 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
 )
 
 const (
@@ -83,6 +83,10 @@ type SyncerConfig struct {
 
 func (sc *SyncerConfig) ID() string {
 	return workloadcliplugin.GetSyncerID(sc.KCPClusterName.String(), sc.WorkloadClusterName)
+}
+
+func workloadClusterLabelName(clusterName string) string {
+	return fmt.Sprintf("%s/%s", namespace.ClusterLabel, clusterName)
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
@@ -231,7 +235,7 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClie
 	}
 
 	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("%s", syncer.WorkloadClusterLabelName(pclusterID))
+		o.LabelSelector = fmt.Sprintf("%s", workloadClusterLabelName(pclusterID))
 	})
 
 	for _, gvrstr := range gvrs {

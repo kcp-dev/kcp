@@ -35,8 +35,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
-
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
 )
 
 func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
@@ -139,7 +137,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			syncer.WorkloadClusterLabelName(c.pcluster): "",
+			workloadClusterLabelName(c.pcluster): "",
 		})
 	}
 
