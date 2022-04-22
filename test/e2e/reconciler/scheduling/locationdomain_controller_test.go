@@ -89,7 +89,6 @@ func TestLocationDomainController(t *testing.T) {
 				}
 
 				klog.Infof("Heartbeated workload cluster %s|%s: %v", negotiationClusterName, workloadCluster.Name, ws.Status.LastSyncerHeartbeatTime)
-				return
 			}, time.Second)
 		}
 	}
