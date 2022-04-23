@@ -158,7 +158,7 @@ func ValidateAPIResourceVersion(version *apisv1alpha1.APIResourceVersion, fldPat
 	if len(version.Schema.Raw) == 0 || string(version.Schema.Raw) == "null" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("schema"), "schemas are required"))
 	} else {
-		statusEnabled := version.Subresources != nil && version.Subresources.Status != nil
+		statusEnabled := version.Subresources.Status != nil
 		var crdSchemaV1 apiextensionsv1.CustomResourceValidation
 		var crdSchemaInternal apiextensionsinternal.CustomResourceValidation
 		if err := json.Unmarshal(version.Schema.Raw, &crdSchemaV1.OpenAPIV3Schema); err != nil {
@@ -170,13 +170,11 @@ func ValidateAPIResourceVersion(version *apisv1alpha1.APIResourceVersion, fldPat
 		}
 	}
 
-	if version.Subresources != nil {
-		var crdSubresources apiextensionsinternal.CustomResourceSubresources
-		if err := apiextensionsv1.Convert_v1_CustomResourceSubresources_To_apiextensions_CustomResourceSubresources(version.Subresources, &crdSubresources, nil); err != nil {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("subresources"), version.Subresources, err.Error()))
-		} else {
-			allErrs = append(allErrs, crdvalidation.ValidateCustomResourceDefinitionSubresources(&crdSubresources, fldPath.Child("subresources"))...)
-		}
+	var crdSubresources apiextensionsinternal.CustomResourceSubresources
+	if err := apiextensionsv1.Convert_v1_CustomResourceSubresources_To_apiextensions_CustomResourceSubresources(&version.Subresources, &crdSubresources, nil); err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("subresources"), version.Subresources, err.Error()))
+	} else {
+		allErrs = append(allErrs, crdvalidation.ValidateCustomResourceDefinitionSubresources(&crdSubresources, fldPath.Child("subresources"))...)
 	}
 
 	for i := range version.AdditionalPrinterColumns {
