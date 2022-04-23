@@ -337,11 +337,7 @@ func (in *APIResourceVersion) DeepCopyInto(out *APIResourceVersion) {
 		**out = **in
 	}
 	in.Schema.DeepCopyInto(&out.Schema)
-	if in.Subresources != nil {
-		in, out := &in.Subresources, &out.Subresources
-		*out = new(v1.CustomResourceSubresources)
-		(*in).DeepCopyInto(*out)
-	}
+	in.Subresources.DeepCopyInto(&out.Subresources)
 	if in.AdditionalPrinterColumns != nil {
 		in, out := &in.AdditionalPrinterColumns, &out.AdditionalPrinterColumns
 		*out = make([]v1.CustomResourceColumnDefinition, len(*in))
