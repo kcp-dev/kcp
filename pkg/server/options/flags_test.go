@@ -22,7 +22,23 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/require"
 )
+
+func TestNamedFlagSetOrder(t *testing.T) {
+	fss := NewOptions().Flags()
+	var names []string
+	for name, fs := range fss.FlagSets {
+		if !fs.HasFlags() {
+			continue
+		}
+		fmt.Printf("%q,\n", name)
+		names = append(names, name)
+	}
+
+	require.Subset(t, names, namedFlagSetOrder, "namedFlagSetOrder has extra entries")
+	require.Subset(t, namedFlagSetOrder, names, "namedFlagSetOrder in incomplete")
+}
 
 func TestAllowedFlagList(t *testing.T) {
 	o := NewOptions()

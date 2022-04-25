@@ -114,8 +114,12 @@ func NewOptions() *Options {
 	return o
 }
 
-func (o *Options) Flags() (fss cliflag.NamedFlagSets) {
-	return filter(o.rawFlags(), allowedFlags)
+func (o *Options) Flags() cliflag.NamedFlagSets {
+	fss := filter(o.rawFlags(), allowedFlags)
+
+	fss.Order = namedFlagSetOrder
+
+	return fss
 }
 
 func (o *Options) rawFlags() cliflag.NamedFlagSets {
