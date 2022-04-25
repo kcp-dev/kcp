@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -28,11 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
-	_ "k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
+	_ "github.com/kcp-dev/kcp/pkg/features"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 type Options struct {
@@ -116,6 +118,12 @@ func NewOptions() *Options {
 
 func (o *Options) Flags() cliflag.NamedFlagSets {
 	fss := filter(o.rawFlags(), allowedFlags)
+
+	// add flags that are filtered out from upstream, but overridden here with our own version
+	fs := fss.FlagSet("KCP")
+	fs.Var(kcpfeatures.NewFlagValue(), "features-gates", ""+
+		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
+		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 
 	fss.Order = namedFlagSetOrder
 
