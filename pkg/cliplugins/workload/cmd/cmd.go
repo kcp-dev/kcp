@@ -40,8 +40,8 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	opts := plugin.NewOptions(streams)
 
 	cmd := &cobra.Command{
-		Aliases:          []string{"workload", "workloads"},
-		Use:              "workspace",
+		Aliases:          []string{"workloads"},
+		Use:              "workload",
 		Short:            "Manages KCP workload clusters",
 		SilenceUsage:     true,
 		TraverseChildren: true,
