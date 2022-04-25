@@ -32,6 +32,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/dynamic"
 	coreexternalversions "k8s.io/client-go/informers"
@@ -50,6 +51,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
@@ -429,21 +431,23 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if s.options.Controllers.EnableAll || enabled.Has("scheduling") {
-		if err := s.installSchedulingLocationDomainController(ctx, controllerConfig, server); err != nil {
-			return err
-		}
-		if err := s.installSchedulingClusterWorkspaceController(ctx, controllerConfig, server); err != nil {
-			return err
-		}
-		if err := s.installSchedulingPlacementController(ctx, controllerConfig, server); err != nil {
-			return err
-		}
-		if err := s.installWorkloadsAPIExportController(ctx, controllerConfig, server); err != nil {
-			return err
-		}
-		if err := s.installWorkloadsAPIBindingController(ctx, controllerConfig, server); err != nil {
-			return err
+	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
+		if s.options.Controllers.EnableAll || enabled.Has("scheduling") {
+			if err := s.installSchedulingLocationDomainController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
+			if err := s.installSchedulingClusterWorkspaceController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
+			if err := s.installSchedulingPlacementController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
+			if err := s.installWorkloadsAPIExportController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
+			if err := s.installWorkloadsAPIBindingController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
 		}
 	}
 

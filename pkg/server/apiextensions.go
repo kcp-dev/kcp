@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
@@ -46,6 +47,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -71,13 +73,11 @@ func newSystemCRDProvider(
 	getClusterWorkspace func(ctx context.Context, key string) (*tenancyv1alpha1.ClusterWorkspace, error),
 	getCRD func(key string) (*apiextensionsv1.CustomResourceDefinition, error),
 ) *systemCRDProvider {
-	return &systemCRDProvider{
+	p := &systemCRDProvider{
 		rootCRDs: sets.NewString(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaceshards.tenancy.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locationdomains.scheduling.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
 
 			// the following is installed to get discovery and OpenAPI right. But it is actually
 			// served by a native rest storage, projecting the clusterworkspaces.
@@ -86,8 +86,6 @@ func newSystemCRDProvider(
 		orgCRDs: sets.NewString(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locationdomains.scheduling.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
 
 			// the following is installed to get discovery and OpenAPI right. But it is actually
 			// served by a native rest storage, projecting the clusterworkspaces.
@@ -100,14 +98,27 @@ func newSystemCRDProvider(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiexports.apis.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apibindings.apis.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiresourceschemas.apis.kcp.dev"),
-
-			// the following is installed to get discovery and OpenAPI right. But it is actually
-			// served by a native rest storage, projecting the locations into this workspace.
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
 		),
 		getClusterWorkspace: getClusterWorkspace,
 		getCRD:              getCRD,
 	}
+
+	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
+		p.rootCRDs.Insert(
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locationdomains.scheduling.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
+		)
+		p.orgCRDs.Insert(
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locationdomains.scheduling.kcp.dev"),
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
+		)
+
+		// the following is installed to get discovery and OpenAPI right. But it is actually
+		// served by a native rest storage, projecting the locations into this workspace.
+		p.universalCRDs.Insert(clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"))
+	}
+
+	return p
 }
 
 func (p *systemCRDProvider) List(ctx context.Context, clusterName logicalcluster.LogicalCluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {

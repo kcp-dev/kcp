@@ -30,11 +30,17 @@ import (
 )
 
 const (
-// Every feature gate should add method here following this template:
-//
-// // owner: @username
-// // alpha: v1.4
-// MyFeature() bool
+	// Every feature gate should add method here following this template:
+	//
+	// // owner: @username
+	// // alpha: v1.4
+	// MyFeature() bool
+
+	// owner: @sttts
+	// alpha: v0.4
+	//
+	// Enable the scheduling.kcp.dev/v1alpha1 API group, and related controllers.
+	LocationAPI featuregate.Feature = "KCPLocationAPI"
 )
 
 func init() {
@@ -77,6 +83,8 @@ func (f *kcpFeatureGate) Type() string {
 // in the generic control plane code. To add a new feature, define a key for it above and add it
 // here. The features will be available throughout Kubernetes binaries.
 var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
+	LocationAPI: {Default: false, PreRelease: featuregate.Alpha},
+
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
 	genericfeatures.StreamingProxyRedirects: {Default: false, PreRelease: featuregate.Deprecated}, // remove in 1.24
