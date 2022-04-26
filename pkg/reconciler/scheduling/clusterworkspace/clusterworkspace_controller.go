@@ -52,7 +52,8 @@ const (
 	workspacesByWorkspacePrefix = "workspacesByWorkspacePrefix"
 )
 
-// NewController returns a new controller assigning workspaces to LocationDomains.
+// NewController returns a new controller assigning workspaces to LocationDomains
+// by binding to the APIExport.
 func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
 	locationDomainInformer schedulinginformers.LocationDomainInformer,

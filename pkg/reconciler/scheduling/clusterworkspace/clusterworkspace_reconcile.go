@@ -44,7 +44,8 @@ type reconciler interface {
 	reconcile(ctx context.Context, cluster *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error)
 }
 
-// domainAssignmentReconciler assigns a LocationDomains to a ClusterWorkspace via labels.
+// domainAssignmentReconciler assigns a ClusterWorkspace to a workload service by binding
+// to its APIExport.
 type domainAssignmentReconciler struct {
 	listLocationDomains   func(clusterName logicalcluster.LogicalCluster) ([]*schedulingv1alpha1.LocationDomain, error)
 	patchClusterWorkspace func(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*tenancyv1alpha1.ClusterWorkspace, error)
