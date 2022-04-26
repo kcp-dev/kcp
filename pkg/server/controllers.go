@@ -54,7 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	schedulingclusterworkspace "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/clusterworkspace"
-	schedulinglocationdomain "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/locationdomain"
+	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
@@ -518,17 +518,16 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	return nil
 }
 
-func (s *Server) installSchedulingLocationDomainController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	controllerName := "kcp-scheduling-locationdomain-controller"
+func (s *Server) installSchedulingLocationStatusController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-scheduling-location-status-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c, err := schedulinglocationdomain.NewController(
+	c, err := schedulinglocationstatus.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().LocationDomains(),
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 	)

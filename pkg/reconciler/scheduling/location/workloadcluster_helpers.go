@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package locationdomain
+package location
 
 import (
 	"fmt"
@@ -29,10 +29,10 @@ import (
 )
 
 // LocationWorkloadClusters returns a list of workload clusters that match the given location definition.
-func LocationWorkloadClusters(workloadClusters []*workloadv1alpha1.WorkloadCluster, locationDef *schedulingv1alpha1.LocationDomainLocationDefinition) (ret []*workloadv1alpha1.WorkloadCluster, err error) {
-	sel, err := metav1.LabelSelectorAsSelector(locationDef.InstanceSelector)
+func LocationWorkloadClusters(workloadClusters []*workloadv1alpha1.WorkloadCluster, location *schedulingv1alpha1.Location) (ret []*workloadv1alpha1.WorkloadCluster, err error) {
+	sel, err := metav1.LabelSelectorAsSelector(location.Spec.InstanceSelector)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse label selector %v in location %s: %w", locationDef.InstanceSelector, locationDef.Name, err)
+		return nil, fmt.Errorf("failed to parse label selector %v in location %s: %w", location.Spec.InstanceSelector, location.Name, err)
 	}
 
 	// find location clusters

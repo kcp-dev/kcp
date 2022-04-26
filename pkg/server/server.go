@@ -433,7 +433,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
 		if s.options.Controllers.EnableAll || enabled.Has("scheduling") {
-			if err := s.installSchedulingLocationDomainController(ctx, controllerConfig, server); err != nil {
+			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig, server); err != nil {
 				return err
 			}
 			if err := s.installSchedulingClusterWorkspaceController(ctx, controllerConfig, server); err != nil {

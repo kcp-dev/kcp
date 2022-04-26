@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package locationdomain
+package location
 
 import (
 	"context"
@@ -46,19 +46,14 @@ import (
 )
 
 const (
-	// LocationDomainTypeWorkload is the only supported type of location domain at the moment.
-	LocationDomainTypeWorkload = schedulingv1alpha1.LocationDomainType("Workloads")
-
-	controllerName                       = "kcp-scheduling-locationdomain"
-	locationsByLocationDomain            = "locationsByLocationDomain"
-	locationDomainByNegotiationWorkspace = "locationDomainByNegotiationWorkspace"
-	workloadClustersByWorkspace          = controllerName + "-workloadClustersByWorkspace" // TODO(sttts): only one of these indices is needed
+	controllerName              = "kcp-scheduling-location-status"
+	locationsByWorkspace        = "locationsByWorkspace"
+	workloadClustersByWorkspace = controllerName + "-workloadClustersByWorkspace" // TODO(sttts): only one of these indices is needed
 )
 
-// NewController returns a new controller creating and maintaining locations in org workspaces.
+// NewController returns a new controller reconciling location status.
 func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
-	locationDomainInformer schedulinginformers.LocationDomainInformer,
 	locationInformer schedulinginformers.LocationInformer,
 	workloadClusterInformer workloadinformers.WorkloadClusterInformer,
 ) (*controller, error) {
@@ -66,29 +61,15 @@ func NewController(
 
 	c := &controller{
 		queue: queue,
-		enqueueAfter: func(clusterName logicalcluster.LogicalCluster, domain *schedulingv1alpha1.LocationDomain, duration time.Duration) {
-			key := clusters.ToClusterAwareKey(clusterName, domain.Name)
+		enqueueAfter: func(clusterName logicalcluster.LogicalCluster, location *schedulingv1alpha1.Location, duration time.Duration) {
+			key := clusters.ToClusterAwareKey(clusterName, location.Name)
 			queue.AddAfter(key, duration)
 		},
 		kcpClusterClient:       kcpClusterClient,
 		locationLister:         locationInformer.Lister(),
 		locationIndexer:        locationInformer.Informer().GetIndexer(),
-		locationDomainLister:   locationDomainInformer.Lister(),
-		locationDomainIndexer:  locationDomainInformer.Informer().GetIndexer(),
 		workloadClusterLister:  workloadClusterInformer.Lister(),
 		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
-	}
-
-	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		locationsByLocationDomain: indexLocationsByLocationDomain,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := locationDomainInformer.Informer().AddIndexers(cache.Indexers{
-		locationDomainByNegotiationWorkspace: indexLocationDomainByNegotiationWorkspace,
-	}); err != nil {
-		return nil, err
 	}
 
 	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
@@ -97,28 +78,16 @@ func NewController(
 		return nil, err
 	}
 
+	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
+		locationsByWorkspace: indexLocationsByWorkspace,
+	}); err != nil {
+		return nil, err
+	}
+
 	locationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueLocation(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueLocation(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueLocation(obj) },
-	})
-
-	locationDomainInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			switch domain := obj.(type) {
-			case *schedulingv1alpha1.LocationDomain:
-				return domain.Spec.Type == LocationDomainTypeWorkload
-			case cache.DeletedFinalStateUnknown:
-				return true
-			default:
-				return false
-			}
-		},
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueLocationDomain(obj) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueLocationDomain(obj) },
-			DeleteFunc: func(obj interface{}) { c.enqueueLocationDomain(obj) },
-		},
 	})
 
 	workloadClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -152,40 +121,24 @@ func NewController(
 // controller
 type controller struct {
 	queue        workqueue.RateLimitingInterface
-	enqueueAfter func(logicalcluster.LogicalCluster, *schedulingv1alpha1.LocationDomain, time.Duration)
+	enqueueAfter func(logicalcluster.LogicalCluster, *schedulingv1alpha1.Location, time.Duration)
 
 	kcpClusterClient kcpclient.ClusterInterface
 
 	locationLister         schedulinglisters.LocationLister
 	locationIndexer        cache.Indexer
-	locationDomainLister   schedulinglisters.LocationDomainLister
-	locationDomainIndexer  cache.Indexer
 	workloadClusterLister  workloadlisters.WorkloadClusterLister
 	workloadClusterIndexer cache.Indexer
 }
 
-// enqueueLocationDomain enqueues an LocationsDomains.
-func (c *controller) enqueueLocationDomain(obj interface{}) {
+func (c *controller) enqueueLocation(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.Infof("Queueing LocationDomain %q", key)
-	c.queue.Add(key)
-}
-
-// enqueueLocation maps a Location to a LocationDomain for enqueuing.
-func (c *controller) enqueueLocation(obj interface{}) {
-	l, ok := obj.(*schedulingv1alpha1.Location)
-	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a Location, but is %T", obj))
-		return
-	}
-
-	key := clusters.ToClusterAwareKey(logicalcluster.New(string(l.Spec.Domain.Workspace)), l.Name)
-	klog.Infof("Mapping Location %s|%s => LocationDomain %q", logicalcluster.From(l).String(), l.Name, key)
+	klog.Infof("Queueing Location %q", key)
 	c.queue.Add(key)
 }
 
@@ -198,14 +151,14 @@ func (c *controller) enqueueWorkloadCluster(obj interface{}) {
 	}
 
 	lcluster := logicalcluster.From(cluster)
-	domains, err := c.locationDomainIndexer.ByIndex(locationDomainByNegotiationWorkspace, lcluster.String())
+	domains, err := c.locationIndexer.ByIndex(locationsByWorkspace, lcluster.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	for _, domain := range domains {
-		c.enqueueLocationDomain(domain)
+		c.enqueueLocation(domain)
 	}
 }
 
@@ -258,7 +211,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.locationDomainLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.locationLister.Get(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -274,14 +227,14 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
-		oldData, err := json.Marshal(schedulingv1alpha1.LocationDomain{
+		oldData, err := json.Marshal(schedulingv1alpha1.Location{
 			Status: old.Status,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to Marshal old data for LocationDomain %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
 
-		newData, err := json.Marshal(schedulingv1alpha1.LocationDomain{
+		newData, err := json.Marshal(schedulingv1alpha1.Location{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             old.UID,
 				ResourceVersion: old.ResourceVersion,
@@ -296,7 +249,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().LocationDomains().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
