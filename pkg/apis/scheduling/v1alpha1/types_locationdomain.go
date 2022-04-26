@@ -17,40 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 )
-
-const (
-	// LocationDomainAssignmentLabelKeyTemplate is a label key for the location domain assigned to
-	// a cluster workspace, with the placeholder replaced with the lower-case type of the location domain.
-	//
-	// The format is the logical cluster with : replaced by dots, and the location domain name append
-	// separated by another dot.
-	LocationDomainAssignmentLabelKeyTemplate = "scheduling.kcp.dev/%s-location-domain"
-)
-
-// LocationDomainAssignmentLabelKeyForType is a helper returning a label key for a domain assignment of a workspace.
-func LocationDomainAssignmentLabelKeyForType(domainType LocationDomainType) string {
-	return fmt.Sprintf(LocationDomainAssignmentLabelKeyTemplate, strings.ToLower(string(domainType)))
-}
-
-// LocationDomainAssignmentLabelValue is a helper returning a label value for a domain assignment of a workspace.
-func LocationDomainAssignmentLabelValue(cluster logicalcluster.LogicalCluster, locationDomain string) string {
-	return strings.Replace(cluster.Join(locationDomain).String(), ":", ".", -1)
-}
-
-// ParseAssignmentLabel inverses LocationDomainAssignmentLabelValue
-func ParseAssignmentLabel(label string) (logicalcluster.LogicalCluster, string) {
-	lcluster := logicalcluster.New(strings.ReplaceAll(label, ".", ":"))
-	return lcluster.Split()
-}
 
 // LocationDomain defines a set of locations of a certain type sharing uniform properties of some kind.
 //
@@ -79,10 +49,6 @@ type LocationDomain struct {
 
 // LocationDomainSpec holds the desired state of the location domain.
 type LocationDomainSpec struct {
-	// type defines which class of objects this location can schedule. A typical type is "Workloads".
-	// The type determines which scheduler is doing the actual scheduling tasks.
-	Type LocationDomainType `json:"type,omitempty"`
-
 	// instances is a references to instance objects subject to this location domain. Depending on type
 	// this will usually be a workspace reference.
 	//
@@ -94,57 +60,16 @@ type LocationDomainSpec struct {
 	//
 	// +optional
 	WorkspaceSelector *WorkspaceSelector `json:"workspaceSelector,omitempty"`
-
-	// locations
-	Locations []LocationDomainLocationDefinition `json:"locations,omitempty"`
 }
-
-// LocationDomainType defines the type of the location domain.
-//
-// +kubebuilder:validation:MinLength=1
-// +kubebuilder:validation:Pattern=`^[A-Z][-a-z0-9]*[a-z0-9]$`
-type LocationDomainType string
 
 // InstancesReference describes a reference to a workspace holding the instances
 // subject to the location domain. Exactly one of the fields must be set.
 type InstancesReference struct {
-	// resource is the group version resource of the instances that are subject to this location
-	// domain. The creator of this location domain needs to have verb "create" permission
-	// in the referenced workspace on the given resource with the subresource "locationdomain".
-	//
-	// +required
-	// +kubebuilder:Required
-	Resource GroupVersionResource `json:"resource"`
-
 	// workspace is a reference to a workspace with instances subject to the location
 	// domain. Exactly one must be set.
 	//
 	// +optional
 	Workspace *WorkspaceExportReference `json:"workspace,omitempty"`
-}
-
-// GroupVersionResource unambiguously identifies a resource.
-type GroupVersionResource struct {
-	// group is the name of an API group.
-	//
-	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
-	// +optional
-	Group string `json:"group,omitempty"`
-
-	// version is the version of the API.
-	//
-	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
-	// +kubebuilder:validation:MinLength:1
-	// +required
-	// +kubebuilder:Required
-	Version string `json:"version"`
-
-	// resource is the name of the resource.
-	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
-	// +kubebuilder:validation:MinLength:1
-	// +required
-	// +kubebuilder:Required
-	Resource string `json:"resource"`
 }
 
 // WorkspaceExportReference describes an API and backing implementation that are provided by an actor in the
@@ -187,31 +112,6 @@ type WorkspaceSelector struct {
 // +kube:validation:MinLength=1
 // +kubebuilder:validation:Pattern=`^[a-zA-Z][A-Za-z0-9-]*[a-zA-Z0-9]$`
 type WorkspaceType string
-
-type LocationDomainLocationDefinition struct {
-	LocationSpecBase `json:",inline"`
-
-	// name is the name of the location.
-	//
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=31
-	// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9-]*[a-z0-9]$`
-	// +required
-	// +kubebuilder:Required
-	Name string `json:"name"`
-
-	// labels is a set of labels presented to the user to select a location.
-	//
-	// +optional
-	// +mapType=atomic
-	Labels map[LabelKey]LabelValue `json:"labels,omitempty"`
-
-	// instanceSelector chooses the instances that will be part of this location.
-	//
-	// Note that these labels are not what is shown in the Location objects to
-	// the user. Depending on context, both will match or won't match.
-	InstanceSelector *metav1.LabelSelector `json:"instanceSelector,omitempty"`
-}
 
 // LocationDomainStatus defines the observed state of Location.
 type LocationDomainStatus struct {

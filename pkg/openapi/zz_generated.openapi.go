@@ -31,91 +31,88 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":           schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource":             schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.InstancesReference":               schema_pkg_apis_scheduling_v1alpha1_InstancesReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Location":                         schema_pkg_apis_scheduling_v1alpha1_Location(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomain":                   schema_pkg_apis_scheduling_v1alpha1_LocationDomain(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainList":               schema_pkg_apis_scheduling_v1alpha1_LocationDomainList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainLocationDefinition": schema_pkg_apis_scheduling_v1alpha1_LocationDomainLocationDefinition(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainReference":          schema_pkg_apis_scheduling_v1alpha1_LocationDomainReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainSpec":               schema_pkg_apis_scheduling_v1alpha1_LocationDomainSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainStatus":             schema_pkg_apis_scheduling_v1alpha1_LocationDomainStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationList":                     schema_pkg_apis_scheduling_v1alpha1_LocationList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpec":                     schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpecBase":                 schema_pkg_apis_scheduling_v1alpha1_LocationSpecBase(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationStatus":                   schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceExportReference":         schema_pkg_apis_scheduling_v1alpha1_WorkspaceExportReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceSelector":                schema_pkg_apis_scheduling_v1alpha1_WorkspaceSelector(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspace":                    schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceList":                schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShard":               schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShard(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardList":           schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardSpec":           schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardStatus":         schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceSpec":                schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceStatus":              schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceType":                schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeList":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                            schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                        schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                        schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceStatus":                      schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref),
-		"github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition":     schema_conditions_apis_conditions_v1alpha1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                        schema_pkg_apis_meta_v1_APIGroup(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                    schema_pkg_apis_meta_v1_APIGroupList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                     schema_pkg_apis_meta_v1_APIResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                 schema_pkg_apis_meta_v1_APIResourceList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                     schema_pkg_apis_meta_v1_APIVersions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                    schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                       schema_pkg_apis_meta_v1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                   schema_pkg_apis_meta_v1_CreateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                   schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                        schema_pkg_apis_meta_v1_Duration(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                        schema_pkg_apis_meta_v1_FieldsV1(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                      schema_pkg_apis_meta_v1_GetOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                       schema_pkg_apis_meta_v1_GroupKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                   schema_pkg_apis_meta_v1_GroupResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                    schema_pkg_apis_meta_v1_GroupVersion(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                        schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                            schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                   schema_pkg_apis_meta_v1_InternalEvent(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                   schema_pkg_apis_meta_v1_LabelSelector(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                        schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                            schema_pkg_apis_meta_v1_List(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                        schema_pkg_apis_meta_v1_ListMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                     schema_pkg_apis_meta_v1_ListOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                              schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                       schema_pkg_apis_meta_v1_MicroTime(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                      schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                  schema_pkg_apis_meta_v1_OwnerReference(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                           schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                       schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                           schema_pkg_apis_meta_v1_Patch(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                    schema_pkg_apis_meta_v1_PatchOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                   schema_pkg_apis_meta_v1_Preconditions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                       schema_pkg_apis_meta_v1_RootPaths(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                       schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                          schema_pkg_apis_meta_v1_Status(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                     schema_pkg_apis_meta_v1_StatusCause(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                   schema_pkg_apis_meta_v1_StatusDetails(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                           schema_pkg_apis_meta_v1_Table(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                           schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                    schema_pkg_apis_meta_v1_TableOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                        schema_pkg_apis_meta_v1_TableRow(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                               schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                            schema_pkg_apis_meta_v1_Time(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                       schema_pkg_apis_meta_v1_Timestamp(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                        schema_pkg_apis_meta_v1_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                   schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                      schema_pkg_apis_meta_v1_WatchEvent(ref),
-		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                         schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                             schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/runtime.Unknown":                                              schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		"k8s.io/apimachinery/pkg/version.Info":                                                 schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":       schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource":         schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.InstancesReference":           schema_pkg_apis_scheduling_v1alpha1_InstancesReference(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Location":                     schema_pkg_apis_scheduling_v1alpha1_Location(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomain":               schema_pkg_apis_scheduling_v1alpha1_LocationDomain(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainList":           schema_pkg_apis_scheduling_v1alpha1_LocationDomainList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainSpec":           schema_pkg_apis_scheduling_v1alpha1_LocationDomainSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainStatus":         schema_pkg_apis_scheduling_v1alpha1_LocationDomainStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationList":                 schema_pkg_apis_scheduling_v1alpha1_LocationList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpec":                 schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationStatus":               schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceExportReference":     schema_pkg_apis_scheduling_v1alpha1_WorkspaceExportReference(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceSelector":            schema_pkg_apis_scheduling_v1alpha1_WorkspaceSelector(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspace":                schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceList":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShard":           schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShard(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardList":       schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardSpec":       schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShardStatus":     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceSpec":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceStatus":          schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceType":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeList":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":        schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                        schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                    schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                    schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceStatus":                  schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref),
+		"github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                    schema_pkg_apis_meta_v1_APIGroup(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                schema_pkg_apis_meta_v1_APIGroupList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                 schema_pkg_apis_meta_v1_APIResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                             schema_pkg_apis_meta_v1_APIResourceList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                 schema_pkg_apis_meta_v1_APIVersions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                   schema_pkg_apis_meta_v1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                               schema_pkg_apis_meta_v1_CreateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                               schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                    schema_pkg_apis_meta_v1_Duration(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                    schema_pkg_apis_meta_v1_FieldsV1(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                  schema_pkg_apis_meta_v1_GetOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                   schema_pkg_apis_meta_v1_GroupKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                               schema_pkg_apis_meta_v1_GroupResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                schema_pkg_apis_meta_v1_GroupVersion(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                    schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                            schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                        schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                               schema_pkg_apis_meta_v1_InternalEvent(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                               schema_pkg_apis_meta_v1_LabelSelector(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                    schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                        schema_pkg_apis_meta_v1_List(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                    schema_pkg_apis_meta_v1_ListMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                 schema_pkg_apis_meta_v1_ListOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                          schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                   schema_pkg_apis_meta_v1_MicroTime(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                  schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                              schema_pkg_apis_meta_v1_OwnerReference(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                       schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                   schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                       schema_pkg_apis_meta_v1_Patch(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                schema_pkg_apis_meta_v1_PatchOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                               schema_pkg_apis_meta_v1_Preconditions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                   schema_pkg_apis_meta_v1_RootPaths(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                   schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                      schema_pkg_apis_meta_v1_Status(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                 schema_pkg_apis_meta_v1_StatusCause(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                               schema_pkg_apis_meta_v1_StatusDetails(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                       schema_pkg_apis_meta_v1_Table(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                       schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                schema_pkg_apis_meta_v1_TableOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                    schema_pkg_apis_meta_v1_TableRow(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                           schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                        schema_pkg_apis_meta_v1_Time(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                   schema_pkg_apis_meta_v1_Timestamp(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                    schema_pkg_apis_meta_v1_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                               schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                  schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                     schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                         schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/runtime.Unknown":                                          schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		"k8s.io/apimachinery/pkg/version.Info":                                             schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -212,13 +209,6 @@ func schema_pkg_apis_scheduling_v1alpha1_InstancesReference(ref common.Reference
 				Description: "InstancesReference describes a reference to a workspace holding the instances subject to the location domain. Exactly one of the fields must be set.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"resource": {
-						SchemaProps: spec.SchemaProps{
-							Description: "resource is the group version resource of the instances that are subject to this location domain. The creator of this location domain needs to have verb \"create\" permission in the referenced workspace on the given resource with the subresource \"locationdomain\".",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource"),
-						},
-					},
 					"workspace": {
 						SchemaProps: spec.SchemaProps{
 							Description: "workspace is a reference to a workspace with instances subject to the location domain. Exactly one must be set.",
@@ -226,11 +216,10 @@ func schema_pkg_apis_scheduling_v1alpha1_InstancesReference(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"resource"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceExportReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceExportReference"},
 	}
 }
 
@@ -238,7 +227,7 @@ func schema_pkg_apis_scheduling_v1alpha1_Location(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Location represents a scheduling target for instances of a given type. A location is a projection and aggregation of instances referenced in a LocationDomain, used to express scheduling choices by a user. A location can subsume a number of instances.\n\nThe location is chosen by the user (in the future) through a Placement object, while the instance is chosen by the scheduler depending on considerations like load or available resources, or further node selectors specified by the user.",
+				Description: "Location represents a set of instances of a scheduling resource type acting a target of scheduling.\n\nThe location is chosen by the user (in the future) through a Placement object, while the instance is chosen by the scheduler depending on considerations like load or available resources, or further node selectors specified by the user.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -377,115 +366,6 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationDomainList(ref common.Reference
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_LocationDomainLocationDefinition(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Description: "description is a human-readable description of the location.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"availableSelectorLabels": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"key",
-								},
-								"x-kubernetes-list-type": "map",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "availableSelectorLabels is a list of labels that can be used to select an instance at this location in a placement object.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel"),
-									},
-								},
-							},
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of the location.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"labels": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-map-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "labels is a set of labels presented to the user to select a location.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"instanceSelector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "instanceSelector chooses the instances that will be part of this location.\n\nNote that these labels are not what is shown in the Location objects to the user. Depending on context, both will match or won't match.",
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
-				},
-				Required: []string{"name"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
-	}
-}
-
-func schema_pkg_apis_scheduling_v1alpha1_LocationDomainReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "LocationDomainReference defines a reference to a location domain.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"workspace": {
-						SchemaProps: spec.SchemaProps{
-							Description: "workspace is the absolute workspace name (e.g. root:company) of the domain this location belongs to.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of the location domain this location belongs to.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"workspace", "name"},
-			},
-		},
-	}
-}
-
 func schema_pkg_apis_scheduling_v1alpha1_LocationDomainSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -493,13 +373,6 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationDomainSpec(ref common.Reference
 				Description: "LocationDomainSpec holds the desired state of the location domain.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Description: "type defines which class of objects this location can schedule. A typical type is \"Workloads\". The type determines which scheduler is doing the actual scheduling tasks.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"instances": {
 						SchemaProps: spec.SchemaProps{
 							Description: "instances is a references to instance objects subject to this location domain. Depending on type this will usually be a workspace reference.",
@@ -513,26 +386,12 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationDomainSpec(ref common.Reference
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceSelector"),
 						},
 					},
-					"locations": {
-						SchemaProps: spec.SchemaProps{
-							Description: "locations",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainLocationDefinition"),
-									},
-								},
-							},
-						},
-					},
 				},
 				Required: []string{"instances"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.InstancesReference", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainLocationDefinition", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceSelector"},
+			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.InstancesReference", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.WorkspaceSelector"},
 	}
 }
 
@@ -621,64 +480,13 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref common.ReferenceCallba
 				Description: "LocationSpec holds the desired state of the Location.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"description": {
+					"resource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "description is a human-readable description of the location.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"availableSelectorLabels": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"key",
-								},
-								"x-kubernetes-list-type": "map",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "availableSelectorLabels is a list of labels that can be used to select an instance at this location in a placement object.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel"),
-									},
-								},
-							},
-						},
-					},
-					"domain": {
-						SchemaProps: spec.SchemaProps{
-							Description: "domain is the LocationDomain this location belongs to.",
+							Description: "resource is the group version resource of the instances that are subject to this location domain. The creator of this location domain needs to have verb \"create\" permission in the referenced workspace on the given resource with the subresource \"locationdomain\".",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource"),
 						},
 					},
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Description: "type defines which class of objects this location can schedule. A typical type is \"Workloads\".",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"domain"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationDomainReference"},
-	}
-}
-
-func schema_pkg_apis_scheduling_v1alpha1_LocationSpecBase(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
 					"description": {
 						SchemaProps: spec.SchemaProps{
 							Description: "description is a human-readable description of the location.",
@@ -708,11 +516,18 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationSpecBase(ref common.ReferenceCa
 							},
 						},
 					},
+					"instanceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "instanceSelector chooses the instances that will be part of this location.\n\nNote that these labels are not what is shown in the Location objects to the user. Depending on context, both will match or won't match.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
 				},
+				Required: []string{"resource"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel"},
+			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 

@@ -47,9 +47,8 @@ const (
 	PlacementStateUnbound PlacementState = "Unbound"
 )
 
-// Location represents a scheduling target for instances of a given type. A location
-// is a projection and aggregation of instances referenced in a LocationDomain, used
-// to express scheduling choices by a user. A location can subsume a number of instances.
+// Location represents a set of instances of a scheduling resource type acting a target
+// of scheduling.
 //
 // The location is chosen by the user (in the future) through a Placement object, while
 // the instance is chosen by the scheduler depending on considerations like load
@@ -61,7 +60,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`,description="Type of the workspace"
+// +kubebuilder:printcolumn:name="Resource",type=string,JSONPath=`.spec.resource.resource`,description="Type of the workspace"
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.availableInstances`,description="Available instances in this location"
 // +kubebuilder:printcolumn:name="Instances",type=string,JSONPath=`.status.instances`,description="Instances in this location"
 // +kubebuilder:printcolumn:name="Labels",type=string,JSONPath=`.metadata.annotation."scheduling.kcp.dev/labels"`,description="The common labels of this location"
@@ -78,22 +77,14 @@ type Location struct {
 
 // LocationSpec holds the desired state of the Location.
 type LocationSpec struct {
-	LocationSpecBase `json:",inline"`
-
-	// domain is the LocationDomain this location belongs to.
-	// +required
-	// +kubebuilder:Required
-	Domain LocationDomainReference `json:"domain"`
-
-	// type defines which class of objects this location can schedule. A typical
-	// type is "Workloads".
+	// resource is the group version resource of the instances that are subject to this location
+	// domain. The creator of this location domain needs to have verb "create" permission
+	// in the referenced workspace on the given resource with the subresource "locationdomain".
 	//
 	// +required
 	// +kubebuilder:Required
-	Type LocationDomainType `json:"type,omitempty"`
-}
+	Resource GroupVersionResource `json:"resource"`
 
-type LocationSpecBase struct {
 	// description is a human-readable description of the location.
 	//
 	// +optional
@@ -105,27 +96,42 @@ type LocationSpecBase struct {
 	// +listType=map
 	// +listMapKey=key
 	AvailableSelectorLabels []AvailableSelectorLabel `json:"availableSelectorLabels,omitempty"`
+
+	// instanceSelector chooses the instances that will be part of this location.
+	//
+	// Note that these labels are not what is shown in the Location objects to
+	// the user. Depending on context, both will match or won't match.
+	//
+	// +optional
+	InstanceSelector *metav1.LabelSelector `json:"instanceSelector,omitempty"`
 }
 
-// LocationDomainReference defines a reference to a location domain.
-type LocationDomainReference struct {
-	// workspace is the absolute workspace name (e.g. root:company) of the domain this location belongs to.
+// GroupVersionResource unambiguously identifies a resource.
+type GroupVersionResource struct {
+	// group is the name of an API group.
 	//
-	// +required
-	// +kubebuilder:Required
-	Workspace AbsoluteWorkspaceName `json:"workspace"`
-	// name is the name of the location domain this location belongs to.
-	//
-	// +required
-	// +kubebuilder:Required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-}
+	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
+	// +kubebuilder:validation:Enum="workload.kcp.dev"
+	// +optional
+	Group string `json:"group,omitempty"`
 
-// AbsoluteWorkspaceName is an absolute workspace name, e.g. "root:company:workspace".
-//
-// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9-]*[a-z0-9](:[a-z][a-z0-9-]*[a-z0-9])*$`
-type AbsoluteWorkspaceName string
+	// version is the version of the API.
+	//
+	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
+	// +kubebuilder:validation:MinLength:1
+	// +kubebuilder:validation:Enum="v1alpha1"
+	// +required
+	// +kubebuilder:Required
+	Version string `json:"version"`
+
+	// resource is the name of the resource.
+	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
+	// +kubebuilder:validation:MinLength:1
+	// +kubebuilder:validation:Enum="workloadclusters"
+	// +required
+	// +kubebuilder:Required
+	Resource string `json:"resource"`
+}
 
 // AvailableSelectorLabel specifies a label with key name and possible values.
 type AvailableSelectorLabel struct {

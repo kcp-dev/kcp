@@ -20,8 +20,8 @@ spec:
   versions:
   - additionalPrinterColumns:
     - description: Type of the workspace
-      jsonPath: .spec.type
-      name: Type
+      jsonPath: .spec.resource.resource
+      name: Resource
       type: string
     - description: Available instances in this location
       jsonPath: .status.availableInstances
@@ -38,10 +38,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: "Location represents a scheduling target for instances of a given
-          type. A location is a projection and aggregation of instances referenced
-          in a LocationDomain, used to express scheduling choices by a user. A location
-          can subsume a number of instances. \n The location is chosen by the user
+        description: "Location represents a set of instances of a scheduling resource
+          type acting a target of scheduling. \n The location is chosen by the user
           (in the future) through a Placement object, while the instance is chosen
           by the scheduler depending on considerations like load or available resources,
           or further node selectors specified by the user."
@@ -98,31 +96,83 @@ spec:
               description:
                 description: description is a human-readable description of the location.
                 type: string
-              domain:
-                description: domain is the LocationDomain this location belongs to.
+              instanceSelector:
+                description: "instanceSelector chooses the instances that will be
+                  part of this location. \n Note that these labels are not what is
+                  shown in the Location objects to the user. Depending on context,
+                  both will match or won't match."
                 properties:
-                  name:
-                    description: name is the name of the location domain this location
-                      belongs to.
-                    minLength: 1
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              resource:
+                description: resource is the group version resource of the instances
+                  that are subject to this location domain. The creator of this location
+                  domain needs to have verb "create" permission in the referenced
+                  workspace on the given resource with the subresource "locationdomain".
+                properties:
+                  group:
+                    description: group is the name of an API group.
+                    enum:
+                    - workload.kcp.dev
+                    pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                     type: string
-                  workspace:
-                    description: workspace is the absolute workspace name (e.g. root:company)
-                      of the domain this location belongs to.
-                    pattern: ^[a-z][a-z0-9-]*[a-z0-9](:[a-z][a-z0-9-]*[a-z0-9])*$
+                  resource:
+                    description: resource is the name of the resource.
+                    enum:
+                    - workloadclusters
+                    pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                    type: string
+                  version:
+                    description: version is the version of the API.
+                    enum:
+                    - v1alpha1
+                    pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                     type: string
                 required:
-                - name
-                - workspace
+                - resource
+                - version
                 type: object
-              type:
-                description: type defines which class of objects this location can
-                  schedule. A typical type is "Workloads".
-                minLength: 1
-                pattern: ^[A-Z][-a-z0-9]*[a-z0-9]$
-                type: string
             required:
-            - domain
+            - resource
             type: object
           status:
             description: LocationStatus defines the observed state of Location.
