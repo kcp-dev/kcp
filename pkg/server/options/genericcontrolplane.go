@@ -17,8 +17,9 @@ limitations under the License.
 package options
 
 import (
-	_ "k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
+
+	_ "github.com/kcp-dev/kcp/pkg/features"
 )
 
 //

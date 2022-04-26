@@ -21,6 +21,25 @@ import (
 )
 
 var (
+	namedFlagSetOrder = []string{
+		"auditing",
+		"authentication",
+		"etcd",
+		"Embedded etcd",
+		"features",
+		"generic",
+		"logs",
+		"metrics",
+		"misc",
+		"secure serving",
+		"traces",
+		"KCP Authentication",
+		"KCP Authorization",
+		"KCP Virtual Workspaces",
+		"KCP Controllers",
+		"KCP",
+	}
+
 	allowedFlags = sets.NewString(
 		// auditing flags
 		"audit-log-batch-buffer-size",           // The size of the buffer to store events before batching and writing. Only used in batch mode.

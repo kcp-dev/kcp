@@ -17,6 +17,12 @@ limitations under the License.
 package features
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/spf13/pflag"
+
 	"k8s.io/apimachinery/pkg/util/runtime"
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -33,6 +39,38 @@ const (
 
 func init() {
 	runtime.Must(utilfeature.DefaultMutableFeatureGate.Add(defaultGenericControlPlaneFeatureGates))
+}
+
+func KnownFeatures() []string {
+	var features []string
+	for k := range defaultGenericControlPlaneFeatureGates {
+		features = append(features, string(k))
+	}
+	return features
+}
+
+// NewFlagValue returns a wrapper to be used for a pflag flag value.
+func NewFlagValue() pflag.Value {
+	return &kcpFeatureGate{
+		utilfeature.DefaultMutableFeatureGate,
+	}
+}
+
+type kcpFeatureGate struct {
+	featuregate.MutableFeatureGate
+}
+
+func (f *kcpFeatureGate) String() string {
+	pairs := []string{}
+	for k, v := range defaultGenericControlPlaneFeatureGates {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, v.Default))
+	}
+	sort.Strings(pairs)
+	return strings.Join(pairs, ",")
+}
+
+func (f *kcpFeatureGate) Type() string {
+	return "mapStringBool"
 }
 
 // defaultGenericControlPlaneFeatureGates consists of all known Kubernetes-specific feature keys
