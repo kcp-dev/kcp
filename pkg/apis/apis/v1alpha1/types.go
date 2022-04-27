@@ -388,7 +388,7 @@ type APIResourceVersion struct {
 	// subresources specify what subresources this version of the defined custom resource have.
 	//
 	// +optional
-	Subresources *apiextensionsv1.CustomResourceSubresources `json:"subresources,omitempty"`
+	Subresources apiextensionsv1.CustomResourceSubresources `json:"subresources"`
 	// additionalPrinterColumns specifies additional columns returned in Table output.
 	// See https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables for details.
 	// If no columns are specified, a single column displaying the age of the custom resource is used.

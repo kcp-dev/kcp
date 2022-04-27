@@ -751,7 +751,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 }
 								`),
 							},
-							Subresources: &apiextensionsv1.CustomResourceSubresources{
+							Subresources: apiextensionsv1.CustomResourceSubresources{
 								Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
@@ -783,7 +783,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 }
 								`),
 							},
-							Subresources: &apiextensionsv1.CustomResourceSubresources{
+							Subresources: apiextensionsv1.CustomResourceSubresources{
 								Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",

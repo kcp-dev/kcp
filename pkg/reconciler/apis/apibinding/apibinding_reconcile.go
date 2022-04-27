@@ -461,7 +461,7 @@ func crdFromAPIResourceSchema(schema *apisv1alpha1.APIResourceSchema) (*apiexten
 			Storage:                  version.Storage,
 			Deprecated:               version.Deprecated,
 			DeprecationWarning:       version.DeprecationWarning,
-			Subresources:             version.Subresources,
+			Subresources:             &version.Subresources,
 			AdditionalPrinterColumns: version.AdditionalPrinterColumns,
 		}
 
