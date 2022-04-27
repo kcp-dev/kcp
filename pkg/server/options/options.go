@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
@@ -193,6 +195,12 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		}
 		o.Extra.RootDirectory = filepath.Join(pwd, o.Extra.RootDirectory)
 	}
+
+	// Create the configuration root correctly before other components get a chance.
+	if err := mkdirRoot(o.Extra.RootDirectory); err != nil {
+		return nil, err
+	}
+
 	if !filepath.IsAbs(o.EmbeddedEtcd.Directory) {
 		o.EmbeddedEtcd.Directory = filepath.Join(o.Extra.RootDirectory, o.EmbeddedEtcd.Directory)
 	}
@@ -267,4 +275,39 @@ func filter(ffs cliflag.NamedFlagSets, allowed sets.String) cliflag.NamedFlagSet
 		})
 	}
 	return filtered
+}
+
+// mkdirRoot creates the root configuration directory for the KCP
+// server. This has to be done early before we start bringing up server
+// components to ensure that we set the initial permissions correctly,
+// since otherwise components will create it as a side-effect.
+func mkdirRoot(dir string) error {
+	if dir == "" {
+		return errors.New("missing root directory configuration")
+	}
+
+	fi, err := os.Stat(dir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+
+		klog.Infof("Creating root directory %s", dir)
+
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+
+		// Ensure the leaf directory is moderately private
+		// because this may contain private keys and other
+		// sensitive data
+		return os.Chmod(dir, 0700)
+	}
+
+	if !fi.IsDir() {
+		return fmt.Errorf("%q is a file, please delete or select another location", dir)
+	}
+
+	klog.Infof("Using root directory %s", dir)
+	return nil
 }
