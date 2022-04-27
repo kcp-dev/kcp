@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	clusterLabel = nscontroller.ClusterLabel
+	clusterLabel = nscontroller.ClusterLabelPrefix
 	ownedByLabel = "kcp.dev/owned-by"
 )
 

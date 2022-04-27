@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	clusterLabel     = nscontroller.ClusterLabel
+	clusterLabel     = nscontroller.ClusterLabelPrefix
 	OwnedByCluster   = "ingress.kcp.dev/owned-by-cluster"
 	OwnedByIngress   = "ingress.kcp.dev/owned-by-ingress"
 	OwnedByNamespace = "ingress.kcp.dev/owned-by-namespace"

@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
@@ -43,6 +44,25 @@ func deepEqualApartFromStatus(oldObj, newObj interface{}) bool {
 	if !isOldObjUnstructured || !isNewObjUnstructured {
 		return false
 	}
+
+	// TODO(jmprusi): Remove this after switching to virtual workspaces.
+	// remove status annotation from oldObj and newObj before comparing
+	oldAnnotations := oldUnstrob.GetAnnotations()
+	for k := range oldAnnotations {
+		if strings.HasPrefix(k, ExperimentalStatusAnnotation) {
+			delete(oldAnnotations, k)
+		}
+	}
+	oldUnstrob.SetAnnotations(oldAnnotations)
+
+	newAnnotations := newUnstrob.GetAnnotations()
+	for k := range newAnnotations {
+		if strings.HasPrefix(k, ExperimentalStatusAnnotation) {
+			delete(newAnnotations, k)
+		}
+	}
+	newUnstrob.SetAnnotations(newAnnotations)
+
 	if !equality.Semantic.DeepEqual(oldUnstrob.GetAnnotations(), newUnstrob.GetAnnotations()) {
 		return false
 	}
@@ -160,12 +180,23 @@ func (c *Controller) notifySyncerOwnership(ctx context.Context, gvr schema.Group
 	name := upstreamObj.GetName()
 	namespace := upstreamObj.GetNamespace()
 
+	// TODO(jmprusi): We add finalizers to the resources in the namespace, not the namespace itself to avoid blocking
+	//                on namespace deletion. Do we need finalizers on namespaces?
+	if gvr.Resource != "namespaces" && gvr.Group != "" {
+		c.setSyncerFinalizer(upstreamObj)
+	}
+
 	if _, err := c.fromClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("Failed updating to notify syncer ownership on resource %s|%s/%s: %v", c.upstreamClusterName, namespace, name, err)
 		return err
 	}
 	klog.Infof("Updated resource %s|%s/%s to notify syncer ownership", c.upstreamClusterName, namespace, name)
 	return nil
+}
+
+func (c *Controller) getLocationFinalizer(obj *unstructured.Unstructured) (string, bool) {
+	val, ok := obj.GetAnnotations()[LocationFinalizersAnnotationName(c.pcluster)]
+	return val, ok
 }
 
 func (c *Controller) applyToDownstream(ctx context.Context, eventType watch.EventType, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
@@ -206,8 +237,15 @@ func (c *Controller) applyToDownstream(ctx context.Context, eventType watch.Even
 
 	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
 	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
+	if deletionTimestamp := upstreamObj.GetDeletionTimestamp(); deletionTimestamp != nil || upstreamObj.GetAnnotations()[LocationDeletionAnnotationName(c.pcluster)] != "" {
+		// TODO(jmprusi): This should be dropped once we have the virtual syncer workspace support.
+		// Check if there's any externalFinalizers, if there are, let's block the deletion of the object as there is an external controller that has
+		// set a "soft" finalizer for the given this location.
+		if finalizers, ok := c.getLocationFinalizer(upstreamObj); ok {
+			klog.Infof("Deletion of resource %s %s/%s from downstream %s|%s/%s is blocked due to an external finalizer: %q", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName(), finalizers)
+			return nil
+		}
 
-	if deletionTimestamp := upstreamObj.GetDeletionTimestamp(); deletionTimestamp != nil {
 		if err := c.toClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
 			if errors.IsNotFound(err) {
 				// That's not an error.
@@ -217,7 +255,6 @@ func (c *Controller) applyToDownstream(ctx context.Context, eventType watch.Even
 				}
 				return nil
 			}
-
 			klog.Infof("Error deleting %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
 			return err
 		}

@@ -17,6 +17,7 @@ limitations under the License.
 package namespace
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -46,7 +47,10 @@ type namespaceScheduler struct {
 // the automatic scheduling is disabled for the namespace. An new assignment will
 // be attempted if the current assignment is empty or invalid.
 func (s *namespaceScheduler) AssignClusters(ns *corev1.Namespace) ([]string, error) {
-	assignedClusters := workloadClustersFromLabels(ns.Labels)
+	var assignedClusters []string
+	for cluster := range workloadClustersFromLabels(ns.Labels) {
+		assignedClusters = append(assignedClusters, cluster)
+	}
 
 	schedulingDisabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
 	if schedulingDisabled {
@@ -54,31 +58,35 @@ func (s *namespaceScheduler) AssignClusters(ns *corev1.Namespace) ([]string, err
 		return assignedClusters, nil
 	}
 
-	for i, clusterName := range assignedClusters {
+	validatedClusters := make([]string, 0)
+	for _, clusterName := range assignedClusters {
 		isValid, invalidMsg, err := s.isValidCluster(logicalcluster.From(ns), clusterName)
 		if err != nil {
 			return assignedClusters, err
 		}
 		// Check if the already assigned cluster is in a valid state, if not, remove it from the list.
-		if !isValid {
-			// A new cluster needs to be assigned
+		if isValid {
+			validatedClusters = append(validatedClusters, clusterName)
+		} else {
 			klog.V(5).Infof("Assigned cluster is not valid: %s|%s %s", ns.ClusterName, clusterName, invalidMsg)
-			assignedClusters = append(assignedClusters[:i], assignedClusters[i+1:]...)
 		}
 	}
 
-	// If we have a valid cluster, return it.
-	if len(assignedClusters) != 0 {
-		return assignedClusters, nil
+	// If we have valid clusters, return them.
+	if len(validatedClusters) != 0 {
+		return validatedClusters, nil
 	}
 
 	// If there is no valid cluster, try to assign a new one.
 	allClusters, err := s.listClusters(labels.Everything())
 	if err != nil {
-		return assignedClusters, err
+		return validatedClusters, err
 	}
 
-	pickedCluster := pickCluster(allClusters, logicalcluster.From(ns))
+	pickedCluster, err := pickCluster(allClusters, logicalcluster.From(ns))
+	if err != nil {
+		return validatedClusters, err
+	}
 	return []string{pickedCluster}, nil
 }
 
@@ -113,7 +121,7 @@ func (s *namespaceScheduler) isValidCluster(lclusterName logicalcluster.LogicalC
 // cluster to assign to a namespace. If a suitable cluster is
 // identified, its name will be returned. Otherwise, an empty string
 // will be returned.
-func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName logicalcluster.LogicalCluster) string {
+func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName logicalcluster.LogicalCluster) (string, error) {
 	var clusters []*workloadv1alpha1.WorkloadCluster
 	for i := range allClusters {
 		// Only include Clusters that are in the logical cluster
@@ -140,6 +148,12 @@ func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName l
 		clusters = append(clusters, allClusters[i])
 	}
 
+	// If we don't have clusters at this step, let's return an error
+	if len(clusters) == 0 {
+		klog.V(2).InfoS("pickCluster: no ready candidates found", "ns.clusterName", lclusterName)
+		return "", fmt.Errorf("no ready candidates found")
+	}
+
 	newClusterName := ""
 	if len(clusters) > 0 {
 		// Select a cluster at random.
@@ -147,5 +161,5 @@ func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName l
 		newClusterName = cluster.Name
 	}
 
-	return newClusterName
+	return newClusterName, nil
 }

@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"strings"
 	"time"
 
@@ -47,6 +46,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
 
@@ -59,16 +59,32 @@ const (
 
 	// TODO(marun) Ensure backoff rather than using a constant to avoid thundering herds
 	gvrQueryInterval = 1 * time.Second
+
+	// SyncDown indicates a syncer watches resources on KCP and applies the spec to the target cluster
+	SyncDown SyncDirection = "down"
+
+	// SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
+	SyncUp SyncDirection = "up"
 )
+
+const SyncerFinalizer string = "workloads.kcp.dev/syncer"
+
+const ExternalFinalizerAnnotation string = "finalizers.workloads.kcp.dev/"
+
+const ExperimentalStatusAnnotation string = "experimental.status.workloads.kcp.dev/"
+
+const DeletionAnnotation string = "deletion.internal.workloads.kcp.dev/"
+
+func LocationDeletionAnnotationName(locationName string) string {
+	return DeletionAnnotation + locationName
+}
+
+func LocationFinalizersAnnotationName(locationName string) string {
+	return ExternalFinalizerAnnotation + locationName
+}
 
 // SyncDirection indicates which direction data is flowing for this particular syncer
 type SyncDirection string
-
-// SyncDown indicates a syncer watches resources on KCP and applies the spec to the target cluster
-const SyncDown SyncDirection = "down"
-
-// SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
-const SyncUp SyncDirection = "up"
 
 // SyncerConfig defines the syncer configuration that is guaranteed to
 // vary across syncer deployments. Capturing these details in a struct
@@ -86,7 +102,11 @@ func (sc *SyncerConfig) ID() string {
 }
 
 func workloadClusterLabelName(clusterName string) string {
-	return fmt.Sprintf("%s/%s", namespace.ClusterLabel, clusterName)
+	return namespace.ClusterLabelPrefix + clusterName
+}
+
+func statusAnnotationName(clusterName string) string {
+	return ExperimentalStatusAnnotation + clusterName
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
@@ -235,7 +255,7 @@ func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClie
 	}
 
 	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = fmt.Sprintf("%s", workloadClusterLabelName(pclusterID))
+		o.LabelSelector = workloadClusterLabelName(pclusterID)
 	})
 
 	for _, gvrstr := range gvrs {
@@ -605,6 +625,31 @@ func transformName(syncedObject *unstructured.Unstructured, direction SyncDirect
 		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "kcp-default" {
 			syncedObject.SetName("default")
 		}
+	}
+}
+
+func (c *Controller) deleteSyncerFinalizer(obj *unstructured.Unstructured) {
+	syncerFinalizerString := fmt.Sprintf("%s-%s", SyncerFinalizer, c.pcluster)
+	finalizers := obj.GetFinalizers()
+	for i, f := range finalizers {
+		if f == syncerFinalizerString {
+			obj.SetFinalizers(append(finalizers[:i], finalizers[i+1:]...))
+			return
+		}
+	}
+}
+
+func (c *Controller) setSyncerFinalizer(obj *unstructured.Unstructured) {
+	syncerFinalizerString := fmt.Sprintf("%s-%s", SyncerFinalizer, c.pcluster)
+	if obj.GetFinalizers() == nil {
+		obj.SetFinalizers([]string{syncerFinalizerString})
+	} else {
+		for _, f := range obj.GetFinalizers() {
+			if f == syncerFinalizerString {
+				return
+			}
+		}
+		obj.SetFinalizers(append(obj.GetFinalizers(), syncerFinalizerString))
 	}
 }
 

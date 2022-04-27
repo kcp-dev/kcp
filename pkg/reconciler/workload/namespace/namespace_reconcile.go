@@ -17,13 +17,11 @@ limitations under the License.
 package namespace
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"reflect"
 	"strings"
-	"text/template"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -48,13 +46,15 @@ import (
 )
 
 const (
-	ClusterLabel            = "cluster.internal.workloads.kcp.dev"
+	ClusterLabelPrefix      = "cluster.internal.workloads.kcp.dev/"
 	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
 
 	// The presence of `workloads.kcp.dev/schedulable: true` on a workspace
 	// enables scheduling for the contents of the workspace. It is applied by
 	// default to workspaces of type `Universal`.
 	WorkspaceSchedulableLabel = "workloads.kcp.dev/schedulable"
+
+	DeletionAnnotation string = "deletion.internal.workloads.kcp.dev/"
 )
 
 var (
@@ -80,14 +80,17 @@ func init() {
 	}
 }
 
+func ClusterLabelName(clusterName string) string {
+	return ClusterLabelPrefix + clusterName
+}
+
+func LocationDeletionAnnotationName(locationName string) string {
+	return DeletionAnnotation + locationName
+}
+
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.LogicalCluster, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
-	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
-		klog.V(2).Infof("Skipping reconciliation of ingress %s/%s", unstr.GetNamespace(), unstr.GetName())
-		return nil
-	}
-
 	klog.Infof("Reconciling %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a
@@ -116,23 +119,44 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		lbls = map[string]string{}
 	}
 
-	var oldClusters, newClusters []string
+	var oldClusters, newClusters map[string]string
 	oldClusters = workloadClustersFromLabels(lbls)
+	// Get the desired clusters from the namespace.
 	newClusters = workloadClustersFromLabels(ns.Labels)
-	if stringsEqualNoOrder(oldClusters, newClusters) {
-		// Already assigned to the right cluster.
+
+	// Check if the resource has been scheduled to the desired clusters already.
+	if compareWithoutDeletingCluster(unstr, newClusters) {
+		klog.V(5).Infof("%s %s|%s had no cluster change; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
 		return nil
 	}
 
 	// Update the resource's assignment.
-	patchType, patchBytes := clusterLabelPatchBytes(oldClusters, newClusters)
+	patchType, patchBytes, err := resourceSchedulingPatchBytes(unstr, oldClusters, newClusters)
+	if err != nil {
+		return err
+	}
+
 	if _, err = c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
-	klog.Infof("Patched cluster assignment for %s %s/%s: %q -> %q", gvr, ns.Name, unstr.GetName(), oldClusters, newClusters)
 
+	klog.Infof("Patched cluster assignment for %s %s/%s: %q -> %q", gvr, ns.Name, unstr.GetName(), oldClusters, newClusters)
 	return nil
+}
+
+// compareWithoutDeletingCluster compares a resource with a set of clusters, and finds out if the resource requires a new pcluster assignment.
+// It does not consider pclusters that are being deleted (i.e. there's a deletion timestamp annotation for the affected the pcluster).
+func compareWithoutDeletingCluster(resource *unstructured.Unstructured, nsClusters map[string]string) bool {
+	oldLabels := resource.GetLabels()
+	for k, v := range resource.GetAnnotations() {
+		if strings.HasPrefix(k, DeletionAnnotation) && v != "" {
+			clusterName := strings.TrimPrefix(k, DeletionAnnotation)
+			delete(oldLabels, ClusterLabelName(clusterName))
+		}
+	}
+
+	return reflect.DeepEqual(workloadClustersFromLabels(oldLabels), nsClusters)
 }
 
 func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionResource) error {
@@ -166,27 +190,33 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 		getCluster:   c.clusterLister.Get,
 		listClusters: c.clusterLister.List,
 	}
-	newPClusterNames, err := scheduler.AssignClusters(ns)
+	newAssignedClusters, err := scheduler.AssignClusters(ns)
 	if err != nil {
 		return err
 	}
 
+	newPClusterNames := make(map[string]string)
+	for _, ac := range newAssignedClusters {
+		newPClusterNames[ac] = "Sync"
+	}
+
 	// Compare oldPclusterNames and NewPClusterName to see if we need to update the labels
 	// of the namespace.
-	if stringsEqualNoOrder(oldPCClusterNames, newPClusterNames) {
+	if reflect.DeepEqual(oldPCClusterNames, newPClusterNames) {
 		return nil
 	}
 
 	klog.Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
 		ns.ClusterName, ns.Name, oldPCClusterNames, newPClusterNames)
 
-	patchType, patchBytes := clusterLabelPatchBytes(oldPCClusterNames, newPClusterNames)
+	patchType, patchBytes := namespaceSchedulingPatchBytes(oldPCClusterNames, newPClusterNames)
+
 	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{})
 	if err == nil {
 		// Update the label to enable the caller to detect a scheduling change.
 		for key := range patchedNamespace.Labels {
-			if strings.HasPrefix(key, ClusterLabel) {
+			if strings.HasPrefix(key, ClusterLabelPrefix) {
 				ns.Labels[key] = patchedNamespace.Labels[key]
 			}
 		}
@@ -195,13 +225,13 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 	return err
 }
 
-func workloadClustersFromLabels(labels map[string]string) []string {
-	var workloadClusters []string
+func workloadClustersFromLabels(labels map[string]string) map[string]string {
+	workloadClusters := make(map[string]string)
 	for key := range labels {
-		if strings.HasPrefix(key, ClusterLabel) {
+		if strings.HasPrefix(key, ClusterLabelPrefix) {
 			splittedLabel := strings.Split(key, "/")
-			if splittedLabel != nil && len(splittedLabel) == 2 {
-				workloadClusters = append(workloadClusters, splittedLabel[1])
+			if len(splittedLabel) == 2 {
+				workloadClusters[splittedLabel[1]] = labels[key]
 			}
 		}
 	}
@@ -272,7 +302,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	lastScheduling, previouslyEnqueued := c.namepaceContentsEnqueuedFor(ns)
 	clusterNames := workloadClustersFromLabels(ns.Labels)
 
-	if previouslyEnqueued && stringsEqualNoOrder(strings.Split(lastScheduling, ","), clusterNames) {
+	if previouslyEnqueued && reflect.DeepEqual(lastScheduling, clusterNames) {
 		return nil
 	}
 
@@ -298,93 +328,146 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	// Only record the scheduling decision once enqueueing was
 	// successful to ensure that requeueing for a given scheduling
 	// decision will be retried until successful.
-	c.setNamepaceContentsEnqueuedFor(ns)
-
-	return nil
+	return c.setNamepaceContentsEnqueuedFor(ns)
 }
 
 // namepaceContentsEnqueuedFor retrieves the last scheduling decision
 // for which the contents of the given namespace were successfully
 // enqueued.
-func (c *Controller) namepaceContentsEnqueuedFor(ns *corev1.Namespace) (string, bool) {
+func (c *Controller) namepaceContentsEnqueuedFor(ns *corev1.Namespace) (map[string]string, bool) {
 	key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 	c.namespaceContentsEnqueuedForLock.RLock()
 	defer c.namespaceContentsEnqueuedForLock.RUnlock()
-	scheduling, ok := c.namespaceContentsEnqueuedForMap[key]
+
+	scheduling := make(map[string]string)
+	schedulingJson, ok := c.namespaceContentsEnqueuedForMap[key]
+	err := json.Unmarshal([]byte(schedulingJson), &scheduling)
+	if err != nil {
+		klog.Errorf("Failed to unmarshal scheduling for namespace %s|%s: %v", ns.ClusterName, ns.Name, err)
+		return scheduling, false
+	}
+
 	return scheduling, ok
 }
 
 // setNamepaceContentsEnqueuedFor sets the last scheduling decision
 // for which the contents of the given namespace were successfully
 // enqueued.
-func (c *Controller) setNamepaceContentsEnqueuedFor(ns *corev1.Namespace) {
+func (c *Controller) setNamepaceContentsEnqueuedFor(ns *corev1.Namespace) error {
 	key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 	c.namespaceContentsEnqueuedForLock.Lock()
 	defer c.namespaceContentsEnqueuedForLock.Unlock()
-	scheduledClusters := workloadClustersFromLabels(ns.Labels)
 
-	c.namespaceContentsEnqueuedForMap[key] = strings.Join(scheduledClusters, ",")
+	scheduledClusters := workloadClustersFromLabels(ns.Labels)
+	jsonSchedulerClusters, err := json.Marshal(scheduledClusters)
+	if err != nil {
+		return err
+	}
+	c.namespaceContentsEnqueuedForMap[key] = string(jsonSchedulerClusters)
+
+	return nil
 }
 
-// clusterLabelPatchBytes returns JSON patch bytes expressing an operation
-// to add, replace to the given value, or delete the cluster assignment label.
-func clusterLabelPatchBytes(currentClusters, newClusters []string) (types.PatchType, []byte) {
+func namespaceSchedulingPatchBytes(oldPCclusters, newPClusters map[string]string) (types.PatchType, []byte) {
 	var patches []string
 
-	// If the newClusters is empty, delete all the previous labels.
-	if len(newClusters) == 0 {
-		for _, currentCluster := range currentClusters {
-			patches = append(patches, fmt.Sprintf(`{"op": "remove", "path": "/metadata/labels/%s~1%s"}`, ClusterLabel, currentCluster))
-		}
-		return types.JSONPatchType, []byte("[" + strings.Join(patches, ",") + "]")
+	_, different, missing, added := compareClusterLabels(oldPCclusters, newPClusters)
+	for _, clusterName := range different {
+		patches = append(patches, fmt.Sprintf(`{"op": "replace", "path": "/metadata/labels/%s", "value": "%s"}`,
+			strings.Replace(ClusterLabelName(clusterName), "/", "~1", -1), newPClusters[clusterName]))
+	}
+	for _, clusterName := range missing {
+		patches = append(patches, fmt.Sprintf(`{"op": "remove", "path": "/metadata/labels/%s"}`,
+			strings.Replace(ClusterLabelName(clusterName), "/", "~1", -1)))
+	}
+	for _, clusterName := range added {
+		patches = append(patches, fmt.Sprintf(`{"op": "add", "path": "/metadata/labels/%s", "value": "%s"}`,
+			strings.Replace(ClusterLabelName(clusterName), "/", "~1", -1), newPClusters[clusterName]))
 	}
 
-	// If the currentClusters is empty, add all the new labels. NOTE: In this situation, we don't know for sure if the object has a
-	// labels field. So we will always create a MergePatchType patch.
-	if len(currentClusters) == 0 {
-		labels := `{
-	"metadata": {
-		"labels": {
-			{{- range $index, $cluster := $.NewClusters }}
-				"{{ $.ClusterLabel }}/{{ $cluster }}": "Sync"{{if $index}},{{end}}
-			{{- end }}
-		}
-	}
+	return types.JSONPatchType, []byte(fmt.Sprintf(`[%s]`, strings.Join(patches, ",")))
 }
-`
-		tmpl, err := template.New("clusterLabelPatch").Parse(labels)
+
+func resourceSchedulingPatchBytes(obj *unstructured.Unstructured, currentClusters, newClusters map[string]string) (types.PatchType, []byte, error) {
+	var patches []string
+	annotations := make(map[string]string)
+
+	_, different, missing, added := compareClusterLabels(currentClusters, newClusters)
+	if obj.GetLabels() == nil {
+		labels := make(map[string]string)
+		for _, clusterName := range added {
+			labels[ClusterLabelName(clusterName)] = newClusters[clusterName]
+		}
+		labelsBytes, err := json.Marshal(labels)
 		if err != nil {
-			klog.Errorf("Failed to parse template: %v", err)
-			return "", nil
+			return "", nil, err
 		}
-
-		buf := &bytes.Buffer{}
-		tmpl.Execute(buf, struct {
-			NewClusters  []string
-			ClusterLabel string
-		}{
-			NewClusters:  newClusters,
-			ClusterLabel: ClusterLabel,
-		})
-
-		return types.MergePatchType, buf.Bytes()
+		patches = append(patches, fmt.Sprintf(`{"op": "add", "path": "/metadata/labels", "value": %s}`, string(labelsBytes)))
+		return types.JSONPatchType, []byte(fmt.Sprintf(`[%s]`, strings.Join(patches, ","))), nil
 	}
 
-	// Find all the clusters that are in the currentClusters but not in the newClusters.
-	for _, currentCluster := range currentClusters {
-		if !stringInSlice(currentCluster, newClusters) {
-			patches = append(patches, fmt.Sprintf(`{"op": "remove", "path": "/metadata/labels/%s~1%s"}`, ClusterLabel, currentCluster))
+	for _, clusterName := range added {
+		patches = append(patches, fmt.Sprintf(`{"op": "add", "path": "/metadata/labels/%s", "value": "%s"}`,
+			strings.Replace(ClusterLabelName(clusterName), "/", "~1", -1), newClusters[clusterName]))
+	}
+
+	for _, clusterName := range different {
+		patches = append(patches, fmt.Sprintf(`{"op": "replace", "path": "/metadata/labels/%s", "value": "%s"}`,
+			strings.Replace(ClusterLabelName(clusterName), "/", "~1", -1), newClusters[clusterName]))
+	}
+
+	// If a cluster is missing from the newClusters, that means that it has been removed, we need to set
+	// the locationDeletion annotation to now().
+	for _, clusterName := range missing {
+		if obj.GetAnnotations()[LocationDeletionAnnotationName(clusterName)] != "" {
+			// If the deletion timestamp is already set, we don't need to do anything.
+			break
+		}
+		deletionTimestamp, err := metav1.Now().MarshalText()
+		if err != nil {
+			return "", nil, err
+		}
+		annotations[LocationDeletionAnnotationName(clusterName)] = string(deletionTimestamp)
+	}
+
+	// Sometimes the objects are missing metadata.annotations, and JSONPatch will fail...
+	if obj.GetAnnotations() == nil {
+		annotationsByte, err := json.Marshal(annotations)
+		if err != nil {
+			return "", nil, err
+		}
+		patches = append(patches, fmt.Sprintf(`{"op": "add", "path": "/metadata/annotations", "value": %s}`, string(annotationsByte)))
+	} else {
+		for annotationName, value := range annotations {
+			patches = append(patches, fmt.Sprintf(`{"op": "add", "path": "/metadata/annotations/%s", "value": %q}`,
+				strings.Replace(annotationName, "/", "~1", -1), value))
 		}
 	}
 
-	// Find all the clusters that are in the newClusters but not in the currentClusters.
-	for _, newCluster := range newClusters {
-		if !stringInSlice(newCluster, currentClusters) {
-			patches = append(patches, fmt.Sprintf(`{"op": "add", "path": "/metadata/labels/%s~1%s", "value": "%s"}`, ClusterLabel, newCluster, "Sync"))
+	return types.JSONPatchType, []byte(fmt.Sprintf(`[%s]`, strings.Join(patches, ","))), nil
+}
+
+// compareClusterLabels compares two sets of map[string]string, and returns the objects that are equal, different, new or missing in the first set.
+func compareClusterLabels(oldClusters, newClusters map[string]string) (equal, different, missing, new []string) {
+	for cluster, state := range oldClusters {
+		if newState, ok := newClusters[cluster]; ok {
+			if newState == state {
+				equal = append(equal, cluster)
+			} else {
+				different = append(different, cluster)
+			}
+		} else {
+			missing = append(missing, cluster)
 		}
 	}
 
-	return types.JSONPatchType, []byte("[" + strings.Join(patches, ",") + "]")
+	for cluster := range newClusters {
+		if _, ok := oldClusters[cluster]; !ok {
+			new = append(new, cluster)
+		}
+	}
+
+	return equal, different, missing, new
 }
 
 // observeCluster is responsible for watching to see if the Cluster is happy;
@@ -414,7 +497,7 @@ func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alph
 		return errors.NewAggregate(errs)
 
 	case enqueueScheduled:
-		scheduledToCluster, err := labels.NewRequirement(ClusterLabel+"/"+cluster.Name, selection.Equals, []string{"Sync"})
+		scheduledToCluster, err := labels.NewRequirement(ClusterLabelName(cluster.Name), selection.Equals, []string{"Sync"})
 		if err != nil {
 			return err
 		}
@@ -529,33 +612,4 @@ func isWorkspaceSchedulable(getWorkspace getWorkspaceFunc, logicalClusterName lo
 	}
 
 	return workspaceSchedulableRequirement.Matches(labels.Set(workspace.Labels)), nil
-}
-
-// stringsEqualNoOrder returns true if the two string slices are equal, ignoring order.
-func stringsEqualNoOrder(a, b []string) bool {
-	sa := make([]string, len(a))
-	sb := make([]string, len(b))
-	copy(sb, b)
-	copy(sa, a)
-	sort.Strings(sa)
-	sort.Strings(sb)
-	if len(sa) != len(sb) {
-		return false
-	}
-	for i := range sa {
-		if sa[i] != sb[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// stringInSlice returns true if the string is in the slice.
-func stringInSlice(s string, slice []string) bool {
-	for _, v := range slice {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }

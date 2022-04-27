@@ -36,7 +36,7 @@ import (
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
 	klog.InfoS("reconciling Ingress", "ClusterName", logicalcluster.From(ingress), "Namespace", ingress.Namespace, "Name", ingress.Name)
 
-	if ingress.Labels[nscontroller.ClusterLabel] == "" {
+	if ingress.Labels[nscontroller.ClusterLabelPrefix] == "" {
 		// Root
 		if len(ingress.Status.LoadBalancer.Ingress) > 0 && ingress.Status.LoadBalancer.Ingress[0].Hostname != "" {
 			// Already set - never changes - do nothing

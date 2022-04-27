@@ -45,7 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-const clusterLabel = nscontroller.ClusterLabel
+const clusterLabel = nscontroller.ClusterLabelPrefix
 
 func TestNamespaceScheduler(t *testing.T) {
 	t.Parallel()

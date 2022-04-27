@@ -17,11 +17,11 @@ limitations under the License.
 package namespace
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -116,27 +116,27 @@ func TestAssignCluster(t *testing.T) {
 	}{
 		"scheduling disabled set to empty -> no change even for unknown cluster name": {
 			labels: map[string]string{
-				ClusterLabel + "/" + unknownClusterName: "Sync",
+				ClusterLabelPrefix + unknownClusterName: "Sync",
 				SchedulingDisabledLabel:                 "",
 			},
 			expectedCluster: unknownClusterName,
 		},
 		"scheduling disabled set to any value -> no change even for unknown cluster name": {
 			labels: map[string]string{
-				ClusterLabel + "/" + unknownClusterName: "Sync",
+				ClusterLabelPrefix + unknownClusterName: "Sync",
 				SchedulingDisabledLabel:                 "foo",
 			},
 			expectedCluster: unknownClusterName,
 		},
 		"valid assignment -> no change": {
 			labels: map[string]string{
-				ClusterLabel + "/" + testClusterName: "Sync",
+				ClusterLabelPrefix + testClusterName: "Sync",
 			},
 			expectedCluster: testClusterName,
 		},
 		"invalid assignment -> new assignment": {
 			labels: map[string]string{
-				ClusterLabel + "/" + unknownClusterName: "Sync",
+				ClusterLabelPrefix + unknownClusterName: "Sync",
 			},
 			expectedCluster: testClusterName,
 		},
@@ -253,7 +253,7 @@ func TestPickCluster(t *testing.T) {
 			for _, fixture := range testCase.clusters {
 				clusters = append(clusters, fixture.cluster)
 			}
-			clusterName := pickCluster(clusters, testLclusterName)
+			clusterName, _ := pickCluster(clusters, testLclusterName)
 			if testCase.anyAssignment {
 				found := false
 				for _, cluster := range clusters {

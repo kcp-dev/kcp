@@ -17,11 +17,12 @@ limitations under the License.
 package namespace
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -106,8 +107,11 @@ func setScheduledCondition(ns *corev1.Namespace) *corev1.Namespace {
 
 // hasWorkloadClusterAssigned returns whether the given namespace has a workload cluster assigned.
 func hasWorkloadClusterAssigned(ns *corev1.Namespace) bool {
-	if len(workloadClustersFromLabels(ns.Labels)) > 0 {
-		return true
+	hasWorkloadAssigned := false
+	for clusterName, val := range workloadClustersFromLabels(ns.Labels) {
+		if val != "" && ns.Annotations[LocationDeletionAnnotationName(clusterName)] == "" {
+			hasWorkloadAssigned = true
+		}
 	}
-	return false
+	return hasWorkloadAssigned
 }

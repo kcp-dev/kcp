@@ -69,7 +69,7 @@ func TestClusterController(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
-							nscontroller.ClusterLabel: sinkClusterName,
+							nscontroller.ClusterLabelPrefix: sinkClusterName,
 						},
 					},
 					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},

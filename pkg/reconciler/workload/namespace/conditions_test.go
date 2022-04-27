@@ -36,27 +36,27 @@ func TestSetScheduledCondition(t *testing.T) {
 	}{
 		"disabled label present but empty": {
 			labels: map[string]string{
-				SchedulingDisabledLabel:    "",
-				ClusterLabel + "/cluster1": "Sync",
+				SchedulingDisabledLabel:         "",
+				ClusterLabelPrefix + "cluster1": "Sync",
 			},
 			reason: NamespaceReasonSchedulingDisabled,
 		},
 		"disabled label present but not empty": {
 			labels: map[string]string{
-				SchedulingDisabledLabel:    "false",
-				ClusterLabel + "/cluster1": "Sync",
+				SchedulingDisabledLabel:         "false",
+				ClusterLabelPrefix + "cluster1": "Sync",
 			},
 			reason: NamespaceReasonSchedulingDisabled,
 		},
 		"scheduled": {
 			labels: map[string]string{
-				ClusterLabel + "/cluster1": "Sync",
+				ClusterLabelPrefix + "cluster1": "Sync",
 			},
 			scheduled: true,
 		},
 		"unscheduled with label": {
 			labels: map[string]string{
-				ClusterLabel + "/cluster1": "",
+				ClusterLabelPrefix + "cluster1": "",
 			},
 			reason: NamespaceReasonUnschedulable,
 		},
