@@ -107,6 +107,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 	fromDiscovery := discoveryClient.WithCluster(cfg.KCPClusterName)
 
+	// TODO(ncdc): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
+	// TODO(ncdc): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
+	// TODO(ncdc): block until it hits the 10 minute overall test timeout.
+	//
 	// Block syncer start on gvr discovery completing successfully and
 	// including the resources configured for syncing. The spec and status
 	// syncers depend on the types being present to start their informers.
