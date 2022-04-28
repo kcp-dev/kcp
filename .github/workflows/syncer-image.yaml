@@ -8,6 +8,8 @@ on:
     branches:
     - main
     - 'release-*'
+    tags:
+    - 'v*'
 
 jobs:
   syncer-image:
