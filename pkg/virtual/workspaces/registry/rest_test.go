@@ -1047,7 +1047,7 @@ func TestCreateWorkspace(t *testing.T) {
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
@@ -1133,7 +1133,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
@@ -1212,7 +1212,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{clusterWorkspace.Name},
 							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
@@ -1293,7 +1293,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
@@ -1394,7 +1394,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"get"},
+							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
 							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
