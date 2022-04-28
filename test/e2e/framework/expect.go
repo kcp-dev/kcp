@@ -51,8 +51,8 @@ type Expecter interface {
 
 // NewExpecter creates a informer-driven registry of expectations, which will
 // be triggered on every event that the informer ingests.
-func NewExpecter(informer cache.SharedIndexInformer) *expectationController {
-	controller := expectationController{
+func NewExpecter(informer cache.SharedIndexInformer) *ExpectationController {
+	controller := ExpectationController{
 		expectations: map[uuid.UUID]expectationRecord{},
 		lock:         sync.RWMutex{},
 	}
@@ -82,16 +82,16 @@ type expectationRecord struct {
 	*sync.Mutex
 }
 
-// expectationController knows how to register expectations and trigger them
-type expectationController struct {
+// ExpectationController knows how to register expectations and trigger them
+type ExpectationController struct {
 	// expectations are recorded by UUID so they may be removed after they complete
 	expectations map[uuid.UUID]expectationRecord
 	lock         sync.RWMutex
 }
 
-var _ Expecter = &expectationController{}
+var _ Expecter = &ExpectationController{}
 
-func (c *expectationController) triggerExpectations() {
+func (c *ExpectationController) triggerExpectations() {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -102,7 +102,7 @@ func (c *expectationController) triggerExpectations() {
 	}
 }
 
-func (c *expectationController) ExpectBefore(ctx context.Context, expectation Expectation, duration time.Duration) error {
+func (c *ExpectationController) ExpectBefore(ctx context.Context, expectation Expectation, duration time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 	type result struct {
@@ -198,8 +198,8 @@ func (c *expectationController) ExpectBefore(ctx context.Context, expectation Ex
 // NewPollingExpecter creates a poll-driven registry of expectations, which will
 // be triggered on every tick that the controller experiences. This is useful for
 // resources which do not support WATCH and cannot use the expectationController
-func NewPollingExpecter(interval time.Duration) *expectationController {
-	controller := expectationController{
+func NewPollingExpecter(interval time.Duration) *ExpectationController {
+	controller := ExpectationController{
 		expectations: map[uuid.UUID]expectationRecord{},
 		lock:         sync.RWMutex{},
 	}

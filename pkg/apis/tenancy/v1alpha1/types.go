@@ -191,6 +191,12 @@ const (
 	// WorkspaceShardValidReasonShardNotFound reason in WorkspaceShardValid condition means that the
 	// referenced ClusterWorkspaceShard object got deleted.
 	WorkspaceShardValidReasonShardNotFound = "ShardNotFound"
+
+	// WorkspaceDeletionContentSuccess represents the status that all resources in the workspace is deleting
+	WorkspaceDeletionContentSuccess conditionsv1alpha1.ConditionType = "WorkspaceDeletionContentSuccess"
+
+	// WorkspaceContentDeleted represents the status that all resources in the workspace is deleted.
+	WorkspaceContentDeleted conditionsv1alpha1.ConditionType = "WorkspaceContentDeleted"
 )
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
