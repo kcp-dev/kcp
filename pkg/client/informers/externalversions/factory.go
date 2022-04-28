@@ -32,6 +32,7 @@ import (
 	apiresource "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource"
 	apis "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis"
 	internalinterfaces "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
+	scheduling "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling"
 	tenancy "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy"
 	workload "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload"
 )
@@ -178,6 +179,7 @@ type SharedInformerFactory interface {
 
 	Apiresource() apiresource.Interface
 	Apis() apis.Interface
+	Scheduling() scheduling.Interface
 	Tenancy() tenancy.Interface
 	Workload() workload.Interface
 }
@@ -188,6 +190,10 @@ func (f *sharedInformerFactory) Apiresource() apiresource.Interface {
 
 func (f *sharedInformerFactory) Apis() apis.Interface {
 	return apis.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Scheduling() scheduling.Interface {
+	return scheduling.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Tenancy() tenancy.Interface {
