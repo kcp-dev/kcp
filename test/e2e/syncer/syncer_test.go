@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
+	kyaml "sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -144,7 +146,6 @@ func TestSyncerLifecycle(t *testing.T) {
 	upstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create deployment")
 
-	expectedAvailableReplicas := int32(1)
 	t.Logf("Waiting for downstream deployment %s/%s to be created...", downstreamNamespaceName, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
 		deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
@@ -153,14 +154,28 @@ func TestSyncerLifecycle(t *testing.T) {
 		}
 		if err != nil {
 			t.Errorf("saw an error waiting for downstream deployment %s/%s to be created: %v", downstreamNamespaceName, upstreamDeployment.Name, err)
-			return false
-		}
-		// Check for available replicas if downstream is capable of actually running the deployment
-		if len(framework.TestConfig.PClusterKubeconfig()) > 0 && expectedAvailableReplicas != deployment.Status.AvailableReplicas {
-			return false
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s was not synced", downstreamNamespaceName, upstreamDeployment.Name)
 
+	if len(framework.TestConfig.PClusterKubeconfig()) > 0 {
+		t.Logf("Check for available replicas if downstream is capable of actually running the deployment")
+		expectedAvailableReplicas := int32(1)
+		require.Eventually(t, func() bool {
+			deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			klog.Info(toYaml(deployment))
+			return expectedAvailableReplicas == deployment.Status.AvailableReplicas
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s didn't get available", downstreamNamespaceName, upstreamDeployment.Name)
+	}
+
 	// TODO(marun) Check that the deployment was able to contact kcp
+}
+
+func toYaml(obj interface{}) string {
+	b, err := kyaml.Marshal(obj)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
