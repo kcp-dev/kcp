@@ -22,71 +22,64 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"sync"
 	"testing"
 
 	v1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-type WebhookServer struct {
+type AdmissionWebhookServer struct {
 	Response     v1.AdmissionResponse
 	ObjectGVK    schema.GroupVersionKind
-	T            *testing.T
 	Deserializer runtime.Decoder
 
-	port string
+	t *testing.T
 
-	Lock  sync.Mutex
-	Calls int
+	port  string
+	lock  sync.Mutex
+	calls int
 }
 
-func (t *WebhookServer) StartServer(ctx context.Context, server framework.RunningServer, port string) {
-	dirPath := filepath.Dir(server.KubeconfigPath())
-	// using known path to cert and key
-	cfg := server.DefaultConfig(t.T)
-	cfg.CertFile = filepath.Join(dirPath, "apiserver.crt")
-	cfg.KeyFile = filepath.Join(dirPath, "apiserver.key")
-	t.port = port
-	serv := &http.Server{Addr: fmt.Sprintf(":%v", port), Handler: t}
-	go func() {
-		<-ctx.Done()
+func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile string, port string) {
+	s.t = t
+	s.port = port
+
+	serv := &http.Server{Addr: fmt.Sprintf(":%v", port), Handler: s}
+	t.Cleanup(func() {
 		fmt.Printf("Shutting down the HTTP server")
 		err := serv.Shutdown(context.TODO())
 		if err != nil {
 			fmt.Printf("unable to shutdown server gracefully err: %v", err)
 		}
-	}()
+	})
+
 	go func() {
-		err := serv.ListenAndServeTLS(cfg.CertFile, cfg.KeyFile)
+		err := serv.ListenAndServeTLS(certFile, keyFile)
 		if err != nil && err != http.ErrServerClosed {
 			fmt.Printf("unable to shutdown server gracefully err: %v", err)
 		}
 	}()
 }
 
-func (t *WebhookServer) GetURL() *string {
-	s := fmt.Sprintf("https://localhost:%v/hello", t.port)
-	return &s
+func (s *AdmissionWebhookServer) GetURL() string {
+	return fmt.Sprintf("https://localhost:%v/hello", s.port)
 }
 
-func (t *WebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// Make sure that this is a request for the object that was set.
-	t.T.Log("made it webhook")
+	s.t.Log("made it webhook")
 	if req.Body == nil {
 		msg := "Expected request body to be non-empty"
-		t.T.Logf("%v", msg)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 	}
 
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		msg := fmt.Sprintf("Request could not be decoded: %v", err)
-		t.T.Logf("%v", msg)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 	}
 
@@ -94,22 +87,22 @@ func (t *WebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		msg := fmt.Sprintf("contentType=%s, expect application/json", contentType)
-		t.T.Logf("%v", msg)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return
 	}
 
-	obj, gvk, err := t.Deserializer.Decode(data, nil, nil)
+	obj, gvk, err := s.Deserializer.Decode(data, nil, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Unable to decode object: %v", err)
-		t.T.Logf("%v", msg)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return
 	}
 
 	if *gvk != v1.SchemeGroupVersion.WithKind("AdmissionReview") {
 		msg := fmt.Sprintf("Expected AdmissionReview but got: %T", obj)
-		t.T.Logf("%v", msg)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return
 	}
@@ -117,22 +110,22 @@ func (t *WebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	if !ok {
 		//return an error
 		msg := fmt.Sprintf("Expected AdmissionReview but got: %T", obj)
-		t.T.Logf("%v", msg)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return
 	}
-	obj, objGVK, err := t.Deserializer.Decode(requestedAdmissionReview.Request.Object.Raw, nil, nil)
+	obj, objGVK, err := s.Deserializer.Decode(requestedAdmissionReview.Request.Object.Raw, nil, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Unable to decode admissions reqeusted object: %v", err)
-		t.T.Logf("%v", msg)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return
 	}
 
-	if t.ObjectGVK != *objGVK {
+	if s.ObjectGVK != *objGVK {
 		//return an error
-		msg := fmt.Sprintf("Expected ObjectGVK: %v but got: %T", t.ObjectGVK, obj)
-		t.T.Logf("%v", msg)
+		msg := fmt.Sprintf("Expected ObjectGVK: %v but got: %T", s.ObjectGVK, obj)
+		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return
 	}
@@ -140,22 +133,28 @@ func (t *WebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	responseAdmissionReview := &v1.AdmissionReview{
 		TypeMeta: requestedAdmissionReview.TypeMeta,
 	}
-	responseAdmissionReview.Response = &t.Response
+	responseAdmissionReview.Response = &s.Response
 	responseAdmissionReview.Response.UID = requestedAdmissionReview.Request.UID
 
 	respBytes, err := json.Marshal(responseAdmissionReview)
 	if err != nil {
-		t.T.Logf("%v", err)
+		s.t.Logf("%v", err)
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	t.Lock.Lock()
-	t.Calls = t.Calls + 1
-	t.Lock.Unlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.calls = s.calls + 1
 
 	resp.Header().Set("Content-Type", "application/json")
 	if _, err := resp.Write(respBytes); err != nil {
-		t.T.Logf("%v", err)
+		s.t.Logf("%v", err)
 	}
+}
+
+func (s *AdmissionWebhookServer) Calls() int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.calls
 }
