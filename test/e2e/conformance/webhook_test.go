@@ -263,20 +263,12 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
-		return testWebhook.Calls() >= 1
-
+		return testWebhook.Calls() == 1
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in second logical cluster")
-	require.Eventually(t, func() bool {
-		_, err = cowbyClients.Cluster(logicalClusters[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return false
-		}
-		return true
-
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	_, err = cowbyClients.Cluster(logicalClusters[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create cowboy resource in second logical cluster")
 	require.Equal(t, 1, testWebhook.Calls(), "expected that the webhook is not called for logical cluster where webhook is not installed")
-
 }
