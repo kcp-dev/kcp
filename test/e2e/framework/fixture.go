@@ -391,27 +391,29 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 		syncerID := syncerConfig.ID()
 		t.Cleanup(func() {
-			t.Logf("Collecting syncer %s logs", syncerID)
+			if useDeployedSyncer {
+				t.Logf("Collecting syncer %s logs", syncerID)
 
-			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
-			defer cancelFn()
+				ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+				defer cancelFn()
 
-			pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				t.Errorf("failed to list pods in %s: %v", syncerID, err)
-			}
-			artifactDir, err := CreateTempDirForTest(t, "artifacts")
-			if err != nil {
-				t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
-			}
-			for _, pod := range pods.Items {
-				t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
-				logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
-				artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
-				err = ioutil.WriteFile(artifactPath, logs, 0644)
+				pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
 				if err != nil {
-					t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
-					continue // not fatal
+					t.Errorf("failed to list pods in %s: %v", syncerID, err)
+				}
+				artifactDir, err := CreateTempDirForTest(t, "artifacts")
+				if err != nil {
+					t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
+				}
+				for _, pod := range pods.Items {
+					t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
+					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
+					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
+					err = ioutil.WriteFile(artifactPath, logs, 0644)
+					if err != nil {
+						t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
+						continue // not fatal
+					}
 				}
 			}
 
