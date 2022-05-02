@@ -47,6 +47,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
+	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdannotations"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 )
 
@@ -61,6 +62,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	apibinding.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
+	reservedcrdannotations.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -87,6 +89,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	workspacenamespacelifecycle.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
 	kcpmutatingwebhook.Register(plugins)
+	reservedcrdannotations.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.NewString(
@@ -105,6 +108,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	apibinding.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
+	reservedcrdannotations.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.
