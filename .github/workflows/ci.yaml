@@ -110,7 +110,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         if: ${{ always() }}
         with:
-          name: e2e-artifacts
+          name: e2e
           path: /tmp/e2e/**/artifacts/
 
   e2e-multiple-runs:
@@ -126,7 +126,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         if: ${{ always() }}
         with:
-          name: e2e-artifacts
+          name: e2e-multiiple-runs
           path: /tmp/e2e/**/artifacts/
 
   e2e-shared-server:
@@ -165,5 +165,5 @@ jobs:
       - uses: actions/upload-artifact@v2
         if: ${{ always() }}
         with:
-          name: e2e-artifacts
+          name: e2e-shared-server
           path: /tmp/e2e/**/artifacts/
