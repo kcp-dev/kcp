@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -202,6 +203,9 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	require.NoError(t, err, "failed to create organization workspace")
 
 	t.Cleanup(func() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		defer cancelFn()
+
 		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
@@ -219,7 +223,9 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
-	return tenancyv1alpha1.RootCluster.Join(org.Name)
+	clusterName := tenancyv1alpha1.RootCluster.Join(org.Name)
+	t.Logf("Created organization workspace %s", clusterName)
+	return clusterName
 }
 
 func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.LogicalCluster, workspaceType string) (clusterName logicalcluster.LogicalCluster) {
@@ -252,6 +258,9 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 	require.NoError(t, err, "failed to create workspace")
 
 	t.Cleanup(func() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		defer cancelFn()
+
 		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
@@ -269,7 +278,9 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
-	return orgClusterName.Join(ws.Name)
+	wsClusterName := orgClusterName.Join(ws.Name)
+	t.Logf("Created %s workspace %s", workspaceType, wsClusterName)
+	return wsClusterName
 }
 
 // SyncerFixture configures a syncer fixture. Its `Start` method does the work of starting a syncer.
@@ -380,8 +391,32 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 		syncerID := syncerConfig.ID()
 		t.Cleanup(func() {
+			t.Logf("Collecting syncer %s logs", syncerID)
+
+			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+			defer cancelFn()
+
+			pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Errorf("failed to list pods in %s: %v", syncerID, err)
+			}
+			artifactDir, err := CreateTempDirForTest(t, "artifacts")
+			if err != nil {
+				t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
+			}
+			for _, pod := range pods.Items {
+				t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
+				logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
+				artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
+				err = ioutil.WriteFile(artifactPath, logs, 0644)
+				if err != nil {
+					t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
+					continue // not fatal
+				}
+			}
+
 			t.Logf("Deleting syncer resources for logical cluster %q, workload cluster %q", syncerConfig.KCPClusterName, syncerConfig.WorkloadClusterName)
-			err := downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
+			err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
 			if err != nil {
 				t.Errorf("failed to delete Namespace %q: %v", syncerID, err)
 			}
@@ -635,6 +670,22 @@ func KubectlApply(t *testing.T, kubeconfigPath string, input []byte) []byte {
 	err = stdin.Close()
 	require.NoError(t, err)
 
+	t.Logf("running: %s", strings.Join(cmdParts, " "))
+
+	output, err := cmd.CombinedOutput()
+	t.Logf("kubectl apply output:\n%s", output)
+	require.NoError(t, err)
+
+	return output
+}
+
+// Kubectl runs kubectl with the given arguments and returns the combined stderr and stdout.
+func Kubectl(t *testing.T, kubeconfigPath string, args ...string) []byte {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	cmdParts := append([]string{"kubectl", "--kubeconfig", kubeconfigPath}, args...)
+	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
 	t.Logf("running: %s", strings.Join(cmdParts, " "))
 
 	output, err := cmd.CombinedOutput()

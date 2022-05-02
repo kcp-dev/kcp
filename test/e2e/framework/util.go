@@ -128,7 +128,7 @@ func ensureBaseTempDir(t *testing.T) (string, error) {
 	return baseTempDirs[name], nil
 }
 
-// createTempDirForTest creates the named directory with a unique base
+// CreateTempDirForTest creates the named directory with a unique base
 // path derived from the name of the current test.
 func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
 	baseTempDir, err := ensureBaseTempDir(t)
