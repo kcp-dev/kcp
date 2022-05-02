@@ -223,7 +223,9 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
-	return tenancyv1alpha1.RootCluster.Join(org.Name)
+	clusterName := tenancyv1alpha1.RootCluster.Join(org.Name)
+	t.Logf("Created organization workspace %s", clusterName)
+	return clusterName
 }
 
 func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.LogicalCluster, workspaceType string) (clusterName logicalcluster.LogicalCluster) {
@@ -276,7 +278,9 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
-	return orgClusterName.Join(ws.Name)
+	wsClusterName := orgClusterName.Join(ws.Name)
+	t.Logf("Created %s workspace %s", workspaceType, wsClusterName)
+	return wsClusterName
 }
 
 // SyncerFixture configures a syncer fixture. Its `Start` method does the work of starting a syncer.
