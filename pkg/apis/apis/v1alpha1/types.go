@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -181,6 +182,22 @@ const (
 	NamingConflictsReason = "NamingConflicts"
 )
 
+// These are annotations for bound CRDs
+const (
+	// AnnotationBoundCRDKey is the annotation key that indicates a CRD is for an APIExport (a "bound CRD").
+	AnnotationBoundCRDKey = "apis.kcp.dev/bound-crd"
+	// AnnotationSchemaClusterKey is the annotation key for a bound CRD indicating the cluster name of the
+	// APIResourceSchema for the CRD.
+	AnnotationSchemaClusterKey = "apis.kcp.dev/schema-cluster"
+	// AnnotationSchemaNameKey is the annotation key for a bound CRD indicating the name of the APIResourceSchema for
+	// the CRD.
+	AnnotationSchemaNameKey = "apis.kcp.dev/schema-name"
+	// AnnotationAPIIdentityKey is the annotation key for a bound CRD indicating the identity hash of the APIExport
+	// for the request. This data is synthetic; it is not stored in etcd and instead is only applied when retrieving
+	// CRs for the CRD.
+	AnnotationAPIIdentityKey = "apis.kcp.dev/identity"
+)
+
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..
 type BoundAPIResource struct {
 	// group is the group of the bound API. Empty string for the core API group.
@@ -225,6 +242,16 @@ type BoundAPIResourceSchema struct {
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	UID string `json:"UID"`
+
+	// identityHash is the hash of the API identity that this schema is bound to.
+	// The API identity determines the etcd prefix used to persist the object.
+	// Different identity means that the objects are effectively served and stored
+	// under a distinct resource. A CRD of the same GroupVersionResource uses a
+	// different identity and hence a separate etcd prefix.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	IdentityHash string `json:"identityHash"`
 }
 
 // APIBindingList is a list of APIBinding resources
@@ -236,6 +263,20 @@ type APIBindingList struct {
 
 	Items []APIBinding `json:"items"`
 }
+
+// These are valid conditions of APIExport.
+const (
+	APIExportIdentityValid conditionsv1alpha1.ConditionType = "IdentityValid"
+
+	IdentityVerificationFailedReason = "IdentityVerificationFailed"
+	IdentityGenerationFailedReason   = "IdentityGenerationFailed"
+)
+
+// These are for APIExport identity.
+const (
+	// SecretKeyAPIExportIdentity is the key in an identity secret for the identity of an APIExport.
+	SecretKeyAPIExportIdentity = "key"
+)
 
 // APIExport registers an API and implementation to allow consumption by others
 // through APIBindings.
@@ -264,6 +305,14 @@ type APIExport struct {
 	Status APIExportStatus `json:"status,omitempty"`
 }
 
+func (in *APIExport) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+func (in *APIExport) SetConditions(conditions conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = conditions
+}
+
 // APIExportSpec defines the desired state of APIExport.
 type APIExportSpec struct {
 	// latestResourceSchemas records the latest APIResourceSchemas that are exposed
@@ -278,10 +327,49 @@ type APIExportSpec struct {
 	// +optional
 	// +listType=set
 	LatestResourceSchemas []string `json:"latestResourceSchemas,omitempty"`
+
+	// identity points to a secret that contains the API identity in the 'key' file.
+	// The API identity determines an unique etcd prefix for objects stored via this
+	// APIExport.
+	//
+	// Different APIExport in a workspace can share a common identity, or have different
+	// ones. The identity (the secret) can also be transferred to another workspace
+	// when the APIExport is moved.
+	//
+	// The identity is a secret of the API provider. The APIBindings referencing this APIExport
+	// will store a derived, non-sensitive value of this identity.
+	//
+	// The identity of an APIExport cannot be changed. A derived, non-sensitive value of
+	// the identity key is stored in the APIExport status and this value is immutable.
+	//
+	// The identity is defaulted. A secret with the name of the APIExport is automatically
+	// created.
+	//
+	// +optional
+	Identity *Identity `json:"identity"`
+}
+
+// Identity defines the identity of an APIExport, i.e. determines the etcd prefix
+// data of this APIExport are stored under.
+type Identity struct {
+	// secretRef is a reference to a secret that contains the API identity in the 'key' file.
+	//
+	// +optional
+	SecretRef *corev1.SecretReference `json:"secretRef"`
 }
 
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatus struct {
+	// identityHash is the hash of the API identity key of this APIExport. This value
+	// is immutable as soon as it is set.
+	//
+	// +optional
+	IdentityHash string `json:"identityHash,omitempty"`
+
+	// conditions is a list of conditions that apply to the APIExport.
+	//
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 // APIExportList is a list of APIExport resources

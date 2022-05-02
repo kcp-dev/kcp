@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
@@ -35,9 +34,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 
-	"github.com/kcp-dev/kcp/config/crds"
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
@@ -150,15 +146,8 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
-			apiextensionClusterClient, err := apiextensionsclient.NewClusterForConfig(cfg)
-			require.NoError(t, err, "failed to construct client for server")
+
 			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-			err = crds.Create(ctx, apiextensionClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: apiresource.GroupName, Resource: "apiresourceimports"},
-				metav1.GroupResource{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-				metav1.GroupResource{Group: workload.GroupName, Resource: "workloadclusters"},
-			)
-			require.NoError(t, err)
 
 			client := kubeClient.Cluster(clusterName)
 
@@ -167,6 +156,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			kcpClient := clients.Cluster(clusterName)
 			orgKcpClient := clients.Cluster(orgClusterName)
 
+			t.Logf("Starting namespace expecter")
 			expect, err := expectNamespaces(ctx, t, client)
 			require.NoError(t, err, "failed to start expecter")
 

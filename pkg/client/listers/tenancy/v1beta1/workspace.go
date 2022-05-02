@@ -19,8 +19,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type WorkspaceLister interface {
 	// List lists all Workspaces in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1beta1.Workspace, err error)
-	// ListWithContext lists all Workspaces in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1beta1.Workspace, err error)
 	// Get retrieves the Workspace from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1beta1.Workspace, error)
-	// GetWithContext retrieves the Workspace from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1beta1.Workspace, error)
 	WorkspaceListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewWorkspaceLister(indexer cache.Indexer) WorkspaceLister {
 
 // List lists all Workspaces in the indexer.
 func (s *workspaceLister) List(selector labels.Selector) (ret []*v1beta1.Workspace, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all Workspaces in the indexer.
-func (s *workspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1beta1.Workspace, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1beta1.Workspace))
 	})
@@ -71,11 +58,6 @@ func (s *workspaceLister) ListWithContext(ctx context.Context, selector labels.S
 
 // Get retrieves the Workspace from the index for a given name.
 func (s *workspaceLister) Get(name string) (*v1beta1.Workspace, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the Workspace from the index for a given name.
-func (s *workspaceLister) GetWithContext(ctx context.Context, name string) (*v1beta1.Workspace, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

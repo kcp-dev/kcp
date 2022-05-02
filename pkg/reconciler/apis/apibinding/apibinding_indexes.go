@@ -26,9 +26,11 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-// indexAPIBindingByWorkspaceExport is an index function that maps an APIBinding to the key for its
+const indexAPIBindingsByWorkspaceExport = "apiBindingsByWorkspaceExport"
+
+// indexAPIBindingsByWorkspaceExportFunc is an index function that maps an APIBinding to the key for its
 // spec.reference.workspace.
-func indexAPIBindingByWorkspaceExport(obj interface{}) ([]string, error) {
+func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
 	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
@@ -47,8 +49,10 @@ func indexAPIBindingByWorkspaceExport(obj interface{}) ([]string, error) {
 	return []string{}, nil
 }
 
-// indexAPIExportByAPIResourceSchemas is an index function that maps an APIExport to its spec.latestResourceSchemas.
-func indexAPIExportByAPIResourceSchemas(obj interface{}) ([]string, error) {
+const indexAPIExportsByAPIResourceSchema = "apiExportsByAPIResourceSchema"
+
+// indexAPIExportsByAPIResourceSchemasFunc is an index function that maps an APIExport to its spec.latestResourceSchemas.
+func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha1.APIExport)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIExport, but is %T", obj)
@@ -60,4 +64,25 @@ func indexAPIExportByAPIResourceSchemas(obj interface{}) ([]string, error) {
 	}
 
 	return ret, nil
+}
+
+const IndexAPIBindingsByIdentityGroupResource = "apiBindingsByIdentityGroupResource"
+
+func indexAPIBindingsByIdentityGroupResourceFunc(obj interface{}) ([]string, error) {
+	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
+	}
+
+	var ret []string
+
+	for _, r := range apiBinding.Status.BoundResources {
+		ret = append(ret, IdentityGroupResourceKeyFunc(r.Schema.IdentityHash, r.Group, r.Resource))
+	}
+
+	return ret, nil
+}
+
+func IdentityGroupResourceKeyFunc(identity, group, resource string) string {
+	return fmt.Sprintf("%s/%s/%s", identity, group, resource)
 }

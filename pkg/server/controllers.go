@@ -52,6 +52,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
@@ -545,6 +546,46 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) installAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-apiexport-controller")
+
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := apiexport.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		kubeClusterClient,
+		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.kubeSharedInformerFactory.Core().V1().Secrets(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook("kcp-install-apiexport-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-apiexport-controller: %v", err)
 		}
 
 		go c.Start(goContext(hookContext), 2)

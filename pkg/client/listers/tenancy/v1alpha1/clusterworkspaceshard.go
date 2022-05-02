@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type ClusterWorkspaceShardLister interface {
 	// List lists all ClusterWorkspaceShards in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceShard, err error)
-	// ListWithContext lists all ClusterWorkspaceShards in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceShard, err error)
 	// Get retrieves the ClusterWorkspaceShard from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ClusterWorkspaceShard, error)
-	// GetWithContext retrieves the ClusterWorkspaceShard from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspaceShard, error)
 	ClusterWorkspaceShardListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewClusterWorkspaceShardLister(indexer cache.Indexer) ClusterWorkspaceShard
 
 // List lists all ClusterWorkspaceShards in the indexer.
 func (s *clusterWorkspaceShardLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceShard, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all ClusterWorkspaceShards in the indexer.
-func (s *clusterWorkspaceShardLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceShard, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.ClusterWorkspaceShard))
 	})
@@ -71,11 +58,6 @@ func (s *clusterWorkspaceShardLister) ListWithContext(ctx context.Context, selec
 
 // Get retrieves the ClusterWorkspaceShard from the index for a given name.
 func (s *clusterWorkspaceShardLister) Get(name string) (*v1alpha1.ClusterWorkspaceShard, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the ClusterWorkspaceShard from the index for a given name.
-func (s *clusterWorkspaceShardLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspaceShard, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

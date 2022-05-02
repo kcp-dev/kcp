@@ -27,6 +27,8 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
@@ -38,12 +40,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authentication"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -203,6 +207,7 @@ func (s *Server) Run(ctx context.Context) error {
 			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
+		apiHandler = WithWildcardIdentity(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChain(apiHandler, c)
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
@@ -261,24 +266,38 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
-	apiExtensionsConfig.ExtraConfig.Informers = &kcpAPIExtensionsSharedInformerFactory{
-		SharedInformerFactory: s.apiextensionsSharedInformerFactory,
-		kcpClusterClient:      kcpClusterClient,
-		workspaceLister:       s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		apiBindingLister:      s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
+
+	apiBindingAwareCRDLister := &apiBindingAwareCRDLister{
+		kcpClusterClient:  kcpClusterClient,
+		crdLister:         s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+		workspaceLister:   s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		apiBindingLister:  s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
+		apiBindingIndexer: s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
+		apiExportIndexer:  s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		systemCRDProvider: newSystemCRDProvider(
+			func(key string) (*v1alpha1.ClusterWorkspace, error) {
+				cws, err := s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Get(key)
+				if err == nil {
+					return cws, nil
+				}
+
+				if !apierrors.IsNotFound(err) {
+					return nil, err
+				}
+
+				clusterName, name := clusters.SplitClusterAwareKey(key)
+				cws, err = kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), name, metav1.GetOptions{})
+
+				return cws, err
+			},
+			s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister().Get,
+		),
+		getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			key := clusters.ToClusterAwareKey(clusterName, name)
+			return s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
+		},
 	}
-	// TODO(ncdc): I thought I was going to need this, but it turns out this breaks the CRD controllers because they
-	// try to issue Update() calls using the * client, which ends up with the cluster name being set to the default
-	// root cluster in handler.go. This means the update calls are likely going against the wrong logical cluster.
-	//    apiExtensionsConfig.ExtraConfig.NewClientFunc = func(config *rest.Config) (apiextensionsclient.Interface, error) {
-	//		crossClusterScope := controllerz.NewScope("*", controllerz.WildcardScope(true))
-	//
-	//		client, err := apiextensionsclient.NewScoperForConfig(config)
-	//		if err != nil {
-	//			return nil, err
-	//		}
-	//		return client.Scope(crossClusterScope), nil
-	//	}
+	apiExtensionsConfig.ExtraConfig.ClusterAwareCRDLister = apiBindingAwareCRDLister
 
 	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
@@ -287,7 +306,7 @@ func (s *Server) Run(ctx context.Context) error {
 	server := serverChain.MiniAggregator.GenericAPIServer
 	serverChain.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.Filter(
 		mergeCRDsIntoCoreGroup(
-			serverChain.CustomResourceDefinitions.Informers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+			apiBindingAwareCRDLister,
 			serverChain.CustomResourceDefinitions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
 			serverChain.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
 		),
@@ -413,6 +432,12 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.options.Controllers.EnableAll || enabled.Has("apibinding") {
 		if err := s.installAPIBindingController(ctx, controllerConfig, server); err != nil {
+			return err
+		}
+	}
+
+	if s.options.Controllers.EnableAll || enabled.Has("apiexport") {
+		if err := s.installAPIExportController(ctx, controllerConfig, server); err != nil {
 			return err
 		}
 	}

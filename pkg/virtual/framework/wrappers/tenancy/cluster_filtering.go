@@ -17,8 +17,6 @@ limitations under the License.
 package tenancy
 
 import (
-	"context"
-
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -107,26 +105,6 @@ func (l *filteredClusterWorkspaceTypeLister) Get(name string) (*tenancyapis.Clus
 	return l.lister.Get(name)
 }
 
-func (l *filteredClusterWorkspaceTypeLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyapis.ClusterWorkspaceType, err error) {
-	items, err := l.lister.ListWithContext(ctx, selector)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		if logicalcluster.From(item) == l.clusterName {
-			ret = append(ret, item)
-		}
-	}
-	return
-}
-
-func (l *filteredClusterWorkspaceTypeLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.ClusterWorkspaceType, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
-	}
-	return l.lister.GetWithContext(ctx, name)
-}
-
 func FilterClusterWorkspaceInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceInformer) tenancyinformers.ClusterWorkspaceInformer {
 	return &filteredClusterWorkspaceInformer{
 		clusterName: clusterName,
@@ -178,26 +156,6 @@ func (l *filteredClusterWorkspaceLister) Get(name string) (*tenancyapis.ClusterW
 	return l.lister.Get(name)
 }
 
-func (l *filteredClusterWorkspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyapis.ClusterWorkspace, err error) {
-	items, err := l.lister.ListWithContext(ctx, selector)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		if logicalcluster.From(item) == l.clusterName {
-			ret = append(ret, item)
-		}
-	}
-	return
-}
-
-func (l *filteredClusterWorkspaceLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.ClusterWorkspace, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
-	}
-	return l.lister.GetWithContext(ctx, name)
-}
-
 func FilterWorkspaceShardInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceShardInformer) tenancyinformers.ClusterWorkspaceShardInformer {
 	return &filteredWorkspaceShardInformer{
 		clusterName: clusterName,
@@ -247,24 +205,4 @@ func (l *filteredWorkspaceShardLister) Get(name string) (*tenancyapis.ClusterWor
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
-}
-
-func (l *filteredWorkspaceShardLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyapis.ClusterWorkspaceShard, err error) {
-	items, err := l.lister.ListWithContext(ctx, selector)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		if logicalcluster.From(item) == l.clusterName {
-			ret = append(ret, item)
-		}
-	}
-	return
-}
-
-func (l *filteredWorkspaceShardLister) GetWithContext(ctx context.Context, name string) (*tenancyapis.ClusterWorkspaceShard, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
-	}
-	return l.lister.GetWithContext(ctx, name)
 }

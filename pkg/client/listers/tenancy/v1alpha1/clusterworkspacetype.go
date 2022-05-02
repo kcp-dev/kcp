@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type ClusterWorkspaceTypeLister interface {
 	// List lists all ClusterWorkspaceTypes in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceType, err error)
-	// ListWithContext lists all ClusterWorkspaceTypes in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceType, err error)
 	// Get retrieves the ClusterWorkspaceType from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ClusterWorkspaceType, error)
-	// GetWithContext retrieves the ClusterWorkspaceType from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspaceType, error)
 	ClusterWorkspaceTypeListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewClusterWorkspaceTypeLister(indexer cache.Indexer) ClusterWorkspaceTypeLi
 
 // List lists all ClusterWorkspaceTypes in the indexer.
 func (s *clusterWorkspaceTypeLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceType, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all ClusterWorkspaceTypes in the indexer.
-func (s *clusterWorkspaceTypeLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.ClusterWorkspaceType, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.ClusterWorkspaceType))
 	})
@@ -71,11 +58,6 @@ func (s *clusterWorkspaceTypeLister) ListWithContext(ctx context.Context, select
 
 // Get retrieves the ClusterWorkspaceType from the index for a given name.
 func (s *clusterWorkspaceTypeLister) Get(name string) (*v1alpha1.ClusterWorkspaceType, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the ClusterWorkspaceType from the index for a given name.
-func (s *clusterWorkspaceTypeLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.ClusterWorkspaceType, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

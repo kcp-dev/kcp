@@ -58,6 +58,7 @@ func TestAPIBinding(t *testing.T) {
 	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
 	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
 	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
 
 	cfg := server.DefaultConfig(t)
 
@@ -88,9 +89,8 @@ func TestAPIBinding(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	consumerWorkspaces := []logicalcluster.LogicalCluster{consumer1Workspace, consumer2Workspace}
-	for _, consumerWorkspace := range consumerWorkspaces {
-		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from serviceProvider1", consumerWorkspace)
+	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.LogicalCluster) {
+		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerWorkspace)
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cowboys",
@@ -98,7 +98,7 @@ func TestAPIBinding(t *testing.T) {
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.ExportReference{
 					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						WorkspaceName: serviceProvider1Workspace.Base(),
+						WorkspaceName: providerWorkspace.Base(),
 						ExportName:    "today-cowboys",
 					},
 				},
@@ -108,11 +108,11 @@ func TestAPIBinding(t *testing.T) {
 		_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		t.Logf("Make sure %s API group does NOT show up in workspace %q group discovery", wildwest.GroupName, serviceProvider1Workspace)
-		groups, err := kcpClients.Cluster(serviceProvider1Workspace).Discovery().ServerGroups()
-		require.NoError(t, err, "error retrieving service provider workspace %q group discovery", serviceProvider1Workspace)
+		t.Logf("Make sure %s API group does NOT show up in workspace %q group discovery", wildwest.GroupName, providerWorkspace)
+		groups, err := kcpClients.Cluster(providerWorkspace).Discovery().ServerGroups()
+		require.NoError(t, err, "error retrieving service provider workspace %q group discovery", providerWorkspace)
 		require.False(t, groupExists(groups, wildwest.GroupName),
-			"should not have seen %s API group in service provider workspace %q group discovery", wildwest.GroupName, serviceProvider1Workspace)
+			"should not have seen %s API group in service provider workspace %q group discovery", wildwest.GroupName, providerWorkspace)
 
 		t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
 		err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
@@ -141,9 +141,10 @@ func TestAPIBinding(t *testing.T) {
 		require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumerWorkspace)
 
 		t.Logf("Create a cowboy CR in consumer workspace %q", consumerWorkspace)
+		cowboyName := fmt.Sprintf("cowboy-%s", consumerWorkspace.Base())
 		cowboy := &wildwestv1alpha1.Cowboy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cowboy",
+				Name:      cowboyName,
 				Namespace: "default",
 			},
 		}
@@ -154,7 +155,7 @@ func TestAPIBinding(t *testing.T) {
 		cowboys, err = cowboyClient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumerWorkspace)
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumerWorkspace)
-		require.Equal(t, "cowboy", cowboys.Items[0].Name, "unexpected name for cowboy in consumer workspace %q", consumerWorkspace)
+		require.Equal(t, cowboyName, cowboys.Items[0].Name, "unexpected name for cowboy in consumer workspace %q", consumerWorkspace)
 
 		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from serviceProvider2 (which should conflict)", consumerWorkspace)
 		apiBinding = &apisv1alpha1.APIBinding{
@@ -181,6 +182,48 @@ func TestAPIBinding(t *testing.T) {
 			return conditions.IsFalse(b, apisv1alpha1.InitialBindingCompleted) && conditions.GetReason(b, apisv1alpha1.InitialBindingCompleted) == apisv1alpha1.NamingConflictsReason
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected naming conflict")
 	}
+
+	consumersOfServiceProvider1 := []logicalcluster.LogicalCluster{consumer1Workspace, consumer2Workspace}
+	for _, consumerWorkspace := range consumersOfServiceProvider1 {
+		bindConsumerToProvider(consumerWorkspace, serviceProvider1Workspace)
+	}
+
+	t.Logf("Binding consumer workspace 3 (%q) to service provider workspace 2 (%q)", consumer3Workspace, serviceProvider2Workspace)
+	bindConsumerToProvider(consumer3Workspace, serviceProvider2Workspace)
+
+	t.Logf("Testing identity wildcards")
+
+	verifyWildcardList := func(consumerWorkspace logicalcluster.LogicalCluster, expectedItems int) {
+		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
+		apiBinding, err := kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		require.NoError(t, err, "error getting apibinding")
+
+		identity := apiBinding.Status.BoundResources[0].Schema.IdentityHash
+		gvrWithIdentity := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys:" + identity)
+
+		t.Logf("Doing a wildcard list for %v", gvrWithIdentity)
+		wildcardIdentityClient := dynamicClients.Cluster(logicalcluster.Wildcard).Resource(gvrWithIdentity)
+		list, err := wildcardIdentityClient.List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "error listing wildcard with identity")
+
+		require.Len(t, list.Items, expectedItems, "unexpected # of cowboys")
+
+		var names []string
+		for _, cowboy := range list.Items {
+			names = append(names, cowboy.GetName())
+		}
+
+		cowboyName := fmt.Sprintf("cowboy-%s", consumerWorkspace.Base())
+		require.Contains(t, names, cowboyName, "missing cowboy %q", cowboyName)
+	}
+
+	for _, consumerWorkspace := range consumersOfServiceProvider1 {
+		t.Logf("Verify consumer workspace %q bound to service provider 1 (%q) wildcard list works", consumerWorkspace, serviceProvider1Workspace)
+		verifyWildcardList(consumerWorkspace, 2)
+	}
+
+	t.Logf("Verify that consumer workspace 3 (%q) bound to service provider workspace 2 (%q) wildcard list works", consumer3Workspace, serviceProvider2Workspace)
+	verifyWildcardList(consumer3Workspace, 1)
 }
 
 func groupExists(list *metav1.APIGroupList, group string) bool {

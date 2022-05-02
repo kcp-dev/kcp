@@ -66,13 +66,13 @@ func TestIndexAPIBindingByWorkspaceExport(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := indexAPIBindingByWorkspaceExport(tt.obj)
+			got, err := indexAPIBindingsByWorkspaceExportFunc(tt.obj)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("indexAPIBindingByWorkspaceExport() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("indexAPIBindingsByWorkspaceExportFunc() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("indexAPIBindingByWorkspaceExport() got = %v, want %v", got, tt.want)
+				t.Errorf("indexAPIBindingsByWorkspaceExportFunc() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -109,13 +109,13 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := indexAPIExportByAPIResourceSchemas(tt.obj)
+			got, err := indexAPIExportsByAPIResourceSchemasFunc(tt.obj)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("indexAPIExportByAPIResourceSchemas() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("indexAPIExportsByAPIResourceSchemasFunc() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("indexAPIExportByAPIResourceSchemas() got = %v, want %v", got, tt.want)
+				t.Errorf("indexAPIExportsByAPIResourceSchemasFunc() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

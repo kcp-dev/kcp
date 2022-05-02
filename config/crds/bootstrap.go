@@ -85,69 +85,78 @@ func Create(ctx context.Context, client apiextensionsv1client.CustomResourceDefi
 // CreateFromFS creates the given CRD using the target client from the
 // provided filesystem and waits for it to become established. This call is blocking.
 func createSingleFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gr metav1.GroupResource, fs embed.FS) error {
-	start := time.Now()
-	klog.V(4).Infof("Bootstrapping %v", gr.String())
 	raw, err := fs.ReadFile(fmt.Sprintf("%s_%s.yaml", gr.Group, gr.Resource))
 	if err != nil {
 		return fmt.Errorf("could not read CRD %s: %w", gr.String(), err)
 	}
+
 	expectedGvk := &schema.GroupVersionKind{Group: apiextensionsv1.GroupName, Version: "v1", Kind: "CustomResourceDefinition"}
+
 	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(raw, expectedGvk, &apiextensionsv1.CustomResourceDefinition{})
 	if err != nil {
 		return fmt.Errorf("could not decode raw CRD %s: %w", gr.String(), err)
 	}
+
 	if !equality.Semantic.DeepEqual(gvk, expectedGvk) {
 		return fmt.Errorf("decoded CRD %s into incorrect GroupVersionKind, got %#v, wanted %#v", gr.String(), gvk, expectedGvk)
 	}
-	rawCrd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+
+	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 	if !ok {
-		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gr.String(), rawCrd, &apiextensionsv1.CustomResourceDefinition{})
+		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gr.String(), crd, &apiextensionsv1.CustomResourceDefinition{})
 	}
 
+	return CreateSingle(ctx, client, crd)
+}
+
+func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRD *apiextensionsv1.CustomResourceDefinition) error {
+	start := time.Now()
+	klog.V(4).Infof("Bootstrapping %v", rawCRD.Name)
+
 	updateNeeded := false
-	crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
+	crd, err := client.Get(ctx, rawCRD.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			crd, err = client.Create(ctx, rawCrd, metav1.CreateOptions{})
+			crd, err = client.Create(ctx, rawCRD, metav1.CreateOptions{})
 			if err != nil {
 				// If multiple post-start hooks specify the same CRD, they could race with each other, so we need to
 				// handle the scenario where another hook created this CRD after our Get() call returned not found.
 				if apierrors.IsAlreadyExists(err) {
 					// Re-get so we have the correct resourceVersion
-					crd, err = client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
+					crd, err = client.Get(ctx, rawCRD.Name, metav1.GetOptions{})
 					if err != nil {
-						return fmt.Errorf("error getting CRD %s: %w", gr.String(), err)
+						return fmt.Errorf("error getting CRD %s: %w", rawCRD.Name, err)
 					}
 					updateNeeded = true
 				} else {
-					return fmt.Errorf("error creating CRD %s: %w", gr.String(), err)
+					return fmt.Errorf("error creating CRD %s: %w", rawCRD.Name, err)
 				}
 			} else {
-				klog.Infof("Bootstrapped CRD %s|%v after %s", crd.GetClusterName(), gr.String(), time.Since(start).String())
+				klog.Infof("Bootstrapped CRD %s|%v after %s", crd.GetClusterName(), crd.Name, time.Since(start).String())
 			}
 		} else {
-			return fmt.Errorf("error fetching CRD %s: %w", gr.String(), err)
+			return fmt.Errorf("error fetching CRD %s: %w", rawCRD.Name, err)
 		}
 	} else {
 		updateNeeded = true
 	}
 
 	if updateNeeded {
-		rawCrd.ResourceVersion = crd.ResourceVersion
-		crd, err := client.Update(ctx, rawCrd, metav1.UpdateOptions{})
+		rawCRD.ResourceVersion = crd.ResourceVersion
+		crd, err := client.Update(ctx, rawCRD, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
-		klog.Infof("Updated CRD %s|%v after %s", crd.GetClusterName(), gr.String(), time.Since(start).String())
+		klog.Infof("Updated CRD %s|%v after %s", crd.GetClusterName(), rawCRD.Name, time.Since(start).String())
 	}
 
 	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
-		crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
+		crd, err := client.Get(ctx, rawCRD.Name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return false, fmt.Errorf("CRD %s was deleted before being established", gr.String())
+				return false, fmt.Errorf("CRD %s was deleted before being established", rawCRD.Name)
 			}
-			return false, fmt.Errorf("error fetching CRD %s: %w", gr.String(), err)
+			return false, fmt.Errorf("error fetching CRD %s: %w", rawCRD.Name, err)
 		}
 
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil

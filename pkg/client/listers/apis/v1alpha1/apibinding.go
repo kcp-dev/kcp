@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type APIBindingLister interface {
 	// List lists all APIBindings in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.APIBinding, err error)
-	// ListWithContext lists all APIBindings in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.APIBinding, err error)
 	// Get retrieves the APIBinding from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.APIBinding, error)
-	// GetWithContext retrieves the APIBinding from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.APIBinding, error)
 	APIBindingListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewAPIBindingLister(indexer cache.Indexer) APIBindingLister {
 
 // List lists all APIBindings in the indexer.
 func (s *aPIBindingLister) List(selector labels.Selector) (ret []*v1alpha1.APIBinding, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all APIBindings in the indexer.
-func (s *aPIBindingLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.APIBinding, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.APIBinding))
 	})
@@ -71,11 +58,6 @@ func (s *aPIBindingLister) ListWithContext(ctx context.Context, selector labels.
 
 // Get retrieves the APIBinding from the index for a given name.
 func (s *aPIBindingLister) Get(name string) (*v1alpha1.APIBinding, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the APIBinding from the index for a given name.
-func (s *aPIBindingLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.APIBinding, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err

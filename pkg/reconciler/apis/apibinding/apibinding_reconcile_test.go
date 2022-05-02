@@ -47,19 +47,19 @@ func requireConditionMatches(t *testing.T, g conditions.Getter, c *conditionsv1a
 	require.NotNil(t, actual, "missing condition %q", c.Type)
 
 	if c.Status != "" {
-		require.Equal(t, c.Status, actual.Status)
+		require.Equal(t, c.Status, actual.Status, "missing condition %q status %q", c.Type, c.Status)
 	}
 
 	if c.Severity != "" {
-		require.Equal(t, c.Severity, actual.Severity)
+		require.Equal(t, c.Severity, actual.Severity, "missing condition %q severity %q", c.Type, c.Severity)
 	}
 
 	if c.Reason != "" {
-		require.Equal(t, c.Reason, actual.Reason)
+		require.Equal(t, c.Reason, actual.Reason, "missing condition %q reason %q", c.Type, c.Reason)
 	}
 
 	if c.Message != "" {
-		require.Contains(t, actual.Message, c.Message)
+		require.Contains(t, actual.Message, c.Message, "missing condition %q containing %q in message", c.Type, c.Message)
 	}
 }
 
@@ -232,6 +232,11 @@ func TestReconcileBinding(t *testing.T) {
 			wantAPIExportInternalError: true,
 			wantError:                  true,
 		},
+		"APIExport doesn't have identity hash yet": {
+			apiBinding: binding.DeepCopy().
+				WithWorkspaceReference("some-workspace", "no-identity-hash").Build(),
+			wantAPIExportValid: false,
+		},
 		"APIResourceSchema invalid": {
 			apiBinding:                 invalidSchema.Build(),
 			wantAPIExportInternalError: true,
@@ -270,8 +275,9 @@ func TestReconcileBinding(t *testing.T) {
 					Group:    "kcp.dev",
 					Resource: "widgets",
 					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name: "today.widgets.kcp.dev",
-						UID:  "todaywidgetsuid",
+						Name:         "today.widgets.kcp.dev",
+						UID:          "todaywidgetsuid",
+						IdentityHash: "hash1",
 					},
 					StorageVersions: []string{},
 				},
@@ -292,8 +298,9 @@ func TestReconcileBinding(t *testing.T) {
 					Group:    "kcp.dev",
 					Resource: "widgets",
 					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name: "today.widgets.kcp.dev",
-						UID:  "todaywidgetsuid",
+						Name:         "today.widgets.kcp.dev",
+						UID:          "todaywidgetsuid",
+						IdentityHash: "hash1",
 					},
 					StorageVersions: []string{},
 				},
@@ -329,8 +336,9 @@ func TestReconcileBinding(t *testing.T) {
 					Group:    "kcp.dev",
 					Resource: "widgets",
 					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name: "today.widgets.kcp.dev",
-						UID:  "todaywidgetsuid",
+						Name:         "today.widgets.kcp.dev",
+						UID:          "todaywidgetsuid",
+						IdentityHash: "hash1",
 					},
 					StorageVersions: []string{"v0", "v1"},
 				},
@@ -351,8 +359,9 @@ func TestReconcileBinding(t *testing.T) {
 					Group:    "kcp.dev",
 					Resource: "widgets",
 					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name: "today.widgets.kcp.dev",
-						UID:  "todaywidgetsuid",
+						Name:         "today.widgets.kcp.dev",
+						UID:          "todaywidgetsuid",
+						IdentityHash: "hash1",
 					},
 					StorageVersions: []string{"v0", "v1"},
 				},
@@ -374,8 +383,9 @@ func TestReconcileBinding(t *testing.T) {
 					Group:    "kcp.dev",
 					Resource: "widgets",
 					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name: "today.widgets.kcp.dev",
-						UID:  "todaywidgetsuid",
+						Name:         "today.widgets.kcp.dev",
+						UID:          "todaywidgetsuid",
+						IdentityHash: "hash1",
 					},
 					StorageVersions: []string{"v0", "v1", "v2"},
 				},
@@ -395,17 +405,26 @@ func TestReconcileBinding(t *testing.T) {
 					Spec: apisv1alpha1.APIExportSpec{
 						LatestResourceSchemas: []string{"today.widgets.kcp.dev"},
 					},
+					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash1"},
 				},
 				"conflict": {
 					ObjectMeta: metav1.ObjectMeta{ClusterName: "some-workspace", Name: "conflict"},
 					Spec: apisv1alpha1.APIExportSpec{
 						LatestResourceSchemas: []string{"another.widgets.other.io"},
 					},
+					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash2"},
 				},
 				"invalid-schema": {
 					ObjectMeta: metav1.ObjectMeta{ClusterName: "some-workspace", Name: "invalid-schema"},
 					Spec: apisv1alpha1.APIExportSpec{
 						LatestResourceSchemas: []string{"invalid.schema.io"},
+					},
+					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash3"},
+				},
+				"no-identity-hash": {
+					ObjectMeta: metav1.ObjectMeta{ClusterName: "some-workspace", Name: "some-export"},
+					Spec: apisv1alpha1.APIExportSpec{
+						LatestResourceSchemas: []string{"today.widgets.kcp.dev"},
 					},
 				},
 			}
@@ -810,9 +829,9 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 					ClusterName: ShadowWorkspaceName.String(),
 					Name:        "my-uuid",
 					Annotations: map[string]string{
-						annotationBoundCRDKey:      "",
-						annotationSchemaClusterKey: "my-cluster",
-						annotationSchemaNameKey:    "my-name",
+						apisv1alpha1.AnnotationBoundCRDKey:      "",
+						apisv1alpha1.AnnotationSchemaClusterKey: "my-cluster",
+						apisv1alpha1.AnnotationSchemaNameKey:    "my-name",
 					},
 				},
 				Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -912,7 +931,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 	}
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
-			got, err := crdFromAPIResourceSchema(tc.schema)
+			got, err := generateCRD(tc.schema)
 
 			if tc.wantErr != (err != nil) {
 				t.Fatalf("wantErr: %v, got %v", tc.wantErr, err)

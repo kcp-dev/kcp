@@ -25,6 +25,7 @@ import (
 
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 )
@@ -33,7 +34,7 @@ import (
 var rawCustomResourceDefinitions embed.FS
 
 func Create(t *testing.T, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) {
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
 	err := configcrds.CreateFromFS(ctx, client, rawCustomResourceDefinitions, grs...)

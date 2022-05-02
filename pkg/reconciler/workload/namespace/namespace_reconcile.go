@@ -337,7 +337,7 @@ func clusterLabelPatchBytes(val string) (types.PatchType, []byte) {
 // reconcileNamespace above and assigned to another happy cluster if one can be
 // found.
 func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
-	klog.Infof("Observing Cluster %s|%s", cluster.ClusterName, cluster.Name)
+	klog.Infof("Observing WorkloadCluster %s|%s", cluster.ClusterName, cluster.Name)
 
 	strategy, pendingCordon := enqueueStrategyForCluster(cluster)
 
@@ -346,13 +346,13 @@ func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alph
 		c.enqueueClusterAfter(cluster, dur)
 	}
 
+	clusterName := logicalcluster.From(cluster)
+
 	switch strategy {
 	case enqueueUnscheduled:
 		var errs []error
-		errs = append(errs, c.enqueueNamespaces(ctx, labels.NewSelector().
-			Add(unscheduledRequirement).Add(scheduleRequirement)))
-		errs = append(errs, c.enqueueNamespaces(ctx, labels.NewSelector().
-			Add(scheduleEmptyLabelRequirement).Add(scheduleRequirement)))
+		errs = append(errs, c.enqueueNamespaces(clusterName, labels.NewSelector().Add(unscheduledRequirement).Add(scheduleRequirement)))
+		errs = append(errs, c.enqueueNamespaces(clusterName, labels.NewSelector().Add(scheduleEmptyLabelRequirement).Add(scheduleRequirement)))
 		return errors.NewAggregate(errs)
 
 	case enqueueScheduled:
@@ -360,7 +360,7 @@ func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alph
 		if err != nil {
 			return err
 		}
-		return c.enqueueNamespaces(ctx, labels.NewSelector().Add(*scheduledToCluster))
+		return c.enqueueNamespaces(clusterName, labels.NewSelector().Add(*scheduledToCluster))
 
 	case enqueueNothing:
 		break
@@ -373,16 +373,23 @@ func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alph
 }
 
 // enqueueNamespaces adds all namespaces matching selector to the queue to allow for scheduling.
-func (c *Controller) enqueueNamespaces(ctx context.Context, selector labels.Selector) error {
-	namespaces, err := c.namespaceLister.ListWithContext(ctx, selector)
+func (c *Controller) enqueueNamespaces(clusterName logicalcluster.LogicalCluster, selector labels.Selector) error {
+	// TODO(ncdc): use cluster scoped generated lister when available
+	namespaces, err := c.namespaceLister.List(selector)
 	if err != nil {
 		return err
 	}
+
 	for _, namespace := range namespaces {
+		if logicalcluster.From(namespace) != clusterName {
+			continue
+		}
+
 		if namespaceBlocklist.Has(namespace.Name) {
 			klog.V(2).Infof("Skipping syncing namespace %q", namespace.Name)
 			continue
 		}
+
 		c.enqueueNamespace(namespace)
 	}
 

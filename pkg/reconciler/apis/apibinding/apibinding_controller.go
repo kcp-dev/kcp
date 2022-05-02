@@ -48,9 +48,7 @@ import (
 )
 
 const (
-	controllerName                     = "kcp-apibinding"
-	indexAPIBindingsByWorkspaceExport  = "apiBindingsByWorkspaceExport"
-	indexAPIExportsByAPIResourceSchema = "apiExportsByAPIResourceSchema"
+	controllerName = "kcp-apibinding"
 )
 
 var (
@@ -122,7 +120,8 @@ func NewController(
 	})
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		indexAPIBindingsByWorkspaceExport: indexAPIBindingByWorkspaceExport,
+		indexAPIBindingsByWorkspaceExport:       indexAPIBindingsByWorkspaceExportFunc,
+		IndexAPIBindingsByIdentityGroupResource: indexAPIBindingsByIdentityGroupResourceFunc,
 	}); err != nil {
 		return nil, err
 	}
@@ -169,7 +168,7 @@ func NewController(
 	})
 
 	if err := c.apiExportsIndexer.AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportByAPIResourceSchemas,
+		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
 	}); err != nil {
 		return nil, fmt.Errorf("error add CRD indexes: %w", err)
 	}
@@ -244,12 +243,12 @@ func (c *controller) enqueueCRD(obj interface{}) {
 		return
 	}
 
-	if crd.Annotations[annotationSchemaClusterKey] == "" || crd.Annotations[annotationSchemaNameKey] == "" {
+	if crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey] == "" || crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey] == "" {
 		return
 	}
 
-	clusterName := logicalcluster.New(crd.Annotations[annotationSchemaClusterKey])
-	apiResourceSchema, err := c.getAPIResourceSchema(clusterName, crd.Annotations[annotationSchemaNameKey])
+	clusterName := logicalcluster.New(crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey])
+	apiResourceSchema, err := c.getAPIResourceSchema(clusterName, crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey])
 	if err != nil {
 		runtime.HandleError(err)
 		return

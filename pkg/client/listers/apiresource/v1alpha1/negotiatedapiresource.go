@@ -19,8 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,15 +32,9 @@ type NegotiatedAPIResourceLister interface {
 	// List lists all NegotiatedAPIResources in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.NegotiatedAPIResource, err error)
-	// ListWithContext lists all NegotiatedAPIResources in the indexer.
-	// Objects returned here must be treated as read-only.
-	ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.NegotiatedAPIResource, err error)
 	// Get retrieves the NegotiatedAPIResource from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.NegotiatedAPIResource, error)
-	// GetWithContext retrieves the NegotiatedAPIResource from the index for a given name.
-	// Objects returned here must be treated as read-only.
-	GetWithContext(ctx context.Context, name string) (*v1alpha1.NegotiatedAPIResource, error)
 	NegotiatedAPIResourceListerExpansion
 }
 
@@ -58,11 +50,6 @@ func NewNegotiatedAPIResourceLister(indexer cache.Indexer) NegotiatedAPIResource
 
 // List lists all NegotiatedAPIResources in the indexer.
 func (s *negotiatedAPIResourceLister) List(selector labels.Selector) (ret []*v1alpha1.NegotiatedAPIResource, err error) {
-	return s.ListWithContext(context.Background(), selector)
-}
-
-// ListWithContext lists all NegotiatedAPIResources in the indexer.
-func (s *negotiatedAPIResourceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*v1alpha1.NegotiatedAPIResource, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.NegotiatedAPIResource))
 	})
@@ -71,11 +58,6 @@ func (s *negotiatedAPIResourceLister) ListWithContext(ctx context.Context, selec
 
 // Get retrieves the NegotiatedAPIResource from the index for a given name.
 func (s *negotiatedAPIResourceLister) Get(name string) (*v1alpha1.NegotiatedAPIResource, error) {
-	return s.GetWithContext(context.Background(), name)
-}
-
-// GetWithContext retrieves the NegotiatedAPIResource from the index for a given name.
-func (s *negotiatedAPIResourceLister) GetWithContext(ctx context.Context, name string) (*v1alpha1.NegotiatedAPIResource, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
