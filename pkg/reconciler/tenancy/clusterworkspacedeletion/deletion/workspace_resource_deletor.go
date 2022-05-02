@@ -373,7 +373,10 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		)
 	}
 
-	deletableResources := discovery.FilteredBy(discovery.SupportsAllVerbs{Verbs: []string{"delete"}}, resources)
+	deletableResources := discovery.FilteredBy(and{
+		discovery.SupportsAllVerbs{Verbs: []string{"delete"}},
+		isNotVirtualResource{},
+	}, resources)
 	groupVersionResources, err := groupVersionResources(deletableResources)
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
@@ -499,4 +502,31 @@ func groupVersionResources(rls []*metav1.APIResourceList) (map[schema.GroupVersi
 		}
 	}
 	return gvrs, nil
+}
+
+// virtualResources are those that are mapped into a workspace, but are not actually the
+// backing resource. This can be because the backing resource is in the same workspace,
+// it can be that the source of the resource is another workspace.
+// TODO(sttts): this is a hack, there should be serious mechanism to map in resources into workspaces.
+var virtualResources = sets.NewString(
+	"workspaces.tenancy.dev",
+)
+
+type isNotVirtualResource struct{}
+
+// Match checks if a resource contains all the given verbs.
+func (vr isNotVirtualResource) Match(groupVersion string, r *metav1.APIResource) bool {
+	gr := metav1.GroupResource{Group: r.Group, Resource: r.Name}
+	return !virtualResources.Has(gr.String())
+}
+
+type and []discovery.ResourcePredicate
+
+func (a and) Match(groupVersion string, r *metav1.APIResource) bool {
+	for _, p := range a {
+		if !p.Match(groupVersion, r) {
+			return false
+		}
+	}
+	return true
 }
