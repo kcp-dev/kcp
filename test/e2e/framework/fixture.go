@@ -203,6 +203,9 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	require.NoError(t, err, "failed to create organization workspace")
 
 	t.Cleanup(func() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		defer cancelFn()
+
 		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
@@ -253,6 +256,9 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 	require.NoError(t, err, "failed to create workspace")
 
 	t.Cleanup(func() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		defer cancelFn()
+
 		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
@@ -382,6 +388,9 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		syncerID := syncerConfig.ID()
 		t.Cleanup(func() {
 			t.Logf("Collecting syncer %s logs", syncerID)
+
+			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+			defer cancelFn()
 
 			pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
 			if err != nil {
