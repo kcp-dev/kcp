@@ -286,7 +286,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 	}
 	// TODO(jmprusi): Added ServiceAccounts, Configmaps and Secrets to the default syncing, but we should figure out
 	//                a way to avoid doing that: https://github.com/kcp-dev/kcp/issues/727
-	gvrstrs := []string{"namespaces.v1.", "serviceaccounts.v1.", "configmaps.v1.", "secrets.v1."} // A syncer should always watch namespaces, serviceaccounts, secrets and configmaps.
+	gvrstrs := sets.NewString("namespaces.v1.", "serviceaccounts.v1.", "configmaps.v1.", "secrets.v1.") // A syncer should always watch namespaces, serviceaccounts, secrets and configmaps.
 	for _, r := range rs {
 		// v1 -> v1.
 		// apps/v1 -> v1.apps
@@ -324,7 +324,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 				klog.Infof("resource %s %s is not watchable: %v", vr, ai.Name, ai.Verbs)
 				continue
 			}
-			gvrstrs = append(gvrstrs, fmt.Sprintf("%s.%s", ai.Name, vr))
+			gvrstrs.Insert(fmt.Sprintf("%s.%s", ai.Name, vr))
 			willBeSyncedSet.Insert(willBeSynced)
 		}
 	}
@@ -336,7 +336,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
 		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
 	}
-	return gvrstrs, nil
+	return gvrstrs.List(), nil
 }
 
 type holder struct {
