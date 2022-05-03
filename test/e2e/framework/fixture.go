@@ -420,7 +420,11 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 			t.Logf("gathering %q", gvr)
 			list, err := resourceClient.List(ctx, metav1.ListOptions{})
-			require.NoError(t, err, "error listing %q", gvr)
+			if err != nil {
+				// Don't fail the test
+				t.Logf("Error gathering %s: %v", gvr, err)
+				return
+			}
 
 			t.Logf("got %d items", len(list.Items))
 
@@ -453,33 +457,28 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 			defer cancelFn()
 
 			// collect syncer logs
-			pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				t.Errorf("failed to list pods in %s: %v", syncerID, err)
-			}
-			for _, pod := range pods.Items {
-				t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
-				logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
-				artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
-				err = ioutil.WriteFile(artifactPath, logs, 0644)
+			t.Logf("Collecting syncer pod logs")
+			func() {
+				t.Logf("Listing downstream pods in namespace %s", syncerID)
+				pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
 				if err != nil {
-					t.Errorf("failed to list pods in %s: %v", syncerID, err)
+					t.Logf("failed to list pods in %s: %v", syncerID, err)
+					return
 				}
-				artifactDir, err := CreateTempDirForTest(t, "artifacts")
-				if err != nil {
-					t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
-				}
+
 				for _, pod := range pods.Items {
 					t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
 					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
+
 					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
+
 					err = ioutil.WriteFile(artifactPath, logs, 0644)
 					if err != nil {
 						t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
 						continue // not fatal
 					}
 				}
-			}
+			}()
 
 			if preserveTestResources() {
 				return
