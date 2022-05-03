@@ -55,8 +55,6 @@ var _ conditions.Setter = &WorkloadCluster{}
 
 // WorkloadClusterSpec holds the desired state of the WorkloadCluster (from the client).
 type WorkloadClusterSpec struct {
-	KubeConfig string `json:"kubeconfig"`
-
 	// Unschedulable controls cluster schedulability of new workloads. By
 	// default, cluster is schedulable.
 	// +optional
