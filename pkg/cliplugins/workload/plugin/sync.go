@@ -30,6 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
@@ -131,17 +132,23 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 		return "", fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	// Create the workload cluster that will serve as a point of coordination between
-	// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
-	// to the syncer).
-	workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx,
-		&workloadv1alpha1.WorkloadCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: workloadClusterName,
-			},
-		},
-		metav1.CreateOptions{},
+	workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx,
+		workloadClusterName,
+		metav1.GetOptions{},
 	)
+	if errors.IsNotFound(err) {
+		// Create the workload cluster that will serve as a point of coordination between
+		// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
+		// to the syncer).
+		workloadCluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx,
+			&workloadv1alpha1.WorkloadCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: workloadClusterName,
+				},
+			},
+			metav1.CreateOptions{},
+		)
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to create WorkloadCluster: %w", err)
 	}
@@ -161,34 +168,45 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	// Create a service account for the syncer with the necessary permissions. It will
 	// be owned by the workload cluster to ensure cleanup.
 	authResourceName := SyncerAuthResourcePrefix + workloadClusterName
-	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            authResourceName,
-			OwnerReferences: workloadClusterOwnerReferences,
-		},
-	}, metav1.CreateOptions{})
+	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(ctx, authResourceName,
+		metav1.GetOptions{})
+
+	if errors.IsNotFound(err) {
+		sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            authResourceName,
+				OwnerReferences: workloadClusterOwnerReferences,
+			},
+		}, metav1.CreateOptions{})
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to create ServiceAccount: %w", err)
 	}
 
 	// Grant the service account cluster-admin on the workspace
 	// TODO(sttts): remove this once syncer workspace access goes through the virtual workspace
-	if _, err := kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            authResourceName,
-			OwnerReferences: workloadClusterOwnerReferences,
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      authResourceName,
-			Namespace: namespace,
-		}},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
-			Name:     "cluster-admin",
-			APIGroup: "rbac.authorization.k8s.io",
-		},
-	}, metav1.CreateOptions{}); err != nil {
+	_, err = kubeClient.RbacV1().ClusterRoleBindings().Get(ctx,
+		authResourceName,
+		metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            authResourceName,
+				OwnerReferences: workloadClusterOwnerReferences,
+			},
+			Subjects: []rbacv1.Subject{{
+				Kind:      "ServiceAccount",
+				Name:      authResourceName,
+				Namespace: namespace,
+			}},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "ClusterRole",
+				Name:     "cluster-admin",
+				APIGroup: "rbac.authorization.k8s.io",
+			},
+		}, metav1.CreateOptions{})
+	}
+	if err != nil {
 		return "", err
 	}
 
