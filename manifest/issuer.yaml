@@ -1,6 +1,6 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: kcp
+  name: kcp-pki-bootstrap
 spec:
   selfSigned: {}
