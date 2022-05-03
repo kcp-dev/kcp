@@ -35,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -385,18 +386,55 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
-	if useDeployedSyncer {
-		// Ensure cleanup of pcluster resources
+	artifactDir, err := CreateTempDirForTest(t, "artifacts")
+	if err != nil {
+		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
+	}
 
+	// collect both in deployed and in-process mode
+	t.Cleanup(func() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		defer cancelFn()
+
+		t.Logf("Collecting imported resource info")
+		upstreamCfg := sf.UpstreamServer.DefaultConfig(t)
+
+		upstreamKCPClusterClient, err := kcpclient.NewClusterForConfig(upstreamCfg)
+		require.NoError(t, err, "error creating upstream kcp client")
+
+		apiResourceImports, err := upstreamKCPClusterClient.Cluster(sf.WorkspaceClusterName).ApiresourceV1alpha1().APIResourceImports().List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "error listing apiresourceimports")
+		for i := range apiResourceImports.Items {
+			sf.UpstreamServer.Artifact(t, func() (runtime.Object, error) {
+				return &apiResourceImports.Items[i], nil
+			})
+		}
+
+		negotiatedAPIResources, err := upstreamKCPClusterClient.Cluster(sf.WorkspaceClusterName).ApiresourceV1alpha1().NegotiatedAPIResources().List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "error listing negotiatedapiresources")
+		for i := range negotiatedAPIResources.Items {
+			sf.UpstreamServer.Artifact(t, func() (runtime.Object, error) {
+				return &negotiatedAPIResources.Items[i], nil
+			})
+		}
+	})
+
+	if useDeployedSyncer {
 		syncerID := syncerConfig.ID()
 		t.Cleanup(func() {
-			if useDeployedSyncer {
-				t.Logf("Collecting syncer %s logs", syncerID)
+			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+			defer cancelFn()
 
-				ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
-				defer cancelFn()
-
-				pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
+			// collect syncer logs
+			pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Errorf("failed to list pods in %s: %v", syncerID, err)
+			}
+			for _, pod := range pods.Items {
+				t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
+				logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
+				artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
+				err = ioutil.WriteFile(artifactPath, logs, 0644)
 				if err != nil {
 					t.Errorf("failed to list pods in %s: %v", syncerID, err)
 				}
@@ -455,10 +493,8 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				}
 			}
 		})
-
 	} else {
 		// Start an in-process syncer
-
 		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
 		require.NoError(t, err, "syncer failed to start")
 	}
