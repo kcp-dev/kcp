@@ -77,6 +77,12 @@ func NewController(
 		return nil, err
 	}
 
+	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace: indexByWorksapce,
+	}); err != nil {
+		return nil, err
+	}
+
 	locationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueLocation(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueLocation(obj) },
