@@ -183,7 +183,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 		}
 	case err == nil:
 		//Overwrite the ownerref in case of a user changed it
-		sa.OwnerReferences = workloadClusterOwnerReferences
+		sa.ObjectMeta.OwnerReferences = workloadClusterOwnerReferences
 		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Update(ctx, sa, metav1.UpdateOptions{}); err != nil {
 			return "", fmt.Errorf("failed to update ServiceAccount: %w", err)
 		}
