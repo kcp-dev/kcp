@@ -26,7 +26,6 @@ setupTraps "$0"
 KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 "${DEMOS_DIR}"/startKcp.sh \
     --push-mode \
-    --auto-publish-apis=true \
     --resources-to-sync deployments.apps \
     --token-auth-file "${DEMO_DIR}"/kcp-tokens
 

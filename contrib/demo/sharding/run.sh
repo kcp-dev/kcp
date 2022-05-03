@@ -57,7 +57,7 @@ done
 echo
 
 echo "Starting Cluster Controller on kcp1..."
-"${KCP_ROOT}"/bin/cluster-controller -push-mode=true -pull-mode=false -kubeconfig=".kcp1/admin.kubeconfig" -auto-publish-apis=true .configmaps &> .kcp1.cluster-controller.log 2>&1 &
+"${KCP_ROOT}"/bin/cluster-controller -push-mode=true -pull-mode=false -kubeconfig=".kcp1/admin.kubeconfig" .configmaps &> .kcp1.cluster-controller.log 2>&1 &
 
 echo "Starting kcp2..."
 "${KCP_ROOT}"/bin/kcp start --enable-sharding --shard-kubeconfig-file ".kcp1/data/shard.kubeconfig" --root-directory ".kcp2" --etcd-client-port 2381 --etcd-peer-port 2382 --secure-port :6444 > ".kcp2.log" 2>&1 &
@@ -81,7 +81,7 @@ done
 echo
 
 echo "Starting Cluster Controller on kcp2..."
-"${KCP_ROOT}"/bin/cluster-controller -push-mode=true -pull-mode=false -kubeconfig=".kcp1/admin.kubeconfig" -auto-publish-apis=true .configmaps &> .kcp1.cluster-controller.log 2>&1 &
+"${KCP_ROOT}"/bin/cluster-controller -push-mode=true -pull-mode=false -kubeconfig=".kcp1/admin.kubeconfig" .configmaps &> .kcp1.cluster-controller.log 2>&1 &
 
 "${KCP_ROOT}"/contrib/demo/sharding/add-cluster.py ".kcp1/admin.kubeconfig" ".kcp2/admin.kubeconfig"
 touch .ready

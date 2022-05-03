@@ -25,7 +25,6 @@ KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
 "${DEMOS_DIR}"/startKcp.sh \
     --push-mode \
-    --auto-publish-apis=true \
     --resources-to-sync deployments.apps &
 
 wait_command "test -f ${KCP_DATA_DIR}/kcp-started"

@@ -33,7 +33,6 @@ fi
 
 "${DEMOS_DIR}"/startKcp.sh \
     --push-mode \
-    --auto-publish-apis=true \
     --resources-to-sync "ingresses.networking.k8s.io,deployments.apps,services" &
 
 wait_command "test -f ${KCP_DATA_DIR}/kcp-started"

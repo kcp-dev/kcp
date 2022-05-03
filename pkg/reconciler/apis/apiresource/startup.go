@@ -25,7 +25,7 @@ import (
 // DefaultOptions are the default options for the apiresource controller.
 func DefaultOptions() *Options {
 	return &Options{
-		AutoPublishAPIs: false,
+		AutoPublishAPIs: true,
 		// Consumed by server instantiation
 		NumThreads: runtime.NumCPU(),
 	}
