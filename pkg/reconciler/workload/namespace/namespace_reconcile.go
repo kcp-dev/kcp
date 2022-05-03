@@ -138,7 +138,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
-	klog.Infof("Patched cluster assignment for %s %s/%s: %q -> %q", gvr, ns.Name, unstr.GetName(), old, new)
+	klog.Infof("Patched cluster assignment for %s %s|%s/%s: %q -> %q", gvr, lclusterName.String(), ns.Name, unstr.GetName(), old, new)
 
 	return nil
 }
