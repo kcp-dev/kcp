@@ -171,42 +171,62 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(ctx, authResourceName,
 		metav1.GetOptions{})
 
-	if errors.IsNotFound(err) {
-		sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
+	switch {
+	case errors.IsNotFound(err):
+		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            authResourceName,
 				OwnerReferences: workloadClusterOwnerReferences,
 			},
-		}, metav1.CreateOptions{})
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to create ServiceAccount: %w", err)
+		}, metav1.CreateOptions{}); err != nil {
+			return "", fmt.Errorf("failed to create ServiceAccount: %w", err)
+		}
+	case err == nil:
+		//Overwrite the ownerref in case of a user changed it
+		sa.OwnerReferences = workloadClusterOwnerReferences
+		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Update(ctx, sa, metav1.UpdateOptions{}); err != nil {
+			return "", fmt.Errorf("failed to update ServiceAccount: %w", err)
+		}
+	default:
+		return "", fmt.Errorf("failed to get the ServiceAccount: %w", err)
 	}
 
 	// Grant the service account cluster-admin on the workspace
 	// TODO(sttts): remove this once syncer workspace access goes through the virtual workspace
-	_, err = kubeClient.RbacV1().ClusterRoleBindings().Get(ctx,
+	subjects := []rbacv1.Subject{{
+		Kind:      "ServiceAccount",
+		Name:      authResourceName,
+		Namespace: namespace,
+	}}
+	roleRef := rbacv1.RoleRef{
+		Kind:     "ClusterRole",
+		Name:     "cluster-admin",
+		APIGroup: "rbac.authorization.k8s.io",
+	}
+	crb, err := kubeClient.RbacV1().ClusterRoleBindings().Get(ctx,
 		authResourceName,
 		metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+	switch {
+	case errors.IsNotFound(err):
+		if _, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            authResourceName,
 				OwnerReferences: workloadClusterOwnerReferences,
 			},
-			Subjects: []rbacv1.Subject{{
-				Kind:      "ServiceAccount",
-				Name:      authResourceName,
-				Namespace: namespace,
-			}},
-			RoleRef: rbacv1.RoleRef{
-				Kind:     "ClusterRole",
-				Name:     "cluster-admin",
-				APIGroup: "rbac.authorization.k8s.io",
-			},
-		}, metav1.CreateOptions{})
-	}
-	if err != nil {
+			Subjects: subjects,
+			RoleRef:  roleRef,
+		}, metav1.CreateOptions{}); err != nil {
+			return "", err
+		}
+	case err == nil:
+		//Overwrite ownerref,subject and roleRef in case a user changed it
+		crb.ObjectMeta.OwnerReferences = workloadClusterOwnerReferences
+		crb.Subjects = subjects
+		crb.RoleRef = roleRef
+		if _, err = kubeClient.RbacV1().ClusterRoleBindings().Update(ctx, crb, metav1.UpdateOptions{}); err != nil {
+			return "", err
+		}
+	default:
 		return "", err
 	}
 
