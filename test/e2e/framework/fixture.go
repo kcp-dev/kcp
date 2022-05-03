@@ -17,9 +17,9 @@ limitations under the License.
 package framework
 
 import (
+	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -290,6 +290,7 @@ type SyncerFixture struct {
 	WorkspaceClusterName logicalcluster.LogicalCluster
 	WorkloadClusterName  string
 	InstallCRDs          func(config *rest.Config, isLogicalCluster bool)
+	LogToConsole         bool // in case of deployed syncer
 }
 
 // SetDefaults ensures a valid configuration even if not all values are explicitly provided.
@@ -391,32 +392,6 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 		syncerID := syncerConfig.ID()
 		t.Cleanup(func() {
-			if useDeployedSyncer {
-				t.Logf("Collecting syncer %s logs", syncerID)
-
-				ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
-				defer cancelFn()
-
-				pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
-				if err != nil {
-					t.Errorf("failed to list pods in %s: %v", syncerID, err)
-				}
-				artifactDir, err := CreateTempDirForTest(t, "artifacts")
-				if err != nil {
-					t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
-				}
-				for _, pod := range pods.Items {
-					t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
-					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
-					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
-					err = ioutil.WriteFile(artifactPath, logs, 0644)
-					if err != nil {
-						t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
-						continue // not fatal
-					}
-				}
-			}
-
 			t.Logf("Deleting syncer resources for logical cluster %q, workload cluster %q", syncerConfig.KCPClusterName, syncerConfig.WorkloadClusterName)
 			err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
 			if err != nil {
@@ -473,6 +448,64 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// The workload cluster becoming ready indicates the syncer is healthy and has
 	// successfully sent a heartbeat to kcp.
 	startedSyncer.WaitForClusterReadyReason(t, ctx, "")
+
+	if useDeployedSyncer {
+		syncerID := syncerConfig.ID()
+
+		// print watch events in syncer namespace. There shouldn't be any.
+		go func() {
+			watch, err := downstreamKubeClient.CoreV1().Events(syncerID).Watch(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+
+			for watchEvent := range watch.ResultChan() {
+				ev, ok := watchEvent.Object.(*corev1.Event)
+				if !ok {
+					t.Logf("unexpected syncer %q watch event: %v", syncerID, watchEvent)
+					continue
+				}
+				t.Logf("syncer %q namespace event: %s: %s (%s)", syncerID, ev.Type, ev.Message, ev.Reason)
+			}
+		}()
+
+		artifactDir, err := CreateTempDirForTest(t, "artifacts")
+		if err != nil {
+			t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
+		}
+
+		// print logs in syncer namespace.
+		// TODO(sttts): handle pod restarts. But as we assume pods won't die, maybe not necessary.
+		pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Errorf("failed to list pods in %s: %v", syncerID, err)
+		}
+		for _, pod := range pods.Items {
+			logs, err := downstreamKubeClient.CoreV1().Pods(syncerID).GetLogs(pod.Name, &corev1.PodLogOptions{Follow: true}).Stream(ctx)
+			if err != nil {
+				t.Errorf("failed to get logs for pod %s in %s: %v", pod.Name, syncerID, err)
+			}
+			r := bufio.NewReader(logs)
+
+			logFilePath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-pod-%s.log", syncerID, pod.Name))
+			logFile, err := os.Create(logFilePath)
+			require.NoError(t, err)
+
+			go func() {
+				defer logFile.Close()
+				for {
+					line, readErr := r.ReadString('\n')
+					if len(line) > 0 || readErr == nil {
+						logFile.WriteString(line) // nolint: errcheck
+						if sf.LogToConsole {
+							t.Logf("syncer %q: %s", syncerID, strings.TrimRight(line, "\n"))
+						}
+					}
+					if readErr != nil {
+						break
+					}
+				}
+			}()
+		}
+	}
 
 	return startedSyncer
 }
