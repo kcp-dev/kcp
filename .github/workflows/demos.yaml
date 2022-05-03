@@ -29,7 +29,7 @@ jobs:
           cd tests
           ../contrib/demo/runDemos.sh -t
       - name: Archive Demo test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: demo-tests
