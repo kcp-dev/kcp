@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -392,11 +391,7 @@ func (c *Controller) processCluster(ctx context.Context, key string) error {
 		// controller. Rescheduling will always happen eventually due
 		// to namespace informer resync.
 
-		clusterName, err := request.ClusterNameFrom(ctx)
-		if err != nil {
-			klog.Errorf("Unable to enqueue namespaces related to WorkloadCluster %s: %v", key, err)
-			return nil
-		}
+		clusterName, _ := clusters.SplitClusterAwareKey(key)
 
 		return c.enqueueNamespaces(clusterName, labels.Everything())
 	} else if err != nil {
