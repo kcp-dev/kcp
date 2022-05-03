@@ -64,7 +64,6 @@ func TestServerArgs() []string {
 // start a test server with the given token auth file.
 func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
 	return []string{
-		"--auto-publish-apis",
 		"--discovery-poll-interval=5s",
 		"--token-auth-file", tokenAuthFile,
 		"--run-virtual-workspaces=true",

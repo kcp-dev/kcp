@@ -71,7 +71,6 @@ fi
 
 "${DEMOS_DIR}"/startKcp.sh \
     --token-auth-file "${DEMO_DIR}"/kcp-tokens \
-    --auto-publish-apis \
     --push-mode \
     --discovery-poll-interval 3s \
     --profiler-address localhost:6060 \

@@ -111,7 +111,6 @@ spec:
         - /kcp
         args:
         - start
-        - --auto-publish-apis
         - --etcd-servers=https://etcd:2379
         - --etcd-keyfile=/etc/etcd/tls/server/tls.key
         - --etcd-certfile=/etc/etcd/tls/server/tls.crt
