@@ -165,8 +165,14 @@ func TestSyncerLifecycle(t *testing.T) {
 		require.Eventually(t, func() bool {
 			deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 			require.NoError(t, err)
-			klog.Info(toYaml(deployment))
-			return expectedAvailableReplicas == deployment.Status.AvailableReplicas
+			ret := expectedAvailableReplicas == deployment.Status.AvailableReplicas
+			if !ret {
+				klog.Info(toYaml(deployment))
+				pods, err := downstreamKubeClient.CoreV1().Pods(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
+				require.NoError(t, err)
+				klog.Info(toYaml(pods))
+			}
+			return ret
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s didn't get available", downstreamNamespaceName, upstreamDeployment.Name)
 	}
 
