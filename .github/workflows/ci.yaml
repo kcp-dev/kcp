@@ -150,7 +150,7 @@ jobs:
       - run: |-
           export LOG_DIR=/tmp/e2e/shared-server/artifacts &&
           mkdir -p ${LOG_DIR} &&
-          NO_GORUN=1 ./bin/test-server \
+          NO_GORUN=1 ./bin/test-server -v 2 \
           > ${LOG_DIR}/kcp.log 2>&1 &
           echo $! > /tmp/kcp.pid
 
