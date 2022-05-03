@@ -42,6 +42,7 @@ import (
 //
 func main() {
 	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
+	commandLine = append(commandLine, os.Args[1:]...)
 	log.Printf("running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.Command(commandLine[0], commandLine[1:]...)
