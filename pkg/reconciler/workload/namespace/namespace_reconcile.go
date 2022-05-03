@@ -109,7 +109,8 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	// Align the resource's assigned cluster with the namespace's assigned
 	// cluster.
 	// First, get the namespace object (from the cached lister).
-	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, unstr.GetNamespace()))
+	nsKey := clusters.ToClusterAwareKey(lclusterName, unstr.GetNamespace())
+	ns, err := c.namespaceLister.Get(nsKey)
 	if err != nil {
 		return err
 	}
@@ -121,6 +122,16 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return nil
 	}
 
+	if ns.Labels[ClusterLabel] == "" {
+		klog.V(2).Infof("Marking namespace %s as having resources that need scheduling (from gvr %q, %s|%s/%s", nsKey, *gvr, logicalcluster.From(unstr), unstr.GetNamespace(), unstr.GetName())
+
+		c.namespaceContentsEnqueuedForLock.Lock()
+		c.namespacesNeedingResourceScheduling.Insert(nsKey)
+		c.namespaceContentsEnqueuedForLock.Unlock()
+
+		return nil
+	}
+
 	lbls := unstr.GetLabels()
 	if lbls == nil {
 		lbls = map[string]string{}
@@ -128,12 +139,8 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	old, new := lbls[ClusterLabel], ns.Labels[ClusterLabel]
 
-	klog.Infof("ANDY comparing %s %s|%s/%s clusterlabel %q to ns clusterlabel %q",
-		gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName(), old, new)
-
 	if old == new {
 		// Already assigned to the right cluster.
-		klog.Infof("ANDY no-op %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
 		return nil
 	}
 
@@ -263,10 +270,20 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 // enqueue. This ensures that the contents of a namespace eventually have the
 // same scheduling as their containing namespace.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
-	lastScheduling, previouslyEnqueued := c.namepaceContentsEnqueuedFor(ns)
-	if previouslyEnqueued && lastScheduling == ns.Labels[ClusterLabel] {
-		klog.Infof("ANDY enqueueResourcesForNamespace short-circuiting %s|%s", logicalcluster.From(ns), ns.Name)
-		return nil
+	nsKey := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+
+	c.namespaceContentsEnqueuedForLock.RLock()
+	resourcesNeedScheduling := c.namespacesNeedingResourceScheduling.Has(nsKey)
+	c.namespaceContentsEnqueuedForLock.RUnlock()
+
+	if !resourcesNeedScheduling {
+		lastScheduling, previouslyEnqueued := c.namepaceContentsEnqueuedFor(ns)
+		if previouslyEnqueued && lastScheduling == ns.Labels[ClusterLabel] {
+			klog.V(2).Infof("Not enqueuing resources for namespace %s because its placement hasn't changed", nsKey)
+			return nil
+		}
+	} else {
+		klog.V(2).Infof("Namespace %s has resources that need scheduling even though its placement hasn't changed", nsKey)
 	}
 
 	// TODO(marun) Consider only enqueueing items here if they're not already enqueued.
@@ -312,9 +329,12 @@ func (c *Controller) namepaceContentsEnqueuedFor(ns *corev1.Namespace) (string, 
 // enqueued.
 func (c *Controller) setNamepaceContentsEnqueuedFor(ns *corev1.Namespace) {
 	key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+
 	c.namespaceContentsEnqueuedForLock.Lock()
 	defer c.namespaceContentsEnqueuedForLock.Unlock()
+
 	c.namespaceContentsEnqueuedForMap[key] = ns.Labels[ClusterLabel]
+	c.namespacesNeedingResourceScheduling.Delete(key)
 }
 
 // clusterLabelPatchBytes returns JSON patch bytes expressing an operation

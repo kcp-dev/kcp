@@ -89,7 +89,8 @@ func NewController(
 		namespaceLister: namespaceLister,
 		kubeClient:      kubeClusterClient,
 
-		namespaceContentsEnqueuedForMap: map[string]string{},
+		namespaceContentsEnqueuedForMap:     map[string]string{},
+		namespacesNeedingResourceScheduling: sets.NewString(),
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -151,8 +152,9 @@ type Controller struct {
 
 	// Mapping of namespace key to the last scheduling decision for
 	// which contained resources were enqueued for.
-	namespaceContentsEnqueuedForMap  map[string]string
-	namespaceContentsEnqueuedForLock sync.RWMutex
+	namespaceContentsEnqueuedForMap     map[string]string
+	namespaceContentsEnqueuedForLock    sync.RWMutex
+	namespacesNeedingResourceScheduling sets.String
 }
 
 func filterResource(obj interface{}) bool {
