@@ -60,6 +60,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	syncerFixture := framework.SyncerFixture{
 		UpstreamServer:       upstreamServer,
 		WorkspaceClusterName: wsClusterName,
+		LogToConsole:         true,
 	}.Start(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
