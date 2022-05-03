@@ -127,8 +127,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 
 	old, new := lbls[ClusterLabel], ns.Labels[ClusterLabel]
+
+	klog.Infof("ANDY comparing %s %s|%s/%s clusterlabel %q to ns clusterlabel %q",
+		gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName(), old, new)
+
 	if old == new {
 		// Already assigned to the right cluster.
+		klog.Infof("ANDY no-op %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
 		return nil
 	}
 
@@ -167,7 +172,7 @@ func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionRe
 // will succeed without error if a cluster is assigned or if there are no viable clusters
 // to assign to. The condition of not being scheduled to a cluster will be reflected in
 // the namespace's status rather than by returning an error.
-func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) error {
+func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) (*corev1.Namespace, error) {
 	oldPClusterName := ns.Labels[ClusterLabel]
 
 	scheduler := namespaceScheduler{
@@ -176,11 +181,11 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 	}
 	newPClusterName, err := scheduler.AssignCluster(ns)
 	if err != nil {
-		return err
+		return ns, err
 	}
 
 	if oldPClusterName == newPClusterName {
-		return nil
+		return ns, nil
 	}
 
 	klog.Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
@@ -188,35 +193,34 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 	patchType, patchBytes := clusterLabelPatchBytes(newPClusterName)
 	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{})
-	if err == nil {
-		// Update the label to enable the caller to detect a scheduling change.
-		ns.Labels[ClusterLabel] = patchedNamespace.Labels[ClusterLabel]
+	if err != nil {
+		return ns, err
 	}
 
-	return err
+	return patchedNamespace, nil
 }
 
 // ensureScheduledStatus ensures the status of the given namespace reflects the
 // namespace's scheduled state.
-func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Namespace) error {
+func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Namespace) (*corev1.Namespace, error) {
 	updatedNs := setScheduledCondition(ns)
 
 	if equality.Semantic.DeepEqual(ns.Status, updatedNs.Status) {
-		return nil
+		return ns, nil
 	}
 
 	patchBytes, err := statusPatchBytes(ns, updatedNs)
 	if err != nil {
-		return err
+		return ns, err
 	}
 
-	_, err = c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
+	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
-		return fmt.Errorf("failed to patch status on namespace %s|%s: %w", ns.ClusterName, ns.Name, err)
+		return ns, fmt.Errorf("failed to patch status on namespace %s|%s: %w", ns.ClusterName, ns.Name, err)
 	}
 
-	return nil
+	return patchedNamespace, nil
 }
 
 // reconcileNamespace is responsible for assigning a namespace to a cluster, if
@@ -240,11 +244,13 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 		ns.Labels = map[string]string{}
 	}
 
-	if err := c.ensureScheduled(ctx, ns); err != nil {
+	ns, err = c.ensureScheduled(ctx, ns)
+	if err != nil {
 		return err
 	}
 
-	if err := c.ensureScheduledStatus(ctx, ns); err != nil {
+	ns, err = c.ensureScheduledStatus(ctx, ns)
+	if err != nil {
 		return err
 	}
 
@@ -259,6 +265,7 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	lastScheduling, previouslyEnqueued := c.namepaceContentsEnqueuedFor(ns)
 	if previouslyEnqueued && lastScheduling == ns.Labels[ClusterLabel] {
+		klog.Infof("ANDY enqueueResourcesForNamespace short-circuiting %s|%s", logicalcluster.From(ns), ns.Name)
 		return nil
 	}
 
