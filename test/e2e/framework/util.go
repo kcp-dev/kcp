@@ -40,10 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/discovery"
-	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -198,16 +195,14 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		gvk := gvks[0]
 		data.GetObjectKind().SetGroupVersionKind(gvk)
 
-		cfg := server.DefaultConfig(t) // TODO(sttts): this doesn't make sense: discovery from a random workspace
-		discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
-		require.NoError(t, err, "could not get discovery client for server")
+		group := gvk.Group
+		if group == "" {
+			group = "core"
+		}
 
-		scopedDiscoveryClient := discoveryClient.WithCluster(logicalcluster.From(accessor))
-		mapper := restmapper.NewDeferredDiscoveryRESTMapper(cacheddiscovery.NewMemCacheClient(scopedDiscoveryClient))
-		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		require.NoError(t, err, "could not get REST mapping for artifact's GVK")
+		gvkForFilename := fmt.Sprintf("%s_%s", group, gvk.Kind)
 
-		file := path.Join(dir, fmt.Sprintf("%s_%s.yaml", mapping.Resource.GroupResource().String(), accessor.GetName()))
+		file := path.Join(dir, fmt.Sprintf("%s-%s.yaml", gvkForFilename, accessor.GetName()))
 		t.Logf("saving artifact to %s", file)
 
 		serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
