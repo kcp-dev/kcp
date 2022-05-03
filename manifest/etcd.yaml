@@ -2,6 +2,54 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
+  name: etcd-client-ca
+spec:
+  isCA: true
+  commonName: etcd-client-bootstrap
+  secretName: etcd-client-bootstrap-secret
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: kcp-pki-bootstrap
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-peer-ca
+spec:
+  isCA: true
+  commonName: etcd-peer-bootstrap
+  secretName: etcd-peer-bootstrap-secret
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: kcp-pki-bootstrap
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-client-issuer
+spec:
+  ca:
+    secretName: etcd-client-bootstrap-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-peer-issuer
+spec:
+  ca:
+    secretName: etcd-peer-bootstrap-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
   name: etcd
 spec:
   secretName: etcd-cert
@@ -29,7 +77,7 @@ spec:
   ipAddresses:
     - 0.0.0.0
   issuerRef:
-    name: kcp
+    name: etcd-client-issuer
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -60,7 +108,7 @@ spec:
   ipAddresses:
     - 0.0.0.0
   issuerRef:
-    name: kcp
+    name: etcd-peer-issuer
 ---
 apiVersion: v1
 kind: Service

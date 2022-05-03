@@ -30,14 +30,60 @@ spec:
     size: 2048
   usages:
     - server auth
-    - client auth
   dnsNames:
     - kcp
-    - "*openshiftapps.com"
-  ipAddresses:
-    - 0.0.0.0
+    - localhost
+    - "*.openshiftapps.com"
   issuerRef:
-    name: kcp
+    name: kcp-server-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kcp-ca
+spec:
+  isCA: true
+  commonName: kcp-ca
+  secretName: kcp-ca
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: kcp-pki-bootstrap
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kcp-requestheader-client-ca
+spec:
+  isCA: true
+  commonName: kcp-requestheader-client-ca
+  secretName: kcp-requestheader-client-ca
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: kcp-pki-bootstrap
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kcp-server-issuer
+spec:
+  ca:
+    secretName: kcp-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kcp-requestheader-client-issuer
+spec:
+  ca:
+    secretName: kcp-requestheader-client-ca
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -57,15 +103,12 @@ spec:
     size: 2048
   usages:
     - server auth
-    - client auth
   dnsNames:
     - kcp
     - localhost
-    - "*openshiftapps.com"
-  ipAddresses:
-    - 0.0.0.0
+    - "*.openshiftapps.com"
   issuerRef:
-    name: kcp
+    name: kcp-server-issuer
 ---
 apiVersion: v1
 kind: Service
@@ -117,6 +160,9 @@ spec:
         - --etcd-cafile=/etc/etcd/tls/server/ca.crt
         - --tls-private-key-file=/etc/kcp/tls/server/tls.key
         - --tls-cert-file=/etc/kcp/tls/server/tls.crt
+        - --requestheader-client-ca-file=/etc/kcp/tls/requestheader-client/ca.crt
+        - --requestheader-username-headers=X-Remote-User
+        - --requestheader-group-headers=X-Remote-Group
         - --root-directory=/etc/kcp/config
         - --run-virtual-workspaces=false
         - --virtual-workspace-address=https://$(EXTERNAL_HOSTNAME)
@@ -159,6 +205,8 @@ spec:
           mountPath: /etc/etcd/tls/server
         - name: kcp-certs
           mountPath: /etc/kcp/tls/server
+        - name: kcp-requestheader-client-ca
+          mountPath: /etc/kcp/tls/requestheader-client
         - name: kubeconfig
           mountPath: /etc/kcp/config
       - name: virtual-workspaces
@@ -177,6 +225,9 @@ spec:
           --authentication-skip-lookup
           --tls-private-key-file=/etc/kcp/tls/server/tls.key
           --tls-cert-file=/etc/kcp/tls/server/tls.crt
+          --requestheader-client-ca-file=/etc/kcp/tls/requestheader-client/ca.crt
+          --requestheader-username-headers=X-Remote-User
+          --requestheader-group-headers=X-Remote-Group
           --secure-port=6444
         livenessProbe:
           failureThreshold: 3
@@ -204,6 +255,8 @@ spec:
         volumeMounts:
         - name: virtual-workspaces-certs
           mountPath: /etc/kcp/tls/server
+        - name: kcp-requestheader-client-ca
+          mountPath: /etc/kcp/tls/requestheader-client
         - name: kubeconfig
           mountPath: /etc/kcp/config
       volumes:
@@ -216,6 +269,12 @@ spec:
       - name: virtual-workspaces-certs
         secret:
           secretName: kcp-virtual-workspaces-cert
+      - name: kcp-requestheader-client-ca
+        secret:
+          secretName: kcp-requestheader-client-ca
+          items:
+          - key: ca.crt
+            path: ca.crt
       - name: kubeconfig
         persistentVolumeClaim:
           claimName: kcp
