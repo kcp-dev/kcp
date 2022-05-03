@@ -57,15 +57,11 @@ spec:
                   workloads scheduled to the cluster are not evicted.
                 format: date-time
                 type: string
-              kubeconfig:
-                type: string
               unschedulable:
                 default: false
                 description: Unschedulable controls cluster schedulability of new
                   workloads. By default, cluster is schedulable.
                 type: boolean
-            required:
-            - kubeconfig
             type: object
           status:
             description: Status communicates the observed state.

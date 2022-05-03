@@ -44,7 +44,6 @@ import (
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -282,16 +281,6 @@ type WorkloadClusterOption func(cluster *workloadv1alpha1.WorkloadCluster)
 // CreateWorkloadCluster creates a new WorkloadCluster resource with
 // the desired name on a given server.
 func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer, opts ...WorkloadClusterOption) (*workloadv1alpha1.WorkloadCluster, error) {
-	config, err := pcluster.RawConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get server config: %w", err)
-	}
-
-	// Assume the supplied configuration does not need to be modified for use.
-	bs, err := clientcmd.Write(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize server config: %w", err)
-	}
 
 	// The name of the pcluster could be the name of a logical cluster
 	// which is of the form `org:workspace`. Since `:` isn't allowed
@@ -304,12 +293,13 @@ func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpcl
 
 	cluster := &workloadv1alpha1.WorkloadCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: safeClusterName},
-		Spec:       workloadv1alpha1.WorkloadClusterSpec{KubeConfig: string(bs)},
+		Spec:       workloadv1alpha1.WorkloadClusterSpec{},
 	}
 	for _, opt := range opts {
 		opt(cluster)
 	}
 
+	var err error
 	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, cluster, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster: %w", err)
