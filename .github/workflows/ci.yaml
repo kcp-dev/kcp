@@ -30,10 +30,10 @@ jobs:
     name: boilerplate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: kcp
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: kubernetes/repo-infra
           ref: master
@@ -47,7 +47,7 @@ jobs:
     name: imports
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: kcp
       - uses: actions/setup-go@v2
@@ -66,7 +66,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v2
         with:
           go-version: v1.17
@@ -77,7 +77,7 @@ jobs:
     name: codegen
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v2
         with:
           go-version: v1.17
@@ -90,7 +90,7 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v2
         with:
           go-version: v1.17
@@ -101,7 +101,7 @@ jobs:
     name: e2e
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v2
         with:
           go-version: v1.17
@@ -117,7 +117,7 @@ jobs:
     name: e2e-multiple-runs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v2
         with:
           go-version: v1.17
@@ -133,7 +133,7 @@ jobs:
     name: e2e-shared-server
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v2
         with:
           go-version: v1.17
