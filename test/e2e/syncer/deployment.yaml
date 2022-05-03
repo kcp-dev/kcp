@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: busybox
-          image: bitnami/kubectl:latest
+          image: gcr.io/google-containers/busybox:latest
           command:
             - /bin/sh
             - -ec
