@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
@@ -88,8 +87,6 @@ func NewController(
 		clusterLister:   clusterLister,
 		namespaceLister: namespaceLister,
 		kubeClient:      kubeClusterClient,
-
-		namespaceContentsEnqueuedForMap: map[string]string{},
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -103,17 +100,7 @@ func NewController(
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueNamespace(obj) },
 			UpdateFunc: func(_, obj interface{}) { c.enqueueNamespace(obj) },
-			DeleteFunc: func(obj interface{}) {
-				// Ensure the scheduling cache entry for the namespace is removed
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					runtime.HandleError(err)
-					return
-				}
-				c.namespaceContentsEnqueuedForLock.Lock()
-				defer c.namespaceContentsEnqueuedForLock.Unlock()
-				delete(c.namespaceContentsEnqueuedForMap, key)
-			},
+			DeleteFunc: nil, // Nothing to do.
 		},
 	})
 
@@ -148,11 +135,6 @@ type Controller struct {
 	workspaceLister tenancylisters.ClusterWorkspaceLister
 	kubeClient      kubernetes.ClusterInterface
 	ddsif           informer.DynamicDiscoverySharedInformerFactory
-
-	// Mapping of namespace key to the last scheduling decision for
-	// which contained resources were enqueued for.
-	namespaceContentsEnqueuedForMap  map[string]string
-	namespaceContentsEnqueuedForLock sync.RWMutex
 }
 
 func filterResource(obj interface{}) bool {
