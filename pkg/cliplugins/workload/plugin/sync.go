@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -32,12 +33,14 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
@@ -136,6 +139,9 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 		workloadClusterName,
 		metav1.GetOptions{},
 	)
+	if err != nil && !errors.IsNotFound(err) {
+		return "", fmt.Errorf("failed to get workloadcluster %s: %w", workloadClusterName, err)
+	}
 	if errors.IsNotFound(err) {
 		// Create the workload cluster that will serve as a point of coordination between
 		// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
@@ -148,9 +154,9 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 			},
 			metav1.CreateOptions{},
 		)
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to create WorkloadCluster: %w", err)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return "", fmt.Errorf("failed to create workloadcluster %s: %w", workloadClusterName, err)
+		}
 	}
 
 	kubeClient, err := kubernetesclientset.NewForConfig(config)
@@ -168,8 +174,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	// Create a service account for the syncer with the necessary permissions. It will
 	// be owned by the workload cluster to ensure cleanup.
 	authResourceName := SyncerAuthResourcePrefix + workloadClusterName
-	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(ctx, authResourceName,
-		metav1.GetOptions{})
+	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(ctx, authResourceName, metav1.GetOptions{})
 
 	switch {
 	case errors.IsNotFound(err):
@@ -178,17 +183,42 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 				Name:            authResourceName,
 				OwnerReferences: workloadClusterOwnerReferences,
 			},
-		}, metav1.CreateOptions{}); err != nil {
-			return "", fmt.Errorf("failed to create ServiceAccount: %w", err)
+		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+			return "", fmt.Errorf("failed to create ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
 		}
 	case err == nil:
-		//Overwrite the ownerref in case of a user changed it
-		sa.ObjectMeta.OwnerReferences = workloadClusterOwnerReferences
-		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Update(ctx, sa, metav1.UpdateOptions{}); err != nil {
-			return "", fmt.Errorf("failed to update ServiceAccount: %w", err)
+		oldData, err := json.Marshal(corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             sa.UID,
+				ResourceVersion: sa.ResourceVersion,
+				OwnerReferences: sa.OwnerReferences,
+			},
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to Marshal old data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+		}
+
+		newData, err := json.Marshal(corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             sa.UID,
+				ResourceVersion: sa.ResourceVersion,
+				OwnerReferences: mergeOwnerReference(sa.ObjectMeta.OwnerReferences, workloadClusterOwnerReferences),
+			},
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to Marshal new data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+		}
+
+		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return "", fmt.Errorf("failed to create patch for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+		}
+
+		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Patch(ctx, sa.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			return "", fmt.Errorf("failed to patch ServiceAccount %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
 		}
 	default:
-		return "", fmt.Errorf("failed to get the ServiceAccount: %w", err)
+		return "", fmt.Errorf("failed to get the ServiceAccount %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
 	}
 
 	// Grant the service account cluster-admin on the workspace
@@ -215,16 +245,43 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 			},
 			Subjects: subjects,
 			RoleRef:  roleRef,
-		}, metav1.CreateOptions{}); err != nil {
+		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
 			return "", err
 		}
 	case err == nil:
-		//Overwrite ownerref,subject and roleRef in case a user changed it
-		crb.ObjectMeta.OwnerReferences = workloadClusterOwnerReferences
-		crb.Subjects = subjects
-		crb.RoleRef = roleRef
-		if _, err = kubeClient.RbacV1().ClusterRoleBindings().Update(ctx, crb, metav1.UpdateOptions{}); err != nil {
-			return "", err
+		oldData, err := json.Marshal(rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             crb.UID,
+				ResourceVersion: crb.ResourceVersion,
+				OwnerReferences: crb.OwnerReferences,
+			},
+			Subjects: crb.Subjects,
+			RoleRef:  crb.RoleRef,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to Marshal old data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
+		}
+
+		newData, err := json.Marshal(rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             crb.UID,
+				ResourceVersion: crb.ResourceVersion,
+				OwnerReferences: mergeOwnerReference(crb.OwnerReferences, workloadClusterOwnerReferences),
+			},
+			Subjects: subjects,
+			RoleRef:  roleRef,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to Marshal new data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
+		}
+
+		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return "", fmt.Errorf("failed to create patch for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
+		}
+
+		if _, err = kubeClient.RbacV1().ClusterRoleBindings().Patch(ctx, crb.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			return "", fmt.Errorf("failed to patch ClusterRoleBinding %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
 		}
 	default:
 		return "", err
@@ -259,6 +316,29 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	}
 
 	return string(saToken), nil
+}
+
+// mergeOwnerReference: merge a slice of ownerReference with a given ownerReferences
+func mergeOwnerReference(ownerReferences, newOwnerReferences []metav1.OwnerReference) []metav1.OwnerReference {
+	merged := []metav1.OwnerReference{}
+
+	merged = append(merged, ownerReferences...)
+
+	for _, ownerReference := range newOwnerReferences {
+		found := false
+		for _, mergedOwnerReference := range merged {
+			if mergedOwnerReference.UID == ownerReference.UID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			merged = append(merged, ownerReference)
+		}
+	}
+
+	return merged
+
 }
 
 // templateInput represents the external input required to render the resources to
