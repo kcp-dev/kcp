@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
@@ -130,13 +131,17 @@ type Options struct {
 }
 
 func NewDefaultOptions() *Options {
+	// Default to -v=2
+	logs := logs.NewOptions()
+	logs.Config.Verbosity = config.VerbosityLevel(2)
+
 	return &Options{
 		Kubeconfig:        "",
 		Context:           "",
 		EnvoyXDSPort:      18000,
 		EnvoyListenerPort: 80,
 		Domain:            "kcp-apps.127.0.0.1.nip.io",
-		Logs:              logs.NewOptions(),
+		Logs:              logs,
 	}
 }
 
