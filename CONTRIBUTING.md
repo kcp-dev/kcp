@@ -116,7 +116,10 @@ If you find yourself working on something that is unplanned and/or untracked (i.
 - `clusterName` is a kcp term. It is **NOT** a name of a physical cluster. If we mean the latter, use `pclusterName` or similar.
 - In the syncer: upstream = kcp, downstream = pcluster. Depending on direction, "from" and "to" can have different meanings. `source` and `sink` are synonyms for upstream and downstream.
 - Qualify "namespace"s in code that handle up- and downstream, e.g. `upstreamNamespace`, `downstreamNamespace`, and also `upstreamObj`, `downstreamObj`.
-- When logging, use the `fmt.Sprintf("%s|%s/%s", clusterName, namespace, name` syntax.
+- Logging:
+  - Use the `fmt.Sprintf("%s|%s/%s", clusterName, namespace, name` syntax.
+  - Default log-level is 2.
+  - Controllers should generally log (a) **one** line (not more) non-error progress per item with `klog.V(2)` (b) actions like create/update/delete via `klog.V(3)` and (c) skipped actions, i.e. what was not done for reasons via `klog.V(4)`.
 - When orgs land: `clusterName` or `fooClusterNane` is always the fully qualified value that you can stick into obj.ObjectMeta.ClusterName. It's not necessarily the `(Cluster)Workspace.Name` from the object. For the latter, use `workspaceName` or `orgName`.
 - Generally do `klog.Errorf` or `return err`, but not both together. If you need to make it clear where an error came from, you can wrap it.
 - New features start under a feature-gate (`--feature-gate GateName=true`). (At some point in the future), new feature-gates are off by default *at least* until the APIs are promoted to beta (we are not there before we have reached MVP).
