@@ -242,8 +242,9 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 			},
 		})
 		go inf.Run(ctx.Done())
+
+		d.gvrs[gvr] = struct{}{}
 	}
 
-	d.gvrs = latest
 	return nil
 }
