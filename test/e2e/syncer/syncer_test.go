@@ -197,19 +197,15 @@ func TestSyncWorkload(t *testing.T) {
 	require.NoError(t, err)
 	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName)
 
-	framework.RunKcpCliPlugin(t, kubeconfigPath, []string{
+	subCommand := []string{
 		"workload",
 		"sync",
 		workloadClusterName,
 		"--syncer-image",
 		"ghcr.io/kcp-dev/kcp/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:41ca72b",
-	})
+	}
 
-	framework.RunKcpCliPlugin(t, kubeconfigPath, []string{
-		"workload",
-		"sync",
-		workloadClusterName,
-		"--syncer-image",
-		"ghcr.io/kcp-dev/kcp/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:41ca72b",
-	})
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
 }
