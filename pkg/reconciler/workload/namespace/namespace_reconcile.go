@@ -127,13 +127,8 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 
 	old, new := lbls[ClusterLabel], ns.Labels[ClusterLabel]
-
-	klog.Infof("ANDY comparing %s %s|%s/%s clusterlabel %q to ns clusterlabel %q",
-		gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName(), old, new)
-
 	if old == new {
 		// Already assigned to the right cluster.
-		klog.Infof("ANDY no-op %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
 		return nil
 	}
 
