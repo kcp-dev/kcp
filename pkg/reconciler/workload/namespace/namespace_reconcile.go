@@ -289,10 +289,10 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 		}
 
 		if len(enqueuedResources) > 0 {
-			if len(enqueuedResources) < 10 {
+			if len(enqueuedResources) == 10 {
 				enqueuedResources = append(enqueuedResources, "...")
 			}
-			klog.V(2).Infof("Enqueuing some %s in namespace %s|%s to schedule to %q: %s, ...", gvr, ns.ClusterName, ns.Name, nsLocation, strings.Join(enqueuedResources, ","))
+			klog.V(2).Infof("Enqueuing some %s in namespace %s|%s to schedule to %q: %s", gvr, ns.ClusterName, ns.Name, nsLocation, strings.Join(enqueuedResources, ","))
 		}
 	}
 
