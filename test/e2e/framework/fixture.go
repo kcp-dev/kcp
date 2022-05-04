@@ -32,11 +32,15 @@ import (
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 	"github.com/stretchr/testify/require"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -44,6 +48,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -183,6 +188,10 @@ func LogToConsoleEnvSet() bool {
 	return inProcess
 }
 
+func preserveTestResources() bool {
+	return os.Getenv("PRESERVE") != ""
+}
+
 func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName logicalcluster.LogicalCluster) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -202,6 +211,10 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	require.NoError(t, err, "failed to create organization workspace")
 
 	t.Cleanup(func() {
+		if preserveTestResources() {
+			return
+		}
+
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
@@ -257,6 +270,10 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 	require.NoError(t, err, "failed to create workspace")
 
 	t.Cleanup(func() {
+		if preserveTestResources() {
+			return
+		}
+
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
@@ -385,35 +402,86 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
-	if useDeployedSyncer {
-		// Ensure cleanup of pcluster resources
+	artifactDir, err := CreateTempDirForTest(t, "artifacts")
+	if err != nil {
+		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
+	}
 
+	// collect both in deployed and in-process mode
+	t.Cleanup(func() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		defer cancelFn()
+
+		t.Logf("Collecting imported resource info")
+		upstreamCfg := sf.UpstreamServer.DefaultConfig(t)
+
+		gather := func(client dynamic.Interface, gvr schema.GroupVersionResource) {
+			resourceClient := client.Resource(gvr)
+
+			t.Logf("gathering %q", gvr)
+			list, err := resourceClient.List(ctx, metav1.ListOptions{})
+			if err != nil {
+				// Don't fail the test
+				t.Logf("Error gathering %s: %v", gvr, err)
+				return
+			}
+
+			t.Logf("got %d items", len(list.Items))
+
+			for i := range list.Items {
+				item := list.Items[i]
+				sf.UpstreamServer.Artifact(t, func() (runtime.Object, error) {
+					return &item, nil
+				})
+			}
+		}
+
+		upstreamDynamic, err := dynamic.NewClusterForConfig(upstreamCfg)
+		require.NoError(t, err, "error creating upstream dynamic client")
+
+		downstreamDynamic, err := dynamic.NewForConfig(downstreamConfig)
+		require.NoError(t, err, "error creating downstream dynamic client")
+
+		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
+		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
+		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), corev1.SchemeGroupVersion.WithResource("namespaces"))
+		gather(downstreamDynamic, corev1.SchemeGroupVersion.WithResource("namespaces"))
+		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), appsv1.SchemeGroupVersion.WithResource("deployments"))
+		gather(downstreamDynamic, appsv1.SchemeGroupVersion.WithResource("deployments"))
+	})
+
+	if useDeployedSyncer {
 		syncerID := syncerConfig.ID()
 		t.Cleanup(func() {
-			if useDeployedSyncer {
-				t.Logf("Collecting syncer %s logs", syncerID)
+			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+			defer cancelFn()
 
-				ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
-				defer cancelFn()
-
+			// collect syncer logs
+			t.Logf("Collecting syncer pod logs")
+			func() {
+				t.Logf("Listing downstream pods in namespace %s", syncerID)
 				pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
 				if err != nil {
-					t.Errorf("failed to list pods in %s: %v", syncerID, err)
+					t.Logf("failed to list pods in %s: %v", syncerID, err)
+					return
 				}
-				artifactDir, err := CreateTempDirForTest(t, "artifacts")
-				if err != nil {
-					t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
-				}
+
 				for _, pod := range pods.Items {
 					t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
 					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
+
 					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
+
 					err = ioutil.WriteFile(artifactPath, logs, 0644)
 					if err != nil {
 						t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
 						continue // not fatal
 					}
 				}
+			}()
+
+			if preserveTestResources() {
+				return
 			}
 
 			t.Logf("Deleting syncer resources for logical cluster %q, workload cluster %q", syncerConfig.KCPClusterName, syncerConfig.WorkloadClusterName)
@@ -455,10 +523,8 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				}
 			}
 		})
-
 	} else {
 		// Start an in-process syncer
-
 		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
 		require.NoError(t, err, "syncer failed to start")
 	}

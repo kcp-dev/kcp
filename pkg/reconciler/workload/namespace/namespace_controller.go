@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
@@ -32,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -89,8 +87,6 @@ func NewController(
 		clusterLister:   clusterLister,
 		namespaceLister: namespaceLister,
 		kubeClient:      kubeClusterClient,
-
-		namespaceContentsEnqueuedForMap: map[string]string{},
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -104,17 +100,7 @@ func NewController(
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueNamespace(obj) },
 			UpdateFunc: func(_, obj interface{}) { c.enqueueNamespace(obj) },
-			DeleteFunc: func(obj interface{}) {
-				// Ensure the scheduling cache entry for the namespace is removed
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					runtime.HandleError(err)
-					return
-				}
-				c.namespaceContentsEnqueuedForLock.Lock()
-				defer c.namespaceContentsEnqueuedForLock.Unlock()
-				delete(c.namespaceContentsEnqueuedForMap, key)
-			},
+			DeleteFunc: nil, // Nothing to do.
 		},
 	})
 
@@ -149,11 +135,6 @@ type Controller struct {
 	workspaceLister tenancylisters.ClusterWorkspaceLister
 	kubeClient      kubernetes.ClusterInterface
 	ddsif           informer.DynamicDiscoverySharedInformerFactory
-
-	// Mapping of namespace key to the last scheduling decision for
-	// which contained resources were enqueued for.
-	namespaceContentsEnqueuedForMap  map[string]string
-	namespaceContentsEnqueuedForLock sync.RWMutex
 }
 
 func filterResource(obj interface{}) bool {
@@ -392,11 +373,7 @@ func (c *Controller) processCluster(ctx context.Context, key string) error {
 		// controller. Rescheduling will always happen eventually due
 		// to namespace informer resync.
 
-		clusterName, err := request.ClusterNameFrom(ctx)
-		if err != nil {
-			klog.Errorf("Unable to enqueue namespaces related to WorkloadCluster %s: %v", key, err)
-			return nil
-		}
+		clusterName, _ := clusters.SplitClusterAwareKey(key)
 
 		return c.enqueueNamespaces(clusterName, labels.Everything())
 	} else if err != nil {
