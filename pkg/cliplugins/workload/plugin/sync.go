@@ -190,13 +190,11 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	case err == nil:
 		oldData, err := json.Marshal(corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
-				UID:             sa.UID,
-				ResourceVersion: sa.ResourceVersion,
 				OwnerReferences: sa.OwnerReferences,
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to Marshal old data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal old data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
 		}
 
 		newData, err := json.Marshal(corev1.ServiceAccount{
@@ -207,7 +205,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to Marshal new data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal new data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
@@ -252,15 +250,13 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	case err == nil:
 		oldData, err := json.Marshal(rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				UID:             crb.UID,
-				ResourceVersion: crb.ResourceVersion,
 				OwnerReferences: crb.OwnerReferences,
 			},
 			Subjects: crb.Subjects,
 			RoleRef:  crb.RoleRef,
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to Marshal old data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal old data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
 		}
 
 		newData, err := json.Marshal(rbacv1.ClusterRoleBinding{
@@ -273,7 +269,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 			RoleRef:  roleRef,
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to Marshal new data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal new data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
