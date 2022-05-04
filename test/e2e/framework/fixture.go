@@ -331,7 +331,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := sf.UpstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := writeLogicalClusterConfig(t, upstreamRawConfig, sf.WorkspaceClusterName)
+	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, sf.WorkspaceClusterName)
 
 	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
 
@@ -585,10 +585,10 @@ func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx cont
 	}
 }
 
-// writeLogicalClusterConfig creates a logical cluster config for the given config and
+// WriteLogicalClusterConfig creates a logical cluster config for the given config and
 // cluster name and writes it to the test's artifact path. Useful for configuring the
 // workspace plugin with --kubeconfig.
-func writeLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clusterName logicalcluster.LogicalCluster) (clientcmd.ClientConfig, string) {
+func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clusterName logicalcluster.LogicalCluster) (clientcmd.ClientConfig, string) {
 	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName)
 	artifactDir, err := CreateTempDirForTest(t, "artifacts")
 	require.NoError(t, err)

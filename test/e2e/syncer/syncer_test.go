@@ -179,3 +179,33 @@ func toYaml(obj interface{}) string {
 	}
 	return string(b)
 }
+
+func TestSyncWorkload(t *testing.T) {
+	t.Parallel()
+
+	workloadClusterName := "test-wlc"
+	upstreamServer := framework.SharedKcpServer(t)
+
+	t.Log("Creating an organization")
+	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
+
+	t.Log("Creating a workspace")
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
+
+	// Write the upstream logical cluster config to disk for the workspace plugin
+	upstreamRawConfig, err := upstreamServer.RawConfig()
+	require.NoError(t, err)
+	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName)
+
+	subCommand := []string{
+		"workload",
+		"sync",
+		workloadClusterName,
+		"--syncer-image",
+		"ghcr.io/kcp-dev/kcp/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:41ca72b",
+	}
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
+}
