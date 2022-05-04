@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -50,6 +51,10 @@ type SubCommandOptions interface {
 
 func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 	opts := options.NewOptions()
+
+	// Default to -v=2
+	opts.Logs.Config.Verbosity = config.VerbosityLevel(2)
+
 	cmd := &cobra.Command{
 		Use:   "workspaces",
 		Short: "Launch workspaces virtual workspace apiserver",

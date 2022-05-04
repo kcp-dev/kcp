@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/pflag"
 
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
 
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
@@ -46,6 +47,9 @@ func NewOptions() *Options {
 
 		RootDirectory: ".kcp",
 	}
+
+	// Default to -v=2
+	o.Logs.Config.Verbosity = config.VerbosityLevel(2)
 
 	// override all the things
 	o.SecureServing.BindPort = 443
