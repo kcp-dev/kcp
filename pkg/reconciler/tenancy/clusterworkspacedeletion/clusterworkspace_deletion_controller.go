@@ -136,7 +136,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	var estimate *deletion.ResourcesRemainingError
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
-		klog.V(4).Infof("Content remaining in workspace %s, waiting %d seconds", key, t)
+		klog.V(2).Infof("Content remaining in workspace %s, waiting %d seconds", key, t)
 		c.queue.AddAfter(key, time.Duration(t)*time.Second)
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed

@@ -227,6 +227,11 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Ensure workspace in the org workspace is deleted")
 				require.Eventually(t, func() bool {
 					wslist, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+					// 404 could be returned if the org workspace is deleted.
+					if apierrors.IsNotFound(err) {
+						return true
+					}
+
 					if err != nil {
 						return false
 					}
@@ -238,7 +243,6 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				require.Eventually(t, func() bool {
 					_, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, orgWorkspace.Name, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
-
 				}, wait.ForeverTestTimeout, 1*time.Second)
 			},
 		},
