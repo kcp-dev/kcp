@@ -28,6 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -110,8 +111,12 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	// cluster.
 	// First, get the namespace object (from the cached lister).
 	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, unstr.GetNamespace()))
+	if apierrors.IsNotFound(err) {
+		// Namespace was deleted; this resource will eventually get deleted too, so ignore
+		return nil
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, unstr.GetNamespace(), unstr.GetName(), err)
 	}
 
 	if !scheduleRequirement.Matches(labels.Set(ns.Labels)) {
@@ -134,11 +139,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	// Update the resource's assignment.
 	patchType, patchBytes := clusterLabelPatchBytes(new)
-	if _, err = c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
+	if updated, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
+	} else {
+		klog.Infof("Patched cluster assignment for %q %s|%s/%s: %q -> %q. Labels=%v",
+			gvr, lclusterName, ns.Name, unstr.GetName(), old, new, updated.GetLabels())
 	}
-	klog.Infof("Patched cluster assignment for %s %s/%s: %q -> %q", gvr, ns.Name, unstr.GetName(), old, new)
 
 	return nil
 }
@@ -262,8 +269,11 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
+	clusterName := logicalcluster.From(ns)
+
 	nsLocation := ns.Labels[ClusterLabel]
 
+	klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): getting listers", clusterName, ns.Name)
 	listers, notSynced := c.ddsif.Listers()
 	for gvr, lister := range listers {
 		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
@@ -271,9 +281,17 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			return err
 		}
 
+		klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): got %d items for %q", clusterName, ns.Name, len(objs), gvr.String())
+
 		var enqueuedResources []string
 		for _, obj := range objs {
 			u := obj.(*unstructured.Unstructured)
+
+			// TODO(ncdc): remove this when we have namespaced listers that only return for the scoped cluster (https://github.com/kcp-dev/kcp/issues/685).
+			if logicalcluster.From(u) != clusterName {
+				continue
+			}
+
 			objLocation := u.GetLabels()[ClusterLabel]
 			if objLocation != nsLocation {
 				c.enqueueResource(gvr, obj)
@@ -299,7 +317,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	// For all types whose informer hasn't synced yet, enqueue a workqueue
 	// item to check that GVR again later (reconcileGVR, above).
 	for _, gvr := range notSynced {
-		klog.Infof("Informer for %s is not synced; re-enqueueing", gvr)
+		klog.V(2).Infof("Informer for %s is not synced; re-enqueueing", gvr)
 		c.enqueueGVR(gvr)
 	}
 
