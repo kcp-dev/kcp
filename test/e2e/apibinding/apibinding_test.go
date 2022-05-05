@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +68,7 @@ func TestAPIBinding(t *testing.T) {
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	serviceProviderWorkspaces := []logicalcluster.LogicalCluster{serviceProvider1Workspace, serviceProvider2Workspace}
+	serviceProviderWorkspaces := []logicalcluster.Name{serviceProvider1Workspace, serviceProvider2Workspace}
 
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
 		t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
@@ -89,7 +89,7 @@ func TestAPIBinding(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.LogicalCluster) {
+	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.Name) {
 		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerWorkspace)
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -183,7 +183,7 @@ func TestAPIBinding(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected naming conflict")
 	}
 
-	consumersOfServiceProvider1 := []logicalcluster.LogicalCluster{consumer1Workspace, consumer2Workspace}
+	consumersOfServiceProvider1 := []logicalcluster.Name{consumer1Workspace, consumer2Workspace}
 	for _, consumerWorkspace := range consumersOfServiceProvider1 {
 		bindConsumerToProvider(consumerWorkspace, serviceProvider1Workspace)
 	}
@@ -193,7 +193,7 @@ func TestAPIBinding(t *testing.T) {
 
 	t.Logf("Testing identity wildcards")
 
-	verifyWildcardList := func(consumerWorkspace logicalcluster.LogicalCluster, expectedItems int) {
+	verifyWildcardList := func(consumerWorkspace logicalcluster.Name, expectedItems int) {
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
 		apiBinding, err := kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err, "error getting apibinding")

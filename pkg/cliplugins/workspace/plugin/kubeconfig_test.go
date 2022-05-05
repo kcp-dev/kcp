@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -190,13 +190,13 @@ func TestCreate(t *testing.T) {
 
 				clusterClient: fakeTenancyClient{
 					t: t,
-					clients: map[logicalcluster.LogicalCluster]*tenancyfake.Clientset{
+					clients: map[logicalcluster.Name]*tenancyfake.Clientset{
 						currentClusterName: client,
 					},
 				},
 				personalClient: fakeTenancyClient{
 					t: t,
-					clients: map[logicalcluster.LogicalCluster]*tenancyfake.Clientset{
+					clients: map[logicalcluster.Name]*tenancyfake.Clientset{
 						currentClusterName: client,
 					},
 				},
@@ -229,9 +229,9 @@ func TestUse(t *testing.T) {
 		name   string
 		config clientcmdapi.Config
 
-		existingObjects map[logicalcluster.LogicalCluster][]string
-		prettyNames     map[logicalcluster.LogicalCluster]map[string]string
-		unready         map[logicalcluster.LogicalCluster]map[string]bool // unready workspaces
+		existingObjects map[logicalcluster.Name][]string
+		prettyNames     map[logicalcluster.Name]map[string]string
+		unready         map[logicalcluster.Name]map[string]bool // unready workspaces
 
 		param string
 
@@ -247,7 +247,7 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
 			param:      "",
@@ -270,7 +270,7 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
 			param: "bar",
@@ -294,11 +294,11 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
 			param: "baz",
-			prettyNames: map[logicalcluster.LogicalCluster]map[string]string{
+			prettyNames: map[logicalcluster.Name]map[string]string{
 				logicalcluster.New("root:foo"): {"bar": "baz"},
 			},
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
@@ -331,10 +331,10 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
-			prettyNames: map[logicalcluster.LogicalCluster]map[string]string{
+			prettyNames: map[logicalcluster.Name]map[string]string{
 				logicalcluster.New("root:foo"): {"bar": "baz"},
 			},
 			param: "root:foo:bar",
@@ -420,7 +420,7 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo:bar"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root"): {"foo"},
 			},
 			param: "..",
@@ -495,7 +495,7 @@ func TestUse(t *testing.T) {
 					"test2": {Token: "test2"},
 				},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
 			param: "-",
@@ -526,7 +526,7 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
 			param:   "-",
@@ -549,7 +549,7 @@ func TestUse(t *testing.T) {
 					"other": {Token: "test"},
 				},
 			},
-			existingObjects: map[logicalcluster.LogicalCluster][]string{
+			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
 			param: "-",
@@ -621,8 +621,8 @@ func TestUse(t *testing.T) {
 			u := parseURLOrDie(cluster.Server)
 			u.Path = ""
 
-			clients := map[logicalcluster.LogicalCluster]*tenancyfake.Clientset{}
-			personalClients := map[logicalcluster.LogicalCluster]*tenancyfake.Clientset{}
+			clients := map[logicalcluster.Name]*tenancyfake.Clientset{}
+			personalClients := map[logicalcluster.Name]*tenancyfake.Clientset{}
 			for lcluster, names := range tt.existingObjects {
 				objs := []runtime.Object{}
 				prettyObjs := []runtime.Object{}
@@ -929,10 +929,10 @@ func parseURLOrDie(host string) *url.URL {
 
 type fakeTenancyClient struct {
 	t       *testing.T
-	clients map[logicalcluster.LogicalCluster]*tenancyfake.Clientset
+	clients map[logicalcluster.Name]*tenancyfake.Clientset
 }
 
-func (f fakeTenancyClient) Cluster(cluster logicalcluster.LogicalCluster) tenancyclient.Interface {
+func (f fakeTenancyClient) Cluster(cluster logicalcluster.Name) tenancyclient.Interface {
 	client, ok := f.clients[cluster]
 	require.True(f.t, ok, "no client for cluster %s", cluster)
 	return client

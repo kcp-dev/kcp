@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -117,14 +117,14 @@ func TestReconcile(t *testing.T) {
 			someOtherKey := "def"
 
 			c := &controller{
-				getNamespace: func(clusterName logicalcluster.LogicalCluster, name string) (*corev1.Namespace, error) {
+				getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
 					return &corev1.Namespace{}, nil
 				},
-				createNamespace: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, ns *corev1.Namespace) error {
+				createNamespace: func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error {
 					return nil
 				},
 				secretNamespace: "default-ns",
-				getSecret: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, ns, name string) (*corev1.Secret, error) {
+				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
 					if tc.secretExists {
 						secret := &corev1.Secret{
 							Data: map[string][]byte{},
@@ -141,7 +141,7 @@ func TestReconcile(t *testing.T) {
 
 					return nil, apierrors.NewNotFound(corev1.Resource("secrets"), name)
 				},
-				createSecret: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, secret *corev1.Secret) error {
+				createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
 					createSecretCalled = true
 					return tc.createSecretError
 				},

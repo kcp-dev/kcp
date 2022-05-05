@@ -21,7 +21,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -447,14 +447,14 @@ func TestReconcileBinding(t *testing.T) {
 			}
 
 			c := &controller{
-				listAPIBindings: func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 					return tc.existingAPIBindings, nil
 				},
-				getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 					require.Equal(t, "org:some-workspace", clusterName.String())
 					return apiExports[name], tc.getAPIExportError
 				},
-				getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+				getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 					if tc.getAPIResourceSchemaError != nil {
 						return nil, tc.getAPIResourceSchemaError
 					}
@@ -468,7 +468,7 @@ func TestReconcileBinding(t *testing.T) {
 
 					return schema, nil
 				},
-				getCRD: func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+				getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 					require.Equal(t, ShadowWorkspaceName, clusterName)
 
 					// for conflicts
@@ -501,7 +501,7 @@ func TestReconcileBinding(t *testing.T) {
 
 					return crd, nil
 				},
-				createCRD: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+				createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
 					createCRDCalled = true
 					return crd, tc.createCRDError
 				},
@@ -694,12 +694,12 @@ func TestReconcileBound(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c := &controller{
-				getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 					require.Equal(t, "org:some-workspace", clusterName.String())
 					require.Equal(t, "some-export", name)
 					return tc.apiExport, tc.getAPIExportError
 				},
-				getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+				getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 					require.Equal(t, "org:some-workspace", clusterName.String())
 					return tc.apiResourceSchemas[name], nil
 				},

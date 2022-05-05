@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +48,7 @@ type clusterFixture struct {
 	cluster *workloadv1alpha1.WorkloadCluster
 }
 
-func newClusterFixture(lclusterName logicalcluster.LogicalCluster, clusterName string) *clusterFixture {
+func newClusterFixture(lclusterName logicalcluster.Name, clusterName string) *clusterFixture {
 	f := &clusterFixture{
 		cluster: &workloadv1alpha1.WorkloadCluster{
 			ObjectMeta: metav1.ObjectMeta{

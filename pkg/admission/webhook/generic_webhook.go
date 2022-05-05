@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
@@ -88,7 +88,7 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	return p.dispatcher.Dispatch(ctx, attr, o, whAccessor)
 }
 
-func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, clusterName logicalcluster.LogicalCluster) (logicalcluster.LogicalCluster, bool, error) {
+func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
 	parentClusterName, hasParent := clusterName.Parent()
 	if !hasParent {
 		// APIBindings in root are not possible (they can only point to sibling workspaces).
@@ -116,7 +116,7 @@ func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, cl
 }
 
 // In the future use a restricted list call
-func (p *WebhookDispatcher) restrictToLogicalCluster(hooks []webhook.WebhookAccessor, lc logicalcluster.LogicalCluster) []webhook.WebhookAccessor {
+func (p *WebhookDispatcher) restrictToLogicalCluster(hooks []webhook.WebhookAccessor, lc logicalcluster.Name) []webhook.WebhookAccessor {
 	// TODO(sttts): this might not scale if there are many webhooks. This is called per request, and traverses all
 	//              webhook registrations. The hope is that there are not many webhooks per shard.
 	wh := []webhook.WebhookAccessor{}

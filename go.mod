@@ -11,7 +11,7 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.5
-	github.com/kcp-dev/apimachinery v0.0.0-20220401165523-9ea2c4e584ad
+	github.com/kcp-dev/logicalcluster v1.0.0
 	github.com/muesli/reflow v0.1.0
 	github.com/onsi/gomega v1.10.1
 	github.com/spf13/cobra v1.2.1

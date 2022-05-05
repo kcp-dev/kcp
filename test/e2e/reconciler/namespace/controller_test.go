@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,12 +48,12 @@ func TestNamespaceScheduler(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		clusterName    logicalcluster.LogicalCluster
+		clusterName    logicalcluster.Name
 		client         kubernetes.Interface
 		orgKcpClient   versioned.Interface
 		kcpClient      clientset.Interface
 		expect         registerNamespaceExpectation
-		orgClusterName logicalcluster.LogicalCluster
+		orgClusterName logicalcluster.Name
 	}
 
 	var testCases = []struct {

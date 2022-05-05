@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
@@ -201,7 +201,7 @@ func userConfig(username string, cfg *rest.Config) *rest.Config {
 	return cfgCopy
 }
 
-func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.ClusterInterface, orgClusterName logicalcluster.LogicalCluster, workspace string) {
+func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.ClusterInterface, orgClusterName logicalcluster.Name, workspace string) {
 	t.Logf("Waiting for workspace %s|%s to be ready", orgClusterName, workspace)
 	require.Eventually(t, func() bool {
 		ws, err := kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace, metav1.GetOptions{})
@@ -213,7 +213,7 @@ func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.Cluste
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace %s|%s didn't get ready", orgClusterName, workspace)
 }
 
-func createResources(t *testing.T, ctx context.Context, dynamicClusterClient dynamic.ClusterInterface, discoveryClusterClient *discovery.DiscoveryClient, clusterName logicalcluster.LogicalCluster, fileName string) {
+func createResources(t *testing.T, ctx context.Context, dynamicClusterClient dynamic.ClusterInterface, discoveryClusterClient *discovery.DiscoveryClient, clusterName logicalcluster.Name, fileName string) {
 	t.Logf("Create resources in %s", clusterName)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.WithCluster(clusterName)))
 	require.Eventually(t, func() bool {

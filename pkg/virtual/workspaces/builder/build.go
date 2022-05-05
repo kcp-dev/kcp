@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -115,7 +115,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 						rootRBACInformers,
 					)
 
-					orgListener := NewOrgListener(wildcardsClusterWorkspaces, func(orgClusterName logicalcluster.LogicalCluster, initialWatchers []workspaceauth.CacheWatcher) registry.FilteredClusterWorkspaces {
+					orgListener := NewOrgListener(wildcardsClusterWorkspaces, func(orgClusterName logicalcluster.Name, initialWatchers []workspaceauth.CacheWatcher) registry.FilteredClusterWorkspaces {
 						return CreateAndStartOrg(
 							rbacwrapper.FilterInformers(orgClusterName, wildcardsRbacInformers),
 							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces),

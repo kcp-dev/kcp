@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -49,7 +49,7 @@ func NewDynamicMetadataClientForConfig(config *rest.Config) (dynamic.Interface, 
 	if err != nil {
 		return nil, err
 	}
-	return cluster.Cluster(logicalcluster.LogicalCluster{}), nil
+	return cluster.Cluster(logicalcluster.Name{}), nil
 }
 
 // metadataTransport does what client-go/metadata does, but injected into a dynamic client

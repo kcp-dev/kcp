@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -140,7 +140,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 }
 
-func topLevelOrg(clusterName logicalcluster.LogicalCluster) (string, bool) {
+func topLevelOrg(clusterName logicalcluster.Name) (string, bool) {
 	for {
 		parent, hasParent := clusterName.Parent()
 		if !hasParent {

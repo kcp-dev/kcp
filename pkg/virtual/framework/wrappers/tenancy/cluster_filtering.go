@@ -17,7 +17,7 @@ limitations under the License.
 package tenancy
 
 import (
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -28,7 +28,7 @@ import (
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-func FilterInformers(clusterName logicalcluster.LogicalCluster, informers tenancyinformers.Interface) tenancyinformers.Interface {
+func FilterInformers(clusterName logicalcluster.Name, informers tenancyinformers.Interface) tenancyinformers.Interface {
 	return &filteredInterface{
 		clusterName: clusterName,
 		informers:   informers,
@@ -38,7 +38,7 @@ func FilterInformers(clusterName logicalcluster.LogicalCluster, informers tenanc
 var _ tenancyinformers.Interface = (*filteredInterface)(nil)
 
 type filteredInterface struct {
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	informers   tenancyinformers.Interface
 }
 
@@ -54,7 +54,7 @@ func (i *filteredInterface) ClusterWorkspaceShards() tenancyinformers.ClusterWor
 	return FilterWorkspaceShardInformer(i.clusterName, i.informers.ClusterWorkspaceShards())
 }
 
-func FilterClusterWorkspaceTypeInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceTypeInformer) tenancyinformers.ClusterWorkspaceTypeInformer {
+func FilterClusterWorkspaceTypeInformer(clusterName logicalcluster.Name, informer tenancyinformers.ClusterWorkspaceTypeInformer) tenancyinformers.ClusterWorkspaceTypeInformer {
 	return &filteredClusterWorkspaceTypeInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -65,12 +65,12 @@ var _ tenancyinformers.ClusterWorkspaceTypeInformer = (*filteredClusterWorkspace
 var _ tenancylisters.ClusterWorkspaceTypeLister = (*filteredClusterWorkspaceTypeLister)(nil)
 
 type filteredClusterWorkspaceTypeInformer struct {
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	informer    tenancyinformers.ClusterWorkspaceTypeInformer
 }
 
 type filteredClusterWorkspaceTypeLister struct {
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	lister      tenancylisters.ClusterWorkspaceTypeLister
 }
 
@@ -105,7 +105,7 @@ func (l *filteredClusterWorkspaceTypeLister) Get(name string) (*tenancyapis.Clus
 	return l.lister.Get(name)
 }
 
-func FilterClusterWorkspaceInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceInformer) tenancyinformers.ClusterWorkspaceInformer {
+func FilterClusterWorkspaceInformer(clusterName logicalcluster.Name, informer tenancyinformers.ClusterWorkspaceInformer) tenancyinformers.ClusterWorkspaceInformer {
 	return &filteredClusterWorkspaceInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -116,12 +116,12 @@ var _ tenancyinformers.ClusterWorkspaceInformer = (*filteredClusterWorkspaceInfo
 var _ tenancylisters.ClusterWorkspaceLister = (*filteredClusterWorkspaceLister)(nil)
 
 type filteredClusterWorkspaceInformer struct {
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	informer    tenancyinformers.ClusterWorkspaceInformer
 }
 
 type filteredClusterWorkspaceLister struct {
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	lister      tenancylisters.ClusterWorkspaceLister
 }
 
@@ -156,7 +156,7 @@ func (l *filteredClusterWorkspaceLister) Get(name string) (*tenancyapis.ClusterW
 	return l.lister.Get(name)
 }
 
-func FilterWorkspaceShardInformer(clusterName logicalcluster.LogicalCluster, informer tenancyinformers.ClusterWorkspaceShardInformer) tenancyinformers.ClusterWorkspaceShardInformer {
+func FilterWorkspaceShardInformer(clusterName logicalcluster.Name, informer tenancyinformers.ClusterWorkspaceShardInformer) tenancyinformers.ClusterWorkspaceShardInformer {
 	return &filteredWorkspaceShardInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -167,12 +167,12 @@ var _ tenancyinformers.ClusterWorkspaceShardInformer = (*filteredWorkspaceShardI
 var _ tenancylisters.ClusterWorkspaceShardLister = (*filteredWorkspaceShardLister)(nil)
 
 type filteredWorkspaceShardInformer struct {
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	informer    tenancyinformers.ClusterWorkspaceShardInformer
 }
 
 type filteredWorkspaceShardLister struct {
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	lister      tenancylisters.ClusterWorkspaceShardLister
 }
 

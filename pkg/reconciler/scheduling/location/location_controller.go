@@ -23,7 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -60,7 +60,7 @@ func NewController(
 
 	c := &controller{
 		queue: queue,
-		enqueueAfter: func(clusterName logicalcluster.LogicalCluster, location *schedulingv1alpha1.Location, duration time.Duration) {
+		enqueueAfter: func(clusterName logicalcluster.Name, location *schedulingv1alpha1.Location, duration time.Duration) {
 			key := clusters.ToClusterAwareKey(clusterName, location.Name)
 			queue.AddAfter(key, duration)
 		},
@@ -120,7 +120,7 @@ func NewController(
 // controller
 type controller struct {
 	queue        workqueue.RateLimitingInterface
-	enqueueAfter func(logicalcluster.LogicalCluster, *schedulingv1alpha1.Location, time.Duration)
+	enqueueAfter func(logicalcluster.Name, *schedulingv1alpha1.Location, time.Duration)
 
 	kcpClusterClient kcpclient.ClusterInterface
 

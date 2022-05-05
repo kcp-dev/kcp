@@ -29,7 +29,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -88,7 +88,7 @@ func WithAcceptHeader(apiHandler http.Handler) http.Handler {
 
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var clusterName logicalcluster.LogicalCluster
+		var clusterName logicalcluster.Name
 		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {
 			path = strings.TrimPrefix(path, "/clusters/")
 

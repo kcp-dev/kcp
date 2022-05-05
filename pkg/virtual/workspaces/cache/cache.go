@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -47,7 +47,7 @@ type ClusterWorkspaceCache struct {
 	HasSynced        cache.InformerSynced
 }
 
-func (c *ClusterWorkspaceCache) Get(lclusterName logicalcluster.LogicalCluster, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
+func (c *ClusterWorkspaceCache) Get(lclusterName logicalcluster.Name, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
 	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ClusterName: lclusterName.String()}}
 
 	// check for cluster workspace in the cache

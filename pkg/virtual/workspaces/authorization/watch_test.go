@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -46,7 +46,7 @@ type mockClusterClient struct {
 	mockClient kcpclient.Interface
 }
 
-func (m *mockClusterClient) Cluster(name logicalcluster.LogicalCluster) kcpclient.Interface {
+func (m *mockClusterClient) Cluster(name logicalcluster.Name) kcpclient.Interface {
 	return m.mockClient
 }
 

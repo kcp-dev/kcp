@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
@@ -83,7 +83,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
 	organization := framework.NewOrganizationFixture(t, server)
-	logicalClusters := []logicalcluster.LogicalCluster{
+	logicalClusters := []logicalcluster.Name{
 		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
 		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
 	}
@@ -202,7 +202,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
 	organization := framework.NewOrganizationFixture(t, server)
-	logicalClusters := []logicalcluster.LogicalCluster{
+	logicalClusters := []logicalcluster.Name{
 		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
 		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
 	}

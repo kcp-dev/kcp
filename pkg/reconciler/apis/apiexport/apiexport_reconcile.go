@@ -23,7 +23,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -96,7 +96,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 	return nil
 }
 
-func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.LogicalCluster) {
+func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name) {
 	if _, err := c.getNamespace(clusterName, c.secretNamespace); errors.IsNotFound(err) {
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -134,7 +134,7 @@ func (c *controller) generateIdentitySecret(apiExportName string) (*corev1.Secre
 	return secret, nil
 }
 
-func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.LogicalCluster, apiExportName string) error {
+func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) error {
 	secret, err := c.generateIdentitySecret(apiExportName)
 	if err != nil {
 		return err
@@ -147,7 +147,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 	return nil
 }
 
-func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.LogicalCluster, apiExport *apisv1alpha1.APIExport) error {
+func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha1.APIExport) error {
 	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name)
 	if err != nil {
 		return err

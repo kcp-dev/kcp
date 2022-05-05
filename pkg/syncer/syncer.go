@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,7 +76,7 @@ type SyncerConfig struct {
 	UpstreamConfig      *rest.Config
 	DownstreamConfig    *rest.Config
 	ResourcesToSync     sets.String
-	KCPClusterName      logicalcluster.LogicalCluster
+	KCPClusterName      logicalcluster.Name
 	WorkloadClusterName string
 }
 
@@ -199,12 +199,12 @@ type Controller struct {
 	deleteFn  DeleteFunc
 	direction SyncDirection
 
-	upstreamClusterName logicalcluster.LogicalCluster
+	upstreamClusterName logicalcluster.Name
 	mutators            mutatorGvrMap
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
+func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -341,7 +341,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 
 type holder struct {
 	gvr         schema.GroupVersionResource
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	namespace   string
 	name        string
 }
@@ -428,7 +428,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // NamespaceLocator stores a logical cluster and namespace and is used
 // as the source for the mapped namespace name in a physical cluster.
 type NamespaceLocator struct {
-	LogicalCluster logicalcluster.LogicalCluster `json:"logical-cluster"`
+	LogicalCluster logicalcluster.Name `json:"logical-cluster"`
 	Namespace      string                        `json:"namespace"`
 }
 

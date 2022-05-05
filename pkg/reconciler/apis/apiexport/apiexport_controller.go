@@ -23,7 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -73,16 +73,16 @@ func NewController(
 		apiExportLister:   apiExportInformer.Lister(),
 		apiExportIndexer:  apiExportInformer.Informer().GetIndexer(),
 		kubeClusterClient: kubeClusterClient,
-		getNamespace: func(clusterName logicalcluster.LogicalCluster, name string) (*corev1.Namespace, error) {
+		getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
 			return namespaceInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
 		},
-		createNamespace: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, ns *corev1.Namespace) error {
+		createNamespace: func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error {
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 			return err
 		},
 		secretLister:    secretInformer.Lister(),
 		secretNamespace: defaultIdentitySecretNamespace,
-		createSecret: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, secret *corev1.Secret) error {
+		createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 			return err
 		},
@@ -157,14 +157,14 @@ type controller struct {
 
 	kubeClusterClient kubernetes.ClusterInterface
 
-	getNamespace    func(clusterName logicalcluster.LogicalCluster, name string) (*corev1.Namespace, error)
-	createNamespace func(ctx context.Context, clusterName logicalcluster.LogicalCluster, ns *corev1.Namespace) error
+	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
+	createNamespace func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error
 
 	secretLister    corelisters.SecretLister
 	secretNamespace string
 
-	getSecret    func(ctx context.Context, clusterName logicalcluster.LogicalCluster, ns, name string) (*corev1.Secret, error)
-	createSecret func(ctx context.Context, clusterName logicalcluster.LogicalCluster, secret *corev1.Secret) error
+	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
+	createSecret func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error
 }
 
 // enqueueAPIBinding enqueues an APIExport .
@@ -327,7 +327,7 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 	return err
 }
 
-func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logicalcluster.LogicalCluster, ns, name string) (*corev1.Secret, error) {
+func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
 	secret, err := c.secretLister.Secrets(ns).Get(clusters.ToClusterAwareKey(clusterName, name))
 	if err == nil {
 		return secret, nil

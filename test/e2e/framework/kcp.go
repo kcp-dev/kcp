@@ -35,7 +35,7 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
@@ -507,7 +507,7 @@ func newPersistentKCPServer(name, kubeconfigPath string) (RunningServer, error) 
 
 // NewFakeWorkloadServer creates a workspace in the provided server and org
 // and creates a server fixture for the logical cluster that results.
-func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.LogicalCluster) RunningServer {
+func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Name) RunningServer {
 	logicalClusterName := NewWorkspaceWithWorkloads(t, server, org, "Universal", false)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")

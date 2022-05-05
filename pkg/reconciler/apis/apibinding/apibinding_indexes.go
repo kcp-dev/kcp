@@ -19,7 +19,7 @@ package apibinding
 import (
 	"fmt"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/client-go/tools/clusters"
 

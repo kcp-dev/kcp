@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,7 +98,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 
 	tests := map[string]struct {
 		location         *schedulingv1alpha1.Location
-		workloadClusters map[logicalcluster.LogicalCluster][]*workloadv1alpha1.WorkloadCluster
+		workloadClusters map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster
 
 		listWorkloadClusterError error
 		updateLocationError      error
@@ -124,7 +124,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 		},
 		"with workload clusters, across two regions": {
 			location: usEast1,
-			workloadClusters: map[logicalcluster.LogicalCluster][]*workloadv1alpha1.WorkloadCluster{
+			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
 				logicalcluster.New("root:org:negotiation-workspace"): {
 					withLabels(cluster("us-east1-1"), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "False"}), map[string]string{"region": "us-east1"}),
@@ -149,20 +149,20 @@ func TestLocationStatusReconciler(t *testing.T) {
 			var requeuedAfter time.Duration
 			updates := map[string]*schedulingv1alpha1.Location{}
 			r := &statusReconciler{
-				listWorkloadClusters: func(clusterName logicalcluster.LogicalCluster) ([]*workloadv1alpha1.WorkloadCluster, error) {
+				listWorkloadClusters: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
 					if tc.listWorkloadClusterError != nil {
 						return nil, tc.listWorkloadClusterError
 					}
 					return tc.workloadClusters[clusterName], nil
 				},
-				updateLocation: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
+				updateLocation: func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
 					if tc.updateLocationError != nil {
 						return nil, tc.updateLocationError
 					}
 					updates[location.Name] = location.DeepCopy()
 					return location, nil
 				},
-				enqueueAfter: func(clusterName logicalcluster.LogicalCluster, domain *schedulingv1alpha1.Location, duration time.Duration) {
+				enqueueAfter: func(clusterName logicalcluster.Name, domain *schedulingv1alpha1.Location, duration time.Duration) {
 					requeuedAfter = duration
 				},
 			}

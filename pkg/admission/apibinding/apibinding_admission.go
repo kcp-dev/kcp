@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -131,7 +131,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 	return nil
 }
 
-func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName logicalcluster.LogicalCluster, apiExportName string) error {
+func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName logicalcluster.Name, apiExportName string) error {
 	authz, err := o.createAuthorizer(apiExportClusterName, o.kubeClusterClient)
 	if err != nil {
 		// Logging a more specific error for the operator

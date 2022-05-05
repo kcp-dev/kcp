@@ -21,7 +21,7 @@ package v1alpha1
 import (
 	"net/http"
 
-	logicalcluster "github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	logicalcluster "github.com/kcp-dev/logicalcluster"
 
 	rest "k8s.io/client-go/rest"
 
@@ -37,7 +37,7 @@ type SchedulingV1alpha1Interface interface {
 // SchedulingV1alpha1Client is used to interact with features provided by the scheduling.kcp.dev group.
 type SchedulingV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    logicalcluster.LogicalCluster
+	cluster    logicalcluster.Name
 }
 
 func (c *SchedulingV1alpha1Client) Locations() LocationInterface {
@@ -89,7 +89,7 @@ func New(c rest.Interface) *SchedulingV1alpha1Client {
 }
 
 // NewWithCluster creates a new SchedulingV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster logicalcluster.LogicalCluster) *SchedulingV1alpha1Client {
+func NewWithCluster(c rest.Interface, cluster logicalcluster.Name) *SchedulingV1alpha1Client {
 	return &SchedulingV1alpha1Client{restClient: c, cluster: cluster}
 }
 
