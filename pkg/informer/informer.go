@@ -70,11 +70,9 @@ func (d *DynamicDiscoverySharedInformerFactory) IndexerFor(gvr schema.GroupVersi
 // InformerForResource returns the GenericInformer for gvr, creating it if needed.
 func (d *DynamicDiscoverySharedInformerFactory) InformerForResource(gvr schema.GroupVersionResource) informers.GenericInformer {
 	// See if we already have it
-	inf := func() informers.GenericInformer {
-		d.mu.RLock()
-		defer d.mu.RUnlock()
-		return d.informers[gvr]
-	}()
+	d.mu.RLock()
+	inf := d.informers[gvr]
+	d.mu.RUnlock()
 
 	if inf != nil {
 		return inf
@@ -84,12 +82,12 @@ func (d *DynamicDiscoverySharedInformerFactory) InformerForResource(gvr schema.G
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	return d.informerForResourceLH(gvr)
+	return d.informerForResourceLockHeld(gvr)
 }
 
-// informerForResourceLH returns the GenericInformer for gvr, creating it if needed. The caller must have the write
+// informerForResourceLockHeld returns the GenericInformer for gvr, creating it if needed. The caller must have the write
 // lock before calling this method.
-func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLH(gvr schema.GroupVersionResource) informers.GenericInformer {
+func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) informers.GenericInformer {
 	// In case it was created in between the initial check while the rlock was held and when the write lock was
 	// acquired, return it instead of creating a 2nd copy and overwriting.
 	inf := d.informers[gvr]
@@ -126,7 +124,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.Gr
 
 	for gvr := range d.gvrs {
 		// We have the read lock so d.informers is fully populated for all the gvrs in d.gvrs. We use d.informers
-		// directly instead of calling either InformerForResource or informerForResourceLH.
+		// directly instead of calling either InformerForResource or informerForResourceLockHeld.
 		informer := d.informers[gvr]
 		if !informer.Informer().HasSynced() {
 			notSynced = append(notSynced, gvr)
@@ -267,19 +265,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 
 	// Grab a read lock to compare against d.gvrs to see if we need to start or stop any informers
 	d.mu.RLock()
-	var informersToAdd []schema.GroupVersionResource
-	for gvr := range latest {
-		if _, found := d.gvrs[gvr]; !found {
-			informersToAdd = append(informersToAdd, gvr)
-		}
-	}
-
-	var informersToRemove []schema.GroupVersionResource
-	for gvr := range d.gvrs {
-		if _, found := latest[gvr]; !found {
-			informersToRemove = append(informersToRemove, gvr)
-		}
-	}
+	informersToAdd, informersToRemove := d.calculateInformersLockHeld(latest)
 	d.mu.RUnlock()
 
 	if len(informersToAdd) == 0 && len(informersToRemove) == 0 {
@@ -290,13 +276,21 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	// Recalculate in case another goroutine did this work in between when we had the read lock and when we acquired
+	// the write lock
+	informersToAdd, informersToRemove = d.calculateInformersLockHeld(latest)
+	if len(informersToAdd) == 0 && len(informersToRemove) == 0 {
+		return nil
+	}
+
+	// Now we definitely need to do this work
 	for i := range informersToAdd {
 		gvr := informersToAdd[i]
 
 		klog.Infof("Adding dynamic informer for %q", gvr)
 
 		// We have the write lock, so call the LH variant
-		inf := d.informerForResourceLH(gvr).Informer()
+		inf := d.informerForResourceLockHeld(gvr).Informer()
 
 		inf.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: d.filterFunc,
@@ -334,4 +328,20 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	d.gvrs = latest
 
 	return nil
+}
+
+func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(latest map[schema.GroupVersionResource]struct{}) (toAdd, toRemove []schema.GroupVersionResource) {
+	for gvr := range latest {
+		if _, found := d.gvrs[gvr]; !found {
+			toAdd = append(toAdd, gvr)
+		}
+	}
+
+	for gvr := range d.gvrs {
+		if _, found := latest[gvr]; !found {
+			toRemove = append(toRemove, gvr)
+		}
+	}
+
+	return toAdd, toRemove
 }
