@@ -23,6 +23,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
 
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
@@ -41,9 +42,13 @@ type Options struct {
 }
 
 func NewOptions() *Options {
+	// Default to -v=2
+	logs := logs.NewOptions()
+	logs.Config.Verbosity = config.VerbosityLevel(2)
+
 	return &Options{
 		SyncedResourceTypes:   []string{},
-		Logs:                  logs.NewOptions(),
+		Logs:                  logs,
 		APIImportPollInterval: 1 * time.Minute,
 	}
 }

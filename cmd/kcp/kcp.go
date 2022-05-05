@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/rest"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
+	"k8s.io/component-base/config"
+	"k8s.io/component-base/logs"
 	"k8s.io/component-base/term"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
@@ -58,6 +60,10 @@ func main() {
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
 
 	serverOptions := options.NewOptions()
+
+	// Default to -v=2
+	serverOptions.GenericControlPlane.Logs.Config.Verbosity = config.VerbosityLevel(2)
+
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the control plane process",
@@ -102,7 +108,7 @@ func main() {
 
 	// add start named flag sets to start flags
 	namedStartFlagSets := serverOptions.Flags()
-	globalflag.AddGlobalFlags(namedStartFlagSets.FlagSet("global"), cmd.Name())
+	globalflag.AddGlobalFlags(namedStartFlagSets.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags())
 	startFlags := startCmd.Flags()
 	for _, f := range namedStartFlagSets.FlagSets {
 		startFlags.AddFlagSet(f)
