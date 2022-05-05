@@ -429,7 +429,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // as the source for the mapped namespace name in a physical cluster.
 type NamespaceLocator struct {
 	LogicalCluster logicalcluster.Name `json:"logical-cluster"`
-	Namespace      string                        `json:"namespace"`
+	Namespace      string              `json:"namespace"`
 }
 
 func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, error) {
