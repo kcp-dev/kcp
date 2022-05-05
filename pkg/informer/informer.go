@@ -24,7 +24,9 @@ import (
 
 	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -236,7 +238,14 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 		inf.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: d.filterFunc,
 			Handler: cache.ResourceEventHandlerFuncs{
-				AddFunc:    func(obj interface{}) { d.handler.OnAdd(gvr, obj) },
+				AddFunc: func(obj interface{}) {
+					o, _ := obj.(metav1.Object)
+					klog.Infof("Adding %s %s|%s/%s", obj.(runtime.Object).GetObjectKind().GroupVersionKind().String(), logicalcluster.From(o), o.GetNamespace(), o.GetName())
+					if o.GetName() == "woody" {
+						klog.Infof("It's woody!")
+					}
+					d.handler.OnAdd(gvr, obj)
+				},
 				UpdateFunc: func(oldObj, newObj interface{}) { d.handler.OnUpdate(gvr, oldObj, newObj) },
 				DeleteFunc: func(obj interface{}) { d.handler.OnDelete(gvr, obj) },
 			},

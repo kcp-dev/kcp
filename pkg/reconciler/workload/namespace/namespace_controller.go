@@ -177,10 +177,14 @@ func (c *Controller) enqueueResource(gvr schema.GroupVersionResource, obj interf
 		return
 	}
 	gvrstr := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
-	c.resourceQueue.Add(gvrstr + "::" + key)
+
+	fullKey := gvrstr + "::" + key
+	klog.Infof("enqueueResource %s", fullKey)
+	c.resourceQueue.Add(fullKey)
 }
 
 func (c *Controller) enqueueGVR(gvr schema.GroupVersionResource) {
+	klog.Infof("enqueueGVR %s", gvr.String())
 	gvrstr := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
 	c.gvrQueue.Add(gvrstr)
 }
@@ -191,6 +195,7 @@ func (c *Controller) enqueueNamespace(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+	klog.Infof("enqueueNamespace %s", key)
 	c.namespaceQueue.Add(key)
 }
 
@@ -293,6 +298,8 @@ func processNext(
 
 // key is gvr::KEY
 func (c *Controller) processResource(ctx context.Context, key string) error {
+	klog.Infof("processResource %s", key)
+
 	parts := strings.SplitN(key, "::", 2)
 	if len(parts) != 2 {
 		klog.Errorf("Error parsing key %q; dropping", key)
@@ -345,6 +352,8 @@ func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
 var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
 
 func (c *Controller) processNamespace(ctx context.Context, key string) error {
+	klog.Infof("processNamespace %s", key)
+
 	ns, err := c.namespaceLister.Get(key)
 	if k8serrors.IsNotFound(err) {
 		return nil

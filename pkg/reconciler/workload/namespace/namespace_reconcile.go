@@ -97,12 +97,12 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return nil
 	}
 
-	klog.V(4).Infof("Reconciling %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
+	klog.Infof("Reconciling %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
 	if unstr.GetNamespace() == "" {
-		klog.V(5).Infof("%s %s|%s had no namespace; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
+		klog.Infof("%s %s|%s had no namespace; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
 		return nil
 	}
 
@@ -111,10 +111,12 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	// First, get the namespace object (from the cached lister).
 	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, unstr.GetNamespace()))
 	if err != nil {
+		klog.Errorf("Failed to get namespace %s|%s from lister: %v", lclusterName, unstr.GetNamespace(), err)
 		return err
 	}
 
 	if !scheduleRequirement.Matches(labels.Set(ns.Labels)) {
+		klog.Infof("%s %s|%s/%s is not going to be scheduled because of wrong labels on its namespace: %v", gvr.String(), logicalcluster.From(unstr), unstr.GetNamespace(), unstr.GetName(), ns.GetLabels())
 		// Do not schedule the resource transitively, and let external controllers
 		// or users be responsible for it, consistently with the scheduling of the
 		// namespace.
@@ -129,6 +131,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	old, new := lbls[ClusterLabel], ns.Labels[ClusterLabel]
 	if old == new {
 		// Already assigned to the right cluster.
+		klog.Infof("%s %s|%s/%s already assigned to cluster %s", gvr.String(), logicalcluster.From(unstr), unstr.GetNamespace(), unstr.GetName(), old)
 		return nil
 	}
 
@@ -136,6 +139,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	patchType, patchBytes := clusterLabelPatchBytes(new)
 	if _, err = c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		klog.Errorf("Failed to assign %s %s|%s/%s to cluster %s: %v", gvr.String(), logicalcluster.From(unstr), unstr.GetNamespace(), unstr.GetName(), new, err)
 		return err
 	}
 	klog.Infof("Patched cluster assignment for %s %s|%s/%s: %q -> %q", gvr, lclusterName.String(), ns.Name, unstr.GetName(), old, new)
@@ -262,10 +266,13 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
+	klog.Infof("enqueueResourcesForNamespace: %s|%s", logicalcluster.From(ns), ns.Name)
 	nsLocation := ns.Labels[ClusterLabel]
 
 	listers, notSynced := c.ddsif.Listers()
+	klog.Infof("enqueueResourcesForNamespace not synced: %v", notSynced)
 	for gvr, lister := range listers {
+		klog.Infof("enqueueResourcesForNamespace lister: %s", gvr)
 		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			return err
