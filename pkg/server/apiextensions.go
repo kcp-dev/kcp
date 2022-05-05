@@ -140,18 +140,31 @@ func (p *systemCRDProvider) Keys(clusterName logicalcluster.LogicalCluster) sets
 		return p.rootCRDs
 	case clusterName.HasPrefix(tenancyv1alpha1.RootCluster):
 		parent, ws := clusterName.Split()
+
 		workspaceKey := clusters.ToClusterAwareKey(parent, ws)
 		clusterWorkspace, err := p.getClusterWorkspace(workspaceKey)
 		if err != nil {
-			// this shouldn't happen. The getters use quorum-read client on cache-miss.
-			klog.Errorf("error getting cluster workspace %q: %v", workspaceKey, err)
-			break
+			// If a request for a system CRD comes in for a nonexistent workspace (either never existed, or was created
+			// and then deleted, return no keys, which will result in a 404 being returned.
+
+			if !apierrors.IsNotFound(err) {
+				// Log any other errors (unexpected)
+				klog.ErrorS(
+					err,
+					"Unable to determine system CRD keys: error getting clusterworkspace",
+					"clusterName", clusterName.String(),
+					"workspaceKey", workspaceKey,
+				)
+			}
+
+			return sets.NewString()
 		}
+
 		switch clusterWorkspace.Spec.Type {
 		case "Universal":
 			return p.universalCRDs
 		case "Organization", "Team":
-			// TODO(sttts): this cannot be hardcoded. There might be other org-like types.y
+			// TODO(sttts): this cannot be hardcoded. There might be other org-like types
 			return p.orgCRDs
 		}
 	}
