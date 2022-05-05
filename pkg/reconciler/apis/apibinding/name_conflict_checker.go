@@ -19,7 +19,7 @@ package apibinding
 import (
 	"fmt"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -28,10 +28,10 @@ import (
 )
 
 type nameConflictChecker struct {
-	listAPIBindings      func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport         func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error)
-	getAPIResourceSchema func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
-	getCRD               func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 
 	boundCRDs    []*apiextensionsv1.CustomResourceDefinition
 	crdToBinding map[string]*apisv1alpha1.APIBinding

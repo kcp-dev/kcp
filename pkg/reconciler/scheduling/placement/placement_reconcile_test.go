@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,9 +38,9 @@ import (
 
 func TestPlacementReconciler(t *testing.T) {
 	tests := map[string]struct {
-		apibindings      map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIBinding
-		locations        map[logicalcluster.LogicalCluster][]*schedulingv1alpha1.Location
-		workloadClusters map[logicalcluster.LogicalCluster][]*workloadv1alpha1.WorkloadCluster
+		apibindings      map[logicalcluster.Name][]*apisv1alpha1.APIBinding
+		locations        map[logicalcluster.Name][]*schedulingv1alpha1.Location
+		workloadClusters map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster
 		namespace        *corev1.Namespace
 
 		listLocationsError        error
@@ -82,10 +82,10 @@ func TestPlacementReconciler(t *testing.T) {
 					ClusterName: "root:org:ws",
 				},
 			},
-			apibindings: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
+			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				binding("kubernetes", "negotiation-workspace"),
 			}},
-			workloadClusters: map[logicalcluster.LogicalCluster][]*workloadv1alpha1.WorkloadCluster{logicalcluster.New("root:org:negotiation-workspace"): {
+			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{logicalcluster.New("root:org:negotiation-workspace"): {
 				cluster("cluster123", "uid-123"),
 			}},
 			wantRequeue:         time.Minute * 2,
@@ -98,10 +98,10 @@ func TestPlacementReconciler(t *testing.T) {
 					ClusterName: "root:org:ws",
 				},
 			},
-			apibindings: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
+			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
 			}},
-			locations: map[logicalcluster.LogicalCluster][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
+			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
 			}},
 			wantRequeue:         time.Second * 30,
@@ -114,10 +114,10 @@ func TestPlacementReconciler(t *testing.T) {
 					ClusterName: "root:org:ws",
 				},
 			},
-			apibindings: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
+			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				validExport(binding("kubernetes", "negotiation-workspace")),
 			}},
-			locations: map[logicalcluster.LogicalCluster][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
+			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
 			}},
 			wantRequeue:         time.Minute * 2,
@@ -130,10 +130,10 @@ func TestPlacementReconciler(t *testing.T) {
 					ClusterName: "root:org:ws",
 				},
 			},
-			apibindings: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
+			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				bound(binding("kubernetes", "negotiation-workspace")),
 			}},
-			locations: map[logicalcluster.LogicalCluster][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
+			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
 			}},
 			wantRequeue:         time.Minute * 2,
@@ -146,13 +146,13 @@ func TestPlacementReconciler(t *testing.T) {
 					ClusterName: "root:org:ws",
 				},
 			},
-			apibindings: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
+			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
 			}},
-			locations: map[logicalcluster.LogicalCluster][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
+			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
 			}},
-			workloadClusters: map[logicalcluster.LogicalCluster][]*workloadv1alpha1.WorkloadCluster{
+			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
 				logicalcluster.New("root:org:negotiation-workspace"): {
 					withLabels(cluster("us-east1-1", "uid-1"), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-2", "uid-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "False"}), map[string]string{"region": "us-east1"}),
@@ -177,13 +177,13 @@ func TestPlacementReconciler(t *testing.T) {
 					ClusterName: "root:org:ws",
 				},
 			},
-			apibindings: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
+			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
 			}},
-			locations: map[logicalcluster.LogicalCluster][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
+			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
 			}},
-			workloadClusters: map[logicalcluster.LogicalCluster][]*workloadv1alpha1.WorkloadCluster{
+			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
 				logicalcluster.New("root:org:negotiation-workspace"): {
 					withLabels(withConditions(cluster("us-east1-3", "uid-3"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"}), map[string]string{"region": "us-east1"}),
 				},
@@ -199,32 +199,32 @@ func TestPlacementReconciler(t *testing.T) {
 			var requeuedAfter time.Duration
 			var gotPatch string
 			r := &placementReconciler{
-				listLocations: func(clusterName logicalcluster.LogicalCluster) ([]*schedulingv1alpha1.Location, error) {
+				listLocations: func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
 					if tc.listLocationsError != nil {
 						return nil, tc.listLocationsError
 					}
 					return tc.locations[clusterName], nil
 				},
-				listAPIBindings: func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 					if tc.listLocationsError != nil {
 						return nil, tc.listLocationsError
 					}
 					return tc.apibindings[clusterName], nil
 				},
-				listWorkloadClusters: func(clusterName logicalcluster.LogicalCluster) ([]*workloadv1alpha1.WorkloadCluster, error) {
+				listWorkloadClusters: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
 					if tc.listWorkloadClustersError != nil {
 						return nil, tc.listWorkloadClustersError
 					}
 					return tc.workloadClusters[clusterName], nil
 				},
-				patchNamespace: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
+				patchNamespace: func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
 					if tc.patchNamespaceError != nil {
 						return nil, tc.patchNamespaceError
 					}
 					gotPatch = string(data)
 					return &corev1.Namespace{}, nil
 				},
-				enqueueAfter: func(clusterName logicalcluster.LogicalCluster, ns *corev1.Namespace, duration time.Duration) {
+				enqueueAfter: func(clusterName logicalcluster.Name, ns *corev1.Namespace, duration time.Duration) {
 					requeuedAfter = duration
 				},
 			}

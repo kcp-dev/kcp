@@ -29,7 +29,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -192,7 +192,7 @@ func preserveTestResources() bool {
 	return os.Getenv("PRESERVE") != ""
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName logicalcluster.LogicalCluster) {
+func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -240,12 +240,12 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	return clusterName
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.LogicalCluster, workspaceType string) (clusterName logicalcluster.LogicalCluster) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, workspaceType string) (clusterName logicalcluster.Name) {
 	schedulable := workspaceType == "Universal"
 	return NewWorkspaceWithWorkloads(t, server, orgClusterName, workspaceType, schedulable)
 }
 
-func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterName logicalcluster.LogicalCluster, workspaceType string, schedulable bool) (clusterName logicalcluster.LogicalCluster) {
+func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, workspaceType string, schedulable bool) (clusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -303,7 +303,7 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 type SyncerFixture struct {
 	ResourcesToSync      sets.String
 	UpstreamServer       RunningServer
-	WorkspaceClusterName logicalcluster.LogicalCluster
+	WorkspaceClusterName logicalcluster.Name
 	WorkloadClusterName  string
 	InstallCRDs          func(config *rest.Config, isLogicalCluster bool)
 }
@@ -588,7 +588,7 @@ func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx cont
 // WriteLogicalClusterConfig creates a logical cluster config for the given config and
 // cluster name and writes it to the test's artifact path. Useful for configuring the
 // workspace plugin with --kubeconfig.
-func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clusterName logicalcluster.LogicalCluster) (clientcmd.ClientConfig, string) {
+func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clusterName logicalcluster.Name) (clientcmd.ClientConfig, string) {
 	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName)
 	artifactDir, err := CreateTempDirForTest(t, "artifacts")
 	require.NoError(t, err)

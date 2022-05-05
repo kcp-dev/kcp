@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
@@ -119,8 +119,8 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	deserializer := codecs.UniversalDeserializer()
 
 	t.Logf("Create test server and create mutating webhook for cowboys in both source and target cluster")
-	testWebhooks := map[logicalcluster.LogicalCluster]*webhookserver.AdmissionWebhookServer{}
-	for _, cluster := range []logicalcluster.LogicalCluster{sourceWorkspace, targetWorkspace} {
+	testWebhooks := map[logicalcluster.Name]*webhookserver.AdmissionWebhookServer{}
+	for _, cluster := range []logicalcluster.Name{sourceWorkspace, targetWorkspace} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
 			Response: v1.AdmissionResponse{
 				Allowed: true,
@@ -259,8 +259,8 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	deserializer := codecs.UniversalDeserializer()
 
 	t.Logf("Create test server and create validating webhook for cowboys in both source and target cluster")
-	testWebhooks := map[logicalcluster.LogicalCluster]*webhookserver.AdmissionWebhookServer{}
-	for _, cluster := range []logicalcluster.LogicalCluster{sourceWorkspace, targetWorkspace} {
+	testWebhooks := map[logicalcluster.Name]*webhookserver.AdmissionWebhookServer{}
+	for _, cluster := range []logicalcluster.Name{sourceWorkspace, targetWorkspace} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
 			Response: v1.AdmissionResponse{
 				Allowed: true,

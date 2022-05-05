@@ -471,6 +471,8 @@ github.com/kcp-dev/kubernetes/staging/src/k8s.io/mount-utils v0.0.0-202205061723
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20220506172303-ef46ab55519c h1:YMoojModeNv2eAzT5FJHZxW5jVBLoPylZQmQiq2IoJ0=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20220506172303-ef46ab55519c/go.mod h1:YSfevLOikB6fttjc9y/dmcQj0OJEZ/isjLZeDyOVYTs=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-apiserver v0.0.0-20220506172303-ef46ab55519c/go.mod h1:V0s75URYbm3vxoPEpjk1nO6c9WEoEIr5pGxS792IBfA=
+github.com/kcp-dev/logicalcluster v1.0.0 h1:qCnoUNaqJ0Tgefkj3vXn17EC76AP44WZwnIuHLw6yGQ=
+github.com/kcp-dev/logicalcluster v1.0.0/go.mod h1:M0CBFkJTW29XtIP5XIkDfhYQ8LU6HrnseRb4zmgBltE=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=

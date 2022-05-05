@@ -24,7 +24,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,12 +54,12 @@ type reconciler interface {
 // placementReconciler watches namespaces within a cluster workspace and assigns those to location from
 // the location domain of the cluster workspace.
 type placementReconciler struct {
-	listAPIBindings      func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error)
-	listLocations        func(clusterName logicalcluster.LogicalCluster) ([]*schedulingv1alpha1.Location, error)
-	listWorkloadClusters func(clusterName logicalcluster.LogicalCluster) ([]*workloadv1alpha1.WorkloadCluster, error)
-	patchNamespace       func(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
+	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	listLocations        func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error)
+	listWorkloadClusters func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error)
+	patchNamespace       func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 
-	enqueueAfter func(logicalcluster.LogicalCluster, *corev1.Namespace, time.Duration)
+	enqueueAfter func(logicalcluster.Name, *corev1.Namespace, time.Duration)
 }
 
 func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, error) {
@@ -93,7 +93,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 	// find workload bindings = those that have at least one location and are ready
 	var errs []error
 	var workloadBindings []*apisv1alpha1.APIBinding
-	locationsByWorkspace := map[logicalcluster.LogicalCluster][]*schedulingv1alpha1.Location{}
+	locationsByWorkspace := map[logicalcluster.Name][]*schedulingv1alpha1.Location{}
 	for _, binding := range bindings {
 		if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) || !conditions.IsTrue(binding, apisv1alpha1.APIExportValid) {
 			continue
@@ -216,7 +216,7 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	return utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listAPIBindings(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error) {
+func (c *controller) listAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 	items, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func (c *controller) listAPIBindings(clusterName logicalcluster.LogicalCluster) 
 	return ret, nil
 }
 
-func (c *controller) listLocations(clusterName logicalcluster.LogicalCluster) ([]*schedulingv1alpha1.Location, error) {
+func (c *controller) listLocations(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
 	items, err := c.locationIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func (c *controller) listLocations(clusterName logicalcluster.LogicalCluster) ([
 	return ret, nil
 }
 
-func (c *controller) listWorkloadClusters(clusterName logicalcluster.LogicalCluster) ([]*workloadv1alpha1.WorkloadCluster, error) {
+func (c *controller) listWorkloadClusters(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
 	items, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
@@ -252,6 +252,6 @@ func (c *controller) listWorkloadClusters(clusterName logicalcluster.LogicalClus
 	return ret, nil
 }
 
-func (c *controller) patchNamespace(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
+func (c *controller) patchNamespace(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
 	return c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, name, pt, data, opts, subresources...)
 }

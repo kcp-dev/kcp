@@ -23,19 +23,19 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func ParseClusterURL(host string) (*url.URL, logicalcluster.LogicalCluster, error) {
+func ParseClusterURL(host string) (*url.URL, logicalcluster.Name, error) {
 	u, err := url.Parse(host)
 	if err != nil {
-		return nil, logicalcluster.LogicalCluster{}, err
+		return nil, logicalcluster.Name{}, err
 	}
 	ret := *u
-	var clusterName logicalcluster.LogicalCluster
+	var clusterName logicalcluster.Name
 	for _, prefix := range []string{
 		"/clusters/",
 		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
@@ -47,7 +47,7 @@ func ParseClusterURL(host string) (*url.URL, logicalcluster.LogicalCluster, erro
 		}
 	}
 	if clusterName.Empty() || !IsValid(clusterName) {
-		return nil, logicalcluster.LogicalCluster{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
+		return nil, logicalcluster.Name{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
 	}
 
 	return &ret, clusterName, nil
@@ -55,7 +55,7 @@ func ParseClusterURL(host string) (*url.URL, logicalcluster.LogicalCluster, erro
 
 var lclusterRegExp = regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9](:[a-z][a-z0-9-]*[a-z0-9])*$`)
 
-func IsValid(cluster logicalcluster.LogicalCluster) bool {
+func IsValid(cluster logicalcluster.Name) bool {
 	if !lclusterRegExp.MatchString(cluster.String()) {
 		return false
 	}

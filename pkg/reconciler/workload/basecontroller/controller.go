@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,13 +41,13 @@ import (
 
 const GVRForLocationInLogicalClusterIndexName = "GVRForLocationInLogicalCluster"
 
-func GetGVRForLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.LogicalCluster, gvr metav1.GroupVersionResource) string {
+func GetGVRForLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
 	return location + "$$" + apiresource.GetClusterNameAndGVRIndexKey(clusterName, gvr)
 }
 
 const LocationInLogicalClusterIndexName = "LocationInLogicalCluster"
 
-func GetLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.LogicalCluster) string {
+func GetLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.Name) string {
 	return location + "/" + clusterName.String()
 }
 

@@ -21,7 +21,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -573,7 +573,7 @@ func TestValidate(t *testing.T) {
 			o := &clusterWorkspaceTypeExists{
 				Handler:    admission.NewHandler(admission.Create, admission.Update),
 				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
-				createAuthorizer: func(clusterName logicalcluster.LogicalCluster, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,

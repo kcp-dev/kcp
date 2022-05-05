@@ -23,7 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -73,7 +73,7 @@ func NewController(
 		kcpClusterClient: kcpClusterClient,
 
 		apiBindingsLister: apiBindingInformer.Lister(),
-		listAPIBindings: func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			list, err := apiBindingInformer.Lister().List(labels.Everything())
 			if err != nil {
 				return nil, err
@@ -93,20 +93,20 @@ func NewController(
 		},
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		getAPIExport: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 			return apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
 		},
 		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
 
-		getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			return apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
 		},
 		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
 
-		createCRD: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+		createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
 		},
-		getCRD: func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
 		},
 		crdIndexer:        crdInformer.Informer().GetIndexer(),
@@ -187,17 +187,17 @@ type controller struct {
 	kcpClusterClient kcpclient.ClusterInterface
 
 	apiBindingsLister  apislisters.APIBindingLister
-	listAPIBindings    func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	apiBindingsIndexer cache.Indexer
 
-	getAPIExport      func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 	apiExportsIndexer cache.Indexer
 
-	getAPIResourceSchema     func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getAPIResourceSchema     func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	apiResourceSchemaIndexer cache.Indexer
 
-	createCRD  func(ctx context.Context, clusterName logicalcluster.LogicalCluster, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
-	getCRD     func(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	createCRD  func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
+	getCRD     func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	crdIndexer cache.Indexer
 
 	deletedCRDTracker *lockedStringSet

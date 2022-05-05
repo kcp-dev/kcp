@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	logicalcluster "github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	logicalcluster "github.com/kcp-dev/logicalcluster"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -56,7 +56,7 @@ type ClusterWorkspaceInterface interface {
 // clusterWorkspaces implements ClusterWorkspaceInterface
 type clusterWorkspaces struct {
 	client  rest.Interface
-	cluster logicalcluster.LogicalCluster
+	cluster logicalcluster.Name
 }
 
 // newClusterWorkspaces returns a ClusterWorkspaces

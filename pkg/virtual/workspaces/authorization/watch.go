@@ -20,7 +20,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -82,7 +82,7 @@ type userWorkspaceWatcher struct {
 	// knownWorkspaces maps name to resourceVersion
 	knownWorkspaces map[string]string
 
-	lclusterName logicalcluster.LogicalCluster
+	lclusterName logicalcluster.Name
 }
 
 var (
@@ -91,7 +91,7 @@ var (
 	watchChannelHWM kstorage.HighWaterMark
 )
 
-func NewUserWorkspaceWatcher(user user.Info, lclusterName logicalcluster.LogicalCluster, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, authCache WatchableCache, includeAllExistingWorkspaces bool, predicate kstorage.SelectionPredicate) *userWorkspaceWatcher {
+func NewUserWorkspaceWatcher(user user.Info, lclusterName logicalcluster.Name, clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache, authCache WatchableCache, includeAllExistingWorkspaces bool, predicate kstorage.SelectionPredicate) *userWorkspaceWatcher {
 	workspaces, _ := authCache.List(user, labels.Everything(), fields.Everything())
 	knownWorkspaces := map[string]string{}
 	for _, workspace := range workspaces.Items {

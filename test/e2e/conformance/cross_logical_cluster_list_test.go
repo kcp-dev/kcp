@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -57,7 +57,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 	cfg := server.DefaultConfig(t)
 
-	logicalClusters := []logicalcluster.LogicalCluster{
+	logicalClusters := []logicalcluster.Name{
 		framework.NewOrganizationFixture(t, server),
 		framework.NewOrganizationFixture(t, server),
 	}
@@ -169,7 +169,7 @@ func TestCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	bootstrapCRD := func(
 		t *testing.T,
-		clusterName logicalcluster.LogicalCluster,
+		clusterName logicalcluster.Name,
 		client apiextensionsv1client.CustomResourceDefinitionInterface,
 		crd *apiextensionsv1.CustomResourceDefinition,
 	) {

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -51,7 +51,7 @@ import (
 const controllerName = "namespace-scheduler"
 
 type clusterDiscovery interface {
-	WithCluster(name logicalcluster.LogicalCluster) discovery.DiscoveryInterface
+	WithCluster(name logicalcluster.Name) discovery.DiscoveryInterface
 }
 
 // NewController returns a new Controller which schedules namespaced resources to a Cluster.

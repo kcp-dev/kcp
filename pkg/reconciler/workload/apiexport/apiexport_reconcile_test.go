@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -60,8 +60,8 @@ func hasSchemas(expected ...string) func(*testing.T, *apisv1alpha1.APIExport) {
 
 func TestSchemaReconciler(t *testing.T) {
 	tests := map[string]struct {
-		negotiatedResources map[logicalcluster.LogicalCluster][]*apiresourcev1alpha1.NegotiatedAPIResource
-		schemas             map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIResourceSchema
+		negotiatedResources map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource
+		schemas             map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema
 		export              *apisv1alpha1.APIExport
 
 		listNegotiatedAPIResourcesError error
@@ -93,7 +93,7 @@ func TestSchemaReconciler(t *testing.T) {
 		},
 		"full api resource": {
 			export: export(logicalcluster.New("root:org:ws"), "workloads", "Workloads"),
-			negotiatedResources: map[logicalcluster.LogicalCluster][]*apiresourcev1alpha1.NegotiatedAPIResource{
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -223,7 +223,7 @@ func TestSchemaReconciler(t *testing.T) {
 		},
 		"non-tripple schema name": {
 			export: export(logicalcluster.New("root:org:ws"), "workloads", "foo"),
-			negotiatedResources: map[logicalcluster.LogicalCluster][]*apiresourcev1alpha1.NegotiatedAPIResource{
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
 				},
@@ -238,12 +238,12 @@ func TestSchemaReconciler(t *testing.T) {
 		},
 		"dangling schema in export": {
 			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-43.deployments.apps"),
-			negotiatedResources: map[logicalcluster.LogicalCluster][]*apiresourcev1alpha1.NegotiatedAPIResource{
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
-			schemas: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIResourceSchema{
+			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
 					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-43", "apps", "v1", "Deployment"), "workloads"),
 				},
@@ -259,12 +259,12 @@ func TestSchemaReconciler(t *testing.T) {
 		},
 		"up-to-date schema": {
 			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-10.services.core"),
-			negotiatedResources: map[logicalcluster.LogicalCluster][]*apiresourcev1alpha1.NegotiatedAPIResource{
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
-			schemas: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIResourceSchema{
+			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
 					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "workloads"), // older RV
 				},
@@ -273,12 +273,12 @@ func TestSchemaReconciler(t *testing.T) {
 		},
 		"outdated schema": {
 			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-10.services.core"),
-			negotiatedResources: map[logicalcluster.LogicalCluster][]*apiresourcev1alpha1.NegotiatedAPIResource{
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
-			schemas: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIResourceSchema{
+			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
 					withDifferentOpenAPI(
 						withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "workloads"),
@@ -297,12 +297,12 @@ func TestSchemaReconciler(t *testing.T) {
 		},
 		"unused schemas": {
 			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-10.services.core"),
-			negotiatedResources: map[logicalcluster.LogicalCluster][]*apiresourcev1alpha1.NegotiatedAPIResource{
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
-			schemas: map[logicalcluster.LogicalCluster][]*apisv1alpha1.APIResourceSchema{
+			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
 					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "workloads"),        // older RV
 					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-19", "apps", "v1", "Deployment"), "workloads"), // older RV
@@ -321,19 +321,19 @@ func TestSchemaReconciler(t *testing.T) {
 			exportUpdates := map[string]*apisv1alpha1.APIExport{}
 			schemeDeletes := map[string]struct{}{}
 			r := &schemaReconciler{
-				listNegotiatedAPIResources: func(clusterName logicalcluster.LogicalCluster) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
+				listNegotiatedAPIResources: func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
 					if tc.listNegotiatedAPIResourcesError != nil {
 						return nil, tc.listNegotiatedAPIResourcesError
 					}
 					return tc.negotiatedResources[clusterName], nil
 				},
-				listAPIResourceSchemas: func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIResourceSchema, error) {
+				listAPIResourceSchemas: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error) {
 					if tc.listAPIResourceSchemaError != nil {
 						return nil, tc.listAPIResourceSchemaError
 					}
 					return tc.schemas[clusterName], nil
 				},
-				getAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+				getAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 					if tc.getAPIResourceSchemaError != nil {
 						return nil, tc.getAPIResourceSchemaError
 					}
@@ -344,21 +344,21 @@ func TestSchemaReconciler(t *testing.T) {
 					}
 					return nil, apierrors.NewNotFound(schema.GroupResource{Group: "apis.kcp.dev", Resource: "apiresourceschemas"}, name)
 				},
-				createAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
+				createAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
 					if tc.createAPIResourceSchemaError != nil {
 						return nil, tc.createAPIResourceSchemaError
 					}
 					schemaCreates[schema.Name] = schema.DeepCopy()
 					return schema, nil
 				},
-				updateAPIExport: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
+				updateAPIExport: func(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
 					if tc.updateAPIExportError != nil {
 						return nil, tc.updateAPIExportError
 					}
 					exportUpdates[export.Name] = export.DeepCopy()
 					return export, nil
 				},
-				deleteAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string) error {
+				deleteAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Name, name string) error {
 					if tc.deleteAPIResourceSchemaError != nil {
 						return tc.deleteAPIResourceSchemaError
 					}
@@ -409,7 +409,7 @@ func TestSchemaReconciler(t *testing.T) {
 	}
 }
 
-func export(clusterName logicalcluster.LogicalCluster, name string, exports ...string) *apisv1alpha1.APIExport {
+func export(clusterName logicalcluster.Name, name string, exports ...string) *apisv1alpha1.APIExport {
 	return &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -421,7 +421,7 @@ func export(clusterName logicalcluster.LogicalCluster, name string, exports ...s
 	}
 }
 
-func apiResourceSchema(clusterName logicalcluster.LogicalCluster, prefix string, group string, version string, kind string) *apisv1alpha1.APIResourceSchema {
+func apiResourceSchema(clusterName logicalcluster.Name, prefix string, group string, version string, kind string) *apisv1alpha1.APIResourceSchema {
 	nameGroup := group
 	if nameGroup == "" {
 		nameGroup = "core"
@@ -477,7 +477,7 @@ func withDifferentOpenAPI(schema *apisv1alpha1.APIResourceSchema, openAPISchema 
 	return schema
 }
 
-func negotiatedAPIResource(clusterName logicalcluster.LogicalCluster, group string, version string, kind string) *apiresourcev1alpha1.NegotiatedAPIResource {
+func negotiatedAPIResource(clusterName logicalcluster.Name, group string, version string, kind string) *apiresourcev1alpha1.NegotiatedAPIResource {
 	return &apiresourcev1alpha1.NegotiatedAPIResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            fmt.Sprintf("%ss.%s.%s", strings.ToLower(kind), version, group),

@@ -23,7 +23,7 @@ import (
 	_ "net/http/pprof"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -292,7 +292,7 @@ func (s *Server) Run(ctx context.Context) error {
 			},
 			s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister().Get,
 		),
-		getAPIResourceSchema: func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			key := clusters.ToClusterAwareKey(clusterName, name)
 			return s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
 		},

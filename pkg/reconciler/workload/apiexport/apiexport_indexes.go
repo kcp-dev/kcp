@@ -19,7 +19,7 @@ package apiexport
 import (
 	"fmt"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

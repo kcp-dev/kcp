@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -265,7 +265,7 @@ func (c *Controller) getServices(ctx context.Context, ingress *networkingv1.Ingr
 	return services, nil
 }
 
-func createOwnedBySelector(clusterName logicalcluster.LogicalCluster, name, namespace string) (labels.Selector, error) {
+func createOwnedBySelector(clusterName logicalcluster.Name, name, namespace string) (labels.Selector, error) {
 	ownedClusterReq, err := labels.NewRequirement(OwnedByCluster, selection.Equals, []string{LabelEscapeClusterName(clusterName)})
 	if err != nil {
 		return nil, err
@@ -284,10 +284,10 @@ func createOwnedBySelector(clusterName logicalcluster.LogicalCluster, name, name
 	return ownedBySelector, nil
 }
 
-func LabelEscapeClusterName(n logicalcluster.LogicalCluster) string {
+func LabelEscapeClusterName(n logicalcluster.Name) string {
 	return strings.ReplaceAll(n.String(), ":", "_")
 }
 
-func UnescapeClusterNameLabel(s string) logicalcluster.LogicalCluster {
+func UnescapeClusterNameLabel(s string) logicalcluster.Name {
 	return logicalcluster.New(strings.ReplaceAll(s, "_", ":"))
 }

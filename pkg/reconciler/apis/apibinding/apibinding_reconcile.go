@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -485,14 +485,14 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 	return crd, nil
 }
 
-func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.LogicalCluster, error) {
+func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.Name, error) {
 	parent, hasParent := logicalcluster.From(apiBinding).Parent()
 	if !hasParent {
-		return logicalcluster.LogicalCluster{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
+		return logicalcluster.Name{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
 	}
 	if apiBinding.Spec.Reference.Workspace == nil {
 		// cannot happen due to APIBinding validation
-		return logicalcluster.LogicalCluster{}, fmt.Errorf("APIBinding does not specify an APIExport")
+		return logicalcluster.Name{}, fmt.Errorf("APIBinding does not specify an APIExport")
 	}
 	return parent.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName), nil
 }

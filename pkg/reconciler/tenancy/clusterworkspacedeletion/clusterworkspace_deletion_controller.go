@@ -24,7 +24,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,7 +48,7 @@ func NewController(
 	kcpClient kcpclient.ClusterInterface,
 	metadataClient metadata.Interface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	discoverResourcesFn func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error),
+	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "workspace-deletion")
 
