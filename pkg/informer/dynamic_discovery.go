@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -51,13 +51,14 @@ type clusterDiscovery interface {
 type DynamicDiscoverySharedInformerFactory struct {
 	workspaceLister tenancylisters.ClusterWorkspaceLister
 	disco           clusterDiscovery
-	dsif            dynamicinformer.DynamicSharedInformerFactory
+	dsif            DynamicSharedInformerFactory
 	handler         GVREventHandler
 	filterFunc      func(interface{}) bool
 	pollInterval    time.Duration
 
-	mu   sync.RWMutex // guards gvrs
-	gvrs map[schema.GroupVersionResource]struct{}
+	mu        sync.RWMutex // guards gvrs
+	gvrs      map[schema.GroupVersionResource]informers.GenericInformer
+	cancelFns map[schema.GroupVersionResource]func()
 }
 
 // IndexerFor returns the indexer for the given type GVR.
@@ -98,14 +99,15 @@ func NewDynamicDiscoverySharedInformerFactory(
 	handler GVREventHandler,
 	pollInterval time.Duration,
 ) DynamicDiscoverySharedInformerFactory {
-	dsif := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, resyncPeriod)
+	dsif := NewDynamicSharedInformerFactory(dynClient, resyncPeriod)
 	return DynamicDiscoverySharedInformerFactory{
 		workspaceLister: workspaceLister,
 		disco:           disco,
 		dsif:            dsif,
 		handler:         handler,
 		filterFunc:      filterFunc,
-		gvrs:            map[schema.GroupVersionResource]struct{}{},
+		gvrs:            map[schema.GroupVersionResource]informers.GenericInformer{},
+		cancelFns:       map[schema.GroupVersionResource]func(){},
 		pollInterval:    pollInterval,
 	}
 }
@@ -214,28 +216,43 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	}
 
 	d.mu.RLock()
-	var newGVRs []schema.GroupVersionResource
+	var newGVRs, goneGVRs []schema.GroupVersionResource
 	for gvr := range latest {
 		if _, found := d.gvrs[gvr]; !found {
 			newGVRs = append(newGVRs, gvr)
 		}
 	}
+	for gvr := range d.gvrs {
+		if _, found := latest[gvr]; !found {
+			goneGVRs = append(goneGVRs, gvr)
+		}
+	}
 	d.mu.RUnlock()
 
-	if len(newGVRs) == 0 {
+	if len(newGVRs) == 0 && len(goneGVRs) == 0 {
 		return nil
 	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	// Stop informers that are no longer needed.
+	for _, gvr := range goneGVRs {
+		if cancelFn, found := d.cancelFns[gvr]; found {
+			klog.Infof("Stopping informer for %s", gvr)
+			d.dsif.Remove(gvr, d.gvrs[gvr])
+			delete(d.gvrs, gvr)
+			delete(d.cancelFns, gvr)
+			cancelFn()
+		}
+	}
+
 	// Set up informers for any new types that have been discovered.
-	// TODO: Stop informers for types we no longer have.
 	for _, gvr := range newGVRs {
 		klog.Infof("Adding informer for %q because of workspace %s (there might be others too)", gvr, logicalClusterNames[gvr])
 		gvr := gvr // make copy, because we'll use it in the closure
-		inf := d.dsif.ForResource(gvr).Informer()
-		inf.AddEventHandler(cache.FilteringResourceEventHandler{
+		inf := d.dsif.ForResource(gvr)
+		inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: d.filterFunc,
 			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
@@ -250,9 +267,11 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 				DeleteFunc: func(obj interface{}) { d.handler.OnDelete(gvr, obj) },
 			},
 		})
-		go inf.Run(ctx.Done())
+		infCtx, cancelFn := context.WithCancel(ctx)
+		go inf.Informer().Run(infCtx.Done())
 
-		d.gvrs[gvr] = struct{}{}
+		d.gvrs[gvr] = inf
+		d.cancelFns[gvr] = cancelFn
 	}
 
 	return nil

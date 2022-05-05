@@ -29,6 +29,9 @@ type DynamicSharedInformerFactory interface {
 	Start(stopCh <-chan struct{})
 	ForResource(gvr schema.GroupVersionResource) informers.GenericInformer
 	WaitForCacheSync(stopCh <-chan struct{}) map[schema.GroupVersionResource]bool
+
+	// Remove deregisters the given informer for the gvr, and does nothing if another informer for the same gvr is registered.
+	Remove(gvr schema.GroupVersionResource, informer informers.GenericInformer)
 }
 
 // TweakListOptionsFunc defines the signature of a helper function
