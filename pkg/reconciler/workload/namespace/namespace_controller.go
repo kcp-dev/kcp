@@ -308,6 +308,7 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 
 	obj, exists, err := c.ddsif.IndexerFor(*gvr).GetByKey(key)
 	if err != nil {
+		klog.Errorf("Error getting %q from indexer: %v", key, err)
 		return err
 	}
 	if !exists {
