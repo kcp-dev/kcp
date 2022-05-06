@@ -74,6 +74,10 @@ func modifyCordon(ctx context.Context, config *rest.Config, workloadClusterName 
 	}
 
 	workloadCluster.Spec.Unschedulable = cordon
+	// if uncordon, make sure evictAfter is not set
+	if !cordon {
+		workloadCluster.Spec.EvictAfter = nil
+	}
 
 	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Update(ctx, workloadCluster, metav1.UpdateOptions{})
 	if err != nil {
@@ -105,6 +109,9 @@ func (c *Config) Drain(ctx context.Context, workloadClusterName string) error {
 
 	nowTime := metav1.NewTime(time.Now())
 	workloadCluster.Spec.EvictAfter = &nowTime
+
+	//ensure unschedulable is also set
+	workloadCluster.Spec.Unschedulable = true
 
 	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Update(ctx, workloadCluster, metav1.UpdateOptions{})
 	if err != nil {
