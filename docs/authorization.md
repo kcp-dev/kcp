@@ -155,6 +155,29 @@ roleRef:
   name: workspace-admin
 ```
 
+### Initializing Workspaces
+
+By default, workspaces are only accessible to a user if they are in phse `Ready`. Workspaces that are initializing
+can be access only by users that are granted `initialize` verb on the `clusterworkspaces/content` resource in the 
+parent workspace.
+
+E.g. the workspace `root:org:ws:ws` initializing user is bound to a role of the following shape in `root:org:ws`:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: workspace-initalizer
+  clusterName: root:org:ws
+rules:
+- apiGroups:
+  - tenancy.kcp.dev
+  resources:
+  - clusterworkspaces/content
+  verbs:
+  - initialize
+```
+
 ## Kubernetes Bootstrap Policy authorizer
 
 The bootstrap policy authorizer works just like the local authorizer but references RBAC rules
