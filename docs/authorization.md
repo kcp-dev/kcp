@@ -158,6 +158,14 @@ roleRef:
   name: workspace-admin
 ```
 
+### Initializing Workspaces
+
+By default, workspaces are only accessible to a user if they are in `Ready` phase. Workspaces that are initializing
+can be access only by users that are granted `admin` verb on the `clusterworkspaces/content` resource in the
+parent workspace.
+
+Service accounts declared within a workspace don't have access to initializing workspaces.
+
 ## Kubernetes Bootstrap Policy authorizer
 
 The bootstrap policy authorizer works just like the local authorizer but references RBAC rules
