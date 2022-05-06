@@ -7,7 +7,7 @@ Generally, the same (cluster) role and (cluster) role binding principles apply e
 In addition, additional RBAC semantics is implemented cross-workspaces, namely the following:
 
 - **Top-Level Organization** access: the user must have this as pre-requisite to access any other workspace, or is
-  even member and by that can even create workspaces inside of the orgnaizatin workspace.
+  even member and by that can create workspaces inside the organization workspace.
 - **Organization Content** access: the user needs access to a workspace or is even admin.
 - for some resources, additional permission checks are performed, not represented by local or Kubernetes standard RBAC rules. E.g.
   - workspace creation checks for organization membership (see above)
