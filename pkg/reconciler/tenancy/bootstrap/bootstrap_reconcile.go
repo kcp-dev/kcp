@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/klog/v2"
 

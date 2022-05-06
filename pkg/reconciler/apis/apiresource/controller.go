@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -44,7 +44,7 @@ import (
 const clusterNameAndGVRIndexName = "clusterNameAndGVR"
 const controllerName = "apiresource"
 
-func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.LogicalCluster, gvr metav1.GroupVersionResource) string {
+func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
 	return clusterName.String() + "$" + gvr.String()
 }
 
@@ -173,7 +173,7 @@ type queueElement struct {
 	theType       queueElementType
 	theKey        string
 	gvr           metav1.GroupVersionResource
-	clusterName   logicalcluster.LogicalCluster
+	clusterName   logicalcluster.Name
 	deletedObject interface{}
 }
 

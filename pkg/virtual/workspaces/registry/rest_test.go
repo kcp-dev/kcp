@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -79,7 +79,7 @@ type TestData struct {
 	scope               string
 	reviewer            *workspaceauth.Reviewer
 	rootReviewer        *workspaceauth.Reviewer
-	orgName             logicalcluster.LogicalCluster
+	orgName             logicalcluster.Name
 }
 
 type TestDescription struct {
@@ -195,14 +195,14 @@ func applyTest(t *testing.T, test TestDescription) {
 	}
 
 	storage := REST{
-		getFilteredClusterWorkspaces: func(orgName logicalcluster.LogicalCluster) FilteredClusterWorkspaces {
+		getFilteredClusterWorkspaces: func(orgName logicalcluster.Name) FilteredClusterWorkspaces {
 			return &clusterWorkspaces{clusterWorkspaceLister: clusterWorkspaceLister}
 		},
 		crbInformer:           crbInformer,
-		kubeClusterClient:     mockKubeClusterClient(func(logicalcluster.LogicalCluster) kubernetes.Interface { return mockKubeClient }),
-		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.LogicalCluster) kcpclientset.Interface { return mockKCPClient }),
+		kubeClusterClient:     mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }),
+		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.Name) kcpclientset.Interface { return mockKCPClient }),
 		clusterWorkspaceCache: nil,
-		delegatedAuthz: func(clusterName logicalcluster.LogicalCluster, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+		delegatedAuthz: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 			if clusterName == tenancyv1alpha1.RootCluster {
 				return test.rootReviewer, nil
 			}
@@ -1988,15 +1988,15 @@ func (c clusterWorkspaces) RemoveWatcher(watcher workspaceauth.CacheWatcher) {
 func (c clusterWorkspaces) AddWatcher(watcher workspaceauth.CacheWatcher) {
 }
 
-type mockKcpClusterClient func(cluster logicalcluster.LogicalCluster) kcpclientset.Interface
+type mockKcpClusterClient func(cluster logicalcluster.Name) kcpclientset.Interface
 
-func (m mockKcpClusterClient) Cluster(cluster logicalcluster.LogicalCluster) kcpclientset.Interface {
+func (m mockKcpClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
 	return m(cluster)
 }
 
-type mockKubeClusterClient func(cluster logicalcluster.LogicalCluster) kubernetes.Interface
+type mockKubeClusterClient func(cluster logicalcluster.Name) kubernetes.Interface
 
-func (m mockKubeClusterClient) Cluster(cluster logicalcluster.LogicalCluster) kubernetes.Interface {
+func (m mockKubeClusterClient) Cluster(cluster logicalcluster.Name) kubernetes.Interface {
 	return m(cluster)
 }
 

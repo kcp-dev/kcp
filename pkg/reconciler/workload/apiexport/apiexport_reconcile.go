@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,12 +49,12 @@ type reconciler interface {
 }
 
 type schemaReconciler struct {
-	listNegotiatedAPIResources func(clusterName logicalcluster.LogicalCluster) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error)
-	listAPIResourceSchemas     func(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIResourceSchema, error)
-	getAPIResourceSchema       func(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
-	createAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.LogicalCluster, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error)
-	deleteAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string) error
-	updateAPIExport            func(ctx context.Context, clusterName logicalcluster.LogicalCluster, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error)
+	listNegotiatedAPIResources func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error)
+	listAPIResourceSchemas     func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error)
+	getAPIResourceSchema       func(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	createAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error)
+	deleteAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, name string) error
+	updateAPIExport            func(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error)
 
 	enqueueAfter func(*apisv1alpha1.APIExport, time.Duration)
 }
@@ -220,7 +220,7 @@ func (c *controller) reconcile(ctx context.Context, export *apisv1alpha1.APIExpo
 	return errors.NewAggregate(errs)
 }
 
-func (c *controller) listNegotiatedAPIResources(clusterName logicalcluster.LogicalCluster) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
+func (c *controller) listNegotiatedAPIResources(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
 	objs, err := c.negotiatedAPIResourceIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ func (c *controller) listNegotiatedAPIResources(clusterName logicalcluster.Logic
 	return ret, nil
 }
 
-func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.LogicalCluster) ([]*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error) {
 	objs, err := c.apiResourceSchemaIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
@@ -244,7 +244,7 @@ func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.LogicalCl
 	return ret, nil
 }
 
-func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 	schema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(clusterName, name))
 	if apierrors.IsNotFound(err) {
 		return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Get(ctx, name, metav1.GetOptions{})
@@ -252,14 +252,14 @@ func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logic
 	return schema, err
 }
 
-func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.LogicalCluster, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
 }
 
-func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.LogicalCluster, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
+func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Update(ctx, export, metav1.UpdateOptions{})
 }
 
-func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.LogicalCluster, name string) error {
+func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) error {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Delete(ctx, name, metav1.DeleteOptions{})
 }

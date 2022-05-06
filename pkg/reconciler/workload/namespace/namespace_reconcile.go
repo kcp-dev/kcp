@@ -24,7 +24,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -93,7 +93,7 @@ func init() {
 
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
-func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.LogicalCluster, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
 	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
 		klog.V(4).Infof("Skipping reconciliation of ingress %s/%s", unstr.GetNamespace(), unstr.GetName())
 		return nil
@@ -240,7 +240,7 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 //
 // After assigning (or if it's already assigned), this also updates all
 // resources in the namespace to be assigned to the namespace's cluster.
-func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logicalcluster.LogicalCluster, ns *corev1.Namespace) error {
+func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logicalcluster.Name, ns *corev1.Namespace) error {
 	klog.Infof("Reconciling namespace %s|%s", lclusterName, ns.Name)
 
 	workspaceSchedulingEnabled, err := isWorkspaceSchedulable(c.workspaceLister.Get, logicalcluster.From(ns))
@@ -424,7 +424,7 @@ func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alph
 }
 
 // enqueueNamespaces adds all namespaces matching selector to the queue to allow for scheduling.
-func (c *Controller) enqueueNamespaces(clusterName logicalcluster.LogicalCluster, selector labels.Selector) error {
+func (c *Controller) enqueueNamespaces(clusterName logicalcluster.Name, selector labels.Selector) error {
 	// TODO(ncdc): use cluster scoped generated lister when available
 	namespaces, err := c.namespaceLister.List(selector)
 	if err != nil {
@@ -517,7 +517,7 @@ type getWorkspaceFunc func(name string) (*tenancyv1alpha1.ClusterWorkspace, erro
 
 // isWorkspaceSchedulable indicates whether the contents of the workspace
 // identified by the logical cluster name are schedulable.
-func isWorkspaceSchedulable(getWorkspace getWorkspaceFunc, logicalClusterName logicalcluster.LogicalCluster) (bool, error) {
+func isWorkspaceSchedulable(getWorkspace getWorkspaceFunc, logicalClusterName logicalcluster.Name) (bool, error) {
 	org, hasParent := logicalClusterName.Parent()
 	if !hasParent {
 		return false, nil

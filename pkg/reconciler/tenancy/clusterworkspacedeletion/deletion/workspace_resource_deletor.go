@@ -38,7 +38,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +71,7 @@ type WorkspaceResourcesDeleterInterface interface {
 // NewNamespacedResourcesDeleter returns a new NamespacedResourcesDeleter.
 func NewWorkspacedResourcesDeleter(
 	metadataClient metadata.Interface,
-	discoverResourcesFn func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error)) WorkspaceResourcesDeleterInterface {
+	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error)) WorkspaceResourcesDeleterInterface {
 	d := &workspacedResourcesDeleter{
 		metadataClient:      metadataClient,
 		discoverResourcesFn: discoverResourcesFn,
@@ -86,7 +86,7 @@ type workspacedResourcesDeleter struct {
 	// Dynamic client to list and delete all resources in the workspace.
 	metadataClient metadata.Interface
 
-	discoverResourcesFn func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error)
+	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error)
 }
 
 // Delete deletes all resources in the given workspace.
@@ -149,7 +149,7 @@ const (
 // deleteCollection is a helper function that will delete the collection of resources
 // it returns true if the operation was supported on the server.
 // it returns an error if the operation was supported on the server but was unable to complete.
-func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.LogicalCluster, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
+func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
 	klog.V(5).Infof("workspace deletion controller - deleteCollection - workspace: %s, gvr: %v", clusterName, gvr)
 
 	if !verbs.Has(string(operationDeleteCollection)) {
@@ -197,7 +197,7 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 //  the list of items in the collection (if found)
 //  a boolean if the operation is supported
 //  an error if the operation is supported but could not be completed.
-func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.LogicalCluster, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
+func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
 	klog.V(5).Infof("workspace deletion controller - listCollection - workspace: %s, gvr: %v", clusterName, gvr)
 
 	if !verbs.Has(string(operationList)) {
@@ -224,7 +224,7 @@ func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, cluster
 }
 
 // deleteEachItem is a helper function that will list the collection of resources and delete each item 1 by 1.
-func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.LogicalCluster, gvr schema.GroupVersionResource, verbs sets.String) error {
+func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) error {
 	klog.V(5).Infof("workspace deletion controller - deleteEachItem - workspace: %s, gvr: %v", clusterName, gvr)
 
 	unstructuredList, listSupported, err := d.listCollection(ctx, clusterName, gvr, verbs)
@@ -260,7 +260,7 @@ type gvrDeletionMetadata struct {
 // If estimate > 0, not all resources are guaranteed to be gone.
 func (d *workspacedResourcesDeleter) deleteAllContentForGroupVersionResource(
 	ctx context.Context,
-	clusterName logicalcluster.LogicalCluster,
+	clusterName logicalcluster.Name,
 	gvr schema.GroupVersionResource,
 	verbs sets.String,
 	workspaceDeletedAt metav1.Time) (gvrDeletionMetadata, error) {
@@ -481,7 +481,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 }
 
 // estimateGracefulTermination will estimate the graceful termination required for the specific entity in the workspace
-func (d *workspacedResourcesDeleter) estimateGracefulTermination(gvr schema.GroupVersionResource, ws logicalcluster.LogicalCluster, workspaceDeletedAt metav1.Time) (int64, error) {
+func (d *workspacedResourcesDeleter) estimateGracefulTermination(gvr schema.GroupVersionResource, ws logicalcluster.Name, workspaceDeletedAt metav1.Time) (int64, error) {
 	groupResource := gvr.GroupResource()
 	klog.V(5).Infof("workspace deletion controller - estimateGracefulTermination - group %s, resource: %s", groupResource.Group, groupResource.Resource)
 	// TODO if we have any grace period for certain resources.

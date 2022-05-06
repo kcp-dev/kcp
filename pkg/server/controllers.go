@@ -25,7 +25,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -94,7 +94,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		return err
 	}
 
-	discoverResourcesFn := func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error) {
+	discoverResourcesFn := func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error) {
 		logicalClusterConfig := rest.CopyConfig(config)
 		logicalClusterConfig.Host += clusterName.Path()
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(logicalClusterConfig)
@@ -286,7 +286,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	discoverResourcesFn := func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error) {
+	discoverResourcesFn := func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error) {
 		logicalClusterConfig := rest.CopyConfig(config)
 		logicalClusterConfig.Host += clusterName.Path()
 		discoveryClient, err := discovery.NewDiscoveryClientForConfig(logicalClusterConfig)

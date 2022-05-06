@@ -19,7 +19,7 @@ package builder
 import (
 	"sync"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -45,20 +45,20 @@ type orgListener struct {
 	lister   listerstenancyv1alpha1.ClusterWorkspaceLister
 	informer cache.SharedIndexInformer
 
-	newClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces
+	newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces
 
 	lock sync.RWMutex
 
-	clusterWorkspacesPerCluster map[logicalcluster.LogicalCluster]*preCreationClusterWorkspaces
+	clusterWorkspacesPerCluster map[logicalcluster.Name]*preCreationClusterWorkspaces
 }
 
-func NewOrgListener(informer workspaceinformer.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
+func NewOrgListener(informer workspaceinformer.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
 	l := &orgListener{
 		lister:   informer.Lister(),
 		informer: informer.Informer(),
 
 		newClusterWorkspaces:        newClusterWorkspaces,
-		clusterWorkspacesPerCluster: map[logicalcluster.LogicalCluster]*preCreationClusterWorkspaces{},
+		clusterWorkspacesPerCluster: map[logicalcluster.Name]*preCreationClusterWorkspaces{},
 	}
 
 	// nolint: errcheck
@@ -88,7 +88,7 @@ func (l *orgListener) Stop() {
 // FilteredClusterWorkspaces returns the cluster workspace provider or nil if it is started (does not mean it does
 // not exist, we just don't know here).
 // Note: because the defining ClusterWorkspace of the parent can be on a different shard, we cannot know here.
-func (l *orgListener) FilteredClusterWorkspaces(orgName logicalcluster.LogicalCluster) registry.FilteredClusterWorkspaces {
+func (l *orgListener) FilteredClusterWorkspaces(orgName logicalcluster.Name) registry.FilteredClusterWorkspaces {
 	// fast path
 	l.lock.RLock()
 	cws, found := l.clusterWorkspacesPerCluster[orgName]

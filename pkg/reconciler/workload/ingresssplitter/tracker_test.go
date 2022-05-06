@@ -19,7 +19,7 @@ package ingresssplitter
 import (
 	"testing"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -52,7 +52,7 @@ func TestTracker(t *testing.T) {
 		}
 	}
 
-	key := func(cluster logicalcluster.LogicalCluster, ns, name string) string {
+	key := func(cluster logicalcluster.Name, ns, name string) string {
 		return ns + "/" + clusters.ToClusterAwareKey(cluster, name)
 	}
 

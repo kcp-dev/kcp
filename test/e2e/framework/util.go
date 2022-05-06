@@ -33,7 +33,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -317,7 +317,7 @@ func RequireNoDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
 }
 
 // LogicalClusterRawConfig returns the raw cluster config of the given config.
-func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.LogicalCluster) clientcmdapi.Config {
+func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Name) clientcmdapi.Config {
 	contextName := "system:admin"
 
 	var configCluster = *rawConfig.Clusters[contextName] // shallow copy

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -86,7 +86,7 @@ const (
 
 type REST struct {
 	// getFilteredClusterWorkspaces returns a provider for ClusterWorkspaces.
-	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster) FilteredClusterWorkspaces
+	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.Name) FilteredClusterWorkspaces
 
 	// crbInformer allows listing or searching for RBAC cluster role bindings through all orgs
 	crbInformer rbacinformers.ClusterRoleBindingInformer
@@ -124,7 +124,7 @@ func AddNameIndexers(crbInformer rbacinformers.ClusterRoleBindingInformer) error
 	})
 }
 
-func lclusterAwareIndexValue(lclusterName logicalcluster.LogicalCluster, indexValue string) string {
+func lclusterAwareIndexValue(lclusterName logicalcluster.Name, indexValue string) string {
 	return lclusterName.String() + "#$#" + indexValue
 }
 
@@ -142,7 +142,7 @@ func NewREST(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 	wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
-	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.LogicalCluster) FilteredClusterWorkspaces,
+	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.Name) FilteredClusterWorkspaces,
 ) *REST {
 	mainRest := &REST{
 		getFilteredClusterWorkspaces: getFilteredClusterWorkspaces,
@@ -178,7 +178,7 @@ func (s *REST) NamespaceScoped() bool {
 	return false
 }
 
-func (s *REST) getPrettyNameFromInternalName(user kuser.Info, orgClusterName logicalcluster.LogicalCluster, internalName string) (string, error) {
+func (s *REST) getPrettyNameFromInternalName(user kuser.Info, orgClusterName logicalcluster.Name, internalName string) (string, error) {
 	list, err := s.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, lclusterAwareIndexValue(orgClusterName, internalName))
 	if err != nil {
 		return "", err
@@ -192,7 +192,7 @@ func (s *REST) getPrettyNameFromInternalName(user kuser.Info, orgClusterName log
 	return "", kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), internalName)
 }
 
-func (s *REST) getInternalNameFromPrettyName(user kuser.Info, orgClusterName logicalcluster.LogicalCluster, prettyName string) (string, error) {
+func (s *REST) getInternalNameFromPrettyName(user kuser.Info, orgClusterName logicalcluster.Name, prettyName string) (string, error) {
 	list, err := s.crbInformer.Informer().GetIndexer().ByIndex(PrettyNameIndex, lclusterAwareIndexValue(orgClusterName, prettyName))
 	if err != nil {
 		return "", err
@@ -218,7 +218,7 @@ func withoutGroupsWhenPersonal(user user.Info, usePersonalScope bool) user.Info 
 	return user
 }
 
-func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcluster.LogicalCluster, user user.Info, verb string) error {
+func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcluster.Name, user user.Info, verb string) error {
 	// Root org access is implicit for every user. For non-root orgs, we need to check for
 	// verb=access permissions against the clusterworkspaces/content of the ClusterWorkspace of
 	// the org in the root.
@@ -253,7 +253,7 @@ func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcl
 	return nil
 }
 
-func shouldUsePersonalScope(scope string, orgClusterName logicalcluster.LogicalCluster) bool {
+func shouldUsePersonalScope(scope string, orgClusterName logicalcluster.Name) bool {
 	return scope == PersonalScope && orgClusterName != tenancyv1alpha1.RootCluster
 }
 
@@ -263,7 +263,7 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 	if !ok {
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
-	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
+	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
 	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, err
 	}
@@ -312,7 +312,7 @@ func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (wa
 		return nil, fmt.Errorf("no user")
 	}
 
-	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
+	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
 	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, err
 	}
@@ -353,7 +353,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
 
-	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
+	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
 	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, err
 	}
@@ -498,7 +498,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to create a workspace without a user on the context"))
 	}
 
-	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
+	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
 	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "member"); err != nil {
 		return nil, err
 	}
@@ -644,7 +644,7 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		return nil, false, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), name, fmt.Errorf("unable to delete a workspace without a user on the context"))
 	}
 
-	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.LogicalCluster)
+	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
 	if err := s.authorizeOrgForUser(ctx, orgClusterName, userInfo, "access"); err != nil {
 		return nil, false, err
 	}

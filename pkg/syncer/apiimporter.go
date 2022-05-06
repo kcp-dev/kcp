@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -56,7 +56,7 @@ func clusterAsOwnerReference(obj *workloadv1alpha1.WorkloadCluster, controller b
 func NewAPIImporter(
 	upstreamConfig, downstreamConfig *rest.Config,
 	resourcesToSync []string,
-	logicalClusterName logicalcluster.LogicalCluster,
+	logicalClusterName logicalcluster.Name,
 	location string,
 ) (*APIImporter, error) {
 	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", logicalClusterName, location)
@@ -124,7 +124,7 @@ type APIImporter struct {
 	clusterIndexer           cache.Indexer
 
 	location           string
-	logicalClusterName logicalcluster.LogicalCluster
+	logicalClusterName logicalcluster.Name
 	schemaPuller       crdpuller.SchemaPuller
 	SyncedGVRs         map[string]metav1.GroupVersionResource
 }

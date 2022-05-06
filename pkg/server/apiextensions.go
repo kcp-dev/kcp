@@ -23,7 +23,7 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
@@ -117,7 +117,7 @@ func newSystemCRDProvider(
 	return p
 }
 
-func (p *systemCRDProvider) List(clusterName logicalcluster.LogicalCluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+func (p *systemCRDProvider) List(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	var ret []*apiextensionsv1.CustomResourceDefinition
 
 	for _, key := range p.Keys(clusterName).List() {
@@ -134,7 +134,7 @@ func (p *systemCRDProvider) List(clusterName logicalcluster.LogicalCluster) ([]*
 	return ret, nil
 }
 
-func (p *systemCRDProvider) Keys(clusterName logicalcluster.LogicalCluster) sets.String {
+func (p *systemCRDProvider) Keys(clusterName logicalcluster.Name) sets.String {
 	switch {
 	case clusterName == tenancyv1alpha1.RootCluster:
 		return p.rootCRDs
@@ -181,7 +181,7 @@ type apiBindingAwareCRDLister struct {
 	apiBindingIndexer    cache.Indexer
 	apiExportIndexer     cache.Indexer
 	systemCRDProvider    *systemCRDProvider
-	getAPIResourceSchema func(clusterName logicalcluster.LogicalCluster, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
 var _ kcp.ClusterAwareCRDLister = &apiBindingAwareCRDLister{}
@@ -397,7 +397,7 @@ func partialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 	}
 }
 
-func (c *apiBindingAwareCRDLister) getForFullData(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) getForFullData(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	if clusterName == logicalcluster.Wildcard {
 		return c.getWildcard(name)
 	}
@@ -491,7 +491,7 @@ func (c *apiBindingAwareCRDLister) getForPartialMetadata(name string) (*apiexten
 	return crd, nil
 }
 
-func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	if clusterName == logicalcluster.Wildcard {
 		systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
 		return c.crdLister.Get(systemCRDKeyName)
@@ -508,7 +508,7 @@ func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.Logic
 	return c.crdLister.Get(systemCRDKeyName)
 }
 
-func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.LogicalCluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 
 	// Priority 1: see if it comes from any APIBindings

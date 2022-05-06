@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -60,7 +60,7 @@ var testData = testDataType{
 }
 
 // TODO: move this into a controller and remove this method
-func createOrgMemberRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.ClusterInterface, orgClusterName logicalcluster.LogicalCluster, groupNames ...string) {
+func createOrgMemberRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.ClusterInterface, orgClusterName logicalcluster.Name, groupNames ...string) {
 	parent, hasParent := orgClusterName.Parent()
 	require.True(t, hasParent, "org cluster %s should have a parent", orgClusterName)
 
@@ -133,7 +133,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName        logicalcluster.LogicalCluster
+		orgClusterName        logicalcluster.Name
 		kubeClusterClient     kubernetes.ClusterInterface
 		kcpClusterClient      kcpclientset.ClusterInterface
 		virtualUserKcpClients []kcpclientset.ClusterInterface
@@ -547,7 +547,7 @@ type virtualClusterClient struct {
 	config *rest.Config
 }
 
-func (c *virtualClusterClient) Cluster(cluster logicalcluster.LogicalCluster) kcpclientset.Interface {
+func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
 	config := rest.CopyConfig(c.config)
 	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", cluster.String(), c.scope)
 	return kcpclientset.NewForConfigOrDie(config)

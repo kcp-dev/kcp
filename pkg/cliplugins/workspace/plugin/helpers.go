@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -50,7 +50,7 @@ type personalClusterClient struct {
 	config *rest.Config
 }
 
-func (c *personalClusterClient) Cluster(cluster logicalcluster.LogicalCluster) tenancyclient.Interface {
+func (c *personalClusterClient) Cluster(cluster logicalcluster.Name) tenancyclient.Interface {
 	virtualConfig := rest.CopyConfig(c.config)
 	virtualConfig.Host += path.Join("/services/workspaces", cluster.String(), "personal")
 	return tenancyclient.NewForConfigOrDie(virtualConfig)

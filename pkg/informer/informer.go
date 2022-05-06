@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,7 +43,7 @@ const (
 )
 
 type clusterDiscovery interface {
-	WithCluster(name logicalcluster.LogicalCluster) discovery.DiscoveryInterface
+	WithCluster(name logicalcluster.Name) discovery.DiscoveryInterface
 }
 
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that

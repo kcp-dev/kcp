@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,7 +138,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fn := func(clusterName logicalcluster.LogicalCluster) ([]*metav1.APIResourceList, error) {
+			fn := func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error) {
 				return resources, tt.gvrError
 			}
 			mockMetadataClient := metadatafake.NewSimpleMetadataClient(scheme, tt.existingObject...)

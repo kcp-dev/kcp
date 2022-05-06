@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -42,7 +42,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName    logicalcluster.LogicalCluster
+		orgClusterName    logicalcluster.Name
 		orgKcpClient      clientset.Interface
 		rootKcpClient     clientset.Interface
 		kubeClusterClient *kubernetesclientset.Cluster

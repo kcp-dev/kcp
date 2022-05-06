@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -83,7 +83,7 @@ type SyncerConfig struct {
 	UpstreamConfig      *rest.Config
 	DownstreamConfig    *rest.Config
 	ResourcesToSync     sets.String
-	KCPClusterName      logicalcluster.LogicalCluster
+	KCPClusterName      logicalcluster.Name
 	WorkloadClusterName string
 }
 
@@ -217,14 +217,14 @@ type Controller struct {
 	deleteFn  DeleteFunc
 	direction SyncDirection
 
-	upstreamClusterName logicalcluster.LogicalCluster
+	upstreamClusterName logicalcluster.Name
 	mutators            mutatorGvrMap
 
 	advancedSchedulingEnabled bool
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.LogicalCluster, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
+func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -377,7 +377,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 
 type holder struct {
 	gvr         schema.GroupVersionResource
-	clusterName logicalcluster.LogicalCluster
+	clusterName logicalcluster.Name
 	namespace   string
 	name        string
 }
@@ -464,8 +464,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // NamespaceLocator stores a logical cluster and namespace and is used
 // as the source for the mapped namespace name in a physical cluster.
 type NamespaceLocator struct {
-	LogicalCluster logicalcluster.LogicalCluster `json:"logical-cluster"`
-	Namespace      string                        `json:"namespace"`
+	LogicalCluster logicalcluster.Name `json:"logical-cluster"`
+	Namespace      string              `json:"namespace"`
 }
 
 func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, error) {
@@ -643,7 +643,7 @@ func getDefaultMutators(from *rest.Config) mutatorGvrMap {
 	return mutatorsMap
 }
 
-func ensureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.LogicalCluster, resourceName string) error {
+func ensureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.Name, resourceName string) error {
 	upstreamObj, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, resourceName, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err

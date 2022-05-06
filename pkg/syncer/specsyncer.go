@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/apimachinery/pkg/logicalcluster"
+	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -96,7 +96,7 @@ func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured)
 
 const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
-func NewSpecSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.LogicalCluster, pclusterID string, advancedSchedulingEnabled bool) (*Controller, error) {
+func NewSpecSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool) (*Controller, error) {
 	from = rest.CopyConfig(from)
 	from.UserAgent = specSyncerAgent
 	to = rest.CopyConfig(to)
