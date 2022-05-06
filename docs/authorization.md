@@ -128,8 +128,8 @@ a `ClusterRole` must be created in `root:org:ws` with the following shape:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: 
-  clusterName: workspace-admin
+  name: workspace-admin
+  clusterName: root:org:ws
 rules:
 - apiGroups:
   - tenancy.kcp.dev
@@ -147,7 +147,8 @@ and the user must be bound to it via a `ClusterRoleBinding` in `root:org:ws` lik
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  clusterName: adam-admin
+  name: adam-admin
+  clusterName: root:org:ws
 subjects:
 - kind: User
   name: adam
