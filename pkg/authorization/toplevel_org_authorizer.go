@@ -75,9 +75,20 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 	}
 
-	// everybody authenticated has access to the root workspace
+	subjectClusters := map[logicalcluster.Name]bool{}
+	for _, sc := range attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey] {
+		subjectClusters[logicalcluster.New(sc)] = true
+	}
+
+	isAuthenticated := sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated")
+	isUser := len(subjectClusters) == 0
+	isServiceAccount := len(subjectClusters) > 0
+	isServiceAccountFromRootCluster := subjectClusters[tenancyv1alpha1.RootCluster]
+
+	// Every authenticated user has access to the root workspace but not every service account.
+	// For root, only service accounts declared in root have access.
 	if cluster.Name == tenancyv1alpha1.RootCluster {
-		if sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated") {
+		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
 			return a.delegate.Authorize(ctx, attr)
 		}
 		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
@@ -89,7 +100,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 	}
 
-	// check the org in the root exists
+	// check the org workspace exists in the root workspace
 	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)); err != nil {
 		if errors.IsNotFound(err) {
 			return authorizer.DecisionDeny, workspaceAccessNotPermittedReason, nil
@@ -97,18 +108,29 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, err
 	}
 
-	if subjectCluster := attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey]; len(subjectCluster) > 0 {
+	switch {
+	case isServiceAccount:
 		// service account will automatically get access to its top-level org
-		subjectTopLevelOrgName, ok := topLevelOrg(logicalcluster.New(subjectCluster[0]))
-		if !ok || subjectTopLevelOrgName != requestTopLevelOrgName {
-			return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
+		for sc := range subjectClusters {
+			subjectTopLevelOrg, ok := topLevelOrg(sc)
+			if !ok {
+				continue
+			}
+			if subjectTopLevelOrg == requestTopLevelOrgName {
+				return a.delegate.Authorize(ctx, attr)
+			}
 		}
-		return a.delegate.Authorize(ctx, attr)
-	} else {
+
+		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
+
+	case isUser:
 		var (
 			errList    []error
 			reasonList []string
 		)
+
+		//TODO(sur): member is going to be removed with the advent of user workspaces, member won't be needed,
+		//rather this has to be solved using classic RBAC with "create workspace" permissions.
 		for _, verb := range []string{"access", "member"} {
 			workspaceAttr := authorizer.AttributesRecord{
 				User:        attr.GetUser(),

@@ -30,7 +30,7 @@ const (
 // ClusterRoleBindings return default rolebindings to the default roles
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups("system:kcp:clusterworkspace:admin").BindingOrDie(), "system:kcp:clusterworkspace:admin"),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup).BindingOrDie(), "system:kcp:clusterworkspace:admin"),
 	}
 }
 
