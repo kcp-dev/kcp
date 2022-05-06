@@ -99,12 +99,12 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return nil
 	}
 
-	klog.V(4).Infof("Reconciling %s %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
+	klog.V(2).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
 	if unstr.GetNamespace() == "" {
-		klog.V(5).Infof("%s %s|%s had no namespace; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
+		klog.V(4).Infof("GVR %q %s|%s had no namespace; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
 		return nil
 	}
 
@@ -149,7 +149,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	} else {
-		klog.Infof("Patched cluster assignment for %q %s|%s/%s: %q -> %q. Labels=%v",
+		klog.V(2).Infof("Patched cluster assignment for %q %s|%s/%s: %q -> %q. Labels=%v",
 			gvr, lclusterName, ns.Name, unstr.GetName(), previousCluster, newCluster, updated.GetLabels())
 	}
 	return nil
@@ -160,7 +160,7 @@ func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionRe
 	listers, _ := c.ddsif.Listers()
 	lister, found := listers[gvr]
 	if !found {
-		return fmt.Errorf("informer for %s is not synced; re-enqueueing", gvr)
+		return fmt.Errorf("informer for %q is not synced; re-enqueueing", gvr)
 	}
 
 	// Enqueue workqueue items to reconcile every resource of this type, in
@@ -195,8 +195,8 @@ func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) 
 		return ns, false, nil
 	}
 
-	klog.Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
-		ns.ClusterName, ns.Name, oldPClusterName, newPClusterName)
+	klog.V(2).Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
+		logicalcluster.From(ns), ns.Name, oldPClusterName, newPClusterName)
 	patchType, patchBytes, err := schedulingClusterLabelPatchBytes(oldPClusterName, newPClusterName)
 	if err != nil {
 		klog.Errorf("Failed to create patch for cluster assignment: %v", err)
@@ -229,7 +229,7 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
-		return ns, fmt.Errorf("failed to patch status on namespace %s|%s: %w", ns.ClusterName, ns.Name, err)
+		return ns, fmt.Errorf("failed to patch status on namespace %s|%s: %w", logicalcluster.From(ns), ns.Name, err)
 	}
 
 	return patchedNamespace, nil
@@ -248,7 +248,7 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 		return err
 	}
 	if !workspaceSchedulingEnabled {
-		klog.V(5).Infof("Scheduling is disabled for the workspace of namespace %s|%s", lclusterName, ns.Name)
+		klog.V(4).Infof("Scheduling is disabled for the workspace of namespace %s|%s", lclusterName, ns.Name)
 		return nil
 	}
 
@@ -290,7 +290,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			return err
 		}
 
-		klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): got %d items for %q", clusterName, ns.Name, len(objs), gvr.String())
+		klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): got %d items for GVR %q", clusterName, ns.Name, len(objs), gvr.String())
 
 		var enqueuedResources []string
 		for _, obj := range objs {
@@ -309,9 +309,9 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 					enqueuedResources = append(enqueuedResources, u.GetName())
 				}
 
-				klog.V(4).Infof("Enqueuing %s %s|%s/%s to schedule to %q", gvr.GroupVersion().WithKind(u.GetKind()), ns.ClusterName, ns.Name, u.GetName(), nsLocation)
+				klog.V(3).Infof("Enqueuing %s %s|%s/%s to schedule to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
 			} else {
-				klog.V(6).Infof("Skipping %s %s|%s/%s because it is already scheduled to %q", gvr.GroupVersion().WithKind(u.GetKind()), ns.ClusterName, ns.Name, u.GetName(), nsLocation)
+				klog.V(4).Infof("Skipping %s %s|%s/%s because it is already scheduled to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
 			}
 		}
 
@@ -319,14 +319,14 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			if len(enqueuedResources) == 10 {
 				enqueuedResources = append(enqueuedResources, "...")
 			}
-			klog.V(2).Infof("Enqueuing some %s in namespace %s|%s to schedule to %q: %s", gvr, ns.ClusterName, ns.Name, nsLocation, strings.Join(enqueuedResources, ","))
+			klog.V(2).Infof("Enqueuing some GVR %q in namespace %s|%s to schedule to %q: %s", gvr, logicalcluster.From(ns), ns.Name, nsLocation, strings.Join(enqueuedResources, ","))
 		}
 	}
 
 	// For all types whose informer hasn't synced yet, enqueue a workqueue
 	// item to check that GVR again later (reconcileGVR, above).
 	for _, gvr := range notSynced {
-		klog.V(2).Infof("Informer for %s is not synced; re-enqueueing", gvr)
+		klog.V(3).Infof("Informer for GVR %q is not synced, needed for namespace %s|%s; re-enqueueing", gvr, logicalcluster.From(ns), ns.Name)
 		c.enqueueGVR(gvr)
 	}
 
@@ -388,7 +388,7 @@ func schedulingClusterLabelPatchBytes(oldClusterName, newClusterName string) (ty
 // reconcileNamespace above and assigned to another happy cluster if one can be
 // found.
 func (c *Controller) observeCluster(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
-	klog.Infof("Observing WorkloadCluster %s|%s", cluster.ClusterName, cluster.Name)
+	klog.V(2).Infof("Observing WorkloadCluster %s|%s", logicalcluster.From(cluster), cluster.Name)
 
 	strategy, pendingCordon := enqueueStrategyForCluster(cluster)
 
@@ -492,7 +492,7 @@ func statusPatchBytes(old, new *corev1.Namespace) ([]byte, error) {
 		Status: old.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal existing status for namespace %s|%s: %w", new.ClusterName, new.Name, err)
+		return nil, fmt.Errorf("failed to marshal existing status for namespace %s|%s: %w", logicalcluster.From(new), new.Name, err)
 	}
 
 	newData, err := json.Marshal(corev1.Namespace{
@@ -503,12 +503,12 @@ func statusPatchBytes(old, new *corev1.Namespace) ([]byte, error) {
 		Status: new.Status,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal new status for namespace %s|%s: %w", new.ClusterName, new.Name, err)
+		return nil, fmt.Errorf("failed to marshal new status for namespace %s|%s: %w", logicalcluster.From(new), new.Name, err)
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create status patch for namespace %s|%s: %w", new.ClusterName, new.Name, err)
+		return nil, fmt.Errorf("failed to create status patch for namespace %s|%s: %w", logicalcluster.From(new), new.Name, err)
 	}
 	return patchBytes, nil
 }

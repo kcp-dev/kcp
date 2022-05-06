@@ -50,7 +50,7 @@ func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error)
 
 	schedulingDisabled := !scheduleRequirement.Matches(labels.Set(ns.Labels))
 	if schedulingDisabled {
-		klog.Infof("Automatic scheduling is disabled for namespace %s|%s", ns.ClusterName, ns.Name)
+		klog.Infof("Automatic scheduling is disabled for namespace %s|%s", logicalcluster.From(ns), ns.Name)
 		return assignedCluster, nil
 	}
 
@@ -63,7 +63,7 @@ func (s *namespaceScheduler) AssignCluster(ns *corev1.Namespace) (string, error)
 			return assignedCluster, nil
 		}
 		// A new cluster needs to be assigned
-		klog.V(5).Infof("Cluster %s|%s %s", ns.ClusterName, assignedCluster, invalidMsg)
+		klog.V(5).Infof("Cluster %s|%s %s", logicalcluster.From(ns), assignedCluster, invalidMsg)
 	}
 
 	allClusters, err := s.listClusters(labels.Everything())
@@ -109,25 +109,25 @@ func pickCluster(allClusters []*workloadv1alpha1.WorkloadCluster, lclusterName l
 	for i := range allClusters {
 		// Only include Clusters that are in the logical cluster
 		if logicalcluster.From(allClusters[i]) != lclusterName {
-			klog.V(2).InfoS("pickCluster: excluding cluster with different metadata.clusterName",
-				"ns.clusterName", lclusterName, "check", allClusters[i].ClusterName)
+			klog.V(4).InfoS("pickCluster: excluding cluster with different metadata.clusterName",
+				"ns.clusterName", lclusterName, "check", logicalcluster.From(allClusters[i]))
 			continue
 		}
 		if allClusters[i].Spec.Unschedulable {
-			klog.V(2).InfoS("pickCluster: excluding unschedulable cluster", "metadata.name", allClusters[i].Name)
+			klog.V(4).InfoS("pickCluster: excluding unschedulable cluster", "metadata.name", allClusters[i].Name, "ns.clusterName", lclusterName)
 			continue
 		}
 		if evictAfter := allClusters[i].Spec.EvictAfter; evictAfter != nil && evictAfter.Time.Before(time.Now()) {
-			klog.V(2).InfoS("pickCluster: excluding cluster with evictAfter value that has passed",
-				"metadata.name", allClusters[i].Name)
+			klog.V(4).InfoS("pickCluster: excluding cluster with evictAfter value that has passed",
+				"metadata.name", allClusters[i].Name, "ns.clusterName", lclusterName)
 			continue
 		}
 		if !conditions.IsTrue(allClusters[i], conditionsapi.ReadyCondition) {
-			klog.V(2).InfoS("pickCluster: excluding not-ready cluster", "metadata.name", allClusters[i].Name)
+			klog.V(4).InfoS("pickCluster: excluding not-ready cluster", "metadata.name", allClusters[i].Name, "ns.clusterName", lclusterName)
 			continue
 		}
 
-		klog.V(2).InfoS("pickCluster: found a ready candidate", "metadata.name", allClusters[i].Name)
+		klog.V(3).InfoS("pickCluster: found a ready candidate", "metadata.name", allClusters[i].Name, "ns.clusterName", lclusterName)
 		clusters = append(clusters, allClusters[i])
 	}
 
