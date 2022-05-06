@@ -182,3 +182,10 @@ and work just like in a regular Kubernetes cluster.
 Note: groups added by the workspace content authorizer can be used for role bindings in that workspace.
 
 It is possible to bind to roles and cluster roles in the bootstrap policy from a local policy `RoleBinding` or `ClusterRoleBinding`.
+
+# Service Accounts
+
+Kubernetes service accounts are granted access to the workspaces they are defined in and that are ready.
+
+E.g. a service account "default" in `root:org:ws:ws` is granted access to `root:org:ws:ws`, and through the
+workspace content authorizer it gains the `system:kcp:clusterworkspace:access` group membership.
