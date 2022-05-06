@@ -15,7 +15,7 @@ In addition, additional RBAC semantics is implemented cross-workspaces, namely t
   - API binding via APIBinding objects requires verb `bind` access to the corresponding `APIExport`.
 - **System Workspaces** access: system workspaces are prefixed with `system:` and are not accessible by users. 
 
-The details are outlines below.
+The details are outlined below.
 
 # Authorizers
 
