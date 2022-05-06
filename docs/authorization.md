@@ -1,15 +1,20 @@
 # Introduction
 
-kcp implements the same RBAC-based authorization scheme as Kubernetes.
+Within workspaces, KCP implements the same RBAC-based authorization mechanism as Kubernetes.
 Other authorization schemes (i.e. ABAC) are currently not supported.
-Generally, the same role and role binding priniciples apply the same way as in Kubernetes.
+Generally, the same role and role binding principles apply the same way as in Kubernetes.
 
-However RBAC rules are always declared within the context of a concrete workspace.
-Rules created in a workspace apply to requests against this workspace independently from the workspace type.
-This is what resemembles Kubernetes authorization model.
-In addition, rules can play a role in authorization to requests to other workspaces. The details will be described below.
-This is true for all non-system workspace types, including root, organizational and enduser.
-The exceptions are system namespaces. These can only be accessed by shard-local admins.
+In addition, additional RBAC semantics is implemented cross-workspaces, namely the following:
+
+- **Top-Level Organization** access: the user must need this as pre-requisite to access any other workspace, or is
+  even member and by that can even create workspaces inside of the orgnaizatin workspace.
+- **Organization Content** access: the user needs access to a workspace or is even admin.
+- for some resources, additional permission checks are performed, not represented by local or Kubernetes standard RBAC rules. E.g.
+  - workspace creation checks for organization membership (see above)
+  - API binding via APIBinding objects requires verb `bind` access to the corresponding `APIExport`.
+- **System Workspaces** access: system workspaces are prefixed with `system:` and are not accessible by users. 
+
+The details are outlines below.
 
 # Authorizers
 
