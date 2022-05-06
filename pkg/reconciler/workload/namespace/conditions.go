@@ -93,7 +93,7 @@ func setScheduledCondition(ns *corev1.Namespace) *corev1.Namespace {
 		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonSchedulingDisabled,
 			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
 			"Automatic scheduling is deactivated and can be performed by setting the cluster label manually.")
-	} else if ns.Labels[ClusterLabel] == "" {
+	} else if ns.Labels[DeprecatedScheduledClusterNamespaceLabel] == "" {
 		// Unschedulable
 		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonUnschedulable,
 			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity

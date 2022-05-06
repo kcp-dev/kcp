@@ -28,18 +28,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 const (
-	clusterLabel = nscontroller.ClusterLabel
 	ownedByLabel = "kcp.dev/owned-by"
 )
 
 func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deployment) error {
 	klog.Infof("reconciling deployment %q", deployment.Name)
 
-	if deployment.Labels == nil || deployment.Labels[clusterLabel] == "" {
+	//nolint:staticcheck
+	if deployment.Labels == nil || syncer.DeprecatedGetAssignedWorkloadCluster(deployment.Labels) == "" {
 		// This is a root deployment; get its leafs.
 		sel, err := labels.Parse(fmt.Sprintf("%s=%s", ownedByLabel, deployment.Name))
 		if err != nil {
@@ -153,7 +154,7 @@ func (c *Controller) createLeafs(ctx context.Context, root *appsv1.Deployment) e
 		if vd.Labels == nil {
 			vd.Labels = map[string]string{}
 		}
-		vd.Labels[clusterLabel] = cl.Name
+		vd.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+cl.Name] = string(workloadv1alpha1.ResourceStateSync)
 		vd.Labels[ownedByLabel] = root.Name
 
 		replicasToSet := replicasEach
