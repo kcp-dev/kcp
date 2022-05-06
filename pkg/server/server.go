@@ -299,6 +299,8 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	apiExtensionsConfig.ExtraConfig.ClusterAwareCRDLister = apiBindingAwareCRDLister
 
+	apiExtensionsConfig.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
+
 	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
 	if err != nil {
 		return err
