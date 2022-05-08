@@ -1378,6 +1378,7 @@ func TestCreateWorkspaceWithClusterWorkspaceCreationError(t *testing.T) {
 				},
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
+			require.EqualError(t, err, "something bad happened")
 			require.Nil(t, response)
 
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
