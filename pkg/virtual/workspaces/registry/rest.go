@@ -595,6 +595,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	}
 	if err != nil {
 		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBinding.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		return nil, err
 	}
 
