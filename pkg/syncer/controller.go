@@ -70,7 +70,7 @@ type Controller struct {
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
 func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, fromInformers dynamicinformer.DynamicSharedInformerFactory,
-	direction SyncDirection, gvrs []string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
+	direction SyncDirection, upsertFn UpsertFunc, deleteFn DeleteFunc, gvrs []string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -84,23 +84,12 @@ func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClie
 		upstreamClusterName:       kcpClusterName,
 		mutators:                  make(mutatorGvrMap),
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
+		upsertFn:                  upsertFn,
+		deleteFn:                  deleteFn,
 	}
 
 	if len(mutators) > 0 {
 		c.mutators = mutators
-	}
-
-	if direction == SyncDown {
-		c.upsertFn = c.applyToDownstream
-		c.deleteFn = c.deleteFromDownstream
-	} else {
-		c.upsertFn = c.updateStatusInUpstream
-		c.deleteFn = func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
-			if c.advancedSchedulingEnabled {
-				return ensureUpstreamFinalizerRemoved(ctx, gvr, c.toClient, namespace, c.workloadClusterName, c.upstreamClusterName, name)
-			}
-			return nil
-		}
 	}
 
 	for _, gvrstr := range gvrs {

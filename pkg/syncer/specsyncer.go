@@ -102,23 +102,37 @@ func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured)
 
 const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
+type specSyncer struct {
+	*Controller
+}
+
 func NewSpecSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
+	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*specSyncer, error) {
 
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
 	secretMutator := specmutators.NewSecretMutator()
 
-	return New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers, SyncDown, gvrs, mutatorGvrMap{
-		deploymentMutator.GVR(): deploymentMutator.Mutate,
-		secretMutator.GVR():     secretMutator.Mutate,
-	}, advancedSchedulingEnabled)
+	s := specSyncer{}
+
+	c, err := New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers,
+		SyncDown, s.applyToDownstream, s.deleteFromDownstream,
+		gvrs, mutatorGvrMap{
+			deploymentMutator.GVR(): deploymentMutator.Mutate,
+			secretMutator.GVR():     secretMutator.Mutate,
+		}, advancedSchedulingEnabled)
+	if err != nil {
+		return nil, err
+	}
+	s.Controller = c
+
+	return &s, nil
 }
 
-func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
+func (s *specSyncer) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
 	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
 	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
 
-	if err := c.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+	if err := s.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	return nil
@@ -128,8 +142,8 @@ const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"
 
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
 //       In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
-func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
-	namespaces := c.toClient.Resource(schema.GroupVersionResource{
+func (s *specSyncer) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+	namespaces := s.toClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
 		Resource: "namespaces",
@@ -157,7 +171,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			workloadv1alpha1.InternalClusterResourceStateLabelPrefix + c.workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
+			workloadv1alpha1.InternalClusterResourceStateLabelPrefix + s.workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
 		})
 	}
 
@@ -170,7 +184,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 			return err
 		}
 	} else {
-		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetNamespace())
+		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, s.upstreamClusterName, upstreamObj.GetNamespace())
 	}
 
 	return nil
@@ -201,14 +215,14 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 	return nil
 }
 
-func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
-	if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
+func (s *specSyncer) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+	if err := s.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
 		return err
 	}
 
 	// If the advanced scheduling feature is enabled, add the Syncer Finalizer to the upstream object
-	if c.advancedSchedulingEnabled {
-		if err := c.ensureSyncerFinalizer(ctx, gvr, upstreamObj); err != nil {
+	if s.advancedSchedulingEnabled {
+		if err := s.ensureSyncerFinalizer(ctx, gvr, upstreamObj); err != nil {
 			return err
 		}
 	}
@@ -232,14 +246,14 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	transformName(downstreamObj, SyncDown)
 
 	// Run any transformations on the object before we apply it to the downstream cluster.
-	if mutator, ok := c.mutators[gvr]; ok {
+	if mutator, ok := s.mutators[gvr]; ok {
 		if err := mutator(downstreamObj); err != nil {
 			return err
 		}
 	}
 
-	if c.advancedSchedulingEnabled {
-		specDiffPatch := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterSpecDiffAnnotationPrefix+c.workloadClusterName]
+	if s.advancedSchedulingEnabled {
+		specDiffPatch := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterSpecDiffAnnotationPrefix+s.workloadClusterName]
 		if specDiffPatch != "" {
 			upstreamSpec, specExists, err := unstructured.NestedFieldCopy(upstreamObj.UnstructuredContent(), "spec")
 			if err != nil {
@@ -275,17 +289,17 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 		// TODO(jmprusi): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
 		//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-		intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.workloadClusterName] != ""
+		intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+s.workloadClusterName] != ""
 
 		// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-		stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.workloadClusterName] != ""
+		stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+s.workloadClusterName] != ""
 
 		if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
-			if err := c.toClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
+			if err := s.toClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
 				if errors.IsNotFound(err) {
 					// That's not an error.
 					// Just think about removing the finalizer from the KCP location-specific resource:
-					if err := ensureUpstreamFinalizerRemoved(ctx, gvr, c.fromClient, upstreamObj.GetNamespace(), c.workloadClusterName, c.upstreamClusterName, upstreamObj.GetName()); err != nil {
+					if err := ensureUpstreamFinalizerRemoved(ctx, gvr, s.fromClient, upstreamObj.GetNamespace(), s.workloadClusterName, s.upstreamClusterName, upstreamObj.GetName()); err != nil {
 						return err
 					}
 					return nil
@@ -304,7 +318,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 		return err
 	}
 
-	if _, err := c.toClient.Resource(gvr).Namespace(downstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
+	if _, err := s.toClient.Resource(gvr).Namespace(downstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
 		klog.Errorf("Error upserting %s %s/%s from upstream %s|%s/%s: %v", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
 		return err
 	}

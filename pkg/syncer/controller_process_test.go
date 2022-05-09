@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -62,6 +63,7 @@ func TestSyncerProcess(t *testing.T) {
 		resourceToProcessLogicalClusterName string
 
 		direction                 SyncDirection
+		upstreamURL               string
 		upstreamLogicalCluster    string
 		workloadClusterName       string
 		advancedSchedulingEnabled bool
@@ -109,6 +111,7 @@ func TestSyncerProcess(t *testing.T) {
 								"state.internal.workloads.kcp.dev/us-west1": "Sync",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
+							setPodSpecServiceAccount("spec", "template", "spec"),
 						),
 					),
 				),
@@ -250,6 +253,7 @@ func TestSyncerProcess(t *testing.T) {
 								"state.internal.workloads.kcp.dev/us-west1": "Sync",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
+							setPodSpecServiceAccount("spec", "template", "spec"),
 						),
 					),
 				),
@@ -500,6 +504,7 @@ func TestSyncerProcess(t *testing.T) {
 								},
 							}, "spec", "template"),
 							setNestedField(map[string]interface{}{}, "status"),
+							setPodSpecServiceAccount("spec", "template", "spec"),
 						),
 					),
 				),
@@ -643,22 +648,41 @@ func TestSyncerProcess(t *testing.T) {
 			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
+			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+			})
 
 			setupServersideApplyPatchReactor(toClient)
 			namespaceWatcherStarted := setupWatchReactor("namespaces", fromClient)
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
 
 			gvrs := []string{fmt.Sprintf("%s.%s.%s", tc.gvr.Resource, tc.gvr.Version, tc.gvr.Group), "namespaces.v1."}
-			controller, err := New(kcpLogicalCluster, tc.workloadClusterName, fromClient, toClient, fromInformers, tc.direction, gvrs, nil, tc.advancedSchedulingEnabled)
-			require.NoError(t, err)
-			controller.fromInformers.Start(ctx.Done())
-			controller.fromInformers.WaitForCacheSync(ctx.Done())
+			var controller *Controller
+			if tc.direction == SyncUp {
+				s, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, tc.advancedSchedulingEnabled, toClient, fromClient, toInformers, fromInformers)
+				require.NoError(t, err)
+				controller = s.Controller
+			} else {
+				upstreamURL, err := url.Parse("https://kcp.dev:6443")
+				require.NoError(t, err)
+				s, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, upstreamURL, tc.advancedSchedulingEnabled, fromClient, toClient, fromInformers, toInformers)
+				require.NoError(t, err)
+				controller = s.Controller
+			}
+
+			fromInformers.Start(ctx.Done())
+			fromInformers.WaitForCacheSync(ctx.Done())
+
+			toInformers.Start(ctx.Done())
+			toInformers.WaitForCacheSync(ctx.Done())
+
 			<-resourceWatcherStarted
 			<-namespaceWatcherStarted
+
 			fromClient.ClearActions()
 			toClient.ClearActions()
 
-			err = controller.process(context.Background(), holder{
+			err := controller.process(context.Background(), holder{
 				gvr: schema.GroupVersionResource{
 					Group:    "apps",
 					Version:  "v1",
@@ -782,6 +806,31 @@ func setNestedField(value interface{}, fields ...string) unstructuredChange {
 	return func(d *unstructured.Unstructured) {
 		_ = unstructured.SetNestedField(d.UnstructuredContent(), value, fields...)
 	}
+}
+
+func setPodSpecServiceAccount(fields ...string) unstructuredChange {
+	var j interface{}
+	err := json.Unmarshal([]byte(`{
+	"automountServiceAccountToken":false,
+	"containers":null,
+	"serviceAccountName":"kcp-default",
+	"volumes":[
+		{"name":"kcp-api-access","projected":{
+			"defaultMode":420,
+			"sources":[
+				{"secret":{"items":[{"key":"token","path":"token"}],"name":"kcp-default-token"}},
+				{"configMap":{"items":[{"key":"ca.crt","path":"ca.crt"}],"name":"kcp-root-ca.crt"}},
+				{"downwardAPI":{
+					"items":[{"fieldRef":{"apiVersion":"v1","fieldPath":"metadata.namespace"},"path":"namespace"}]
+				}}
+			]
+		}}
+	]
+}`), &j)
+	if err != nil {
+		panic(err)
+	}
+	return setNestedField(j, fields...)
 }
 
 func deploymentAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
