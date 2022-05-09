@@ -27,6 +27,7 @@ import (
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	synceroptions "github.com/kcp-dev/kcp/pkg/virtual/syncer/options"
 	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 )
 
@@ -34,11 +35,13 @@ const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
 type Options struct {
 	Workspaces *workspacesoptions.Workspaces
+	Syncer     *synceroptions.Syncer
 }
 
 func NewOptions() *Options {
 	return &Options{
 		Workspaces: workspacesoptions.NewWorkspaces(),
+		Syncer:     synceroptions.NewSyncer(),
 	}
 }
 
@@ -48,6 +51,7 @@ func (v *Options) Validate() []error {
 	var errs []error
 
 	errs = append(errs, v.Workspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, v.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
@@ -67,6 +71,13 @@ func (o *Options) NewVirtualWorkspaces(
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 
 	inf, vws, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	if err != nil {
+		return nil, nil, err
+	}
+	extraInformers = append(extraInformers, inf...)
+	workspaces = append(workspaces, vws...)
+
+	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}
