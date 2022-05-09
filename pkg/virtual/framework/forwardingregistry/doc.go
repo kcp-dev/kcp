@@ -17,6 +17,6 @@ limitations under the License.
 // Package forwardingregistry provides a CRD-like REST storage implementation that can dynamically serve resources based
 // on a given OpenAPI schema, and forward the requests to a KCP workspace-aware delegate client.
 //
-// Parts of this package are highly insired from kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver/pkg/apiserver
+// Parts of this package are highly inspired from k8s.io/kubernetes/staging/src/k8s.io/apiextensions-apiserver/pkg/apiserver
 // https://github.com/kcp-dev/kubernetes/tree/feature-logical-clusters-1.23/staging/src/k8s.io/apiextensions-apiserver/pkg/registry
 package forwardingregistry

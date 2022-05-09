@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,68 +14,64 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package customresource_test
+package forwardingregistry_test
 
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"github.com/stretchr/testify/require"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver"
+	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metainternal "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/diff"
-	"k8s.io/apiserver/pkg/endpoints/handlers/fieldmanager"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/apiserver/pkg/registry/generic"
-	registrytest "k8s.io/apiserver/pkg/registry/generic/testing"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
-	etcd3testing "k8s.io/apiserver/pkg/storage/etcd3/testing"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/fake"
+	kubernetestesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/retry"
 
-	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver"
-	"k8s.io/apiextensions-apiserver/pkg/crdserverscheme"
-	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
-	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func newStorage(t *testing.T) (customresource.CustomResourceStorage, *etcd3testing.EtcdTestServer) {
-	server, etcdStorage := etcd3testing.NewUnsecuredEtcd3TestClientServer(t)
-	etcdStorage.Codec = unstructured.UnstructuredJSONScheme
+type mockedClientGetter struct {
+	*fake.FakeDynamicClient
+}
+
+func (mcg *mockedClientGetter) GetDynamicClient(ctx context.Context) (dynamic.Interface, error) {
+	return mcg.FakeDynamicClient, nil
+}
+
+func newStorage(t *testing.T, clientGetter forwardingregistry.ClientGetter, patchConflictRetryBackoff *wait.Backoff) (*forwardingregistry.CustomResourceStorage, *forwardingregistry.StatusREST) {
 	groupResource := schema.GroupResource{Group: "mygroup.example.com", Resource: "noxus"}
-	restOptions := generic.RESTOptions{StorageConfig: etcdStorage.ForResource(groupResource), Decorator: generic.UndecoratedStorage, DeleteCollectionWorkers: 1, ResourcePrefix: "noxus"}
+	gvr := groupResource.WithVersion("v1beta1")
+	groupVersion := gvr.GroupVersion()
 
 	parameterScheme := runtime.NewScheme()
-	parameterScheme.AddUnversionedTypes(schema.GroupVersion{Group: "mygroup.example.com", Version: "v1beta1"},
+	parameterScheme.AddUnversionedTypes(groupVersion,
 		&metav1.ListOptions{},
 		&metav1.GetOptions{},
 		&metav1.DeleteOptions{},
 	)
 
-	typer := apiserver.UnstructuredObjectTyper{
-		Delegate:          parameterScheme,
-		UnstructuredTyper: crdserverscheme.NewUnstructuredObjectTyper(),
-	}
+	typer := apiserver.NewUnstructuredObjectTyper(parameterScheme)
 
-	kind := schema.GroupVersionKind{Group: "mygroup.example.com", Version: "v1beta1", Kind: "Noxu"}
-
-	labelSelectorPath := ".status.labelSelector"
-	scale := &apiextensionsinternal.CustomResourceSubresourceScale{
-		SpecReplicasPath:   ".spec.replicas",
-		StatusReplicasPath: ".status.replicas",
-		LabelSelectorPath:  &labelSelectorPath,
-	}
-
-	status := &apiextensionsinternal.CustomResourceSubresourceStatus{}
+	kind := groupVersion.WithKind("Noxu")
+	listKind := groupVersion.WithKind("NoxuItemList")
 
 	headers := []apiextensionsv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
@@ -91,48 +87,31 @@ func newStorage(t *testing.T) (customresource.CustomResourceStorage, *etcd3testi
 	}
 	table, _ := tableconvertor.New(headers)
 
-	storage := customresource.NewStorage(
-		groupResource,
+	return forwardingregistry.NewStorage(
+		gvr,
 		kind,
-		schema.GroupVersionKind{Group: "mygroup.example.com", Version: "v1beta1", Kind: "NoxuItemList"},
-		customresource.NewStrategy(
+		listKind,
+		forwardingregistry.NewStrategy(
 			typer,
 			true,
 			kind,
 			nil,
 			nil,
 			nil,
-			status,
-			scale,
-		),
-		restOptions,
-		[]string{"all"},
+			true),
 		table,
-		fieldmanager.ResourcePathMappings{},
-	)
-
-	return storage, server
+		clientGetter,
+		patchConflictRetryBackoff)
 }
 
-// createCustomResource is a helper function that returns a CustomResource with the updated resource version.
-func createCustomResource(storage *customresource.REST, cr unstructured.Unstructured, t *testing.T) (unstructured.Unstructured, error) {
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), cr.GetNamespace())
-	obj, err := storage.Create(ctx, &cr, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
-	if err != nil {
-		t.Errorf("Failed to create CustomResource, %v", err)
-	}
-	newCR := obj.(*unstructured.Unstructured)
-	return *newCR, nil
-}
-
-func validNewCustomResource() *unstructured.Unstructured {
+func createResource(namespace, name string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "mygroup.example.com/v1beta1",
 			"kind":       "Noxu",
 			"metadata": map[string]interface{}{
-				"namespace":         "default",
-				"name":              "foo",
+				"namespace":         namespace,
+				"name":              name,
 				"creationTimestamp": time.Now().Add(-time.Hour*12 - 30*time.Minute).UTC().Format(time.RFC3339),
 			},
 			"spec": map[string]interface{}{
@@ -148,593 +127,277 @@ func validNewCustomResource() *unstructured.Unstructured {
 	}
 }
 
-var validCustomResource = *validNewCustomResource()
-
-func TestCreate(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-	test := registrytest.New(t, storage.CustomResource.Store)
-	cr := validNewCustomResource()
-	cr.SetNamespace("")
-	test.TestCreate(
-		cr,
-	)
-}
-
 func TestGet(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-	test := registrytest.New(t, storage.CustomResource.Store)
-	test.TestGet(validNewCustomResource())
+	resource := createResource("default", "foo")
+	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	storage, _ := newStorage(t, &mockedClientGetter{fakeClient}, nil)
+	ctx := request.WithNamespace(context.TODO(), "default")
+	_, err := storage.Get(ctx, "foo", &metav1.GetOptions{})
+	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
+	_ = fakeClient.Tracker().Add(resource)
+	result, err := storage.Get(ctx, "foo", &metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Truef(t, apiequality.Semantic.DeepEqual(resource, result), "expected:\n%V\nactual:\n%V", resource, result)
 }
 
 func TestList(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-	test := registrytest.New(t, storage.CustomResource.Store)
-	test.TestList(validNewCustomResource())
-}
-
-func TestDelete(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-	test := registrytest.New(t, storage.CustomResource.Store)
-	test.TestDelete(validNewCustomResource())
-}
-
-func TestGenerationNumber(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-	modifiedRno := *validNewCustomResource()
-	modifiedRno.SetGeneration(10)
-	ctx := genericapirequest.NewDefaultContext()
-	cr, err := createCustomResource(storage.CustomResource, modifiedRno, t)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	etcdCR, err := storage.CustomResource.Get(ctx, cr.GetName(), &metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	storedCR, _ := etcdCR.(*unstructured.Unstructured)
-
-	// Generation initialization
-	if storedCR.GetGeneration() != 1 {
-		t.Fatalf("Unexpected generation number %v", storedCR.GetGeneration())
-	}
-
-	// Updates to spec should increment the generation number
-	setSpecReplicas(storedCR, getSpecReplicas(storedCR)+1)
-	if _, _, err := storage.CustomResource.Update(ctx, storedCR.GetName(), rest.DefaultUpdatedObjectInfo(storedCR), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	etcdCR, err = storage.CustomResource.Get(ctx, cr.GetName(), &metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	storedCR, _ = etcdCR.(*unstructured.Unstructured)
-	if storedCR.GetGeneration() != 2 {
-		t.Fatalf("Unexpected generation, spec: %v", storedCR.GetGeneration())
-	}
-
-	// Updates to status should not increment the generation number
-	setStatusReplicas(storedCR, getStatusReplicas(storedCR)+1)
-	if _, _, err := storage.CustomResource.Update(ctx, storedCR.GetName(), rest.DefaultUpdatedObjectInfo(storedCR), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	etcdCR, err = storage.CustomResource.Get(ctx, cr.GetName(), &metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	storedCR, _ = etcdCR.(*unstructured.Unstructured)
-	if storedCR.GetGeneration() != 2 {
-		t.Fatalf("Unexpected generation, spec: %v", storedCR.GetGeneration())
-	}
-
-}
-
-func TestCategories(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-
-	expected := []string{"all"}
-	actual := storage.CustomResource.Categories()
-	ok := reflect.DeepEqual(actual, expected)
-	if !ok {
-		t.Errorf("categories are not equal. expected = %v actual = %v", expected, actual)
+	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
+	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
+	storage, _ := newStorage(t, &mockedClientGetter{fakeClient}, nil)
+	ctx := request.WithNamespace(context.TODO(), "default")
+	result, err := storage.List(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+	require.IsType(t, &unstructured.UnstructuredList{}, result)
+	resultResources := result.(*unstructured.UnstructuredList).Items
+	for i, resource := range resources {
+		resource := *resource.(*unstructured.Unstructured)
+		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%V\nactual:\n%V", resource, resultResources[0])
 	}
 }
 
-func TestColumns(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
+func TestWatch(t *testing.T) {
+	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
+	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	fakeWatcher := watch.NewFake()
+	fakeClient.PrependWatchReactor("noxus", kubernetestesting.DefaultWatchReactor(fakeWatcher, nil))
+	defer fakeWatcher.Stop()
 
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/foo"
-	validCustomResource := validNewCustomResource()
-	if err := storage.CustomResource.Storage.Create(ctx, key, validCustomResource, nil, 0, false); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	gottenList, err := storage.CustomResource.List(ctx, &metainternal.ListOptions{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	watchedError := &v1.Status{
+		Status:  "Failure",
+		Message: "message",
 	}
 
-	tbl, err := storage.CustomResource.ConvertToTable(ctx, gottenList, &metav1.TableOptions{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	expectedColumns := []struct {
-		Name, Type string
-	}{
-		{"Name", "string"},
-		{"Age", "date"},
-		{"Replicas", "integer"},
-		{"Missing", "string"},
-		{"Invalid", "integer"},
-		{"String", "string"},
-		{"StringFloat64", "string"},
-		{"StringInt64", "string"},
-		{"StringBool", "string"},
-		{"Float64", "number"},
-		{"Bool", "boolean"},
-	}
-	if len(tbl.ColumnDefinitions) != len(expectedColumns) {
-		t.Fatalf("got %d columns, expected %d. Got: %+v", len(tbl.ColumnDefinitions), len(expectedColumns), tbl.ColumnDefinitions)
-	}
-	for i, d := range tbl.ColumnDefinitions {
-		if d.Name != expectedColumns[i].Name {
-			t.Errorf("got column %d name %q, expected %q", i, d.Name, expectedColumns[i].Name)
+	go func() {
+		for _, resource := range resources {
+			time.Sleep(300 * time.Millisecond)
+			fakeWatcher.Add(resource)
 		}
-		if d.Type != expectedColumns[i].Type {
-			t.Errorf("got column %d type %q, expected %q", i, d.Type, expectedColumns[i].Type)
+
+		fakeWatcher.Modify(resources[0])
+		fakeWatcher.Delete(resources[1])
+		fakeWatcher.Error(watchedError)
+	}()
+
+	storage, _ := newStorage(t, &mockedClientGetter{fakeClient}, nil)
+	ctx := request.WithNamespace(context.TODO(), "default")
+	watcher, err := storage.Watch(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+	watcherChan := watcher.ResultChan()
+	var event watch.Event
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(10 * time.Second):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(10 * time.Second):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(10 * time.Second):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Modified, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(10 * time.Second):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Deleted, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(10 * time.Second):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Error, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(watchedError, event.Object))
+}
+
+func updateReactor(fakeClient *fake.FakeDynamicClient) kubernetestesting.ReactionFunc {
+	return func(action kubernetestesting.Action) (handled bool, ret runtime.Object, err error) {
+		updateAction := action.(kubernetestesting.UpdateAction)
+		actionResource := updateAction.GetObject().(*unstructured.Unstructured)
+		existingObject, err := fakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), actionResource.GetName())
+		if err != nil {
+			return true, nil, err
 		}
+		existingResource := existingObject.(*unstructured.Unstructured)
+		if existingResource.GetResourceVersion() != actionResource.GetResourceVersion() {
+			return true, nil, errors.NewConflict(action.GetResource().GroupResource(), existingResource.GetName(), fmt.Errorf(registry.OptimisticLockErrorMsg))
+		}
+		if err := fakeClient.Tracker().Update(action.GetResource(), actionResource, action.GetNamespace()); err != nil {
+			return true, nil, err
+		}
+		return true, actionResource, nil
+	}
+}
+func TestUpdate(t *testing.T) {
+	resource := createResource("default", "foo")
+	resource.SetGeneration(1)
+	resource.SetResourceVersion("100")
+	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
+
+	storage, _ := newStorage(t, &mockedClientGetter{fakeClient}, nil)
+	ctx := request.WithNamespace(context.TODO(), "default")
+	updated := resource.DeepCopy()
+
+	newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	newReplicas++
+	_ = unstructured.SetNestedField(updated.UnstructuredContent(), newReplicas, "spec", "replicas")
+
+	updatedWithStatusChanged := updated.DeepCopy()
+	if err := unstructured.SetNestedField(updatedWithStatusChanged.UnstructuredContent(), int64(10), "status", "availableReplicas"); err != nil {
+		require.NoError(t, err)
 	}
 
-	expectedRows := [][]interface{}{
-		{
-			"foo",
-			"12h",
-			int64(7),
-			nil,
-			nil,
-			"string",
-			"3.1415926",
-			"7",
-			"true",
-			float64(3.1415926),
-			true,
-		},
-	}
-	for i, r := range tbl.Rows {
-		if !reflect.DeepEqual(r.Cells, expectedRows[i]) {
-			t.Errorf("got row %d with cells %#v, expected %#v", i, r.Cells, expectedRows[i])
+	_, _, err = storage.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
+
+	_ = fakeClient.Tracker().Add(resource)
+	result, _, err := storage.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	resultResource := result.(*unstructured.Unstructured)
+	require.NoError(t, err)
+	updatedGeneration, _, err := unstructured.NestedInt64(resultResource.UnstructuredContent(), "metadata", "generation")
+	require.NoError(t, err)
+	require.Equalf(t, int64(2), updatedGeneration, "Generation should be incremented when updating the Spec")
+	_ = unstructured.SetNestedField(resultResource.UnstructuredContent(), int64(1), "metadata", "generation")
+
+	// We check that the status has in fact not been updated
+	require.True(t, apiequality.Semantic.DeepEqual(updated, result), "expected:\n%V\nactual:\n%V", updated, result)
+
+	fakeClient.ClearActions()
+	updated.SetResourceVersion("101")
+	newReplicas++
+	_ = unstructured.SetNestedField(updated.UnstructuredContent(), newReplicas, "spec", "replicas")
+	_, _, err = storage.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	require.EqualError(t, err, "Operation cannot be fulfilled on noxus.mygroup.example.com \"foo\": the object has been modified; please apply your changes to the latest version and try again")
+
+	updates := 0
+	for _, action := range fakeClient.Actions() {
+		if action.GetVerb() == "update" {
+			updates++
 		}
 	}
+	require.Equalf(t, 1, updates, "Should not have retried calling client.Update in case of conflict: it's an Update call.")
+
 }
 
 func TestStatusUpdate(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/foo"
-	validCustomResource := validNewCustomResource()
-	if err := storage.CustomResource.Storage.Create(ctx, key, validCustomResource, nil, 0, false); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	resource := createResource("default", "foo")
+	resource.SetGeneration(1)
+	resource.SetResourceVersion("100")
+	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), resource)
+	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
+
+	_, statusStorage := newStorage(t, &mockedClientGetter{fakeClient}, nil)
+	ctx := request.WithNamespace(context.TODO(), "default")
+	statusUpdated := resource.DeepCopy()
+	if err := unstructured.SetNestedField(statusUpdated.UnstructuredContent(), int64(10), "status", "availableReplicas"); err != nil {
+		require.NoError(t, err)
 	}
 
-	gottenObj, err := storage.CustomResource.Get(ctx, "foo", &metav1.GetOptions{})
+	statusUpdatedWithSpecChanged := statusUpdated.DeepCopy()
+	newReplicas, _, err := unstructured.NestedInt64(statusUpdated.UnstructuredContent(), "spec", "replicas")
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
+	newReplicas++
+	_ = unstructured.SetNestedField(statusUpdatedWithSpecChanged.UnstructuredContent(), newReplicas, "spec", "replicas")
 
-	update := gottenObj.(*unstructured.Unstructured)
-	updateContent := update.Object
-	updateContent["status"] = map[string]interface{}{
-		"replicas": int64(7),
-	}
+	result, _, err := statusStorage.Update(ctx, statusUpdated.GetName(), rest.DefaultUpdatedObjectInfo(statusUpdatedWithSpecChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	resultResource := result.(*unstructured.Unstructured)
+	require.NoError(t, err)
+	updatedGeneration, _, err := unstructured.NestedInt64(resultResource.UnstructuredContent(), "metadata", "generation")
+	require.NoError(t, err)
+	require.Equalf(t, int64(1), updatedGeneration, "Generation should not be incremented when updating the Status")
 
-	if _, _, err := storage.Status.Update(ctx, update.GetName(), rest.DefaultUpdatedObjectInfo(update), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	obj, err := storage.CustomResource.Get(ctx, "foo", &metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	cr, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		t.Fatal("unexpected error: custom resource should be of type Unstructured")
-	}
-	content := cr.UnstructuredContent()
-
-	spec := content["spec"].(map[string]interface{})
-	status := content["status"].(map[string]interface{})
-
-	if spec["replicas"].(int64) != 7 {
-		t.Errorf("we expected .spec.replicas to not be updated but it was updated to %v", spec["replicas"].(int64))
-	}
-	if status["replicas"].(int64) != 7 {
-		t.Errorf("we expected .status.replicas to be updated to %d but it was %v", 7, status["replicas"].(int64))
-	}
+	// We check that the spec has in fact not been updated
+	require.True(t, apiequality.Semantic.DeepEqual(statusUpdated, result), "expected:\n%V\nactual:\n%V", statusUpdated, result)
 }
 
-func TestScaleGet(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
+func TestPatch(t *testing.T) {
+	resource := createResource("default", "foo")
+	resource.SetGeneration(1)
+	resource.SetResourceVersion("100")
+	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	name := "foo"
+	backoff := retry.DefaultRetry
+	backoff.Steps = 5
+	storage, _ := newStorage(t, &mockedClientGetter{fakeClient}, &backoff)
+	ctx := request.WithNamespace(context.TODO(), "default")
+	ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Verb: "patch"})
 
-	var cr unstructured.Unstructured
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/" + name
-	if err := storage.CustomResource.Storage.Create(ctx, key, &validCustomResource, &cr, 0, false); err != nil {
-		t.Fatalf("error setting new custom resource (key: %s) %v: %v", key, validCustomResource, err)
-	}
-
-	want := &autoscalingv1.Scale{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Scale",
-			APIVersion: "autoscaling/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              cr.GetName(),
-			Namespace:         metav1.NamespaceDefault,
-			UID:               cr.GetUID(),
-			ResourceVersion:   cr.GetResourceVersion(),
-			CreationTimestamp: cr.GetCreationTimestamp(),
-		},
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: int32(7),
-		},
-	}
-
-	obj, err := storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error fetching scale for %s: %v", name, err)
-	}
-
-	got := obj.(*autoscalingv1.Scale)
-	if !apiequality.Semantic.DeepEqual(got, want) {
-		t.Errorf("unexpected scale: %s", diff.ObjectDiff(got, want))
-	}
-}
-
-func TestScaleGetWithoutSpecReplicas(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-
-	name := "foo"
-
-	var cr unstructured.Unstructured
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/" + name
-	withoutSpecReplicas := validCustomResource.DeepCopy()
-	unstructured.RemoveNestedField(withoutSpecReplicas.Object, "spec", "replicas")
-	if err := storage.CustomResource.Storage.Create(ctx, key, withoutSpecReplicas, &cr, 0, false); err != nil {
-		t.Fatalf("error setting new custom resource (key: %s) %v: %v", key, withoutSpecReplicas, err)
-	}
-
-	_, err := storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-	if err == nil {
-		t.Fatalf("error expected for %s", name)
-	}
-	if expected := `the spec replicas field ".spec.replicas" does not exist`; !strings.Contains(err.Error(), expected) {
-		t.Fatalf("expected error string %q, got: %v", expected, err)
-	}
-}
-
-func TestScaleUpdate(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-
-	name := "foo"
-
-	var cr unstructured.Unstructured
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/" + name
-	if err := storage.CustomResource.Storage.Create(ctx, key, &validCustomResource, &cr, 0, false); err != nil {
-		t.Fatalf("error setting new custom resource (key: %s) %v: %v", key, validCustomResource, err)
-	}
-
-	obj, err := storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error fetching scale for %s: %v", name, err)
-	}
-	scale, ok := obj.(*autoscalingv1.Scale)
-	if !ok {
-		t.Fatalf("%v is not of the type autoscalingv1.Scale", scale)
-	}
-
-	replicas := 12
-	update := autoscalingv1.Scale{
-		ObjectMeta: scale.ObjectMeta,
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: int32(replicas),
-		},
-	}
-
-	if _, _, err := storage.Scale.Update(ctx, update.Name, rest.DefaultUpdatedObjectInfo(&update), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-		t.Fatalf("error updating scale %v: %v", update, err)
-	}
-
-	obj, err = storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error fetching scale for %s: %v", name, err)
-	}
-	scale = obj.(*autoscalingv1.Scale)
-	if scale.Spec.Replicas != int32(replicas) {
-		t.Errorf("wrong replicas count: expected: %d got: %d", replicas, scale.Spec.Replicas)
-	}
-
-	update.ResourceVersion = scale.ResourceVersion
-	update.Spec.Replicas = 15
-
-	if _, _, err = storage.Scale.Update(ctx, update.Name, rest.DefaultUpdatedObjectInfo(&update), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil && !errors.IsConflict(err) {
-		t.Fatalf("unexpected error, expecting an update conflict but got %v", err)
-	}
-}
-
-func TestScaleUpdateWithoutSpecReplicas(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-
-	name := "foo"
-
-	var cr unstructured.Unstructured
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/" + name
-	withoutSpecReplicas := validCustomResource.DeepCopy()
-	unstructured.RemoveNestedField(withoutSpecReplicas.Object, "spec", "replicas")
-	if err := storage.CustomResource.Storage.Create(ctx, key, withoutSpecReplicas, &cr, 0, false); err != nil {
-		t.Fatalf("error setting new custom resource (key: %s) %v: %v", key, withoutSpecReplicas, err)
-	}
-
-	replicas := 12
-	update := autoscalingv1.Scale{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			ResourceVersion: cr.GetResourceVersion(),
-		},
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: int32(replicas),
-		},
-	}
-
-	if _, _, err := storage.Scale.Update(ctx, update.Name, rest.DefaultUpdatedObjectInfo(&update), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-		t.Fatalf("error updating scale %v: %v", update, err)
-	}
-
-	obj, err := storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error fetching scale for %s: %v", name, err)
-	}
-	scale := obj.(*autoscalingv1.Scale)
-	if scale.Spec.Replicas != int32(replicas) {
-		t.Errorf("wrong replicas count: expected: %d got: %d", replicas, scale.Spec.Replicas)
-	}
-}
-
-func TestScaleUpdateWithoutResourceVersion(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-
-	name := "foo"
-
-	var cr unstructured.Unstructured
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/" + name
-	if err := storage.CustomResource.Storage.Create(ctx, key, &validCustomResource, &cr, 0, false); err != nil {
-		t.Fatalf("error setting new custom resource (key: %s) %v: %v", key, validCustomResource, err)
-	}
-
-	replicas := int32(8)
-	update := autoscalingv1.Scale{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: replicas,
-		},
-	}
-
-	if _, _, err := storage.Scale.Update(ctx, update.Name, rest.DefaultUpdatedObjectInfo(&update), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-		t.Fatalf("error updating scale %v: %v", update, err)
-	}
-
-	obj, err := storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error fetching scale for %s: %v", name, err)
-	}
-	scale := obj.(*autoscalingv1.Scale)
-	if scale.Spec.Replicas != replicas {
-		t.Errorf("wrong replicas count: expected: %d got: %d", replicas, scale.Spec.Replicas)
-	}
-}
-
-func TestScaleUpdateWithoutResourceVersionWithConflicts(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
-
-	name := "foo"
-
-	var cr unstructured.Unstructured
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/" + name
-	if err := storage.CustomResource.Storage.Create(ctx, key, &validCustomResource, &cr, 0, false); err != nil {
-		t.Fatalf("error setting new custom resource (key: %s) %v: %v", key, validCustomResource, err)
-	}
-
-	fetchObject := func(name string) (*unstructured.Unstructured, error) {
-		gotObj, err := storage.CustomResource.Get(ctx, name, &metav1.GetOptions{})
+	patcher := func(ctx context.Context, newObj, oldObj runtime.Object) (runtime.Object, error) {
+		updated := oldObj.DeepCopyObject().(*unstructured.Unstructured)
+		newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
 		if err != nil {
-			return nil, fmt.Errorf("error fetching custom resource %s: %v", name, err)
+			t.Errorf("unexpected error: %v", err)
 		}
-		return gotObj.(*unstructured.Unstructured), nil
+		newReplicas++
+		_ = unstructured.SetNestedField(updated.UnstructuredContent(), newReplicas, "spec", "replicas")
+		return updated, nil
 	}
 
-	applyPatch := func(labelName, labelValue string) rest.TransformFunc {
-		return func(_ context.Context, _, currentObject runtime.Object) (objToUpdate runtime.Object, patchErr error) {
-			o := currentObject.(metav1.Object)
-			o.SetLabels(map[string]string{
-				labelName: labelValue,
-			})
-			return currentObject, nil
+	_, _, err := storage.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
+
+	_ = fakeClient.Tracker().Add(resource)
+	getCallCounts := 0
+	noMoreConflicts := 4
+	fakeClient.PrependReactor("get", "noxus", func(action kubernetestesting.Action) (handled bool, ret runtime.Object, err error) {
+		getCallCounts++
+		if getCallCounts < noMoreConflicts {
+			withChangedResourceVersion := resource.DeepCopy()
+			withChangedResourceVersion.SetResourceVersion("50")
+			return true, withChangedResourceVersion, nil
 		}
-	}
+		return true, resource, nil
+	})
 
-	errs := make(chan error, 1)
-	rounds := 100
-	go func() {
-		// continuously submits a patch that updates a label and verifies the label update was effective
-		labelName := "timestamp"
-		for i := 0; i < rounds; i++ {
-			expectedLabelValue := fmt.Sprint(i)
-			update, err := fetchObject(name)
-			if err != nil {
-				errs <- err
-				return
-			}
-			setNestedField(update, expectedLabelValue, "metadata", "labels", labelName)
-			if _, _, err := storage.CustomResource.Update(ctx, name, rest.DefaultUpdatedObjectInfo(nil, applyPatch(labelName, fmt.Sprint(i))), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-
-				errs <- fmt.Errorf("error updating custom resource label: %v", err)
-				return
-			}
-
-			gotObj, err := fetchObject(name)
-			if err != nil {
-				errs <- err
-				return
-			}
-			gotLabelValue, _, err := unstructured.NestedString(gotObj.Object, "metadata", "labels", labelName)
-			if err != nil {
-				errs <- fmt.Errorf("error getting label %s of custom resource %s: %v", labelName, name, err)
-				return
-			}
-			if gotLabelValue != expectedLabelValue {
-				errs <- fmt.Errorf("wrong label value: expected: %s, got: %s", expectedLabelValue, gotLabelValue)
-				return
-			}
-		}
-	}()
-
-	replicas := int32(0)
-	update := autoscalingv1.Scale{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
-	// continuously submits a scale update without a resourceVersion for a monotonically increasing replica value
-	// and verifies the scale update was effective
-	for i := 0; i < rounds; i++ {
-		select {
-		case err := <-errs:
-			t.Fatal(err)
-		default:
-			replicas++
-			update.Spec.Replicas = replicas
-			if _, _, err := storage.Scale.Update(ctx, update.Name, rest.DefaultUpdatedObjectInfo(&update), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{}); err != nil {
-				t.Fatalf("error updating scale %v: %v", update, err)
-			}
-
-			obj, err := storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-			if err != nil {
-				t.Fatalf("error fetching scale for %s: %v", name, err)
-			}
-			scale := obj.(*autoscalingv1.Scale)
-			if scale.Spec.Replicas != replicas {
-				t.Errorf("wrong replicas count: expected: %d got: %d", replicas, scale.Spec.Replicas)
-			}
+	result, _, err := storage.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	require.NoError(t, err)
+	updates := 0
+	for _, action := range fakeClient.Actions() {
+		if action.GetVerb() == "update" {
+			updates++
 		}
 	}
-}
+	require.Equalf(t, noMoreConflicts, updates, "Should have tried calling client.Update %d times to overcome resourceVersion conflicts.", noMoreConflicts)
 
-func TestScaleUpdateWithResourceVersionWithConflicts(t *testing.T) {
-	storage, server := newStorage(t)
-	defer server.Terminate(t)
-	defer storage.CustomResource.Store.DestroyFunc()
+	expected, _ := patcher(ctx, nil, resource)
+	expected.(*unstructured.Unstructured).SetGeneration(2)
+	require.True(t, apiequality.Semantic.DeepEqual(expected, result), "expected:\n%V\nactual:\n%V", expected, result)
 
-	name := "foo"
+	getCallCounts = 0
+	noMoreConflicts = backoff.Steps + 1
+	fakeClient.ClearActions()
 
-	var cr unstructured.Unstructured
-	ctx := genericapirequest.WithNamespace(genericapirequest.NewContext(), metav1.NamespaceDefault)
-	key := "/noxus/" + metav1.NamespaceDefault + "/" + name
-	if err := storage.CustomResource.Storage.Create(ctx, key, &validCustomResource, &cr, 0, false); err != nil {
-		t.Fatalf("error setting new custom resource (key: %s) %v: %v", key, validCustomResource, err)
+	_, _, err = storage.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	require.EqualError(t, err, "Operation cannot be fulfilled on noxus.mygroup.example.com \"foo\": the object has been modified; please apply your changes to the latest version and try again")
+
+	updates = 0
+	for _, action := range fakeClient.Actions() {
+		if action.GetVerb() == "update" {
+			updates++
+		}
 	}
-
-	obj, err := storage.Scale.Get(ctx, name, &metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error fetching scale for %s: %v", name, err)
-	}
-	scale, ok := obj.(*autoscalingv1.Scale)
-	if !ok {
-		t.Fatalf("%v is not of the type autoscalingv1.Scale", scale)
-	}
-
-	replicas := int32(12)
-	update := autoscalingv1.Scale{
-		ObjectMeta: scale.ObjectMeta,
-		Spec: autoscalingv1.ScaleSpec{
-			Replicas: replicas,
-		},
-	}
-	update.ResourceVersion = "1"
-
-	_, _, err = storage.Scale.Update(ctx, update.Name, rest.DefaultUpdatedObjectInfo(&update), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
-	if err == nil {
-		t.Fatal("expecting an update conflict error")
-	}
-	if !errors.IsConflict(err) {
-		t.Fatalf("unexpected error, expecting an update conflict but got %v", err)
-	}
-}
-
-func setSpecReplicas(u *unstructured.Unstructured, replicas int64) {
-	setNestedField(u, replicas, "spec", "replicas")
-}
-
-func getSpecReplicas(u *unstructured.Unstructured) int64 {
-	val, found, err := unstructured.NestedInt64(u.Object, "spec", "replicas")
-	if !found || err != nil {
-		return 0
-	}
-	return val
-}
-
-func setStatusReplicas(u *unstructured.Unstructured, replicas int64) {
-	setNestedField(u, replicas, "status", "replicas")
-}
-
-func getStatusReplicas(u *unstructured.Unstructured) int64 {
-	val, found, err := unstructured.NestedInt64(u.Object, "status", "replicas")
-	if !found || err != nil {
-		return 0
-	}
-	return val
-}
-
-func setNestedField(u *unstructured.Unstructured, value interface{}, fields ...string) {
-	if u.Object == nil {
-		u.Object = make(map[string]interface{})
-	}
-	unstructured.SetNestedField(u.Object, value, fields...)
+	require.Equalf(t, backoff.Steps, updates, "Should have tried calling client.Update %d times to overcome resourceVersion conflicts, before finally returning a Conflict error.", backoff.Steps)
 }

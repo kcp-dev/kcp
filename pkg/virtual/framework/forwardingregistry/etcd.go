@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,24 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package customresource
+package forwardingregistry
 
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/handlers/fieldmanager"
-	"k8s.io/apiserver/pkg/registry/generic"
-	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
@@ -42,8 +40,13 @@ type CustomResourceStorage struct {
 	Scale          *ScaleREST
 }
 
-func NewStorage(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customResourceStrategy, optsGetter generic.RESTOptionsGetter, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings) CustomResourceStorage {
-	customResourceREST, customResourceStatusREST := newREST(resource, kind, listKind, strategy, optsGetter, categories, tableConvertor)
+// NewStorage returns a REST storage that forwards calls to a dynamic client
+func NewStorage(resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customResourceStrategy, categories []string, tableConvertor rest.TableConvertor, clientGetter ClientGetter, patchConflictRetryBackoff *wait.Backoff) CustomResourceStorage {
+	if patchConflictRetryBackoff == nil {
+		patchConflictRetryBackoff = &retry.DefaultRetry
+	}
+
+	customResourceREST, customResourceStatusREST := newREST(resource.GroupResource(), kind, listKind, strategy, categories, tableConvertor)
 
 	s := CustomResourceStorage{
 		CustomResource: customResourceREST,
@@ -74,13 +77,13 @@ func NewStorage(resource schema.GroupResource, kind, listKind schema.GroupVersio
 
 // REST implements a RESTStorage for API services against etcd
 type REST struct {
-	*genericregistry.Store
+	*Store
 	categories []string
 }
 
 // newREST returns a RESTStorage object that will work against API services.
-func newREST(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customResourceStrategy, optsGetter generic.RESTOptionsGetter, categories []string, tableConvertor rest.TableConvertor) (*REST, *StatusREST) {
-	store := &genericregistry.Store{
+func newREST(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customResourceStrategy, categories []string, tableConvertor rest.TableConvertor) (*REST, *StatusREST) {
+	store := &Store{
 		NewFunc: func() runtime.Object {
 			// set the expected group/version/kind in the new object as a signal to the versioning decoder
 			ret := &unstructured.Unstructured{}
@@ -93,7 +96,6 @@ func newREST(resource schema.GroupResource, kind, listKind schema.GroupVersionKi
 			ret.SetGroupVersionKind(listKind)
 			return ret
 		},
-		PredicateFunc:            strategy.MatchCustomResourceDefinitionStorage,
 		DefaultQualifiedResource: resource,
 
 		CreateStrategy:      strategy,
@@ -102,10 +104,6 @@ func newREST(resource schema.GroupResource, kind, listKind schema.GroupVersionKi
 		ResetFieldsStrategy: strategy,
 
 		TableConvertor: tableConvertor,
-	}
-	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: strategy.GetAttrs}
-	if err := store.CompleteWithOptions(options); err != nil {
-		panic(err) // TODO: Propagate error up
 	}
 
 	statusStore := *store
@@ -178,7 +176,7 @@ func (r *REST) Categories() []string {
 
 // StatusREST implements the REST endpoint for changing the status of a CustomResource
 type StatusREST struct {
-	store *genericregistry.Store
+	store *Store
 }
 
 var _ = rest.Patcher(&StatusREST{})
@@ -212,7 +210,7 @@ func (r *StatusREST) GetResetFields() map[fieldpath.APIVersion]*fieldpath.Set {
 }
 
 type ScaleREST struct {
-	store               *genericregistry.Store
+	store               *Store
 	specReplicasPath    string
 	statusReplicasPath  string
 	labelSelectorPath   string
