@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	PluginName = "kcp.dev/ReservedCRDGroups"
+	PluginName                  = "kcp.dev/ReservedCRDGroups"
+	SystemCRDLogicalClusterName = "system:system-crds"
 )
 
 func Register(plugins *admission.Plugins) {
@@ -65,7 +66,7 @@ func (o *reservedCRDGroups) Validate(ctx context.Context, a admission.Attributes
 	if err != nil {
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
-	if clusterName.String() == "system:system-crds" {
+	if clusterName.String() == SystemCRDLogicalClusterName {
 		return nil
 	}
 
