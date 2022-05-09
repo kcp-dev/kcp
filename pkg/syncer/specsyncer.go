@@ -38,6 +38,8 @@ import (
 	"k8s.io/utils/pointer"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
+	"net/url"
 )
 
 func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
@@ -109,10 +111,13 @@ func NewSpecSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalc
 	fromClient := fromClients.Cluster(kcpClusterName)
 	toClient := dynamic.NewForConfigOrDie(to)
 
-	// Register the default mutators
-	mutatorsMap := getDefaultMutators(from)
+	deploymentMutator := mutators.NewDeploymentMutator(upstreamURL)
+	secretMutator := mutators.NewSecretMutator()
 
-	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncDown, gvrs, pclusterID, mutatorsMap, advancedSchedulingEnabled)
+	return New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers, SyncDown, gvrs, pclusterID, mutatorGvrMap{
+		deploymentMutator.GVR(): deploymentMutator.Mutate,
+		secretMutator.GVR():     secretMutator.Mutate,
+	}, advancedSchedulingEnabled)
 }
 
 func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {

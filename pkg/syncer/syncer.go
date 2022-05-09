@@ -47,7 +47,6 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
-	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
 )
 
 const (
@@ -630,17 +629,6 @@ func transformName(syncedObject *unstructured.Unstructured, direction SyncDirect
 			syncedObject.SetName("default")
 		}
 	}
-}
-
-func getDefaultMutators(from *rest.Config) mutatorGvrMap {
-	mutatorsMap := make(mutatorGvrMap)
-
-	deploymentMutator := mutators.NewDeploymentMutator(from)
-	secretMutator := mutators.NewSecretMutator()
-
-	mutatorsMap[deploymentMutator.GVR()] = deploymentMutator.Mutate
-	mutatorsMap[secretMutator.GVR()] = secretMutator.Mutate
-	return mutatorsMap
 }
 
 func ensureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.Name, resourceName string) error {

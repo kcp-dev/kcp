@@ -19,6 +19,7 @@ package mutators
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -503,7 +504,9 @@ func TestMutate(t *testing.T) {
 	} {
 		{
 			t.Run(c.desc, func(t *testing.T) {
-				dm := NewDeploymentMutator(c.config)
+				upstreamURL, err := url.Parse(c.config.Host)
+				require.NoError(t, err)
+				dm := NewDeploymentMutator(upstreamURL)
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toRuntimeObject() = %v", err)
 

@@ -24,12 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
 	utilspointer "k8s.io/utils/pointer"
 )
 
 type DeploymentMutator struct {
-	fromConfig *rest.Config
+	upstreamURL *url.URL
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -40,9 +39,9 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
-func NewDeploymentMutator(fromConfig *rest.Config) *DeploymentMutator {
+func NewDeploymentMutator(upstreamURL *url.URL) *DeploymentMutator {
 	return &DeploymentMutator{
-		fromConfig: fromConfig,
+		upstreamURL: upstreamURL,
 	}
 }
 
@@ -73,12 +72,8 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 	// VolumeMount and Volume definitions.
 	templateSpec.AutomountServiceAccountToken = utilspointer.BoolPtr(false)
 
-	url, err := url.Parse(dm.fromConfig.Host)
-	if err != nil {
-		return err
-	}
-	kcpExternalHost := url.Hostname()
-	kcpExternalPort := url.Port()
+	kcpExternalHost := dm.upstreamURL.Hostname()
+	kcpExternalPort := dm.upstreamURL.Port()
 
 	overrideEnvs := []corev1.EnvVar{
 		{Name: "KUBERNETES_SERVICE_PORT", Value: kcpExternalPort},
