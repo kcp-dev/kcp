@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -39,7 +40,10 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
-	"net/url"
+)
+
+const (
+	syncerApplyManager = "syncer"
 )
 
 func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {

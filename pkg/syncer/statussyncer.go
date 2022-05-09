@@ -44,8 +44,6 @@ func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructu
 	return equality.Semantic.DeepEqual(oldFinalizers, newFinalizers) && equality.Semantic.DeepEqual(oldStatus, newStatus)
 }
 
-const statusSyncerAgent = "kcp#status-syncer/v0.0.0"
-
 func NewStatusSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
 	return New(kcpClusterName, pclusterID, downstreamClient, upstreamClient, downstreamInformers, SyncUp, gvrs, pclusterID, nil, advancedSchedulingEnabled)
