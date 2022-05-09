@@ -8,6 +8,11 @@ kind: ClusterWorkspace
 metadata:
   name: workspace2
 ---
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: ClusterWorkspace
+metadata:
+  name: workspace3
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -61,6 +66,22 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: user-1-and-2-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: workspace-3-admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: user-1
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: user-2
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: workspace1-admin
@@ -100,3 +121,16 @@ rules:
   resourceNames: ["workspace2"]
   verbs: ["access"]
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: workspace-3-admin
+rules:
+- apiGroups: ["tenancy.kcp.dev"]
+  resourceNames: ["workspace3"]
+  resources: ["clusterworkspaces/workspace"]
+  verbs: ["get", "delete"]
+- apiGroups: ["tenancy.kcp.dev"]
+  resourceNames: ["workspace3"]
+  resources: ["clusterworkspaces/content"]
+  verbs: ["admin"]

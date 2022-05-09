@@ -72,8 +72,10 @@ func TestAuthorizer(t *testing.T) {
 
 	waitForReady(t, ctx, kcpClusterClient, org1, "workspace1")
 	waitForReady(t, ctx, kcpClusterClient, org1, "workspace2")
+	waitForReady(t, ctx, kcpClusterClient, org1, "workspace3")
 	waitForReady(t, ctx, kcpClusterClient, org2, "workspace1")
 	waitForReady(t, ctx, kcpClusterClient, org2, "workspace2")
+	waitForReady(t, ctx, kcpClusterClient, org1, "workspace3")
 
 	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
 	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
@@ -182,6 +184,21 @@ func TestAuthorizer(t *testing.T) {
 				}
 				return true
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "User-3 should now be able to list Namespaces")
+		},
+		"user1 and user2 in org1 can access and modify org1:workspace3 if granted admin access to it": func(t *testing.T) {
+			_, err := user1KubeClusterClient.Cluster(org1.Join("workspace3")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+			_, err = user1KubeClusterClient.Cluster(org1.Join("workspace3")).CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test1"}}, metav1.CreateOptions{})
+			require.NoError(t, err)
+			_, err = user1KubeClusterClient.Cluster(org1.Join("workspace3")).CoreV1().ConfigMaps("test1").Create(ctx, &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test1"}}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace3")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace3")).CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test2"}}, metav1.CreateOptions{})
+			require.NoError(t, err)
+			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace3")).CoreV1().ConfigMaps("test2").Create(ctx, &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test2"}}, metav1.CreateOptions{})
+			require.NoError(t, err)
 		},
 	}
 
