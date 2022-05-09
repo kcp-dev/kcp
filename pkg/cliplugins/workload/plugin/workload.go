@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
