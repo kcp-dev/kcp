@@ -52,8 +52,6 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-const clusterLabel = nscontroller.DeprecatedScheduledClusterNamespaceLabel
-
 func TestNamespaceScheduler(t *testing.T) {
 	t.Parallel()
 
@@ -283,13 +281,13 @@ func unscheduledMatcher(reason string) namespaceExpectation {
 	return func(object *corev1.Namespace) error {
 		if condition := conditions.Get(&nscontroller.NamespaceConditionsAdapter{Namespace: object}, nscontroller.NamespaceScheduled); condition != nil {
 			if condition.Status == corev1.ConditionTrue {
-				return fmt.Errorf("expected an unscheduled namespace, got cluster=%q; status.conditions: %#v", object.Labels[clusterLabel], object.Status.Conditions)
+				return fmt.Errorf("expected an unscheduled namespace, got cluster=%q; status.conditions: %#v", object.Labels[nscontroller.DeprecatedScheduledClusterNamespaceLabel], object.Status.Conditions)
 			}
 			if condition.Reason != reason {
 				return fmt.Errorf("expected an unscheduled namespace with reason %s, got status.conditions: %#v", reason, object.Status.Conditions)
 			}
-			if object.Labels[clusterLabel] != "" {
-				return fmt.Errorf("expected cluster assignment to be empty, got %q", object.Labels[clusterLabel])
+			if object.Labels[nscontroller.DeprecatedScheduledClusterNamespaceLabel] != "" {
+				return fmt.Errorf("expected cluster assignment to be empty, got %q", object.Labels[nscontroller.DeprecatedScheduledClusterNamespaceLabel])
 			}
 			return nil
 		} else {
@@ -303,8 +301,8 @@ func scheduledMatcher(target string) namespaceExpectation {
 		if !nscontroller.IsScheduled(object) {
 			return fmt.Errorf("expected a scheduled namespace, got status.conditions: %#v", object.Status.Conditions)
 		}
-		if object.Labels[clusterLabel] != target {
-			return fmt.Errorf("expected namespace assignment to be %q, got %q", target, object.Labels[clusterLabel])
+		if object.Labels[nscontroller.DeprecatedScheduledClusterNamespaceLabel] != target {
+			return fmt.Errorf("expected namespace assignment to be %q, got %q", target, object.Labels[nscontroller.DeprecatedScheduledClusterNamespaceLabel])
 		}
 		return nil
 	}
