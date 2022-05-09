@@ -27,7 +27,6 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,12 +35,10 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 )
 
 type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
@@ -58,8 +55,7 @@ type Controller struct {
 	fromClient    dynamic.Interface
 	toClient      dynamic.Interface
 
-	upsertFn  UpsertFunc
-	deleteFn  DeleteFunc
+	process   func(ctx context.Context, gvr schema.GroupVersionResource, key string) error
 	direction SyncDirection
 
 	upstreamClusterName logicalcluster.Name
@@ -69,7 +65,8 @@ type Controller struct {
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
 func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, fromInformers dynamicinformer.DynamicSharedInformerFactory,
-	direction SyncDirection, upsertFn UpsertFunc, deleteFn DeleteFunc, advancedSchedulingEnabled bool) (*Controller, error) {
+	process func(ctx context.Context, gvr schema.GroupVersionResource, key string) error,
+	direction SyncDirection, advancedSchedulingEnabled bool) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -80,50 +77,30 @@ func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClie
 		toClient:                  toClient,
 		fromClient:                fromClient,
 		fromInformers:             fromInformers,
+		process:                   process,
 		direction:                 direction,
 		upstreamClusterName:       kcpClusterName,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
-		upsertFn:                  upsertFn,
-		deleteFn:                  deleteFn,
 	}, nil
 }
 
-type holder struct {
-	gvr         schema.GroupVersionResource
-	clusterName logicalcluster.Name
-	namespace   string
-	name        string
+type queueKey struct {
+	gvr schema.GroupVersionResource
+	key string // meta namespace key
 }
 
 func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
-	objToCheck := obj
-
-	tombstone, ok := objToCheck.(cache.DeletedFinalStateUnknown)
-	if ok {
-		objToCheck = tombstone.Obj
-	}
-
-	metaObj, err := meta.Accessor(objToCheck)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		klog.Errorf("%s: error getting meta for %T", c.name, obj)
+		runtime.HandleError(err)
 		return
 	}
 
-	qualifiedName := metaObj.GetName()
-	if len(metaObj.GetNamespace()) > 0 {
-		qualifiedName = metaObj.GetNamespace() + "/" + qualifiedName
-	}
-	if c.direction == SyncDown {
-		qualifiedName = metaObj.GetClusterName() + "|" + qualifiedName
-	}
-	klog.Infof("Syncer %s: adding %s %s to queue", c.name, gvr, qualifiedName)
-
+	klog.Infof("Syncer %s: queueing GVR %q %s", c.name, gvr.String(), key)
 	c.queue.Add(
-		holder{
-			gvr:         gvr,
-			clusterName: logicalcluster.From(metaObj),
-			namespace:   metaObj.GetNamespace(),
-			name:        metaObj.GetName(),
+		queueKey{
+			gvr: gvr,
+			key: key,
 		},
 	)
 }
@@ -154,13 +131,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	h := key.(holder)
+	qk := key.(queueKey)
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, h); err != nil {
+	if err := c.process(ctx, qk.gvr, qk.key); err != nil {
 		runtime.HandleError(fmt.Errorf("syncer %q failed to sync %q, err: %w", c.name, key, err))
 		c.queue.AddRateLimited(key)
 		return true
@@ -199,115 +176,6 @@ func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 	}
 	hash := sha256.Sum224(b)
 	return fmt.Sprintf("kcp%x", hash), nil
-}
-
-func (c *Controller) process(ctx context.Context, h holder) error {
-	klog.V(2).InfoS("Processing", "gvr", h.gvr, "clusterName", h.clusterName, "namespace", h.namespace, "name", h.name)
-
-	if h.namespace == "" {
-		// skipping cluster-level objects and those in syncer namespace
-		// TODO: why do we watch cluster level objects?!
-		return nil
-	}
-
-	var (
-		// No matter which direction we're going, when we're trying to retrieve a (potentially existing) object,
-		// always use its namespace, without any mapping. This is the namespace that came from the event from
-		// the shared informer.
-		fromNamespace = h.namespace
-
-		// We do need to map the namespace in which we are creating or updating an object
-		toNamespace string
-	)
-
-	// Determine toNamespace
-	if c.direction == SyncDown {
-		// Convert the clusterName and namespace to a single string for toNamespace
-		l := NamespaceLocator{
-			LogicalCluster: h.clusterName,
-			Namespace:      h.namespace,
-		}
-
-		var err error
-		toNamespace, err = PhysicalClusterNamespaceName(l)
-		if err != nil {
-			klog.Errorf("%s: error hashing namespace: %v", c.name, err)
-			return nil
-		}
-	} else {
-		if strings.HasPrefix(workloadcliplugin.SyncerIDPrefix, h.namespace) {
-			// skip syncer namespace
-			return nil
-		}
-
-		nsInformer := c.fromInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
-
-		nsKey := fromNamespace
-		if !h.clusterName.Empty() {
-			// If our "physical" cluster is a kcp instance (e.g. for testing purposes), it will return resources
-			// with metadata.clusterName set, which means their keys are cluster-aware, so we need to do the same here.
-			nsKey = clusters.ToClusterAwareKey(h.clusterName, nsKey)
-		}
-
-		nsObj, err := nsInformer.Lister().Get(nsKey)
-		if err != nil {
-			klog.Errorf("%s: error retrieving namespace %q from physical cluster lister: %v", c.name, nsKey, err)
-			return nil
-		}
-
-		nsMeta, ok := nsObj.(metav1.Object)
-		if !ok {
-			klog.Errorf("%s: namespace %q: expected metav1.Object, got %T", c.name, nsKey, nsObj)
-			return nil
-		}
-
-		namespaceLocator, err := LocatorFromAnnotations(nsMeta.GetAnnotations())
-		if err != nil {
-			klog.Errorf("%s: namespace %q: error decoding annotation: %v", c.name, nsKey, err)
-			return nil
-		}
-
-		if namespaceLocator != nil && namespaceLocator.LogicalCluster == c.upstreamClusterName {
-			// Only sync resources for the configured logical cluster to ensure
-			// that syncers for multiple logical clusters can coexist.
-			toNamespace = namespaceLocator.Namespace
-		} else {
-			// this is not our namespace, silently skipping
-			return nil
-		}
-	}
-
-	key := h.name
-
-	if !h.clusterName.Empty() {
-		key = clusters.ToClusterAwareKey(h.clusterName, key)
-	}
-
-	key = fromNamespace + "/" + key
-
-	obj, exists, err := c.fromInformers.ForResource(h.gvr).Informer().GetIndexer().GetByKey(key)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		klog.InfoS("Object doesn't exist:", "direction", c.direction, "clusterName", h.clusterName, "namespace", fromNamespace, "name", h.name)
-		if c.deleteFn != nil {
-			return c.deleteFn(ctx, h.gvr, toNamespace, h.name)
-		}
-		return nil
-	}
-
-	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
-	if !isUnstructured {
-		return fmt.Errorf("%s: object to synchronize is expected to be Unstructured, but is %T", c.name, obj)
-	}
-
-	if c.upsertFn != nil {
-		return c.upsertFn(ctx, h.gvr, toNamespace, unstrob)
-	}
-
-	return err
 }
 
 // transformName changes the object name into the desired one based on the Direction:

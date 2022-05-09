@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -684,16 +685,15 @@ func TestSyncerProcess(t *testing.T) {
 			fromClient.ClearActions()
 			toClient.ClearActions()
 
-			err := controller.process(context.Background(), holder{
-				gvr: schema.GroupVersionResource{
+			key := tc.fromNamespace.Name + "/" + clusters.ToClusterAwareKey(logicalcluster.New(tc.resourceToProcessLogicalClusterName), tc.resourceToProcessName)
+			err := controller.process(context.Background(),
+				schema.GroupVersionResource{
 					Group:    "apps",
 					Version:  "v1",
 					Resource: "deployments",
 				},
-				clusterName: logicalcluster.New(tc.resourceToProcessLogicalClusterName),
-				namespace:   tc.fromNamespace.Name,
-				name:        tc.resourceToProcessName,
-			})
+				key,
+			)
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {

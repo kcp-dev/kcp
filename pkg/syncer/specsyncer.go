@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -26,7 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,6 +37,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -122,8 +124,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalclu
 		},
 	}
 
-	c, err := New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers,
-		SyncDown, s.applyToDownstream, s.deleteFromDownstream, advancedSchedulingEnabled)
+	c, err := New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers, s.process, SyncDown, advancedSchedulingEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -154,14 +155,47 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalclu
 	return &s, nil
 }
 
-func (s *specSyncer) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
-	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
-	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
+func (s *specSyncer) process(ctx context.Context, gvr schema.GroupVersionResource, key string) error {
+	klog.V(3).InfoS("Processing", "gvr", gvr, "key", key)
 
-	if err := s.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+	// from upstream
+	upstreamNamespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		klog.Errorf("Invalid key %q: %v", key, err)
+		return nil
+	}
+	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
+
+	// to downstream
+	downstreamNamespace, err := PhysicalClusterNamespaceName(NamespaceLocator{
+		LogicalCluster: clusterName,
+		Namespace:      upstreamNamespace,
+	})
+	if err != nil {
+		klog.Errorf("Error hashing namespace %s|%s: %v", clusterName, upstreamNamespace, err)
+		return nil // ignore error, shouldn't happen
+	}
+
+	// get the upstream object
+	obj, exists, err := s.fromInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(key)
+	if err != nil {
 		return err
 	}
-	return nil
+	if !exists {
+		// deleted upstream => delete downstream
+		klog.Infof("Deleting downstream GVR %q object %s/%s for upstream cluster %q", gvr.String(), upstreamNamespace, name, clusterName)
+		if err := s.toClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
+
+	// upsert downstream
+	u, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
+	}
+	return s.applyToDownstream(ctx, gvr, downstreamNamespace, u)
 }
 
 const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"
@@ -216,7 +250,7 @@ func (s *specSyncer) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	return nil
 }
 
-func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
+func (s *specSyncer) ensureSyncerFinalizer(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
 	upstreamFinalizers := upstreamObj.GetFinalizers()
 	hasFinalizer := false
 	for _, finalizer := range upstreamFinalizers {
@@ -322,7 +356,7 @@ func (s *specSyncer) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 		if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
 			if err := s.toClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
-				if errors.IsNotFound(err) {
+				if apierrors.IsNotFound(err) {
 					// That's not an error.
 					// Just think about removing the finalizer from the KCP location-specific resource:
 					if err := ensureUpstreamFinalizerRemoved(ctx, gvr, s.fromClient, upstreamObj.GetNamespace(), s.workloadClusterName, s.upstreamClusterName, upstreamObj.GetName()); err != nil {
