@@ -36,8 +36,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
+
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 var scheme *runtime.Scheme
@@ -637,12 +640,16 @@ func TestSyncerProcess(t *testing.T) {
 			fromClient := dynamicfake.NewSimpleDynamicClient(scheme, allFromResources...)
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 
+			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+			})
+
 			setupServersideApplyPatchReactor(toClient)
 			namespaceWatcherStarted := setupWatchReactor("namespaces", fromClient)
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
 
 			gvrs := []string{fmt.Sprintf("%s.%s.%s", tc.gvr.Resource, tc.gvr.Version, tc.gvr.Group), "namespaces.v1."}
-			controller, err := New(kcpLogicalCluster, tc.workloadClusterName, fromClient, toClient, tc.direction, gvrs, tc.workloadClusterName, nil, tc.advancedSchedulingEnabled)
+			controller, err := New(kcpLogicalCluster, tc.workloadClusterName, fromClient, toClient, fromInformers, tc.direction, gvrs, tc.workloadClusterName, nil, tc.advancedSchedulingEnabled)
 			require.NoError(t, err)
 			controller.fromInformers.Start(ctx.Done())
 			controller.fromInformers.WaitForCacheSync(ctx.Done())

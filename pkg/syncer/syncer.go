@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -93,6 +94,35 @@ func (sc *SyncerConfig) ID() string {
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
 	klog.Infof("Starting syncer for logical-cluster: %s, workload-cluster: %s", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
+	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
+	upstreamConfig.UserAgent = specSyncerAgent
+	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
+	downstreamConfig.UserAgent = specSyncerAgent
+
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+	upstreamDynamicClient, err := dynamic.NewClusterForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+	downstreamDynamicClient, err := dynamic.NewForConfig(downstreamConfig)
+	if err != nil {
+		return err
+	}
+	upstreamDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg.UpstreamConfig)
+	if err != nil {
+		return err
+	}
+
+	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClient.Cluster(cfg.KCPClusterName), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+	})
+	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(downstreamDynamicClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+	})
+
 	// Resources are accepted as a set to ensure the provision of a
 	// unique set of resources, but all subsequent consumption is via
 	// slice whose entries are assumed to be unique.
@@ -106,12 +136,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 	go apiImporter.Start(ctx, importPollInterval)
-
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg.UpstreamConfig)
-	if err != nil {
-		return err
-	}
-	fromDiscovery := discoveryClient.WithCluster(cfg.KCPClusterName)
 
 	// TODO(ncdc): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
 	// TODO(ncdc): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
@@ -127,7 +151,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		var err error
 		// Get all types the upstream API server knows about.
 		// TODO: watch this and learn about new types, or forget about old ones.
-		gvrs, err = getAllGVRs(fromDiscovery, resources...)
+		gvrs, err = getAllGVRs(upstreamDiscoveryClient.WithCluster(cfg.KCPClusterName), resources...)
 		// TODO(marun) Should some of these errors be fatal?
 		if err != nil {
 			klog.Errorf("Failed to retrieve GVRs from kcp: %v", err)
@@ -140,14 +164,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
-	if err != nil {
-		return err
-	}
-	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
-	workloadClustersClient := kcpClient.WorkloadV1alpha1().WorkloadClusters()
 	// Check whether we're in the Advanced Scheduling feature-gated mode.
-	workloadCluster, err := workloadClustersClient.Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
+	workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -158,16 +176,28 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
-	specSyncer, err := NewSpecSyncer(cfg.UpstreamConfig, cfg.DownstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled)
+	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
+	if err != nil {
+		return err
+	}
+	specSyncer, err := NewSpecSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, upstreamURL, advancedSchedulingEnabled,
+		upstreamDynamicClient.Cluster(cfg.KCPClusterName), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
 
 	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
-	statusSyncer, err := NewStatusSyncer(cfg.DownstreamConfig, cfg.UpstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled)
+	statusSyncer, err := NewStatusSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled,
+		upstreamDynamicClient.Cluster(cfg.KCPClusterName), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
+
+	upstreamInformers.Start(ctx.Done())
+	downstreamInformers.Start(ctx.Done())
+
+	upstreamInformers.WaitForCacheSync(ctx.Done())
+	downstreamInformers.WaitForCacheSync(ctx.Done())
 
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
@@ -182,7 +212,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
-			workloadCluster, err := workloadClustersClient.Patch(ctx, cfg.WorkloadClusterName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, cfg.WorkloadClusterName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for WorkloadCluster %s|%s: %v", cfg.KCPClusterName, cfg.WorkloadClusterName, err)
 				return false, nil
@@ -223,7 +253,8 @@ type Controller struct {
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
+func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, fromInformers dynamicinformer.DynamicSharedInformerFactory,
+	direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
@@ -255,10 +286,6 @@ func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClie
 			return nil
 		}
 	}
-
-	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + pclusterID + "=" + string(workloadv1alpha1.ResourceStateSync)
-	})
 
 	for _, gvrstr := range gvrs {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
@@ -369,7 +396,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 		// Some of the API resources expected to be there are still not published by KCP.
 		// We should just retry without a limit on the number of retries in such a case,
 		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
-		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
+		return nil, fmt.Errorf("the following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
 	}
 	return gvrstrs.List(), nil
 }

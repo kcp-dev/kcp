@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -46,23 +46,9 @@ func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructu
 
 const statusSyncerAgent = "kcp#status-syncer/v0.0.0"
 
-func NewStatusSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool) (*Controller, error) {
-	from = rest.CopyConfig(from)
-	from.UserAgent = statusSyncerAgent
-	to = rest.CopyConfig(to)
-	to.UserAgent = statusSyncerAgent
-
-	fromClient := dynamic.NewForConfigOrDie(from)
-	toClients, err := dynamic.NewClusterForConfig(to)
-	if err != nil {
-		return nil, err
-	}
-	toClient := toClients.Cluster(kcpClusterName)
-
-	// Register the default mutators
-	mutatorsMap := getDefaultMutators(from)
-
-	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncUp, gvrs, pclusterID, mutatorsMap, advancedSchedulingEnabled)
+func NewStatusSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool,
+	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
+	return New(kcpClusterName, pclusterID, downstreamClient, upstreamClient, downstreamInformers, SyncUp, gvrs, pclusterID, nil, advancedSchedulingEnabled)
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {

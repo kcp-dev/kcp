@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -98,18 +98,8 @@ func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured)
 
 const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
-func NewSpecSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool) (*Controller, error) {
-	from = rest.CopyConfig(from)
-	from.UserAgent = specSyncerAgent
-	to = rest.CopyConfig(to)
-	to.UserAgent = specSyncerAgent
-
-	fromClients, err := dynamic.NewClusterForConfig(from)
-	if err != nil {
-		return nil, err
-	}
-	fromClient := fromClients.Cluster(kcpClusterName)
-	toClient := dynamic.NewForConfigOrDie(to)
+func NewSpecSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
 
 	deploymentMutator := mutators.NewDeploymentMutator(upstreamURL)
 	secretMutator := mutators.NewSecretMutator()
