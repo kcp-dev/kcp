@@ -140,12 +140,12 @@ type Controller struct {
 func filterResource(obj interface{}) bool {
 	current, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		klog.V(2).Infof("Object was not Unstructured: %T", obj)
+		klog.Warningf("Object was not Unstructured: %T", obj)
 		return false
 	}
 
 	if namespaceBlocklist.Has(current.GetNamespace()) {
-		klog.V(2).Infof("Skipping syncing namespace %q", current.GetNamespace())
+		klog.V(4).Infof("Skipping syncing namespace %s|%q", logicalcluster.From(current), current.GetNamespace())
 		return false
 	}
 	return true
@@ -308,10 +308,11 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 
 	obj, exists, err := c.ddsif.IndexerFor(*gvr).GetByKey(key)
 	if err != nil {
+		klog.Errorf("Error getting %q GVR %q from indexer: %v", key, gvrstr, err)
 		return err
 	}
 	if !exists {
-		klog.Infof("object %q does not exist", key)
+		klog.V(3).Infof("object %q GVR %q does not exist", key, gvrstr)
 		return nil
 	}
 	unstr, ok := obj.(*unstructured.Unstructured)
