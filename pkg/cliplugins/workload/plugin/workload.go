@@ -18,13 +18,16 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
@@ -40,6 +43,7 @@ func (c *Config) Cordon(ctx context.Context, workloadClusterName string) error {
 		return err
 	}
 
+	fmt.Println("cordoned")
 	return nil
 }
 
@@ -55,6 +59,7 @@ func (c *Config) Uncordon(ctx context.Context, workloadClusterName string) error
 		return err
 	}
 
+	fmt.Println("uncordoned")
 	return nil
 }
 
@@ -70,18 +75,37 @@ func modifyCordon(ctx context.Context, config *rest.Config, workloadClusterName 
 		metav1.GetOptions{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get workloadcluster %s: %w", workloadClusterName, err)
+		return fmt.Errorf("failed to get WorkloadCluster %s: %w", workloadClusterName, err)
 	}
 
+	// Get a JSON copy of the existing data
+	oldData, err := json.Marshal(workloadCluster)
+	if err != nil {
+		return fmt.Errorf("failed to marshal old data for WorkloadCluster %s: %w", workloadClusterName, err)
+	}
+
+	// make the changes needed to the resource
 	workloadCluster.Spec.Unschedulable = cordon
+
 	// if uncordon, make sure evictAfter is not set
 	if !cordon {
 		workloadCluster.Spec.EvictAfter = nil
 	}
 
-	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Update(ctx, workloadCluster, metav1.UpdateOptions{})
+	// Get a JSON copy of the changed data
+	newData, err := json.Marshal(workloadCluster)
 	if err != nil {
-		return fmt.Errorf("failed to update workloadcluster %s: %w", workloadClusterName, err)
+		return fmt.Errorf("failed to marshal new data for WorkloadCluster %s: %w", workloadClusterName, err)
+	}
+
+	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+	if err != nil {
+		return fmt.Errorf("failed to create patch for WorkloadCluster %s: %w", workloadClusterName, err)
+	}
+
+	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Patch(ctx, workloadClusterName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update WorkloadCluster %s: %w", workloadClusterName, err)
 	}
 
 	return nil
@@ -107,15 +131,32 @@ func (c *Config) Drain(ctx context.Context, workloadClusterName string) error {
 		return fmt.Errorf("failed to get workloadcluster %s: %w", workloadClusterName, err)
 	}
 
+	// Get a JSON copy of the existing data
+	oldData, err := json.Marshal(workloadCluster)
+	if err != nil {
+		return fmt.Errorf("failed to marshal old data for WorkloadCluster %s: %w", workloadClusterName, err)
+	}
+
 	nowTime := metav1.NewTime(time.Now())
 	workloadCluster.Spec.EvictAfter = &nowTime
 
 	//ensure unschedulable is also set
 	workloadCluster.Spec.Unschedulable = true
 
-	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Update(ctx, workloadCluster, metav1.UpdateOptions{})
+	// Get a JSON copy of the changed data
+	newData, err := json.Marshal(workloadCluster)
 	if err != nil {
-		return fmt.Errorf("failed to update workloadcluster %s: %w", workloadClusterName, err)
+		return fmt.Errorf("failed to marshal new data for WorkloadCluster %s: %w", workloadClusterName, err)
+	}
+
+	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+	if err != nil {
+		return fmt.Errorf("failed to create patch for WorkloadCluster %s: %w", workloadClusterName, err)
+	}
+
+	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Patch(ctx, workloadClusterName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update WorkloadCluster %s: %w", workloadClusterName, err)
 	}
 
 	return nil
