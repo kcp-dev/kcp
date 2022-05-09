@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -51,36 +50,22 @@ type Controller struct {
 	workloadClusterName string
 	queue               workqueue.RateLimitingInterface
 
-	fromInformers dynamicinformer.DynamicSharedInformerFactory
-	fromClient    dynamic.Interface
-	toClient      dynamic.Interface
-
-	process   func(ctx context.Context, gvr schema.GroupVersionResource, key string) error
-	direction SyncDirection
+	process func(ctx context.Context, gvr schema.GroupVersionResource, key string) error
 
 	upstreamClusterName logicalcluster.Name
-
-	advancedSchedulingEnabled bool
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, fromInformers dynamicinformer.DynamicSharedInformerFactory,
-	process func(ctx context.Context, gvr schema.GroupVersionResource, key string) error,
-	direction SyncDirection, advancedSchedulingEnabled bool) (*Controller, error) {
+func New(kcpClusterName logicalcluster.Name, pcluster string, process func(ctx context.Context, gvr schema.GroupVersionResource, key string) error, direction SyncDirection) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
 	return &Controller{
-		name:                      controllerName,
-		workloadClusterName:       pcluster,
-		queue:                     queue,
-		toClient:                  toClient,
-		fromClient:                fromClient,
-		fromInformers:             fromInformers,
-		process:                   process,
-		direction:                 direction,
-		upstreamClusterName:       kcpClusterName,
-		advancedSchedulingEnabled: advancedSchedulingEnabled,
+		name:                controllerName,
+		workloadClusterName: pcluster,
+		queue:               queue,
+		process:             process,
+		upstreamClusterName: kcpClusterName,
 	}, nil
 }
 
