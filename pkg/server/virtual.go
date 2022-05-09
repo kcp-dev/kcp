@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/dynamic"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
@@ -39,11 +40,12 @@ type mux interface {
 	Handle(pattern string, handler http.Handler)
 }
 
-func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, auth genericapiserver.AuthenticationInfo, externalAddress string, preHandlerChainMux mux) error {
+func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, dynamicClusterClient dynamic.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, auth genericapiserver.AuthenticationInfo, externalAddress string, preHandlerChainMux mux) error {
 	// create virtual workspaces
-	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.Workspaces.NewVirtualWorkspaces(
+	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.Root.NewVirtualWorkspaces(
 		virtualcommandoptions.DefaultRootPathPrefix,
 		kubeClusterClient,
+		dynamicClusterClient,
 		kcpClusterClient,
 		s.kubeSharedInformerFactory,
 		s.kcpSharedInformerFactory,

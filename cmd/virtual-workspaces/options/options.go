@@ -29,7 +29,7 @@ import (
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/component-base/logs"
 
-	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
+	rootoptions "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver/options"
 )
 
 // DefaultRootPathPrefix is basically constant forever, or we risk a breaking change. The
@@ -47,7 +47,7 @@ type Options struct {
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
 	Logs           logs.Options
 
-	Workspaces workspacesoptions.Workspaces
+	Root rootoptions.Root
 }
 
 func NewOptions() *Options {
@@ -60,7 +60,7 @@ func NewOptions() *Options {
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
 		Logs:           *logs.NewOptions(),
 
-		Workspaces: *workspacesoptions.NewWorkspaces(),
+		Root: *rootoptions.NewRoot(),
 	}
 
 	opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(".", ".kcp", "apiserver.crt")
@@ -74,7 +74,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
 	o.Logs.AddFlags(flags)
-	o.Workspaces.AddFlags(flags, "")
+	o.Root.AddFlags(flags)
 
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile, ""+
 		"The kubeconfig file of the KCP instance that hosts workspaces.")
@@ -85,7 +85,7 @@ func (o *Options) Validate() error {
 	errs := []error{}
 	errs = append(errs, o.SecureServing.Validate()...)
 	errs = append(errs, o.Authentication.Validate()...)
-	errs = append(errs, o.Workspaces.Validate("")...)
+	errs = append(errs, o.Root.Validate()...)
 
 	if len(o.KubeconfigFile) == 0 {
 		errs = append(errs, fmt.Errorf("--kubeconfig is required for this command"))

@@ -22,14 +22,12 @@ import (
 
 	"github.com/spf13/pflag"
 
-	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
+	rootoptions "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver/options"
 )
 
-const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
-
 type Virtual struct {
-	Workspaces workspacesoptions.Workspaces
-	Enabled    bool
+	Root    rootoptions.Root
+	Enabled bool
 
 	// ExternalVirtualWorkspaceAddress holds a URL to redirect to for stand-alone virtual workspaces.
 	ExternalVirtualWorkspaceAddress string
@@ -37,7 +35,7 @@ type Virtual struct {
 
 func NewVirtual() *Virtual {
 	return &Virtual{
-		Workspaces: *workspacesoptions.NewWorkspaces(),
+		Root: *rootoptions.NewRoot(),
 
 		Enabled: true,
 	}
@@ -47,7 +45,7 @@ func (v *Virtual) Validate() []error {
 	var errs []error
 
 	if v.Enabled {
-		errs = append(errs, v.Workspaces.Validate(virtualWorkspacesFlagPrefix)...)
+		errs = append(errs, v.Root.Validate()...)
 
 		if v.ExternalVirtualWorkspaceAddress != "" {
 			errs = append(errs, fmt.Errorf("--virtual-workspace-address must be empty if virtual workspaces run in-process"))
@@ -66,7 +64,7 @@ func (v *Virtual) Validate() []error {
 }
 
 func (v *Virtual) AddFlags(fs *pflag.FlagSet) {
-	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	v.Root.AddFlags(fs)
 
 	fs.BoolVar(&v.Enabled, "run-virtual-workspaces", v.Enabled, "Run the virtual workspace apiservers in-process")
 	fs.StringVar(&v.ExternalVirtualWorkspaceAddress, "virtual-workspace-address", v.ExternalVirtualWorkspaceAddress, "Address of a stand-alone virtual workspace apiserver (without the /services path)")

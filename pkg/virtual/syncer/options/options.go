@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,22 +29,24 @@ import (
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
 )
 
-type Workspaces struct{}
+const SyncerVirtualWorkspaceName = "syncer"
 
-func NewWorkspaces() *Workspaces {
-	return &Workspaces{}
+type Syncer struct{}
+
+func NewSyncer() *Syncer {
+	return &Syncer{}
 }
 
-func (o *Workspaces) AddFlags(flags *pflag.FlagSet, prefix string) {
+func (o *Syncer) AddFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
 }
 
-func (o *Workspaces) Validate(flagPrefix string) []error {
+func (o *Syncer) Validate(flagPrefix string) []error {
 	if o == nil {
 		return nil
 	}
@@ -53,7 +55,7 @@ func (o *Workspaces) Validate(flagPrefix string) []error {
 	return errs
 }
 
-func (o *Workspaces) NewVirtualWorkspaces(
+func (o *Syncer) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
@@ -62,11 +64,11 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
+		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
 	}
 	return nil, virtualWorkspaces, nil
 }
 
-func (o *Workspaces) Name() string {
-	return "workspaces"
+func (o *Syncer) Name() string {
+	return builder.SyncerVirtualWorkspaceName
 }

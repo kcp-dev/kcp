@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
@@ -41,13 +42,8 @@ import (
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
-
-type SubCommandOptions interface {
-	NewVirtualWorkspaces() ([]virtualrootapiserver.InformerStart, []framework.VirtualWorkspace, error)
-}
 
 func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 	opts := options.NewOptions()
@@ -99,6 +95,12 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
+
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(kubeClientConfig)
+	if err != nil {
+		return err
+	}
+
 	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
@@ -109,7 +111,9 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
-	extraInformerStarts, virtualWorkspaces, err := o.Workspaces.NewVirtualWorkspaces(o.RootPathPrefix, kubeClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+
+	var extraInformerStarts []virtualrootapiserver.InformerStart
+	extraInformerStarts, virtualWorkspaces, err := o.Root.NewVirtualWorkspaces(o.RootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
 		return err
 	}
