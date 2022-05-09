@@ -39,7 +39,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
+	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 )
 
 const (
@@ -105,8 +105,8 @@ const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 func NewSpecSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
 
-	deploymentMutator := mutators.NewDeploymentMutator(upstreamURL)
-	secretMutator := mutators.NewSecretMutator()
+	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
+	secretMutator := specmutators.NewSecretMutator()
 
 	return New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers, SyncDown, gvrs, pclusterID, mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,
