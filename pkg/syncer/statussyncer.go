@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -48,7 +49,7 @@ type statusSyncer struct {
 	*Controller
 }
 
-func NewStatusSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool,
+func NewStatusSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*statusSyncer, error) {
 
 	s := &statusSyncer{}
@@ -59,12 +60,34 @@ func NewStatusSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pcluster
 				return ensureUpstreamFinalizerRemoved(ctx, gvr, upstreamClient, namespace, pclusterID, kcpClusterName, name)
 			}
 			return nil
-		}, gvrs, nil, advancedSchedulingEnabled)
+		}, advancedSchedulingEnabled)
 	if err != nil {
 		return nil, err
 	}
-
 	s.Controller = c
+
+	for _, gvr := range gvrs {
+		gvr := gvr // because used in closure
+
+		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.AddToQueue(gvr, obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldUnstrob := oldObj.(*unstructured.Unstructured)
+				newUnstrob := newObj.(*unstructured.Unstructured)
+
+				if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
+					c.AddToQueue(gvr, newUnstrob)
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.AddToQueue(gvr, obj)
+			},
+		})
+		klog.InfoS("Set up informer", "direction", SyncUp, "clusterName", kcpClusterName, "pcluster", pclusterID, "gvr", gvr.String())
+	}
+
 	return s, nil
 }
 
@@ -90,13 +113,6 @@ func (s *statusSyncer) updateStatusInUpstream(ctx context.Context, gvr schema.Gr
 	if err != nil {
 		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, name, err)
 		return err
-	}
-
-	// Run any transformations on the object before we update the status on kcp.
-	if mutator, ok := s.mutators[gvr]; ok {
-		if err := mutator(upstreamObj); err != nil {
-			return err
-		}
 	}
 
 	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.

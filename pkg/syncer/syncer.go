@@ -134,7 +134,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Block syncer start on gvr discovery completing successfully and
 	// including the resources configured for syncing. The spec and status
 	// syncers depend on the types being present to start their informers.
-	var gvrs []string
+	var gvrs []schema.GroupVersionResource
 	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
 		klog.Infof("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
@@ -227,7 +227,7 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]string, error) {
+func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]schema.GroupVersionResource, error) {
 	toSyncSet := sets.NewString(resourcesToSync...)
 	willBeSyncedSet := sets.NewString()
 	rs, err := discoveryClient.ServerPreferredResources()
@@ -296,5 +296,15 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
 		return nil, fmt.Errorf("the following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
 	}
-	return gvrstrs.List(), nil
+
+	gvrs := make([]schema.GroupVersionResource, 0, gvrstrs.Len())
+	for _, gvrstr := range gvrstrs.List() {
+		gvr, _ := schema.ParseResourceArg(gvrstr)
+		if gvr == nil {
+			klog.Warningf("Unable to parse resource %q as <resource>.<version>.<group>", gvrstr)
+			continue
+		}
+		gvrs = append(gvrs, *gvr)
+	}
+	return gvrs, nil
 }

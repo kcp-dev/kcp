@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -104,26 +105,51 @@ const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
 
 type specSyncer struct {
 	*Controller
+
+	mutators mutatorGvrMap
 }
 
-func NewSpecSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+func NewSpecSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalcluster.Name, pclusterID string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*specSyncer, error) {
 
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
 	secretMutator := specmutators.NewSecretMutator()
 
-	s := specSyncer{}
-
-	c, err := New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers,
-		SyncDown, s.applyToDownstream, s.deleteFromDownstream,
-		gvrs, mutatorGvrMap{
+	s := specSyncer{
+		mutators: mutatorGvrMap{
 			deploymentMutator.GVR(): deploymentMutator.Mutate,
 			secretMutator.GVR():     secretMutator.Mutate,
-		}, advancedSchedulingEnabled)
+		},
+	}
+
+	c, err := New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers,
+		SyncDown, s.applyToDownstream, s.deleteFromDownstream, advancedSchedulingEnabled)
 	if err != nil {
 		return nil, err
 	}
 	s.Controller = c
+
+	for _, gvr := range gvrs {
+		gvr := gvr // because used in closure
+
+		upstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.AddToQueue(gvr, obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldUnstrob := oldObj.(*unstructured.Unstructured)
+				newUnstrob := newObj.(*unstructured.Unstructured)
+
+				if !deepEqualApartFromStatus(oldUnstrob, newUnstrob) {
+					c.AddToQueue(gvr, newUnstrob)
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.AddToQueue(gvr, obj)
+			},
+		})
+		klog.InfoS("Set up informer", "direction", SyncDown, "clusterName", kcpClusterName, "pcluster", pclusterID, "gvr", gvr.String())
+	}
 
 	return &s, nil
 }

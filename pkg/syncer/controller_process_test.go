@@ -19,7 +19,6 @@ package syncer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -656,7 +655,10 @@ func TestSyncerProcess(t *testing.T) {
 			namespaceWatcherStarted := setupWatchReactor("namespaces", fromClient)
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
 
-			gvrs := []string{fmt.Sprintf("%s.%s.%s", tc.gvr.Resource, tc.gvr.Version, tc.gvr.Group), "namespaces.v1."}
+			gvrs := []schema.GroupVersionResource{
+				{Group: "", Version: "v1", Resource: "namespaces"},
+				tc.gvr,
+			}
 			var controller *Controller
 			if tc.direction == SyncUp {
 				s, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, tc.advancedSchedulingEnabled, toClient, fromClient, toInformers, fromInformers)
@@ -671,9 +673,9 @@ func TestSyncerProcess(t *testing.T) {
 			}
 
 			fromInformers.Start(ctx.Done())
-			fromInformers.WaitForCacheSync(ctx.Done())
-
 			toInformers.Start(ctx.Done())
+
+			fromInformers.WaitForCacheSync(ctx.Done())
 			toInformers.WaitForCacheSync(ctx.Done())
 
 			<-resourceWatcherStarted

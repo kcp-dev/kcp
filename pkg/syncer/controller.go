@@ -63,66 +63,29 @@ type Controller struct {
 	direction SyncDirection
 
 	upstreamClusterName logicalcluster.Name
-	mutators            mutatorGvrMap
 
 	advancedSchedulingEnabled bool
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
 func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, fromInformers dynamicinformer.DynamicSharedInformerFactory,
-	direction SyncDirection, upsertFn UpsertFunc, deleteFn DeleteFunc, gvrs []string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
+	direction SyncDirection, upsertFn UpsertFunc, deleteFn DeleteFunc, advancedSchedulingEnabled bool) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
-	c := Controller{
+	return &Controller{
 		name:                      controllerName,
 		workloadClusterName:       pcluster,
 		queue:                     queue,
 		toClient:                  toClient,
 		fromClient:                fromClient,
+		fromInformers:             fromInformers,
 		direction:                 direction,
 		upstreamClusterName:       kcpClusterName,
-		mutators:                  make(mutatorGvrMap),
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 		upsertFn:                  upsertFn,
 		deleteFn:                  deleteFn,
-	}
-
-	if len(mutators) > 0 {
-		c.mutators = mutators
-	}
-
-	for _, gvrstr := range gvrs {
-		gvr, _ := schema.ParseResourceArg(gvrstr)
-
-		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.AddToQueue(*gvr, obj)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldUnstrob := oldObj.(*unstructured.Unstructured)
-				newUnstrob := newObj.(*unstructured.Unstructured)
-
-				if c.direction == SyncDown {
-					if !deepEqualApartFromStatus(oldUnstrob, newUnstrob) {
-						c.AddToQueue(*gvr, newUnstrob)
-					}
-				} else {
-					if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
-						c.AddToQueue(*gvr, newUnstrob)
-					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.AddToQueue(*gvr, obj)
-			},
-		})
-		klog.InfoS("Set up informer", "direction", c.direction, "clusterName", kcpClusterName, "pcluster", pcluster, "gvr", gvr)
-	}
-
-	c.fromInformers = fromInformers
-
-	return &c, nil
+	}, nil
 }
 
 type holder struct {
