@@ -649,7 +649,7 @@ func TestSyncerProcess(t *testing.T) {
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
 
 			gvrs := []string{fmt.Sprintf("%s.%s.%s", tc.gvr.Resource, tc.gvr.Version, tc.gvr.Group), "namespaces.v1."}
-			controller, err := New(kcpLogicalCluster, tc.workloadClusterName, fromClient, toClient, fromInformers, tc.direction, gvrs, tc.workloadClusterName, nil, tc.advancedSchedulingEnabled)
+			controller, err := New(kcpLogicalCluster, tc.workloadClusterName, fromClient, toClient, fromInformers, tc.direction, gvrs, nil, tc.advancedSchedulingEnabled)
 			require.NoError(t, err)
 			controller.fromInformers.Start(ctx.Done())
 			controller.fromInformers.WaitForCacheSync(ctx.Done())

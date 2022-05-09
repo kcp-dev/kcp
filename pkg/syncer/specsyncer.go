@@ -108,7 +108,7 @@ func NewSpecSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
 	secretMutator := specmutators.NewSecretMutator()
 
-	return New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers, SyncDown, gvrs, pclusterID, mutatorGvrMap{
+	return New(kcpClusterName, pclusterID, upstreamClient, downstreamClient, upstreamInformers, SyncDown, gvrs, mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,
 		secretMutator.GVR():     secretMutator.Mutate,
 	}, advancedSchedulingEnabled)

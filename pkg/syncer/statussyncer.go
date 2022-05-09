@@ -46,7 +46,7 @@ func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructu
 
 func NewStatusSyncer(gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
-	return New(kcpClusterName, pclusterID, downstreamClient, upstreamClient, downstreamInformers, SyncUp, gvrs, pclusterID, nil, advancedSchedulingEnabled)
+	return New(kcpClusterName, pclusterID, downstreamClient, upstreamClient, downstreamInformers, SyncUp, gvrs, nil, advancedSchedulingEnabled)
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {

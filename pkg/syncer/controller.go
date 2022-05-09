@@ -70,7 +70,7 @@ type Controller struct {
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
 func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, fromInformers dynamicinformer.DynamicSharedInformerFactory,
-	direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
+	direction SyncDirection, gvrs []string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
 	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
 
