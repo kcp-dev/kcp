@@ -2,15 +2,62 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
+  name: etcd-client-ca
+spec:
+  isCA: true
+  commonName: etcd-client-bootstrap
+  secretName: etcd-client-bootstrap-secret
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: kcp-pki-bootstrap
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-peer-ca
+spec:
+  isCA: true
+  commonName: etcd-peer-bootstrap
+  secretName: etcd-peer-bootstrap-secret
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: kcp-pki-bootstrap
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-client-issuer
+spec:
+  ca:
+    secretName: etcd-client-bootstrap-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-peer-issuer
+spec:
+  ca:
+    secretName: etcd-peer-bootstrap-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
   name: etcd
 spec:
   secretName: etcd-cert
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
+  duration: 2160h0m0s # 90d
+  renewBefore: 360h0m0s # 15d
   subject:
     organizations:
       - redhat
-  isCA: false
   privateKey:
     algorithm: RSA
     encoding: PKCS1
@@ -29,7 +76,7 @@ spec:
   ipAddresses:
     - 0.0.0.0
   issuerRef:
-    name: kcp
+    name: etcd-client-issuer
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -37,12 +84,11 @@ metadata:
   name: etcd-peer
 spec:
   secretName: etcd-peer-cert
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
+  duration: 2160h0m0s # 90d
+  renewBefore: 360h0m0s # 15d
   subject:
     organizations:
       - redhat
-  isCA: false
   privateKey:
     algorithm: RSA
     encoding: PKCS1
@@ -60,7 +106,7 @@ spec:
   ipAddresses:
     - 0.0.0.0
   issuerRef:
-    name: kcp
+    name: etcd-peer-issuer
 ---
 apiVersion: v1
 kind: Service

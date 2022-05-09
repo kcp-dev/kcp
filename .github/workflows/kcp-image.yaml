@@ -74,5 +74,7 @@ jobs:
         run: |-
           cd manifest
           ../kustomize edit add patch --patch='[{"op": "replace", "path": "/spec/template/spec/containers/0/env", "value": [{"name": "EXTERNAL_HOSTNAME", "value": "${{ steps.external_hostname.outputs.external_hostname }}"}]}]' --group apps --kind Deployment --name kcp --version v1
+          ../kustomize edit add patch --patch='[{"op": "replace", "path": "/spec/host", "value": "${{ steps.external_hostname.outputs.external_hostname }}"}]' --group route.openshift.io --kind Route --name kcp-front-proxy --version v1
+          ../kustomize edit add patch --patch='[{"op": "replace", "path": "/spec/dnsNames/0", "value": "${{ steps.external_hostname.outputs.external_hostname }}"}]' --group cert-manager.io --kind Certificate --name kcp-front-proxy --version v1
           ../kustomize edit set image ghcr.io/kcp-dev/kcp=ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha_short }}
           ../kustomize build . | ../kubectl --server=https://${{ secrets.CICD_KUBE_HOST }} --token=${{ secrets.CICD_KUBE_TOKEN }} -n ${{ secrets.CICD_KUBE_NS }} apply -f -
