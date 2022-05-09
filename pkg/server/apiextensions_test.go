@@ -19,8 +19,9 @@ package server
 import (
 	"testing"
 
-	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 )
 
 func TestSystemCRDsLogicalClusterName(t *testing.T) {
