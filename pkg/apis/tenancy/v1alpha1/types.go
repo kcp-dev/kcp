@@ -102,6 +102,9 @@ type ClusterWorkspaceType struct {
 
 	// +optional
 	Spec ClusterWorkspaceTypeSpec `json:"spec,omitempty"`
+
+	// +optional
+	Status ClusterWorkspaceTypeStatus `json:"status"`
 }
 
 const (
@@ -218,6 +221,24 @@ type BootstrapConfigMap struct {
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
+}
+
+type ClusterWorkspaceTypeStatus struct {
+	// initializerWorkspaces is a list of virtual workspaces an initializer controller has to watch
+	// for ClusterWorkspaces of this type to do the initialisation.
+	//
+	// +optional
+	InitializerWorkspaces []InitializerWorkspace `json:"initializerWorkspaces,omitempty"`
+}
+
+// InitializerWorkspace is a virtual workspace URL that is watched by an initializer controller.
+type InitializerWorkspace struct {
+	// URL is the virtual workspace URL.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	URL string `json:"URL"`
 }
 
 // ClusterWorkspaceTypeList is a list of cluster workspace types
