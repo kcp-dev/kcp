@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -75,8 +75,8 @@ func TestIngressController(t *testing.T) {
 				rootIngress, err = sourceClient.Ingresses(testNamespace).Create(ctx, rootIngress, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ingress")
 
-				nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(rootIngress), Namespace: rootIngress.Namespace}
-				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+				nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(rootIngress), Namespace: rootIngress.Namespace}
+				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
 				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 
 				t.Logf("Waiting for ingress to be synced to sink cluster to namespace %s", targetNamespace)

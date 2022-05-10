@@ -14,31 +14,39 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package syncer
+package spec
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
+
+const (
+	syncerApplyManager = "syncer"
+)
+
+type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
 
 func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
 	// TODO(jmprusi): Remove this after switching to virtual workspaces.
@@ -94,43 +102,53 @@ func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured)
 	return true
 }
 
-const specSyncerAgent = "kcp#spec-syncer/v0.0.0"
+func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string) error {
+	klog.V(3).InfoS("Processing", "gvr", gvr, "key", key)
 
-func NewSpecSyncer(from, to *rest.Config, gvrs []string, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool) (*Controller, error) {
-	from = rest.CopyConfig(from)
-	from.UserAgent = specSyncerAgent
-	to = rest.CopyConfig(to)
-	to.UserAgent = specSyncerAgent
-
-	fromClients, err := dynamic.NewClusterForConfig(from)
+	// from upstream
+	upstreamNamespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		return nil, err
+		klog.Errorf("Invalid key %q: %v", key, err)
+		return nil
 	}
-	fromClient := fromClients.Cluster(kcpClusterName)
-	toClient := dynamic.NewForConfigOrDie(to)
+	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	// Register the default mutators
-	mutatorsMap := getDefaultMutators(from)
+	// to downstream
+	downstreamNamespace, err := shared.PhysicalClusterNamespaceName(shared.NamespaceLocator{
+		LogicalCluster: clusterName,
+		Namespace:      upstreamNamespace,
+	})
+	if err != nil {
+		klog.Errorf("Error hashing namespace %s|%s: %v", clusterName, upstreamNamespace, err)
+		return nil // ignore error, shouldn't happen
+	}
 
-	return New(kcpClusterName, pclusterID, fromClient, toClient, SyncDown, gvrs, pclusterID, mutatorsMap, advancedSchedulingEnabled)
-}
-
-func (c *Controller) deleteFromDownstream(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
-	// TODO: get UID of just-deleted object and pass it as a precondition on this delete.
-	// This would avoid races where an object is deleted and another object with the same name is created immediately after.
-
-	if err := c.toClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+	// get the upstream object
+	obj, exists, err := c.upstreamInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(key)
+	if err != nil {
 		return err
 	}
-	return nil
-}
+	if !exists {
+		// deleted upstream => delete downstream
+		klog.Infof("Deleting downstream GVR %q object %s/%s for upstream cluster %q", gvr.String(), upstreamNamespace, name, clusterName)
+		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
 
-const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"
+	// upsert downstream
+	u, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
+	}
+	return c.applyToDownstream(ctx, gvr, downstreamNamespace, u)
+}
 
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
 //       In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
 func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
-	namespaces := c.toClient.Resource(schema.GroupVersionResource{
+	namespaces := c.downstreamClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
 		Resource: "namespaces",
@@ -143,7 +161,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
-	l := NamespaceLocator{
+	l := shared.NamespaceLocator{
 		LogicalCluster: logicalcluster.From(upstreamObj),
 		Namespace:      upstreamObj.GetNamespace(),
 	}
@@ -152,7 +170,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		return err
 	}
 	newNamespace.SetAnnotations(map[string]string{
-		namespaceLocatorAnnotation: string(b),
+		shared.NamespaceLocatorAnnotation: string(b),
 	})
 
 	if upstreamObj.GetLabels() != nil {
@@ -162,6 +180,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		})
 	}
 
+	// TODO(sttts): check that namespace exists in lister before using the client
 	if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
 		// An already exists error is ok - it means something else beat us to creating the namespace.
 		if !k8serrors.IsAlreadyExists(err) {
@@ -181,7 +200,7 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 	upstreamFinalizers := upstreamObj.GetFinalizers()
 	hasFinalizer := false
 	for _, finalizer := range upstreamFinalizers {
-		if finalizer == syncerFinalizerNamePrefix+c.workloadClusterName {
+		if finalizer == shared.SyncerFinalizerNamePrefix+c.workloadClusterName {
 			hasFinalizer = true
 		}
 	}
@@ -190,9 +209,9 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 		name := upstreamObjCopy.GetName()
 		namespace := upstreamObjCopy.GetNamespace()
 
-		upstreamFinalizers = append(upstreamFinalizers, syncerFinalizerNamePrefix+c.workloadClusterName)
+		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.workloadClusterName)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
-		if _, err := c.fromClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.upstreamClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Failed adding finalizer upstream on resource %s|%s/%s: %v", c.upstreamClusterName, namespace, name, err)
 			return err
 		}
@@ -230,7 +249,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetFinalizers(nil)
 
 	// Run name transformations on the downstreamObj.
-	transformName(downstreamObj, SyncDown)
+	transformName(downstreamObj)
 
 	// Run any transformations on the object before we apply it to the downstream cluster.
 	if mutator, ok := c.mutators[gvr]; ok {
@@ -282,11 +301,11 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 		stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.workloadClusterName] != ""
 
 		if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
-			if err := c.toClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
-				if errors.IsNotFound(err) {
+			if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
+				if apierrors.IsNotFound(err) {
 					// That's not an error.
 					// Just think about removing the finalizer from the KCP location-specific resource:
-					if err := ensureUpstreamFinalizerRemoved(ctx, gvr, c.fromClient, upstreamObj.GetNamespace(), c.workloadClusterName, c.upstreamClusterName, upstreamObj.GetName()); err != nil {
+					if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamObj.GetNamespace(), c.workloadClusterName, c.upstreamClusterName, upstreamObj.GetName()); err != nil {
 						return err
 					}
 					return nil
@@ -305,11 +324,31 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 		return err
 	}
 
-	if _, err := c.toClient.Resource(gvr).Namespace(downstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
+	if _, err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
 		klog.Errorf("Error upserting %s %s/%s from upstream %s|%s/%s: %v", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
 		return err
 	}
 	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName())
 
 	return nil
+}
+
+// transformName changes the object name into the desired one downstream.
+func transformName(syncedObject *unstructured.Unstructured) {
+	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
+	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+
+	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
+		syncedObject.SetName("kcp-root-ca.crt")
+	}
+	if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
+		syncedObject.SetName("kcp-default")
+	}
+	// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
+	//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
+	//				  object. This must be fixed.
+	if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
+		syncedObject.SetName("kcp-default-token")
+	}
 }

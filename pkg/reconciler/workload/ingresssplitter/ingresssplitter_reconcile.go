@@ -33,7 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
@@ -47,7 +47,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	//nolint:staticcheck
-	if syncer.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
+	if shared.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
 		// we have a root ingress here
 		if err := c.reconcileLeaves(ctx, ingress); err != nil {
 			return err
@@ -159,7 +159,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 		found := false
 		for _, desiredLeaf := range desiredLeaves {
 			//nolint:staticcheck
-			if desiredLeaf.Name != currentLeaf.Name || syncer.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) != syncer.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
+			if desiredLeaf.Name != currentLeaf.Name || shared.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) != shared.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
 				continue
 			}
 			found = true
@@ -187,7 +187,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 		found := false
 		for _, currentLeaf := range currentLeaves {
 			//nolint:staticcheck
-			if desiredLeaf.Name == currentLeaf.Name && syncer.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) == syncer.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
+			if desiredLeaf.Name == currentLeaf.Name && shared.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) == shared.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
 				found = true
 				break
 			}
@@ -213,8 +213,8 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 	var clusterDests []string
 	for _, service := range services {
 		//nolint:staticcheck
-		if syncer.DeprecatedGetAssignedWorkloadCluster(service.Labels) != "" {
-			clusterDests = append(clusterDests, syncer.DeprecatedGetAssignedWorkloadCluster(service.Labels))
+		if shared.DeprecatedGetAssignedWorkloadCluster(service.Labels) != "" {
+			clusterDests = append(clusterDests, shared.DeprecatedGetAssignedWorkloadCluster(service.Labels))
 		} else {
 			klog.Infof("Skipping service %q because it is not assigned to any cluster", service.Name)
 		}

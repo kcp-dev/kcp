@@ -41,7 +41,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -132,7 +132,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		lbls = map[string]string{}
 	}
 	//nolint:staticcheck
-	previousCluster, newCluster := syncer.DeprecatedGetAssignedWorkloadCluster(lbls), syncer.DeprecatedGetAssignedWorkloadCluster(ns.Labels)
+	previousCluster, newCluster := shared.DeprecatedGetAssignedWorkloadCluster(lbls), shared.DeprecatedGetAssignedWorkloadCluster(ns.Labels)
 	if previousCluster == newCluster {
 		// Already assigned to the right cluster.
 		return nil

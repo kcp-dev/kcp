@@ -18,47 +18,35 @@ package syncer
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
-	"github.com/kcp-dev/kcp/pkg/syncer/mutators"
+	"github.com/kcp-dev/kcp/pkg/syncer/spec"
+	"github.com/kcp-dev/kcp/pkg/syncer/status"
 )
 
 const (
 	advancedSchedulingFeatureAnnotation = "featuregates.experimental.workloads.kcp.dev/advancedscheduling"
 
-	// syncerFinalizerNamePrefix is the finalizer put onto resources by the syncer to claim ownership,
-	// *before* a downstream object is created. It is only removed when the downstream object is deleted.
-	syncerFinalizerNamePrefix = "workloads.kcp.dev/syncer-"
-
-	resyncPeriod       = 10 * time.Hour
-	syncerApplyManager = "syncer"
+	resyncPeriod = 10 * time.Hour
 
 	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller
 	heartbeatInterval = 20 * time.Second
@@ -66,15 +54,6 @@ const (
 	// TODO(marun) Ensure backoff rather than using a constant to avoid thundering herds
 	gvrQueryInterval = 1 * time.Second
 )
-
-// SyncDirection indicates which direction data is flowing for this particular syncer
-type SyncDirection string
-
-// SyncDown indicates a syncer watches resources on KCP and applies the spec to the target cluster
-const SyncDown SyncDirection = "down"
-
-// SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
-const SyncUp SyncDirection = "up"
 
 // SyncerConfig defines the syncer configuration that is guaranteed to
 // vary across syncer deployments. Capturing these details in a struct
@@ -94,6 +73,35 @@ func (sc *SyncerConfig) ID() string {
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
 	klog.Infof("Starting syncer for logical-cluster: %s, workload-cluster: %s", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
+	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
+	upstreamConfig.UserAgent = "kcp#spec-syncer/v0.0.0"
+	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
+	downstreamConfig.UserAgent = "kcp#status-syncer/v0.0.0"
+
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+	upstreamDynamicClient, err := dynamic.NewClusterForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+	downstreamDynamicClient, err := dynamic.NewForConfig(downstreamConfig)
+	if err != nil {
+		return err
+	}
+	upstreamDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg.UpstreamConfig)
+	if err != nil {
+		return err
+	}
+
+	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClient.Cluster(cfg.KCPClusterName), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+	})
+	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(downstreamDynamicClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+	})
+
 	// Resources are accepted as a set to ensure the provision of a
 	// unique set of resources, but all subsequent consumption is via
 	// slice whose entries are assumed to be unique.
@@ -108,12 +116,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 	go apiImporter.Start(ctx, importPollInterval)
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg.UpstreamConfig)
-	if err != nil {
-		return err
-	}
-	fromDiscovery := discoveryClient.WithCluster(cfg.KCPClusterName)
-
 	// TODO(ncdc): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
 	// TODO(ncdc): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
 	// TODO(ncdc): block until it hits the 10 minute overall test timeout.
@@ -121,14 +123,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Block syncer start on gvr discovery completing successfully and
 	// including the resources configured for syncing. The spec and status
 	// syncers depend on the types being present to start their informers.
-	var gvrs []string
+	var gvrs []schema.GroupVersionResource
 	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
 		klog.Infof("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
 		var err error
 		// Get all types the upstream API server knows about.
 		// TODO: watch this and learn about new types, or forget about old ones.
-		gvrs, err = getAllGVRs(fromDiscovery, resources...)
+		gvrs, err = getAllGVRs(upstreamDiscoveryClient.WithCluster(cfg.KCPClusterName), resources...)
 		// TODO(marun) Should some of these errors be fatal?
 		if err != nil {
 			klog.Errorf("Failed to retrieve GVRs from kcp: %v", err)
@@ -141,14 +143,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
-	if err != nil {
-		return err
-	}
-	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
-	workloadClustersClient := kcpClient.WorkloadV1alpha1().WorkloadClusters()
 	// Check whether we're in the Advanced Scheduling feature-gated mode.
-	workloadCluster, err := workloadClustersClient.Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
+	workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -159,16 +155,28 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
-	specSyncer, err := NewSpecSyncer(cfg.UpstreamConfig, cfg.DownstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled)
+	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
+	if err != nil {
+		return err
+	}
+	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, upstreamURL, advancedSchedulingEnabled,
+		upstreamDynamicClient.Cluster(cfg.KCPClusterName), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
 
 	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
-	statusSyncer, err := NewStatusSyncer(cfg.DownstreamConfig, cfg.UpstreamConfig, gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled)
+	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled,
+		upstreamDynamicClient.Cluster(cfg.KCPClusterName), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
+
+	upstreamInformers.Start(ctx.Done())
+	downstreamInformers.Start(ctx.Done())
+
+	upstreamInformers.WaitForCacheSync(ctx.Done())
+	downstreamInformers.WaitForCacheSync(ctx.Done())
 
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
@@ -183,7 +191,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
-			workloadCluster, err := workloadClustersClient.Patch(ctx, cfg.WorkloadClusterName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, cfg.WorkloadClusterName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for WorkloadCluster %s|%s: %v", cfg.KCPClusterName, cfg.WorkloadClusterName, err)
 				return false, nil
@@ -199,101 +207,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	return nil
 }
 
-type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
-type UpsertFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace string, unstrob *unstructured.Unstructured) error
-type DeleteFunc func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error
-type HandlersProvider func(c *Controller, gvr schema.GroupVersionResource) cache.ResourceEventHandlerFuncs
-
-type Controller struct {
-	name                string
-	workloadClusterName string
-	queue               workqueue.RateLimitingInterface
-
-	fromInformers dynamicinformer.DynamicSharedInformerFactory
-	fromClient    dynamic.Interface
-	toClient      dynamic.Interface
-
-	upsertFn  UpsertFunc
-	deleteFn  DeleteFunc
-	direction SyncDirection
-
-	upstreamClusterName logicalcluster.Name
-	mutators            mutatorGvrMap
-
-	advancedSchedulingEnabled bool
-}
-
-// New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.Name, pcluster string, fromClient, toClient dynamic.Interface, direction SyncDirection, gvrs []string, pclusterID string, mutators mutatorGvrMap, advancedSchedulingEnabled bool) (*Controller, error) {
-	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
-
-	c := Controller{
-		name:                      controllerName,
-		workloadClusterName:       pcluster,
-		queue:                     queue,
-		toClient:                  toClient,
-		fromClient:                fromClient,
-		direction:                 direction,
-		upstreamClusterName:       kcpClusterName,
-		mutators:                  make(mutatorGvrMap),
-		advancedSchedulingEnabled: advancedSchedulingEnabled,
-	}
-
-	if len(mutators) > 0 {
-		c.mutators = mutators
-	}
-
-	if direction == SyncDown {
-		c.upsertFn = c.applyToDownstream
-		c.deleteFn = c.deleteFromDownstream
-	} else {
-		c.upsertFn = c.updateStatusInUpstream
-		c.deleteFn = func(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string) error {
-			if c.advancedSchedulingEnabled {
-				return ensureUpstreamFinalizerRemoved(ctx, gvr, c.toClient, namespace, c.workloadClusterName, c.upstreamClusterName, name)
-			}
-			return nil
-		}
-	}
-
-	fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + pclusterID + "=" + string(workloadv1alpha1.ResourceStateSync)
-	})
-
-	for _, gvrstr := range gvrs {
-		gvr, _ := schema.ParseResourceArg(gvrstr)
-
-		fromInformers.ForResource(*gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.AddToQueue(*gvr, obj)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldUnstrob := oldObj.(*unstructured.Unstructured)
-				newUnstrob := newObj.(*unstructured.Unstructured)
-
-				if c.direction == SyncDown {
-					if !deepEqualApartFromStatus(oldUnstrob, newUnstrob) {
-						c.AddToQueue(*gvr, newUnstrob)
-					}
-				} else {
-					if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
-						c.AddToQueue(*gvr, newUnstrob)
-					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.AddToQueue(*gvr, obj)
-			},
-		})
-		klog.InfoS("Set up informer", "direction", c.direction, "clusterName", kcpClusterName, "pcluster", pcluster, "gvr", gvr)
-	}
-
-	c.fromInformers = fromInformers
-
-	return &c, nil
-}
-
 func contains(ss []string, s string) bool {
 	for _, n := range ss {
 		if n == s {
@@ -303,7 +216,7 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]string, error) {
+func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]schema.GroupVersionResource, error) {
 	toSyncSet := sets.NewString(resourcesToSync...)
 	willBeSyncedSet := sets.NewString()
 	rs, err := discoveryClient.ServerPreferredResources()
@@ -370,324 +283,17 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 		// Some of the API resources expected to be there are still not published by KCP.
 		// We should just retry without a limit on the number of retries in such a case,
 		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
-		return nil, fmt.Errorf("The following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
-	}
-	return gvrstrs.List(), nil
-}
-
-type holder struct {
-	gvr         schema.GroupVersionResource
-	clusterName logicalcluster.Name
-	namespace   string
-	name        string
-}
-
-func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
-	objToCheck := obj
-
-	tombstone, ok := objToCheck.(cache.DeletedFinalStateUnknown)
-	if ok {
-		objToCheck = tombstone.Obj
+		return nil, fmt.Errorf("the following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
 	}
 
-	metaObj, err := meta.Accessor(objToCheck)
-	if err != nil {
-		klog.Errorf("%s: error getting meta for %T", c.name, obj)
-		return
-	}
-
-	qualifiedName := metaObj.GetName()
-	if len(metaObj.GetNamespace()) > 0 {
-		qualifiedName = metaObj.GetNamespace() + "/" + qualifiedName
-	}
-	if c.direction == SyncDown {
-		qualifiedName = metaObj.GetClusterName() + "|" + qualifiedName
-	}
-	klog.Infof("Syncer %s: adding %s %s to queue", c.name, gvr, qualifiedName)
-
-	c.queue.Add(
-		holder{
-			gvr:         gvr,
-			clusterName: logicalcluster.From(metaObj),
-			namespace:   metaObj.GetNamespace(),
-			name:        metaObj.GetName(),
-		},
-	)
-}
-
-// Start starts N worker processes processing work items.
-func (c *Controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	c.fromInformers.Start(ctx.Done())
-	c.fromInformers.WaitForCacheSync(ctx.Done())
-
-	klog.InfoS("Starting syncer workers", "controller", c.name)
-	defer klog.InfoS("Stopping syncer workers", "controller", c.name)
-	for i := 0; i < numThreads; i++ {
-		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
-	}
-
-	<-ctx.Done()
-}
-
-// startWorker processes work items until stopCh is closed.
-func (c *Controller) startWorker(ctx context.Context) {
-	for c.processNextWorkItem(ctx) {
-	}
-}
-
-func (c *Controller) processNextWorkItem(ctx context.Context) bool {
-	// Wait until there is a new item in the working queue
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	h := key.(holder)
-
-	// No matter what, tell the queue we're done with this key, to unblock
-	// other workers.
-	defer c.queue.Done(key)
-
-	if err := c.process(ctx, h); err != nil {
-		runtime.HandleError(fmt.Errorf("syncer %q failed to sync %q, err: %w", c.name, key, err))
-		c.queue.AddRateLimited(key)
-		return true
-	}
-
-	c.queue.Forget(key)
-
-	return true
-}
-
-// NamespaceLocator stores a logical cluster and namespace and is used
-// as the source for the mapped namespace name in a physical cluster.
-type NamespaceLocator struct {
-	LogicalCluster logicalcluster.Name `json:"logical-cluster"`
-	Namespace      string              `json:"namespace"`
-}
-
-func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, error) {
-	annotation := annotations[namespaceLocatorAnnotation]
-	if len(annotation) == 0 {
-		return nil, nil
-	}
-	var locator NamespaceLocator
-	if err := json.Unmarshal([]byte(annotation), &locator); err != nil {
-		return nil, err
-	}
-	return &locator, nil
-}
-
-// PhysicalClusterNamespaceName encodes the NamespaceLocator to a new
-// namespace name for use on a physical cluster. The encoding is repeatable.
-func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
-	b, err := json.Marshal(l)
-	if err != nil {
-		return "", err
-	}
-	hash := sha256.Sum224(b)
-	return fmt.Sprintf("kcp%x", hash), nil
-}
-
-func (c *Controller) process(ctx context.Context, h holder) error {
-	klog.V(2).InfoS("Processing", "gvr", h.gvr, "clusterName", h.clusterName, "namespace", h.namespace, "name", h.name)
-
-	if h.namespace == "" {
-		// skipping cluster-level objects and those in syncer namespace
-		// TODO: why do we watch cluster level objects?!
-		return nil
-	}
-
-	var (
-		// No matter which direction we're going, when we're trying to retrieve a (potentially existing) object,
-		// always use its namespace, without any mapping. This is the namespace that came from the event from
-		// the shared informer.
-		fromNamespace = h.namespace
-
-		// We do need to map the namespace in which we are creating or updating an object
-		toNamespace string
-	)
-
-	// Determine toNamespace
-	if c.direction == SyncDown {
-		// Convert the clusterName and namespace to a single string for toNamespace
-		l := NamespaceLocator{
-			LogicalCluster: h.clusterName,
-			Namespace:      h.namespace,
+	gvrs := make([]schema.GroupVersionResource, 0, gvrstrs.Len())
+	for _, gvrstr := range gvrstrs.List() {
+		gvr, _ := schema.ParseResourceArg(gvrstr)
+		if gvr == nil {
+			klog.Warningf("Unable to parse resource %q as <resource>.<version>.<group>", gvrstr)
+			continue
 		}
-
-		var err error
-		toNamespace, err = PhysicalClusterNamespaceName(l)
-		if err != nil {
-			klog.Errorf("%s: error hashing namespace: %v", c.name, err)
-			return nil
-		}
-	} else {
-		if strings.HasPrefix(workloadcliplugin.SyncerIDPrefix, h.namespace) {
-			// skip syncer namespace
-			return nil
-		}
-
-		nsInformer := c.fromInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
-
-		nsKey := fromNamespace
-		if !h.clusterName.Empty() {
-			// If our "physical" cluster is a kcp instance (e.g. for testing purposes), it will return resources
-			// with metadata.clusterName set, which means their keys are cluster-aware, so we need to do the same here.
-			nsKey = clusters.ToClusterAwareKey(h.clusterName, nsKey)
-		}
-
-		nsObj, err := nsInformer.Lister().Get(nsKey)
-		if err != nil {
-			klog.Errorf("%s: error retrieving namespace %q from physical cluster lister: %v", c.name, nsKey, err)
-			return nil
-		}
-
-		nsMeta, ok := nsObj.(metav1.Object)
-		if !ok {
-			klog.Errorf("%s: namespace %q: expected metav1.Object, got %T", c.name, nsKey, nsObj)
-			return nil
-		}
-
-		namespaceLocator, err := LocatorFromAnnotations(nsMeta.GetAnnotations())
-		if err != nil {
-			klog.Errorf("%s: namespace %q: error decoding annotation: %v", c.name, nsKey, err)
-			return nil
-		}
-
-		if namespaceLocator != nil && namespaceLocator.LogicalCluster == c.upstreamClusterName {
-			// Only sync resources for the configured logical cluster to ensure
-			// that syncers for multiple logical clusters can coexist.
-			toNamespace = namespaceLocator.Namespace
-		} else {
-			// this is not our namespace, silently skipping
-			return nil
-		}
+		gvrs = append(gvrs, *gvr)
 	}
-
-	key := h.name
-
-	if !h.clusterName.Empty() {
-		key = clusters.ToClusterAwareKey(h.clusterName, key)
-	}
-
-	key = fromNamespace + "/" + key
-
-	obj, exists, err := c.fromInformers.ForResource(h.gvr).Informer().GetIndexer().GetByKey(key)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		klog.InfoS("Object doesn't exist:", "direction", c.direction, "clusterName", h.clusterName, "namespace", fromNamespace, "name", h.name)
-		if c.deleteFn != nil {
-			return c.deleteFn(ctx, h.gvr, toNamespace, h.name)
-		}
-		return nil
-	}
-
-	unstrob, isUnstructured := obj.(*unstructured.Unstructured)
-	if !isUnstructured {
-		return fmt.Errorf("%s: object to synchronize is expected to be Unstructured, but is %T", c.name, obj)
-	}
-
-	if c.upsertFn != nil {
-		return c.upsertFn(ctx, h.gvr, toNamespace, unstrob)
-	}
-
-	return err
-}
-
-// transformName changes the object name into the desired one based on the Direction:
-// - if the object is a configmap it handles the "kube-root-ca.crt" name mapping
-// - if the object is a serviceaccount it handles the "default" name mapping
-func transformName(syncedObject *unstructured.Unstructured, direction SyncDirection) {
-	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
-	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
-	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
-
-	switch direction {
-	case SyncDown:
-		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
-			syncedObject.SetName("kcp-root-ca.crt")
-		}
-		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
-			syncedObject.SetName("kcp-default")
-		}
-		// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
-		//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
-		//				  object. This must be fixed.
-		if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
-			syncedObject.SetName("kcp-default-token")
-		}
-	case SyncUp:
-		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
-			syncedObject.SetName("kube-root-ca.crt")
-		}
-		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "kcp-default" {
-			syncedObject.SetName("default")
-		}
-	}
-}
-
-func getDefaultMutators(from *rest.Config) mutatorGvrMap {
-	mutatorsMap := make(mutatorGvrMap)
-
-	deploymentMutator := mutators.NewDeploymentMutator(from)
-	secretMutator := mutators.NewSecretMutator()
-
-	mutatorsMap[deploymentMutator.GVR()] = deploymentMutator.Mutate
-	mutatorsMap[secretMutator.GVR()] = secretMutator.Mutate
-	return mutatorsMap
-}
-
-func ensureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.Name, resourceName string) error {
-	upstreamObj, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, resourceName, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	if errors.IsNotFound(err) {
-		return nil
-	}
-
-	// TODO(jmprusi): This check will need to be against "GetDeletionTimestamp()" when using the syncer virtual  workspace.
-	if upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+workloadClusterName] == "" {
-		// Do nothing: the object should not be deleted anymore for this location on the KCP side
-		return nil
-	}
-
-	// Remove the syncer finalizer.
-	currentFinalizers := upstreamObj.GetFinalizers()
-	desiredFinalizers := []string{}
-	for _, finalizer := range currentFinalizers {
-		if finalizer != syncerFinalizerNamePrefix+workloadClusterName {
-			desiredFinalizers = append(desiredFinalizers, finalizer)
-		}
-	}
-	upstreamObj.SetFinalizers(desiredFinalizers)
-
-	//  TODO(jmprusi): This code block will be handled by the syncer virtual workspace, so we can remove it once
-	//                 the virtual workspace syncer is integrated
-	//  - Begin -
-	// Clean up the status annotation and the locationDeletionAnnotation.
-	annotations := upstreamObj.GetAnnotations()
-	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+workloadClusterName)
-	delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+workloadClusterName)
-	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+workloadClusterName)
-	upstreamObj.SetAnnotations(annotations)
-
-	// remove the cluster label.
-	upstreamLabels := upstreamObj.GetLabels()
-	delete(upstreamLabels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+workloadClusterName)
-	upstreamObj.SetLabels(upstreamLabels)
-	// - End of block to be removed once the virtual workspace syncer is integrated -
-
-	if _, err := upstreamClient.Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Failed updating after removing the finalizers of resource %s|%s/%s: %v", logicalClusterName, upstreamNamespace, upstreamObj.GetName(), err)
-		return err
-	}
-	klog.V(2).Infof("Updated resource %s|%s/%s after removing the finalizers", logicalClusterName, upstreamNamespace, upstreamObj.GetName())
-	return nil
+	return gvrs, nil
 }
