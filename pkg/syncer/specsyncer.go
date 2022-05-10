@@ -49,6 +49,8 @@ const (
 	syncerApplyManager = "syncer"
 )
 
+type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
+
 func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
 	// TODO(jmprusi): Remove this after switching to virtual workspaces.
 	// remove status annotation from oldObj and newObj before comparing
