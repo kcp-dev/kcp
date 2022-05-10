@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package syncer
+package shared
 
 import (
 	"context"
@@ -33,6 +33,15 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer"
+)
+
+const (
+	// SyncerFinalizerNamePrefix is the finalizer put onto resources by the syncer to claim ownership,
+	// *before* a downstream object is created. It is only removed when the downstream object is deleted.
+	SyncerFinalizerNamePrefix = "workloads.kcp.dev/syncer-"
+
+	NamespaceLocatorAnnotation = "kcp.dev/namespace-locator"
 )
 
 // DeprecatedGetAssignedWorkloadCluster returns one assigned workload cluster in Sync state. It will
@@ -56,7 +65,7 @@ type NamespaceLocator struct {
 }
 
 func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, error) {
-	annotation := annotations[namespaceLocatorAnnotation]
+	annotation := annotations[NamespaceLocatorAnnotation]
 	if len(annotation) == 0 {
 		return nil, nil
 	}
@@ -78,16 +87,16 @@ func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 	return fmt.Sprintf("kcp%x", hash), nil
 }
 
-// transformName changes the object name into the desired one based on the Direction:
+// TransformName changes the object name into the desired one based on the Direction:
 // - if the object is a configmap it handles the "kube-root-ca.crt" name mapping
 // - if the object is a serviceaccount it handles the "default" name mapping
-func transformName(syncedObject *unstructured.Unstructured, direction SyncDirection) {
+func TransformName(syncedObject *unstructured.Unstructured, direction syncer.SyncDirection) {
 	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
 	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 
 	switch direction {
-	case SyncDown:
+	case syncer.SyncDown:
 		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
 			syncedObject.SetName("kcp-root-ca.crt")
 		}
@@ -100,7 +109,7 @@ func transformName(syncedObject *unstructured.Unstructured, direction SyncDirect
 		if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
 			syncedObject.SetName("kcp-default-token")
 		}
-	case SyncUp:
+	case syncer.SyncUp:
 		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
 			syncedObject.SetName("kube-root-ca.crt")
 		}
@@ -110,7 +119,7 @@ func transformName(syncedObject *unstructured.Unstructured, direction SyncDirect
 	}
 }
 
-func ensureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.Name, resourceName string) error {
+func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.Name, resourceName string) error {
 	upstreamObj, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, resourceName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
@@ -129,7 +138,7 @@ func ensureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	currentFinalizers := upstreamObj.GetFinalizers()
 	desiredFinalizers := []string{}
 	for _, finalizer := range currentFinalizers {
-		if finalizer != syncerFinalizerNamePrefix+workloadClusterName {
+		if finalizer != SyncerFinalizerNamePrefix+workloadClusterName {
 			desiredFinalizers = append(desiredFinalizers, finalizer)
 		}
 	}

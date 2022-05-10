@@ -38,7 +38,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -76,8 +76,8 @@ func TestClusterController(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cowboy")
 
-				nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(cowboy), Namespace: cowboy.Namespace}
-				targetNamespace, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+				nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(cowboy), Namespace: cowboy.Namespace}
+				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
 				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)
 				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)
 				require.Eventually(t, func() bool {

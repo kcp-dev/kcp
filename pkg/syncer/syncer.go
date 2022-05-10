@@ -44,10 +44,6 @@ import (
 const (
 	advancedSchedulingFeatureAnnotation = "featuregates.experimental.workloads.kcp.dev/advancedscheduling"
 
-	// syncerFinalizerNamePrefix is the finalizer put onto resources by the syncer to claim ownership,
-	// *before* a downstream object is created. It is only removed when the downstream object is deleted.
-	syncerFinalizerNamePrefix = "workloads.kcp.dev/syncer-"
-
 	resyncPeriod = 10 * time.Hour
 
 	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller

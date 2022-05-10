@@ -29,7 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
@@ -40,7 +40,7 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 	klog.Infof("reconciling deployment %q", deployment.Name)
 
 	//nolint:staticcheck
-	if deployment.Labels == nil || syncer.DeprecatedGetAssignedWorkloadCluster(deployment.Labels) == "" {
+	if deployment.Labels == nil || shared.DeprecatedGetAssignedWorkloadCluster(deployment.Labels) == "" {
 		// This is a root deployment; get its leafs.
 		sel, err := labels.Parse(fmt.Sprintf("%s=%s", ownedByLabel, deployment.Name))
 		if err != nil {

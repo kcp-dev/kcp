@@ -42,6 +42,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 )
 
@@ -185,7 +186,7 @@ func (s *specSyncer) process(ctx context.Context, gvr schema.GroupVersionResourc
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	// to downstream
-	downstreamNamespace, err := PhysicalClusterNamespaceName(NamespaceLocator{
+	downstreamNamespace, err := shared.PhysicalClusterNamespaceName(shared.NamespaceLocator{
 		LogicalCluster: clusterName,
 		Namespace:      upstreamNamespace,
 	})
@@ -216,8 +217,6 @@ func (s *specSyncer) process(ctx context.Context, gvr schema.GroupVersionResourc
 	return s.applyToDownstream(ctx, gvr, downstreamNamespace, u)
 }
 
-const namespaceLocatorAnnotation = "kcp.dev/namespace-locator"
-
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
 //       In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
 func (s *specSyncer) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
@@ -234,7 +233,7 @@ func (s *specSyncer) ensureDownstreamNamespaceExists(ctx context.Context, downst
 
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
-	l := NamespaceLocator{
+	l := shared.NamespaceLocator{
 		LogicalCluster: logicalcluster.From(upstreamObj),
 		Namespace:      upstreamObj.GetNamespace(),
 	}
@@ -243,7 +242,7 @@ func (s *specSyncer) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		return err
 	}
 	newNamespace.SetAnnotations(map[string]string{
-		namespaceLocatorAnnotation: string(b),
+		shared.NamespaceLocatorAnnotation: string(b),
 	})
 
 	if upstreamObj.GetLabels() != nil {
@@ -273,7 +272,7 @@ func (s *specSyncer) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 	upstreamFinalizers := upstreamObj.GetFinalizers()
 	hasFinalizer := false
 	for _, finalizer := range upstreamFinalizers {
-		if finalizer == syncerFinalizerNamePrefix+s.workloadClusterName {
+		if finalizer == shared.SyncerFinalizerNamePrefix+s.workloadClusterName {
 			hasFinalizer = true
 		}
 	}
@@ -282,7 +281,7 @@ func (s *specSyncer) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 		name := upstreamObjCopy.GetName()
 		namespace := upstreamObjCopy.GetNamespace()
 
-		upstreamFinalizers = append(upstreamFinalizers, syncerFinalizerNamePrefix+s.workloadClusterName)
+		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+s.workloadClusterName)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
 		if _, err := s.upstreamClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Failed adding finalizer upstream on resource %s|%s/%s: %v", s.upstreamClusterName, namespace, name, err)
@@ -322,7 +321,7 @@ func (s *specSyncer) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetFinalizers(nil)
 
 	// Run name transformations on the downstreamObj.
-	transformName(downstreamObj, SyncDown)
+	shared.TransformName(downstreamObj, SyncDown)
 
 	// Run any transformations on the object before we apply it to the downstream cluster.
 	if mutator, ok := s.mutators[gvr]; ok {
@@ -378,7 +377,7 @@ func (s *specSyncer) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 				if apierrors.IsNotFound(err) {
 					// That's not an error.
 					// Just think about removing the finalizer from the KCP location-specific resource:
-					if err := ensureUpstreamFinalizerRemoved(ctx, gvr, s.upstreamClient, upstreamObj.GetNamespace(), s.workloadClusterName, s.upstreamClusterName, upstreamObj.GetName()); err != nil {
+					if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, s.upstreamClient, upstreamObj.GetNamespace(), s.workloadClusterName, s.upstreamClusterName, upstreamObj.GetName()); err != nil {
 						return err
 					}
 					return nil

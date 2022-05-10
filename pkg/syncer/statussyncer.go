@@ -37,6 +37,7 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
@@ -139,7 +140,7 @@ func (s *statusSyncer) process(ctx context.Context, gvr schema.GroupVersionResou
 		klog.Errorf("Namespace %q expected to be metav1.Object, got %T", nsKey, nsObj)
 		return nil
 	}
-	namespaceLocator, err := LocatorFromAnnotations(nsMeta.GetAnnotations())
+	namespaceLocator, err := shared.LocatorFromAnnotations(nsMeta.GetAnnotations())
 	if err != nil {
 		klog.Errorf(" namespace %q: error decoding annotation: %v", nsKey, err)
 		return nil
@@ -160,7 +161,7 @@ func (s *statusSyncer) process(ctx context.Context, gvr schema.GroupVersionResou
 		// deleted downstream => remove finalizer upstream
 		klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
 		if s.advancedSchedulingEnabled {
-			return ensureUpstreamFinalizerRemoved(ctx, gvr, s.upstreamClient, upstreamNamespace, s.workloadClusterName, s.upstreamClusterName, name)
+			return shared.ensureUpstreamFinalizerRemoved(ctx, gvr, s.upstreamClient, upstreamNamespace, s.workloadClusterName, s.upstreamClusterName, name)
 		}
 		return nil
 	}
@@ -180,7 +181,7 @@ func (s *statusSyncer) updateStatusInUpstream(ctx context.Context, gvr schema.Gr
 	upstreamObj.SetNamespace(upstreamNamespace)
 
 	// Run name transformations on upstreamObj
-	transformName(upstreamObj, SyncUp)
+	shared.transformName(upstreamObj, SyncUp)
 
 	name := upstreamObj.GetName()
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(upstreamObj.UnstructuredContent(), "status")

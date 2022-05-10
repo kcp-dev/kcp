@@ -55,6 +55,7 @@ import (
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -504,7 +505,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				t.Errorf("failed to list namespaces: %v", err)
 			}
 			for _, ns := range namespaces.Items {
-				locator, err := syncer.LocatorFromAnnotations(ns.Annotations)
+				locator, err := shared.LocatorFromAnnotations(ns.Annotations)
 				if err != nil {
 					t.Errorf("failed to retrieve locator from ns %q: %v", ns.Name, err)
 					continue

@@ -279,7 +279,7 @@ func TestSyncerProcess(t *testing.T) {
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
 							"state.internal.workloads.kcp.dev/us-west1": "Sync",
-						}, map[string]string{"experimental.spec-diff.workloads.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, []string{syncerFinalizerNamePrefix + "us-west1"}),
+						}, map[string]string{"experimental.spec-diff.workloads.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, []string{shared.SyncerFinalizerNamePrefix + "us-west1"}),
 					))),
 			},
 			expectActionsOnTo: []clienttesting.Action{

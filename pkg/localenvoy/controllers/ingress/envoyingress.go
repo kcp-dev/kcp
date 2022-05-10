@@ -29,7 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
-	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 // reconcile is triggered on every change to an ingress resource.
@@ -37,7 +37,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 	klog.InfoS("reconciling Ingress", "ClusterName", logicalcluster.From(ingress), "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	//nolint:staticcheck
-	if syncer.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
+	if shared.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
 		// Root
 		if len(ingress.Status.LoadBalancer.Ingress) > 0 && ingress.Status.LoadBalancer.Ingress[0].Hostname != "" {
 			// Already set - never changes - do nothing

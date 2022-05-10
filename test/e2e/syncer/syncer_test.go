@@ -35,7 +35,7 @@ import (
 	"k8s.io/klog/v2"
 	kyaml "sigs.k8s.io/yaml"
 
-	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -82,8 +82,8 @@ func TestSyncerLifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	// Determine downstream name of the namespace
-	nsLocator := syncer.NamespaceLocator{LogicalCluster: logicalcluster.From(upstreamNamespace), Namespace: upstreamNamespace.Name}
-	downstreamNamespaceName, err := syncer.PhysicalClusterNamespaceName(nsLocator)
+	nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(upstreamNamespace), Namespace: upstreamNamespace.Name}
+	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(nsLocator)
 	require.NoError(t, err)
 
 	// TODO(marun) The name mapping should be defined for reuse outside of the transformName method in pkg/syncer
