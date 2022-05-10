@@ -18,7 +18,6 @@ package status
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -41,8 +40,6 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer"
-	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 var scheme *runtime.Scheme
@@ -300,7 +297,6 @@ func TestSyncerProcess(t *testing.T) {
 		resourceToProcessName               string
 		resourceToProcessLogicalClusterName string
 
-		direction                 syncer.SyncDirection
 		upstreamURL               string
 		upstreamLogicalCluster    string
 		workloadClusterName       string
@@ -310,73 +306,7 @@ func TestSyncerProcess(t *testing.T) {
 		expectActionsOnFrom []clienttesting.Action
 		expectActionsOnTo   []clienttesting.Action
 	}{
-		"SpecSyncer upsert": {
-			direction:              syncer.SyncDown,
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			fromResource: deployment("theDeployment", "test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil, nil),
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				patchDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							}, nil, nil)),
-							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
-						),
-					),
-				),
-			},
-		},
-		"SpecSyncer upstream deletion": {
-			direction:              syncer.SyncDown,
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr:                                 schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			fromResource:                        deployment("theDeployment", "test", "root:org:ws", nil, nil, nil),
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				deleteDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-				),
-			},
-		},
 		"StatusSyncer upsert to existing resource": {
-			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -417,7 +347,6 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer upstream deletion": {
-			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -444,312 +373,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo:   []clienttesting.Action{},
 		},
-		"SpecSyncer with AdvancedScheduling, sync downstream deployment": {
-			direction:              syncer.SyncDown,
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			fromResource: deployment("theDeployment", "test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil, nil),
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-
-			expectActionsOnFrom: []clienttesting.Action{
-				updateDeploymentAction("test",
-					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.internal.workloads.kcp.dev/us-west1": "Sync",
-						}, nil, []string{"workloads.kcp.dev/syncer-us-west1"}),
-					))),
-			},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				patchDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							}, nil, nil)),
-							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
-						),
-					),
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, sync downstream deployment and apply SpecDiff": {
-			direction:              syncer.SyncDown,
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			fromResource: deployment("theDeployment", "test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, map[string]string{"experimental.spec-diff.workloads.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil),
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-
-			expectActionsOnFrom: []clienttesting.Action{
-				updateDeploymentAction("test",
-					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.internal.workloads.kcp.dev/us-west1": "Sync",
-						}, map[string]string{"experimental.spec-diff.workloads.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, []string{shared.SyncerFinalizerNamePrefix + "us-west1"}),
-					))),
-			},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				patchDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							}, map[string]string{"experimental.spec-diff.workloads.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
-							setNestedField(map[string]interface{}{
-								"replicas": int64(3),
-							}, "spec"),
-							// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
-							//                as the test expects some null fields to be there...
-							setNestedField(nil, "spec", "selector"),
-							setNestedField(map[string]interface{}{}, "spec", "strategy"),
-							setNestedField(map[string]interface{}{
-								"metadata": map[string]interface{}{
-									"creationTimestamp": nil,
-								},
-								"spec": map[string]interface{}{
-									"containers": nil,
-								},
-							}, "spec", "template"),
-							setNestedField(map[string]interface{}{}, "status"),
-						),
-					),
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, deletion: object exist downstream": {
-			direction:              syncer.SyncDown,
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			toResources: []runtime.Object{
-				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
-				},
-					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-					}),
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "root:org:ws", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
-				}, nil, []string{"workloads.kcp.dev/syncer-us-west1"}),
-			},
-			fromResource: deployment("theDeployment", "test", "root:org:ws",
-				map[string]string{"state.internal.workloads.kcp.dev/us-west1": "Sync"},
-				map[string]string{"deletion.internal.workloads.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
-				[]string{"workloads.kcp.dev/syncer-us-west1"}),
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				deleteDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, deletion: object does not exists downstream": {
-			direction:              syncer.SyncDown,
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			toResources: []runtime.Object{
-				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
-				},
-					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-					}),
-			},
-			fromResource: deployment("theDeployment", "test", "root:org:ws",
-				map[string]string{"state.internal.workloads.kcp.dev/us-west1": "Sync"},
-				map[string]string{"another.valid.annotation/this": "value",
-					"deletion.internal.workloads.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
-				[]string{"workloads.kcp.dev/syncer-us-west1"}),
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-
-			expectActionsOnFrom: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
-				updateDeploymentAction("test",
-					changeUnstructured(
-						toUnstructured(t, changeDeployment(
-							deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{"another.valid.annotation/this": "value"}, nil),
-						),
-						),
-						// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
-						//                as the test expects some null fields to be there...
-						setNestedField(map[string]interface{}{}, "metadata", "labels"),
-						setNestedField([]interface{}{}, "metadata", "finalizers"),
-						setNestedField(nil, "spec", "selector"),
-					)),
-			},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				deleteDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, deletion: upstream object has external finalizer": {
-			direction:              syncer.SyncDown,
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workloads.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			toResources: []runtime.Object{
-				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
-				},
-					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-					}),
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
-				}, nil, []string{"workloads.kcp.dev/syncer-us-west1"}),
-			},
-			fromResource: deployment("theDeployment", "test", "root:org:ws",
-				map[string]string{"state.internal.workloads.kcp.dev/us-west1": "Sync"},
-				map[string]string{
-					"deletion.internal.workloads.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
-					"finalizers.workloads.kcp.dev/us-west1":        "another-controller-finalizer",
-				},
-				[]string{"workloads.kcp.dev/syncer-us-west1"}),
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				patchDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
-							}, map[string]string{
-								"deletion.internal.workloads.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
-								"finalizers.workloads.kcp.dev/us-west1":        "another-controller-finalizer",
-							}, nil)),
-							// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
-							//                as the test expects some null fields to be there...
-							setNestedField(nil, "spec", "selector"),
-							setNestedField(map[string]interface{}{}, "spec", "strategy"),
-							setNestedField(map[string]interface{}{
-								"metadata": map[string]interface{}{
-									"creationTimestamp": nil,
-								},
-								"spec": map[string]interface{}{
-									"containers": nil,
-								},
-							}, "spec", "template"),
-							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
-						),
-					),
-				),
-			},
-		},
 		"StatusSyncer with AdvancedScheduling, update status upstream": {
-			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -789,7 +413,6 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer with AdvancedScheduling, deletion: object exists upstream": {
-			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -825,7 +448,6 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer with AdvancedScheduling, deletion: object does not exists upstream": {
-			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -997,12 +619,6 @@ func addDeploymentStatus(status appsv1.DeploymentStatus) deploymentChange {
 	}
 }
 
-func toJson(t require.TestingT, object runtime.Object) []byte {
-	result, err := json.Marshal(object)
-	require.NoError(t, err)
-	return result
-}
-
 func toUnstructured(t require.TestingT, obj metav1.Object) *unstructured.Unstructured {
 	var result unstructured.Unstructured
 	err := scheme.Convert(obj, &result, nil)
@@ -1020,47 +636,10 @@ func changeUnstructured(in *unstructured.Unstructured, changes ...unstructuredCh
 	return in
 }
 
-func removeNilOrEmptyFields(in *unstructured.Unstructured) {
-	if val, exists, _ := unstructured.NestedFieldNoCopy(in.UnstructuredContent(), "metadata", "creationTimestamp"); val == nil && exists {
-		unstructured.RemoveNestedField(in.UnstructuredContent(), "metadata", "creationTimestamp")
-	}
-	if val, exists, _ := unstructured.NestedMap(in.UnstructuredContent(), "spec"); len(val) == 0 && exists {
-		delete(in.Object, "spec")
-	}
-	if val, exists, _ := unstructured.NestedMap(in.UnstructuredContent(), "status"); len(val) == 0 && exists {
-		delete(in.Object, "status")
-	}
-}
-
 func setNestedField(value interface{}, fields ...string) unstructuredChange {
 	return func(d *unstructured.Unstructured) {
 		_ = unstructured.SetNestedField(d.UnstructuredContent(), value, fields...)
 	}
-}
-
-func setPodSpecServiceAccount(fields ...string) unstructuredChange {
-	var j interface{}
-	err := json.Unmarshal([]byte(`{
-	"automountServiceAccountToken":false,
-	"containers":null,
-	"serviceAccountName":"kcp-default",
-	"volumes":[
-		{"name":"kcp-api-access","projected":{
-			"defaultMode":420,
-			"sources":[
-				{"secret":{"items":[{"key":"token","path":"token"}],"name":"kcp-default-token"}},
-				{"configMap":{"items":[{"key":"ca.crt","path":"ca.crt"}],"name":"kcp-root-ca.crt"}},
-				{"downwardAPI":{
-					"items":[{"fieldRef":{"apiVersion":"v1","fieldPath":"metadata.namespace"},"path":"namespace"}]
-				}}
-			]
-		}}
-	]
-}`), &j)
-	if err != nil {
-		panic(err)
-	}
-	return setNestedField(j, fields...)
 }
 
 func deploymentAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
@@ -1072,15 +651,6 @@ func deploymentAction(verb, namespace string, subresources ...string) clienttest
 	}
 }
 
-func namespaceAction(verb string, subresources ...string) clienttesting.ActionImpl {
-	return clienttesting.ActionImpl{
-		Namespace:   "",
-		Verb:        verb,
-		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
-		Subresource: strings.Join(subresources, "/"),
-	}
-}
-
 func getDeploymentAction(name, namespace string) clienttesting.GetActionImpl {
 	return clienttesting.GetActionImpl{
 		ActionImpl: deploymentAction("get", namespace),
@@ -1088,34 +658,9 @@ func getDeploymentAction(name, namespace string) clienttesting.GetActionImpl {
 	}
 }
 
-func createNamespaceAction(name string, object runtime.Object) clienttesting.CreateActionImpl {
-	return clienttesting.CreateActionImpl{
-		ActionImpl: namespaceAction("create"),
-		Name:       name,
-		Object:     object,
-	}
-}
-
 func updateDeploymentAction(namespace string, object runtime.Object, subresources ...string) clienttesting.UpdateActionImpl {
 	return clienttesting.UpdateActionImpl{
 		ActionImpl: deploymentAction("update", namespace, subresources...),
 		Object:     object,
-	}
-}
-
-func patchDeploymentAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) clienttesting.PatchActionImpl {
-	return clienttesting.PatchActionImpl{
-		ActionImpl: deploymentAction("patch", namespace, subresources...),
-		Name:       name,
-		PatchType:  patchType,
-		Patch:      patch,
-	}
-}
-
-func deleteDeploymentAction(name, namespace string, subresources ...string) clienttesting.DeleteActionImpl {
-	return clienttesting.DeleteActionImpl{
-		ActionImpl:    deploymentAction("delete", namespace, subresources...),
-		Name:          name,
-		DeleteOptions: metav1.DeleteOptions{},
 	}
 }
