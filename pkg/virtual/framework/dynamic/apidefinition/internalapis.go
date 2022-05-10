@@ -95,9 +95,6 @@ func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []c
 			for key, val := range openAPIDefinitionsGetter(ref) {
 				result[key] = val
 			}
-			for key, val := range openAPIDefinitionsGetter(ref) {
-				result[key] = val
-			}
 		}
 
 		return result
