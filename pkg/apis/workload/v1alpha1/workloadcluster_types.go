@@ -88,6 +88,19 @@ type WorkloadClusterStatus struct {
 	// A timestamp indicating when the syncer last reported status.
 	// +optional
 	LastSyncerHeartbeatTime *metav1.Time `json:"lastSyncerHeartbeatTime,omitempty"`
+
+	// VirtualWorkspaces contains all syncer virtual workspace URLs.
+	// +optional
+	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
+}
+
+type VirtualWorkspace struct {
+	// URL is the URL of the syncer virtual workspace.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	URL string `json:"url"`
 }
 
 // WorkloadClusterList is a list of WorkloadCluster resources

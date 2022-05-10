@@ -84,6 +84,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                       schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                       schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceStatus":                     schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace":                  schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadCluster":                   schema_pkg_apis_workload_v1alpha1_WorkloadCluster(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterList":               schema_pkg_apis_workload_v1alpha1_WorkloadClusterList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterSpec":               schema_pkg_apis_workload_v1alpha1_WorkloadClusterSpec(ref),
@@ -2760,6 +2761,27 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref common.ReferenceCallbac
 	}
 }
 
+func schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the URL of the syncer virtual workspace.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_workload_v1alpha1_WorkloadCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2958,11 +2980,25 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref common.Referenc
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"virtualWorkspaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualWorkspaces contains all syncer virtual workspace URLs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
