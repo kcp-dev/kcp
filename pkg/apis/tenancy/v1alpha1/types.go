@@ -104,10 +104,44 @@ type ClusterWorkspaceType struct {
 	Spec ClusterWorkspaceTypeSpec `json:"spec,omitempty"`
 }
 
+const (
+	// ClusterWorkspaceCreatorUserLabel is the name of the user creating this ClusterWorkspace.
+	// It is used by the initialization virtual workspace to authorize object creation. It is applied during
+	// admission, removed after initialization and is not exposed to the user in Workspaces.
+	ClusterWorkspaceCreatorUserLabel = "tenancy.kcp.dev/creator-user"
+	// ClusterWorkspaceCreatorGroupsLabel is a comma separated list of group of the user creating
+	// this ClusterWorkspace. It is used by the initialization virtual workspace to authorize object creation
+	// It is applied during admission, removed after initialization and is not exposed to the
+	// user in Workspaces.
+	ClusterWorkspaceCreatorGroupsLabel = "tenancy.kcp.dev/creator-groups"
+)
+
 type ClusterWorkspaceTypeSpec struct {
-	// initializers are set of a ClusterWorkspace on creation and must be
+	// bootstrapManifests references a set of Kubernetes manifests that are applied to the
+	// workspace on initialisation.
+	//
+	// If a workspace type extends on at a higher level, the bootstrap manifests of
+	// the higher level are applied first, then those of the lower levels.
+	//
+	// Every bootstrap manifest created is authorized against the user creating the
+	// workspace.
+	//
+	// +optional
+	BootstrapManifests *BootstrapManifests `json:"bootstrapManifests,omitempty"`
+
+	// initializers are set on a ClusterWorkspace on creation and must be
 	// cleared by a controller before the workspace can be used. The workspace
 	// will stay in the phase "Initializing" state until all initializers are cleared.
+	//
+	// A controller responsible for initializing workspaces of a given type must
+	// be granted verb="initialize" permissions on the ClusterWorkspaceType resource.
+	// These controllers are not able to access a workspace at any other phase.
+	//
+	// If a workspace type extends one at a high level the lists of initializers
+	// are merged.
+	//
+	// Every request done by the controller is authorized against the user creating the
+	// workspace.
 	//
 	// +optional
 	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
@@ -115,8 +149,62 @@ type ClusterWorkspaceTypeSpec struct {
 	// additionalWorkspaceLabels are a set of labels that will be added to a
 	// ClusterWorkspace on creation.
 	//
+	// If a workspace type extends one at a higher level, both maps are merged. If they
+	// disagree about a value, the one in the sub-workspace trumps.
+	//
 	// +optional
 	AdditionalWorkspaceLabels map[string]string `json:"additionalWorkspaceLabels,omitempty"`
+
+	// defaultSubWorkspaceType is the cluster workspace type that will be used
+	// by default if another, nested ClusterWorkspace is created in a workspace
+	// of the given type. The default behaviour equals "Universal".
+	//
+	// If a workspace type extends one at a higher level and they disagree about the default
+	// the one in the sub-workspace trumps. Not specifying defaultSubWorkspaceType or
+	// an empty string means to inherit the value from the super-workspace.
+	//
+	// +optional
+	DefaultSubWorkspaceType string `json:"defaultSubWorkspaceType,omitempty"`
+
+	// allowedSubWorkspaceTypes is a list of cluster workspace types that can be
+	// created in a workspace of the given type.
+	//
+	// If a workspace type extends one at a higher level the sets of allowed sub-workspace
+	// types are merged.
+	//
+	// By default no type is allowed. This means no other workspace can be nested
+	// within a workspace of the given type.
+	AllowedSubWorkspaceTypes []string `json:"allowedSubWorkspaceTypes,omitempty"`
+
+	// extensible means that the ClusterWorkspaceType can be extended in a sub-workspace.
+	//
+	// +kubebuilder:default=true
+	// +optional
+	Extensible bool `json:"extensible,omitempty"`
+}
+
+// BootstrapManifests references a set of Kubernetes manifests that are applied to a
+// workspace on initialisation.
+type BootstrapManifests struct {
+	// ConfigMaps is a list of config maps that are applied to the workspace on initialisation.
+	//
+	// +optional
+	ConfigMaps []BootstrapConfigMap `json:"configMaps,omitempty"`
+}
+
+// BootstrapConfigMap references a config map that is applied to a workspace on initialisation.
+type BootstrapConfigMap struct {
+	// name is the name of the config map.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// name is the name of the config map.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
 }
 
 // ClusterWorkspaceTypeList is a list of cluster workspace types
