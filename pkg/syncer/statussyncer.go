@@ -55,10 +55,12 @@ type statusSyncer struct {
 	upstreamClient, downstreamClient       dynamic.Interface
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
 
+	workloadClusterName       string
+	upstreamClusterName       logicalcluster.Name
 	advancedSchedulingEnabled bool
 }
 
-func NewStatusSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalcluster.Name, pclusterID string, advancedSchedulingEnabled bool,
+func NewStatusSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logicalcluster.Name, workloadClusterName string, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*statusSyncer, error) {
 
 	s := &statusSyncer{
@@ -67,10 +69,12 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalc
 		upstreamInformers:   upstreamInformers,
 		downstreamInformers: downstreamInformers,
 
+		workloadClusterName:       workloadClusterName,
+		upstreamClusterName:       upstreamClusterName,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
-	c, err := New(kcpClusterName, pclusterID, s.process, SyncUp)
+	c, err := New("kcp-workload-syncer-status", s.process)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +99,7 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalc
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "direction", SyncUp, "clusterName", kcpClusterName, "pcluster", pclusterID, "gvr", gvr.String())
+		klog.InfoS("Set up informer", "direction", SyncUp, "clusterName", upstreamClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
 	}
 
 	return s, nil

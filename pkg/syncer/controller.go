@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,26 +30,20 @@ import (
 )
 
 type Controller struct {
-	name                string
-	workloadClusterName string
-	queue               workqueue.RateLimitingInterface
+	controllerName string
+	queue          workqueue.RateLimitingInterface
 
 	process func(ctx context.Context, gvr schema.GroupVersionResource, key string) error
-
-	upstreamClusterName logicalcluster.Name
 }
 
 // New returns a new syncer Controller syncing spec from "from" to "to".
-func New(kcpClusterName logicalcluster.Name, pcluster string, process func(ctx context.Context, gvr schema.GroupVersionResource, key string) error, direction SyncDirection) (*Controller, error) {
-	controllerName := string(direction) + "--" + kcpClusterName.String() + "--" + pcluster
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-"+controllerName)
+func New(controllerName string, process func(ctx context.Context, gvr schema.GroupVersionResource, key string) error) (*Controller, error) {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	return &Controller{
-		name:                controllerName,
-		workloadClusterName: pcluster,
-		queue:               queue,
-		process:             process,
-		upstreamClusterName: kcpClusterName,
+		controllerName: controllerName,
+		queue:          queue,
+		process:        process,
 	}, nil
 }
 
@@ -67,7 +59,7 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 		return
 	}
 
-	klog.Infof("Syncer %s: queueing GVR %q %s", c.name, gvr.String(), key)
+	klog.Infof("%s queueing GVR %q %s", c.controllerName, gvr.String(), key)
 	c.queue.Add(
 		queueKey{
 			gvr: gvr,
@@ -81,8 +73,8 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting syncer workers", "controller", c.name)
-	defer klog.InfoS("Stopping syncer workers", "controller", c.name)
+	klog.InfoS("Starting syncer workers", "controller", c.controllerName)
+	defer klog.InfoS("Stopping syncer workers", "controller", c.controllerName)
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
@@ -109,7 +101,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, qk.gvr, qk.key); err != nil {
-		runtime.HandleError(fmt.Errorf("syncer %q failed to sync %q, err: %w", c.name, key, err))
+		runtime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", c.controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

@@ -115,10 +115,12 @@ type specSyncer struct {
 	upstreamClient, downstreamClient       dynamic.Interface
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
 
+	workloadClusterName       string
+	upstreamClusterName       logicalcluster.Name
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalcluster.Name, pclusterID string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+func NewSpecSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logicalcluster.Name, workloadClusterName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*specSyncer, error) {
 
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
@@ -135,10 +137,12 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalclu
 		upstreamInformers:   upstreamInformers,
 		downstreamInformers: downstreamInformers,
 
+		workloadClusterName:       workloadClusterName,
+		upstreamClusterName:       upstreamClusterName,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
-	c, err := New(kcpClusterName, pclusterID, s.process, SyncDown)
+	c, err := New("kcp-workload-syncer-spec", s.process)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +167,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, kcpClusterName logicalclu
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "direction", SyncDown, "clusterName", kcpClusterName, "pcluster", pclusterID, "gvr", gvr.String())
+		klog.InfoS("Set up informer", "direction", SyncDown, "clusterName", upstreamClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
 	}
 
 	return &s, nil
