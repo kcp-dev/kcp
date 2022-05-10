@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	common "k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
+	_ "k8s.io/kubernetes/pkg/apis/core/install"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
