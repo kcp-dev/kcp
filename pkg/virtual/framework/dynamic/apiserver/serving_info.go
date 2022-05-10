@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -57,7 +59,7 @@ var _ apidefs.APIDefinition = (*servingInfo)(nil)
 type RestProviderFunc func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage)
 
 // CreateServingInfoFor method can be used by external components at any time to create an APIDefinition and add it to an APISetRetriever
-func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logicalClusterName string, apiResourceSpec *apiresourcev1alpha1.CommonAPIResourceSpec, restProvider RestProviderFunc) (apidefs.APIDefinition, error) {
+func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logicalClusterName logicalcluster.Name, apiResourceSpec *apiresourcev1alpha1.CommonAPIResourceSpec, restProvider RestProviderFunc) (apidefs.APIDefinition, error) {
 	equivalentResourceRegistry := runtime.NewEquivalentResourceRegistry()
 
 	v1OpenAPISchema, err := apiResourceSpec.GetSchema()
@@ -78,24 +80,31 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 	// we don't own structuralSchema completely, e.g. defaults are not deep-copied. So better make a copy here.
 	structuralSchema = structuralSchema.DeepCopy()
 
-	if err := structuraldefaulting.PruneDefaults(structuralSchema); err != nil {
-		// This should never happen. If it does, it is a programming error.
-		utilruntime.HandleError(fmt.Errorf("failed to prune defaults: %w", err))
-		return nil, fmt.Errorf("the server could not properly serve the CR schema") // validation should avoid this
-	}
-
 	resource := schema.GroupVersionResource{Group: apiResourceSpec.GroupVersion.Group, Version: apiResourceSpec.GroupVersion.Version, Resource: apiResourceSpec.Plural}
 	kind := schema.GroupVersionKind{Group: apiResourceSpec.GroupVersion.Group, Version: apiResourceSpec.GroupVersion.Version, Kind: apiResourceSpec.Kind}
 	listKind := schema.GroupVersionKind{Group: apiResourceSpec.GroupVersion.Group, Version: apiResourceSpec.GroupVersion.Version, Kind: apiResourceSpec.ListKind}
 
-	s, err := buildOpenAPIV2(apiResourceSpec, builder.Options{V2: true, SkipFilterSchemaForKubectlOpenAPIV2Validation: true, StripValueValidation: true, StripNullable: true, AllowNonStructural: false})
+	if err := structuraldefaulting.PruneDefaults(structuralSchema); err != nil {
+		// This should never happen. If it does, it is a programming error.
+		utilruntime.HandleError(fmt.Errorf("failed to prune defaults for schema %s|%s: %w", logicalClusterName.String(), resource.String(), err))
+		return nil, fmt.Errorf("the server could not properly serve the CR schema") // validation should avoid this
+	}
+
+	s, err := buildOpenAPIV2(
+		apiResourceSpec,
+		builder.Options{
+			V2: true,
+			SkipFilterSchemaForKubectlOpenAPIV2Validation: true,
+			StripValueValidation:                          true,
+			StripNullable:                                 true,
+			AllowNonStructural:                            false})
 	if err != nil {
 		return nil, err
 	}
-	openAPIModels, err := utilopenapi.ToProtoModels(s)
 
 	var modelsByGKV openapi.ModelsByGKV
 
+	openAPIModels, err := utilopenapi.ToProtoModels(s)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("error building openapi models for %s: %w", kind.String(), err))
 		openAPIModels = nil
@@ -162,7 +171,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 
 	table, err := tableconvertor.New(apiResourceSpec.ColumnDefinitions.ToCustomResourceColumnDefinitions())
 	if err != nil {
-		klog.V(2).Infof("The CRD for %v has an invalid printer specification, falling back to default printing: %v", kind, err)
+		klog.V(2).Infof("The CRD for %s|%s has an invalid printer specification, falling back to default printing: %v", logicalClusterName.String(), kind.String(), err)
 	}
 
 	storage, subresourceStorages := restProvider(
@@ -301,7 +310,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 
 // servingInfo stores enough information to serve the storage for the apiResourceSpec
 type servingInfo struct {
-	logicalClusterName string
+	logicalClusterName logicalcluster.Name
 	apiResourceSpec    *apiresourcev1alpha1.CommonAPIResourceSpec
 
 	storage       rest.Storage
@@ -316,7 +325,7 @@ type servingInfo struct {
 func (apiDef *servingInfo) GetAPIResourceSpec() *apiresourcev1alpha1.CommonAPIResourceSpec {
 	return apiDef.apiResourceSpec
 }
-func (apiDef *servingInfo) GetClusterName() string {
+func (apiDef *servingInfo) GetClusterName() logicalcluster.Name {
 	return apiDef.logicalClusterName
 }
 func (apiDef *servingInfo) GetStorage() rest.Storage {

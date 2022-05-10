@@ -60,47 +60,47 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				return
 			}
 			completedContext = requestContext
-			if path := urlPath; strings.HasPrefix(path, rootPathPrefix) {
-				withoutRootPathPrefix := strings.TrimPrefix(path, rootPathPrefix)
-				parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
-				if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
-					return
-				}
-				workloadClusterKey := syncer.WorkloadClusterRef{
-					LogicalClusterName: parts[0],
-					Name:               parts[1],
-				}.Key()
-
-				realPath := "/"
-				if len(parts) > 2 {
-					realPath += parts[2]
-				}
-
-				cluster := genericapirequest.Cluster{Name: logicalcluster.Wildcard, Wildcard: true}
-				if strings.HasPrefix(realPath, "/clusters/") {
-					withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
-					parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-					lclusterName := parts[0]
-					realPath = "/"
-					if len(parts) > 1 {
-						realPath += parts[1]
-					}
-					cluster = genericapirequest.Cluster{Name: logicalcluster.New(lclusterName)}
-					if lclusterName == "*" {
-						cluster.Wildcard = true
-					}
-				}
-				completedContext = genericapirequest.WithCluster(requestContext, cluster)
-
-				if _, exists := installedAPIs.GetAPIDefinitionSet(workloadClusterKey); !exists {
-					return
-				}
-
-				completedContext = context.WithValue(completedContext, apidefs.APIDomainKeyContextKey, workloadClusterKey)
-				prefixToStrip = strings.TrimSuffix(path, realPath)
-				accepted = true
+			if !strings.HasPrefix(urlPath, rootPathPrefix) {
 				return
 			}
+			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
+			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
+			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+				return
+			}
+			workloadClusterKey := syncer.WorkloadClusterRef{
+				LogicalClusterName: logicalcluster.New(parts[0]),
+				Name:               parts[1],
+			}.Key()
+
+			realPath := "/"
+			if len(parts) > 2 {
+				realPath += parts[2]
+			}
+
+			cluster := genericapirequest.Cluster{Name: logicalcluster.Wildcard, Wildcard: true}
+			if strings.HasPrefix(realPath, "/clusters/") {
+				withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
+				parts = strings.SplitN(withoutClustersPrefix, "/", 2)
+				lclusterName := parts[0]
+				realPath = "/"
+				if len(parts) > 1 {
+					realPath += parts[1]
+				}
+				cluster = genericapirequest.Cluster{Name: logicalcluster.New(lclusterName)}
+				if lclusterName == "*" {
+					cluster.Wildcard = true
+				}
+			}
+			completedContext = genericapirequest.WithCluster(requestContext, cluster)
+
+			if _, exists := installedAPIs.GetAPIDefinitionSet(workloadClusterKey); !exists {
+				return
+			}
+
+			completedContext = context.WithValue(completedContext, apidefs.APIDomainKeyContextKey, workloadClusterKey)
+			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
+			accepted = true
 			return
 		},
 		Ready: func() error {
@@ -115,7 +115,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			apiResourceImportInformer := wildcardKcpInformers.Apiresource().V1alpha1().APIResourceImports()
 			negotiatedAPIResourceInformer := wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources()
 
-			installedAPIs = newInstalledAPIs(func(logicalClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefs.APIDefinition, error) {
+			installedAPIs = newInstalledAPIs(func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefs.APIDefinition, error) {
 				return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(&clusterAwareClientGetter{
 					clusterInterface: dynamicClusterClient,
 				}))
@@ -126,7 +126,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				AddFunc: func(obj interface{}) {
 					if workloadCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster); ok {
 						workloadClusterRef := syncer.WorkloadClusterRef{
-							LogicalClusterName: workloadCluster.ClusterName,
+							LogicalClusterName: logicalcluster.From(workloadCluster),
 							Name:               workloadCluster.Name,
 						}
 						installedAPIs.addWorkloadCluster(workloadClusterRef)
@@ -141,7 +141,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				DeleteFunc: func(obj interface{}) {
 					if workloadCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster); ok {
 						installedAPIs.removeWorkloadCluster(syncer.WorkloadClusterRef{
-							LogicalClusterName: workloadCluster.ClusterName,
+							LogicalClusterName: logicalcluster.From(workloadCluster),
 							Name:               workloadCluster.Name,
 						})
 					}

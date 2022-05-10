@@ -33,23 +33,9 @@ import (
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
-type VirtualWorkspaceOptions interface {
-	NewVirtualWorkspaces(
-		rootPathPrefix string,
-		kubeClusterClient kubernetes.ClusterInterface,
-		dynamicClusterClient dynamic.ClusterInterface,
-		kcpClusterClient kcpclient.ClusterInterface,
-		wildcardKubeInformers informers.SharedInformerFactory,
-		wildcardKcpInformers kcpinformer.SharedInformerFactory,
-	) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error)
-	Name() string
-	AddFlags(flags *pflag.FlagSet, prefix string)
-	Validate(flagPrefix string) []error
-}
-
 type Root struct {
-	Workspaces VirtualWorkspaceOptions
-	Syncer     VirtualWorkspaceOptions
+	Workspaces *workspacesoptions.Workspaces
+	Syncer     *synceroptions.Syncer
 }
 
 func NewRoot() *Root {
@@ -84,14 +70,20 @@ func (o *Root) NewVirtualWorkspaces(
 	wildcardKubeInformers informers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
-	for _, opts := range []VirtualWorkspaceOptions{o.Workspaces, o.Syncer} {
-		inf, vws, err := opts.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
-		if err != nil {
-			return nil, nil, err
-		}
-		extraInformers = append(extraInformers, inf...)
-		workspaces = append(workspaces, vws...)
+
+	inf, vws, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	if err != nil {
+		return nil, nil, err
 	}
+	extraInformers = append(extraInformers, inf...)
+	workspaces = append(workspaces, vws...)
+
+	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	if err != nil {
+		return nil, nil, err
+	}
+	extraInformers = append(extraInformers, inf...)
+	workspaces = append(workspaces, vws...)
 
 	return extraInformers, workspaces, nil
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package apidefs
 
 import (
+	"github.com/kcp-dev/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/apiserver/pkg/registry/rest"
@@ -39,7 +41,7 @@ type APIDefinition interface {
 	GetAPIResourceSpec() *apiresourcev1alpha1.CommonAPIResourceSpec
 
 	// GetClusterName provides the name of the logical cluster where the resource specification comes from.
-	GetClusterName() string
+	GetClusterName() logicalcluster.Name
 
 	// GetStorage provides the REST storage used to serve the resource.
 	GetStorage() rest.Storage
@@ -64,4 +66,4 @@ type APIDefinitionSetGetter interface {
 
 // CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition
 // (with REST storage and handler Request scopes) based on the API specification logical cluster name and OpenAPI v3 schema.
-type CreateAPIDefinitionFunc func(logicalClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (APIDefinition, error)
+type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (APIDefinition, error)

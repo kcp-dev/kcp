@@ -136,7 +136,7 @@ func (a validator) ValidateTypeMeta(ctx context.Context, obj *unstructured.Unstr
 		expectedAPIVersion = a.kind.Version
 	}
 	if typeAccessor.GetAPIVersion() != expectedAPIVersion {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("apiVersion"), typeAccessor.GetAPIVersion(), fmt.Sprintf("must be %v", a.kind.Group+"/"+a.kind.Version)))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("apiVersion"), typeAccessor.GetAPIVersion(), fmt.Sprintf("must be %v", expectedAPIVersion)))
 	}
 	return allErrs
 }
@@ -154,9 +154,9 @@ func (a validator) ValidateScaleStatus(ctx context.Context, obj *unstructured.Un
 	if err != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath(scale.StatusReplicasPath), statusReplicas, err.Error()))
 	} else if statusReplicas < 0 {
-		allErrs = append(allErrs, field.Invalid(field.NewPath(scale.StatusReplicasPath), statusReplicas, "should be a non-negative integer"))
+		allErrs = append(allErrs, field.Invalid(field.NewPath(scale.StatusReplicasPath), statusReplicas, "must be a non-negative integer"))
 	} else if statusReplicas > math.MaxInt32 {
-		allErrs = append(allErrs, field.Invalid(field.NewPath(scale.StatusReplicasPath), statusReplicas, fmt.Sprintf("should be less than or equal to %v", math.MaxInt32)))
+		allErrs = append(allErrs, field.Invalid(field.NewPath(scale.StatusReplicasPath), statusReplicas, fmt.Sprintf("must be less than or equal to %v", math.MaxInt32)))
 	}
 
 	// validate labelSelector

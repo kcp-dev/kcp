@@ -74,7 +74,7 @@ func (apis *installedAPIs) Upsert(api syncer.WorkloadClusterAPI) error {
 	defer apis.mutex.Unlock()
 
 	if workloadClusterAPIs, exists := apis.apiSets[api.Key()]; !exists {
-		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName)
+		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName.String())
 	} else {
 		gvr := schema.GroupVersionResource{
 			Group:    api.Spec.GroupVersion.Group,
@@ -95,7 +95,7 @@ func (apis *installedAPIs) Remove(api syncer.WorkloadClusterAPI) error {
 	defer apis.mutex.Unlock()
 
 	if workloadClusterAPIs, exists := apis.apiSets[api.Key()]; !exists {
-		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName)
+		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName.String())
 	} else {
 		gvr := schema.GroupVersionResource{
 			Group:    api.Spec.GroupVersion.Group,

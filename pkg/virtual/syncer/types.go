@@ -17,20 +17,22 @@ limitations under the License.
 package syncer
 
 import (
+	"github.com/kcp-dev/logicalcluster"
+
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 )
 
 // WorkloadClusterRef is a reference to a WorkloadCluster resource that lives
 // inside a given KCP logical cluster.
 type WorkloadClusterRef struct {
-	LogicalClusterName string
+	LogicalClusterName logicalcluster.Name
 	Name               string
 }
 
 // Key build a key that will be used as the API domain key to retrieve all the APIs
 // that should be exposed to a syncer living in a given workload cluster.
 func (c WorkloadClusterRef) Key() string {
-	return c.LogicalClusterName + "/" + c.Name
+	return c.LogicalClusterName.String() + "/" + c.Name
 }
 
 // WorkloadClusterAPI defines an API that should be exposed for a given WorkloadCluster

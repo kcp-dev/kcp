@@ -57,7 +57,7 @@ func (a statusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.O
 	// update is only allowed to set status
 	newCustomResourceObject := obj.(*unstructured.Unstructured)
 	newCustomResource := newCustomResourceObject.UnstructuredContent()
-	status, ok := newCustomResource["status"]
+	status, hasStatus := newCustomResource["status"]
 
 	// managedFields must be preserved since it's been modified to
 	// track changed fields in the status update.
@@ -72,7 +72,7 @@ func (a statusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.O
 	// set status
 	newCustomResourceObject.SetManagedFields(managedFields)
 	newCustomResource = newCustomResourceObject.UnstructuredContent()
-	if ok {
+	if hasStatus {
 		newCustomResource["status"] = status
 	} else {
 		delete(newCustomResource, "status")

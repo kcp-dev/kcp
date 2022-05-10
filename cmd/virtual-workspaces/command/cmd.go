@@ -111,8 +111,6 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
-
-	var extraInformerStarts []virtualrootapiserver.InformerStart
 	extraInformerStarts, virtualWorkspaces, err := o.Root.NewVirtualWorkspaces(o.RootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
 		return err

@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -76,7 +78,7 @@ func Example() {
 
 			// Setup some controller that will add APIDefinitions on demand
 
-			someController := setupController(func(logicalClusterName string, spec *v1alpha1.CommonAPIResourceSpec) (apidefs.APIDefinition, error) {
+			someController := setupController(func(logicalClusterName logicalcluster.Name, spec *v1alpha1.CommonAPIResourceSpec) (apidefs.APIDefinition, error) {
 				// apiserver.CreateServingInfoFor() creates and initializes all the required information to serve an API
 				return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, someRestProviderFunc)
 			})

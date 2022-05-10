@@ -47,7 +47,7 @@ func NewAPIReconciler(
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 ) (*APIReconciler, error) {
-	name := "syncer-api-reconciler"
+	name := "kcp-syncer-api-reconciler"
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
 
 	c := &APIReconciler{
@@ -135,6 +135,7 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 		c.queue.AddRateLimited(key)
 		return true
 	}
+
 	c.queue.Forget(key)
 	return true
 }
@@ -188,7 +189,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 
 	api := syncer.WorkloadClusterAPI{
 		WorkloadClusterRef: syncer.WorkloadClusterRef{
-			LogicalClusterName: apiResourceImport.ClusterName,
+			LogicalClusterName: logicalcluster.From(apiResourceImport),
 			Name:               apiResourceImport.Spec.Location,
 		},
 		Spec: (&negotiatedAPIResource.Spec.CommonAPIResourceSpec).DeepCopy(),

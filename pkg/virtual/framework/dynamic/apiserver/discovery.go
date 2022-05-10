@@ -83,7 +83,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		// TODO: get the list of verbs from the REST storage instance
 		verbs := metav1.Verbs([]string{"get", "list", "patch", "create", "update", "watch"})
 
-		storageVersionHash = discovery.StorageVersionHash(apiDef.GetClusterName(), gvr.Group, gvr.Version, apiDef.GetAPIResourceSpec().Kind)
+		storageVersionHash = discovery.StorageVersionHash(apiDef.GetClusterName().String(), gvr.Group, gvr.Version, apiDef.GetAPIResourceSpec().Kind)
 
 		apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
 			Name:               apiResourceSpec.Plural,

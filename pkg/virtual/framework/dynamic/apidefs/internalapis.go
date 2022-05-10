@@ -17,12 +17,11 @@ limitations under the License.
 package apidefs
 
 import (
-	"go.uber.org/multierr"
-
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/errors"
 	endpointsopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/openapi"
@@ -34,8 +33,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 )
 
-// InternalAPIDef provides the definition of an API to be imported from some schemes and generated OpenAPI V2 definitions
-type InternalAPIDef struct {
+// InternalAPI describes an API to be imported from some schemes and generated OpenAPI V2 definitions
+type InternalAPI struct {
 	names     apiextensionsv1.CustomResourceDefinitionNames
 	gv        schema.GroupVersion
 	instance  runtime.Object
@@ -43,8 +42,8 @@ type InternalAPIDef struct {
 	hasStatus bool
 }
 
-// KCPInternalAPIs provides a list of InternalAPIDef for the APIs that are part of the KCP scheme and will be there in every KCP workspace
-var KCPInternalAPIs = []InternalAPIDef{
+// KCPInternalAPIs provides a list of InternalAPI for the APIs that are part of the KCP scheme and will be there in every KCP workspace
+var KCPInternalAPIs = []InternalAPI{
 	{
 		names: apiextensionsv1.CustomResourceDefinitionNames{
 			Plural:   "namespaces",
@@ -88,7 +87,7 @@ var KCPInternalAPIs = []InternalAPIDef{
 	},
 }
 
-func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []common.GetOpenAPIDefinitions, defs ...InternalAPIDef) ([]*apiresourcev1alpha1.CommonAPIResourceSpec, error) {
+func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []common.GetOpenAPIDefinitions, defs ...InternalAPI) ([]*apiresourcev1alpha1.CommonAPIResourceSpec, error) {
 	config := genericapiserver.DefaultOpenAPIConfig(func(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 		result := make(map[string]common.OpenAPIDefinition)
 
@@ -129,7 +128,7 @@ func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []c
 		var schemaProps apiextensionsv1.JSONSchemaProps
 		errs := crdpuller.Convert(modelsByGKV[gvk], &schemaProps)
 		if len(errs) > 0 {
-			return nil, multierr.Combine(errs...)
+			return nil, errors.NewAggregate(errs)
 		}
 		spec := &apiresourcev1alpha1.CommonAPIResourceSpec{
 			GroupVersion:                  apiresourcev1alpha1.GroupVersion(gvk.GroupVersion()),

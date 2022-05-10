@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -60,8 +61,8 @@ var _ apiDefs.APIDefinition = (*mockedAPIDefinition)(nil)
 func (apiDef *mockedAPIDefinition) GetAPIResourceSpec() *v1alpha1.CommonAPIResourceSpec {
 	return apiDef.apiResourceSpec
 }
-func (apiDef *mockedAPIDefinition) GetClusterName() string {
-	return "logicalClusterName"
+func (apiDef *mockedAPIDefinition) GetClusterName() logicalcluster.Name {
+	return logicalcluster.New("logicalClusterName")
 }
 func (apiDef *mockedAPIDefinition) GetStorage() rest.Storage {
 	return nil
