@@ -40,7 +40,6 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 const (
@@ -250,7 +249,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetFinalizers(nil)
 
 	// Run name transformations on the downstreamObj.
-	shared.TransformName(downstreamObj, syncer.SyncDown)
+	transformName(downstreamObj)
 
 	// Run any transformations on the object before we apply it to the downstream cluster.
 	if mutator, ok := c.mutators[gvr]; ok {
@@ -332,4 +331,24 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName())
 
 	return nil
+}
+
+// transformName changes the object name into the desired one downstream.
+func transformName(syncedObject *unstructured.Unstructured) {
+	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
+	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+
+	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
+		syncedObject.SetName("kcp-root-ca.crt")
+	}
+	if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
+		syncedObject.SetName("kcp-default")
+	}
+	// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
+	//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
+	//				  object. This must be fixed.
+	if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
+		syncedObject.SetName("kcp-default-token")
+	}
 }

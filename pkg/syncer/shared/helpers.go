@@ -27,13 +27,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 const (
@@ -85,38 +83,6 @@ func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 	}
 	hash := sha256.Sum224(b)
 	return fmt.Sprintf("kcp%x", hash), nil
-}
-
-// TransformName changes the object name into the desired one based on the Direction:
-// - if the object is a configmap it handles the "kube-root-ca.crt" name mapping
-// - if the object is a serviceaccount it handles the "default" name mapping
-func TransformName(syncedObject *unstructured.Unstructured, direction syncer.SyncDirection) {
-	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
-	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
-	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
-
-	switch direction {
-	case syncer.SyncDown:
-		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
-			syncedObject.SetName("kcp-root-ca.crt")
-		}
-		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
-			syncedObject.SetName("kcp-default")
-		}
-		// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
-		//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
-		//				  object. This must be fixed.
-		if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
-			syncedObject.SetName("kcp-default-token")
-		}
-	case syncer.SyncUp:
-		if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
-			syncedObject.SetName("kube-root-ca.crt")
-		}
-		if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "kcp-default" {
-			syncedObject.SetName("default")
-		}
-	}
 }
 
 func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.Name, resourceName string) error {

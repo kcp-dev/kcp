@@ -34,7 +34,6 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
@@ -122,7 +121,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	upstreamObj.SetNamespace(upstreamNamespace)
 
 	// Run name transformations on upstreamObj
-	shared.TransformName(upstreamObj, syncer.SyncUp)
+	transformName(upstreamObj)
 
 	name := upstreamObj.GetName()
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(upstreamObj.UnstructuredContent(), "status")
@@ -176,4 +175,17 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	}
 	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
 	return nil
+}
+
+// TransformName changes the object name into the desired one upstream.
+func transformName(syncedObject *unstructured.Unstructured) {
+	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
+
+	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
+		syncedObject.SetName("kube-root-ca.crt")
+	}
+	if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "kcp-default" {
+		syncedObject.SetName("default")
+	}
 }

@@ -55,15 +55,6 @@ const (
 	gvrQueryInterval = 1 * time.Second
 )
 
-// SyncDirection indicates which direction data is flowing for this particular syncer
-type SyncDirection string
-
-// SyncDown indicates a syncer watches resources on KCP and applies the spec to the target cluster
-const SyncDown SyncDirection = "down"
-
-// SyncUp indicates a syncer watches resources on the target cluster and applies the status to KCP
-const SyncUp SyncDirection = "up"
-
 // SyncerConfig defines the syncer configuration that is guaranteed to
 // vary across syncer deployments. Capturing these details in a struct
 // simplifies defining these details in test fixture.
