@@ -123,8 +123,8 @@ type ClusterWorkspaceTypeSpec struct {
 	// bootstrapManifests references a set of Kubernetes manifests that are applied to the
 	// workspace on initialisation.
 	//
-	// If a workspace type extends on at a higher level, the bootstrap manifests of
-	// the higher level are applied first, then those of the lower levels.
+	// If a workspace type extends a type definition of the same name at a higher level,
+	// the bootstrap manifests of the higher level are applied first, then those of the lower levels.
 	//
 	// Every bootstrap manifest created is authorized against the user creating the
 	// workspace.
@@ -140,8 +140,8 @@ type ClusterWorkspaceTypeSpec struct {
 	// be granted verb="initialize" permissions on the ClusterWorkspaceType resource.
 	// These controllers are not able to access a workspace at any other phase.
 	//
-	// If a workspace type extends one at a high level the lists of initializers
-	// are merged.
+	// If a workspace type extends a type definition of the same name at a higher level,
+	// the lists of initializers are merged.
 	//
 	// Every request done by the controller is authorized against the user creating the
 	// workspace.
@@ -152,8 +152,8 @@ type ClusterWorkspaceTypeSpec struct {
 	// additionalWorkspaceLabels are a set of labels that will be added to a
 	// ClusterWorkspace on creation.
 	//
-	// If a workspace type extends one at a higher level, both maps are merged. If they
-	// disagree about a value, the one in the sub-workspace trumps.
+	// If a workspace type extends a type definition of the same name at a higher level,
+	// both maps are merged. If they disagree about a value, the one in the sub-workspace trumps.
 	//
 	// +optional
 	AdditionalWorkspaceLabels map[string]string `json:"additionalWorkspaceLabels,omitempty"`
@@ -162,9 +162,10 @@ type ClusterWorkspaceTypeSpec struct {
 	// by default if another, nested ClusterWorkspace is created in a workspace
 	// of the given type. The default behaviour equals "Universal".
 	//
-	// If a workspace type extends one at a higher level and they disagree about the default
-	// the one in the sub-workspace trumps. Not specifying defaultSubWorkspaceType or
-	// an empty string means to inherit the value from the super-workspace.
+	// If a workspace type extends a type definition of the same name at a higher level
+	// and they disagree about the default the one in the sub-workspace trumps. Not
+	// specifying defaultSubWorkspaceType or an empty string means to inherit the value
+	// from the super-workspace.
 	//
 	// +optional
 	DefaultSubWorkspaceType string `json:"defaultSubWorkspaceType,omitempty"`
@@ -172,9 +173,9 @@ type ClusterWorkspaceTypeSpec struct {
 	// allowedSubWorkspaceTypes is a list of cluster workspace types that can be
 	// created in a workspace of the given type.
 	//
-	// If a workspace type extends one at a higher level the sets of allowed sub-workspace
-	// types are merged. Sub-workspace types that are existing in a super-workspace
-	// are ignored.
+	// If a workspace type extends a type definition of the same name at a higher level,
+	// the sets of allowed sub-workspace types are merged. Sub-workspace types that are
+	// existing in a super-workspace are ignored.
 	//
 	// For example: if Organization exists at the root, a ClusterWorkspaceType called
 	// "Organization" cannot add itself to the possible allowedSubWorkspaceTypes. I.e.
