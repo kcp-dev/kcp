@@ -34,8 +34,8 @@ import (
 )
 
 var (
-	Scheme = runtime.NewScheme()
-	Codecs = serializer.NewCodecFactory(Scheme)
+	scheme = runtime.NewScheme()
+	codecs = serializer.NewCodecFactory(scheme)
 
 	// if you modify this, make sure you update the crEncoder
 	unversionedVersion = schema.GroupVersion{Group: "", Version: "v1"}
@@ -51,14 +51,14 @@ var (
 
 func init() {
 	// we need to add the options to empty v1
-	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Group: "", Version: "v1"})
+	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 
-	Scheme.AddUnversionedTypes(unversionedVersion, unversionedTypes...)
+	scheme.AddUnversionedTypes(unversionedVersion, unversionedTypes...)
 }
 
 // DynamicAPIServerExtraConfig contains additional configuration for the DynamicAPIServer
 type DynamicAPIServerExtraConfig struct {
-	APISetRetriever apidefs.APISetRetriever
+	APISetRetriever apidefs.APIDefinitionSetGetter
 }
 
 // DynamicAPIServerConfig contains the configuration for the DynamicAPIServer
@@ -71,7 +71,7 @@ type DynamicAPIServerConfig struct {
 // dynamically serve resources based on an API definitions (provided by the APISetRetriever).
 type DynamicAPIServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
-	APISetRetriever  apidefs.APISetRetriever
+	APISetRetriever  apidefs.APIDefinitionSetGetter
 }
 
 type completedConfig struct {

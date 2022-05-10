@@ -35,7 +35,7 @@ import (
 )
 
 type versionDiscoveryHandler struct {
-	apiSetRetriever apidefs.APISetRetriever
+	apiSetRetriever apidefs.APIDefinitionSetGetter
 	delegate        http.Handler
 }
 
@@ -60,7 +60,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	apiDomainKey := ctx.Value(apidefs.APIDomainKeyContextKey).(string)
 
-	apiSet, _ := r.apiSetRetriever.GetAPIs(apiDomainKey)
+	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 
 	apiResourcesForDiscovery := []metav1.APIResource{}
 
@@ -118,11 +118,11 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		return
 	}
 
-	discovery.NewAPIVersionHandler(Codecs, schema.GroupVersion{Group: requestedGroup, Version: requestedVersion}, resourceListerFunc).ServeHTTP(w, req)
+	discovery.NewAPIVersionHandler(codecs, schema.GroupVersion{Group: requestedGroup, Version: requestedVersion}, resourceListerFunc).ServeHTTP(w, req)
 }
 
 type groupDiscoveryHandler struct {
-	apiSetRetriever apidefs.APISetRetriever
+	apiSetRetriever apidefs.APIDefinitionSetGetter
 	delegate        http.Handler
 }
 
@@ -147,7 +147,7 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 
 	apiDomainKey := ctx.Value(apidefs.APIDomainKeyContextKey).(string)
 
-	apiSet, _ := r.apiSetRetriever.GetAPIs(apiDomainKey)
+	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 
 	foundGroup := false
 
@@ -187,11 +187,11 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		PreferredVersion: apiVersionsForDiscovery[0],
 	}
 
-	discovery.NewAPIGroupHandler(Codecs, apiGroup).ServeHTTP(w, req)
+	discovery.NewAPIGroupHandler(codecs, apiGroup).ServeHTTP(w, req)
 }
 
 type rootDiscoveryHandler struct {
-	apiSetRetriever apidefs.APISetRetriever
+	apiSetRetriever apidefs.APIDefinitionSetGetter
 	delegate        http.Handler
 }
 
@@ -202,7 +202,7 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	ctx := req.Context()
 	apiDomainKey := ctx.Value(apidefs.APIDomainKeyContextKey).(string)
 
-	apiSet, _ := r.apiSetRetriever.GetAPIs(apiDomainKey)
+	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 
 	for gvr := range apiSet {
 

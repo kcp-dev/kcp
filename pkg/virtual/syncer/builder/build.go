@@ -92,7 +92,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				}
 				completedContext = genericapirequest.WithCluster(requestContext, cluster)
 
-				if _, exists := installedAPIs.GetAPIs(workloadClusterKey); !exists {
+				if _, exists := installedAPIs.GetAPIDefinitionSet(workloadClusterKey); !exists {
 					return
 				}
 
@@ -109,7 +109,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			}
 			return nil
 		},
-		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefs.APISetRetriever, error) {
+		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefs.APIDefinitionSetGetter, error) {
 
 			clusterInformer := wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer()
 			apiResourceImportInformer := wildcardKcpInformers.Apiresource().V1alpha1().APIResourceImports()

@@ -31,7 +31,7 @@ import (
 // Typical Usage of a DynamicVirtualWorkspace
 func Example() {
 
-	var someAPISetRetriever apidefs.APISetRetriever
+	var someAPISetRetriever apidefs.APIDefinitionSetGetter
 	ready := false
 
 	var _ = dynamic.DynamicVirtualWorkspace{
@@ -48,7 +48,7 @@ func Example() {
 
 			// Resolve the request root path, and extract API domain key from it ...
 
-			if _, exists := someAPISetRetriever.GetAPIs(apiDomainKey); !exists {
+			if _, exists := someAPISetRetriever.GetAPIDefinitionSet(apiDomainKey); !exists {
 				// If the APISetRetriever doesn't manage this api domain, don't accept the request
 				return
 			}
@@ -68,7 +68,7 @@ func Example() {
 			return nil
 		},
 
-		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefs.APISetRetriever, error) {
+		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefs.APIDefinitionSetGetter, error) {
 
 			// Initialize the implementation of the APISetRetriever
 
@@ -100,7 +100,7 @@ func Example() {
 	}
 }
 
-func newAPISetRetriever() apidefs.APISetRetriever { return nil }
+func newAPISetRetriever() apidefs.APIDefinitionSetGetter { return nil }
 
 type someController interface {
 	Start()

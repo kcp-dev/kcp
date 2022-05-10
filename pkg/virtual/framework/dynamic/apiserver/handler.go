@@ -43,7 +43,7 @@ import (
 
 // resourceHandler serves the `/apis` and `/api`` endpoints.
 type resourceHandler struct {
-	apiSetRetriever         apidefs.APISetRetriever
+	apiSetRetriever         apidefs.APIDefinitionSetGetter
 	versionDiscoveryHandler *versionDiscoveryHandler
 	groupDiscoveryHandler   *groupDiscoveryHandler
 	rootDiscoveryHandler    *rootDiscoveryHandler
@@ -67,7 +67,7 @@ type resourceHandler struct {
 }
 
 func newResourceHandler(
-	apiSetRetriever apidefs.APISetRetriever,
+	apiSetRetriever apidefs.APIDefinitionSetGetter,
 	versionDiscoveryHandler *versionDiscoveryHandler,
 	groupDiscoveryHandler *groupDiscoveryHandler,
 	rootDiscoveryHandler *rootDiscoveryHandler,
@@ -100,7 +100,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("no RequestInfo found in the context")),
-			Codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
+			codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
 		)
 		return
 	}
@@ -130,7 +130,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	locationKey := ctx.Value(apidefs.APIDomainKeyContextKey).(string)
 
-	apiDefs, _ := r.apiSetRetriever.GetAPIs(locationKey)
+	apiDefs, _ := r.apiSetRetriever.GetAPIDefinitionSet(locationKey)
 	apiDef, exists := apiDefs[schema.GroupVersionResource{
 		Group:    requestInfo.APIGroup,
 		Version:  requestInfo.APIVersion,
@@ -170,7 +170,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			responsewriters.ErrorNegotiated(
 				apierrors.NewInternalError(err),
-				Codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
+				codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
 			)
 			return
 		}
@@ -190,7 +190,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	default:
 		responsewriters.ErrorNegotiated(
 			apierrors.NewNotFound(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Name),
-			Codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
+			codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
 		)
 	}
 
@@ -249,7 +249,7 @@ func (r *resourceHandler) serveResource(w http.ResponseWriter, req *http.Request
 	}
 	responsewriters.ErrorNegotiated(
 		apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb),
-		Codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
+		codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
 	)
 	return nil
 }
@@ -274,7 +274,7 @@ func (r *resourceHandler) serveStatus(w http.ResponseWriter, req *http.Request, 
 	}
 	responsewriters.ErrorNegotiated(
 		apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb),
-		Codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
+		codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
 	)
 	return nil
 }

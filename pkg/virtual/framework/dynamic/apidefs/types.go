@@ -54,14 +54,14 @@ type APIDefinition interface {
 	GetSubResourceRequestScope(subresource string) *handlers.RequestScope
 }
 
-// APISet contains the APIDefintion objects for the APIs of an API domain.
-type APISet map[schema.GroupVersionResource]APIDefinition
+// APIDefinitionSet contains the APIDefintion objects for the APIs of an API domain.
+type APIDefinitionSet map[schema.GroupVersionResource]APIDefinition
 
-// APISetRetriever provides access to the API definitions of a API domain, based on the API domain key.
-type APISetRetriever interface {
-	GetAPIs(apiDomainKey string) (apis APISet, apisExist bool)
+// APIDefinitionSetGetter provides access to the API definitions of a API domain, based on the API domain key.
+type APIDefinitionSetGetter interface {
+	GetAPIDefinitionSet(apiDomainKey string) (apis APIDefinitionSet, apisExist bool)
 }
 
-// CreateAPIDefinitionFunc is the type of a function which allows creating a complete APIDefinition
+// CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition
 // (with REST storage and handler Request scopes) based on the API specification logical cluster name and OpenAPI v3 schema.
 type CreateAPIDefinitionFunc func(logicalClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (APIDefinition, error)

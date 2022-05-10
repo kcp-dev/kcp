@@ -43,12 +43,12 @@ import (
 	apidefs "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefs"
 )
 
-type mockedAPISetRetriever apiDefs.APISet
+type mockedAPISetRetriever apiDefs.APIDefinitionSet
 
-var _ apiDefs.APISetRetriever = (*mockedAPISetRetriever)(nil)
+var _ apiDefs.APIDefinitionSetGetter = (*mockedAPISetRetriever)(nil)
 
-func (masr mockedAPISetRetriever) GetAPIs(apiDomainKey string) (apis apidefs.APISet, apisExist bool) {
-	return apiDefs.APISet(masr), true
+func (masr mockedAPISetRetriever) GetAPIDefinitionSet(apiDomainKey string) (apis apidefs.APIDefinitionSet, apisExist bool) {
+	return apiDefs.APIDefinitionSet(masr), true
 }
 
 type mockedAPIDefinition struct {
@@ -572,7 +572,7 @@ func TestRouting(t *testing.T) {
 							if e, a := "application/vnd.kubernetes.protobuf", result.Header.Get("Content-Type"); e != a {
 								t.Errorf("expected Content-Type %v, got %v", e, a)
 							}
-							if _, _, err := protobuf.NewSerializer(Scheme, Scheme).Decode(content, nil, status); err != nil {
+							if _, _, err := protobuf.NewSerializer(scheme, scheme).Decode(content, nil, status); err != nil {
 								t.Fatal(err)
 							}
 						default:

@@ -27,18 +27,19 @@ import (
 )
 
 var _ syncer.WorkloadClusterAPIManager = (*installedAPIs)(nil)
+var _ apidefs.APIDefinitionSetGetter = (*installedAPIs)(nil)
 
 type installedAPIs struct {
 	createAPIDefinition apidefs.CreateAPIDefinitionFunc
 
 	mutex   sync.RWMutex
-	apiSets map[string]apidefs.APISet
+	apiSets map[string]apidefs.APIDefinitionSet
 }
 
 func newInstalledAPIs(createAPIDefinition apidefs.CreateAPIDefinitionFunc) *installedAPIs {
 	return &installedAPIs{
 		createAPIDefinition: createAPIDefinition,
-		apiSets:             make(map[string]apidefs.APISet),
+		apiSets:             make(map[string]apidefs.APIDefinitionSet),
 	}
 }
 
@@ -48,7 +49,7 @@ func (apis *installedAPIs) addWorkloadCluster(workloadCluster syncer.WorkloadClu
 
 	workloadClusterKey := workloadCluster.Key()
 	if _, exists := apis.apiSets[workloadClusterKey]; !exists {
-		apis.apiSets[workloadClusterKey] = make(apidefs.APISet)
+		apis.apiSets[workloadClusterKey] = make(apidefs.APIDefinitionSet)
 	}
 }
 
@@ -60,7 +61,7 @@ func (apis *installedAPIs) removeWorkloadCluster(workloadCluster syncer.Workload
 	delete(apis.apiSets, workloadClusterKey)
 }
 
-func (apis *installedAPIs) GetAPIs(apiDomainKey string) (apidefs.APISet, bool) {
+func (apis *installedAPIs) GetAPIDefinitionSet(apiDomainKey string) (apidefs.APIDefinitionSet, bool) {
 	apis.mutex.RLock()
 	defer apis.mutex.RUnlock()
 

@@ -37,7 +37,7 @@ type DynamicVirtualWorkspace struct {
 	// BootstrapAPISetManagement creates, initializes and returns an apidefs.APISetRetriever.
 	// Usually it would also setup some logic that will call the apiserver.CreateServingInfoFor() method
 	// to add an apidefs.APIDefinition in the apidefs.APISetRetriever on some event.
-	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefs.APISetRetriever, error)
+	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefs.APIDefinitionSetGetter, error)
 }
 
 func (vw *DynamicVirtualWorkspace) GetName() string {
