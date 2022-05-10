@@ -170,7 +170,20 @@ type ClusterWorkspaceTypeSpec struct {
 	// created in a workspace of the given type.
 	//
 	// If a workspace type extends one at a higher level the sets of allowed sub-workspace
-	// types are merged.
+	// types are merged. Sub-workspace types that are existing in a super-workspace
+	// are ignored.
+	//
+	// For example: if Organization exists at the root, a ClusterWorkspaceType called
+	// "Organization" cannot add itself to the possible allowedSubWorkspaceTypes. I.e.
+	// the nesting must be allowed at the root and cannot be overridden. I.e. the
+	// organization admin CANNOT allow further nesting of system provided workspace
+	// types.
+	//
+	// For example: if Organization exists at the root, a ClusterWorkspaceType called
+	// "Team" which does not exist at the root at root:org, can be added to the
+	// allowedSubWorkspaceTypes of the "Organization" workspace type at root:org. I.e.
+	// the organization admin can further custom workspace types to be nested under a
+	// system provided workspace type.
 	//
 	// By default no type is allowed. This means no other workspace can be nested
 	// within a workspace of the given type.
