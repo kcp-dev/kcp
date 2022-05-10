@@ -39,6 +39,8 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
+	"github.com/kcp-dev/kcp/pkg/syncer/spec"
+	"github.com/kcp-dev/kcp/pkg/syncer/status"
 )
 
 const (
@@ -81,9 +83,9 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	klog.Infof("Starting syncer for logical-cluster: %s, workload-cluster: %s", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
 	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
-	upstreamConfig.UserAgent = specSyncerAgent
+	upstreamConfig.UserAgent = "kcp#spec-syncer/v0.0.0"
 	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
-	downstreamConfig.UserAgent = specSyncerAgent
+	downstreamConfig.UserAgent = "kcp#status-syncer/v0.0.0"
 
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(upstreamConfig)
 	if err != nil {
@@ -166,14 +168,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
-	specSyncer, err := NewSpecSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, upstreamURL, advancedSchedulingEnabled,
+	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClient.Cluster(cfg.KCPClusterName), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
 
 	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
-	statusSyncer, err := NewStatusSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled,
+	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled,
 		upstreamDynamicClient.Cluster(cfg.KCPClusterName), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err

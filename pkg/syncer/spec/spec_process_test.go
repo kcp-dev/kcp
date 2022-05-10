@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2021 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package syncer
+package spec
 
 import (
 	"context"
@@ -42,6 +42,8 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 var scheme *runtime.Scheme
@@ -50,6 +52,400 @@ func init() {
 	scheme = runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
+}
+
+func TestDeepEqualApartFromStatus(t *testing.T) {
+	type args struct {
+		a, b *unstructured.Unstructured
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "both objects are equals",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "both objects are equals as are being deleted",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":              "test_kind",
+						"apiVersion":        "test_version",
+						"deletionTimestamp": "2010-11-10T23:00:00Z",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":              "test_kind",
+						"apiVersion":        "test_version",
+						"deletionTimestamp": "2010-11-10T23:00:00Z",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "both objects are equals even they have different statuses",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":              "test_kind",
+						"apiVersion":        "test_version",
+						"deletionTimestamp": "2010-11-10T23:00:00Z",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+						},
+						"status": map[string]interface{}{},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":              "test_kind",
+						"apiVersion":        "test_version",
+						"deletionTimestamp": "2010-11-10T23:00:00Z",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+						},
+						"status": map[string]interface{}{
+							"phase": "Failed",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "both objects are equals even they have a different value in InternalClusterStatusAnnotationPrefix",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"annotations": map[string]interface{}{
+								workloadv1alpha1.InternalClusterStatusAnnotationPrefix: "2",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"annotations": map[string]interface{}{
+								workloadv1alpha1.InternalClusterStatusAnnotationPrefix: "1",
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "not equal as b is missing labels",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not equal as b has different labels values",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "another_test_value",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not equal as b resource is missing annotations",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"annotations": map[string]interface{}{
+								"annotation": "this is an annotation",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not equal as b resource has different annotations",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"annotations": map[string]interface{}{
+								"annotation": "this is an annotation",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"annotations": map[string]interface{}{
+								"annotation":  "this is an annotation",
+								"annotation2": "this is another annotation",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not equal as b resource has finalizers",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"finalizers": []interface{}{
+								"finalizer.1",
+								"finalizer.2",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not equal even objects are equal as A is being deleted",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":              "test_name",
+							"namespace":         "test_namespace",
+							"deletionTimestamp": "2010-11-10T23:00:00Z",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"annotations": map[string]interface{}{
+								"test_annotation": "test_value",
+							},
+							"finalizers": []interface{}{
+								"finalizer.1",
+								"finalizer.2",
+							},
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+							"labels": map[string]interface{}{
+								"test_label": "test_value",
+							},
+							"annotations": map[string]interface{}{
+								"test_annotation": "test_value",
+							},
+							"finalizers": []interface{}{
+								"finalizer.1",
+								"finalizer.2",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not equal as b has additional fields than a",
+			args: args{
+				a: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+						},
+					},
+				},
+				b: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "test_kind",
+						"apiVersion": "test_version",
+						"metadata": map[string]interface{}{
+							"name":      "test_name",
+							"namespace": "test_namespace",
+						},
+						"other_key": "other_value",
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := deepEqualApartFromStatus(tt.args.a, tt.args.b); got != tt.want {
+				t.Errorf("deepEqualApartFromStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestSyncerProcess(t *testing.T) {
@@ -62,7 +458,7 @@ func TestSyncerProcess(t *testing.T) {
 		resourceToProcessName               string
 		resourceToProcessLogicalClusterName string
 
-		direction                 SyncDirection
+		direction                 syncer.SyncDirection
 		upstreamURL               string
 		upstreamLogicalCluster    string
 		workloadClusterName       string
@@ -73,7 +469,7 @@ func TestSyncerProcess(t *testing.T) {
 		expectActionsOnTo   []clienttesting.Action
 	}{
 		"SpecSyncer upsert": {
-			direction:              SyncDown,
+			direction:              syncer.SyncDown,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workloads.kcp.dev/us-west1": "Sync",
@@ -118,7 +514,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"SpecSyncer upstream deletion": {
-			direction:              SyncDown,
+			direction:              syncer.SyncDown,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workloads.kcp.dev/us-west1": "Sync",
@@ -138,7 +534,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer upsert to existing resource": {
-			direction:              SyncUp,
+			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -179,7 +575,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer upstream deletion": {
-			direction:              SyncUp,
+			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -207,7 +603,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo:   []clienttesting.Action{},
 		},
 		"SpecSyncer with AdvancedScheduling, sync downstream deployment": {
-			direction:              SyncDown,
+			direction:              syncer.SyncDown,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workloads.kcp.dev/us-west1": "Sync",
@@ -260,7 +656,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"SpecSyncer with AdvancedScheduling, sync downstream deployment and apply SpecDiff": {
-			direction:              SyncDown,
+			direction:              syncer.SyncDown,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workloads.kcp.dev/us-west1": "Sync",
@@ -327,7 +723,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"SpecSyncer with AdvancedScheduling, deletion: object exist downstream": {
-			direction:              SyncDown,
+			direction:              syncer.SyncDown,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workloads.kcp.dev/us-west1": "Sync",
@@ -375,7 +771,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"SpecSyncer with AdvancedScheduling, deletion: object does not exists downstream": {
-			direction:              SyncDown,
+			direction:              syncer.SyncDown,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workloads.kcp.dev/us-west1": "Sync",
@@ -435,7 +831,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"SpecSyncer with AdvancedScheduling, deletion: upstream object has external finalizer": {
-			direction:              SyncDown,
+			direction:              syncer.SyncDown,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workloads.kcp.dev/us-west1": "Sync",
@@ -511,7 +907,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer with AdvancedScheduling, update status upstream": {
-			direction:              SyncUp,
+			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -551,7 +947,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer with AdvancedScheduling, deletion: object exists upstream": {
-			direction:              SyncUp,
+			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -587,7 +983,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 		},
 		"StatusSyncer with AdvancedScheduling, deletion: object does not exists upstream": {
-			direction:              SyncUp,
+			direction:              syncer.SyncUp,
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -645,10 +1041,10 @@ func TestSyncerProcess(t *testing.T) {
 			fromClient := dynamicfake.NewSimpleDynamicClient(scheme, allFromResources...)
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 
-			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
-			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 
@@ -660,18 +1056,10 @@ func TestSyncerProcess(t *testing.T) {
 				{Group: "", Version: "v1", Resource: "namespaces"},
 				tc.gvr,
 			}
-			var controller *Controller
-			if tc.direction == SyncUp {
-				s, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, tc.advancedSchedulingEnabled, toClient, fromClient, toInformers, fromInformers)
-				require.NoError(t, err)
-				controller = s.Controller
-			} else {
-				upstreamURL, err := url.Parse("https://kcp.dev:6443")
-				require.NoError(t, err)
-				s, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, upstreamURL, tc.advancedSchedulingEnabled, fromClient, toClient, fromInformers, toInformers)
-				require.NoError(t, err)
-				controller = s.Controller
-			}
+			upstreamURL, err := url.Parse("https://kcp.dev:6443")
+			require.NoError(t, err)
+			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, upstreamURL, tc.advancedSchedulingEnabled, fromClient, toClient, fromInformers, toInformers)
+			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())
 			toInformers.Start(ctx.Done())
@@ -686,7 +1074,7 @@ func TestSyncerProcess(t *testing.T) {
 			toClient.ClearActions()
 
 			key := tc.fromNamespace.Name + "/" + clusters.ToClusterAwareKey(logicalcluster.New(tc.resourceToProcessLogicalClusterName), tc.resourceToProcessName)
-			err := controller.process(context.Background(),
+			err = controller.process(context.Background(),
 				schema.GroupVersionResource{
 					Group:    "apps",
 					Version:  "v1",
