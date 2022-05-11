@@ -18,8 +18,12 @@ package main
 
 import (
 	"context"
+	"errors"
+	"io/ioutil"
 	"log"
 	"os"
+	"os/signal"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,11 +32,16 @@ import (
 )
 
 func main() {
-	namespaceName := os.Getenv("TARGET_NAMESPACE")
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
 	configMapName := os.Getenv("CONFIGMAP_NAME")
 
-	if namespaceName == "" || configMapName == "" {
-		log.Panicln("ENV variables TARGET_NAMESPACE and CONFIGMAP_NAME not specified")
+	if configMapName == "" {
+		log.Panicln("ENV variable CONFIGMAP_NAME not specified")
+	}
+
+	namespace, err := DetectNamespace()
+	if err != nil {
+		log.Panicln("no namespace detected", err)
 	}
 
 	config, err := rest.InClusterConfig()
@@ -45,22 +54,25 @@ func main() {
 		log.Panicln("failed to create clientset with in-cluster config", config, err)
 	}
 
-	configMap := createConfigMap(namespaceName, configMapName)
-	_, err = clientset.CoreV1().ConfigMaps(namespaceName).Create(context.TODO(), configMap, metav1.CreateOptions{})
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: configMapName,
+		},
+	}
+	_, err = clientset.CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
 	if err != nil {
 		log.Panicln("failed to create configmap", err)
 	}
 
-	log.Printf("configmap %s created in namespace %s\n", namespaceName, configMap)
+	log.Printf("configmap %s created\n", configMapName)
 }
 
-func createConfigMap(namespace string, name string) *corev1.ConfigMap {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
+func DetectNamespace() (string, error) {
+	if namespaceData, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if namespace := strings.TrimSpace(string(namespaceData)); len(namespace) > 0 {
+			return namespace, nil
+		}
+		return "", err
 	}
-	return configMap
-
+	return "", errors.New("failed to detect in-cluster namespace")
 }

@@ -50,6 +50,10 @@ var kcpApiAccessVolume = corev1.Volume{
 								Key:  "token",
 								Path: "token",
 							},
+							{
+								Key:  "namespace",
+								Path: "namespace",
+							},
 						},
 					},
 				},
@@ -62,19 +66,6 @@ var kcpApiAccessVolume = corev1.Volume{
 							{
 								Key:  "ca.crt",
 								Path: "ca.crt",
-							},
-						},
-					},
-				},
-				{
-					DownwardAPI: &corev1.DownwardAPIProjection{
-						Items: []corev1.DownwardAPIVolumeFile{
-							{
-								Path: "namespace",
-								FieldRef: &corev1.ObjectFieldSelector{
-									APIVersion: "v1",
-									FieldPath:  "metadata.namespace",
-								},
 							},
 						},
 					},

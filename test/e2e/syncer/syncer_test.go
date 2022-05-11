@@ -228,7 +228,6 @@ func TestSyncerLifecycle(t *testing.T) {
 								Name:  "icc-test",
 								Image: framework.TestConfig.InClusterConfigTestImage(),
 								Env: []corev1.EnvVar{
-									{Name: "TARGET_NAMESPACE", Value: upstreamNamespace.Name},
 									{Name: "CONFIGMAP_NAME", Value: expectedConfigMapName},
 								},
 							},
