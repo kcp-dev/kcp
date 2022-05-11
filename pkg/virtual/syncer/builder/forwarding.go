@@ -21,7 +21,9 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -54,27 +56,45 @@ func (g *clusterAwareClientGetter) GetDynamicClient(ctx context.Context) (dynami
 func provideForwardingRestStorage(dynamicClientGetter registry.ClientGetter) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
-		storage, statusStorage := registry.NewForwardingREST(
+
+		var statusSpec *apiextensions.CustomResourceSubresourceStatus
+		if statusEnabled {
+			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
+		}
+
+		var scaleSpec *apiextensions.CustomResourceSubresourceScale
+		// TODO(sttts): implement scale subresource
+
+		strategy := customresource.NewStrategy(
+			typer,
+			namespaceScoped,
+			kind,
+			schemaValidator,
+			statusSchemaValidate,
+			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
+			statusSpec,
+			scaleSpec,
+		)
+
+		storage := registry.NewStorage(
 			resource,
 			kind,
 			listKind,
-			registry.NewStrategy(
-				typer,
-				namespaceScoped,
-				kind,
-				schemaValidator,
-				statusSchemaValidate,
-				structuralSchema,
-				statusEnabled,
-			),
+			strategy,
+			nil,
 			tableConvertor,
+			nil,
 			dynamicClientGetter,
 			nil,
 		)
+
 		subresourceStorages = make(map[string]rest.Storage)
 		if statusEnabled {
-			subresourceStorages["status"] = statusStorage
+			subresourceStorages["status"] = storage.Status
 		}
-		return storage, subresourceStorages
+
+		// TODO(sttts): add scale subresource
+
+		return storage.CustomResource, subresourceStorages
 	}
 }
