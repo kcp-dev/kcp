@@ -3,12 +3,12 @@ name: CI
 on:
   push:
     branches:
-    - main
-    - 'release-*'
+      - main
+      - 'release-*'
   pull_request:
     branches:
-    - main
-    - 'release-*'
+      - main
+      - 'release-*'
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -61,6 +61,21 @@ jobs:
             echo "imports are out of date, run make imports"
             exit 1
           fi
+
+  deps:
+    name: deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: kcp
+      - uses: actions/setup-go@v3
+        with:
+          go-version: v1.17
+      - name: Check dependencies
+        run: |
+          cd kcp
+          hack/validate-k8s.sh
 
   lint:
     name: lint
