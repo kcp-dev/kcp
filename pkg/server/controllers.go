@@ -63,6 +63,7 @@ import (
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	virtualworkspaceurlscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/virtualworkspaceurls"
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -686,6 +687,40 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-virtualworkspace-urls-controller"
+	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c := virtualworkspaceurlscontroller.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
 		return err
