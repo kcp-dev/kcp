@@ -256,15 +256,21 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		return err
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
 	c.t.Cleanup(func() {
 		// Ensure child process is killed on cleanup
 		err := cmd.Process.Kill()
 		if err != nil {
 			c.t.Errorf("Saw an error trying to kill `kcp`: %v", err)
 		}
+
+		wg.Wait()
 	})
 
 	go func() {
+		defer wg.Done()
 		defer func() { cleanupCancel() }()
 		err := cmd.Wait()
 		data := c.filterKcpLogs(&log)
