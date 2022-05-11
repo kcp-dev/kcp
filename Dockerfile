@@ -42,4 +42,10 @@ RUN CGO_ENABLED=0 make
 FROM alpine:3.15
 WORKDIR /
 COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
+RUN mkdir -p /data && \
+    chown 65532:65532 /data
 USER 65532:65532
+WORKDIR /data
+VOLUME /data
+ENTRYPOINT ["/kcp"]
+CMD ["start"]
