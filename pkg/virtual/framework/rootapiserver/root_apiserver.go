@@ -24,8 +24,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster"
-
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
@@ -172,15 +170,6 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 			if accepted, prefixToStrip, context := c.resolveRootPaths(req.URL.Path, req.Context()); accepted {
 				req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
 				req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
-				// In the current KCP Kubernetes feature branch, some components (e.g.Discovery index)
-				// don't support calls without a cluster set in the request context.
-				// That's why we add a dummy cluster name here.
-				// However we don't add it for the OpenAPI v2 endpoint since, on the contrary,
-				// in our case the OpenAPI Spec will be published by the default OpenAPI Service Provider,
-				// which is served when the cluster name is empty.
-				if req.URL.Path != "/openapi/v2" {
-					context = genericapirequest.WithCluster(context, genericapirequest.Cluster{Name: logicalcluster.New("virtual")})
-				}
 				req = req.WithContext(context)
 				delegatedHandler := delegateAPIServer.UnprotectedHandler()
 				if delegatedHandler != nil {
