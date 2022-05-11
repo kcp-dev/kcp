@@ -18,15 +18,20 @@ package forwardingregistry
 
 import (
 	"context"
+	"fmt"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
@@ -71,41 +76,39 @@ type Store struct {
 	// should not be modified by the user.
 	ResetFieldsStrategy rest.ResetFieldsStrategy
 
+	resource                  schema.GroupVersionResource
 	clientGetter              ClientGetter
 	subResources              []string
 	patchConflictRetryBackoff wait.Backoff
 }
 
-var _ rest.Lister = &Store{}
-var _ rest.Watcher = &Store{}
-var _ rest.Getter = &Store{}
-var _ rest.Updater = &Store{}
+var _ rest.StandardStorage = &Store{}
 
 // New implements RESTStorage.New.
-func (e *Store) New() runtime.Object {
-	return e.NewFunc()
+func (s *Store) New() runtime.Object {
+	return s.NewFunc()
 }
 
 // NewList implements rest.Lister.
-func (e *Store) NewList() runtime.Object {
-	return e.NewListFunc()
+func (s *Store) NewList() runtime.Object {
+	return s.NewListFunc()
 }
 
 // GetResetFields implements rest.ResetFieldsStrategy
-func (e *Store) GetResetFields() map[fieldpath.APIVersion]*fieldpath.Set {
-	if e.ResetFieldsStrategy == nil {
+func (s *Store) GetResetFields() map[fieldpath.APIVersion]*fieldpath.Set {
+	if s.ResetFieldsStrategy == nil {
 		return nil
 	}
-	return e.ResetFieldsStrategy.GetResetFields()
+	return s.ResetFieldsStrategy.GetResetFields()
 }
 
 // List returns a list of items matching labels and field according to the store's PredicateFunc.
-func (e *Store) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+func (s *Store) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 	var v1ListOptions metav1.ListOptions
 	if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
 		return nil, err
 	}
-	delegate, err := e.getClientResource(ctx)
+	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -114,22 +117,22 @@ func (e *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 }
 
 // Get implements rest.Getter
-func (e *Store) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	delegate, err := e.getClientResource(ctx)
+func (s *Store) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return delegate.Get(ctx, name, *options, e.subResources...)
+	return delegate.Get(ctx, name, *options, s.subResources...)
 }
 
 // Watch implements rest.Watcher.
-func (e *Store) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+func (s *Store) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
 	var v1ListOptions metav1.ListOptions
 	if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
 		return nil, err
 	}
-	delegate, err := e.getClientResource(ctx)
+	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,14 +141,14 @@ func (e *Store) Watch(ctx context.Context, options *metainternalversion.ListOpti
 }
 
 // Update implements rest.Updater
-func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	delegate, err := e.getClientResource(ctx)
+func (s *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, false, err
 	}
 
 	doUpdate := func() (*unstructured.Unstructured, error) {
-		oldObj, err := e.Get(ctx, name, &metav1.GetOptions{})
+		oldObj, err := s.Get(ctx, name, &metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -160,21 +163,21 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 			return nil, fmt.Errorf("not an Unstructured: %#v", obj)
 		}
 
-		e.updateStrategy.PrepareForUpdate(ctx, obj, oldObj)
-		if errs := e.updateStrategy.ValidateUpdate(ctx, obj, oldObj); len(errs) > 0 {
+		s.UpdateStrategy.PrepareForUpdate(ctx, obj, oldObj)
+		if errs := s.UpdateStrategy.ValidateUpdate(ctx, obj, oldObj); len(errs) > 0 {
 			return nil, kerrors.NewInvalid(unstructuredObj.GroupVersionKind().GroupKind(), unstructuredObj.GetName(), errs)
 		}
 		if err := updateValidation(ctx, obj.DeepCopyObject(), oldObj.DeepCopyObject()); err != nil {
 			return nil, err
 		}
 
-		return delegate.Update(ctx, unstructuredObj, *options, e.subResources...)
+		return delegate.Update(ctx, unstructuredObj, *options, s.subResources...)
 	}
 
 	requestInfo, _ := genericapirequest.RequestInfoFrom(ctx)
 	if requestInfo != nil && requestInfo.Verb == "patch" {
 		var result *unstructured.Unstructured
-		err := retry.RetryOnConflict(e.patchConflictRetryBackoff, func() error {
+		err := retry.RetryOnConflict(s.patchConflictRetryBackoff, func() error {
 			var err error
 			result, err = doUpdate()
 			return err
@@ -186,13 +189,32 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	return result, false, err
 }
 
-func (e *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterface, error) {
+func (s *Store) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *Store) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *Store) DeleteCollection(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *Store) ConvertToTable(ctx context.Context, object runtime.Object, tableOptions runtime.Object) (*metav1.Table, error) {
+	return s.TableConvertor.ConvertToTable(ctx, object, tableOptions)
+}
+
+func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterface, error) {
 	client, err := s.clientGetter.GetDynamicClient(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if s.createStrategy.NamespaceScoped() {
+	if s.CreateStrategy.NamespaceScoped() {
 		if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
 			return client.Resource(s.resource).Namespace(namespace), nil
 		} else {
