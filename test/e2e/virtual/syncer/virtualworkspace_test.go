@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -143,7 +142,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				assert.Equal(t, []*metav1.APIResourceList{
+				require.Equal(t, []*metav1.APIResourceList{
 					deploymentsAPIResourceList(kubelikeWorkspaceName),
 					{
 						TypeMeta: metav1.TypeMeta{
@@ -194,7 +193,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				assert.Equal(t, []*metav1.APIResourceList{
+				require.Equal(t, []*metav1.APIResourceList{
 					deploymentsAPIResourceList(wildwestWorkspaceName),
 					requiredCoreAPIResourceList(wildwestWorkspaceName),
 					{
@@ -227,6 +226,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		{
 			name: "access kcp resources through syncer virtual workspace",
 			work: func(ctx context.Context, t *testing.T, kubelikeWorkspaceName, wildwestWorkspaceName string, kubelikeWorkspaceClient kubernetesclientset.Interface, wildwestWorkspaceClient wildwestclientset.Interface, kubelikeSyncerVirtualWorkspaceConfig, wildwestSyncerVirtualWorkspaceConfig *rest.Config) {
+				t.Log("Create cowboy luckyluke")
 				_, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Create(ctx, &v1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
@@ -240,38 +240,47 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				virtualWorkspaceClusterClient, err := wildwestclientset.NewClusterForConfig(wildwestSyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 
+				t.Log("Verify there is one cowboy via direct access")
 				kcpCowboys, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
+				t.Log("Verify there is one cowboy via virtual workspace")
 				virtualWorkspaceCowboys, err := virtualWorkspaceClusterClient.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
-				if assert.NoError(t, err) && assert.Len(t, virtualWorkspaceCowboys.Items, 1) {
-					assert.Equal(t, kcpCowboys.Items[0], virtualWorkspaceCowboys.Items[0])
-				}
+				require.NoError(t, err)
+				require.Len(t, virtualWorkspaceCowboys.Items, 1)
+				require.Equal(t, kcpCowboys.Items[0], virtualWorkspaceCowboys.Items[0])
 
+				t.Log("Verify there is luckyluke via virtual workspace")
 				kcpCowboy, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				virtualWorkspaceCowboy, err := virtualWorkspaceClusterClient.Cluster(logicalcluster.New(wildwestWorkspaceName)).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
-				if assert.NoError(t, err) {
-					assert.Equal(t, *kcpCowboy, *virtualWorkspaceCowboy)
-				}
+				require.NoError(t, err)
+				require.Equal(t, *kcpCowboy, *virtualWorkspaceCowboy)
 
+				t.Log("Patch luckyluke via virtual workspace to report in status that joe is in prison")
 				_, err = virtualWorkspaceClusterClient.Cluster(logicalcluster.New(wildwestWorkspaceName)).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
-				assert.NoError(t, err)
+				require.NoError(t, err)
+
+				t.Log("Patch luckyluke via virtual workspace to catch averell")
 				_, err = virtualWorkspaceClusterClient.Cluster(logicalcluster.New(wildwestWorkspaceName)).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
-				assert.NoError(t, err)
+				require.NoError(t, err)
+
+				t.Log("Verify that luckyluke has both spec and status changed")
 				modifiedkcpCowboy, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				expectedModifiedKcpCowboy := kcpCowboy.DeepCopy()
 				expectedModifiedKcpCowboy.Status.Result = "joe in prison"
 				expectedModifiedKcpCowboy.Spec.Intent = "should catch averell"
-				assert.NotEqual(t, expectedModifiedKcpCowboy.ResourceVersion, modifiedkcpCowboy)
+				require.NotEqual(t, expectedModifiedKcpCowboy.ResourceVersion, modifiedkcpCowboy)
+
+				t.Log("Verify resource version, managed fields and generation")
 				expectedModifiedKcpCowboy.ResourceVersion = modifiedkcpCowboy.ResourceVersion
-				assert.NotEqual(t, expectedModifiedKcpCowboy.ManagedFields, modifiedkcpCowboy.ManagedFields)
+				require.NotEqual(t, expectedModifiedKcpCowboy.ManagedFields, modifiedkcpCowboy.ManagedFields)
 				expectedModifiedKcpCowboy.ManagedFields = modifiedkcpCowboy.ManagedFields
-				assert.Equal(t, expectedModifiedKcpCowboy.Generation+1, modifiedkcpCowboy.Generation)
+				require.Equal(t, expectedModifiedKcpCowboy.Generation+1, modifiedkcpCowboy.Generation)
 				expectedModifiedKcpCowboy.Generation = modifiedkcpCowboy.Generation
-				assert.Equal(t, *expectedModifiedKcpCowboy, *modifiedkcpCowboy)
+				require.Equal(t, *expectedModifiedKcpCowboy, *modifiedkcpCowboy)
 			},
 		},
 	}
