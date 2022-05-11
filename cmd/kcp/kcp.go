@@ -83,7 +83,7 @@ func main() {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Activate logging as soon as possible.
+			// run as early as possible to avoid races later when some components (e.g. grpc) start early using klog
 			if err := serverOptions.GenericControlPlane.Logs.ValidateAndApply(); err != nil {
 				return err
 			}
