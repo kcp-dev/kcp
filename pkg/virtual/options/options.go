@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"path"
-
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/dynamic"
@@ -29,31 +27,37 @@ import (
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
+	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 )
 
-type Workspaces struct{}
+const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
-func NewWorkspaces() *Workspaces {
-	return &Workspaces{}
+type Options struct {
+	Workspaces *workspacesoptions.Workspaces
 }
 
-func (o *Workspaces) AddFlags(flags *pflag.FlagSet, prefix string) {
-	if o == nil {
-		return
+func NewOptions() *Options {
+	return &Options{
+		Workspaces: workspacesoptions.NewWorkspaces(),
 	}
 }
 
-func (o *Workspaces) Validate(flagPrefix string) []error {
-	if o == nil {
-		return nil
-	}
-	errs := []error{}
+// TODO: possibly add the prefix back here (for nicer stuff on the vw standalone commandline)
+// and move the constant to the server package
+func (v *Options) Validate() []error {
+	var errs []error
+
+	errs = append(errs, v.Workspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
 
-func (o *Workspaces) NewVirtualWorkspaces(
+// TODO: possibly add the prefix back here (for nicer stuff on the vw standalone commandline)
+func (v *Options) AddFlags(fs *pflag.FlagSet) {
+	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+}
+
+func (o *Options) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
@@ -61,12 +65,13 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	wildcardKubeInformers informers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
-	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
-	}
-	return nil, virtualWorkspaces, nil
-}
 
-func (o *Workspaces) Name() string {
-	return "workspaces"
+	inf, vws, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	if err != nil {
+		return nil, nil, err
+	}
+	extraInformers = append(extraInformers, inf...)
+	workspaces = append(workspaces, vws...)
+
+	return extraInformers, workspaces, nil
 }
