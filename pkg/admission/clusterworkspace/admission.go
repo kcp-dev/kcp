@@ -74,7 +74,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 
 	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("unexpected type %T", a.GetOldObject())
+		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 	cw := &tenancyv1alpha1.ClusterWorkspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {

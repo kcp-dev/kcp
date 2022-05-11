@@ -70,7 +70,7 @@ func (o *clusterWorkspaceShard) Validate(ctx context.Context, a admission.Attrib
 
 	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("unexpected type %T", a.GetOldObject())
+		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 	cws := &tenancyv1alpha1.ClusterWorkspaceShard{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cws); err != nil {
@@ -95,7 +95,7 @@ func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attribute
 
 	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("unexpected type %T", a.GetOldObject())
+		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 	cws := &tenancyv1alpha1.ClusterWorkspaceShard{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cws); err != nil {
