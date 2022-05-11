@@ -111,7 +111,9 @@ func (c *APIReconciler) Start(ctx context.Context) {
 	klog.Infof("Starting %s controller", c.name)
 	defer klog.Infof("Shutting down %s controller", c.name)
 
-	wait.Until(func() { c.startWorker(ctx) }, time.Millisecond*10, ctx.Done())
+	go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
+
+	<-ctx.Done()
 }
 
 func (c *APIReconciler) ShutDown() {
