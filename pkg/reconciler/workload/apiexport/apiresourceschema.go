@@ -63,16 +63,6 @@ func toAPIResourceSchema(r *v1alpha1.NegotiatedAPIResource, name string) *apisv1
 			schema.Spec.Versions[0].Subresources.Status = &apiextensionsv1.CustomResourceSubresourceStatus{}
 		}
 	}
-	for _, c := range r.Spec.CommonAPIResourceSpec.ColumnDefinitions {
-		if c.JSONPath == nil {
-			continue
-		}
-		schema.Spec.Versions[0].AdditionalPrinterColumns = append(schema.Spec.Versions[0].AdditionalPrinterColumns, apiextensionsv1.CustomResourceColumnDefinition{
-			Name:        c.Name,
-			Description: c.Description,
-			Type:        c.Type,
-			JSONPath:    *c.JSONPath,
-		})
-	}
+	schema.Spec.Versions[0].AdditionalPrinterColumns = r.Spec.CommonAPIResourceSpec.ColumnDefinitions.ToCustomResourceColumnDefinitions()
 	return schema
 }
