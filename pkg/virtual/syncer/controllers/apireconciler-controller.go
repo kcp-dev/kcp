@@ -47,7 +47,7 @@ func NewAPIReconciler(
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 ) (*APIReconciler, error) {
-	name := "kcp-syncer-api-reconciler"
+	name := "kcp-virtual-syncer-api-reconciler"
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
 
 	c := &APIReconciler{
