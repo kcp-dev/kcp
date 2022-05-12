@@ -134,7 +134,7 @@ func modifyCordon(ctx context.Context, config *rest.Config, workloadClusterName 
 	return nil
 }
 
-// Uncordon the workload cluster and mark it as schedulable
+// Start draining the workload cluster and mark it as unschedulable
 func (c *Config) Drain(ctx context.Context, workloadClusterName string) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {

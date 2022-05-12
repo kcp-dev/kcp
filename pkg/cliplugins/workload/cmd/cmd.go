@@ -42,7 +42,7 @@ var (
 	%[1]s workload uncordon <workload-cluster-name>
 `
 	drainExample = `
-	# Drain a workload cluster in preparation for maintenance.
+	# Start draining a workload cluster in preparation for maintenance.
 	%[1]s workload drain <workload-cluster-name>
 `
 )
@@ -182,7 +182,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	// drain
 	drainCmd := &cobra.Command{
 		Use:          "drain <workload-cluster-name>",
-		Short:        "Drain workload cluster in preparation for maintenance",
+		Short:        "Start draining workload cluster in preparation for maintenance",
 		Example:      fmt.Sprintf(drainExample, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
