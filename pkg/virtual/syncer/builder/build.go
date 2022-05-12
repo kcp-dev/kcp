@@ -51,7 +51,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 	}
 
 	var installedAPIs *installedAPIs
-	ready := false
+	readyCh := make(chan struct{})
 
 	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		Name: SyncerVirtualWorkspaceName,
@@ -104,10 +104,12 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			return
 		},
 		Ready: func() error {
-			if !ready {
+			select {
+			case <-readyCh:
+				return nil
+			default:
 				return errors.New("syncer virtual workspace controllers are not started")
 			}
-			return nil
 		},
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefs.APIDefinitionSetGetter, error) {
 
@@ -163,13 +165,13 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 					}
 				}
 
-				ready = true
 				ctx, cancel := context.WithCancel(context.Background())
 				go func() {
 					<-hookContext.StopCh
 					cancel()
 				}()
 				go apiReconciler.Start(ctx)
+				close(readyCh)
 				return nil
 			}); err != nil {
 				return nil, err
