@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
@@ -43,7 +43,7 @@ import (
 // these verbs are admitted, the delegate authorizer is called. Otherwise, NoOpionion is returned if
 // the top-level workspace exists, and Deny otherwise.
 func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
-	rootKubeInformer := rbacwrapper.FilterInformers(v1alpha1.RootCluster, versionedInformers.Rbac().V1())
+	rootKubeInformer := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, versionedInformers.Rbac().V1())
 
 	return &topLevelOrgAccessAuthorizer{
 		rootAuthorizer: rbac.New(
@@ -70,13 +70,13 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	}
 
 	workspaceAccessNotPermittedReason := fmt.Sprintf("%q workspace access not permitted", cluster.Name)
-	if !cluster.Name.HasPrefix(v1alpha1.RootCluster) {
+	if !cluster.Name.HasPrefix(tenancyv1alpha1.RootCluster) {
 		// nobody other than system:masters (excluded from authz) has access to workspaces not based in root
 		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 	}
 
 	// everybody authenticated has access to the root workspace
-	if cluster.Name == v1alpha1.RootCluster {
+	if cluster.Name == tenancyv1alpha1.RootCluster {
 		if sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated") {
 			return a.delegate.Authorize(ctx, attr)
 		}
@@ -90,7 +90,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	}
 
 	// check the org in the root exists
-	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(v1alpha1.RootCluster, requestTopLevelOrg)); err != nil {
+	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrg)); err != nil {
 		if errors.IsNotFound(err) {
 			return authorizer.DecisionDeny, workspaceAccessNotPermittedReason, nil
 		}
@@ -113,8 +113,8 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			workspaceAttr := authorizer.AttributesRecord{
 				User:        attr.GetUser(),
 				Verb:        verb,
-				APIGroup:    v1alpha1.SchemeGroupVersion.Group,
-				APIVersion:  v1alpha1.SchemeGroupVersion.Version,
+				APIGroup:    tenancyv1alpha1.SchemeGroupVersion.Group,
+				APIVersion:  tenancyv1alpha1.SchemeGroupVersion.Version,
 				Resource:    "clusterworkspaces",
 				Subresource: "content",
 				Name:        requestTopLevelOrg,
@@ -147,7 +147,7 @@ func topLevelOrg(clusterName logicalcluster.Name) (string, bool) {
 			// apparently not under `root`
 			return "", false
 		}
-		if parent == v1alpha1.RootCluster {
+		if parent == tenancyv1alpha1.RootCluster {
 			return clusterName.Base(), true
 		}
 		clusterName = parent

@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
@@ -79,7 +79,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// everybody authenticated has access to the root workspace
-	if cluster.Name == v1alpha1.RootCluster {
+	if cluster.Name == tenancyv1alpha1.RootCluster {
 		if sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated") {
 			return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), bootstrap.SystemKcpClusterWorkspaceAccessGroup)))
 		}
@@ -114,8 +114,8 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			workspaceAttr := authorizer.AttributesRecord{
 				User:            attr.GetUser(),
 				Verb:            attr.GetVerb(),
-				APIGroup:        v1alpha1.SchemeGroupVersion.Group,
-				APIVersion:      v1alpha1.SchemeGroupVersion.Version,
+				APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+				APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
 				Resource:        "clusterworkspaces",
 				Subresource:     "initialize",
 				Name:            clusterWorkspace,
@@ -158,8 +158,8 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			workspaceAttr := authorizer.AttributesRecord{
 				User:            attr.GetUser(),
 				Verb:            verb,
-				APIGroup:        v1alpha1.SchemeGroupVersion.Group,
-				APIVersion:      v1alpha1.SchemeGroupVersion.Version,
+				APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+				APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
 				Resource:        "clusterworkspaces",
 				Subresource:     "content",
 				Name:            clusterWorkspace,
