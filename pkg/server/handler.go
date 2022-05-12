@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
+	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
@@ -67,7 +68,10 @@ func init() {
 	)
 }
 
-const passthroughHeader = "X-Kcp-Api-V1-Discovery-Passthrough"
+const (
+	passthroughHeader   = "X-Kcp-Api-V1-Discovery-Passthrough"
+	workspaceAnnotation = "tenancy.kcp.dev/workspace"
+)
 
 type acceptHeaderContextKeyType int
 
@@ -146,6 +150,17 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		ctx := request.WithCluster(req.Context(), cluster)
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
 	}
+}
+
+func WithClusterAnnotation(handler http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cluster := request.ClusterFrom(req.Context())
+		if cluster != nil {
+			kaudit.AddAuditAnnotation(req.Context(), workspaceAnnotation, cluster.Name.String())
+		}
+
+		handler.ServeHTTP(w, req)
+	})
 }
 
 // WithWorkspaceProjection maps the personal virtual workspace "workspaces" resource into the cluster
