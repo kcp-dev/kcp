@@ -32,11 +32,11 @@ limitations under the License.
 // The RootPathResolver() method would usually interpret the URL sub-path, extract the API domain key from it,
 // and pass the request to the apiserver.DynamicAPIServer, along with the API domain key, if the API domain key contains APIs.
 //
-// The BootstrapAPISetManagement() method would typically create and initialize an apidefs.APISetRetriever, returned as a result,
+// The BootstrapAPISetManagement() method would typically create and initialize an apidefinition.APIDefinitionSetGetter, returned as a result,
 // and setup some logic that will call the apiserver.CreateServingInfoFor() method to add an APIDefinition
-// in the APISetRetriever on some event.
+// in the APIDefinitionSetGetter on some event.
 //
-// The apidefs.APISetRetriever returned by the BootstrapAPISetManagement() method is passed to the apiserver.DynamicAPIServer during the Register() call.
-// The apiserver.DyncamicAPIServer uses it to correctly choose the appropriate apidefs.APIDefinition used to serve the request,
+// The apidefinition.APIDefinitionSetGetter returned by the BootstrapAPISetManagement() method is passed to the apiserver.DynamicAPIServer during the Register() call.
+// The apiserver.DyncamicAPIServer uses it to correctly choose the appropriate apidefinition.APIDefinition used to serve the request,
 // based on the context api domain key and the requested API GVR.
 package dynamic

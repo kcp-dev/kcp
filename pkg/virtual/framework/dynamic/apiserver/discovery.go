@@ -61,7 +61,11 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
 
-	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	if !hasLocationKey {
+		r.delegate.ServeHTTP(w, req)
+		return
+	}
 
 	apiResourcesForDiscovery := []metav1.APIResource{}
 
@@ -148,7 +152,11 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 
 	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
 
-	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	if !hasLocationKey {
+		r.delegate.ServeHTTP(w, req)
+		return
+	}
 
 	foundGroup := false
 
@@ -203,7 +211,11 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	ctx := req.Context()
 	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
 
-	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	if !hasLocationKey {
+		r.delegate.ServeHTTP(w, req)
+		return
+	}
 
 	for gvr := range apiSet {
 

@@ -34,29 +34,25 @@ import (
 // Typical Usage of a DynamicVirtualWorkspace
 func Example() {
 
-	var someAPISetRetriever apidefinition.APIDefinitionSetGetter
-	ready := false
+	var someAPIDefinitionSetGetter apidefinition.APIDefinitionSetGetter
+	readyCh := make(chan struct{})
 
 	var _ = dynamic.DynamicVirtualWorkspace{
 
 		Name: "SomeDynamicVirtualWorkspace",
 
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			if someAPISetRetriever == nil {
-				// If the APISetRetriever is not initialized, don't accept the request
+			if someAPIDefinitionSetGetter == nil {
+				// If the APIDefinitionSetGetter is not initialized, don't accept the request
 				return
 			}
 
 			var apiDomainKey string
 
-			// Resolve the request root path, and extract API domain key from it ...
+			// Resolve the request root path and extract the API domain key from it
 
-			if _, exists := someAPISetRetriever.GetAPIDefinitionSet(apiDomainKey); !exists {
-				// If the APISetRetriever doesn't manage this api domain, don't accept the request
-				return
-			}
-
-			// ...
+			// If the root path doesn't start by the right prefix or doesn't contain the API domain key,
+			// just don't accept the request and return.
 
 			// Add the apiDomainKey to the request context before passing the request to the virtual workspace APIServer
 			completedContext = dynamiccontext.WithAPIDomainKey(requestContext, apiDomainKey)
@@ -65,17 +61,19 @@ func Example() {
 		},
 
 		Ready: func() error {
-			if !ready {
-				return errors.New("virtual workspace controllers are not started")
+			select {
+			case <-readyCh:
+				return nil
+			default:
+				return errors.New("syncer virtual workspace controllers are not started")
 			}
-			return nil
 		},
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 
-			// Initialize the implementation of the APISetRetriever
+			// Initialize the implementation of the APIDefinitionSetGetter
 
-			someAPISetRetriever = newAPISetRetriever()
+			someAPIDefinitionSetGetter = newAPIDefinitionSetGetter()
 
 			// Setup some controller that will add APIDefinitions on demand
 
@@ -92,18 +90,18 @@ func Example() {
 
 				someController.Start()
 
-				ready = true
+				close(readyCh)
 				return nil
 			}); err != nil {
 				return nil, err
 			}
 
-			return someAPISetRetriever, nil
+			return someAPIDefinitionSetGetter, nil
 		},
 	}
 }
 
-func newAPISetRetriever() apidefinition.APIDefinitionSetGetter { return nil }
+func newAPIDefinitionSetGetter() apidefinition.APIDefinitionSetGetter { return nil }
 
 type someController interface {
 	Start()

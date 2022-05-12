@@ -131,14 +131,18 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	locationKey := dynamiccontext.APIDomainKeyFromContext(ctx)
 
-	apiDefs, _ := r.apiSetRetriever.GetAPIDefinitionSet(locationKey)
-	apiDef, exists := apiDefs[schema.GroupVersionResource{
+	apiDefs, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(locationKey)
+	if !hasLocationKey {
+		r.delegate.ServeHTTP(w, req)
+		return
+	}
+
+	apiDef, hasAPIDef := apiDefs[schema.GroupVersionResource{
 		Group:    requestInfo.APIGroup,
 		Version:  requestInfo.APIVersion,
 		Resource: requestInfo.Resource,
 	}]
-
-	if !exists {
+	if !hasAPIDef {
 		r.delegate.ServeHTTP(w, req)
 		return
 	}
