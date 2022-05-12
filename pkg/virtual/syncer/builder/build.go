@@ -165,13 +165,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 					}
 				}
 
-				ctx, cancel := context.WithCancel(context.Background())
-				go func() {
-					<-hookContext.StopCh
-					cancel()
-				}()
-				go apiReconciler.Start(ctx)
 				close(readyCh)
+				go apiReconciler.Start(goContext(hookContext))
 				return nil
 			}); err != nil {
 				return nil, err
@@ -180,4 +175,13 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			return installedAPIs, nil
 		},
 	}
+}
+
+func goContext(parent genericapiserver.PostStartHookContext) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func(done <-chan struct{}) {
+		<-done
+		cancel()
+	}(parent.StopCh)
+	return ctx
 }
