@@ -133,13 +133,16 @@ func createResource(namespace, name string) *unstructured.Unstructured {
 }
 
 func TestGet(t *testing.T) {
-	resource := createResource("default", "foo")
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	storage := newStorage(t, &mockedClientGetter{fakeClient}, nil)
-	ctx := request.WithNamespace(context.TODO(), "default")
+	ctx := request.WithNamespace(context.Background(), "default")
+
 	_, err := storage.CustomResource.Get(ctx, "foo", &metav1.GetOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
+
+	resource := createResource("default", "foo")
 	_ = fakeClient.Tracker().Add(resource)
+
 	result, err := storage.CustomResource.Get(ctx, "foo", &metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Truef(t, apiequality.Semantic.DeepEqual(resource, result), "expected:\n%V\nactual:\n%V", resource, result)
@@ -149,11 +152,13 @@ func TestList(t *testing.T) {
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
 	storage := newStorage(t, &mockedClientGetter{fakeClient}, nil)
-	ctx := request.WithNamespace(context.TODO(), "default")
+	ctx := request.WithNamespace(context.Background(), "default")
+
 	result, err := storage.CustomResource.List(ctx, &internalversion.ListOptions{})
 	require.NoError(t, err)
 	require.IsType(t, &unstructured.UnstructuredList{}, result)
 	resultResources := result.(*unstructured.UnstructuredList).Items
+	require.Len(t, resultResources, len(resources))
 	for i, resource := range resources {
 		resource := *resource.(*unstructured.Unstructured)
 		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%V\nactual:\n%V", resource, resultResources[0])
@@ -164,17 +169,20 @@ func TestWatch(t *testing.T) {
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeWatcher := watch.NewFake()
-	fakeClient.PrependWatchReactor("noxus", kubernetestesting.DefaultWatchReactor(fakeWatcher, nil))
 	defer fakeWatcher.Stop()
+	fakeClient.PrependWatchReactor("noxus", kubernetestesting.DefaultWatchReactor(fakeWatcher, nil))
+	storage := newStorage(t, &mockedClientGetter{fakeClient}, nil)
+	ctx := request.WithNamespace(context.Background(), "default")
 
 	watchedError := &v1.Status{
 		Status:  "Failure",
 		Message: "message",
 	}
 
+	watchingStarted := make(chan bool, 1)
 	go func() {
+		<-watchingStarted
 		for _, resource := range resources {
-			time.Sleep(300 * time.Millisecond)
 			fakeWatcher.Add(resource)
 		}
 
@@ -183,16 +191,16 @@ func TestWatch(t *testing.T) {
 		fakeWatcher.Error(watchedError)
 	}()
 
-	storage := newStorage(t, &mockedClientGetter{fakeClient}, nil)
-	ctx := request.WithNamespace(context.TODO(), "default")
 	watcher, err := storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
 	require.NoError(t, err)
+
+	watchingStarted <- true
 	watcherChan := watcher.ResultChan()
 	var event watch.Event
 
 	select {
 	case event = <-watcherChan:
-	case <-time.After(10 * time.Second):
+	case <-time.After(wait.ForeverTestTimeout):
 		require.Fail(t, "Watch event not received")
 	}
 	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
@@ -200,7 +208,7 @@ func TestWatch(t *testing.T) {
 
 	select {
 	case event = <-watcherChan:
-	case <-time.After(10 * time.Second):
+	case <-time.After(wait.ForeverTestTimeout):
 		require.Fail(t, "Watch event not received")
 	}
 	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
@@ -208,7 +216,7 @@ func TestWatch(t *testing.T) {
 
 	select {
 	case event = <-watcherChan:
-	case <-time.After(10 * time.Second):
+	case <-time.After(wait.ForeverTestTimeout):
 		require.Fail(t, "Watch event not received")
 	}
 	require.Equal(t, watch.Modified, event.Type, "Event type is wrong")
@@ -216,7 +224,7 @@ func TestWatch(t *testing.T) {
 
 	select {
 	case event = <-watcherChan:
-	case <-time.After(10 * time.Second):
+	case <-time.After(wait.ForeverTestTimeout):
 		require.Fail(t, "Watch event not received")
 	}
 	require.Equal(t, watch.Deleted, event.Type, "Event type is wrong")
@@ -224,7 +232,7 @@ func TestWatch(t *testing.T) {
 
 	select {
 	case event = <-watcherChan:
-	case <-time.After(10 * time.Second):
+	case <-time.After(wait.ForeverTestTimeout):
 		require.Fail(t, "Watch event not received")
 	}
 	require.Equal(t, watch.Error, event.Type, "Event type is wrong")
@@ -235,17 +243,20 @@ func updateReactor(fakeClient *fake.FakeDynamicClient) kubernetestesting.Reactio
 	return func(action kubernetestesting.Action) (handled bool, ret runtime.Object, err error) {
 		updateAction := action.(kubernetestesting.UpdateAction)
 		actionResource := updateAction.GetObject().(*unstructured.Unstructured)
+
 		existingObject, err := fakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), actionResource.GetName())
 		if err != nil {
 			return true, nil, err
 		}
 		existingResource := existingObject.(*unstructured.Unstructured)
+
 		if existingResource.GetResourceVersion() != actionResource.GetResourceVersion() {
 			return true, nil, errors.NewConflict(action.GetResource().GroupResource(), existingResource.GetName(), fmt.Errorf(registry.OptimisticLockErrorMsg))
 		}
 		if err := fakeClient.Tracker().Update(action.GetResource(), actionResource, action.GetNamespace()); err != nil {
 			return true, nil, err
 		}
+
 		return true, actionResource, nil
 	}
 }
@@ -257,7 +268,7 @@ func TestUpdate(t *testing.T) {
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
 	storage := newStorage(t, &mockedClientGetter{fakeClient}, nil)
-	ctx := request.WithNamespace(context.TODO(), "default")
+	ctx := request.WithNamespace(context.Background(), "default")
 	updated := resource.DeepCopy()
 
 	newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
@@ -282,9 +293,12 @@ func TestUpdate(t *testing.T) {
 	updatedGeneration, _, err := unstructured.NestedInt64(resultResource.UnstructuredContent(), "metadata", "generation")
 	require.NoError(t, err)
 	require.Equalf(t, int64(2), updatedGeneration, "Generation should be incremented when updating the Spec")
+
+	// We just checked that the generation has been increased. Now reset the generation to the initial value:
+	// this will allow testing the deep equality of the objects, apart from the generation number.
 	_ = unstructured.SetNestedField(resultResource.UnstructuredContent(), int64(1), "metadata", "generation")
 
-	// We check that the status has in fact not been updated
+	// Now we can check that the status has in fact not been updated
 	require.True(t, apiequality.Semantic.DeepEqual(updated, result), "expected:\n%V\nactual:\n%V", updated, result)
 
 	fakeClient.ClearActions()
@@ -312,7 +326,7 @@ func TestStatusUpdate(t *testing.T) {
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
 	storage := newStorage(t, &mockedClientGetter{fakeClient}, nil)
-	ctx := request.WithNamespace(context.TODO(), "default")
+	ctx := request.WithNamespace(context.Background(), "default")
 	statusUpdated := resource.DeepCopy()
 	if err := unstructured.SetNestedField(statusUpdated.UnstructuredContent(), int64(10), "status", "availableReplicas"); err != nil {
 		require.NoError(t, err)
@@ -347,7 +361,7 @@ func TestPatch(t *testing.T) {
 	backoff := retry.DefaultRetry
 	backoff.Steps = 5
 	storage := newStorage(t, &mockedClientGetter{fakeClient}, &backoff)
-	ctx := request.WithNamespace(context.TODO(), "default")
+	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Verb: "patch"})
 
 	patcher := func(ctx context.Context, newObj, oldObj runtime.Object) (runtime.Object, error) {
@@ -377,7 +391,7 @@ func TestPatch(t *testing.T) {
 		return true, resource, nil
 	})
 
-	result, _, err := storage.CustomResource.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	resultObj, _, err := storage.CustomResource.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.NoError(t, err)
 	updates := 0
 	for _, action := range fakeClient.Actions() {
@@ -387,8 +401,17 @@ func TestPatch(t *testing.T) {
 	}
 	require.Equalf(t, noMoreConflicts, updates, "Should have tried calling client.Update %d times to overcome resourceVersion conflicts.", noMoreConflicts)
 
-	expected, _ := patcher(ctx, nil, resource)
-	expected.(*unstructured.Unstructured).SetGeneration(2)
+	expectedObj, _ := patcher(ctx, nil, resource)
+	expected := expectedObj.(*unstructured.Unstructured)
+	result := resultObj.(*unstructured.Unstructured)
+
+	resultGeneration, _, err := unstructured.NestedInt64(result.UnstructuredContent(), "metadata", "generation")
+	require.NoError(t, err)
+	require.Equalf(t, int64(2), resultGeneration, "Generation should be incremented when patching the Spec")
+
+	// We just checked that the generation has been increased. Now reset the generation to the initial value:
+	// this will allow testing the deep equality of the objects, apart from the generation number.
+	result.SetGeneration(1)
 	require.True(t, apiequality.Semantic.DeepEqual(expected, result), "expected:\n%V\nactual:\n%V", expected, result)
 
 	getCallCounts = 0
