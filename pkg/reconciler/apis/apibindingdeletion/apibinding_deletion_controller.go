@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacedeletion
+package apibindingdeletion
 
 import (
 	"context"
@@ -37,34 +37,36 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
 
+const (
+	APIBindingFinalizer = "apis.kcp.dev/apibinding-finalizer"
+)
+
 func NewController(
-	kcpClient kcpclient.ClusterInterface,
 	metadataClient metadata.Interface,
-	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
+	kcpClusterClient kcpclient.ClusterInterface,
+	apiBindingInformer apisinformers.APIBindingInformer,
 ) *Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "workspace-deletion")
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "apibinding-deletion")
 
 	c := &Controller{
-		queue:           queue,
-		kcpClient:       kcpClient,
-		workspaceLister: workspaceInformer.Lister(),
+		queue:             queue,
+		metadataClient:    metadataClient,
+		kcpClusterClient:  kcpClusterClient,
+		apiBindingsLister: apiBindingInformer.Lister(),
+		apibindingSynced:  apiBindingInformer.Informer().HasSynced,
 	}
 
-	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
-
-	c.deleter = deletion.NewWorkspacedResourcesDeleter(metadataClient, discoverResourcesFn)
-	c.workspaceSynced = workspaceInformer.Informer().HasSynced
 
 	return c
 }
@@ -72,10 +74,11 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClient       kcpclient.ClusterInterface
-	workspaceLister tenancylister.ClusterWorkspaceLister
-	workspaceSynced cache.InformerSynced
-	deleter         deletion.WorkspaceResourcesDeleterInterface
+	metadataClient   metadata.Interface
+	kcpClusterClient kcpclient.ClusterInterface
+
+	apiBindingsLister apislisters.APIBindingLister
+	apibindingSynced  cache.InformerSynced
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -84,7 +87,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	klog.Infof("Queueing workspace %q", key)
+	klog.Infof("Queueing apibinding %q", key)
 	c.queue.Add(key)
 }
 
@@ -92,10 +95,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting ClusterWorkspace Deletion controller")
-	defer klog.Info("Shutting down ClusterWorkspace Deletion controller")
+	klog.Info("Starting APIBinding Deletion controller")
+	defer klog.Info("Shutting down APIBinding Deletion controller")
 
-	if !cache.WaitForNamedCacheSync("workspace-deletion", ctx.Done(), c.workspaceSynced) {
+	if !cache.WaitForNamedCacheSync("apibinding-deletion", ctx.Done(), c.apibindingSynced) {
 		return
 	}
 
@@ -136,13 +139,14 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	var estimate *deletion.ResourcesRemainingError
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
-		klog.V(2).Infof("Content remaining in workspace %s, waiting %d seconds", key, t)
+		klog.V(2).Infof("custom resources remaining for apibinding %s, waiting %d seconds", key, t)
 		c.queue.AddAfter(key, time.Duration(t)*time.Second)
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed
 		c.queue.AddRateLimited(key)
-		runtime.HandleError(fmt.Errorf("deletion of workspace %v failed: %w", key, err))
+		runtime.HandleError(fmt.Errorf("deletion of apibinding %v failed: %w", key, err))
 	}
+	runtime.HandleError(fmt.Errorf("deletion of apibinding %v failed: %w", key, err))
 
 	return true
 }
@@ -151,24 +155,24 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	startTime := time.Now()
 
 	defer func() {
-		klog.V(4).Infof("Finished syncing workspace %q (%v)", key, time.Since(startTime))
+		klog.V(4).Infof("Finished syncing apibinding %q (%v)", key, time.Since(startTime))
 	}()
 
-	workspace, err := c.workspaceLister.Get(key)
+	apibinding, err := c.apiBindingsLister.Get(key)
 	if apierrors.IsNotFound(err) {
-		klog.Infof("Workspace has been deleted %v", key)
+		klog.Infof("apibinding has been deleted %v", key)
 		return nil
 	}
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("unable to retrieve workspace %v from store: %w", key, err))
+		runtime.HandleError(fmt.Errorf("unable to retrieve apibinding %v from store: %w", key, err))
 		return err
 	}
 
-	workspaceCopy := workspace.DeepCopy()
-	if workspaceCopy.DeletionTimestamp.IsZero() {
+	apibindingCopy := apibinding.DeepCopy()
+	if apibindingCopy.DeletionTimestamp.IsZero() {
 		hasFinalizer := false
-		for i := range workspaceCopy.Finalizers {
-			if workspaceCopy.Finalizers[i] == deletion.WorkspaceFinalizer {
+		for i := range apibindingCopy.Finalizers {
+			if apibindingCopy.Finalizers[i] == APIBindingFinalizer {
 				hasFinalizer = true
 				break
 			}
@@ -178,75 +182,76 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		finalizerBytes, err := json.Marshal(append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer))
+		finalizerBytes, err := json.Marshal(append(apibindingCopy.Finalizers, APIBindingFinalizer))
 		if err != nil {
 			return err
 		}
 		patch := fmt.Sprintf("{\"metadata\": {\"finalizers\": %s}}", string(finalizerBytes))
 
-		_, err = c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Patch(
-			ctx, workspace.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+		_, err = c.kcpClusterClient.Cluster(logicalcluster.From(apibindingCopy)).ApisV1alpha1().APIBindings().Patch(
+			ctx, apibindingCopy.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 		return err
 	}
 
-	err = c.deleter.Delete(ctx, workspaceCopy)
+	err = c.deleteAllCRs(ctx, apibindingCopy)
+
 	if err == nil {
-		return c.finalizeWorkspace(ctx, workspaceCopy)
+		return c.finalizeAPIBinding(ctx, apibindingCopy)
 	}
 
-	if patchErr := c.patchCondition(ctx, workspace, workspaceCopy); patchErr != nil {
+	if patchErr := c.patchCondition(ctx, apibinding, apibindingCopy); patchErr != nil {
 		return patchErr
 	}
 
 	return err
 }
 
-func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alpha1.ClusterWorkspace) error {
+func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.APIBinding) error {
 	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
 		return nil
 	}
 
-	oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
-		Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+	oldData, err := json.Marshal(apisv1alpha1.APIBinding{
+		Status: apisv1alpha1.APIBindingStatus{
 			Conditions: old.Status.Conditions,
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for workspace %s: %w", old.Name, err)
+		return fmt.Errorf("failed to Marshal old data for apibinding %s: %w", old.Name, err)
 	}
 
-	newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
+	newData, err := json.Marshal(apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:             old.UID,
 			ResourceVersion: old.ResourceVersion,
 		}, // to ensure they appear in the patch as preconditions
-		Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+		Status: apisv1alpha1.APIBindingStatus{
 			Conditions: new.Status.Conditions,
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for workspace %s: %w", new.Name, err)
+		return fmt.Errorf("failed to Marshal new data for apibinding %s: %w", new.Name, err)
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
-		return fmt.Errorf("failed to create patch for workspace %s: %w", new.Name, err)
+		return fmt.Errorf("failed to create patch for apibinding %s: %w", new.Name, err)
 	}
 
-	_, err = c.kcpClient.Cluster(logicalcluster.From(new)).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new)).ApisV1alpha1().APIBindings().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
-// finalizeNamespace removes the specified finalizer and finalizes the workspace
-func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+// finalizeAPIBinding removes the specified finalizer and finalizes the apibinding
+func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1alpha1.APIBinding) error {
 	copiedFinalizers := []string{}
-	for i := range workspace.Finalizers {
-		if workspace.Finalizers[i] == deletion.WorkspaceFinalizer {
+	for i := range apibinding.Finalizers {
+		if apibinding.Finalizers[i] == APIBindingFinalizer {
 			continue
 		}
-		copiedFinalizers = append(copiedFinalizers, workspace.Finalizers[i])
+		copiedFinalizers = append(copiedFinalizers, APIBindingFinalizer)
 	}
-	if len(workspace.Finalizers) == len(copiedFinalizers) {
+	if len(apibinding.Finalizers) == len(copiedFinalizers) {
 		return nil
 	}
 
@@ -256,7 +261,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 	}
 	patch := fmt.Sprintf("{\"metadata\": {\"finalizers\": %s}}", string(finalizerBytes))
 
-	_, err = c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Patch(
-		ctx, workspace.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(apibinding)).ApisV1alpha1().APIBindings().Patch(
+		ctx, apibinding.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 	return err
 }

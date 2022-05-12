@@ -52,6 +52,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
@@ -296,7 +297,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		return discoveryClient.ServerPreferredResources()
 	}
 
-	workspaceGCController := clusterworkspacedeletion.NewController(
+	workspaceDeletionController := clusterworkspacedeletion.NewController(
 		kcpClusterClient,
 		metadata,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
@@ -310,7 +311,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go workspaceGCController.Start(ctx, 2)
+		go workspaceDeletionController.Start(ctx, 2)
 		return nil
 	})
 	return nil
@@ -529,6 +530,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
+	metadataClient, err := metadata.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
 	c, err := apibinding.NewController(
 		crdClusterClient,
 		kcpClusterClient,
@@ -549,6 +555,26 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		}
 
 		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	apibindingDeletionController := apibindingdeletion.NewController(
+		metadataClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+	)
+
+	if err := server.AddPostStartHook("kcp-install-apibinding-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go apibindingDeletionController.Start(goContext(hookContext), 2)
 
 		return nil
 	}); err != nil {
