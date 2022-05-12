@@ -84,13 +84,13 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	}
 
 	// get org in the root
-	requestTopLevelOrg, ok := topLevelOrg(cluster.Name)
+	requestTopLevelOrgName, ok := topLevelOrg(cluster.Name)
 	if !ok {
 		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 	}
 
 	// check the org in the root exists
-	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrg)); err != nil {
+	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)); err != nil {
 		if errors.IsNotFound(err) {
 			return authorizer.DecisionDeny, workspaceAccessNotPermittedReason, nil
 		}
@@ -99,8 +99,8 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 
 	if subjectCluster := attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey]; len(subjectCluster) > 0 {
 		// service account will automatically get access to its top-level org
-		subjectTopLevelOrg, ok := topLevelOrg(logicalcluster.New(subjectCluster[0]))
-		if !ok || subjectTopLevelOrg != requestTopLevelOrg {
+		subjectTopLevelOrgName, ok := topLevelOrg(logicalcluster.New(subjectCluster[0]))
+		if !ok || subjectTopLevelOrgName != requestTopLevelOrgName {
 			return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
 		}
 		return a.delegate.Authorize(ctx, attr)
@@ -117,7 +117,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 				APIVersion:  tenancyv1alpha1.SchemeGroupVersion.Version,
 				Resource:    "clusterworkspaces",
 				Subresource: "content",
-				Name:        requestTopLevelOrg,
+				Name:        requestTopLevelOrgName,
 
 				ResourceRequest: true,
 			}
