@@ -25,6 +25,6 @@ limitations under the License.
 // - the CreateServingInfoFor method can be used by external components at any time to create an apidefs.APIDefinition and
 // add it to the apidefs.APISetRetriever that has been passed to the DynamicAPIServer
 //
-// Parts of this package are highly insired from kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver/pkg/apiserver
+// Parts of this package are highly inspired from k8s.io/apiextensions-apiserver/pkg/apiserver
 // https://github.com/kcp-dev/kubernetes/tree/feature-logical-clusters-1.23/staging/src/k8s.io/apiextensions-apiserver/pkg/apiserver
 package apiserver

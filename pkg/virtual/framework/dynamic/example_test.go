@@ -28,6 +28,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
+	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 // Typical Usage of a DynamicVirtualWorkspace
@@ -58,7 +59,7 @@ func Example() {
 			// ...
 
 			// Add the apiDomainKey to the request context before passing the request to the virtual workspace APIServer
-			completedContext = context.WithValue(requestContext, apidefinition.APIDomainKeyContextKey, apiDomainKey)
+			completedContext = dynamiccontext.WithAPIDomainKey(requestContext, apiDomainKey)
 			accepted = true
 			return
 		},

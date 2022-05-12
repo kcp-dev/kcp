@@ -26,14 +26,6 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 )
 
-// APIDomainKeyContextKeyType is the type of the key for the request context value
-// that will carry the API domain key.
-type APIDomainKeyContextKeyType string
-
-// APIDomainKeyContextKey is the key for the request context value
-// that will carry the API domain key.
-const APIDomainKeyContextKey APIDomainKeyContextKeyType = "VirtualWorkspaceAPIDomainLocationKey"
-
 // APIDefinition provides access to all the information needed to serve a given API resource
 type APIDefinition interface {
 	// GetAPIResourceSpec provides the API resource specification, which contains the

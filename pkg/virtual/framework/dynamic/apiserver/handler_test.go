@@ -17,7 +17,6 @@ limitations under the License.
 package apiserver
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -41,6 +40,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
+	dyncamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 type mockedAPISetRetriever apidefinition.APIDefinitionSet
@@ -523,7 +523,7 @@ func TestRouting(t *testing.T) {
 					}
 
 					req = req.WithContext(apirequest.WithRequestInfo(
-						context.WithValue(req.Context(), apidefinition.APIDomainKeyContextKey, "domain"),
+						dyncamiccontext.WithAPIDomainKey(req.Context(), "domain"),
 						&apirequest.RequestInfo{
 							Verb:              tc.Verb,
 							Resource:          tc.Resource,

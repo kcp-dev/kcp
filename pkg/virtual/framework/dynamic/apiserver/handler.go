@@ -39,6 +39,7 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
+	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 // resourceHandler serves the `/apis` and `/api`` endpoints.
@@ -128,7 +129,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	locationKey := ctx.Value(apidefinition.APIDomainKeyContextKey).(string)
+	locationKey := dynamiccontext.APIDomainKeyFromContext(ctx)
 
 	apiDefs, _ := r.apiSetRetriever.GetAPIDefinitionSet(locationKey)
 	apiDef, exists := apiDefs[schema.GroupVersionResource{
@@ -143,7 +144,6 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	apiResourceSpec := apiDef.GetAPIResourceSpec()
-	//	apiClusterName := apiDef.GetClusterName()
 
 	verb := strings.ToUpper(requestInfo.Verb)
 	resource := requestInfo.Resource

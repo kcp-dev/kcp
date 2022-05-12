@@ -32,6 +32,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
+	dyncamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 type versionDiscoveryHandler struct {
@@ -58,7 +59,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	ctx := req.Context()
 
-	apiDomainKey := ctx.Value(apidefinition.APIDomainKeyContextKey).(string)
+	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
 
 	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 
@@ -145,7 +146,7 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 
 	ctx := req.Context()
 
-	apiDomainKey := ctx.Value(apidefinition.APIDomainKeyContextKey).(string)
+	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
 
 	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 
@@ -200,7 +201,7 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	versionsForDiscoveryMap := map[string]map[metav1.GroupVersion]bool{}
 
 	ctx := req.Context()
-	apiDomainKey := ctx.Value(apidefinition.APIDomainKeyContextKey).(string)
+	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
 
 	apiSet, _ := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 
