@@ -56,7 +56,11 @@ func NewNegotiatedAPIResourceInformer(client versioned.Interface, resyncPeriod t
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredNegotiatedAPIResourceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(
+	return NewFilteredNegotiatedAPIResourceInformerWithOptions(client, tweakListOptions, cache.WithResyncPeriod(resyncPeriod), cache.WithIndexers(indexers))
+}
+
+func NewFilteredNegotiatedAPIResourceInformerWithOptions(client versioned.Interface, tweakListOptions internalinterfaces.TweakListOptionsFunc, opts ...cache.SharedInformerOption) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformerWithOptions(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -72,13 +76,22 @@ func NewFilteredNegotiatedAPIResourceInformer(client versioned.Interface, resync
 			},
 		},
 		&apiresourcev1alpha1.NegotiatedAPIResource{},
-		resyncPeriod,
-		indexers,
+		opts...,
 	)
 }
 
 func (f *negotiatedAPIResourceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredNegotiatedAPIResourceInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	indexers := cache.Indexers{}
+	for k, v := range f.factory.ExtraClusterScopedIndexers() {
+		indexers[k] = v
+	}
+
+	return NewFilteredNegotiatedAPIResourceInformerWithOptions(client,
+		f.tweakListOptions,
+		cache.WithResyncPeriod(resyncPeriod),
+		cache.WithIndexers(indexers),
+		cache.WithKeyFunction(f.factory.KeyFunction()),
+	)
 }
 
 func (f *negotiatedAPIResourceInformer) Informer() cache.SharedIndexInformer {
