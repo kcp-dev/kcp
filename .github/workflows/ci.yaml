@@ -162,6 +162,9 @@ jobs:
       - uses: imjasonh/setup-ko@v0.4
       - run: KO_DOCKER_REPO=${KIND_REGISTRY} ko publish ./cmd/syncer --insecure-registry -t $(git rev-parse --short "$GITHUB_SHA") > /tmp/syncer-image
 
+      # Publish a in-cluster config test image to the local registry
+      - run: KO_DOCKER_REPO=${KIND_REGISTRY} ko publish  ./test/e2e/fixtures/icc-test-app --insecure-registry -t $(git rev-parse --short "$GITHUB_SHA") > /tmp/icc-test-image
+
       - run: |-
           export LOG_DIR=/tmp/e2e/shared-server/artifacts &&
           mkdir -p ${LOG_DIR} &&
@@ -173,7 +176,7 @@ jobs:
           kind get kubeconfig > /tmp/kind-kubeconfig
           ARTIFACT_DIR=/tmp/e2e \
           PATH="${PATH}:$(pwd)/bin/" \
-          TEST_ARGS="-args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --pcluster-kubeconfig=/tmp/kind-kubeconfig" \
+          TEST_ARGS="-args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --icc-test-image=$(cat /tmp/icc-test-image) --pcluster-kubeconfig=/tmp/kind-kubeconfig" \
           COUNT=2 \
           E2E_PARALLELISM=2 \
           make test-e2e

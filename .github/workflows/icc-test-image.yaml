@@ -1,0 +1,26 @@
+name: Build in-cluster configuration test Image
+
+permissions:
+  packages: write
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-*'
+    tags:
+      - 'v*'
+
+jobs:
+  syncer-image:
+    name: Build in-cluster configuration test Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: v1.17
+
+      # Build and push a syncer image, tagged with the commit SHA and the branch name.
+      - uses: imjasonh/setup-ko@v0.4
+      - run: ko publish -B --platform all ./test/e2e/fixtures/icc-test-app -t $(git rev-parse --short "$GITHUB_SHA"),${{ github.ref_name }}
