@@ -14,25 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package syncer
+package apireconciler
 
 import (
+	"fmt"
+
 	"github.com/kcp-dev/logicalcluster"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// WorkloadClusterAPI defines an API that should be exposed for a given WorkloadCluster
-type WorkloadClusterAPI struct {
-	LogicalClusterName logicalcluster.Name
-	Name               string
+func indexByWorksapce(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
 
-	Spec *apiresourcev1alpha1.CommonAPIResourceSpec
-}
-
-// WorkloadClusterAPIManager provides the ability to manage (add, modify, remove)
-// APIs exposed on a given WorkloadCluster
-type WorkloadClusterAPIManager interface {
-	Upsert(api WorkloadClusterAPI) error
-	Remove(api WorkloadClusterAPI) error
+	lcluster := logicalcluster.From(metaObj)
+	return []string{lcluster.String()}, nil
 }
