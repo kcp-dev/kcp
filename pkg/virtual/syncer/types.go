@@ -30,7 +30,7 @@ type WorkloadClusterAPI struct {
 	Spec *apiresourcev1alpha1.CommonAPIResourceSpec
 }
 
-// WorkloadClusterAPIManager provides the ablity to manage (add, modify, remove)
+// WorkloadClusterAPIManager provides the ability to manage (add, modify, remove)
 // APIs exposed on a given WorkloadCluster
 type WorkloadClusterAPIManager interface {
 	Upsert(api WorkloadClusterAPI) error

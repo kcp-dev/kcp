@@ -24,6 +24,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 // APIDefinition provides access to all the information needed to serve a given API resource
@@ -53,7 +54,7 @@ type APIDefinitionSet map[schema.GroupVersionResource]APIDefinition
 
 // APIDefinitionSetGetter provides access to the API definitions of a API domain, based on the API domain key.
 type APIDefinitionSetGetter interface {
-	GetAPIDefinitionSet(apiDomainKey string) (apis APIDefinitionSet, apisExist bool)
+	GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apis APIDefinitionSet, apisExist bool)
 }
 
 // CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition

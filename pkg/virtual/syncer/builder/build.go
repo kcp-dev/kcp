@@ -72,7 +72,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 				return
 			}
-			workloadClusterKey := clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), parts[1])
+			apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), parts[1]))
 
 			realPath := "/"
 			if len(parts) > 2 {
@@ -94,9 +94,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				}
 			}
 
-			completedContext = dynamiccontext.WithAPIDomainKey(
-				genericapirequest.WithCluster(requestContext, cluster),
-				workloadClusterKey)
+			completedContext = genericapirequest.WithCluster(requestContext, cluster)
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
