@@ -267,7 +267,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				t.Log("Verify there is one cowboy via virtual workspace")
 				virtualWorkspaceCowboys, err := virtualWorkspaceClusterClient.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
-				require.Len(t, virtualWorkspaceCowboys.Items, 1)
+				require.Lenf(t, virtualWorkspaceCowboys.Items, 1, "should be one cowboy, got:\n%s", toYAML(t, virtualWorkspaceCowboys))
 
 				t.Log("Verify there is luckyluke via virtual workspace")
 				kcpCowboy, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
@@ -295,12 +295,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NotEqual(t, expectedModifiedKcpCowboy.ResourceVersion, modifiedkcpCowboy)
 
 				t.Log("Verify resource version, managed fields and generation")
-				expectedModifiedKcpCowboy.ResourceVersion = modifiedkcpCowboy.ResourceVersion
-				require.NotEqual(t, expectedModifiedKcpCowboy.ManagedFields, modifiedkcpCowboy.ManagedFields)
-				expectedModifiedKcpCowboy.ManagedFields = modifiedkcpCowboy.ManagedFields
-				require.Equal(t, expectedModifiedKcpCowboy.Generation+1, modifiedkcpCowboy.Generation)
-				expectedModifiedKcpCowboy.Generation = modifiedkcpCowboy.Generation
-				require.Equal(t, *expectedModifiedKcpCowboy, *modifiedkcpCowboy)
+				require.Equal(t, expectedModifiedKcpCowboy.Spec, modifiedkcpCowboy.Spec)
+				require.Equal(t, expectedModifiedKcpCowboy.Status, modifiedkcpCowboy.Status)
 			},
 		},
 	}
