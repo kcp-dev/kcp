@@ -146,12 +146,14 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 func (c *APIReconciler) process(ctx context.Context, key string) error {
 	delete := func() {
 		c.apiMutex.Lock()
-		defer c.apiMutex.Unlock()
 		if existing, exists := c.workloadClusterAPIs[key]; exists {
-			klog.V(3).Infof("Removing API %s", key)
-
-			_ = c.apiWatcher.Remove(existing)
 			delete(c.workloadClusterAPIs, key)
+			c.apiMutex.Unlock()
+
+			klog.V(3).Infof("Removing API %s", key)
+			_ = c.apiWatcher.Remove(existing)
+		} else {
+			c.apiMutex.Unlock()
 		}
 	}
 
@@ -189,15 +191,14 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	c.apiMutex.Lock()
-	defer c.apiMutex.Unlock()
-
 	api := syncer.WorkloadClusterAPI{
 		LogicalClusterName: logicalcluster.From(apiResourceImport),
 		Name:               apiResourceImport.Spec.Location,
 		Spec:               (&negotiatedAPIResource.Spec.CommonAPIResourceSpec).DeepCopy(),
 	}
+	c.apiMutex.Lock()
 	c.workloadClusterAPIs[key] = api
+	c.apiMutex.Unlock()
 
 	klog.V(3).Infof("Upserting API %s", key)
 	return c.apiWatcher.Upsert(api)
