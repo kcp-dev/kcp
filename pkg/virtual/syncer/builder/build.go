@@ -27,6 +27,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -69,10 +70,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 				return
 			}
-			workloadClusterKey := syncer.WorkloadClusterRef{
-				LogicalClusterName: logicalcluster.New(parts[0]),
-				Name:               parts[1],
-			}.Key()
+			workloadClusterKey := clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), parts[1])
 
 			realPath := "/"
 			if len(parts) > 2 {
@@ -125,14 +123,11 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			clusterInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					if workloadCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster); ok {
-						workloadClusterRef := syncer.WorkloadClusterRef{
-							LogicalClusterName: logicalcluster.From(workloadCluster),
-							Name:               workloadCluster.Name,
-						}
-						installedAPIs.addWorkloadCluster(workloadClusterRef)
+						installedAPIs.addWorkloadCluster(logicalcluster.From(workloadCluster), workloadCluster.Name)
 						for _, api := range internalAPIs {
 							_ = installedAPIs.Upsert(syncer.WorkloadClusterAPI{
-								WorkloadClusterRef: workloadClusterRef,
+								LogicalClusterName: logicalcluster.From(workloadCluster),
+								Name:               workloadCluster.Name,
 								Spec:               api,
 							})
 						}
@@ -140,10 +135,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				},
 				DeleteFunc: func(obj interface{}) {
 					if workloadCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster); ok {
-						installedAPIs.removeWorkloadCluster(syncer.WorkloadClusterRef{
-							LogicalClusterName: logicalcluster.From(workloadCluster),
-							Name:               workloadCluster.Name,
-						})
+						installedAPIs.removeWorkloadCluster(logicalcluster.From(workloadCluster), workloadCluster.Name)
 					}
 				},
 			})

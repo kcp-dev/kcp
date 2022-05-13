@@ -190,11 +190,9 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	defer c.apiMutex.Unlock()
 
 	api := syncer.WorkloadClusterAPI{
-		WorkloadClusterRef: syncer.WorkloadClusterRef{
-			LogicalClusterName: logicalcluster.From(apiResourceImport),
-			Name:               apiResourceImport.Spec.Location,
-		},
-		Spec: (&negotiatedAPIResource.Spec.CommonAPIResourceSpec).DeepCopy(),
+		LogicalClusterName: logicalcluster.From(apiResourceImport),
+		Name:               apiResourceImport.Spec.Location,
+		Spec:               (&negotiatedAPIResource.Spec.CommonAPIResourceSpec).DeepCopy(),
 	}
 	c.workloadClusterAPIs[key] = api
 	return c.apiWatcher.Upsert(api)

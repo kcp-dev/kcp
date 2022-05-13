@@ -20,7 +20,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/clusters"
 
 	apidefinition "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
@@ -43,21 +46,21 @@ func newInstalledAPIs(createAPIDefinition apidefinition.CreateAPIDefinitionFunc)
 	}
 }
 
-func (apis *installedAPIs) addWorkloadCluster(workloadCluster syncer.WorkloadClusterRef) {
+func (apis *installedAPIs) addWorkloadCluster(cluster logicalcluster.Name, workloadCluster string) {
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	workloadClusterKey := workloadCluster.Key()
+	workloadClusterKey := clusters.ToClusterAwareKey(cluster, workloadCluster)
 	if _, exists := apis.apiSets[workloadClusterKey]; !exists {
 		apis.apiSets[workloadClusterKey] = make(apidefinition.APIDefinitionSet)
 	}
 }
 
-func (apis *installedAPIs) removeWorkloadCluster(workloadCluster syncer.WorkloadClusterRef) {
+func (apis *installedAPIs) removeWorkloadCluster(cluster logicalcluster.Name, workloadCluster string) {
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	workloadClusterKey := workloadCluster.Key()
+	workloadClusterKey := clusters.ToClusterAwareKey(cluster, workloadCluster)
 	delete(apis.apiSets, workloadClusterKey)
 }
 
@@ -73,7 +76,8 @@ func (apis *installedAPIs) Upsert(api syncer.WorkloadClusterAPI) error {
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	if workloadClusterAPIs, exists := apis.apiSets[api.Key()]; !exists {
+	key := clusters.ToClusterAwareKey(api.LogicalClusterName, api.Name)
+	if workloadClusterAPIs, exists := apis.apiSets[key]; !exists {
 		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName.String())
 	} else {
 		gvr := schema.GroupVersionResource{
@@ -94,7 +98,8 @@ func (apis *installedAPIs) Remove(api syncer.WorkloadClusterAPI) error {
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	if workloadClusterAPIs, exists := apis.apiSets[api.Key()]; !exists {
+	key := clusters.ToClusterAwareKey(api.LogicalClusterName, api.Name)
+	if workloadClusterAPIs, exists := apis.apiSets[key]; !exists {
 		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName.String())
 	} else {
 		gvr := schema.GroupVersionResource{
