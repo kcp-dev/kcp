@@ -138,6 +138,11 @@ func (c *APIReconciler) enqueueWorkloadCluster(obj interface{}) {
 
 	clusterName, name := clusters.SplitClusterAwareKey(key)
 	resources, err := c.negotiatedAPIResourceIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
 	for _, obj := range resources {
 		r := obj.(*apiresourcev1alpha1.NegotiatedAPIResource)
 
@@ -157,6 +162,11 @@ func (c *APIReconciler) enqueueNegotiatedAPIResource(obj interface{}) {
 
 	clusterName, name := clusters.SplitClusterAwareKey(key)
 	workloadClusters, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
 	for _, obj := range workloadClusters {
 		wc := obj.(*workloadv1alpha1.WorkloadCluster)
 
