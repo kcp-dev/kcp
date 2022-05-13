@@ -39,6 +39,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
 )
 
+const controllerName = "kcp-virtual-syncer-api-reconciler"
+
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding WorkloadClusterAPI management to the given WorkloadClusterAPIManager.
 func NewAPIReconciler(
@@ -47,11 +49,9 @@ func NewAPIReconciler(
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 ) (*APIReconciler, error) {
-	name := "kcp-virtual-syncer-api-reconciler"
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &APIReconciler{
-		name:                        name,
 		apiWatcher:                  apiManager,
 		kcpClusterClient:            kcpClusterClient,
 		apiresourceImportLister:     apiResourceImportInformer.Lister(),
@@ -78,7 +78,6 @@ func NewAPIReconciler(
 // APIReconciler is a controller that reconciles APIResourceImport resources
 // and delegates the corresponding WorkloadClusterAPI management to the given WorkloadClusterAPIManager.
 type APIReconciler struct {
-	name                        string
 	apiWatcher                  syncer.WorkloadClusterAPIManager
 	kcpClusterClient            kcpclient.ClusterInterface
 	apiresourceImportLister     apiresourcelistersv1alpha1.APIResourceImportLister
@@ -108,8 +107,8 @@ func (c *APIReconciler) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", c.name)
-	defer klog.Infof("Shutting down %s controller", c.name)
+	klog.Infof("Starting %s controller", controllerName)
+	defer klog.Infof("Shutting down %s controller", controllerName)
 
 	go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 
@@ -133,7 +132,7 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", c.name, key, err))
+		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
