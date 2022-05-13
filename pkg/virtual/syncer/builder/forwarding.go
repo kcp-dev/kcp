@@ -17,16 +17,11 @@ limitations under the License.
 package builder
 
 import (
-	"context"
-
-	"github.com/kcp-dev/logicalcluster"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/kube-openapi/pkg/validation/validate"
@@ -35,25 +30,7 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-var _ registry.ClientGetter = (*clusterAwareClientGetter)(nil)
-
-type clusterAwareClientGetter struct {
-	clusterInterface dynamic.ClusterInterface
-}
-
-func (g *clusterAwareClientGetter) GetDynamicClient(ctx context.Context) (dynamic.Interface, error) {
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if cluster.Wildcard {
-		return g.clusterInterface.Cluster(logicalcluster.Wildcard), nil
-	} else {
-		return g.clusterInterface.Cluster(cluster.Name), nil
-	}
-}
-
-func provideForwardingRestStorage(dynamicClientGetter registry.ClientGetter) apiserver.RestProviderFunc {
+func provideForwardingRestStorage(clusterClient dynamic.ClusterInterface) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -84,7 +61,7 @@ func provideForwardingRestStorage(dynamicClientGetter registry.ClientGetter) api
 			nil,
 			tableConvertor,
 			nil,
-			dynamicClientGetter,
+			clusterClient,
 			nil,
 		)
 

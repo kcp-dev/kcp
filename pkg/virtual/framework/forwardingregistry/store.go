@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,12 +36,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
-
-// ClientGetter provides a way to get a dynamic client based on a given context.
-// It is used to forward REST requests to a client that depends on the request context.
-type ClientGetter interface {
-	GetDynamicClient(ctx context.Context) (dynamic.Interface, error)
-}
 
 type Store struct {
 	// NewFunc returns a new instance of the type this registry returns for a
@@ -77,7 +73,7 @@ type Store struct {
 	ResetFieldsStrategy rest.ResetFieldsStrategy
 
 	resource                  schema.GroupVersionResource
-	clientGetter              ClientGetter
+	dynamicClusterClient      dynamic.ClusterInterface
 	subResources              []string
 	patchConflictRetryBackoff wait.Backoff
 }
@@ -209,10 +205,15 @@ func (s *Store) ConvertToTable(ctx context.Context, object runtime.Object, table
 }
 
 func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterface, error) {
-	client, err := s.clientGetter.GetDynamicClient(ctx)
+	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
+	clusterName := cluster.Name
+	if cluster.Wildcard {
+		clusterName = logicalcluster.Wildcard
+	}
+	client := s.dynamicClusterClient.Cluster(clusterName)
 
 	if s.CreateStrategy.NamespaceScoped() {
 		if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
