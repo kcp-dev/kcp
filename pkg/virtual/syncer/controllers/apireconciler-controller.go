@@ -95,6 +95,8 @@ func (c *APIReconciler) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+
+	klog.V(2).Infof("Queueing %s", key)
 	c.queue.Add(key)
 }
 
@@ -146,6 +148,8 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		c.apiMutex.Lock()
 		defer c.apiMutex.Unlock()
 		if existing, exists := c.workloadClusterAPIs[key]; exists {
+			klog.V(3).Infof("Removing API %s", key)
+
 			_ = c.apiWatcher.Remove(existing)
 			delete(c.workloadClusterAPIs, key)
 		}
@@ -194,5 +198,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		Spec:               (&negotiatedAPIResource.Spec.CommonAPIResourceSpec).DeepCopy(),
 	}
 	c.workloadClusterAPIs[key] = api
+
+	klog.V(3).Infof("Upserting API %s", key)
 	return c.apiWatcher.Upsert(api)
 }
