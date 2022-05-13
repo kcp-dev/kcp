@@ -25,16 +25,17 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/fieldmanager"
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
 )
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
 func NewStorage(resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClientGetter ClientGetter, patchConflictRetryBackoff *wait.Backoff) customresource.CustomResourceStorage {
-	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, newStores(resource, dynamicClientGetter, patchConflictRetryBackoff))
+	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff) customresource.CustomResourceStorage {
+	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, newStores(resource, dynamicClusterClient, patchConflictRetryBackoff))
 }
 
-func newStores(gvr schema.GroupVersionResource, dynamicClientGetter ClientGetter, patchConflictRetryBackoff *wait.Backoff) customresource.NewStores {
+func newStores(gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff) customresource.NewStores {
 	return func(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, optsGetter generic.RESTOptionsGetter, tableConvertor rest.TableConvertor) (main, status customresource.Store) {
 		if patchConflictRetryBackoff == nil {
 			patchConflictRetryBackoff = &retry.DefaultRetry
@@ -61,7 +62,7 @@ func newStores(gvr schema.GroupVersionResource, dynamicClientGetter ClientGetter
 			ResetFieldsStrategy:      strategy,
 
 			resource:                  gvr,
-			clientGetter:              dynamicClientGetter,
+			dynamicClusterClient:      dynamicClusterClient,
 			patchConflictRetryBackoff: *patchConflictRetryBackoff,
 		}
 
