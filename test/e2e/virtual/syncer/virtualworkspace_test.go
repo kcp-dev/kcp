@@ -18,6 +18,8 @@ package workspace
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -135,11 +137,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t *testing.T, kubelikeWorkspaceName, wildwestWorkspaceName string, kubelikeWorkspaceClient kubernetesclientset.Interface, wildwestWorkspaceClient wildwestclientset.Interface, kubelikeSyncerVrtualWorkspaceConfig, wildwestSyncerVrtualWorkspaceConfig *rest.Config)
+		work func(ctx context.Context, t *testing.T, kubelikeWorkspaceName, wildwestWorkspaceName string, kubelikeWorkspaceClient kubernetesclientset.Interface, wildwestWorkspaceClient wildwestclientset.Interface, kubelikeSyncerVrtualWorkspaceConfig, wildwestSyncerVrtualWorkspaceConfig *rest.Config, workloadClusterName string)
 	}{
 		{
 			name: "isolated API domains per syncer",
-			work: func(ctx context.Context, t *testing.T, kubelikeWorkspaceName, wildwestWorkspaceName string, _ kubernetesclientset.Interface, _ wildwestclientset.Interface, kubelikeSyncerVirtualWorkspaceConfig, wildwestSyncerVirtualWorkspaceConfig *rest.Config) {
+			work: func(ctx context.Context, t *testing.T, kubelikeWorkspaceName, wildwestWorkspaceName string, _ kubernetesclientset.Interface, _ wildwestclientset.Interface, kubelikeSyncerVirtualWorkspaceConfig, wildwestSyncerVirtualWorkspaceConfig *rest.Config, workloadClusterName string) {
 				kubelikeVWDiscoverClient, err := clientgodiscovery.NewDiscoveryClientForConfig(kubelikeSyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClient.ServerGroupsAndResources()
@@ -227,7 +229,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources through syncer virtual workspace",
-			work: func(ctx context.Context, t *testing.T, kubelikeWorkspaceName, wildwestWorkspaceName string, kubelikeWorkspaceClient kubernetesclientset.Interface, wildwestWorkspaceClient wildwestclientset.Interface, kubelikeSyncerVirtualWorkspaceConfig, wildwestSyncerVirtualWorkspaceConfig *rest.Config) {
+			work: func(ctx context.Context, t *testing.T, kubelikeWorkspaceName, wildwestWorkspaceName string, kubelikeWorkspaceClient kubernetesclientset.Interface, wildwestWorkspaceClient wildwestclientset.Interface, kubelikeSyncerVirtualWorkspaceConfig, wildwestSyncerVirtualWorkspaceConfig *rest.Config, wildwestWorkloadClusterName string) {
 				t.Log("Create cowboy luckyluke")
 				_, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Create(ctx, &v1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
@@ -254,7 +256,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 					klog.Infof("luckyluke: %v", toYAML(t, luckyluke))
 
-					return luckyluke.GetLabels()["state.internal.workloads.kcp.dev/wildwest"] == "Sync"
+					return luckyluke.GetLabels()[fmt.Sprintf("state.internal.workloads.kcp.dev/%s", wildwestWorkloadClusterName)] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Log("Wait until the virtual workspace has the resource")
@@ -366,12 +368,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			require.NoError(t, err)
 			wildwestWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 			wildwestWorkspaceClient := sourceWildwestClusterClient.Cluster(wildwestWorkspace)
+			wildwestWorkloadClusterName := fmt.Sprintf("wildwest-%d", +rand.Intn(1000000))
 
 			_ = framework.SyncerFixture{
 				ResourcesToSync:      sets.NewString("cowboys.wildwest.dev"),
 				UpstreamServer:       source,
 				WorkspaceClusterName: wildwestWorkspace,
-				WorkloadClusterName:  "wildwest",
+				WorkloadClusterName:  wildwestWorkloadClusterName,
 				InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
 					// Always install the crd regardless of whether the target is
 					// logical or not since cowboys is not a native type.
@@ -402,7 +405,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			virtualWorkspaceRawConfig.Contexts["kubelike"].Cluster = "kubelike"
 
 			virtualWorkspaceRawConfig.Clusters["wildwest"] = adminCluster.DeepCopy()
-			virtualWorkspaceRawConfig.Clusters["wildwest"].Server = adminCluster.Server + "/services/syncer/" + wildwestWorkspace.String() + "/wildwest"
+			virtualWorkspaceRawConfig.Clusters["wildwest"].Server = adminCluster.Server + "/services/syncer/" + wildwestWorkspace.String() + "/" + wildwestWorkloadClusterName
 			virtualWorkspaceRawConfig.Contexts["wildwest"] = adminContext.DeepCopy()
 			virtualWorkspaceRawConfig.Contexts["wildwest"].Cluster = "wildwest"
 
@@ -415,7 +418,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Log("Starting test...")
-			testCase.work(ctx, t, kubelikeWorkspace.String(), wildwestWorkspace.String(), kubelikeWorkspaceClient, wildwestWorkspaceClient, kubelikeVirtualWorkspaceConfig, wildwestVirtualWorkspaceConfig)
+			testCase.work(ctx, t, kubelikeWorkspace.String(), wildwestWorkspace.String(), kubelikeWorkspaceClient, wildwestWorkspaceClient, kubelikeVirtualWorkspaceConfig, wildwestVirtualWorkspaceConfig, wildwestWorkloadClusterName)
 		})
 	}
 }
