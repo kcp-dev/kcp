@@ -18,12 +18,14 @@ package spec
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -34,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 )
 
@@ -78,6 +81,13 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 		advancedSchedulingEnabled:         advancedSchedulingEnabled,
 	}
 
+	namespaceGVR := schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "namespaces",
+	}
+	namespaceLister := downstreamInformers.ForResource(namespaceGVR).Lister()
+
 	for _, gvr := range gvrs {
 		gvr := gvr // because used in closure
 
@@ -97,7 +107,53 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
+		klog.V(2).InfoS("Set up upstream informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
+
+		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			DeleteFunc: func(obj interface{}) {
+				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+				if err != nil {
+					runtime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
+					return
+				}
+				namespace, name, err := cache.SplitMetaNamespaceKey(key)
+				if err != nil {
+					runtime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
+				}
+				klog.V(3).InfoS("processing  delete event", "key", key, "gvr", gvr, "namespace", namespace, "name", name)
+
+				//Use namespace lister
+				nsObj, err := namespaceLister.Get(namespace)
+				if err != nil {
+					runtime.HandleError(err)
+					return
+				}
+				ns, ok := nsObj.(*unstructured.Unstructured)
+				if !ok {
+					runtime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
+					return
+				}
+				locator, ok := ns.GetAnnotations()[shared.NamespaceLocatorAnnotation]
+				if !ok {
+					runtime.HandleError(fmt.Errorf("unable to find the locator annotation in namespace %s", namespace))
+					return
+				}
+				nsLocator := &shared.NamespaceLocator{}
+				err = json.Unmarshal([]byte(locator), nsLocator)
+				if err != nil {
+					runtime.HandleError(err)
+					return
+				}
+				klog.V(4).InfoS("found", "NamespaceLocator", nsLocator)
+				m := &metav1.ObjectMeta{
+					ClusterName: nsLocator.LogicalCluster.String(),
+					Namespace:   nsLocator.Namespace,
+					Name:        name,
+				}
+				c.AddToQueue(gvr, m)
+			},
+		})
+		klog.V(2).InfoS("Set up downstream informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
 	}
 
 	return &c, nil

@@ -5,3 +5,4 @@ contrib/demo/clusters/kind/*.kubeconfig
 coverage.*
 tools
 build
+.vscode

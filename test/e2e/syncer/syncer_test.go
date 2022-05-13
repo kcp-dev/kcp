@@ -219,6 +219,27 @@ func TestSyncerLifecycle(t *testing.T) {
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream configmap %s/%s was not found", upstreamNamespace.Name, expectedConfigMapName)
 
 	}
+	// Delete the deployment
+	err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	// Wait the deployment to be recreated and check it is a different UID
+	t.Logf("Waiting for downstream deployment %s/%s to be created...", downstreamNamespaceName, upstreamDeployment.Name)
+	require.Eventually(t, func() bool {
+		newDeployment, err := downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for downstream deployment %s/%s to be created: %v", downstreamNamespaceName, upstreamDeployment.Name, err)
+		}
+		// Test UID
+		if deployment.UID == newDeployment.UID {
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s was not synced", downstreamNamespaceName, upstreamDeployment.Name)
+
 }
 
 func toYaml(obj interface{}) string {
