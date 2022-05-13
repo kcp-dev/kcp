@@ -23,6 +23,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apimachinery/pkg/util/runtime"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
@@ -30,7 +31,6 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -124,21 +124,29 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			// This should be replaced by a real controller when the URLs should be added to the WorkloadCluster object
 			clusterInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					if workloadCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster); ok {
-						installedAPIs.addWorkloadCluster(logicalcluster.From(workloadCluster), workloadCluster.Name)
-						for _, api := range internalAPIs {
-							_ = installedAPIs.Upsert(syncer.WorkloadClusterAPI{
-								LogicalClusterName: logicalcluster.From(workloadCluster),
-								Name:               workloadCluster.Name,
-								Spec:               api,
-							})
-						}
+					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+					if err != nil {
+						runtime.HandleError(err)
+						return
+					}
+					clusterName, name := clusters.SplitClusterAwareKey(key)
+					installedAPIs.addWorkloadCluster(clusterName, name)
+					for _, api := range internalAPIs {
+						_ = installedAPIs.Upsert(syncer.WorkloadClusterAPI{
+							LogicalClusterName: clusterName,
+							Name:               name,
+							Spec:               api,
+						})
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					if workloadCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster); ok {
-						installedAPIs.removeWorkloadCluster(logicalcluster.From(workloadCluster), workloadCluster.Name)
+					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+					if err != nil {
+						runtime.HandleError(err)
+						return
 					}
+					clusterName, name := clusters.SplitClusterAwareKey(key)
+					installedAPIs.removeWorkloadCluster(clusterName, name)
 				},
 			})
 
