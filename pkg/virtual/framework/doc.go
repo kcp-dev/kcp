@@ -19,7 +19,7 @@ limitations under the License.
 //
 // To create virtual workspaces you have to:
 //
-// - define the implementation of the VirtualWorkspaces you want to expose (for example with utilities found in the `fixedgvs` package)
+// - define the implementation of the VirtualWorkspaces you want to expose (for example with utilities found in the `fixedgvs` or `dynamic` packages)
 //
 // - define the sub-command that will expose the related CLI arguments, Bootstrap and start those VirtualWorkspaces.
 package framework
