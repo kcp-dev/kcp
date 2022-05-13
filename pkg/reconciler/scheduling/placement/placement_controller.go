@@ -186,13 +186,13 @@ type controller struct {
 
 // enqueueLocationDomain enqueues all namespaces.
 func (c *controller) enqueueAPIBinding(obj interface{}) {
-	binding, ok := obj.(*apisv1alpha1.APIBinding)
-	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIBinding, but is %T", obj))
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
 		return
 	}
+	clusterName, bindingName := clusters.SplitClusterAwareKey(key)
 
-	clusterName := logicalcluster.From(binding)
 	namespaces, err := c.namespaceIndexer.ByIndex(unscheduledByWorkspaceKey, clusterName.String())
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("error getting namespaces for binding %s: %w", clusterName.String(), err))
@@ -206,7 +206,7 @@ func (c *controller) enqueueAPIBinding(obj interface{}) {
 			continue
 		}
 
-		klog.Infof("Mapping APIBinding %s|%s to unscheduled namespace %s", logicalcluster.From(binding).String(), binding.Name, ns.Name)
+		klog.Infof("Mapping APIBinding %s|%s to unscheduled namespace %s", clusterName.String(), bindingName, ns.Name)
 		key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 		c.queue.Add(key)
 	}
@@ -214,14 +214,14 @@ func (c *controller) enqueueAPIBinding(obj interface{}) {
 
 // enqueueNamespace enqueues a namespace.
 func (c *controller) enqueueNamespace(obj interface{}) {
-	ns, ok := obj.(*corev1.Namespace)
-	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a Namespace, but is %T", obj))
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
 		return
 	}
+	clusterName, name := clusters.SplitClusterAwareKey(key)
 
-	key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
-	klog.Infof("Queueing Namespace %s|%s", logicalcluster.From(ns).String(), ns.Name)
+	klog.Infof("Queueing Namespace %s|%s", clusterName.String(), name)
 	c.queue.Add(key)
 }
 

@@ -143,13 +143,12 @@ func (c *controller) enqueueLocation(obj interface{}) {
 
 // enqueueWorkloadCluster maps a WorkloadCluster to LocationDomain for enqueuing.
 func (c *controller) enqueueWorkloadCluster(obj interface{}) {
-	cluster, ok := obj.(*workloadv1alpha1.WorkloadCluster)
-	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a WorkloadCluster, but is %T", obj))
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
 		return
 	}
-
-	lcluster := logicalcluster.From(cluster)
+	lcluster, _ := clusters.SplitClusterAwareKey(key)
 	domains, err := c.locationIndexer.ByIndex(byWorkspace, lcluster.String())
 	if err != nil {
 		runtime.HandleError(err)
