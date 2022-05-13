@@ -66,6 +66,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				return
 			}
 			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
+
+			// paths like: .../root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
 			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
 			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 				return

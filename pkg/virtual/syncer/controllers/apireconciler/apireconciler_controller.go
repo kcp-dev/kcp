@@ -50,7 +50,7 @@ const (
 	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
 )
 
-type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, workspaceClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, workloadClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error)
 
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding WorkloadClusterAPI management to the given WorkloadClusterAPIManager.
@@ -235,7 +235,8 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 
 	_, err := c.workloadClusterLister.Get(clusters.ToClusterAwareKey(clusterName, workloadClusterName))
 	if err != nil && !apierrors.IsNotFound(err) {
-		return err
+		klog.Errorf("failed to get workload cluster %s|%s from lister: %v", clusterName, workloadClusterName, err)
+		return nil // nothing we can do here
 	} else if apierrors.IsNotFound(err) {
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
@@ -252,7 +253,8 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 
 	resource, err := c.negotiatedAPIResourceLister.Get(resourceKey)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return err
+		klog.Errorf("failed to get NegotiatedAPIResource with key %s from lister: %v", resourceKey)
+		return nil // nothing we can do here
 	}
 	shouldRemove := false
 	var reason string
