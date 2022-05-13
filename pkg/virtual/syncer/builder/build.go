@@ -23,7 +23,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
-	"k8s.io/apimachinery/pkg/util/runtime"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
@@ -35,11 +34,10 @@ import (
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
-	apidefinition "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
 )
 
 const SyncerVirtualWorkspaceName string = "syncer"
@@ -52,15 +50,17 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 		rootPathPrefix += "/"
 	}
 
-	var installedAPIs *installedAPIs
 	readyCh := make(chan struct{})
 
 	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		Name: SyncerVirtualWorkspaceName,
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			if installedAPIs == nil {
+			select {
+			case <-readyCh:
+			default:
 				return
 			}
+
 			completedContext = requestContext
 			if !strings.HasPrefix(urlPath, rootPathPrefix) {
 				return
@@ -107,67 +107,37 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			}
 		},
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-
-			clusterInformer := wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer()
-			apiResourceImportInformer := wildcardKcpInformers.Apiresource().V1alpha1().APIResourceImports()
-			negotiatedAPIResourceInformer := wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources()
-
-			installedAPIs = newInstalledAPIs(func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error) {
-				return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(dynamicClusterClient))
-			})
-
-			// This should be replaced by a real controller when the URLs should be added to the WorkloadCluster object
-			clusterInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-					if err != nil {
-						runtime.HandleError(err)
-						return
-					}
-					clusterName, name := clusters.SplitClusterAwareKey(key)
-					installedAPIs.addWorkloadCluster(clusterName, name)
-					for _, api := range internalAPIs {
-						_ = installedAPIs.Upsert(syncer.WorkloadClusterAPI{
-							LogicalClusterName: clusterName,
-							Name:               name,
-							Spec:               api,
-						})
-					}
+			apiReconciler, err := apireconciler.NewAPIReconciler(
+				kcpClusterClient,
+				wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters(),
+				wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources(),
+				func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error) {
+					return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(dynamicClusterClient))
 				},
-				DeleteFunc: func(obj interface{}) {
-					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-					if err != nil {
-						runtime.HandleError(err)
-						return
-					}
-					clusterName, name := clusters.SplitClusterAwareKey(key)
-					installedAPIs.removeWorkloadCluster(clusterName, name)
-				},
-			})
-
-			apiReconciler, err := controllers.NewAPIReconciler(installedAPIs, kcpClusterClient, apiResourceImportInformer, negotiatedAPIResourceInformer)
+			)
 			if err != nil {
 				return nil, err
 			}
 
 			if err := mainConfig.AddPostStartHook("apiresourceimports.kcp.dev-api-reconciler", func(hookContext genericapiserver.PostStartHookContext) error {
+				defer close(readyCh)
+
 				for name, informer := range map[string]cache.SharedIndexInformer{
-					"apiresourceimports":     apiResourceImportInformer.Informer(),
-					"negotiatedapiresources": negotiatedAPIResourceInformer.Informer(),
+					"workloadclusters":       wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer(),
+					"negotiatedapiresources": wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
 						return errors.New("informer not synced")
 					}
 				}
 
-				close(readyCh)
 				go apiReconciler.Start(goContext(hookContext))
 				return nil
 			}); err != nil {
 				return nil, err
 			}
 
-			return installedAPIs, nil
+			return apiReconciler, nil
 		},
 	}
 }
