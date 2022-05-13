@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster"
+	"k8s.io/klog/v2"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -117,7 +118,16 @@ func (s *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
 	}
 
-	return delegate.List(ctx, v1ListOptions)
+	klog.Infof("DEBUG: List: selector=%q", v1ListOptions.LabelSelector)
+
+	list, err := delegate.List(ctx, v1ListOptions)
+	if err != nil {
+		klog.Infof("DEBUG: List: got an error: %v", err)
+		return nil, err
+	}
+
+	klog.Infof("DEBUG: List: got %d items from delegate", len(list.Items))
+	return list, nil
 }
 
 // Get implements rest.Getter
@@ -209,17 +219,17 @@ func (s *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 }
 
 func (s *Store) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (s *Store) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (s *Store) DeleteCollection(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
