@@ -26,6 +26,7 @@ import (
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -76,10 +77,13 @@ type Store struct {
 	dynamicClusterClient      dynamic.ClusterInterface
 	subResources              []string
 	patchConflictRetryBackoff wait.Backoff
-	labelSelector             map[string]string
 
 	// stopWatchesCh closing means that all existing watches are closed.
 	stopWatchesCh <-chan struct{}
+
+	// getter is what we use for self-referential GET calls to allow upstream
+	// users to change the behavior
+	getter rest.Getter
 }
 
 var _ rest.StandardStorage = &Store{}
@@ -114,12 +118,6 @@ func (s *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 		return nil, err
 	}
 
-	if len(v1ListOptions.LabelSelector) == 0 {
-		v1ListOptions.LabelSelector = toExpression(s.labelSelector)
-	} else {
-		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
-	}
-
 	return delegate.List(ctx, v1ListOptions)
 }
 
@@ -130,16 +128,7 @@ func (s *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 		return nil, err
 	}
 
-	obj, err := delegate.Get(ctx, name, *options, s.subResources...)
-	if err != nil {
-		return nil, err
-	}
-
-	if !matches(s.labelSelector, obj) {
-		return nil, kerrors.NewNotFound(s.DefaultQualifiedResource, name)
-	}
-
-	return obj, err
+	return delegate.Get(ctx, name, *options, s.subResources...)
 }
 
 // Watch implements rest.Watcher.
@@ -151,12 +140,6 @@ func (s *Store) Watch(ctx context.Context, options *metainternalversion.ListOpti
 	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(v1ListOptions.LabelSelector) == 0 {
-		v1ListOptions.LabelSelector = toExpression(s.labelSelector)
-	} else {
-		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
 	}
 
 	watchCtx, cancelFn := context.WithCancel(ctx)
@@ -180,7 +163,7 @@ func (s *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	}
 
 	doUpdate := func() (*unstructured.Unstructured, error) {
-		oldObj, err := s.Get(ctx, name, &metav1.GetOptions{})
+		oldObj, err := s.getter.Get(ctx, name, &metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -262,28 +245,50 @@ func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterfac
 	}
 }
 
-func toExpression(labelSelect map[string]string) string {
-	if len(labelSelect) == 0 {
-		return ""
-	}
-	expr := ""
-	for k, v := range labelSelect {
-		if expr != "" {
-			expr += ","
-		}
-		expr += fmt.Sprintf("%s=%s", k, v)
-	}
-	return expr
+type LabelSelectingStore struct {
+	*Store
+
+	filter labels.Requirements
 }
 
-func matches(labelSelector map[string]string, obj metav1.Object) bool {
-	if labelSelector == nil {
-		return true
+var _ rest.StandardStorage = &LabelSelectingStore{}
+
+// List returns a list of items matching labels and field according to the store's PredicateFunc.
+func (s *LabelSelectingStore) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+	selector := options.LabelSelector
+	if selector == nil {
+		selector = labels.Everything()
 	}
-	for k, v := range labelSelector {
-		if obj.GetLabels()[k] != v {
-			return false
-		}
+	selector.Add(s.filter...)
+	options.LabelSelector = selector
+	return s.Store.List(ctx, options)
+}
+
+// Get implements rest.Getter
+func (s *LabelSelectingStore) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+	obj, err := s.Store.Get(ctx, name, options)
+	if err != nil {
+		return obj, err
 	}
-	return true
+
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return obj, fmt.Errorf("expected a metav1.Object, got %T", obj)
+	}
+	if !labels.Everything().Add(s.filter...).Matches(labels.Set(metaObj.GetLabels())) {
+		return nil, kerrors.NewNotFound(s.DefaultQualifiedResource, name)
+	}
+
+	return obj, err
+}
+
+// Watch implements rest.Watcher.
+func (s *LabelSelectingStore) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+	selector := options.LabelSelector
+	if selector == nil {
+		selector = labels.Everything()
+	}
+	selector.Add(s.filter...)
+	options.LabelSelector = selector
+	return s.Store.Watch(ctx, options)
 }

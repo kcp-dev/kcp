@@ -18,9 +18,11 @@ package forwardingregistry
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -44,7 +46,12 @@ func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClus
 			patchConflictRetryBackoff = &retry.DefaultRetry
 		}
 
-		store := &Store{
+		requirements, selectable := labels.SelectorFromSet(labels.Set(labelSelector)).Requirements()
+		if !selectable {
+			panic(fmt.Sprintf("creating a new store with an unselectable set: %v", labelSelector))
+		}
+
+		delegate := &Store{
 			NewFunc: func() runtime.Object {
 				// set the expected group/version/kind in the new object as a signal to the versioning decoder
 				ret := &unstructured.Unstructured{}
@@ -67,16 +74,24 @@ func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClus
 			resource:                  gvr,
 			dynamicClusterClient:      dynamicClusterClient,
 			patchConflictRetryBackoff: *patchConflictRetryBackoff,
-			labelSelector:             labelSelector,
-
-			stopWatchesCh: ctx.Done(),
+			stopWatchesCh:             ctx.Done(),
 		}
+		store := &LabelSelectingStore{
+			Store:  delegate,
+			filter: requirements,
+		}
+		delegate.getter = store
 
-		statusStore := *store // shallow copy
+		statusDelegate := *delegate // shallow copy
 		statusStrategy := customresource.NewStatusStrategy(strategy)
-		statusStore.UpdateStrategy = statusStrategy
-		statusStore.ResetFieldsStrategy = statusStrategy
-		statusStore.subResources = []string{"status"}
-		return store, &statusStore
+		statusDelegate.UpdateStrategy = statusStrategy
+		statusDelegate.ResetFieldsStrategy = statusStrategy
+		statusDelegate.subResources = []string{"status"}
+		statusStore := &LabelSelectingStore{
+			Store:  &statusDelegate,
+			filter: requirements,
+		}
+		statusDelegate.getter = &statusDelegate
+		return store, statusStore
 	}
 }
