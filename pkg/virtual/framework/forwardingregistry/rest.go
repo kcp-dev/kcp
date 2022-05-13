@@ -31,11 +31,11 @@ import (
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
 func NewStorage(resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff) customresource.CustomResourceStorage {
-	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, newStores(resource, dynamicClusterClient, patchConflictRetryBackoff))
+	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.CustomResourceStorage {
+	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, newStores(resource, dynamicClusterClient, patchConflictRetryBackoff, labelSelector))
 }
 
-func newStores(gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff) customresource.NewStores {
+func newStores(gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.NewStores {
 	return func(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, optsGetter generic.RESTOptionsGetter, tableConvertor rest.TableConvertor) (main, status customresource.Store) {
 		if patchConflictRetryBackoff == nil {
 			patchConflictRetryBackoff = &retry.DefaultRetry
@@ -64,6 +64,7 @@ func newStores(gvr schema.GroupVersionResource, dynamicClusterClient dynamic.Clu
 			resource:                  gvr,
 			dynamicClusterClient:      dynamicClusterClient,
 			patchConflictRetryBackoff: *patchConflictRetryBackoff,
+			labelSelector:             labelSelector,
 		}
 
 		statusStore := *store // shallow copy

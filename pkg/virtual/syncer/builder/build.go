@@ -113,8 +113,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				kcpClusterClient,
 				wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters(),
 				wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources(),
-				func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error) {
-					return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(dynamicClusterClient))
+				func(logicalClusterName logicalcluster.Name, workloadClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error) {
+					return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(dynamicClusterClient, workloadClusterName))
 				},
 			)
 			if err != nil {
