@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -48,13 +50,15 @@ const (
 	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
 )
 
+type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, workspaceClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error)
+
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding WorkloadClusterAPI management to the given WorkloadClusterAPIManager.
 func NewAPIReconciler(
 	kcpClusterClient kcpclient.ClusterInterface,
 	workloadClusterInformer tenancyv1alpha1.WorkloadClusterInformer,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
-	createAPIDefinition apidefinition.CreateAPIDefinitionFunc,
+	createAPIDefinition CreateAPIDefinitionFunc,
 ) (*APIReconciler, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -123,7 +127,7 @@ type APIReconciler struct {
 
 	queue workqueue.RateLimitingInterface
 
-	createAPIDefinition apidefinition.CreateAPIDefinitionFunc
+	createAPIDefinition CreateAPIDefinitionFunc
 
 	mutex   sync.RWMutex // protects the map, not the values!
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
@@ -289,7 +293,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	newSet := make(apidefinition.APIDefinitionSet, len(oldSet)+1)
 	if !foundOld {
 		for _, api := range internalAPIs {
-			def, err := c.createAPIDefinition(clusterName, api)
+			def, err := c.createAPIDefinition(clusterName, workloadClusterName, api)
 			if err != nil {
 				klog.Errorf("Failed to create APIDefinition for %s|%s: %v", clusterName, resourceName, err)
 				continue // nothing we can do, skip it
@@ -308,7 +312,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		}
 		newSet[gvr] = v
 	}
-	def, err := c.createAPIDefinition(clusterName, &resource.Spec.CommonAPIResourceSpec)
+	def, err := c.createAPIDefinition(clusterName, workloadClusterName, &resource.Spec.CommonAPIResourceSpec)
 	if err != nil {
 		klog.Errorf("Failed to create APIDefinition for %s|%s: %v", clusterName, resourceName, err)
 		return nil // nothing we can do

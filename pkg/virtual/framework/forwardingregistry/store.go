@@ -76,6 +76,7 @@ type Store struct {
 	dynamicClusterClient      dynamic.ClusterInterface
 	subResources              []string
 	patchConflictRetryBackoff wait.Backoff
+	labelSelector             map[string]string
 }
 
 var _ rest.StandardStorage = &Store{}
@@ -104,9 +105,16 @@ func (s *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 	if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
 		return nil, err
 	}
+
 	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(v1ListOptions.LabelSelector) == 0 {
+		v1ListOptions.LabelSelector = toExpression(s.labelSelector)
+	} else {
+		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
 	}
 
 	return delegate.List(ctx, v1ListOptions)
@@ -119,7 +127,16 @@ func (s *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 		return nil, err
 	}
 
-	return delegate.Get(ctx, name, *options, s.subResources...)
+	obj, err := delegate.Get(ctx, name, *options, s.subResources...)
+	if err != nil {
+		return nil, err
+	}
+
+	if !matches(s.labelSelector, obj) {
+		return nil, kerrors.NewNotFound(s.DefaultQualifiedResource, name)
+	}
+
+	return obj, err
 }
 
 // Watch implements rest.Watcher.
@@ -131,6 +148,12 @@ func (s *Store) Watch(ctx context.Context, options *metainternalversion.ListOpti
 	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(v1ListOptions.LabelSelector) == 0 {
+		v1ListOptions.LabelSelector = toExpression(s.labelSelector)
+	} else {
+		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
 	}
 
 	return delegate.Watch(ctx, v1ListOptions)
@@ -224,4 +247,30 @@ func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterfac
 	} else {
 		return client.Resource(s.resource), nil
 	}
+}
+
+func toExpression(labelSelect map[string]string) string {
+	if len(labelSelect) == 0 {
+		return ""
+	}
+	expr := ""
+	for k, v := range labelSelect {
+		if expr != "" {
+			expr += ","
+		}
+		expr += fmt.Sprintf("%s=%s", k, v)
+	}
+	return expr
+}
+
+func matches(labelSelector map[string]string, obj metav1.Object) bool {
+	if labelSelector == nil {
+		return true
+	}
+	for k, v := range labelSelector {
+		if obj.GetLabels()[k] != v {
+			return false
+		}
+	}
+	return true
 }

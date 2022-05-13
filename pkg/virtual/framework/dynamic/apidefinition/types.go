@@ -56,7 +56,3 @@ type APIDefinitionSet map[schema.GroupVersionResource]APIDefinition
 type APIDefinitionSetGetter interface {
 	GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apis APIDefinitionSet, apisExist bool)
 }
-
-// CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition
-// (with REST storage and handler Request scopes) based on the API specification logical cluster name and OpenAPI v3 schema.
-type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (APIDefinition, error)

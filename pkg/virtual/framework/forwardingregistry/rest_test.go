@@ -107,7 +107,8 @@ func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, patchConfl
 		table,
 		nil,
 		clusterClient,
-		patchConflictRetryBackoff)
+		patchConflictRetryBackoff,
+		nil)
 }
 
 func createResource(namespace, name string) *unstructured.Unstructured {
