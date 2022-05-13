@@ -174,6 +174,38 @@ func TestAPIBindingDeletion(t *testing.T) {
 		return conditions.IsFalse(apibinding, apisv1alpha1.BindingResourceDeleteSuccess)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
+	t.Logf("ensure resource does not have create verb when deleting")
+	require.Eventually(t, func() bool {
+		resources, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+		if err != nil {
+			return false
+		}
+
+		for _, r := range resources.APIResources {
+			if r.Name != "cowboys" {
+				continue
+			}
+
+			for _, v := range r.Verbs {
+				if v == "create" {
+					return false
+				}
+			}
+		}
+
+		return true
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Create another cowboy CR in consumer workspace %q", consumerWorkspace)
+	cowboyDenied := &wildwestv1alpha1.Cowboy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("cowboy-3-%s", consumerWorkspace.Base()),
+			Namespace: "default",
+		},
+	}
+	_, err = cowboyClient.Create(ctx, cowboyDenied, metav1.CreateOptions{})
+	require.Equal(t, apierrors.IsMethodNotSupported(err), true)
+
 	t.Logf("Clean finalizer to remove the cowboy")
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		cowboy, err = cowboyClient.Get(ctx, cowboyName, metav1.GetOptions{})
