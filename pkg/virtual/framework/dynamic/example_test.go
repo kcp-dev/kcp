@@ -47,7 +47,7 @@ func Example() {
 				return
 			}
 
-			var apiDomainKey string
+			var apiDomainKey dynamiccontext.APIDomainKey
 
 			// Resolve the request root path and extract the API domain key from it
 

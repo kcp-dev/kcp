@@ -47,7 +47,7 @@ type mockedAPISetRetriever apidefinition.APIDefinitionSet
 
 var _ apidefinition.APIDefinitionSetGetter = (*mockedAPISetRetriever)(nil)
 
-func (masr mockedAPISetRetriever) GetAPIDefinitionSet(apiDomainKey string) (apis apidefinition.APIDefinitionSet, apisExist bool) {
+func (masr mockedAPISetRetriever) GetAPIDefinitionSet(key dyncamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool) {
 	return apidefinition.APIDefinitionSet(masr), true
 }
 

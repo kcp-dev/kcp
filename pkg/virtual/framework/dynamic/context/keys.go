@@ -16,7 +16,9 @@ limitations under the License.
 
 package context
 
-import "context"
+import (
+	"context"
+)
 
 // apiDomainKeyContextKeyType is the type of the key for the request context value
 // that will carry the API domain key.
@@ -26,13 +28,18 @@ type apiDomainKeyContextKeyType string
 // that will carry the API domain key.
 const apiDomainKeyContextKey apiDomainKeyContextKeyType = "VirtualWorkspaceAPIDomainKey"
 
+// APIDomainKey is a string key identifying the API domain serving a kube-like API surface. Depending
+// on the dynamic virtual workspace, the structure of the key will vary. The APIDomainKey is usually
+// derived from URL path segments.
+type APIDomainKey string
+
 // WithAPIDomainKey adds an API domain key to the context.
-func WithAPIDomainKey(ctx context.Context, apiDomainKey string) context.Context {
+func WithAPIDomainKey(ctx context.Context, apiDomainKey APIDomainKey) context.Context {
 	return context.WithValue(ctx, apiDomainKeyContextKey, apiDomainKey)
 }
 
-// APIDomainKeyFromContext retrieves the API domain key from the context, if any.
-func APIDomainKeyFromContext(ctx context.Context) string {
-	s, _ := ctx.Value(apiDomainKeyContextKey).(string)
-	return s
+// APIDomainKeyFrom retrieves the API domain key from the context, if any.
+func APIDomainKeyFrom(ctx context.Context) APIDomainKey {
+	adk, _ := ctx.Value(apiDomainKeyContextKey).(APIDomainKey)
+	return adk
 }

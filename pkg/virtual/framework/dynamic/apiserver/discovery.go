@@ -59,7 +59,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	ctx := req.Context()
 
-	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
+	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
 	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 	if !hasLocationKey {
@@ -150,7 +150,7 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 
 	ctx := req.Context()
 
-	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
+	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
 	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 	if !hasLocationKey {
@@ -209,7 +209,7 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	versionsForDiscoveryMap := map[string]map[metav1.GroupVersion]bool{}
 
 	ctx := req.Context()
-	apiDomainKey := dyncamiccontext.APIDomainKeyFromContext(ctx)
+	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
 	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
 	if !hasLocationKey {

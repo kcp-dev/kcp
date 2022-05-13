@@ -129,7 +129,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	locationKey := dynamiccontext.APIDomainKeyFromContext(ctx)
+	locationKey := dynamiccontext.APIDomainKeyFrom(ctx)
 
 	apiDefs, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(locationKey)
 	if !hasLocationKey {
