@@ -269,6 +269,30 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				t.Log("Verify there is one cowboy via virtual workspace")
 				virtualWorkspaceCowboys, err := virtualWorkspaceClusterClient.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
+
+				startedWith := -1
+				if len(virtualWorkspaceCowboys.Items) != 1 {
+					startedWith = len(virtualWorkspaceCowboys.Items)
+				}
+
+				if startedWith != -1 {
+					require.Eventually(t, func() bool {
+						// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
+						list, err := virtualWorkspaceClusterClient.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+						if err != nil {
+							t.Logf("Error listing cowboys (inside eventually): %v", err)
+							return false
+						}
+						if len(list.Items) != 1 {
+							t.Logf("Expected 1, got %d (inside eventually)", len(list.Items))
+							return false
+						}
+						return true
+					}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+					t.Fatalf("Started with %d, eventually saw 1, failing", startedWith)
+				}
+
 				require.Lenf(t, virtualWorkspaceCowboys.Items, 1, "should be one cowboy, got:\n%s", toYAML(t, virtualWorkspaceCowboys))
 
 				t.Log("Verify there is luckyluke via virtual workspace")
