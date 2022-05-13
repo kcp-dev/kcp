@@ -178,14 +178,19 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		finalizerBytes, err := json.Marshal(append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer))
+		finalizerData := &metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Finalizers: append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer),
+			},
+		}
+
+		finalizerBytes, err := json.Marshal(finalizerData)
 		if err != nil {
 			return err
 		}
-		patch := fmt.Sprintf("{\"metadata\": {\"finalizers\": %s}}", string(finalizerBytes))
 
 		_, err = c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Patch(
-			ctx, workspace.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+			ctx, workspace.Name, types.MergePatchType, finalizerBytes, metav1.PatchOptions{})
 		return err
 	}
 

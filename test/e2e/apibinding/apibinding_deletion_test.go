@@ -109,7 +109,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 		}
 
 		return true
-	}, wait.ForeverTestTimeout, 1*time.Second)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
 	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
@@ -162,7 +162,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 		}
 
 		return !cowboys.Items[0].DeletionTimestamp.IsZero()
-	}, wait.ForeverTestTimeout, 1*time.Second)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("apibinding should have BindingResourceDeleteSuccess with false status")
 	require.Eventually(t, func() bool {
@@ -172,7 +172,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 		}
 
 		return conditions.IsFalse(apibinding, apisv1alpha1.BindingResourceDeleteSuccess)
-	}, wait.ForeverTestTimeout, 1*time.Second)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Clean finalizer to remove the cowboy")
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -190,5 +190,5 @@ func TestAPIBindingDeletion(t *testing.T) {
 	require.Eventually(t, func() bool {
 		_, err := kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 		return apierrors.IsNotFound(err)
-	}, wait.ForeverTestTimeout, 1*time.Second)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }

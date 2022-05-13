@@ -181,8 +181,8 @@ const (
 	// has a naming conflict with other APIs.
 	NamingConflictsReason = "NamingConflicts"
 
-	// BindingResourceDeleteSuccess is a condition for APIBinding that indicates the resources relating this binding is deleted successfully
-	// when the APIBinding is deleting
+	// BindingResourceDeleteSuccess is a condition for APIBinding that indicates the resources relating this binding are deleted
+	// successfully when the APIBinding is deleting
 	BindingResourceDeleteSuccess conditionsv1alpha1.ConditionType = "BindingResourceDeleteSuccess"
 )
 

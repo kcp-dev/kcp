@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -42,10 +44,26 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const (
 	APIBindingFinalizer = "apis.kcp.dev/apibinding-finalizer"
+
+	DeletionRecheckEstimateSeconds = 5
+
+	// ResourceDeletionFailedReason is the reason for condition BindingResourceDeleteSuccess that deletion of
+	// some CRs is failed
+	ResourceDeletionFailedReason = "ResourceDeletionFailed"
+
+	// ResourceRemainingReason is the reason for condition BindingResourceDeleteSuccess that some CR resource still
+	// exists when apibinding is deleting
+	ResourceRemainingReason = "SomeResourcesRemain"
+
+	// ResourceFinalizersRemainReason is the reason for condition BindingResourceDeleteSuccess that finalizers on some
+	// CRs still exist.
+	ResourceFinalizersRemainReason = "SomeFinalizersRemain"
 )
 
 func NewController(
@@ -182,28 +200,102 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		finalizerBytes, err := json.Marshal(append(apibindingCopy.Finalizers, APIBindingFinalizer))
+		finalizerData := &metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Finalizers: append(apibindingCopy.Finalizers, APIBindingFinalizer),
+			},
+		}
+
+		finalizerBytes, err := json.Marshal(finalizerData)
 		if err != nil {
 			return err
 		}
-		patch := fmt.Sprintf("{\"metadata\": {\"finalizers\": %s}}", string(finalizerBytes))
 
 		_, err = c.kcpClusterClient.Cluster(logicalcluster.From(apibindingCopy)).ApisV1alpha1().APIBindings().Patch(
-			ctx, apibindingCopy.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+			ctx, apibindingCopy.Name, types.MergePatchType, finalizerBytes, metav1.PatchOptions{})
 		return err
 	}
 
-	err = c.deleteAllCRs(ctx, apibindingCopy)
+	resourceRemaining, err := c.deleteAllCRs(ctx, apibindingCopy)
 
-	if err == nil {
-		return c.finalizeAPIBinding(ctx, apibindingCopy)
+	if err != nil {
+		conditions.MarkFalse(
+			apibindingCopy,
+			apisv1alpha1.BindingResourceDeleteSuccess,
+			ResourceDeletionFailedReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			err.Error(),
+		)
+
+		if patchErr := c.patchCondition(ctx, apibinding, apibindingCopy); patchErr != nil {
+			return patchErr
+		}
+
+		return err
 	}
 
-	if patchErr := c.patchCondition(ctx, apibinding, apibindingCopy); patchErr != nil {
-		return patchErr
+	apibindingCopy, err = c.mutateResourceRemainingStatus(resourceRemaining, apibindingCopy)
+
+	if err != nil {
+		if patchErr := c.patchCondition(ctx, apibinding, apibindingCopy); patchErr != nil {
+			return patchErr
+		}
+
+		return err
 	}
 
-	return err
+	return c.finalizeAPIBinding(ctx, apibindingCopy)
+}
+
+func (c *Controller) mutateResourceRemainingStatus(resourceRemaining gvrDeletionMetadataTotal, apibinding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error) {
+	if len(resourceRemaining.finalizersToNumRemaining) != 0 {
+		// requeue if there are still remaining finalizers
+		remainingByFinalizer := []string{}
+		for finalizer, numRemaining := range resourceRemaining.finalizersToNumRemaining {
+			if numRemaining == 0 {
+				continue
+			}
+			remainingByFinalizer = append(remainingByFinalizer, fmt.Sprintf("%s in %d resource instances", finalizer, numRemaining))
+		}
+		// sort for stable updates
+		sort.Strings(remainingByFinalizer)
+		conditions.MarkFalse(
+			apibinding,
+			apisv1alpha1.BindingResourceDeleteSuccess,
+			ResourceFinalizersRemainReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")),
+		)
+
+		return apibinding, &deletion.ResourcesRemainingError{Estimate: DeletionRecheckEstimateSeconds}
+	}
+
+	if len(resourceRemaining.gvrToNumRemaining) != 0 {
+		// requeue if there are still remaining resources
+		remainingResources := []string{}
+		for gvr, numRemaining := range resourceRemaining.gvrToNumRemaining {
+			if numRemaining == 0 {
+				continue
+			}
+			remainingResources = append(remainingResources, fmt.Sprintf("%s.%s has %d resource instances", gvr.Resource, gvr.Group, numRemaining))
+		}
+		// sort for stable updates
+		sort.Strings(remainingResources)
+
+		conditions.MarkFalse(
+			apibinding,
+			apisv1alpha1.BindingResourceDeleteSuccess,
+			ResourceRemainingReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")),
+		)
+
+		return apibinding, &deletion.ResourcesRemainingError{Estimate: DeletionRecheckEstimateSeconds}
+	}
+
+	conditions.MarkTrue(apibinding, apisv1alpha1.BindingResourceDeleteSuccess)
+
+	return apibinding, nil
 }
 
 func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.APIBinding) error {

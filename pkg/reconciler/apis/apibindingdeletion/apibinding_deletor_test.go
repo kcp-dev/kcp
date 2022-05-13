@@ -18,11 +18,13 @@ package apibindingdeletion
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	metadatafake "k8s.io/client-go/metadata/fake"
 	clienttesting "k8s.io/client-go/testing"
@@ -39,6 +41,102 @@ func init() {
 	scheme = runtime.NewScheme()
 	utilruntime.Must(metav1.AddMetaToScheme(scheme))
 }
+
+func TestMutateResourceRemainingStatus(t *testing.T) {
+	now := metav1.Now()
+	apibinding := &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{APIBindingFinalizer},
+		},
+		Status: apisv1alpha1.APIBindingStatus{},
+	}
+
+	tests := []struct {
+		name                string
+		resourceRemaining   gvrDeletionMetadataTotal
+		expectErrorOnDelete error
+		expectConditions    conditionsv1alpha1.Conditions
+	}{
+		{
+			name: "resource is cleaned",
+			resourceRemaining: gvrDeletionMetadataTotal{
+				gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
+				finalizersToNumRemaining: map[string]int{},
+			},
+			expectErrorOnDelete: nil,
+			expectConditions: conditionsv1alpha1.Conditions{
+				{
+					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
+					Status: v1.ConditionTrue,
+				},
+			},
+		},
+		{
+			name: "some finalizer is remaining",
+			resourceRemaining: gvrDeletionMetadataTotal{
+				gvrToNumRemaining: map[schema.GroupVersionResource]int{
+					{Version: "v1", Resource: "pods"}: 1,
+				},
+				finalizersToNumRemaining: map[string]int{
+					"dev.kcp.io/test": 1,
+				},
+			},
+			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5},
+			expectConditions: conditionsv1alpha1.Conditions{
+				{
+					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
+					Status: v1.ConditionFalse,
+					Reason: ResourceFinalizersRemainReason,
+				},
+			},
+		},
+		{
+			name: "some resource is remaining",
+			resourceRemaining: gvrDeletionMetadataTotal{
+				gvrToNumRemaining: map[schema.GroupVersionResource]int{
+					{Version: "v1", Resource: "pods"}: 1,
+				},
+				finalizersToNumRemaining: map[string]int{},
+			},
+			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5},
+			expectConditions: conditionsv1alpha1.Conditions{
+				{
+					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
+					Status: v1.ConditionFalse,
+					Reason: ResourceRemainingReason,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			controller := &Controller{}
+			apibindingCopy, err := controller.mutateResourceRemainingStatus(tt.resourceRemaining, apibinding.DeepCopy())
+
+			if !matchErrors(err, tt.expectErrorOnDelete) {
+				t.Errorf("expected error %q when syncing namespace, got %q", tt.expectErrorOnDelete, err)
+			}
+			for _, expCondition := range tt.expectConditions {
+				cond := conditions.Get(apibindingCopy, expCondition.Type)
+				if cond == nil {
+					t.Fatalf("Missing status condition %v", expCondition.Type)
+				}
+
+				if cond.Status != expCondition.Status {
+					t.Errorf("expect condition status %q, got %q for type %s", expCondition.Status, cond.Status, cond.Type)
+				}
+
+				if cond.Reason != expCondition.Reason {
+					t.Errorf("expect condition reason %q, got %q for type %s", expCondition.Reason, cond.Reason, cond.Type)
+				}
+			}
+		})
+	}
+}
+
 func TestAPIBindingTerminating(t *testing.T) {
 	now := metav1.Now()
 	apibinding := &apisv1alpha1.APIBinding{
@@ -64,27 +162,22 @@ func TestAPIBindingTerminating(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                    string
-		existingObject          []runtime.Object
-		metadataClientActionSet metaActionSet
-		expectErrorOnDelete     error
-		expectConditions        conditionsv1alpha1.Conditions
+		name                      string
+		existingObject            []runtime.Object
+		metadataClientActionSet   metaActionSet
+		expectErrorOnDelete       error
+		expectedResourceRemaining gvrDeletionMetadataTotal
 	}{
 		{
 			name:           "no resource left for apibinding to delete",
 			existingObject: []runtime.Object{},
 			metadataClientActionSet: []metaAction{
 				{"pods", "list"},
-				{"pods", "list"},
-				{"deployments", "list"},
 				{"deployments", "list"},
 			},
-			expectErrorOnDelete: nil,
-			expectConditions: conditionsv1alpha1.Conditions{
-				{
-					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
-					Status: v1.ConditionTrue,
-				},
+			expectedResourceRemaining: gvrDeletionMetadataTotal{
+				gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
+				finalizersToNumRemaining: map[string]int{},
 			},
 		},
 		{
@@ -96,18 +189,15 @@ func TestAPIBindingTerminating(t *testing.T) {
 			metadataClientActionSet: []metaAction{
 				{"pods", "list"},
 				{"pods", "delete-collection"},
-				{"pods", "list"},
 				{"deployments", "list"},
 				{"deployments", "delete-collection"},
-				{"deployments", "list"},
 			},
-			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5},
-			expectConditions: conditionsv1alpha1.Conditions{
-				{
-					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
-					Status: v1.ConditionFalse,
-					Reason: ResourceRemainingReason,
+			expectedResourceRemaining: gvrDeletionMetadataTotal{
+				gvrToNumRemaining: map[schema.GroupVersionResource]int{
+					{Group: "apps", Version: "v1", Resource: "deployments"}: 1,
+					{Group: "", Version: "v1", Resource: "pods"}:            1,
 				},
+				finalizersToNumRemaining: map[string]int{},
 			},
 		},
 		{
@@ -119,17 +209,16 @@ func TestAPIBindingTerminating(t *testing.T) {
 			metadataClientActionSet: []metaAction{
 				{"pods", "list"},
 				{"pods", "delete-collection"},
-				{"pods", "list"},
 				{"deployments", "list"},
 				{"deployments", "delete-collection"},
-				{"deployments", "list"},
 			},
-			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5},
-			expectConditions: conditionsv1alpha1.Conditions{
-				{
-					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
-					Status: v1.ConditionFalse,
-					Reason: ResourceFinalizersRemainReason,
+			expectedResourceRemaining: gvrDeletionMetadataTotal{
+				gvrToNumRemaining: map[schema.GroupVersionResource]int{
+					{Group: "apps", Version: "v1", Resource: "deployments"}: 1,
+					{Group: "", Version: "v1", Resource: "pods"}:            1,
+				},
+				finalizersToNumRemaining: map[string]int{
+					"test.kcp.io/finalizer": 2,
 				},
 			},
 		},
@@ -144,25 +233,10 @@ func TestAPIBindingTerminating(t *testing.T) {
 
 			apibindingCopy := apibinding.DeepCopy()
 
-			err := controller.deleteAllCRs(context.TODO(), apibindingCopy)
+			resourceRemaining, _ := controller.deleteAllCRs(context.TODO(), apibindingCopy)
 
-			if !matchErrors(err, tt.expectErrorOnDelete) {
-				t.Errorf("expected error %q when syncing namespace, got %q", tt.expectErrorOnDelete, err)
-			}
-
-			for _, expCondition := range tt.expectConditions {
-				cond := conditions.Get(apibindingCopy, expCondition.Type)
-				if cond == nil {
-					t.Fatalf("Missing status condition %v", expCondition.Type)
-				}
-
-				if cond.Status != expCondition.Status {
-					t.Errorf("expect condition status %q, got %q for type %s", expCondition.Status, cond.Status, cond.Type)
-				}
-
-				if cond.Reason != expCondition.Reason {
-					t.Errorf("expect condition reason %q, got %q for type %s", expCondition.Reason, cond.Reason, cond.Type)
-				}
+			if !reflect.DeepEqual(resourceRemaining, tt.expectedResourceRemaining) {
+				t.Errorf("expect remainint resource %v, got %v", tt.expectedResourceRemaining, resourceRemaining)
 			}
 
 			if len(mockMetadataClient.Actions()) != len(tt.metadataClientActionSet) {
@@ -195,17 +269,6 @@ func (m metaActionSet) match(action clienttesting.Action) bool {
 	return false
 }
 
-// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests
-func matchErrors(e1, e2 error) bool {
-	if e1 == nil && e2 == nil {
-		return true
-	}
-	if e1 != nil && e2 != nil {
-		return e1.Error() == e2.Error()
-	}
-	return false
-}
-
 func newPartialObject(apiversion, kind, name, namespace string, finlizers []string) *metav1.PartialObjectMetadata {
 	return &metav1.PartialObjectMetadata{
 		TypeMeta: metav1.TypeMeta{
@@ -218,4 +281,15 @@ func newPartialObject(apiversion, kind, name, namespace string, finlizers []stri
 			Finalizers: finlizers,
 		},
 	}
+}
+
+// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests
+func matchErrors(e1, e2 error) bool {
+	if e1 == nil && e2 == nil {
+		return true
+	}
+	if e1 != nil && e2 != nil {
+		return e1.Error() == e2.Error()
+	}
+	return false
 }

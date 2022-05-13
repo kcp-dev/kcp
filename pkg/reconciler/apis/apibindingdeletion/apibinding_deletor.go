@@ -18,9 +18,6 @@ package apibindingdeletion
 
 import (
 	"context"
-	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -32,25 +29,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
-)
-
-const (
-	DeletionRecheckEstimateSeconds = 5
-
-	// ResourceDeletionFailedReason is the reason for condition BindingResourceDeleteSuccess that deletion of
-	// some CRs is failed
-	ResourceDeletionFailedReason = "ResourceDeletionFailed"
-
-	// ResourceRemainingReason is the reason for condition BindingResourceDeleteSuccess that some CR resource still
-	// exists when apibinding is deleting
-	ResourceRemainingReason = "SomeResourcesRemain"
-
-	// ResourceFinalizersRemainReason is the reason for condition BindingResourceDeleteSuccess that finalizers on some
-	// CRs still exist.
-	ResourceFinalizersRemainReason = "SomeFinalizersRemain"
 )
 
 type gvrDeletionMetadata struct {
@@ -60,10 +38,17 @@ type gvrDeletionMetadata struct {
 	finalizersToNumRemaining map[string]int
 }
 
-func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.APIBinding) error {
+type gvrDeletionMetadataTotal struct {
+	gvrToNumRemaining        map[schema.GroupVersionResource]int
+	finalizersToNumRemaining map[string]int
+}
 
-	gvrToNumRemaining := map[schema.GroupVersionResource]int{}
-	finalizersToNumRemaining := map[string]int{}
+func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.APIBinding) (gvrDeletionMetadataTotal, error) {
+
+	totalResourceRemaining := gvrDeletionMetadataTotal{
+		gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
+		finalizersToNumRemaining: map[string]int{},
+	}
 
 	deleteContentErrs := []error{}
 	for _, resource := range apibinding.Status.BoundResources {
@@ -80,75 +65,22 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 			}
 
 			if deletionMetadata.numRemaining > 0 {
-				gvrToNumRemaining[gvr] = deletionMetadata.numRemaining
+				totalResourceRemaining.gvrToNumRemaining[gvr] = deletionMetadata.numRemaining
 				for finalizer, numRemaining := range deletionMetadata.finalizersToNumRemaining {
 					if numRemaining == 0 {
 						continue
 					}
-					finalizersToNumRemaining[finalizer] = finalizersToNumRemaining[finalizer] + numRemaining
+					totalResourceRemaining.finalizersToNumRemaining[finalizer] = totalResourceRemaining.finalizersToNumRemaining[finalizer] + numRemaining
 				}
 			}
 		}
 	}
 
 	if len(deleteContentErrs) > 0 {
-		conditions.MarkFalse(
-			apibinding,
-			apisv1alpha1.BindingResourceDeleteSuccess,
-			ResourceDeletionFailedReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			utilerrors.NewAggregate(deleteContentErrs).Error(),
-		)
-
-		return utilerrors.NewAggregate(deleteContentErrs)
+		return totalResourceRemaining, utilerrors.NewAggregate(deleteContentErrs)
 	}
 
-	if len(finalizersToNumRemaining) != 0 {
-		remainingByFinalizer := []string{}
-		for finalizer, numRemaining := range finalizersToNumRemaining {
-			if numRemaining == 0 {
-				continue
-			}
-			remainingByFinalizer = append(remainingByFinalizer, fmt.Sprintf("%s in %d resource instances", finalizer, numRemaining))
-		}
-		// sort for stable updates
-		sort.Strings(remainingByFinalizer)
-		conditions.MarkFalse(
-			apibinding,
-			apisv1alpha1.BindingResourceDeleteSuccess,
-			ResourceFinalizersRemainReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")),
-		)
-
-		return &deletion.ResourcesRemainingError{Estimate: DeletionRecheckEstimateSeconds}
-	}
-
-	if len(gvrToNumRemaining) != 0 {
-		remainingResources := []string{}
-		for gvr, numRemaining := range gvrToNumRemaining {
-			if numRemaining == 0 {
-				continue
-			}
-			remainingResources = append(remainingResources, fmt.Sprintf("%s.%s has %d resource instances", gvr.Resource, gvr.Group, numRemaining))
-		}
-		// sort for stable updates
-		sort.Strings(remainingResources)
-
-		conditions.MarkFalse(
-			apibinding,
-			apisv1alpha1.BindingResourceDeleteSuccess,
-			ResourceRemainingReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")),
-		)
-
-		return &deletion.ResourcesRemainingError{Estimate: DeletionRecheckEstimateSeconds}
-	}
-
-	conditions.MarkTrue(apibinding, apisv1alpha1.BindingResourceDeleteSuccess)
-
-	return nil
+	return totalResourceRemaining, nil
 }
 
 func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (gvrDeletionMetadata, error) {
@@ -183,12 +115,8 @@ func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster
 		return gvrDeletionMetadata{}, err
 	}
 
-	// list again so we know how many left resources
-	partialList, err = c.metadataClient.Resource(gvr).Namespace(metav1.NamespaceAll).List(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: clusterName}), metav1.ListOptions{})
-	if err != nil {
-		return gvrDeletionMetadata{}, err
-	}
-
+	// resource will not be delete immediately, instead of list again, we just return the
+	// remaining resources in the first list and recheck later.
 	if len(partialList.Items) == 0 {
 		// we're done
 		return gvrDeletionMetadata{numRemaining: 0}, nil
