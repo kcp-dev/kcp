@@ -114,9 +114,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			negotiatedAPIResourceInformer := wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources()
 
 			installedAPIs = newInstalledAPIs(func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error) {
-				return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(&clusterAwareClientGetter{
-					clusterInterface: dynamicClusterClient,
-				}))
+				return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(dynamicClusterClient))
 			})
 
 			// This should be replaced by a real controller when the URLs should be added to the WorkloadCluster object
