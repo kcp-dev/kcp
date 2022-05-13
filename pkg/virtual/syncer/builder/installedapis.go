@@ -25,24 +25,26 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clusters"
 
-	apidefinition "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
+	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer"
 )
 
 var _ syncer.WorkloadClusterAPIManager = (*installedAPIs)(nil)
 var _ apidefinition.APIDefinitionSetGetter = (*installedAPIs)(nil)
 
+// installedAPIs provides APIDefinitions based on APIResources in a workspace with WorkloadClusters.
 type installedAPIs struct {
 	createAPIDefinition apidefinition.CreateAPIDefinitionFunc
 
 	mutex   sync.RWMutex
-	apiSets map[string]apidefinition.APIDefinitionSet
+	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
 }
 
 func newInstalledAPIs(createAPIDefinition apidefinition.CreateAPIDefinitionFunc) *installedAPIs {
 	return &installedAPIs{
 		createAPIDefinition: createAPIDefinition,
-		apiSets:             make(map[string]apidefinition.APIDefinitionSet),
+		apiSets:             make(map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet),
 	}
 }
 
@@ -50,9 +52,9 @@ func (apis *installedAPIs) addWorkloadCluster(cluster logicalcluster.Name, workl
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	workloadClusterKey := clusters.ToClusterAwareKey(cluster, workloadCluster)
-	if _, exists := apis.apiSets[workloadClusterKey]; !exists {
-		apis.apiSets[workloadClusterKey] = make(apidefinition.APIDefinitionSet)
+	key := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(cluster, workloadCluster))
+	if _, exists := apis.apiSets[key]; !exists {
+		apis.apiSets[key] = make(apidefinition.APIDefinitionSet)
 	}
 }
 
@@ -60,15 +62,15 @@ func (apis *installedAPIs) removeWorkloadCluster(cluster logicalcluster.Name, wo
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	workloadClusterKey := clusters.ToClusterAwareKey(cluster, workloadCluster)
-	delete(apis.apiSets, workloadClusterKey)
+	key := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(cluster, workloadCluster))
+	delete(apis.apiSets, key)
 }
 
-func (apis *installedAPIs) GetAPIDefinitionSet(apiDomainKey string) (apidefinition.APIDefinitionSet, bool) {
+func (apis *installedAPIs) GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool) {
 	apis.mutex.RLock()
 	defer apis.mutex.RUnlock()
 
-	apiSet, ok := apis.apiSets[apiDomainKey]
+	apiSet, ok := apis.apiSets[key]
 	return apiSet, ok
 }
 
@@ -76,7 +78,7 @@ func (apis *installedAPIs) Upsert(api syncer.WorkloadClusterAPI) error {
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	key := clusters.ToClusterAwareKey(api.LogicalClusterName, api.Name)
+	key := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(api.LogicalClusterName, api.Name))
 	if workloadClusterAPIs, exists := apis.apiSets[key]; !exists {
 		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName.String())
 	} else {
@@ -98,7 +100,7 @@ func (apis *installedAPIs) Remove(api syncer.WorkloadClusterAPI) error {
 	apis.mutex.Lock()
 	defer apis.mutex.Unlock()
 
-	key := clusters.ToClusterAwareKey(api.LogicalClusterName, api.Name)
+	key := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(api.LogicalClusterName, api.Name))
 	if workloadClusterAPIs, exists := apis.apiSets[key]; !exists {
 		return fmt.Errorf("workload cluster %q in workspace %q is unknown", api.Name, api.LogicalClusterName.String())
 	} else {
