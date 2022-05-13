@@ -35,6 +35,7 @@ import (
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
@@ -142,7 +143,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				require.Equal(t, []*metav1.APIResourceList{
+				require.Equal(t, toYAML(t, []*metav1.APIResourceList{
 					deploymentsAPIResourceList(kubelikeWorkspaceName),
 					{
 						TypeMeta: metav1.TypeMeta{
@@ -187,13 +188,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							Verbs:              metav1.Verbs{"get", "patch", "update"},
 							StorageVersionHash: "",
 						}),
-				}, sortAPIResourceList(kubelikeAPIResourceLists))
+				}), toYAML(t, sortAPIResourceList(kubelikeAPIResourceLists)))
 
 				wildwestVWDiscoverClient, err := clientgodiscovery.NewDiscoveryClientForConfig(wildwestSyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				require.Equal(t, []*metav1.APIResourceList{
+				require.Equal(t, toYAML(t, []*metav1.APIResourceList{
 					deploymentsAPIResourceList(wildwestWorkspaceName),
 					requiredCoreAPIResourceList(wildwestWorkspaceName),
 					{
@@ -220,7 +221,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							},
 						},
 					},
-				}, sortAPIResourceList(wildwestAPIResourceLists))
+				}), toYAML(t, sortAPIResourceList(wildwestAPIResourceLists)))
 			},
 		},
 		{
@@ -432,4 +433,10 @@ func sortAPIResourceList(list []*metav1.APIResourceList) []*metav1.APIResourceLi
 		sort.Sort(ByName(resource.APIResources))
 	}
 	return list
+}
+
+func toYAML(t *testing.T, obj interface{}) string {
+	yml, err := yaml.Marshal(obj)
+	require.NoError(t, err)
+	return string(yml)
 }
