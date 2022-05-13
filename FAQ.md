@@ -9,13 +9,13 @@ kcp is a highly-multi-tenant Kubernetes control-plane, built for SaaS service-pr
 Check out our [terminology](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md) document and feel free to open an issue if something is not covered.
 
 
-## If kcp is a Kubernetes api server without pod-like APIs, how do resources like deployments get scheduled?
+## If kcp is a Kubernetes API server without pod-like APIs, how do resources like Deployments get scheduled?
 
-kcp has a concept call [Syncer](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#syncer) which is installed on each [WorkloadClusters](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#workload-cluster). The [Syncer](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#syncer) negotaties, with kcp, a set of available APIs to make accessible in the workspace. This may include things like [Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) or other resources you may explicitly configure the syncer to synchronize to kcp. Once these APIs are made available in your [Workspace](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#workspace) you may then create resources of that type. From there, the [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs help determine which [Location](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) your deployable resource lands on.
+kcp has a concept called [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#syncer) which is installed on each [WorkloadCluster](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#workload-cluster). The [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#syncer) negotiates, with kcp, a set of APIs to make accessible in the workspace. This may include things like [Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) or other resources you may explicitly configure the syncer to synchronize to kcp. Once these APIs are made available in your [Workspace](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#workspace) you may then create resources of that type. From there, the [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs help determine which [Location](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) your deployable resource lands on.
 
 ## Will KCP be able to pass the K8S conformance tests in [CNCF Conformance Suites](https://www.cncf.io/certification/software-conformance/)?
 
-For supported APIs, kcp is Kubernetes and will be compliant with conformance suites.  However, not all APIs are supported out of the box, on purpose.
+No, the Kubernets conformance suites require that all Kubernetes APIs are supported and kcp does not support all APIs out of the box (for instance, Pods).
 
 ## Are these ideas being presented to the Kubernetes community?
 
@@ -23,7 +23,7 @@ Yes! All development is public and we have started discussions about what is mat
 
 ## How does upgrading Kubernetes work in this model?
 
-kcp depends on a [fork](https://github.com/kcp-dev/kubernetes) of Kubernetes. Updating Kuberentes for the kcp project itself requires a rebase. We are actively following the releases of Kubernetes and rebasing regularly. Updating Kuberentes for clusters attached to kcp is exactly like it is done today, though you may choose to follow different patterns of availability for applications based on kcp's ability to cordon and drain clusters or relocate applications.
+kcp depends on a [fork](https://github.com/kcp-dev/kubernetes) of Kubernetes. Updating Kubernetes for the kcp project itself requires a rebase. We are actively following the releases of Kubernetes and rebasing regularly. Updating Kuberentes for clusters attached to kcp is exactly like it is done today, though you may choose to follow different patterns of availability for applications based on kcp's ability to cordon and drain clusters or relocate applications.
 
 ## Can kcp workloads run on MiniKube clusters?
 
@@ -33,7 +33,7 @@ Yes.
 
 We are in the early stages of (brainstorming storage use cases)[https://docs.google.com/document/d/13VpnyBQHpaishrastdO3kGApKLzYBeb9QXdKn3o2vHs/edit#heading=h.tg51mxx1tg19]. Please join in the conversation if you have opinions or use cases in this areas.
 
-## With multiple workspaces on a single cluster, that implies pods from multiple tenants are on the same host VM. Does this mean privileged pods are forbidden to avoid cross contamination with host ports and host paths?
+## With multiple `Workspaces` on a single cluster, that implies `Pods` from multiple tenants are on the same host VM. Does this mean privileged `Pods` are forbidden to avoid cross contamination with host ports and host paths?
 
 We aren't quite there yet. Security controls are especially important at the multi-tenant level and we'd love to hear your use cases in this area.
 
@@ -47,7 +47,7 @@ Yes. We are tracking [read-through of resources](https://github.com/kcp-dev/kcp/
 
 ## Are workspaces hierarchical?
 
-[Worksapces](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) can contain other workspaces and workspaces are typed. Please see the [Worksapce documentation](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) for more details.
+[Workspaces](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) can contain other workspaces and workspaces are typed. Please see the [Worksapce documentation](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) for more details.
 
 ## Are custom admission controllers considered? How would that work across clusters if api server and the actual service is located elsewhere?
 
@@ -59,7 +59,7 @@ They do, in the [WorkloadClusters](https://github.com/kcp-dev/kcp/blob/main/docs
 
 ## Let’s take something boring like FIPS compliance. Would a workspace be guaranteed to run accordingly to the regulatory standards? Ie a workspace admin defined some FIPS stuffs and kcp ensures that the resulting pods do run appropriate in the FIPS shard?
 
-In kcp and application should be able to describe the constraints it needs in its runtime environment. This may be techincal requirements like GPU or storage, it may be regulatory like data locality or FIPS, or it may be some other cool thing we haven't thought of yet. kcp expects the integration with [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs to handle finding the right placement that fulfills those requirements.
+In kcp an application should be able to describe the constraints it needs in its runtime environment. This may be techincal requirements like GPU or storage, it may be regulatory like data locality or FIPS, or it may be some other cool thing we haven't thought of yet. kcp expects the integration with [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs to handle finding the right placement that fulfills those requirements.
 
 ## Could you define a 'shard' in the context of kcp?
 
@@ -67,5 +67,5 @@ Shards in kcp represent a single apiserver and etcd/db instance.  This is how kc
 
 ## Where can I get the kubectl workspace plugin?
 
-You're in the reight place. Clone this repo and run `make install WHAT=./cmd/kubectl-kcp`.
+You're in the right place. Clone this repo and run `make install WHAT=./cmd/kubectl-kcp`.
 
