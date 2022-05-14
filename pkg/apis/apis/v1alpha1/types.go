@@ -498,15 +498,15 @@ type APIResourceSchemaList struct {
 	Items []APIResourceSchema `json:"items"`
 }
 
-func (v *APIResourceVersion) GetSchema() *apiextensionsv1.JSONSchemaProps {
+func (v *APIResourceVersion) GetSchema() (*apiextensionsv1.JSONSchemaProps, error) {
 	if v.Schema.Raw == nil {
 		return nil, nil
 	}
 	var schema apiextensionsv1.JSONSchemaProps
 	if err := json.Unmarshal(v.Schema.Raw, &schema); err != nil {
-		panic(err)
+		return nil, err
 	}
-	return &schema
+	return &schema, nil
 }
 
 func (v *APIResourceVersion) SetSchema(schema *apiextensionsv1.JSONSchemaProps) error {
