@@ -47,6 +47,9 @@ type APIDefinition interface {
 
 	// GetSubResourceRequestScope provides the handlers.RequestScope required to serve the given sub-resource.
 	GetSubResourceRequestScope(subresource string) *handlers.RequestScope
+
+	// TearDown shuts down long-running connections.
+	TearDown()
 }
 
 // APIDefinitionSet contains the APIDefintion objects for the APIs of an API domain.

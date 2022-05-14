@@ -346,6 +346,8 @@ func (apiDef *servingInfo) GetSubResourceRequestScope(subresource string) *handl
 	}
 	return nil
 }
+func (apiDef *servingInfo) TearDown() {
+}
 
 var _ runtime.ObjectConvertor = nopConverter{}
 

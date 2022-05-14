@@ -195,6 +195,17 @@ func (c *APIReconciler) Start(ctx context.Context) {
 
 	go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 
+	// stop all watches if the controller is stopped
+	defer func() {
+		c.mutex.Lock()
+		defer c.mutex.Unlock()
+		for _, sets := range c.apiSets {
+			for _, v := range sets {
+				v.TearDown()
+			}
+		}
+	}()
+
 	<-ctx.Done()
 }
 
@@ -241,8 +252,11 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
 
-		if _, found := c.apiSets[apiDomainKey]; found {
+		if oldSet, found := c.apiSets[apiDomainKey]; found {
 			klog.V(3).Infof("Workload cluster %s|%s not found. Removing resource %s.", clusterName, workloadClusterName, resourceName)
+			for _, v := range oldSet {
+				v.TearDown()
+			}
 			delete(c.apiSets, apiDomainKey)
 		} else {
 			klog.V(4).Infof("Workload cluster %s|%s not found. No need to remove resource %s.", clusterName, workloadClusterName, resourceName)
@@ -276,6 +290,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		for gvr, v := range oldSet {
 			if gvr == resourceGVR {
 				klog.V(3).Infof("NegotiatedAPIResource %s|%s is %s. Removing resource from workload cluster %s.", clusterName, resourceName, reason, workloadClusterName)
+				v.TearDown()
 				continue
 			}
 			newSet[gvr] = v
@@ -310,6 +325,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	resourceGVR := resourceNameToGVR(resourceName)
 	for gvr, v := range oldSet {
 		if gvr == resourceGVR {
+			v.TearDown()
 			continue
 		}
 		newSet[gvr] = v

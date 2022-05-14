@@ -77,6 +77,9 @@ type Store struct {
 	subResources              []string
 	patchConflictRetryBackoff wait.Backoff
 	labelSelector             map[string]string
+
+	// stopWatchesCh closing means that all existing watches are closed.
+	stopWatchesCh <-chan struct{}
 }
 
 var _ rest.StandardStorage = &Store{}
@@ -156,7 +159,17 @@ func (s *Store) Watch(ctx context.Context, options *metainternalversion.ListOpti
 		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
 	}
 
-	return delegate.Watch(ctx, v1ListOptions)
+	watchCtx, cancelFn := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-s.stopWatchesCh:
+			cancelFn()
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	return delegate.Watch(watchCtx, v1ListOptions)
 }
 
 // Update implements rest.Updater

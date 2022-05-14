@@ -75,6 +75,8 @@ func (apiDef *mockedAPIDefinition) GetRequestScope() *handlers.RequestScope {
 func (apiDef *mockedAPIDefinition) GetSubResourceRequestScope(subresource string) *handlers.RequestScope {
 	return nil
 }
+func (apiDef *mockedAPIDefinition) TearDown() {
+}
 
 func TestRouting(t *testing.T) {
 	hasSynced := false

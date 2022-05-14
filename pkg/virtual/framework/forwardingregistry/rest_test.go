@@ -90,7 +90,11 @@ func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, patchConfl
 	}
 	table, _ := tableconvertor.New(headers)
 
+	ctx, cancelFn := context.WithCancel(context.Background())
+	t.Cleanup(cancelFn)
+
 	return forwardingregistry.NewStorage(
+		ctx,
 		gvr,
 		kind,
 		listKind,

@@ -17,6 +17,8 @@ limitations under the License.
 package builder
 
 import (
+	"context"
+
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
@@ -31,7 +33,7 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideForwardingRestStorage(clusterClient dynamic.ClusterInterface, workloadClusterName string) apiserver.RestProviderFunc {
+func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, workloadClusterName string) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -55,6 +57,7 @@ func provideForwardingRestStorage(clusterClient dynamic.ClusterInterface, worklo
 		)
 
 		storage := registry.NewStorage(
+			ctx,
 			resource,
 			kind,
 			listKind,

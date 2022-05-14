@@ -114,7 +114,16 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters(),
 				wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources(),
 				func(logicalClusterName logicalcluster.Name, workloadClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error) {
-					return apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(dynamicClusterClient, workloadClusterName))
+					ctx, cancelFn := context.WithCancel(context.Background())
+					def, err := apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(ctx, dynamicClusterClient, workloadClusterName))
+					if err != nil {
+						cancelFn()
+						return nil, err
+					}
+					return &apiDefinitionWithCancel{
+						APIDefinition: def,
+						cancelFn:      cancelFn,
+					}, nil
 				},
 			)
 			if err != nil {
@@ -142,6 +151,17 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			return apiReconciler, nil
 		},
 	}
+}
+
+// apiDefinitionWithCancel calls the cancelFn on tear-down.
+type apiDefinitionWithCancel struct {
+	apidefinition.APIDefinition
+	cancelFn func()
+}
+
+func (d *apiDefinitionWithCancel) TearDown() {
+	d.cancelFn()
+	d.APIDefinition.TearDown()
 }
 
 func goContext(parent genericapiserver.PostStartHookContext) context.Context {

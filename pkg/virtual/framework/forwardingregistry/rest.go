@@ -17,6 +17,8 @@ limitations under the License.
 package forwardingregistry
 
 import (
+	"context"
+
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,12 +32,13 @@ import (
 )
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
-func NewStorage(resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
+func NewStorage(ctx context.Context, resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
 	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.CustomResourceStorage {
-	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, newStores(resource, dynamicClusterClient, patchConflictRetryBackoff, labelSelector))
+	stores := newStores(ctx, resource, dynamicClusterClient, patchConflictRetryBackoff, labelSelector)
+	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, stores)
 }
 
-func newStores(gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.NewStores {
+func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.NewStores {
 	return func(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, optsGetter generic.RESTOptionsGetter, tableConvertor rest.TableConvertor) (main, status customresource.Store) {
 		if patchConflictRetryBackoff == nil {
 			patchConflictRetryBackoff = &retry.DefaultRetry
@@ -65,6 +68,8 @@ func newStores(gvr schema.GroupVersionResource, dynamicClusterClient dynamic.Clu
 			dynamicClusterClient:      dynamicClusterClient,
 			patchConflictRetryBackoff: *patchConflictRetryBackoff,
 			labelSelector:             labelSelector,
+
+			stopWatchesCh: ctx.Done(),
 		}
 
 		statusStore := *store // shallow copy
