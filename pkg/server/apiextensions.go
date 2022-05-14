@@ -573,6 +573,9 @@ func findCRD(name string, crds []*apiextensionsv1.CustomResourceDefinition) (*ap
 	group, resource := crdNameToGroupResource(name)
 
 	for _, aCRD := range crds {
+		if _, bound := aCRD.Annotations[apisv1alpha1.AnnotationBoundCRDKey]; bound {
+			continue
+		}
 		if aCRD.Spec.Group != group || aCRD.Spec.Names.Plural != resource {
 			continue
 		}
