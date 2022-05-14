@@ -310,7 +310,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -318,7 +318,7 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
@@ -350,7 +350,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -377,7 +377,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -385,7 +385,7 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
@@ -416,7 +416,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -424,7 +424,7 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
@@ -451,7 +451,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -506,7 +506,7 @@ func TestSyncerProcess(t *testing.T) {
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 
 			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+				o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + tc.workloadClusterName
 			})
 			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)

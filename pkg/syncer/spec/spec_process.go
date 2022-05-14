@@ -176,7 +176,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			workloadv1alpha1.InternalClusterResourceStateLabelPrefix + c.workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
+			workloadv1alpha1.InternalDownstreamClusterLabel: c.workloadClusterName,
 		})
 	}
 
@@ -247,6 +247,13 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetOwnerReferences(nil)
 	// Strip finalizers to avoid the deletion of the downstream resource from being blocked.
 	downstreamObj.SetFinalizers(nil)
+
+	// replace upstream state label with downstream cluster label. We don't want to leak upstream state machine
+	// state to downstream, and also we don't need downstream updates every time the upstream state machine changes.
+	labels := downstreamObj.GetLabels()
+	delete(labels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+c.workloadClusterName)
+	labels[workloadv1alpha1.InternalDownstreamClusterLabel] = c.workloadClusterName
+	downstreamObj.SetLabels(labels)
 
 	// Run name transformations on the downstreamObj.
 	transformName(downstreamObj)
