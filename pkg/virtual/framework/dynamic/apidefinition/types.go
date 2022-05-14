@@ -24,6 +24,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 // APIDefinition provides access to all the information needed to serve a given API resource
@@ -46,6 +47,9 @@ type APIDefinition interface {
 
 	// GetSubResourceRequestScope provides the handlers.RequestScope required to serve the given sub-resource.
 	GetSubResourceRequestScope(subresource string) *handlers.RequestScope
+
+	// TearDown shuts down long-running connections.
+	TearDown()
 }
 
 // APIDefinitionSet contains the APIDefintion objects for the APIs of an API domain.
@@ -53,9 +57,5 @@ type APIDefinitionSet map[schema.GroupVersionResource]APIDefinition
 
 // APIDefinitionSetGetter provides access to the API definitions of a API domain, based on the API domain key.
 type APIDefinitionSetGetter interface {
-	GetAPIDefinitionSet(apiDomainKey string) (apis APIDefinitionSet, apisExist bool)
+	GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apis APIDefinitionSet, apisExist bool)
 }
-
-// CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition
-// (with REST storage and handler Request scopes) based on the API specification logical cluster name and OpenAPI v3 schema.
-type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (APIDefinition, error)

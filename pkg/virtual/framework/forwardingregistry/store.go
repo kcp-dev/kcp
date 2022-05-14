@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,12 +36,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
-
-// ClientGetter provides a way to get a dynamic client based on a given context.
-// It is used to forward REST requests to a client that depends on the request context.
-type ClientGetter interface {
-	GetDynamicClient(ctx context.Context) (dynamic.Interface, error)
-}
 
 type Store struct {
 	// NewFunc returns a new instance of the type this registry returns for a
@@ -77,9 +73,13 @@ type Store struct {
 	ResetFieldsStrategy rest.ResetFieldsStrategy
 
 	resource                  schema.GroupVersionResource
-	clientGetter              ClientGetter
+	dynamicClusterClient      dynamic.ClusterInterface
 	subResources              []string
 	patchConflictRetryBackoff wait.Backoff
+	labelSelector             map[string]string
+
+	// stopWatchesCh closing means that all existing watches are closed.
+	stopWatchesCh <-chan struct{}
 }
 
 var _ rest.StandardStorage = &Store{}
@@ -108,9 +108,16 @@ func (s *Store) List(ctx context.Context, options *metainternalversion.ListOptio
 	if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
 		return nil, err
 	}
+
 	delegate, err := s.getClientResource(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(v1ListOptions.LabelSelector) == 0 {
+		v1ListOptions.LabelSelector = toExpression(s.labelSelector)
+	} else {
+		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
 	}
 
 	return delegate.List(ctx, v1ListOptions)
@@ -123,7 +130,16 @@ func (s *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 		return nil, err
 	}
 
-	return delegate.Get(ctx, name, *options, s.subResources...)
+	obj, err := delegate.Get(ctx, name, *options, s.subResources...)
+	if err != nil {
+		return nil, err
+	}
+
+	if !matches(s.labelSelector, obj) {
+		return nil, kerrors.NewNotFound(s.DefaultQualifiedResource, name)
+	}
+
+	return obj, err
 }
 
 // Watch implements rest.Watcher.
@@ -137,7 +153,23 @@ func (s *Store) Watch(ctx context.Context, options *metainternalversion.ListOpti
 		return nil, err
 	}
 
-	return delegate.Watch(ctx, v1ListOptions)
+	if len(v1ListOptions.LabelSelector) == 0 {
+		v1ListOptions.LabelSelector = toExpression(s.labelSelector)
+	} else {
+		v1ListOptions.LabelSelector += "," + toExpression(s.labelSelector)
+	}
+
+	watchCtx, cancelFn := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-s.stopWatchesCh:
+			cancelFn()
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	return delegate.Watch(watchCtx, v1ListOptions)
 }
 
 // Update implements rest.Updater
@@ -209,10 +241,15 @@ func (s *Store) ConvertToTable(ctx context.Context, object runtime.Object, table
 }
 
 func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterface, error) {
-	client, err := s.clientGetter.GetDynamicClient(ctx)
+	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
+	clusterName := cluster.Name
+	if cluster.Wildcard {
+		clusterName = logicalcluster.Wildcard
+	}
+	client := s.dynamicClusterClient.Cluster(clusterName)
 
 	if s.CreateStrategy.NamespaceScoped() {
 		if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
@@ -223,4 +260,30 @@ func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterfac
 	} else {
 		return client.Resource(s.resource), nil
 	}
+}
+
+func toExpression(labelSelect map[string]string) string {
+	if len(labelSelect) == 0 {
+		return ""
+	}
+	expr := ""
+	for k, v := range labelSelect {
+		if expr != "" {
+			expr += ","
+		}
+		expr += fmt.Sprintf("%s=%s", k, v)
+	}
+	return expr
+}
+
+func matches(labelSelector map[string]string, obj metav1.Object) bool {
+	if labelSelector == nil {
+		return true
+	}
+	for k, v := range labelSelector {
+		if obj.GetLabels()[k] != v {
+			return false
+		}
+	}
+	return true
 }

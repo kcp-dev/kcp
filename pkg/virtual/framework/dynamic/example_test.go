@@ -47,7 +47,7 @@ func Example() {
 				return
 			}
 
-			var apiDomainKey string
+			var apiDomainKey dynamiccontext.APIDomainKey
 
 			// Resolve the request root path and extract the API domain key from it
 
@@ -107,7 +107,11 @@ type someController interface {
 	Start()
 }
 
-func setupController(createAPIDefinition apidefinition.CreateAPIDefinitionFunc) someController {
+// CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition
+// (with REST storage and handler Request scopes) based on the API specification logical cluster name and OpenAPI v3 schema.
+type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, spec *v1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error)
+
+func setupController(createAPIDefinition CreateAPIDefinitionFunc) someController {
 	return nil
 }
 

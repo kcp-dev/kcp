@@ -322,6 +322,20 @@ type SchemaConverter struct {
 	visited     sets.String
 }
 
+func Convert(protoSchema proto.Schema, schemaProps *apiextensionsv1.JSONSchemaProps) []error {
+	swaggerSpecDefinitionName := protoSchema.GetPath().String()
+
+	var errors []error
+	converter := &SchemaConverter{
+		schemaProps: schemaProps,
+		schemaName:  swaggerSpecDefinitionName,
+		visited:     sets.NewString(),
+		errors:      &errors,
+	}
+	protoSchema.Accept(converter)
+	return *converter.errors
+}
+
 var _ proto.SchemaVisitorArbitrary = (*SchemaConverter)(nil)
 
 func (sc *SchemaConverter) setupDescription(schema proto.Schema) {
