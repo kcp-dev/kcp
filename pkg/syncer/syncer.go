@@ -99,7 +99,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
 	})
 	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(downstreamDynamicClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + cfg.WorkloadClusterName
 	})
 
 	// Resources are accepted as a set to ensure the provision of a

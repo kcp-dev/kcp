@@ -104,4 +104,8 @@ const (
 	//
 	// The format for the value of this annotation is: JSON Patch (https://tools.ietf.org/html/rfc6902).
 	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workloads.kcp.dev/"
+
+	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
+	// instead of state.internal.workloads.kcp.dev/<workload-cluster-name> which is used upstream.
+	InternalDownstreamClusterLabel = "internal.workloads.kcp.dev/cluster"
 )

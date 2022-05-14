@@ -486,7 +486,7 @@ func TestSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
 								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -501,7 +501,7 @@ func TestSyncerProcess(t *testing.T) {
 					toJson(t,
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
 							setPodSpecServiceAccount("spec", "template", "spec"),
@@ -557,7 +557,7 @@ func TestSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
 								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -572,7 +572,7 @@ func TestSyncerProcess(t *testing.T) {
 					toJson(t,
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
 							setPodSpecServiceAccount("spec", "template", "spec"),
@@ -609,7 +609,7 @@ func TestSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
 								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -624,7 +624,7 @@ func TestSyncerProcess(t *testing.T) {
 					toJson(t,
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							}, map[string]string{"experimental.spec-diff.workloads.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
 							setNestedField(map[string]interface{}{
 								"replicas": int64(3),
@@ -655,13 +655,13 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "root:org:ws", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				}, nil, []string{"workloads.kcp.dev/syncer-us-west1"}),
 			},
 			fromResource: deployment("theDeployment", "test", "root:org:ws",
@@ -680,7 +680,7 @@ func TestSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
 								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -702,7 +702,7 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -739,7 +739,7 @@ func TestSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
 								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -761,13 +761,13 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				},
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"internal.workloads.kcp.dev/cluster": "us-west1",
 				}, nil, []string{"workloads.kcp.dev/syncer-us-west1"}),
 			},
 			fromResource: deployment("theDeployment", "test", "root:org:ws",
@@ -789,7 +789,7 @@ func TestSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 							map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
 								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -804,7 +804,7 @@ func TestSyncerProcess(t *testing.T) {
 					toJson(t,
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"state.internal.workloads.kcp.dev/us-west1": "Sync",
+								"internal.workloads.kcp.dev/cluster": "us-west1",
 							}, map[string]string{
 								"deletion.internal.workloads.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
 								"finalizers.workloads.kcp.dev/us-west1":        "another-controller-finalizer",
