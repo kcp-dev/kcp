@@ -60,6 +60,7 @@ type DynamicDiscoverySharedInformerFactory struct {
 	gvrs          map[schema.GroupVersionResource]struct{}
 	informers     map[schema.GroupVersionResource]informers.GenericInformer
 	informerStops map[schema.GroupVersionResource]chan struct{}
+	terminating   bool
 }
 
 // IndexerFor returns the indexer for the given type GVR.
@@ -121,6 +122,10 @@ func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.Gr
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
+
+	if d.terminating {
+		return
+	}
 
 	for gvr := range d.gvrs {
 		// We have the read lock so d.informers is fully populated for all the gvrs in d.gvrs. We use d.informers
@@ -203,6 +208,19 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(ctx context.Context) {
 	// Poll for new types in the background.
 	ticker := time.NewTicker(d.pollInterval)
 	go func() {
+		defer func() {
+			d.mu.Lock()
+			defer d.mu.Unlock()
+
+			// tear down all informers when done.
+			for _, stopCh := range d.informerStops {
+				close(stopCh)
+			}
+
+			// Note: it does not matter if after this another informer is added. It won't be started without
+			// calling discoverTypes.
+		}()
+
 		for {
 			select {
 			case <-ctx.Done():
