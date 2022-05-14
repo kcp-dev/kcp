@@ -35,6 +35,10 @@ type ColumnDefinition struct {
 type ColumnDefinitions []ColumnDefinition
 
 func (cd *ColumnDefinitions) ImportFromCRDVersion(crdVersion *apiextensionsv1.CustomResourceDefinitionVersion) *ColumnDefinitions {
+	return cd.ImportFromCRDAdditionalPrinterColumns(crdVersion.AdditionalPrinterColumns)
+}
+
+func (cd *ColumnDefinitions) ImportFromCRDAdditionalPrinterColumns(in []apiextensionsv1.CustomResourceColumnDefinition) *ColumnDefinitions {
 	alreadyExists := func(name string) bool {
 		for _, colDef := range *cd {
 			if colDef.Name == name {
@@ -44,7 +48,7 @@ func (cd *ColumnDefinitions) ImportFromCRDVersion(crdVersion *apiextensionsv1.Cu
 		return false
 	}
 
-	for _, apc := range crdVersion.AdditionalPrinterColumns {
+	for _, apc := range in {
 		if !alreadyExists(apc.Name) {
 			jsonPath := apc.JSONPath
 			*cd = append(*cd, ColumnDefinition{

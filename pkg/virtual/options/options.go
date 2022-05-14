@@ -25,6 +25,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/virtual/apiexport"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
@@ -72,6 +73,9 @@ func (o *Options) NewVirtualWorkspaces(
 	}
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
+
+	vw := apiexport.NewVirtualWorkspace(rootPathPrefix, dynamicClusterClient, wildcardKcpInformers.Apis().V1alpha1().APIExports(), wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas())
+	workspaces = append(workspaces, vw)
 
 	return extraInformers, workspaces, nil
 }
