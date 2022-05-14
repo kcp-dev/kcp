@@ -27,16 +27,16 @@ import (
 
 var _ framework.VirtualWorkspace = (*DynamicVirtualWorkspace)(nil)
 
-// DynamicVirtualWorkspace is an implemntation of a VirtualWorkspace which can dynamically serve resources,
+// DynamicVirtualWorkspace is an implementation of a framework.VirtualWorkspace which can dynamically serve resources,
 // based on API definitions (including an OpenAPI v3 schema), and a Rest storage provider.
 type DynamicVirtualWorkspace struct {
 	Name             string
 	RootPathResolver framework.RootPathResolverFunc
 	Ready            framework.ReadyFunc
 
-	// BootstrapAPISetManagement creates, initializes and returns an apidefs.APISetRetriever.
-	// Usually it would also setup some logic that will call the apiserver.CreateServingInfoFor() method
-	// to add an apidefs.APIDefinition in the apidefs.APISetRetriever on some event.
+	// BootstrapAPISetManagement creates, initializes and returns an apidefinition.APIDefinitionSetGetter.
+	// Usually it would also set up some logic that will call the apiserver.CreateServingInfoFor() method
+	// to add an apidefinition.APIDefinition in the apidefinition.APIDefinitionSetGetter on some event.
 	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error)
 }
 
