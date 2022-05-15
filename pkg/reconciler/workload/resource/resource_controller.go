@@ -19,12 +19,14 @@ package resource
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,77 +43,59 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 )
 
-const controllerName = "namespace-scheduler"
+const controllerName = "kcp-workload-resource-scheduler"
 
 type clusterDiscovery interface {
 	WithCluster(name logicalcluster.Name) discovery.DiscoveryInterface
 }
 
-// NewController returns a new Controller which schedules namespaced resources to a Cluster.
+// NewController returns a new Controller which schedules resources in scheduled namespaces.
 func NewController(
 	dynamicClusterClient dynamic.ClusterInterface,
 	dynamicMetadataClusterClient dynamic.ClusterInterface,
 	clusterDiscoveryClient clusterDiscovery,
 	kubeClusterClient kubernetes.ClusterInterface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
-	clusterInformer workloadinformer.WorkloadClusterInformer,
-	clusterLister workloadlisters.WorkloadClusterLister,
 	namespaceInformer coreinformers.NamespaceInformer,
-	namespaceLister corelisters.NamespaceLister,
 	pollInterval time.Duration,
 ) *Controller {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
 	gvrQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-gvr")
-	namespaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-namespace")
-	clusterQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-cluster")
-	workspaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-workspace")
-
-	workspaceLister := workspaceInformer.Lister()
 
 	c := &Controller{
-		resourceQueue:  resourceQueue,
-		gvrQueue:       gvrQueue,
-		namespaceQueue: namespaceQueue,
-		clusterQueue:   clusterQueue,
-		workspaceQueue: workspaceQueue,
+		resourceQueue: resourceQueue,
+		gvrQueue:      gvrQueue,
 
-		dynClient:       dynamicClusterClient,
-		workspaceLister: workspaceLister,
-		clusterLister:   clusterLister,
-		namespaceLister: namespaceLister,
-		kubeClient:      kubeClusterClient,
+		dynClient: dynamicClusterClient,
+
+		namespaceLister: namespaceInformer.Lister(),
+
+		kubeClient: kubeClusterClient,
 	}
-
-	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueCluster(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueCluster(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueCluster(obj) },
-	})
 
 	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filterNamespace,
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueNamespace(obj) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueNamespace(obj) },
+			AddFunc: func(obj interface{}) { c.enqueueNamespace(obj) },
+			UpdateFunc: func(old, obj interface{}) {
+				oldNS := old.(*corev1.Namespace)
+				newNS := obj.(*corev1.Namespace)
+				if !reflect.DeepEqual(scheduleStateLabels(oldNS.Labels), scheduleStateLabels(newNS.Labels)) {
+					c.enqueueNamespace(obj)
+				}
+			},
 			DeleteFunc: nil, // Nothing to do.
 		},
 	})
 
-	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueWorkspace(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkspace(obj) },
-		DeleteFunc: nil, // Nothing to do.
-	})
-
 	// Always do a * list/watch
-	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster(logicalcluster.Wildcard),
+	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceInformer.Lister(), clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster(logicalcluster.Wildcard),
 		filterResource,
 		informer.GVREventHandlerFuncs{
 			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
@@ -122,19 +106,26 @@ func NewController(
 	return c
 }
 
-type Controller struct {
-	resourceQueue  workqueue.RateLimitingInterface
-	gvrQueue       workqueue.RateLimitingInterface
-	namespaceQueue workqueue.RateLimitingInterface
-	clusterQueue   workqueue.RateLimitingInterface
-	workspaceQueue workqueue.RateLimitingInterface
+func scheduleStateLabels(ls map[string]string) map[string]string {
+	ret := make(map[string]string, len(ls))
+	for k, v := range ls {
+		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) || k == namespace.DeprecatedScheduledClusterNamespaceLabel {
+			ret[k] = v
+		}
+	}
+	return ret
+}
 
-	dynClient       dynamic.ClusterInterface
-	clusterLister   workloadlisters.WorkloadClusterLister
+type Controller struct {
+	resourceQueue workqueue.RateLimitingInterface
+	gvrQueue      workqueue.RateLimitingInterface
+
+	dynClient  dynamic.ClusterInterface
+	kubeClient kubernetes.ClusterInterface
+
 	namespaceLister corelisters.NamespaceLister
-	workspaceLister tenancylisters.ClusterWorkspaceLister
-	kubeClient      kubernetes.ClusterInterface
-	ddsif           informer.DynamicDiscoverySharedInformerFactory
+
+	ddsif informer.DynamicDiscoverySharedInformerFactory
 }
 
 func filterResource(obj interface{}) bool {
@@ -191,55 +182,30 @@ func (c *Controller) enqueueNamespace(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.namespaceQueue.Add(key)
-}
-
-func (c *Controller) enqueueCluster(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
+	ns, err := c.namespaceLister.Get(key)
+	if err != nil && !errors.IsNotFound(err) {
 		runtime.HandleError(err)
 		return
 	}
-	c.clusterQueue.Add(key)
-}
-
-func (c *Controller) enqueueClusterAfter(obj interface{}, dur time.Duration) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
+	if err := c.enqueueResourcesForNamespace(ns); err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	c.clusterQueue.AddAfter(key, dur)
-}
-
-func (c *Controller) enqueueWorkspace(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	c.workspaceQueue.Add(key)
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.resourceQueue.ShutDown()
 	defer c.gvrQueue.ShutDown()
-	defer c.namespaceQueue.ShutDown()
-	defer c.clusterQueue.ShutDown()
-	defer c.workspaceQueue.ShutDown()
 
-	klog.Info("Starting Namespace scheduler")
-	defer klog.Info("Shutting down Namespace scheduler")
+	klog.Info("Starting Resource scheduler")
+	defer klog.Info("Shutting down Resource scheduler")
 
 	c.ddsif.Start(ctx)
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startResourceWorker(ctx) }, time.Second, ctx.Done())
 		go wait.Until(func() { c.startGVRWorker(ctx) }, time.Second, ctx.Done())
-		go wait.Until(func() { c.startNamespaceWorker(ctx) }, time.Second, ctx.Done())
-		go wait.Until(func() { c.startClusterWorker(ctx) }, time.Second, ctx.Done())
-		go wait.Until(func() { c.startWorkspaceWorker(ctx) }, time.Second, ctx.Done())
 	}
 	<-ctx.Done()
 }
@@ -250,19 +216,6 @@ func (c *Controller) startResourceWorker(ctx context.Context) {
 }
 func (c *Controller) startGVRWorker(ctx context.Context) {
 	for processNext(ctx, c.gvrQueue, c.processGVR) {
-	}
-}
-func (c *Controller) startNamespaceWorker(ctx context.Context) {
-	for processNext(ctx, c.namespaceQueue, c.processNamespace) {
-	}
-}
-func (c *Controller) startClusterWorker(ctx context.Context) {
-	for processNext(ctx, c.clusterQueue, c.processCluster) {
-	}
-}
-
-func (c *Controller) startWorkspaceWorker(ctx context.Context) {
-	for processNext(ctx, c.workspaceQueue, c.processWorkspace) {
 	}
 }
 
@@ -338,65 +291,65 @@ func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
 		klog.Errorf("Error parsing GVR %q; dropping", gvrstr)
 		return nil
 	}
-	return c.reconcileGVR(ctx, *gvr)
+	return c.reconcileGVR(*gvr)
 }
 
 // namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
 
-func (c *Controller) processNamespace(ctx context.Context, key string) error {
-	ns, err := c.namespaceLister.Get(key)
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return err
+// enqueueResourcesForNamespace adds the resources contained by the given
+// namespace to the queue if there scheduling label differs from the namespace's.
+func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
+	clusterName := logicalcluster.From(ns)
+	nsLocation := ns.Labels[namespace.DeprecatedScheduledClusterNamespaceLabel]
+
+	klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): getting listers", clusterName, ns.Name)
+	listers, notSynced := c.ddsif.Listers()
+	for gvr, lister := range listers {
+		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
+		if err != nil {
+			return err
+		}
+
+		klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): got %d items for GVR %q", clusterName, ns.Name, len(objs), gvr.String())
+
+		var enqueuedResources []string
+		for _, obj := range objs {
+			u := obj.(*unstructured.Unstructured)
+
+			// TODO(ncdc): remove this when we have namespaced listers that only return for the scoped cluster (https://github.com/kcp-dev/kcp/issues/685).
+			if logicalcluster.From(u) != clusterName {
+				continue
+			}
+
+			objLocation := u.GetLabels()[namespace.DeprecatedScheduledClusterNamespaceLabel]
+			if objLocation != nsLocation {
+				c.enqueueResource(gvr, obj)
+
+				if klog.V(2).Enabled() && !klog.V(4).Enabled() && len(enqueuedResources) < 10 {
+					enqueuedResources = append(enqueuedResources, u.GetName())
+				}
+
+				klog.V(3).Infof("Enqueuing %s %s|%s/%s to schedule to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
+			} else {
+				klog.V(4).Infof("Skipping %s %s|%s/%s because it is already scheduled to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
+			}
+		}
+
+		if len(enqueuedResources) > 0 {
+			if len(enqueuedResources) == 10 {
+				enqueuedResources = append(enqueuedResources, "...")
+			}
+			klog.V(2).Infof("Enqueuing some GVR %q in namespace %s|%s to schedule to %q: %s", gvr, logicalcluster.From(ns), ns.Name, nsLocation, strings.Join(enqueuedResources, ","))
+		}
 	}
 
-	// Get logical cluster name.
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		klog.Errorf("failed to split key %q, dropping: %v", key, err)
-		return nil
-	}
-	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
-
-	return c.reconcileNamespace(ctx, lclusterName, ns.DeepCopy())
-}
-
-func (c *Controller) processCluster(ctx context.Context, key string) error {
-	cluster, err := c.clusterLister.Get(key)
-	if k8serrors.IsNotFound(err) {
-		// A deleted cluster requires evaluating all namespaces for
-		// potential rescheduling.
-		//
-		// TODO(marun) Consider using a cluster finalizer to speed up
-		// convergence if cluster deletion events are missed by this
-		// controller. Rescheduling will always happen eventually due
-		// to namespace informer resync.
-
-		clusterName, _ := clusters.SplitClusterAwareKey(key)
-
-		return c.enqueueNamespaces(clusterName, labels.Everything())
-	} else if err != nil {
-		return err
+	// For all types whose informer hasn't synced yet, enqueue a workqueue
+	// item to check that GVR again later (reconcileGVR, above).
+	for _, gvr := range notSynced {
+		klog.V(3).Infof("Informer for GVR %q is not synced, needed for namespace %s|%s; re-enqueueing", gvr, logicalcluster.From(ns), ns.Name)
+		c.enqueueGVR(gvr)
 	}
 
-	return c.observeCluster(ctx, cluster.DeepCopy())
-}
-
-func (c *Controller) processWorkspace(ctx context.Context, key string) error {
-	workspace, err := c.workspaceLister.Get(key)
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	// Ensure any workspace changes result in contained namespaces being enqueued
-	// for possible rescheduling.
-
-	clusterName := logicalcluster.From(workspace)
-
-	return c.enqueueNamespaces(clusterName, labels.Everything())
+	return nil
 }

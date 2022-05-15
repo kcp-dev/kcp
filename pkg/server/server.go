@@ -436,6 +436,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
+		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
 	if s.options.Controllers.EnableAll || enabled.Has("apibinding") {
 		if err := s.installAPIBindingController(ctx, controllerConfig, server); err != nil {
 			return err

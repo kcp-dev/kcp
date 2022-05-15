@@ -19,20 +19,15 @@ package namespace
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
@@ -45,44 +40,30 @@ import (
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
-const controllerName = "namespace-scheduler"
-
-type clusterDiscovery interface {
-	WithCluster(name logicalcluster.Name) discovery.DiscoveryInterface
-}
+const controllerName = "kcp-workload-namespace"
 
 // NewController returns a new Controller which schedules namespaced resources to a Cluster.
 func NewController(
-	dynamicClusterClient dynamic.ClusterInterface,
-	dynamicMetadataClusterClient dynamic.ClusterInterface,
-	clusterDiscoveryClient clusterDiscovery,
 	kubeClusterClient kubernetes.ClusterInterface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	clusterInformer workloadinformer.WorkloadClusterInformer,
 	clusterLister workloadlisters.WorkloadClusterLister,
 	namespaceInformer coreinformers.NamespaceInformer,
 	namespaceLister corelisters.NamespaceLister,
-	pollInterval time.Duration,
 ) *Controller {
-	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
-	gvrQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-gvr")
-	namespaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-namespace")
-	clusterQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-cluster")
-	workspaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-workspace")
+	namespaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName+"-namespace")
+	clusterQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName+"-cluster")
+	workspaceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName+"-workspace")
 
 	workspaceLister := workspaceInformer.Lister()
 
 	c := &Controller{
-		resourceQueue:  resourceQueue,
-		gvrQueue:       gvrQueue,
 		namespaceQueue: namespaceQueue,
 		clusterQueue:   clusterQueue,
 		workspaceQueue: workspaceQueue,
 
-		dynClient:       dynamicClusterClient,
 		workspaceLister: workspaceLister,
 		clusterLister:   clusterLister,
 		namespaceLister: namespaceLister,
@@ -110,45 +91,18 @@ func NewController(
 		DeleteFunc: nil, // Nothing to do.
 	})
 
-	// Always do a * list/watch
-	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceLister, clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster(logicalcluster.Wildcard),
-		filterResource,
-		informer.GVREventHandlerFuncs{
-			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
-			UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueResource(gvr, obj) },
-			DeleteFunc: nil, // Nothing to do.
-		}, pollInterval)
-
 	return c
 }
 
 type Controller struct {
-	resourceQueue  workqueue.RateLimitingInterface
-	gvrQueue       workqueue.RateLimitingInterface
 	namespaceQueue workqueue.RateLimitingInterface
 	clusterQueue   workqueue.RateLimitingInterface
 	workspaceQueue workqueue.RateLimitingInterface
 
-	dynClient       dynamic.ClusterInterface
 	clusterLister   workloadlisters.WorkloadClusterLister
 	namespaceLister corelisters.NamespaceLister
 	workspaceLister tenancylisters.ClusterWorkspaceLister
 	kubeClient      kubernetes.ClusterInterface
-	ddsif           informer.DynamicDiscoverySharedInformerFactory
-}
-
-func filterResource(obj interface{}) bool {
-	current, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		klog.Warningf("Object was not Unstructured: %T", obj)
-		return false
-	}
-
-	if namespaceBlocklist.Has(current.GetNamespace()) {
-		klog.V(4).Infof("Skipping syncing namespace %s|%q", logicalcluster.From(current), current.GetNamespace())
-		return false
-	}
-	return true
 }
 
 func filterNamespace(obj interface{}) bool {
@@ -168,21 +122,6 @@ func filterNamespace(obj interface{}) bool {
 		return false
 	}
 	return true
-}
-
-func (c *Controller) enqueueResource(gvr schema.GroupVersionResource, obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	gvrstr := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
-	c.resourceQueue.Add(gvrstr + "::" + key)
-}
-
-func (c *Controller) enqueueGVR(gvr schema.GroupVersionResource) {
-	gvrstr := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
-	c.gvrQueue.Add(gvrstr)
 }
 
 func (c *Controller) enqueueNamespace(obj interface{}) {
@@ -223,8 +162,6 @@ func (c *Controller) enqueueWorkspace(obj interface{}) {
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
-	defer c.resourceQueue.ShutDown()
-	defer c.gvrQueue.ShutDown()
 	defer c.namespaceQueue.ShutDown()
 	defer c.clusterQueue.ShutDown()
 	defer c.workspaceQueue.ShutDown()
@@ -232,11 +169,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	klog.Info("Starting Namespace scheduler")
 	defer klog.Info("Shutting down Namespace scheduler")
 
-	c.ddsif.Start(ctx)
-
 	for i := 0; i < numThreads; i++ {
-		go wait.Until(func() { c.startResourceWorker(ctx) }, time.Second, ctx.Done())
-		go wait.Until(func() { c.startGVRWorker(ctx) }, time.Second, ctx.Done())
 		go wait.Until(func() { c.startNamespaceWorker(ctx) }, time.Second, ctx.Done())
 		go wait.Until(func() { c.startClusterWorker(ctx) }, time.Second, ctx.Done())
 		go wait.Until(func() { c.startWorkspaceWorker(ctx) }, time.Second, ctx.Done())
@@ -244,14 +177,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	<-ctx.Done()
 }
 
-func (c *Controller) startResourceWorker(ctx context.Context) {
-	for processNext(ctx, c.resourceQueue, c.processResource) {
-	}
-}
-func (c *Controller) startGVRWorker(ctx context.Context) {
-	for processNext(ctx, c.gvrQueue, c.processGVR) {
-	}
-}
 func (c *Controller) startNamespaceWorker(ctx context.Context) {
 	for processNext(ctx, c.namespaceQueue, c.processNamespace) {
 	}
@@ -289,56 +214,6 @@ func processNext(
 	}
 	queue.Forget(key)
 	return true
-}
-
-// key is gvr::KEY
-func (c *Controller) processResource(ctx context.Context, key string) error {
-	parts := strings.SplitN(key, "::", 2)
-	if len(parts) != 2 {
-		klog.Errorf("Error parsing key %q; dropping", key)
-		return nil
-	}
-	gvrstr := parts[0]
-	gvr, _ := schema.ParseResourceArg(gvrstr)
-	if gvr == nil {
-		klog.Errorf("Error parsing GVR %q; dropping", gvrstr)
-		return nil
-	}
-	key = parts[1]
-
-	obj, exists, err := c.ddsif.IndexerFor(*gvr).GetByKey(key)
-	if err != nil {
-		klog.Errorf("Error getting %q GVR %q from indexer: %v", key, gvrstr, err)
-		return err
-	}
-	if !exists {
-		klog.V(3).Infof("object %q GVR %q does not exist", key, gvrstr)
-		return nil
-	}
-	unstr, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		klog.Errorf("object was not Unstructured, dropping: %T", obj)
-		return nil
-	}
-	unstr = unstr.DeepCopy()
-
-	// Get logical cluster name.
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		klog.Errorf("failed to split key %q, dropping: %v", key, err)
-		return nil
-	}
-	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
-	return c.reconcileResource(ctx, lclusterName, unstr, gvr)
-}
-
-func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
-	gvr, _ := schema.ParseResourceArg(gvrstr)
-	if gvr == nil {
-		klog.Errorf("Error parsing GVR %q; dropping", gvrstr)
-		return nil
-	}
-	return c.reconcileGVR(ctx, *gvr)
 }
 
 // namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
