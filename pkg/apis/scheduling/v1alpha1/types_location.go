@@ -29,8 +29,9 @@ const (
 	PlacementAnnotationKey = "scheduling.kcp.dev/placement"
 )
 
-// PlacementAnnotation is the type marshalled into the PlacementAnnotationKey annotation.
-// TODO(sttts): doc and type this
+// PlacementAnnotation is the type marshalled into the PlacementAnnotationKey annotation on
+// namespaces. The keys are strings identifying a workload cluster the namespace is placed
+// on.
 type PlacementAnnotation map[string]PlacementState
 
 // PlacementState is the state of a namespace placement state machine.

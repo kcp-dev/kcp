@@ -167,7 +167,7 @@ func TestPlacementReconciler(t *testing.T) {
 					cluster("us-east1-2", "uid-22"),
 				},
 			},
-			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":"{\"us-east1+uid-3\":\"Pending\"}"}}}`,
+			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":"{\"root:org:negotiation-workspace+us-east1+us-east1-3\":\"Pending\"}"}}}`,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"patch fails": {

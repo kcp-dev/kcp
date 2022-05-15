@@ -328,9 +328,6 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 
 	namespaceScheduler := workloadnamespace.NewController(
 		kubeClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters().Lister(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
 	)

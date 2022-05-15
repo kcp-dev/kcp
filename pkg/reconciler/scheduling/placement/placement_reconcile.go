@@ -168,7 +168,8 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 	// TODO(sttts): be more clever than just random: follow allocable, co-location workspace and workloads, load-balance, etcd.
 	chosenCluster := chosenClusters[rand.Intn(len(chosenClusters))]
 
-	placementUID := fmt.Sprintf("%s+%s", chosenLocationName, chosenCluster.UID)
+	// TODO(sttts): switch to workload cluster UID
+	placementUID := fmt.Sprintf("%s+%s+%s", negotiationClusterName, chosenLocationName, chosenCluster.Name)
 	newPlacement := schedulingv1alpha1.PlacementAnnotation{
 		placementUID: schedulingv1alpha1.PlacementStatePending,
 	}
