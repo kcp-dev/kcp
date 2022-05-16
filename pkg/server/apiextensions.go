@@ -394,11 +394,13 @@ func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identi
 		return out
 	}
 
-	out.Status.Conditions = make([]apiextensionsv1.CustomResourceDefinitionCondition, len(in.Status.Conditions), len(in.Status.Conditions)+1)
+	out.Status.Conditions = make([]apiextensionsv1.CustomResourceDefinitionCondition, len(in.Status.Conditions))
 
 	out.Status.Conditions = append(out.Status.Conditions, in.Status.Conditions...)
 
 	out.DeletionTimestamp = deleteTime.DeepCopy()
+
+	// This is not visible, only for apiextension to remove "create" verb when serving and discovery.
 	apiextensionshelpers.SetCRDCondition(out, apiextensionsv1.CustomResourceDefinitionCondition{
 		Type:   apiextensionsv1.Terminating,
 		Status: apiextensionsv1.ConditionTrue,
