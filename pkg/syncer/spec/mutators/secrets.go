@@ -17,6 +17,8 @@ limitations under the License.
 package mutators
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +51,11 @@ func (sm *SecretMutator) Mutate(downstreamObj *unstructured.Unstructured) error 
 	}
 
 	// We need to transform the default kcp token into an Opaque secret, in order to avoid the pcluster to rewrite it.
-	if secret.Name == "kcp-default-token" {
+	// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
+	//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
+	//				  object. This must be fixed.
+	if strings.Contains(secret.GetName(), "default-token-") {
+		secret.Name = "kcp-default-token"
 		secret.Type = corev1.SecretTypeOpaque
 	}
 

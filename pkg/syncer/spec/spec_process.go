@@ -344,18 +344,11 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 func transformName(syncedObject *unstructured.Unstructured) {
 	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
-	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 
 	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
 		syncedObject.SetName("kcp-root-ca.crt")
 	}
 	if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
 		syncedObject.SetName("kcp-default")
-	}
-	// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
-	//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
-	//				  object. This must be fixed.
-	if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
-		syncedObject.SetName("kcp-default-token")
 	}
 }
