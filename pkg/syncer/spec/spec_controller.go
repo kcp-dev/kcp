@@ -60,6 +60,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logic
 	for _, mutator := range []specmutators.Mutator{
 		specmutators.NewDeploymentMutator(upstreamURL),
 		specmutators.NewSecretMutator(),
+		specmutators.NewConfigMapMutator(),
 	}{
 		mutators[mutator.GVR()] = mutator.Mutate
 	}

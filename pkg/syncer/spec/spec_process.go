@@ -342,12 +342,8 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 // transformName changes the object name into the desired one downstream.
 func transformName(syncedObject *unstructured.Unstructured) {
-	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
 
-	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
-		syncedObject.SetName("kcp-root-ca.crt")
-	}
 	if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
 		syncedObject.SetName("kcp-default")
 	}
