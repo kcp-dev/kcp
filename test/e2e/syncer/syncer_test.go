@@ -27,7 +27,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/rbac/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -171,11 +171,11 @@ func TestSyncerLifecycle(t *testing.T) {
 
 		t.Logf("Create upstream service account permissions for downstream in-cluster configuration test")
 		roleName := "configmap-admin"
-		_, err := upstreamKubeClient.RbacV1().Roles(upstreamNamespace.Name).Create(ctx, &v1.Role{
+		_, err := upstreamKubeClient.RbacV1().Roles(upstreamNamespace.Name).Create(ctx, &rbacv1.Role{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: roleName,
 			},
-			Rules: []v1.PolicyRule{
+			Rules: []rbacv1.PolicyRule{
 				{
 					Verbs:     []string{"*"},
 					APIGroups: []string{""},
@@ -185,16 +185,16 @@ func TestSyncerLifecycle(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create upstream role")
 
-		_, err = upstreamKubeClient.RbacV1().RoleBindings(upstreamNamespace.Name).Create(ctx, &v1.RoleBinding{
+		_, err = upstreamKubeClient.RbacV1().RoleBindings(upstreamNamespace.Name).Create(ctx, &rbacv1.RoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "default:configmap-admin",
 			},
-			RoleRef: v1.RoleRef{
+			RoleRef: rbacv1.RoleRef{
 				APIGroup: "rbac.authorization.k8s.io",
 				Kind:     "Role",
 				Name:     roleName,
 			},
-			Subjects: []v1.Subject{
+			Subjects: []rbacv1.Subject{
 				{
 					Kind: "ServiceAccount",
 					Name: "default",
@@ -210,7 +210,6 @@ func TestSyncerLifecycle(t *testing.T) {
 				Name: "icc-test",
 			},
 			Spec: appsv1.DeploymentSpec{
-				//Replicas: 1,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"app": "icc-test",
