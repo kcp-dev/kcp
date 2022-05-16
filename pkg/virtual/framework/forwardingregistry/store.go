@@ -179,10 +179,36 @@ func (s *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 		return nil, false, err
 	}
 
+	var resourceVersion *string
+	var resourceVersionSpecified bool
+	if preconditions := objInfo.Preconditions(); preconditions != nil {
+		if preconditions.ResourceVersion != nil {
+			resourceVersion = preconditions.ResourceVersion
+			resourceVersionSpecified = *resourceVersion != ""
+		}
+	}
 	doUpdate := func() (*unstructured.Unstructured, error) {
-		oldObj, err := s.Get(ctx, name, &metav1.GetOptions{})
+		opts := &metav1.GetOptions{}
+		if resourceVersionSpecified {
+			// if the user is expecting to update a specific version of the object
+			// we need to GET it at that version
+			opts.ResourceVersion = *resourceVersion
+		}
+		oldObj, err := s.Get(ctx, name, opts)
 		if err != nil {
 			return nil, err
+		}
+		if resourceVersionSpecified {
+			// however, k8s GET semantics with a resourceVersion don't actually give us an object
+			// at that version, they just ensure we get one at least as new as that one, so we
+			// need to check ourselves
+			oldMetaObj, ok := oldObj.(metav1.Object)
+			if !ok {
+				return nil, fmt.Errorf("expected a metav1.Object, got %T", oldObj)
+			}
+			if oldMetaObj.GetResourceVersion() != *resourceVersion {
+				return nil, fmt.Errorf("underlying object changed %s->%s", *resourceVersion, oldMetaObj.GetResourceVersion())
+			}
 		}
 
 		obj, err := objInfo.UpdatedObject(ctx, oldObj)
