@@ -36,6 +36,8 @@ func (sm *SecretMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
+var _ Mutator = NewSecretMutator()
+
 func NewSecretMutator() *SecretMutator {
 	return &SecretMutator{}
 }

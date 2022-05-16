@@ -56,15 +56,19 @@ type Controller struct {
 
 func NewSpecSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logicalcluster.Name, workloadClusterName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
-	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
-	secretMutator := specmutators.NewSecretMutator()
+	mutators := mutatorGvrMap{}
+	for _, mutator := range []specmutators.Mutator{
+		specmutators.NewDeploymentMutator(upstreamURL),
+		specmutators.NewSecretMutator(),
+	}{
+		mutators[mutator.GVR()] = mutator.Mutate
+	}
+
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		mutators: mutatorGvrMap{
-			deploymentMutator.GVR(): deploymentMutator.Mutate,
-			secretMutator.GVR():     secretMutator.Mutate,
+		mutators: mutators,
 		},
 
 		upstreamClient:      upstreamClient,

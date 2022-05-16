@@ -39,6 +39,8 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
+var _ Mutator = NewDeploymentMutator(nil)
+
 func NewDeploymentMutator(upstreamURL *url.URL) *DeploymentMutator {
 	return &DeploymentMutator{
 		upstreamURL: upstreamURL,
