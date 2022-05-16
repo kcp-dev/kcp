@@ -178,20 +178,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		finalizerData := &metav1.PartialObjectMetadata{
-			ObjectMeta: metav1.ObjectMeta{
-				Finalizers: append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer),
-			},
-		}
-
-		finalizerBytes, err := json.Marshal(finalizerData)
-		if err != nil {
-			return err
-		}
-
-		_, err = c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Patch(
-			ctx, workspace.Name, types.MergePatchType, finalizerBytes, metav1.PatchOptions{})
-		return err
+		return c.patchFinalizer(ctx, logicalcluster.From(workspace), workspace.Name, append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer))
 	}
 
 	err = c.deleter.Delete(ctx, workspaceCopy)
@@ -242,6 +229,28 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 	return err
 }
 
+func (c *Controller) patchFinalizer(ctx context.Context, cluster logicalcluster.Name, name string, finalizers []string) error {
+	finalizerData := &metav1.PartialObjectMetadata{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers: finalizers,
+		},
+	}
+
+	patch, err := json.Marshal(finalizerData)
+	if err != nil {
+		return err
+	}
+
+	// remove finalizers field if there is no remaining finalizers,
+	if len(finalizers) == 0 {
+		patch = []byte("{\"metadata\": {\"finalizers\": []}}")
+	}
+
+	_, err = c.kcpClient.Cluster(cluster).TenancyV1alpha1().ClusterWorkspaces().Patch(
+		ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+	return err
+}
+
 // finalizeNamespace removes the specified finalizer and finalizes the workspace
 func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	copiedFinalizers := []string{}
@@ -255,13 +264,5 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 		return nil
 	}
 
-	finalizerBytes, err := json.Marshal(copiedFinalizers)
-	if err != nil {
-		return err
-	}
-	patch := fmt.Sprintf("{\"metadata\": {\"finalizers\": %s}}", string(finalizerBytes))
-
-	_, err = c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Patch(
-		ctx, workspace.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-	return err
+	return c.patchFinalizer(ctx, logicalcluster.From(workspace), workspace.Name, copiedFinalizers)
 }

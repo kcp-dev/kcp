@@ -200,20 +200,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		finalizerData := &metav1.PartialObjectMetadata{
-			ObjectMeta: metav1.ObjectMeta{
-				Finalizers: append(apibindingCopy.Finalizers, APIBindingFinalizer),
-			},
-		}
-
-		finalizerBytes, err := json.Marshal(finalizerData)
-		if err != nil {
-			return err
-		}
-
-		_, err = c.kcpClusterClient.Cluster(logicalcluster.From(apibindingCopy)).ApisV1alpha1().APIBindings().Patch(
-			ctx, apibindingCopy.Name, types.MergePatchType, finalizerBytes, metav1.PatchOptions{})
-		return err
+		return c.patchFinalizer(ctx, logicalcluster.From(apibindingCopy), apibindingCopy.Name, append(apibindingCopy.Finalizers, APIBindingFinalizer))
 	}
 
 	resourceRemaining, err := c.deleteAllCRs(ctx, apibindingCopy)
@@ -334,6 +321,28 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.
 	return err
 }
 
+func (c *Controller) patchFinalizer(ctx context.Context, cluster logicalcluster.Name, name string, finalizers []string) error {
+	finalizerData := &metav1.PartialObjectMetadata{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers: finalizers,
+		},
+	}
+
+	patch, err := json.Marshal(finalizerData)
+	if err != nil {
+		return err
+	}
+
+	// remove finalizers field if there is no remaining finalizers,
+	if len(finalizers) == 0 {
+		patch = []byte("{\"metadata\": {\"finalizers\": []}}")
+	}
+
+	_, err = c.kcpClusterClient.Cluster(cluster).ApisV1alpha1().APIBindings().Patch(
+		ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+	return err
+}
+
 // finalizeAPIBinding removes the specified finalizer and finalizes the apibinding
 func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1alpha1.APIBinding) error {
 	copiedFinalizers := []string{}
@@ -347,13 +356,5 @@ func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1a
 		return nil
 	}
 
-	finalizerBytes, err := json.Marshal(copiedFinalizers)
-	if err != nil {
-		return err
-	}
-	patch := fmt.Sprintf("{\"metadata\": {\"finalizers\": %s}}", string(finalizerBytes))
-
-	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(apibinding)).ApisV1alpha1().APIBindings().Patch(
-		ctx, apibinding.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-	return err
+	return c.patchFinalizer(ctx, logicalcluster.From(apibinding), apibinding.Name, copiedFinalizers)
 }
