@@ -255,9 +255,6 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	labels[workloadv1alpha1.InternalDownstreamClusterLabel] = c.workloadClusterName
 	downstreamObj.SetLabels(labels)
 
-	// Run name transformations on the downstreamObj.
-	transformName(downstreamObj)
-
 	// Run any transformations on the object before we apply it to the downstream cluster.
 	if mutator, ok := c.mutators[gvr]; ok {
 		if err := mutator(downstreamObj); err != nil {
@@ -338,13 +335,4 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName())
 
 	return nil
-}
-
-// transformName changes the object name into the desired one downstream.
-func transformName(syncedObject *unstructured.Unstructured) {
-	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
-
-	if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "default" {
-		syncedObject.SetName("kcp-default")
-	}
 }
