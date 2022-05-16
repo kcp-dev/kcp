@@ -47,6 +47,7 @@ const (
 )
 
 type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
+type admissionGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) bool
 
 func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
 	// TODO(jmprusi): Remove this after switching to virtual workspaces.
@@ -259,6 +260,13 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	if mutator, ok := c.mutators[gvr]; ok {
 		if err := mutator(downstreamObj); err != nil {
 			return err
+		}
+	}
+
+	// Ensure we should really be syncing these objects down to the cluster
+	if admitter, ok := c.admitters[gvr]; ok {
+		if !admitter(downstreamObj) {
+			return nil
 		}
 	}
 

@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	specadmitters "github.com/kcp-dev/kcp/pkg/syncer/spec/admitters"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 )
 
@@ -44,7 +45,8 @@ const (
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	mutators mutatorGvrMap
+	mutators  mutatorGvrMap
+	admitters admissionGvrMap
 
 	upstreamClient, downstreamClient       dynamic.Interface
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
@@ -62,16 +64,22 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logic
 		specmutators.NewSecretMutator(),
 		specmutators.NewConfigMapMutator(),
 		specmutators.NewServiceAccountMutator(),
-	}{
+	} {
 		mutators[mutator.GVR()] = mutator.Mutate
 	}
 
+	admitters := admissionGvrMap{}
+	for _, admitter := range []specadmitters.Admitter{
+		specadmitters.NewServiceAccountSecretAdmitter(),
+	} {
+		admitters[admitter.GVR()] = admitter.Admit
+	}
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		mutators: mutators,
-		},
+		mutators:  mutators,
+		admitters: admitters,
 
 		upstreamClient:      upstreamClient,
 		downstreamClient:    downstreamClient,

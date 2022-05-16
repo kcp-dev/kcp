@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mutators
+package admitters
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type Mutator interface {
+type Admitter interface {
 	GVR() schema.GroupVersionResource
-	Mutate(*unstructured.Unstructured) error
+	Admit(*unstructured.Unstructured) bool
 }
