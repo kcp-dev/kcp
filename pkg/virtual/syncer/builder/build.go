@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
 )
 
@@ -72,7 +73,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 				return
 			}
-			apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), parts[1]))
+			workloadCusterName := parts[1]
+			apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), workloadCusterName))
 
 			realPath := "/"
 			if len(parts) > 2 {
@@ -95,6 +97,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			}
 
 			completedContext = genericapirequest.WithCluster(requestContext, cluster)
+			completedContext = syncercontext.WithWorkloadClusterName(completedContext, workloadCusterName)
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
