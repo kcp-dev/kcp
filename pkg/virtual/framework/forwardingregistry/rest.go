@@ -18,11 +18,9 @@ package forwardingregistry
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,22 +31,21 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+// StorageWrapper allows consumers to wrap the delegating Store in order to add custom behavior around it.
+// For example, a consumer might want to filter the results from the delegated Store, or add impersonation to it.
+type StorageWrapper func(schema.GroupResource, customresource.Store) customresource.Store
+
 // NewStorage returns a REST storage that forwards calls to a dynamic client
 func NewStorage(ctx context.Context, resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.CustomResourceStorage {
-	stores := newStores(ctx, resource, dynamicClusterClient, patchConflictRetryBackoff, labelSelector)
+	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) customresource.CustomResourceStorage {
+	stores := newStores(ctx, resource, dynamicClusterClient, patchConflictRetryBackoff, wrapper)
 	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, stores)
 }
 
-func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.NewStores {
+func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) customresource.NewStores {
 	return func(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, optsGetter generic.RESTOptionsGetter, tableConvertor rest.TableConvertor) (main, status customresource.Store) {
 		if patchConflictRetryBackoff == nil {
 			patchConflictRetryBackoff = &retry.DefaultRetry
-		}
-
-		requirements, selectable := labels.SelectorFromSet(labels.Set(labelSelector)).Requirements()
-		if !selectable {
-			panic(fmt.Sprintf("creating a new store with an unselectable set: %v", labelSelector))
 		}
 
 		delegate := &Store{
@@ -64,22 +61,18 @@ func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClus
 				ret.SetGroupVersionKind(listKind)
 				return ret
 			},
-			DefaultQualifiedResource: resource,
-			CreateStrategy:           strategy,
-			UpdateStrategy:           strategy,
-			DeleteStrategy:           strategy,
-			TableConvertor:           tableConvertor,
-			ResetFieldsStrategy:      strategy,
+			CreateStrategy:      strategy,
+			UpdateStrategy:      strategy,
+			DeleteStrategy:      strategy,
+			TableConvertor:      tableConvertor,
+			ResetFieldsStrategy: strategy,
 
 			resource:                  gvr,
 			dynamicClusterClient:      dynamicClusterClient,
 			patchConflictRetryBackoff: *patchConflictRetryBackoff,
 			stopWatchesCh:             ctx.Done(),
 		}
-		store := &LabelSelectingStore{
-			Store:  delegate,
-			filter: requirements,
-		}
+		store := wrapper(resource, delegate)
 		delegate.getter = store
 
 		statusDelegate := *delegate // shallow copy
@@ -87,10 +80,7 @@ func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClus
 		statusDelegate.UpdateStrategy = statusStrategy
 		statusDelegate.ResetFieldsStrategy = statusStrategy
 		statusDelegate.subResources = []string{"status"}
-		statusStore := &LabelSelectingStore{
-			Store:  &statusDelegate,
-			filter: requirements,
-		}
+		statusStore := wrapper(resource, &statusDelegate)
 		statusDelegate.getter = &statusDelegate
 		return store, statusStore
 	}

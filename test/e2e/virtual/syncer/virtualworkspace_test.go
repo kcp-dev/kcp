@@ -368,8 +368,38 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				return true
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+			t.Log("Setting up an unrelated workspace with cowboys...")
 			sourceWildwestClusterClient, err := wildwestclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
+
+			unrelatedWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+			unrelatedWorkspaceWorkspaceClient := sourceWildwestClusterClient.Cluster(unrelatedWorkspace)
+
+			sourceCrdClient, err := apiextensionsclientset.NewClusterForConfig(sourceConfig)
+			require.NoError(t, err)
+
+			fixturewildwest.Create(t, sourceCrdClient.Cluster(unrelatedWorkspace).ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+			t.Log("Waiting for cowboys crd to be imported and available in the source cluster...")
+			require.Eventually(t, func() bool {
+				_, err := unrelatedWorkspaceWorkspaceClient.WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Logf("error seen waiting for cowboys crd to become active: %v", err)
+					return false
+				}
+				return true
+			}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+			t.Log("Create cowboy unluckyluke")
+			_, err = unrelatedWorkspaceWorkspaceClient.WildwestV1alpha1().Cowboys("default").Create(ctx, &v1alpha1.Cowboy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "unluckyluke",
+				},
+				Spec: v1alpha1.CowboySpec{
+					Intent: "will never catch joe",
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
 			wildwestWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 			wildwestWorkspaceClient := sourceWildwestClusterClient.Cluster(wildwestWorkspace)
 			wildwestWorkloadClusterName := fmt.Sprintf("wildwest-%d", +rand.Intn(1000000))
@@ -393,7 +423,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			require.Eventually(t, func() bool {
 				_, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				if err != nil {
-					t.Logf("error seen waiting for ingresses crd to become active: %v", err)
+					t.Logf("error seen waiting for cowboys crd to become active: %v", err)
 					return false
 				}
 				return true

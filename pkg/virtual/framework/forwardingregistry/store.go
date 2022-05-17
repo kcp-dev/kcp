@@ -26,7 +26,6 @@ import (
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -50,11 +49,6 @@ type Store struct {
 	//
 	// curl GET /apis/group/version/namespaces/my-ns/myresource
 	NewListFunc func() runtime.Object
-
-	// DefaultQualifiedResource is the pluralized name of the resource.
-	// This field is used if there is no request info present in the context.
-	// See qualifiedResourceFromContext for details.
-	DefaultQualifiedResource schema.GroupResource
 
 	// CreateStrategy implements resource-specific behavior during creation.
 	CreateStrategy rest.RESTCreateStrategy
@@ -243,52 +237,4 @@ func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterfac
 	} else {
 		return client.Resource(s.resource), nil
 	}
-}
-
-type LabelSelectingStore struct {
-	*Store
-
-	filter labels.Requirements
-}
-
-var _ rest.StandardStorage = &LabelSelectingStore{}
-
-// List returns a list of items matching labels and field according to the store's PredicateFunc.
-func (s *LabelSelectingStore) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	selector := options.LabelSelector
-	if selector == nil {
-		selector = labels.Everything()
-	}
-	selector.Add(s.filter...)
-	options.LabelSelector = selector
-	return s.Store.List(ctx, options)
-}
-
-// Get implements rest.Getter
-func (s *LabelSelectingStore) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	obj, err := s.Store.Get(ctx, name, options)
-	if err != nil {
-		return obj, err
-	}
-
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return obj, fmt.Errorf("expected a metav1.Object, got %T", obj)
-	}
-	if !labels.Everything().Add(s.filter...).Matches(labels.Set(metaObj.GetLabels())) {
-		return nil, kerrors.NewNotFound(s.DefaultQualifiedResource, name)
-	}
-
-	return obj, err
-}
-
-// Watch implements rest.Watcher.
-func (s *LabelSelectingStore) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	selector := options.LabelSelector
-	if selector == nil {
-		selector = labels.Everything()
-	}
-	selector.Add(s.filter...)
-	options.LabelSelector = selector
-	return s.Store.Watch(ctx, options)
 }
