@@ -342,12 +342,12 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *APIReconciler) GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool) {
+func (c *APIReconciler) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	apiSet, ok := c.apiSets[key]
-	return apiSet, ok
+	return apiSet, ok, nil
 }
 
 func resourceNameToGVR(key string) schema.GroupVersionResource {

@@ -17,6 +17,7 @@ limitations under the License.
 package apiserver
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -47,8 +48,8 @@ type mockedAPISetRetriever apidefinition.APIDefinitionSet
 
 var _ apidefinition.APIDefinitionSetGetter = (*mockedAPISetRetriever)(nil)
 
-func (masr mockedAPISetRetriever) GetAPIDefinitionSet(key dyncamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool) {
-	return apidefinition.APIDefinitionSet(masr), true
+func (masr mockedAPISetRetriever) GetAPIDefinitionSet(ctx context.Context, key dyncamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
+	return apidefinition.APIDefinitionSet(masr), true, nil
 }
 
 type mockedAPIDefinition struct {

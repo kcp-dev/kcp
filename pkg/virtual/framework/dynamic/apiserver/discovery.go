@@ -17,13 +17,17 @@ limitations under the License.
 package apiserver
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
@@ -34,6 +38,17 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dyncamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
+
+var (
+	errorScheme = runtime.NewScheme()
+	errorCodecs = serializer.NewCodecFactory(errorScheme)
+)
+
+func init() {
+	errorScheme.AddUnversionedTypes(metav1.Unversioned,
+		&metav1.Status{},
+	)
+}
 
 type versionDiscoveryHandler struct {
 	apiSetRetriever apidefinition.APIDefinitionSetGetter
@@ -61,7 +76,14 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
-	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(ctx, apiDomainKey)
+	if err != nil {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+			errorCodecs, schema.GroupVersion{},
+			w, req)
+		return
+	}
 	if !hasLocationKey {
 		r.delegate.ServeHTTP(w, req)
 		return
@@ -152,7 +174,14 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 
 	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
-	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(ctx, apiDomainKey)
+	if err != nil {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+			errorCodecs, schema.GroupVersion{},
+			w, req)
+		return
+	}
 	if !hasLocationKey {
 		r.delegate.ServeHTTP(w, req)
 		return
@@ -211,7 +240,14 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	ctx := req.Context()
 	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
-	apiSet, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(ctx, apiDomainKey)
+	if err != nil {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+			errorCodecs, schema.GroupVersion{},
+			w, req)
+		return
+	}
 	if !hasLocationKey {
 		r.delegate.ServeHTTP(w, req)
 		return
