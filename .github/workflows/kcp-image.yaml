@@ -16,6 +16,8 @@ jobs:
     if: github.repository_owner == 'kcp-dev'
     name: Build KCP Image
     runs-on: ubuntu-latest
+    outputs:
+      sha_short: ${{ steps.vars.outputs.sha_short }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
@@ -50,31 +52,17 @@ jobs:
     if: "github.repository_owner == 'kcp-dev' && github.ref_name == 'main'"
     name: Deploy KCP
     needs: build
-    environment: unstable
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Get the short sha
-        id: vars
-        run: echo "::set-output name=sha_short::$(echo ${{ github.sha }} | cut -b -7)"
+      - name: Check out shared-resources (gitops repo)
+        uses: actions/checkout@v3
+        with:
+          repository: kcp-dev/shared-resources
+          token: ${{ secrets.KCP_BOT_TOKEN }}
 
-      - name: Set up kubectl and kustomize
+      - name: Update sha and commit
         run: |-
-          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv4.5.2/kustomize_v4.5.2_linux_amd64.tar.gz" | tar xzf -
-          curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod u+x ./kubectl
-          chmod u+x ./kustomize
-
-      - name: Get the external hostname
-        id: external_hostname
-        run: echo "::set-output name=external_hostname::$(./kubectl --server=https://${{ secrets.CICD_KUBE_HOST }} --token=${{ secrets.CICD_KUBE_TOKEN }} -n ${{ secrets.CICD_KUBE_NS }} get route kcp-front-proxy -o jsonpath='{.spec.host}')"
-
-      - name: Deploy new image to CI
-        id: deploy-to-ci
-        run: |-
-          cd manifest
-          ../kustomize edit add patch --patch='[{"op": "replace", "path": "/spec/template/spec/containers/0/env", "value": [{"name": "EXTERNAL_HOSTNAME", "value": "${{ steps.external_hostname.outputs.external_hostname }}"}]}]' --group apps --kind Deployment --name kcp --version v1
-          ../kustomize edit add patch --patch='[{"op": "replace", "path": "/spec/host", "value": "${{ steps.external_hostname.outputs.external_hostname }}"}]' --group route.openshift.io --kind Route --name kcp-front-proxy --version v1
-          ../kustomize edit add patch --patch='[{"op": "replace", "path": "/spec/dnsNames/0", "value": "${{ steps.external_hostname.outputs.external_hostname }}"}]' --group cert-manager.io --kind Certificate --name kcp-front-proxy --version v1
-          ../kustomize edit set image ghcr.io/kcp-dev/kcp=ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha_short }}
-          ../kustomize build . | ../kubectl --server=https://${{ secrets.CICD_KUBE_HOST }} --token=${{ secrets.CICD_KUBE_TOKEN }} -n ${{ secrets.CICD_KUBE_NS }} apply -f -
+          sed -i -e 's/tag: [0-9a-f]\{7\}/tag: ${{ needs.build.outputs.sha_short }}/' manifest/unstable-values.yaml
+          git add manifest/unstable-values.yaml
+          git commit --author="KCP Bot <klape+kcp-bot@redhat.com>" -m "Automatic update of test environment to ${{ needs.build.outputs.sha_short }}"
+          git push origin main
