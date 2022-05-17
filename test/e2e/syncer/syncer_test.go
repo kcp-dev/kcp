@@ -169,72 +169,44 @@ func TestSyncerLifecycle(t *testing.T) {
 			return expectedAvailableReplicas == deployment.Status.AvailableReplicas
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s didn't get available", downstreamNamespaceName, upstreamDeployment.Name)
 
+		// This test creates a deployment upstream, and will run downstream with a mutated projected
+		// in-cluster kubernetes config that points back to KCP. The running container will use this config to
+		// create a configmap upstream to verify the correctness of the mutation.
 		t.Logf("Create upstream service account permissions for downstream in-cluster configuration test")
-		roleName := "configmap-admin"
-		_, err := upstreamKubeClient.RbacV1().Roles(upstreamNamespace.Name).Create(ctx, &rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: roleName,
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					Verbs:     []string{"*"},
-					APIGroups: []string{""},
-					Resources: []string{"configmaps"},
-				},
-			},
-		}, metav1.CreateOptions{})
+
+		configmapAdminRoleYAML, err := embeddedResources.ReadFile("configmap-admin-role.yaml")
+		require.NoError(t, err, "failed to read embedded role")
+
+		var configmapAdminRole *rbacv1.Role
+		err = yaml.Unmarshal(configmapAdminRoleYAML, &configmapAdminRole)
+		require.NoError(t, err, "failed to unmarshal role")
+
+		_, err = upstreamKubeClient.RbacV1().Roles(upstreamNamespace.Name).Create(ctx, configmapAdminRole, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create upstream role")
 
-		_, err = upstreamKubeClient.RbacV1().RoleBindings(upstreamNamespace.Name).Create(ctx, &rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default:configmap-admin",
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "Role",
-				Name:     roleName,
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind: "ServiceAccount",
-					Name: "default",
-				},
-			},
-		}, metav1.CreateOptions{})
+		configmapAdminRoleBindingYAML, err := embeddedResources.ReadFile("configmap-admin-rolebinding.yaml")
+		require.NoError(t, err, "failed to read embedded rolebinding")
+
+		var configmapAdminRoleBinding *rbacv1.RoleBinding
+		err = yaml.Unmarshal(configmapAdminRoleBindingYAML, &configmapAdminRoleBinding)
+		require.NoError(t, err, "failed to unmarshal rolebinding")
+
+		_, err = upstreamKubeClient.RbacV1().RoleBindings(upstreamNamespace.Name).Create(ctx, configmapAdminRoleBinding, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create upstream rolebinding")
 
 		t.Logf("Creating upstream in-cluster configuration test deployment")
+
+		iccDeploymentYAML, err := embeddedResources.ReadFile("in-cluster-config-test-deployment.yaml")
+		require.NoError(t, err, "failed to read embedded deployment")
+
+		var iccDeployment *appsv1.Deployment
+		err = yaml.Unmarshal(iccDeploymentYAML, &iccDeployment)
+		require.NoError(t, err, "failed to unmarshal deployment")
+		iccDeployment.Spec.Template.Spec.Containers[0].Image = framework.TestConfig.KCPTestImage()
 		expectedConfigMapName := "expected-configmap"
-		iccUpstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "icc-test",
-			},
-			Spec: appsv1.DeploymentSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"app": "icc-test",
-					},
-				},
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"app": "icc-test",
-						},
-					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "icc-test",
-								Image: framework.TestConfig.KCPTestImage(),
-								Env: []corev1.EnvVar{
-									{Name: "CONFIGMAP_NAME", Value: expectedConfigMapName},
-								},
-							},
-						},
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
+		iccDeployment.Spec.Template.Spec.Containers[0].Env[0].Value = expectedConfigMapName
+
+		iccUpstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, iccDeployment, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create icc-test deployment")
 
 		t.Logf("Waiting for downstream in-cluster config test deployment %s/%s to be created...", downstreamNamespaceName, iccUpstreamDeployment.Name)
