@@ -58,13 +58,13 @@ func NewReverseProxy(backend, clientCert, clientKeyFile, caFile string) (*KCPPro
 		return nil, err
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs:      caCertPool,
-		},
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
 	}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = transport
 
 	return &KCPProxy{proxy: proxy, backend: backend}, nil
 }
