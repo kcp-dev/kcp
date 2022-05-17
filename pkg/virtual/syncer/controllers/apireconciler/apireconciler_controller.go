@@ -342,7 +342,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *APIReconciler) GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
+func (c *APIReconciler) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

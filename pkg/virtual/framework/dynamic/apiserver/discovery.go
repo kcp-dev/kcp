@@ -76,7 +76,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
-	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(ctx, apiDomainKey)
 	if err != nil {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
@@ -174,7 +174,7 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 
 	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
-	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(ctx, apiDomainKey)
 	if err != nil {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
@@ -240,7 +240,7 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	ctx := req.Context()
 	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
-	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(apiDomainKey)
+	apiSet, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(ctx, apiDomainKey)
 	if err != nil {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
