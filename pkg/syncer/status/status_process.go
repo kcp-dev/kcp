@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -84,12 +86,13 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		klog.Errorf(" namespace %q: error decoding annotation: %v", nsKey, err)
 		return nil
 	}
-	if namespaceLocator == nil || namespaceLocator.LogicalCluster != c.upstreamClusterName {
+	if namespaceLocator == nil {
 		// Only sync resources for the configured logical cluster to ensure
 		// that syncers for multiple logical clusters can coexist.
 		return nil
 	}
 	upstreamNamespace := namespaceLocator.Namespace
+	upstreamLogicalCluster := namespaceLocator.LogicalCluster
 
 	// get the downstream object
 	obj, exists, err := c.downstreamInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(key)
@@ -100,7 +103,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		if c.advancedSchedulingEnabled {
 			// deleted downstream => remove finalizer upstream
 			klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-			return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.workloadClusterName, c.upstreamClusterName, name)
+			return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.workloadClusterName, upstreamLogicalCluster, name)
 		}
 		return nil
 	}
@@ -110,10 +113,10 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	if !ok {
 		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
-	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, u)
+	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, upstreamLogicalCluster, u)
 }
 
-func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, downstreamObj *unstructured.Unstructured) error {
+func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
 	upstreamObj := downstreamObj.DeepCopy()
 	upstreamObj.SetUID("")
 	upstreamObj.SetResourceVersion("")
@@ -127,11 +130,11 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	if err != nil {
 		return err
 	} else if !statusExists {
-		klog.Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from workloadClusterName namespace %s", c.upstreamClusterName, upstreamNamespace, name, downstreamObj.GetNamespace())
+		klog.Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from workloadClusterName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
 		return nil
 	}
 
-	existing, err := c.upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, name, metav1.GetOptions{})
+	existing, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, name, err)
 		return err
@@ -161,23 +164,23 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		newUpstream.SetAnnotations(newUpstreamAnnotations)
 
 		if reflect.DeepEqual(existing, newUpstream) {
-			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from workloadClusterName namespace %s", c.upstreamClusterName, upstreamNamespace, name, downstreamObj.GetNamespace())
+			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from workloadClusterName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
 			return nil
 		}
 
-		if _, err := c.upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from workloadClusterName namespace %s: %v", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+		if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
+			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from workloadClusterName namespace %s: %v", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
 			return err
 		}
-		klog.Infof("Updated status of resource %s|%s/%s from workloadClusterName namespace %s", c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
+		klog.Infof("Updated status of resource %s|%s/%s from workloadClusterName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
 		return nil
 	}
 
-	if _, err := c.upstreamClient.Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Failed updating status of resource %q %s|%s/%s from pcluster namespace %s: %v", gvr.String(), c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+	if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("Failed updating status of resource %q %s|%s/%s from pcluster namespace %s: %v", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
 		return err
 	}
-	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), c.upstreamClusterName, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
+	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
 	return nil
 }
 

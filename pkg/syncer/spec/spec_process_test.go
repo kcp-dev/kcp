@@ -36,7 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/dynamic/fake"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/clusters"
@@ -447,6 +449,16 @@ func TestDeepEqualApartFromStatus(t *testing.T) {
 	}
 }
 
+var _ dynamic.ClusterInterface = (*mockedDynamicCluster)(nil)
+
+type mockedDynamicCluster struct {
+	client *fake.FakeDynamicClient
+}
+
+func (mdc *mockedDynamicCluster) Cluster(name logicalcluster.Name) dynamic.Interface {
+	return mdc.client
+}
+
 func TestSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
@@ -841,10 +853,15 @@ func TestSyncerProcess(t *testing.T) {
 			if tc.fromResource != nil {
 				allFromResources = append(allFromResources, tc.fromResource)
 			}
+
 			fromClient := dynamicfake.NewSimpleDynamicClient(scheme, allFromResources...)
+			fromClusterClient := &mockedDynamicCluster{
+				client: fromClient,
+			}
+
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 
-			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -861,7 +878,7 @@ func TestSyncerProcess(t *testing.T) {
 			}
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, upstreamURL, tc.advancedSchedulingEnabled, fromClient, toClient, fromInformers, toInformers)
+			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers)
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())

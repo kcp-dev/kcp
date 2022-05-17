@@ -46,16 +46,17 @@ type Controller struct {
 
 	mutators mutatorGvrMap
 
-	upstreamClient, downstreamClient       dynamic.Interface
+	upstreamClient                         dynamic.ClusterInterface
+	downstreamClient                       dynamic.Interface
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
 
-	workloadClusterName       string
-	upstreamClusterName       logicalcluster.Name
-	advancedSchedulingEnabled bool
+	workloadClusterName               string
+	workloadClusterLogicalClusterName logicalcluster.Name
+	advancedSchedulingEnabled         bool
 }
 
-func NewSpecSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logicalcluster.Name, workloadClusterName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
+func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClusterName logicalcluster.Name, workloadClusterName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
 	secretMutator := specmutators.NewSecretMutator()
 
@@ -72,9 +73,9 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logic
 		upstreamInformers:   upstreamInformers,
 		downstreamInformers: downstreamInformers,
 
-		workloadClusterName:       workloadClusterName,
-		upstreamClusterName:       upstreamClusterName,
-		advancedSchedulingEnabled: advancedSchedulingEnabled,
+		workloadClusterName:               workloadClusterName,
+		workloadClusterLogicalClusterName: workloadClusterLogicalClusterName,
+		advancedSchedulingEnabled:         advancedSchedulingEnabled,
 	}
 
 	for _, gvr := range gvrs {
@@ -96,7 +97,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName logic
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "clusterName", upstreamClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
+		klog.InfoS("Set up informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
 	}
 
 	return &c, nil

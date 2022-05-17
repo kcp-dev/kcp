@@ -34,7 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/dynamic/fake"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/clusters"
@@ -287,6 +289,16 @@ func TestDeepEqualFinalizersAndStatus(t *testing.T) {
 	}
 }
 
+var _ dynamic.ClusterInterface = (*mockedDynamicCluster)(nil)
+
+type mockedDynamicCluster struct {
+	client *fake.FakeDynamicClient
+}
+
+func (mdc *mockedDynamicCluster) Cluster(name logicalcluster.Name) dynamic.Interface {
+	return mdc.client
+}
+
 func TestSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
@@ -504,11 +516,14 @@ func TestSyncerProcess(t *testing.T) {
 			}
 			fromClient := dynamicfake.NewSimpleDynamicClient(scheme, allFromResources...)
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
+			toClusterClient := &mockedDynamicCluster{
+				client: toClient,
+			}
 
 			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + tc.workloadClusterName
 			})
-			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 
@@ -520,7 +535,7 @@ func TestSyncerProcess(t *testing.T) {
 				{Group: "", Version: "v1", Resource: "namespaces"},
 				tc.gvr,
 			}
-			controller, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, tc.advancedSchedulingEnabled, toClient, fromClient, toInformers, fromInformers)
+			controller, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, tc.advancedSchedulingEnabled, toClusterClient, fromClient, toInformers, fromInformers)
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())
