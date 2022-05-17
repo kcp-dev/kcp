@@ -57,5 +57,5 @@ type APIDefinitionSet map[schema.GroupVersionResource]APIDefinition
 
 // APIDefinitionSetGetter provides access to the API definitions of a API domain, based on the API domain key.
 type APIDefinitionSetGetter interface {
-	GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apis APIDefinitionSet, apisExist bool)
+	GetAPIDefinitionSet(key dynamiccontext.APIDomainKey) (apis APIDefinitionSet, apisExist bool, err error)
 }

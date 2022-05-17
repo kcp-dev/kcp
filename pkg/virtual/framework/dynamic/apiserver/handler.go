@@ -131,7 +131,14 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	locationKey := dynamiccontext.APIDomainKeyFrom(ctx)
 
-	apiDefs, hasLocationKey := r.apiSetRetriever.GetAPIDefinitionSet(locationKey)
+	apiDefs, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(locationKey)
+	if err != nil {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+			errorCodecs, schema.GroupVersion{},
+			w, req)
+		return
+	}
 	if !hasLocationKey {
 		r.delegate.ServeHTTP(w, req)
 		return
