@@ -67,7 +67,10 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			}
 			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
-			// paths like: .../root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
+			// Incoming requests to this virtual workspace will look like:
+			//  /services/syncer/root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
+			//                  └───────────────────────────┐
+			// Where the withoutRootPathPrefix starts here: ┘
 			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
 			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 				return
@@ -79,6 +82,12 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				realPath += parts[2]
 			}
 
+			//  /services/syncer/root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
+			//                  ┌───────────────────────────────────┘
+			// We are now here: ┘
+			// Now, we parse out the logical cluster but change the semantic. If a client does not provide the
+			// logical cluster for their request, we will assume a wildcard request. We need to add this to the
+			// context so that our delegate client-go requests can re-encode it.
 			cluster := genericapirequest.Cluster{Name: logicalcluster.Wildcard, Wildcard: true}
 			if strings.HasPrefix(realPath, "/clusters/") {
 				withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
