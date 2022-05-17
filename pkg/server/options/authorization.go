@@ -27,7 +27,7 @@ import (
 	coreexternalversions "k8s.io/client-go/informers"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
-	"github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 type Authorization struct {
@@ -80,8 +80,10 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreexternalversions.SharedInformerFactory, workspaceLister v1alpha1.ClusterWorkspaceLister) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreexternalversions.SharedInformerFactory, kcpinformer kcpexternalversions.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
+
+	workspaceLister := kcpinformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
@@ -103,7 +105,9 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreex
 	authorizers = append(authorizers,
 		authorization.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister,
 			authorization.NewWorkspaceContentAuthorizer(informer, workspaceLister,
-				union.New(bootstrapAuth, localAuth),
+				authorization.NewAPIBindingAccessAuthorizer(informer, kcpinformer,
+					union.New(bootstrapAuth, localAuth),
+				),
 			),
 		),
 	)
