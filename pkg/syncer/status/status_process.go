@@ -63,14 +63,13 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	// to upstream
-	nsInformer := c.downstreamInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
 	nsKey := downstreamNamespace
 	if !downstreamClusterName.Empty() {
 		// If our "physical" cluster is a kcp instance (e.g. for testing purposes), it will return resources
 		// with metadata.clusterName set, which means their keys are cluster-aware, so we need to do the same here.
 		nsKey = clusters.ToClusterAwareKey(downstreamClusterName, nsKey)
 	}
-	nsObj, err := nsInformer.Lister().Get(nsKey)
+	nsObj, err := c.downstreamNamespaceLister.Get(nsKey)
 	if err != nil {
 		klog.Errorf("Error retrieving namespace %q from downstream lister: %v", nsKey, err)
 		return nil
