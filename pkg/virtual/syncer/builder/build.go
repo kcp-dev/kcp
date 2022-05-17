@@ -23,7 +23,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
@@ -78,24 +77,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			if len(parts) > 2 {
 				realPath += parts[2]
 			}
-
-			cluster := genericapirequest.Cluster{Name: logicalcluster.Wildcard, Wildcard: true}
-			if strings.HasPrefix(realPath, "/clusters/") {
-				withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
-				parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-				lclusterName := parts[0]
-				realPath = "/"
-				if len(parts) > 1 {
-					realPath += parts[1]
-				}
-				cluster = genericapirequest.Cluster{Name: logicalcluster.New(lclusterName)}
-				if lclusterName == "*" {
-					cluster.Wildcard = true
-				}
-			}
-
-			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
+			
+			completedContext = dynamiccontext.WithAPIDomainKey(requestContext, apiDomainKey)
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
