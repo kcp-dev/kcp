@@ -33,6 +33,18 @@ var (
 	# Ensure a syncer is running on the specified workload cluster.
 	%[1]s workload sync <workload-cluster-name> --syncer-image <kcp-syncer-image>
 `
+	cordonExample = `
+	# Mark a workload cluster as unschedulable.
+	%[1]s workload cordon <workload-cluster-name>
+`
+	uncordonExample = `
+	# Mark a workload cluster as schedulable.
+	%[1]s workload uncordon <workload-cluster-name>
+`
+	drainExample = `
+	# Start draining a workload cluster in preparation for maintenance.
+	%[1]s workload drain <workload-cluster-name>
+`
 )
 
 // New provides a cobra command for workload operations.
@@ -112,6 +124,87 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	enableSyncerCmd.Flags().StringVar(&kcpNamespaceName, "kcp-namespace", kcpNamespaceName, "The name of the kcp namespace to create a service account in.")
 
 	cmd.AddCommand(enableSyncerCmd)
+
+	// cordon
+	cordonCmd := &cobra.Command{
+		Use:          "cordon <workload-cluster-name>",
+		Short:        "Mark workload cluster as unschedulable",
+		Example:      fmt.Sprintf(cordonExample, "kubectl kcp"),
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			kubeconfig, err := plugin.NewConfig(opts)
+			if err != nil {
+				return err
+			}
+
+			if len(args) != 1 {
+				return cmd.Help()
+			}
+
+			workloadClusterName := args[0]
+
+			return kubeconfig.Cordon(c.Context(), workloadClusterName)
+		},
+	}
+
+	cmd.AddCommand(cordonCmd)
+
+	// uncordon
+	uncordonCmd := &cobra.Command{
+		Use:          "uncordon <workload-cluster-name>",
+		Short:        "Mark workload cluster as schedulable",
+		Example:      fmt.Sprintf(uncordonExample, "kubectl kcp"),
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			kubeconfig, err := plugin.NewConfig(opts)
+			if err != nil {
+				return err
+			}
+
+			if len(args) != 1 {
+				return cmd.Help()
+			}
+
+			workloadClusterName := args[0]
+
+			return kubeconfig.Uncordon(c.Context(), workloadClusterName)
+		},
+	}
+
+	cmd.AddCommand(uncordonCmd)
+
+	// drain
+	drainCmd := &cobra.Command{
+		Use:          "drain <workload-cluster-name>",
+		Short:        "Start draining workload cluster in preparation for maintenance",
+		Example:      fmt.Sprintf(drainExample, "kubectl kcp"),
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			kubeconfig, err := plugin.NewConfig(opts)
+			if err != nil {
+				return err
+			}
+
+			if len(args) != 1 {
+				return cmd.Help()
+			}
+
+			workloadClusterName := args[0]
+
+			return kubeconfig.Drain(c.Context(), workloadClusterName)
+		},
+	}
+
+	cmd.AddCommand(drainCmd)
 
 	return cmd, nil
 }
