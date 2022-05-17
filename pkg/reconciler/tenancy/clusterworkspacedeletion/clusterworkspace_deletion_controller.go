@@ -178,7 +178,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		return c.patchFinalizer(ctx, logicalcluster.From(workspace), workspace.Name, append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer))
+		return c.patchFinalizer(ctx, workspace, append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer))
 	}
 
 	err = c.deleter.Delete(ctx, workspaceCopy)
@@ -229,10 +229,12 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 	return err
 }
 
-func (c *Controller) patchFinalizer(ctx context.Context, cluster logicalcluster.Name, name string, finalizers []string) error {
+func (c *Controller) patchFinalizer(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace, finalizers []string) error {
 	finalizerData := &metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
-			Finalizers: finalizers,
+			ResourceVersion: ws.ResourceVersion,
+			UID:             ws.UID,
+			Finalizers:      finalizers,
 		},
 	}
 
@@ -243,11 +245,12 @@ func (c *Controller) patchFinalizer(ctx context.Context, cluster logicalcluster.
 
 	// remove finalizers field if there is no remaining finalizers,
 	if len(finalizers) == 0 {
-		patch = []byte("{\"metadata\": {\"finalizers\": []}}")
+		patch = []byte(
+			fmt.Sprintf("{\"metadata\": {\"finalizers\": [], \"uid\": %q, \"resourceVersion\": %q}}", ws.UID, ws.ResourceVersion))
 	}
 
-	_, err = c.kcpClient.Cluster(cluster).TenancyV1alpha1().ClusterWorkspaces().Patch(
-		ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+	_, err = c.kcpClient.Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces().Patch(
+		ctx, ws.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 	return err
 }
 
@@ -264,5 +267,5 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 		return nil
 	}
 
-	return c.patchFinalizer(ctx, logicalcluster.From(workspace), workspace.Name, copiedFinalizers)
+	return c.patchFinalizer(ctx, workspace, copiedFinalizers)
 }

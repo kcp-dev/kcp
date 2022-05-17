@@ -200,7 +200,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		return c.patchFinalizer(ctx, logicalcluster.From(apibindingCopy), apibindingCopy.Name, append(apibindingCopy.Finalizers, APIBindingFinalizer))
+		return c.patchFinalizer(ctx, apibindingCopy, append(apibindingCopy.Finalizers, APIBindingFinalizer))
 	}
 
 	resourceRemaining, err := c.deleteAllCRs(ctx, apibindingCopy)
@@ -321,10 +321,12 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.
 	return err
 }
 
-func (c *Controller) patchFinalizer(ctx context.Context, cluster logicalcluster.Name, name string, finalizers []string) error {
+func (c *Controller) patchFinalizer(ctx context.Context, binding *apisv1alpha1.APIBinding, finalizers []string) error {
 	finalizerData := &metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
-			Finalizers: finalizers,
+			ResourceVersion: binding.ResourceVersion,
+			UID:             binding.UID,
+			Finalizers:      finalizers,
 		},
 	}
 
@@ -335,11 +337,12 @@ func (c *Controller) patchFinalizer(ctx context.Context, cluster logicalcluster.
 
 	// remove finalizers field if there is no remaining finalizers,
 	if len(finalizers) == 0 {
-		patch = []byte("{\"metadata\": {\"finalizers\": []}}")
+		patch = []byte(
+			fmt.Sprintf("{\"metadata\": {\"finalizers\": [], \"uid\": %q, \"resourceVersion\": %q}}", binding.UID, binding.ResourceVersion))
 	}
 
-	_, err = c.kcpClusterClient.Cluster(cluster).ApisV1alpha1().APIBindings().Patch(
-		ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(binding)).ApisV1alpha1().APIBindings().Patch(
+		ctx, binding.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 	return err
 }
 
@@ -356,5 +359,5 @@ func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1a
 		return nil
 	}
 
-	return c.patchFinalizer(ctx, logicalcluster.From(apibinding), apibinding.Name, copiedFinalizers)
+	return c.patchFinalizer(ctx, apibinding, copiedFinalizers)
 }
