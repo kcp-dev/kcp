@@ -225,7 +225,7 @@ func TestSyncerLifecycle(t *testing.T) {
 						Containers: []corev1.Container{
 							{
 								Name:  "icc-test",
-								Image: framework.TestConfig.InClusterConfigTestImage(),
+								Image: framework.TestConfig.KCPTestImage(),
 								Env: []corev1.EnvVar{
 									{Name: "CONFIGMAP_NAME", Value: expectedConfigMapName},
 								},

@@ -23,11 +23,11 @@ import (
 )
 
 type testConfig struct {
-	syncerImage              string
-	inClusterConfigTestImage string
-	pclusterKubeconfig       string
-	kcpKubeconfig            string
-	useDefaultKCPServer      bool
+	syncerImage         string
+	kcpTestImage        string
+	pclusterKubeconfig  string
+	kcpKubeconfig       string
+	useDefaultKCPServer bool
 }
 
 var TestConfig *testConfig
@@ -36,8 +36,8 @@ func (c *testConfig) SyncerImage() string {
 	return c.syncerImage
 }
 
-func (c *testConfig) InClusterConfigTestImage() string {
-	return c.inClusterConfigTestImage
+func (c *testConfig) KCPTestImage() string {
+	return c.kcpTestImage
 }
 
 func (c *testConfig) PClusterKubeconfig() string {
@@ -67,6 +67,6 @@ func registerFlags(c *testConfig) {
 	flag.StringVar(&c.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
 	flag.StringVar(&c.pclusterKubeconfig, "pcluster-kubeconfig", "", "Path to the kubeconfig for a kubernetes cluster to sync to. Requires --syncer-image.")
 	flag.StringVar(&c.syncerImage, "syncer-image", "", "The syncer image to use with the pcluster. Requires --pcluster-kubeconfig")
-	flag.StringVar(&c.inClusterConfigTestImage, "icc-test-image", "", "The in-cluster configuration test image to use with the pcluster. Requires --pcluster-kubeconfig")
+	flag.StringVar(&c.kcpTestImage, "kcp-test-image", "", "The test image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 }
