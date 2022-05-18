@@ -37,7 +37,6 @@ import (
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
@@ -257,8 +256,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Eventually(t, func() bool {
 					luckyluke, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					require.NoError(t, err)
-
-					klog.Infof("luckyluke: %v", toYAML(t, luckyluke))
 
 					return luckyluke.GetLabels()[fmt.Sprintf("state.internal.workloads.kcp.dev/%s", wildwestWorkloadClusterName)] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)

@@ -419,15 +419,12 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		gather := func(client dynamic.Interface, gvr schema.GroupVersionResource) {
 			resourceClient := client.Resource(gvr)
 
-			t.Logf("gathering %q", gvr)
 			list, err := resourceClient.List(ctx, metav1.ListOptions{})
 			if err != nil {
 				// Don't fail the test
 				t.Logf("Error gathering %s: %v", gvr, err)
 				return
 			}
-
-			t.Logf("got %d items", len(list.Items))
 
 			for i := range list.Items {
 				item := list.Items[i]
@@ -757,7 +754,9 @@ func Kubectl(t *testing.T, kubeconfigPath string, args ...string) []byte {
 	t.Logf("running: %s", strings.Join(cmdParts, " "))
 
 	output, err := cmd.CombinedOutput()
-	t.Logf("kubectl apply output:\n%s", output)
+	if err != nil {
+		t.Logf("kubectl output:\n%s", output)
+	}
 	require.NoError(t, err)
 
 	return output
