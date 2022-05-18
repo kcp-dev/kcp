@@ -31,20 +31,24 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+// StorageWrapper allows consumers to wrap the delegating Store in order to add custom behavior around it.
+// For example, a consumer might want to filter the results from the delegated Store, or add impersonation to it.
+type StorageWrapper func(schema.GroupResource, customresource.Store) customresource.Store
+
 // NewStorage returns a REST storage that forwards calls to a dynamic client
 func NewStorage(ctx context.Context, resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.CustomResourceStorage {
-	stores := newStores(ctx, resource, dynamicClusterClient, patchConflictRetryBackoff, labelSelector)
+	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) customresource.CustomResourceStorage {
+	stores := newStores(ctx, resource, dynamicClusterClient, patchConflictRetryBackoff, wrapper)
 	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, stores)
 }
 
-func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, labelSelector map[string]string) customresource.NewStores {
+func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) customresource.NewStores {
 	return func(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, optsGetter generic.RESTOptionsGetter, tableConvertor rest.TableConvertor) (main, status customresource.Store) {
 		if patchConflictRetryBackoff == nil {
 			patchConflictRetryBackoff = &retry.DefaultRetry
 		}
 
-		store := &Store{
+		delegate := &Store{
 			NewFunc: func() runtime.Object {
 				// set the expected group/version/kind in the new object as a signal to the versioning decoder
 				ret := &unstructured.Unstructured{}
@@ -57,26 +61,27 @@ func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClus
 				ret.SetGroupVersionKind(listKind)
 				return ret
 			},
-			DefaultQualifiedResource: resource,
-			CreateStrategy:           strategy,
-			UpdateStrategy:           strategy,
-			DeleteStrategy:           strategy,
-			TableConvertor:           tableConvertor,
-			ResetFieldsStrategy:      strategy,
+			CreateStrategy:      strategy,
+			UpdateStrategy:      strategy,
+			DeleteStrategy:      strategy,
+			TableConvertor:      tableConvertor,
+			ResetFieldsStrategy: strategy,
 
 			resource:                  gvr,
 			dynamicClusterClient:      dynamicClusterClient,
 			patchConflictRetryBackoff: *patchConflictRetryBackoff,
-			labelSelector:             labelSelector,
-
-			stopWatchesCh: ctx.Done(),
+			stopWatchesCh:             ctx.Done(),
 		}
+		store := wrapper(resource, delegate)
+		delegate.getter = store
 
-		statusStore := *store // shallow copy
+		statusDelegate := *delegate // shallow copy
 		statusStrategy := customresource.NewStatusStrategy(strategy)
-		statusStore.UpdateStrategy = statusStrategy
-		statusStore.ResetFieldsStrategy = statusStrategy
-		statusStore.subResources = []string{"status"}
-		return store, &statusStore
+		statusDelegate.UpdateStrategy = statusStrategy
+		statusDelegate.ResetFieldsStrategy = statusStrategy
+		statusDelegate.subResources = []string{"status"}
+		statusStore := wrapper(resource, &statusDelegate)
+		statusDelegate.getter = &statusDelegate
+		return store, statusStore
 	}
 }
