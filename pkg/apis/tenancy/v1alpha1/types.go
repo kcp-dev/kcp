@@ -312,3 +312,13 @@ type ClusterWorkspaceShardList struct {
 
 	Items []ClusterWorkspaceShard `json:"items"`
 }
+
+const (
+	// ClusterWorkspacePhaseLabel holds the ClusterWorkspace.Status.Phase value, and is enforced to match
+	// by a mutating admission webhook.
+	ClusterWorkspacePhaseLabel = "internal.kcp.dev/phase"
+	// ClusterWorkspaceInitializerLabelPrefix is the prefix for labels which match ClusterWorkspace.Status.Initializers,
+	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
+	// webhook.
+	ClusterWorkspaceInitializerLabelPrefix = "internal.kcp.dev/initializer."
+)
