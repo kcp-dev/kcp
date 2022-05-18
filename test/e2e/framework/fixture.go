@@ -717,7 +717,9 @@ func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, subcommand []string) [
 	t.Logf("running: KUBECONFIG=%s %s", kubeconfigPath, strings.Join(cmdParts, " "))
 
 	output, err := cmd.CombinedOutput()
-	t.Logf("kcp plugin output:\n%s", output)
+	if err != nil {
+		t.Logf("kcp plugin output:\n%s", output)
+	}
 	require.NoError(t, err, "error running kcp plugin command")
 	return output
 }
@@ -741,7 +743,9 @@ func KubectlApply(t *testing.T, kubeconfigPath string, input []byte) []byte {
 	t.Logf("running: %s", strings.Join(cmdParts, " "))
 
 	output, err := cmd.CombinedOutput()
-	t.Logf("kubectl apply output:\n%s", output)
+	if err != nil {
+		t.Logf("kubectl apply output:\n%s", output)
+	}
 	require.NoError(t, err)
 
 	return output
