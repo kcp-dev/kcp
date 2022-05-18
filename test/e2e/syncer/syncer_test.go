@@ -208,4 +208,81 @@ func TestSyncWorkload(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
 
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
+
+}
+
+func TestCordonUncordon(t *testing.T) {
+	t.Parallel()
+
+	workloadClusterName := "test-wlc"
+	upstreamServer := framework.SharedKcpServer(t)
+
+	t.Log("Creating an organization")
+	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
+
+	t.Log("Creating a workspace")
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
+
+	// Write the upstream logical cluster config to disk for the workspace plugin
+	upstreamRawConfig, err := upstreamServer.RawConfig()
+	require.NoError(t, err)
+	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName)
+
+	subCommand := []string{
+		"workload",
+		"sync",
+		workloadClusterName,
+		"--syncer-image",
+		"ghcr.io/kcp-dev/kcp/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:41ca72b",
+	}
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
+
+	t.Log("Cordon workload")
+	subCommandCordon := []string{
+		"workload",
+		"cordon",
+		workloadClusterName,
+	}
+	expected := []byte(workloadClusterName + " cordoned\n")
+	output := framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
+	require.Equal(t, output, expected)
+
+	expected = []byte(workloadClusterName + " already cordoned\n")
+	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
+	require.Equal(t, output, expected)
+
+	t.Log("Uncordon workload")
+	subCommandUncordon := []string{
+		"workload",
+		"uncordon",
+		workloadClusterName,
+	}
+	expected = []byte(workloadClusterName + " uncordoned\n")
+	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
+	require.Equal(t, output, expected)
+
+	expected = []byte(workloadClusterName + " already uncordoned\n")
+	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
+	require.Equal(t, output, expected)
+
+	t.Log("Drain workload")
+	subCommandDrain := []string{
+		"workload",
+		"drain",
+		workloadClusterName,
+	}
+	expected = []byte(workloadClusterName + " draining\n")
+	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
+	require.Equal(t, output, expected)
+
+	expected = []byte(workloadClusterName + " already draining\n")
+	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
+	require.Equal(t, output, expected)
+
+	t.Log("Uncordon workload")
+	expected = []byte(workloadClusterName + " uncordoned\n")
+	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
+	require.Equal(t, output, expected)
+
 }
