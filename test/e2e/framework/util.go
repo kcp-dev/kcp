@@ -202,7 +202,6 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		gvkForFilename := fmt.Sprintf("%s_%s", group, gvk.Kind)
 
 		file := path.Join(dir, fmt.Sprintf("%s-%s.yaml", gvkForFilename, accessor.GetName()))
-		t.Logf("saving artifact to %s", file)
 
 		serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
 		raw := bytes.Buffer{}
