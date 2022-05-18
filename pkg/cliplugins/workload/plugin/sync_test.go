@@ -19,6 +19,7 @@ package plugin
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -159,7 +160,7 @@ spec:
 		ResourcesToSync: []string{"resource1", "resource2"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, expectedYAML, string(actualYAML))
+	require.Empty(t, cmp.Diff(expectedYAML, string(actualYAML)))
 }
 
 func TestGetGroupMappings(t *testing.T) {
@@ -229,7 +230,7 @@ func TestGetGroupMappings(t *testing.T) {
 			if len(tc.input) == 0 {
 				require.Empty(t, actual)
 			} else {
-				require.Equal(t, tc.expected, actual)
+				require.Empty(t, cmp.Diff(tc.expected, actual))
 			}
 		})
 	}
