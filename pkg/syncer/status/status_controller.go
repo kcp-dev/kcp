@@ -43,6 +43,7 @@ type Controller struct {
 
 	upstreamClient, downstreamClient       dynamic.Interface
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
+	downstreamNamespaceLister              cache.GenericLister
 
 	workloadClusterName       string
 	upstreamClusterName       logicalcluster.Name
@@ -55,10 +56,11 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, upstreamClusterName log
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		upstreamClient:      upstreamClient,
-		downstreamClient:    downstreamClient,
-		upstreamInformers:   upstreamInformers,
-		downstreamInformers: downstreamInformers,
+		upstreamClient:            upstreamClient,
+		downstreamClient:          downstreamClient,
+		upstreamInformers:         upstreamInformers,
+		downstreamInformers:       downstreamInformers,
+		downstreamNamespaceLister: downstreamInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Lister(),
 
 		workloadClusterName:       workloadClusterName,
 		upstreamClusterName:       upstreamClusterName,
