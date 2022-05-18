@@ -415,6 +415,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkloadClusterHeartbeatController(ctx, controllerConfig); err != nil {
 			return err
 		}
+		if err := s.installVirtualWorkspaceURLsController(ctx, controllerConfig, server); err != nil {
+			return err
+		}
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {

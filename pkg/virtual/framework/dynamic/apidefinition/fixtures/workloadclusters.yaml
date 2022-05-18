@@ -105,6 +105,17 @@ openAPIV3Schema:
           items:
             type: string
           type: array
+        virtualWorkspaces:
+          description: VirtualWorkspaces contains all syncer virtual workspace URLs.
+          items:
+            properties:
+              url:
+                description: URL is the URL of the syncer virtual workspace.
+                type: string
+            required:
+            - url
+            type: object
+          type: array
       type: object
   type: object
 plural: workloadclusters
