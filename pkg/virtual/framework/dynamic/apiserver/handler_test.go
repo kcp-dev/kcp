@@ -25,12 +25,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
+	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/protobuf"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
@@ -53,7 +56,9 @@ func (masr mockedAPISetRetriever) GetAPIDefinitionSet(ctx context.Context, key d
 }
 
 type mockedAPIDefinition struct {
-	apiResourceSpec *v1alpha1.CommonAPIResourceSpec
+	apiResourceSpec    *v1alpha1.CommonAPIResourceSpec
+	store              rest.Storage
+	subresourcesStores map[string]rest.Storage
 }
 
 var _ apidefinition.APIDefinition = (*mockedAPIDefinition)(nil)
@@ -65,10 +70,10 @@ func (apiDef *mockedAPIDefinition) GetClusterName() logicalcluster.Name {
 	return logicalcluster.New("logicalClusterName")
 }
 func (apiDef *mockedAPIDefinition) GetStorage() rest.Storage {
-	return nil
+	return apiDef.store
 }
 func (apiDef *mockedAPIDefinition) GetSubResourceStorage(subresource string) rest.Storage {
-	return nil
+	return apiDef.subresourcesStores[subresource]
 }
 func (apiDef *mockedAPIDefinition) GetRequestScope() *handlers.RequestScope {
 	return nil
@@ -78,6 +83,38 @@ func (apiDef *mockedAPIDefinition) GetSubResourceRequestScope(subresource string
 }
 func (apiDef *mockedAPIDefinition) TearDown() {
 }
+
+type base struct{}
+
+func (b *base) New() runtime.Object {
+	return nil
+}
+
+var _ rest.Storage = &base{}
+
+type getter struct{}
+
+func (g *getter) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+	return nil, nil
+}
+
+var _ rest.Getter = &getter{}
+
+type lister struct{}
+
+func (l *lister) NewList() runtime.Object {
+	return nil
+}
+
+func (l *lister) List(ctx context.Context, options *internalversion.ListOptions) (runtime.Object, error) {
+	return nil, nil
+}
+
+func (l *lister) ConvertToTable(ctx context.Context, object runtime.Object, tableOptions runtime.Object) (*metav1.Table, error) {
+	return nil, nil
+}
+
+var _ rest.Lister = &lister{}
 
 func TestRouting(t *testing.T) {
 	hasSynced := false
@@ -101,6 +138,11 @@ func TestRouting(t *testing.T) {
 					ListKind: "CustomResourceList",
 				},
 			},
+			store: &struct {
+				*base
+				*getter
+				*lister
+			}{},
 		},
 		schema.GroupVersionResource{
 			Group:    "",
@@ -119,6 +161,17 @@ func TestRouting(t *testing.T) {
 					Kind:     "Service",
 					ListKind: "ServiceList",
 				},
+				SubResources: []v1alpha1.SubResource{{Name: "status"}},
+			},
+			store: &struct {
+				*base
+				*getter
+			}{},
+			subresourcesStores: map[string]rest.Storage{
+				"status": &struct {
+					*base
+					*lister
+				}{},
 			},
 		},
 	}
@@ -191,11 +244,27 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIGroup\",\"apiVersion\":\"v1\",\"name\":\"custom\",\"versions\":[{\"groupVersion\":\"custom/v1\",\"version\":\"v1\"}],\"preferredVersion\":{\"groupVersion\":\"custom/v1\",\"version\":\"v1\"}}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var group metav1.APIGroup
+				require.NoError(t, json.Unmarshal(b, &group))
+				require.Empty(t, cmp.Diff(group, metav1.APIGroup{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "APIGroup",
+						APIVersion: "v1",
+					},
+					Name: "custom",
+					Versions: []metav1.GroupVersionForDiscovery{{
+						GroupVersion: "custom/v1",
+						Version:      "v1",
+					}},
+					PreferredVersion: metav1.GroupVersionForDiscovery{
+						GroupVersion: "custom/v1",
+						Version:      "v1",
+					},
+				}))
 			},
 		},
 		{
@@ -209,11 +278,27 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIGroup\",\"apiVersion\":\"v1\",\"name\":\"custom\",\"versions\":[{\"groupVersion\":\"custom/v1\",\"version\":\"v1\"}],\"preferredVersion\":{\"groupVersion\":\"custom/v1\",\"version\":\"v1\"}}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var group metav1.APIGroup
+				require.NoError(t, json.Unmarshal(b, &group))
+				require.Empty(t, cmp.Diff(group, metav1.APIGroup{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "APIGroup",
+						APIVersion: "v1",
+					},
+					Name: "custom",
+					Versions: []metav1.GroupVersionForDiscovery{{
+						GroupVersion: "custom/v1",
+						Version:      "v1",
+					}},
+					PreferredVersion: metav1.GroupVersionForDiscovery{
+						GroupVersion: "custom/v1",
+						Version:      "v1",
+					},
+				}))
 			},
 		},
 
@@ -251,11 +336,29 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIResourceList\",\"apiVersion\":\"v1\",\"groupVersion\":\"custom/v1\",\"resources\":[{\"name\":\"customresources\",\"singularName\":\"customresource\",\"namespaced\":true,\"kind\":\"CustomResource\",\"verbs\":[\"get\",\"list\",\"patch\",\"create\",\"update\",\"watch\"],\"storageVersionHash\":\"ixY6U/JU9OM=\"}]}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var list metav1.APIResourceList
+				require.NoError(t, json.Unmarshal(b, &list))
+				require.Empty(t, cmp.Diff(list, metav1.APIResourceList{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "APIResourceList",
+						APIVersion: "v1",
+					},
+					GroupVersion: "custom/v1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:               "customresources",
+							SingularName:       "customresource",
+							Namespaced:         true,
+							Kind:               "CustomResource",
+							Verbs:              []string{"get", "list"},
+							StorageVersionHash: "ixY6U/JU9OM=",
+						},
+					},
+				}))
 			},
 		},
 		{
@@ -269,11 +372,29 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIResourceList\",\"apiVersion\":\"v1\",\"groupVersion\":\"custom/v1\",\"resources\":[{\"name\":\"customresources\",\"singularName\":\"customresource\",\"namespaced\":true,\"kind\":\"CustomResource\",\"verbs\":[\"get\",\"list\",\"patch\",\"create\",\"update\",\"watch\"],\"storageVersionHash\":\"ixY6U/JU9OM=\"}]}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var list metav1.APIResourceList
+				require.NoError(t, json.Unmarshal(b, &list))
+				require.Empty(t, cmp.Diff(list, metav1.APIResourceList{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "APIResourceList",
+						APIVersion: "v1",
+					},
+					GroupVersion: "custom/v1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:               "customresources",
+							SingularName:       "customresource",
+							Namespaced:         true,
+							Kind:               "CustomResource",
+							Verbs:              []string{"get", "list"},
+							StorageVersionHash: "ixY6U/JU9OM=",
+						},
+					},
+				}))
 			},
 		},
 
@@ -361,11 +482,25 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIGroup\",\"name\":\"\",\"versions\":[{\"groupVersion\":\"v1\",\"version\":\"v1\"}],\"preferredVersion\":{\"groupVersion\":\"v1\",\"version\":\"v1\"}}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var group metav1.APIGroup
+				require.NoError(t, json.Unmarshal(b, &group))
+				require.Empty(t, cmp.Diff(group, metav1.APIGroup{
+					TypeMeta: metav1.TypeMeta{
+						Kind: "APIGroup",
+					},
+					Versions: []metav1.GroupVersionForDiscovery{{
+						GroupVersion: "v1",
+						Version:      "v1",
+					}},
+					PreferredVersion: metav1.GroupVersionForDiscovery{
+						GroupVersion: "v1",
+						Version:      "v1",
+					},
+				}))
 			},
 		},
 		{
@@ -379,11 +514,25 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIGroup\",\"name\":\"\",\"versions\":[{\"groupVersion\":\"v1\",\"version\":\"v1\"}],\"preferredVersion\":{\"groupVersion\":\"v1\",\"version\":\"v1\"}}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var group metav1.APIGroup
+				require.NoError(t, json.Unmarshal(b, &group))
+				require.Empty(t, cmp.Diff(group, metav1.APIGroup{
+					TypeMeta: metav1.TypeMeta{
+						Kind: "APIGroup",
+					},
+					Versions: []metav1.GroupVersionForDiscovery{{
+						GroupVersion: "v1",
+						Version:      "v1",
+					}},
+					PreferredVersion: metav1.GroupVersionForDiscovery{
+						GroupVersion: "v1",
+						Version:      "v1",
+					},
+				}))
 			},
 		},
 		{
@@ -397,11 +546,34 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIResourceList\",\"groupVersion\":\"v1\",\"resources\":[{\"name\":\"services\",\"singularName\":\"service\",\"namespaced\":true,\"kind\":\"Service\",\"verbs\":[\"get\",\"list\",\"patch\",\"create\",\"update\",\"watch\"],\"storageVersionHash\":\"+iYBRzoiY8o=\"}]}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var list metav1.APIResourceList
+				require.NoError(t, json.Unmarshal(b, &list))
+				require.Empty(t, cmp.Diff(list, metav1.APIResourceList{
+					TypeMeta: metav1.TypeMeta{
+						Kind: "APIResourceList",
+					},
+					GroupVersion: "v1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:               "services",
+							SingularName:       "service",
+							Namespaced:         true,
+							Kind:               "Service",
+							Verbs:              []string{"get"},
+							StorageVersionHash: "+iYBRzoiY8o=",
+						},
+						{
+							Name:       "services/status",
+							Namespaced: true,
+							Kind:       "Service",
+							Verbs:      []string{"list"},
+						},
+					},
+				}))
 			},
 		},
 		{
@@ -415,11 +587,34 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" && r.StatusCode == 200 {
-					require.Equal(t,
-						"{\"kind\":\"APIResourceList\",\"groupVersion\":\"v1\",\"resources\":[{\"name\":\"services\",\"singularName\":\"service\",\"namespaced\":true,\"kind\":\"Service\",\"verbs\":[\"get\",\"list\",\"patch\",\"create\",\"update\",\"watch\"],\"storageVersionHash\":\"+iYBRzoiY8o=\"}]}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var list metav1.APIResourceList
+				require.NoError(t, json.Unmarshal(b, &list))
+				require.Empty(t, cmp.Diff(list, metav1.APIResourceList{
+					TypeMeta: metav1.TypeMeta{
+						Kind: "APIResourceList",
+					},
+					GroupVersion: "v1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:               "services",
+							SingularName:       "service",
+							Namespaced:         true,
+							Kind:               "Service",
+							Verbs:              []string{"get"},
+							StorageVersionHash: "+iYBRzoiY8o=",
+						},
+						{
+							Name:       "services/status",
+							Namespaced: true,
+							Kind:       "Service",
+							Verbs:      []string{"list"},
+						},
+					},
+				}))
 			},
 		},
 		{
@@ -484,11 +679,26 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         405,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
-				if r.Header.Get("Content-Type") == "application/json" {
-					require.JSONEq(t,
-						"{\"kind\":\"Status\",\"apiVersion\":\"v1\",\"metadata\":{},\"status\":\"Failure\",\"message\":\"list is not supported on resources of kind \\\"customresources.custom\\\"\",\"reason\":\"MethodNotAllowed\",\"details\":{\"group\":\"custom\",\"kind\":\"customresources\"},\"code\":405}\n",
-						string(b))
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+					// why?
+					return
 				}
+				var status metav1.Status
+				require.NoError(t, json.Unmarshal(b, &status))
+				require.Empty(t, cmp.Diff(status, metav1.Status{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Status",
+						APIVersion: "v1",
+					},
+					Status:  metav1.StatusFailure,
+					Message: `status is not supported on resources of kind "customresources.custom"`,
+					Reason:  metav1.StatusReasonMethodNotAllowed,
+					Details: &metav1.StatusDetails{
+						Group: "custom",
+						Kind:  "customresources",
+					},
+					Code: http.StatusMethodNotAllowed,
+				}))
 			},
 		},
 	}

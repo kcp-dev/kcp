@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
@@ -60,7 +61,7 @@ func deploymentsAPIResourceList(workspaceName string) *metav1.APIResourceList {
 				Name:               "deployments",
 				SingularName:       "deployment",
 				Namespaced:         true,
-				Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+				Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "apps", "v1", "Deployment"),
 				Categories:         []string{"all"},
 				ShortNames:         []string{"deploy"},
@@ -88,7 +89,7 @@ func requiredCoreAPIResourceList(workspaceName string) *metav1.APIResourceList {
 				Name:               "configmaps",
 				SingularName:       "configmap",
 				Namespaced:         true,
-				Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+				Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "ConfigMap"),
 			},
 			{
@@ -96,7 +97,7 @@ func requiredCoreAPIResourceList(workspaceName string) *metav1.APIResourceList {
 				Name:               "namespaces",
 				SingularName:       "namespace",
 				Namespaced:         false,
-				Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+				Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "Namespace"),
 			},
 			{
@@ -112,7 +113,7 @@ func requiredCoreAPIResourceList(workspaceName string) *metav1.APIResourceList {
 				Name:               "secrets",
 				SingularName:       "secret",
 				Namespaced:         true,
-				Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+				Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "Secret"),
 			},
 			{
@@ -120,7 +121,7 @@ func requiredCoreAPIResourceList(workspaceName string) *metav1.APIResourceList {
 				Name:               "serviceaccounts",
 				SingularName:       "serviceaccount",
 				Namespaced:         true,
-				Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+				Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "ServiceAccount"),
 			},
 		},
@@ -147,7 +148,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				require.Equal(t, toYAML(t, []*metav1.APIResourceList{
+				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
 					deploymentsAPIResourceList(kubelikeWorkspaceName),
 					{
 						TypeMeta: metav1.TypeMeta{
@@ -161,7 +162,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 								Name:               "ingresses",
 								SingularName:       "ingress",
 								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+								Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 								ShortNames:         []string{"ing"},
 								StorageVersionHash: discovery.StorageVersionHash(kubelikeWorkspaceName, "networking.k8s.io", "v1", "Ingress"),
 							},
@@ -181,7 +182,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							Name:               "services",
 							SingularName:       "service",
 							Namespaced:         true,
-							Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+							Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 							StorageVersionHash: discovery.StorageVersionHash(kubelikeWorkspaceName, "", "v1", "Service"),
 							Categories:         []string{"all"},
 							ShortNames:         []string{"svc"},
@@ -194,13 +195,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							Verbs:              metav1.Verbs{"get", "patch", "update"},
 							StorageVersionHash: "",
 						}),
-				}), toYAML(t, sortAPIResourceList(kubelikeAPIResourceLists)))
+				}, sortAPIResourceList(kubelikeAPIResourceLists)))
 
 				wildwestVWDiscoverClient, err := clientgodiscovery.NewDiscoveryClientForConfig(wildwestSyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				require.Equal(t, toYAML(t, []*metav1.APIResourceList{
+				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
 					deploymentsAPIResourceList(wildwestWorkspaceName),
 					requiredCoreAPIResourceList(wildwestWorkspaceName),
 					{
@@ -215,7 +216,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 								Name:               "cowboys",
 								SingularName:       "cowboy",
 								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "list", "patch", "create", "update", "watch"},
+								Verbs:              metav1.Verbs{"create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"},
 								StorageVersionHash: discovery.StorageVersionHash(wildwestWorkspaceName, "wildwest.dev", "v1alpha1", "Cowboy"),
 							},
 							{
@@ -227,7 +228,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							},
 						},
 					},
-				}), toYAML(t, sortAPIResourceList(wildwestAPIResourceLists)))
+				}, sortAPIResourceList(wildwestAPIResourceLists)))
 			},
 		},
 		{
