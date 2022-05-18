@@ -221,6 +221,7 @@ func (s *Server) Run(ctx context.Context) error {
 		apiHandler = mux
 
 		apiHandler = WithWorkspaceProjection(apiHandler)
+		apiHandler = WithClusterAnnotation(apiHandler)
 		apiHandler = WithClusterScope(apiHandler)
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
 		apiHandler = WithAcceptHeader(apiHandler)
