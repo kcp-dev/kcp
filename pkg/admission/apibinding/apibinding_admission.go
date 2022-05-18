@@ -61,7 +61,6 @@ type apiBindingAdmission struct {
 
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&apiBindingAdmission{})
-var _ = admission.MutationInterface(&apiBindingAdmission{})
 var _ = admission.InitializationValidator(&apiBindingAdmission{})
 
 // Validate validates the creation and updating of APIBinding resources. It also performs a SubjectAccessReview
@@ -155,55 +154,6 @@ func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user use
 	} else if decision != authorizer.DecisionAllow {
 		return errors.New("missing verb='bind' permission on apiexports")
 	}
-
-	return nil
-}
-
-// Admit applies the default APIBinding initializer to an APIBinding when it is transitioning to the
-// Binding phase.
-func (o *apiBindingAdmission) Admit(_ context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
-	if a.GetResource().GroupResource() != apisv1alpha1.Resource("apibindings") {
-		return nil
-	}
-
-	if a.GetOperation() != admission.Update {
-		return nil
-	}
-
-	u, ok := a.GetObject().(*unstructured.Unstructured)
-	if !ok {
-		return fmt.Errorf("unexpected type %T", a.GetObject())
-	}
-
-	apiBinding := &apisv1alpha1.APIBinding{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, apiBinding); err != nil {
-		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
-	}
-
-	oldU, ok := a.GetOldObject().(*unstructured.Unstructured)
-	if !ok {
-		return fmt.Errorf("unexpected type %T", a.GetOldObject())
-	}
-	old := &apisv1alpha1.APIBinding{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldU.Object, old); err != nil {
-		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
-	}
-
-	// we only admit at state transition to binding
-	transitioningToBinding :=
-		old.Status.Phase != apisv1alpha1.APIBindingPhaseBinding &&
-			apiBinding.Status.Phase == apisv1alpha1.APIBindingPhaseBinding
-	if !transitioningToBinding {
-		return nil
-	}
-
-	apiBinding.Status.Initializers = []string{apisv1alpha1.DefaultAPIBindingInitializer}
-
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(apiBinding)
-	if err != nil {
-		return err
-	}
-	u.Object = raw
 
 	return nil
 }

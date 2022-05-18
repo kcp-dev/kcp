@@ -351,7 +351,6 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 	} else {
 		conditions.MarkTrue(apiBinding, apisv1alpha1.InitialBindingCompleted)
 		conditions.MarkTrue(apiBinding, apisv1alpha1.BindingUpToDate)
-		apiBinding.Status.Initializers = []string{}
 		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBound
 	}
 

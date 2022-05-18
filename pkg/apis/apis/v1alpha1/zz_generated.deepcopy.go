@@ -122,11 +122,6 @@ func (in *APIBindingStatus) DeepCopyInto(out *APIBindingStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Initializers != nil {
-		in, out := &in.Initializers, &out.Initializers
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make(conditionsv1alpha1.Conditions, len(*in))
