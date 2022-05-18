@@ -160,7 +160,7 @@ func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user use
 }
 
 // Admit applies the default APIBinding initializer to an APIBinding when it is transitioning to the
-// Initializing phase.
+// Binding phase.
 func (o *apiBindingAdmission) Admit(_ context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
 	if a.GetResource().GroupResource() != apisv1alpha1.Resource("apibindings") {
 		return nil
@@ -180,20 +180,20 @@ func (o *apiBindingAdmission) Admit(_ context.Context, a admission.Attributes, _
 		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 	}
 
-	u, ok = a.GetOldObject().(*unstructured.Unstructured)
+	oldU, ok := a.GetOldObject().(*unstructured.Unstructured)
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetOldObject())
 	}
 	old := &apisv1alpha1.APIBinding{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldU.Object, old); err != nil {
 		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 	}
 
-	// we only admit at state transition to initializing
-	transitioningToInitializing :=
+	// we only admit at state transition to binding
+	transitioningToBinding :=
 		old.Status.Phase != apisv1alpha1.APIBindingPhaseBinding &&
 			apiBinding.Status.Phase == apisv1alpha1.APIBindingPhaseBinding
-	if !transitioningToInitializing {
+	if !transitioningToBinding {
 		return nil
 	}
 
