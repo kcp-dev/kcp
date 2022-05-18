@@ -68,6 +68,7 @@ type Store struct {
 	ResetFieldsStrategy rest.ResetFieldsStrategy
 
 	resource                  schema.GroupVersionResource
+	apiExportIdentityHash     string
 	dynamicClusterClient      dynamic.ClusterInterface
 	subResources              []string
 	patchConflictRetryBackoff wait.Backoff
@@ -222,19 +223,23 @@ func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterfac
 	if err != nil {
 		return nil, err
 	}
+	gvr := s.resource
 	clusterName := cluster.Name
 	if cluster.Wildcard {
 		clusterName = logicalcluster.Wildcard
+		if s.apiExportIdentityHash != "" {
+			gvr.Resource += ":" + s.apiExportIdentityHash
+		}
 	}
 	client := s.dynamicClusterClient.Cluster(clusterName)
 
 	if s.CreateStrategy.NamespaceScoped() {
 		if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-			return client.Resource(s.resource).Namespace(namespace), nil
+			return client.Resource(gvr).Namespace(namespace), nil
 		} else {
 			return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", s.resource.String())
 		}
 	} else {
-		return client.Resource(s.resource), nil
+		return client.Resource(gvr), nil
 	}
 }

@@ -36,13 +36,13 @@ import (
 type StorageWrapper func(schema.GroupResource, customresource.Store) customresource.Store
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
-func NewStorage(ctx context.Context, resource schema.GroupVersionResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
+func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiExportIdentityHash string, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
 	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) customresource.CustomResourceStorage {
-	stores := newStores(ctx, resource, dynamicClusterClient, patchConflictRetryBackoff, wrapper)
+	stores := newStores(ctx, resource, apiExportIdentityHash, dynamicClusterClient, patchConflictRetryBackoff, wrapper)
 	return customresource.NewStorageWithCustomStore(resource.GroupResource(), kind, listKind, strategy, nil, categories, tableConvertor, replicasPathMapping, stores)
 }
 
-func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) customresource.NewStores {
+func newStores(ctx context.Context, gvr schema.GroupVersionResource, apiExportIdentityHash string, dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) customresource.NewStores {
 	return func(resource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, optsGetter generic.RESTOptionsGetter, tableConvertor rest.TableConvertor) (main, status customresource.Store) {
 		if patchConflictRetryBackoff == nil {
 			patchConflictRetryBackoff = &retry.DefaultRetry
@@ -68,6 +68,7 @@ func newStores(ctx context.Context, gvr schema.GroupVersionResource, dynamicClus
 			ResetFieldsStrategy: strategy,
 
 			resource:                  gvr,
+			apiExportIdentityHash:     apiExportIdentityHash,
 			dynamicClusterClient:      dynamicClusterClient,
 			patchConflictRetryBackoff: *patchConflictRetryBackoff,
 			stopWatchesCh:             ctx.Done(),

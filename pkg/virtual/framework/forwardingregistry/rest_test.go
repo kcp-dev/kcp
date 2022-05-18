@@ -59,9 +59,10 @@ func (mcg *mockedClusterClient) Cluster(cluster logicalcluster.Name) dynamic.Int
 	return mcg.client
 }
 
-func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff) customresource.CustomResourceStorage {
-	groupResource := schema.GroupResource{Group: "mygroup.example.com", Resource: "noxus"}
-	gvr := groupResource.WithVersion("v1beta1")
+var noxusGVR schema.GroupVersionResource = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
+
+func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) customresource.CustomResourceStorage {
+	gvr := noxusGVR
 	groupVersion := gvr.GroupVersion()
 
 	parameterScheme := runtime.NewScheme()
@@ -96,6 +97,7 @@ func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, patchConfl
 	return forwardingregistry.NewStorage(
 		ctx,
 		gvr,
+		apiExportIdentityHash,
 		kind,
 		listKind,
 		customresource.NewStrategy(
@@ -142,7 +144,7 @@ func createResource(namespace, name string) *unstructured.Unstructured {
 
 func TestGet(t *testing.T) {
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, nil)
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
@@ -160,7 +162,7 @@ func TestGet(t *testing.T) {
 func TestList(t *testing.T) {
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, nil)
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
@@ -173,6 +175,38 @@ func TestList(t *testing.T) {
 		resource := *resource.(*unstructured.Unstructured)
 		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%V\nactual:\n%V", resource, resultResources[0])
 	}
+	require.Len(t, fakeClient.Actions(), 1)
+	require.Equal(t, "noxus", fakeClient.Actions()[0].GetResource().Resource)
+}
+
+func TestWildcardListWithAPIExportIdentity(t *testing.T) {
+	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
+	noxusGVRWithHash := noxusGVR.GroupVersion().WithResource("noxus:" + "apiExportIdentityHash")
+	fakeClient := fake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			noxusGVR:         "NoxuList",
+			noxusGVRWithHash: "NoxuList",
+		})
+	for _, resource := range resources {
+		_ = fakeClient.Tracker().Create(noxusGVRWithHash, resource, "default")
+	}
+
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "apiExportIdentityHash", nil)
+	ctx := request.WithNamespace(context.Background(), "default")
+	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
+
+	result, err := storage.CustomResource.List(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+	require.IsType(t, &unstructured.UnstructuredList{}, result)
+	resultResources := result.(*unstructured.UnstructuredList).Items
+	require.Len(t, resultResources, len(resources))
+	for i, resource := range resources {
+		resource := *resource.(*unstructured.Unstructured)
+		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%V\nactual:\n%V", resource, resultResources[0])
+	}
+	require.Len(t, fakeClient.Actions(), 1)
+	require.Equal(t, "noxus:apiExportIdentityHash", fakeClient.Actions()[0].GetResource().Resource)
 }
 
 func TestWatch(t *testing.T) {
@@ -181,7 +215,7 @@ func TestWatch(t *testing.T) {
 	fakeWatcher := watch.NewFake()
 	defer fakeWatcher.Stop()
 	fakeClient.PrependWatchReactor("noxus", kubernetestesting.DefaultWatchReactor(fakeWatcher, nil))
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, nil)
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
@@ -248,6 +282,93 @@ func TestWatch(t *testing.T) {
 	}
 	require.Equal(t, watch.Error, event.Type, "Event type is wrong")
 	require.True(t, apiequality.Semantic.DeepEqual(watchedError, event.Object))
+
+	require.Len(t, fakeClient.Actions(), 1)
+	require.Equal(t, "noxus", fakeClient.Actions()[0].GetResource().Resource)
+}
+
+func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
+	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
+	noxusGVRWithHash := noxusGVR.GroupVersion().WithResource("noxus:apiExportIdentityHash")
+	fakeClient := fake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			noxusGVR:         "NoxuList",
+			noxusGVRWithHash: "NoxuList",
+		})
+	fakeWatcher := watch.NewFake()
+	defer fakeWatcher.Stop()
+	fakeClient.PrependWatchReactor("noxus:apiExportIdentityHash", kubernetestesting.DefaultWatchReactor(fakeWatcher, nil))
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "apiExportIdentityHash", nil)
+	ctx := request.WithNamespace(context.Background(), "default")
+	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
+
+	watchedError := &v1.Status{
+		Status:  "Failure",
+		Message: "message",
+	}
+
+	watchingStarted := make(chan bool, 1)
+	go func() {
+		<-watchingStarted
+		for _, resource := range resources {
+			fakeWatcher.Add(resource)
+		}
+
+		fakeWatcher.Modify(resources[0])
+		fakeWatcher.Delete(resources[1])
+		fakeWatcher.Error(watchedError)
+	}()
+
+	watcher, err := storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+
+	watchingStarted <- true
+	watcherChan := watcher.ResultChan()
+	var event watch.Event
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(wait.ForeverTestTimeout):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(wait.ForeverTestTimeout):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(wait.ForeverTestTimeout):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Modified, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(wait.ForeverTestTimeout):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Deleted, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
+
+	select {
+	case event = <-watcherChan:
+	case <-time.After(wait.ForeverTestTimeout):
+		require.Fail(t, "Watch event not received")
+	}
+	require.Equal(t, watch.Error, event.Type, "Event type is wrong")
+	require.True(t, apiequality.Semantic.DeepEqual(watchedError, event.Object))
+
+	require.Len(t, fakeClient.Actions(), 1)
+	require.Equal(t, "noxus:apiExportIdentityHash", fakeClient.Actions()[0].GetResource().Resource)
 }
 
 func updateReactor(fakeClient *fake.FakeDynamicClient) kubernetestesting.ReactionFunc {
@@ -278,7 +399,7 @@ func TestUpdate(t *testing.T) {
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, nil)
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 	updated := resource.DeepCopy()
@@ -337,7 +458,7 @@ func TestStatusUpdate(t *testing.T) {
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), resource)
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, nil)
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 	statusUpdated := resource.DeepCopy()
@@ -373,7 +494,7 @@ func TestPatch(t *testing.T) {
 
 	backoff := retry.DefaultRetry
 	backoff.Steps = 5
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, &backoff)
+	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", &backoff)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Verb: "patch"})
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
