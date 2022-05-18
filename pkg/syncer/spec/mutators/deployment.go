@@ -111,6 +111,10 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 									Key:  "token",
 									Path: "token",
 								},
+								{
+									Key:  "namespace",
+									Path: "namespace",
+								},
 							},
 						},
 					},
@@ -123,19 +127,6 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 								{
 									Key:  "ca.crt",
 									Path: "ca.crt",
-								},
-							},
-						},
-					},
-					{
-						DownwardAPI: &corev1.DownwardAPIProjection{
-							Items: []corev1.DownwardAPIVolumeFile{
-								{
-									Path: "namespace",
-									FieldRef: &corev1.ObjectFieldSelector{
-										APIVersion: "v1",
-										FieldPath:  "metadata.namespace",
-									},
 								},
 							},
 						},
