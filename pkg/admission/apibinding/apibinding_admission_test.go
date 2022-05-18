@@ -19,12 +19,16 @@ package apibinding
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -306,4 +310,115 @@ func (b *bindingBuilder) withWorkspaceReference(workspaceName, exportName string
 func (b *bindingBuilder) withPhase(phase apisv1alpha1.APIBindingPhaseType) *bindingBuilder {
 	b.Status.Phase = phase
 	return b
+}
+
+func (b *bindingBuilder) withInitializers(initializers ...string) *bindingBuilder {
+	b.Status.Initializers = initializers
+	return b
+}
+
+func TestAdmit(t *testing.T) {
+	tests := []struct {
+		name           string
+		attr           admission.Attributes
+		authzDecision  authorizer.Decision
+		authzError     error
+		validateObj    func(*apisv1alpha1.APIBinding) error
+		expectedErrors []string
+	}{
+		{
+			name: "Update: adds the initializer when moving from no phase",
+			attr: updateAttr(
+				newAPIBinding().
+					withPhase(apisv1alpha1.APIBindingPhaseBinding).
+					APIBinding,
+				newAPIBinding().
+					APIBinding,
+			),
+			authzDecision: authorizer.DecisionAllow,
+			validateObj: func(object *apisv1alpha1.APIBinding) error {
+				if diff := cmp.Diff(object.Status.Initializers, []string{apisv1alpha1.DefaultAPIBindingInitializer}); diff != "" {
+					return fmt.Errorf("invalid initializers: %v", diff)
+				}
+				return nil
+			},
+		},
+		{
+			name: "Update: adds the initializer when moving from some other phase",
+			attr: updateAttr(
+				newAPIBinding().
+					withPhase(apisv1alpha1.APIBindingPhaseBinding).
+					APIBinding,
+				newAPIBinding().
+					withPhase(apisv1alpha1.APIBindingPhaseBound).
+					APIBinding,
+			),
+			authzDecision: authorizer.DecisionAllow,
+			validateObj: func(object *apisv1alpha1.APIBinding) error {
+				if diff := cmp.Diff(object.Status.Initializers, []string{apisv1alpha1.DefaultAPIBindingInitializer}); diff != "" {
+					return fmt.Errorf("invalid initializers: %v", diff)
+				}
+				return nil
+			},
+		},
+		{
+			name: "Update: removes extraneous initializers when they are present moving into binding phase",
+			attr: updateAttr(
+				newAPIBinding().
+					withPhase(apisv1alpha1.APIBindingPhaseBinding).
+					APIBinding,
+				newAPIBinding().
+					withInitializers("whoa", "there", "buddy").
+					APIBinding,
+			),
+			authzDecision: authorizer.DecisionAllow,
+			validateObj: func(object *apisv1alpha1.APIBinding) error {
+				if diff := cmp.Diff(object.Status.Initializers, []string{apisv1alpha1.DefaultAPIBindingInitializer}); diff != "" {
+					return fmt.Errorf("invalid initializers: %v", diff)
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			o := &apiBindingAdmission{
+				Handler: admission.NewHandler(admission.Create, admission.Update),
+				createAuthorizer: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+					return &fakeAuthorizer{
+						tc.authzDecision,
+						tc.authzError,
+					}, nil
+				},
+			}
+
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
+
+			err := o.Admit(ctx, tc.attr, nil)
+
+			wantErr := len(tc.expectedErrors) > 0
+			require.Equal(t, wantErr, err != nil)
+
+			if err != nil {
+				t.Logf("Got admission errors: %v", err)
+				for _, expected := range tc.expectedErrors {
+					require.Contains(t, err.Error(), expected)
+				}
+			}
+
+			if tc.validateObj != nil {
+				u, ok := tc.attr.GetObject().(*unstructured.Unstructured)
+				require.True(t, ok, "unexpected type %T", tc.attr.GetObject())
+
+				apiBinding := &apisv1alpha1.APIBinding{}
+				require.NoError(t,
+					runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, apiBinding),
+					"failed to convert unstructured to APIBinding",
+				)
+
+				require.NoError(t, tc.validateObj(apiBinding))
+			}
+		})
+	}
 }
