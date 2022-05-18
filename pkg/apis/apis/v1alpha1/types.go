@@ -129,14 +129,6 @@ type APIBindingStatus struct {
 	// +listMapKey=resource
 	BoundResources []BoundAPIResource `json:"boundResources,omitempty"`
 
-	// initializers tracks the binding process of the APIBinding. The APIBinding cannot
-	// be moved to Bound until the initializers have finished their work. Initializers are
-	// added before transition to Initializing phase and verified through admission to be
-	// complete when initialization starts.
-	//
-	// +optional
-	Initializers []string `json:"initializers,omitempty"`
-
 	// phase is the current phase of the APIBinding:
 	// - "": the APIBinding has just been created, waiting to be bound.
 	// - Binding: the APIBinding is being bound.

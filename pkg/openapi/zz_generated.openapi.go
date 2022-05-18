@@ -1196,21 +1196,6 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 							},
 						},
 					},
-					"initializers": {
-						SchemaProps: spec.SchemaProps{
-							Description: "initializers tracks the binding process of the APIBinding. The APIBinding cannot be moved to Bound until the initializers have finished their work. Initializers are added before transition to Initializing phase and verified through admission to be complete when initialization starts.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
 							Description: "phase is the current phase of the APIBinding: - \"\": the APIBinding has just been created, waiting to be bound. - Binding: the APIBinding is being bound. - Bound: the APIBinding is bound and the referenced APIs are available in the workspace.",
