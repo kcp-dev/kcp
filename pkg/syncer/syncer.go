@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
@@ -73,34 +74,41 @@ func (sc *SyncerConfig) ID() string {
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
 	klog.Infof("Starting syncer for logical-cluster: %s, workload-cluster: %s", cfg.KCPClusterName, cfg.WorkloadClusterName)
 
-	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
-	upstreamConfig.UserAgent = "kcp#spec-syncer/v0.0.0"
-	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
-	downstreamConfig.UserAgent = "kcp#status-syncer/v0.0.0"
+	kcpVersion := version.Get().GitVersion
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(upstreamConfig)
-	if err != nil {
-		return err
-	}
-	upstreamDynamicClient, err := dynamic.NewClusterForConfig(upstreamConfig)
-	if err != nil {
-		return err
-	}
-	downstreamDynamicClient, err := dynamic.NewForConfig(downstreamConfig)
-	if err != nil {
-		return err
-	}
-	upstreamDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg.UpstreamConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(rest.AddUserAgent(rest.CopyConfig(cfg.UpstreamConfig), "kcp#syncer/"+kcpVersion))
 	if err != nil {
 		return err
 	}
 
-	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClient.Cluster(cfg.KCPClusterName), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+	// TODO(david): Implement real support for several virtual workspace URLs that can change over time.
+	// TODO(david): For now we retrieve the syncerVirtualWorkpaceURL at start, since we temporarily stick to a single URL (sharding not supported).
+	// TODO(david): But the complete implementation should setup a WorkloadCluster informer, create spec and status syncer for every URLs found in the
+	// TODO(david): Status.SyncerVirtualWorkspaceURLs slice, and update them each time this list changes.
+	var syncerVirtualWorkspaceURL string
+	// TODO(david): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
+	// TODO(david): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
+	// TODO(david): block until it hits the 10 minute overall test timeout.
+	klog.Infof("Attempting to retrieve the Syncer virtual workspace URL from WorkloadCluster %s|%s", cfg.KCPClusterName, cfg.WorkloadClusterName)
+	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
+		workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if len(workloadCluster.Status.VirtualWorkspaces) == 0 {
+			return false, nil
+		}
+
+		if len(workloadCluster.Status.VirtualWorkspaces) > 1 {
+			klog.Errorf("WorkloadCluster %s|%s should not have several Syncer virtual workspace URLs: not supported for now, ignoring additional URLs", cfg.KCPClusterName, cfg.WorkloadClusterName)
+		}
+		syncerVirtualWorkspaceURL = workloadCluster.Status.VirtualWorkspaces[0].URL
+		return true, nil
 	})
-	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(downstreamDynamicClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + cfg.WorkloadClusterName
-	})
+	if err != nil {
+		return err
+	}
 
 	// Resources are accepted as a set to ensure the provision of a
 	// unique set of resources, but all subsequent consumption is via
@@ -116,6 +124,32 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 	go apiImporter.Start(ctx, importPollInterval)
 
+	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
+	upstreamConfig.Host = syncerVirtualWorkspaceURL
+	upstreamConfig.UserAgent = "kcp#spec-syncer/" + kcpVersion
+	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
+	downstreamConfig.UserAgent = "kcp#status-syncer/" + kcpVersion
+
+	upstreamDynamicClient, err := dynamic.NewClusterForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+	downstreamDynamicClient, err := dynamic.NewForConfig(downstreamConfig)
+	if err != nil {
+		return err
+	}
+	upstreamDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+
+	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClient.Cluster(cfg.KCPClusterName), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+	})
+	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(downstreamDynamicClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + cfg.WorkloadClusterName
+	})
+
 	// TODO(ncdc): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
 	// TODO(ncdc): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
 	// TODO(ncdc): block until it hits the 10 minute overall test timeout.
@@ -130,7 +164,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		var err error
 		// Get all types the upstream API server knows about.
 		// TODO: watch this and learn about new types, or forget about old ones.
-		gvrs, err = getAllGVRs(upstreamDiscoveryClient.WithCluster(cfg.KCPClusterName), resources...)
+		gvrs, err = getAllGVRs(upstreamDiscoveryClient, resources...)
 		// TODO(marun) Should some of these errors be fatal?
 		if err != nil {
 			klog.Errorf("Failed to retrieve GVRs from kcp: %v", err)
