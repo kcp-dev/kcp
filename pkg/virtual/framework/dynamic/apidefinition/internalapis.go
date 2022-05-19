@@ -25,8 +25,8 @@ import (
 	endpointsopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/openapi"
-	builder "k8s.io/kube-openapi/pkg/builder"
-	common "k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/builder"
+	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/util"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -35,55 +35,55 @@ import (
 
 // InternalAPI describes an API to be imported from some schemes and generated OpenAPI V2 definitions
 type InternalAPI struct {
-	names     apiextensionsv1.CustomResourceDefinitionNames
-	gv        schema.GroupVersion
-	instance  runtime.Object
-	scope     apiextensionsv1.ResourceScope
-	hasStatus bool
+	Names        apiextensionsv1.CustomResourceDefinitionNames
+	GroupVersion schema.GroupVersion
+	Instance     runtime.Object
+	ResourceSope apiextensionsv1.ResourceScope
+	HasStatus    bool
 }
 
 // KCPInternalAPIs provides a list of InternalAPI for the APIs that are part of the KCP scheme and will be there in every KCP workspace
 var KCPInternalAPIs = []InternalAPI{
 	{
-		names: apiextensionsv1.CustomResourceDefinitionNames{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
 			Plural:   "namespaces",
 			Singular: "namespace",
 			Kind:     "Namespace",
 		},
-		gv:        schema.GroupVersion{Group: "", Version: "v1"},
-		instance:  &corev1.Namespace{},
-		scope:     apiextensionsv1.ClusterScoped,
-		hasStatus: true,
+		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:     &corev1.Namespace{},
+		ResourceSope: apiextensionsv1.ClusterScoped,
+		HasStatus:    true,
 	},
 	{
-		names: apiextensionsv1.CustomResourceDefinitionNames{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
 			Plural:   "configmaps",
 			Singular: "configmap",
 			Kind:     "ConfigMap",
 		},
-		gv:       schema.GroupVersion{Group: "", Version: "v1"},
-		instance: &corev1.ConfigMap{},
-		scope:    apiextensionsv1.NamespaceScoped,
+		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:     &corev1.ConfigMap{},
+		ResourceSope: apiextensionsv1.NamespaceScoped,
 	},
 	{
-		names: apiextensionsv1.CustomResourceDefinitionNames{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
 			Plural:   "secrets",
 			Singular: "secret",
 			Kind:     "Secret",
 		},
-		gv:       schema.GroupVersion{Group: "", Version: "v1"},
-		instance: &corev1.Secret{},
-		scope:    apiextensionsv1.NamespaceScoped,
+		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:     &corev1.Secret{},
+		ResourceSope: apiextensionsv1.NamespaceScoped,
 	},
 	{
-		names: apiextensionsv1.CustomResourceDefinitionNames{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
 			Plural:   "serviceaccounts",
 			Singular: "serviceaccount",
 			Kind:     "ServiceAccount",
 		},
-		gv:       schema.GroupVersion{Group: "", Version: "v1"},
-		instance: &corev1.ServiceAccount{},
-		scope:    apiextensionsv1.NamespaceScoped,
+		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:     &corev1.ServiceAccount{},
+		ResourceSope: apiextensionsv1.NamespaceScoped,
 	},
 }
 
@@ -102,7 +102,7 @@ func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []c
 
 	var canonicalTypeNames []string
 	for _, def := range defs {
-		canonicalTypeNames = append(canonicalTypeNames, util.GetCanonicalTypeName(def.instance))
+		canonicalTypeNames = append(canonicalTypeNames, util.GetCanonicalTypeName(def.Instance))
 	}
 	swagger, err := builder.BuildOpenAPIDefinitionsForResources(config, canonicalTypeNames...)
 	if err != nil {
@@ -121,7 +121,7 @@ func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []c
 
 	var apis []*apiresourcev1alpha1.CommonAPIResourceSpec
 	for _, def := range defs {
-		gvk := def.gv.WithKind(def.names.Kind)
+		gvk := def.GroupVersion.WithKind(def.Names.Kind)
 		var schemaProps apiextensionsv1.JSONSchemaProps
 		errs := crdpuller.Convert(modelsByGKV[gvk], &schemaProps)
 		if len(errs) > 0 {
@@ -129,10 +129,10 @@ func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []c
 		}
 		spec := &apiresourcev1alpha1.CommonAPIResourceSpec{
 			GroupVersion:                  apiresourcev1alpha1.GroupVersion(gvk.GroupVersion()),
-			Scope:                         def.scope,
-			CustomResourceDefinitionNames: def.names,
+			Scope:                         def.ResourceSope,
+			CustomResourceDefinitionNames: def.Names,
 		}
-		if def.hasStatus {
+		if def.HasStatus {
 			spec.SubResources = append(spec.SubResources, apiresourcev1alpha1.SubResource{
 				Name: apiresourcev1alpha1.StatusSubResourceName,
 			})

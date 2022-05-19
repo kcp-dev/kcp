@@ -32,7 +32,7 @@ import (
 // APIDefinition provides access to all the information needed to serve a given API resource
 type APIDefinition interface {
 	// GetAPIResourceSpec provides the API resource specification, which contains the
-	// API names, sub-resource definitions, and the OpenAPIv3 schema.
+	// API Names, sub-resource definitions, and the OpenAPIv3 schema.
 	GetAPIResourceSpec() *apiresourcev1alpha1.CommonAPIResourceSpec
 
 	// GetClusterName provides the name of the logical cluster where the resource specification comes from.

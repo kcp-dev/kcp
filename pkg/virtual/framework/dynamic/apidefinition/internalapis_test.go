@@ -44,36 +44,36 @@ var embeddedResources embed.FS
 func TestImportInternalAPIs(t *testing.T) {
 	apisToImport := []InternalAPI{
 		{
-			names: apiextensionsv1.CustomResourceDefinitionNames{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:   "namespaces",
 				Singular: "namespace",
 				Kind:     "Namespace",
 			},
-			gv:        schema.GroupVersion{Group: "", Version: "v1"},
-			instance:  &corev1.Namespace{},
-			scope:     apiextensionsv1.ClusterScoped,
-			hasStatus: true,
+			GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
+			Instance:     &corev1.Namespace{},
+			ResourceSope: apiextensionsv1.ClusterScoped,
+			HasStatus:    true,
 		},
 		{
-			names: apiextensionsv1.CustomResourceDefinitionNames{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:   "configmaps",
 				Singular: "configmap",
 				Kind:     "ConfigMap",
 			},
-			gv:       schema.GroupVersion{Group: "", Version: "v1"},
-			instance: &corev1.ConfigMap{},
-			scope:    apiextensionsv1.NamespaceScoped,
+			GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
+			Instance:     &corev1.ConfigMap{},
+			ResourceSope: apiextensionsv1.NamespaceScoped,
 		},
 		{
-			names: apiextensionsv1.CustomResourceDefinitionNames{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:   "workloadclusters",
 				Singular: "workloadcluster",
 				Kind:     "WorkloadCluster",
 			},
-			gv:        schema.GroupVersion{Group: "workload.kcp.dev", Version: "v1alpha1"},
-			instance:  &v1alpha1.WorkloadCluster{},
-			scope:     apiextensionsv1.ClusterScoped,
-			hasStatus: true,
+			GroupVersion: schema.GroupVersion{Group: "workload.kcp.dev", Version: "v1alpha1"},
+			Instance:     &v1alpha1.WorkloadCluster{},
+			ResourceSope: apiextensionsv1.ClusterScoped,
+			HasStatus:    true,
 		},
 	}
 	tenancyScheme := runtime.NewScheme()
