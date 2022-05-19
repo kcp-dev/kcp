@@ -87,6 +87,11 @@ func (s *Store) New() runtime.Object {
 	return s.NewFunc()
 }
 
+// Destroy implements RESTStorage.New.
+func (s *Store) Destroy() {
+	// Do nothing
+}
+
 // NewList implements rest.Lister.
 func (s *Store) NewList() runtime.Object {
 	return s.NewListFunc()

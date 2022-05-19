@@ -40,6 +40,10 @@ type delegatingStorage struct {
 	storageBase
 }
 
+func (s *delegatingStorage) Destroy() {
+	// Do nothing
+}
+
 func (s *delegatingStorage) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
 	return s.routedResponse(ctx, nil, false)
 }
