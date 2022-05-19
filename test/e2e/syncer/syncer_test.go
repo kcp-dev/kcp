@@ -37,7 +37,6 @@ import (
 
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
