@@ -22,8 +22,10 @@ import (
 	"regexp"
 	"strings"
 
+	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdvalidation "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -42,6 +44,7 @@ var (
 func ValidateAPIResourceSchema(s *apisv1alpha1.APIResourceSchema) field.ErrorList {
 	allErrs := field.ErrorList{}
 	allErrs = append(allErrs, ValidateAPIResourceSchemaName(s.Name, &s.Spec, field.NewPath("metadata", "name"))...)
+	allErrs = append(allErrs, ValidateAPIResourceSchemaGroup(s.Spec.Group, s.Annotations)...)
 	allErrs = append(allErrs, ValidateAPIResourceSchemaSpec(&s.Spec, field.NewPath("spec"))...)
 	return allErrs
 }
@@ -68,6 +71,28 @@ func ValidateAPIResourceSchemaName(name string, spec *apisv1alpha1.APIResourceSc
 	}
 
 	return nil
+}
+
+func ValidateAPIResourceSchemaGroup(group string, annotations map[string]string) field.ErrorList {
+	// check to see if we need confirm API approval for kube group.
+	if !apihelpers.IsProtectedCommunityGroup(group) {
+		// no-op for non-protected groups
+		return nil
+	}
+
+	state, reason := apihelpers.GetAPIApprovalState(annotations)
+
+	switch state {
+	case apihelpers.APIApprovalInvalid:
+		return field.ErrorList{field.Invalid(field.NewPath("metadata", "annotations").Key(apiextensionsv1beta1.KubeAPIApprovedAnnotation), annotations[apiextensionsv1beta1.KubeAPIApprovedAnnotation], reason)}
+	case apihelpers.APIApprovalMissing:
+		return field.ErrorList{field.Required(field.NewPath("metadata", "annotations").Key(apiextensionsv1beta1.KubeAPIApprovedAnnotation), reason)}
+	case apihelpers.APIApproved, apihelpers.APIApprovalBypassed:
+		// success
+		return nil
+	default:
+		return field.ErrorList{field.Invalid(field.NewPath("metadata", "annotations").Key(apiextensionsv1beta1.KubeAPIApprovedAnnotation), annotations[apiextensionsv1beta1.KubeAPIApprovedAnnotation], reason)}
+	}
 }
 
 func ValidateAPIResourceSchemaSpec(spec *apisv1alpha1.APIResourceSchemaSpec, fldPath *field.Path) field.ErrorList {
