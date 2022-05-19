@@ -209,6 +209,31 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 	require.Equal(t, "noxus:apiExportIdentityHash", fakeClient.Actions()[0].GetResource().Resource)
 }
 
+func checkWatchEvents(t *testing.T, addEvents func(), watchCall func() (watch.Interface, error), expectedEvents []watch.Event) {
+	watchingStarted := make(chan bool, 1)
+	go func() {
+		<-watchingStarted
+		addEvents()
+	}()
+
+	watcher, err := watchCall()
+	require.NoError(t, err)
+
+	watchingStarted <- true
+	watcherChan := watcher.ResultChan()
+	var event watch.Event
+
+	for _, expectedEvent := range expectedEvents {
+		select {
+		case event = <-watcherChan:
+		case <-time.After(wait.ForeverTestTimeout):
+			require.Fail(t, "Watch event not received")
+		}
+		require.Equal(t, expectedEvent.Type, event.Type, "Event type is wrong")
+		require.True(t, apiequality.Semantic.DeepEqual(expectedEvent.Object, event.Object), "expected:\n%V\nactual:\n%V", expectedEvent.Object, event.Object)
+	}
+}
+
 func TestWatch(t *testing.T) {
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
@@ -224,64 +249,23 @@ func TestWatch(t *testing.T) {
 		Message: "message",
 	}
 
-	watchingStarted := make(chan bool, 1)
-	go func() {
-		<-watchingStarted
-		for _, resource := range resources {
-			fakeWatcher.Add(resource)
-		}
-
-		fakeWatcher.Modify(resources[0])
-		fakeWatcher.Delete(resources[1])
-		fakeWatcher.Error(watchedError)
-	}()
-
-	watcher, err := storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
-	require.NoError(t, err)
-
-	watchingStarted <- true
-	watcherChan := watcher.ResultChan()
-	var event watch.Event
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Modified, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Deleted, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Error, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(watchedError, event.Object))
+	checkWatchEvents(t,
+		func() {
+			fakeWatcher.Add(resources[0])
+			fakeWatcher.Add(resources[1])
+			fakeWatcher.Modify(resources[0])
+			fakeWatcher.Delete(resources[1])
+			fakeWatcher.Error(watchedError)
+		},
+		func() (watch.Interface, error) {
+			return storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
+		}, []watch.Event{
+			{Type: watch.Added, Object: resources[0]},
+			{Type: watch.Added, Object: resources[1]},
+			{Type: watch.Modified, Object: resources[0]},
+			{Type: watch.Deleted, Object: resources[1]},
+			{Type: watch.Error, Object: watchedError},
+		})
 
 	require.Len(t, fakeClient.Actions(), 1)
 	require.Equal(t, "noxus", fakeClient.Actions()[0].GetResource().Resource)
@@ -308,64 +292,23 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 		Message: "message",
 	}
 
-	watchingStarted := make(chan bool, 1)
-	go func() {
-		<-watchingStarted
-		for _, resource := range resources {
-			fakeWatcher.Add(resource)
-		}
-
-		fakeWatcher.Modify(resources[0])
-		fakeWatcher.Delete(resources[1])
-		fakeWatcher.Error(watchedError)
-	}()
-
-	watcher, err := storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
-	require.NoError(t, err)
-
-	watchingStarted <- true
-	watcherChan := watcher.ResultChan()
-	var event watch.Event
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Added, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Modified, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), "expected:\n%V\nactual:\n%V", resources[0], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Deleted, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), "expected:\n%V\nactual:\n%V", resources[1], event.Object)
-
-	select {
-	case event = <-watcherChan:
-	case <-time.After(wait.ForeverTestTimeout):
-		require.Fail(t, "Watch event not received")
-	}
-	require.Equal(t, watch.Error, event.Type, "Event type is wrong")
-	require.True(t, apiequality.Semantic.DeepEqual(watchedError, event.Object))
+	checkWatchEvents(t,
+		func() {
+			fakeWatcher.Add(resources[0])
+			fakeWatcher.Add(resources[1])
+			fakeWatcher.Modify(resources[0])
+			fakeWatcher.Delete(resources[1])
+			fakeWatcher.Error(watchedError)
+		},
+		func() (watch.Interface, error) {
+			return storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
+		}, []watch.Event{
+			{Type: watch.Added, Object: resources[0]},
+			{Type: watch.Added, Object: resources[1]},
+			{Type: watch.Modified, Object: resources[0]},
+			{Type: watch.Deleted, Object: resources[1]},
+			{Type: watch.Error, Object: watchedError},
+		})
 
 	require.Len(t, fakeClient.Actions(), 1)
 	require.Equal(t, "noxus:apiExportIdentityHash", fakeClient.Actions()[0].GetResource().Resource)
