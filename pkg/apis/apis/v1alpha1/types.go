@@ -163,6 +163,9 @@ const (
 	// APIExportNotFoundReason is a reason for the APIExportValid condition that the referenced APIExport is not found.
 	APIExportNotFoundReason = "APIExportNotFound"
 
+	// APIResourceSchemaInvalidReason is a reason for the InitialBindingCompleted and BindingUpToDate conditions when one of generated CRD is invalid.
+	APIResourceSchemaInvalidReason = "APIResourceSchemaInvalid"
+
 	// InternalErrorReason is a reason used by multiple conditions that something went wrong.
 	InternalErrorReason = "InternalError"
 

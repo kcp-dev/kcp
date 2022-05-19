@@ -19,6 +19,7 @@ package apibinding
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -255,6 +256,39 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			// Create flow
 
 			if _, err := c.createCRD(ctx, ShadowWorkspaceName, crd); err != nil {
+				if apierrors.IsInvalid(err) {
+					status := apierrors.APIStatus(nil)
+					// The error is guaranteed to implement APIStatus here
+					errors.As(err, &status)
+					conditions.MarkFalse(
+						apiBinding,
+						apisv1alpha1.BindingUpToDate,
+						apisv1alpha1.APIResourceSchemaInvalidReason,
+						conditionsv1alpha1.ConditionSeverityError,
+						fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schema.ClusterName, schemaName, status.Status().Details.Causes),
+					)
+					// Only change InitialBindingCompleted if it's false
+					if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+						conditions.MarkFalse(
+							apiBinding,
+							apisv1alpha1.InitialBindingCompleted,
+							apisv1alpha1.APIResourceSchemaInvalidReason,
+							conditionsv1alpha1.ConditionSeverityError,
+							fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schema.ClusterName, schemaName, status.Status().Details.Causes),
+						)
+					}
+
+					klog.Errorf(
+						"Error creating CRD for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
+						apiBinding.ClusterName, apiBinding.Name,
+						apiExport.ClusterName, apiExport.Name,
+						apiExport.ClusterName, schemaName,
+						err,
+					)
+
+					return nil
+				}
+
 				conditions.MarkFalse(
 					apiBinding,
 					apisv1alpha1.BindingUpToDate,
@@ -271,18 +305,6 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 						conditionsv1alpha1.ConditionSeverityError,
 						"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
 					)
-				}
-
-				if apierrors.IsInvalid(err) {
-					klog.Errorf(
-						"Error creating CRD for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
-						apiBinding.ClusterName, apiBinding.Name,
-						apiExport.ClusterName, apiExport.Name,
-						apiExport.ClusterName, schemaName,
-						err,
-					)
-
-					return nil
 				}
 
 				return err
