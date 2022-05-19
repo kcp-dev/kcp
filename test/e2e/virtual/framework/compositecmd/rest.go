@@ -49,6 +49,11 @@ func (s *BasicStorage) New() runtime.Object {
 	obj.GetObjectKind().SetGroupVersionKind(s.GVK)
 	return obj
 }
+
+func (s *BasicStorage) Destroy() {
+	// Do nothing
+}
+
 func (s *BasicStorage) GroupVersionKind(containingGV schema.GroupVersion) schema.GroupVersionKind {
 	return s.GVK
 }

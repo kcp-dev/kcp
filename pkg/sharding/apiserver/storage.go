@@ -67,6 +67,10 @@ type storageMux struct {
 	delegating rest.StandardStorage
 }
 
+func (s *storageMux) Destroy() {
+	// Do nothing
+}
+
 func (s *storageMux) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 	if c := request.ClusterFrom(ctx); c.Wildcard {
 		return nil, fmt.Errorf("method not supported in a cross-cluster context")

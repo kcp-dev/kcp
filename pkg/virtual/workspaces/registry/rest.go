@@ -169,6 +169,11 @@ func (s *REST) New() runtime.Object {
 	return &tenancyv1beta1.Workspace{}
 }
 
+// Destroy implements rest.Storage
+func (s *REST) Destroy() {
+	// Do nothing
+}
+
 // NewList returns a new ClusterWorkspaceList
 func (*REST) NewList() runtime.Object {
 	return &tenancyv1beta1.WorkspaceList{}
