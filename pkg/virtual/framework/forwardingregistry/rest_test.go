@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
@@ -61,7 +62,7 @@ func (mcg *mockedClusterClient) Cluster(cluster logicalcluster.Name) dynamic.Int
 
 var noxusGVR schema.GroupVersionResource = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
 
-func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) customresource.CustomResourceStorage {
+func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage rest.Storage) {
 	gvr := noxusGVR
 	groupVersion := gvr.GroupVersion()
 
@@ -114,7 +115,7 @@ func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, apiExportI
 		nil,
 		clusterClient,
 		patchConflictRetryBackoff,
-		func(_ schema.GroupResource, store customresource.Store) customresource.Store {
+		func(_ schema.GroupResource, store *forwardingregistry.StoreFuncs) *forwardingregistry.StoreFuncs {
 			return store
 		})
 }
@@ -144,17 +145,18 @@ func createResource(namespace, name string) *unstructured.Unstructured {
 
 func TestGet(t *testing.T) {
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
-	_, err := storage.CustomResource.Get(ctx, "foo", &metav1.GetOptions{})
+	getter := storage.(rest.Getter)
+	_, err := getter.Get(ctx, "foo", &metav1.GetOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
 	resource := createResource("default", "foo")
 	_ = fakeClient.Tracker().Add(resource)
 
-	result, err := storage.CustomResource.Get(ctx, "foo", &metav1.GetOptions{})
+	result, err := getter.Get(ctx, "foo", &metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Truef(t, apiequality.Semantic.DeepEqual(resource, result), "expected:\n%V\nactual:\n%V", resource, result)
 }
@@ -162,11 +164,12 @@ func TestGet(t *testing.T) {
 func TestList(t *testing.T) {
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
-	result, err := storage.CustomResource.List(ctx, &internalversion.ListOptions{})
+	lister := storage.(rest.Lister)
+	result, err := lister.List(ctx, &internalversion.ListOptions{})
 	require.NoError(t, err)
 	require.IsType(t, &unstructured.UnstructuredList{}, result)
 	resultResources := result.(*unstructured.UnstructuredList).Items
@@ -192,11 +195,12 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 		_ = fakeClient.Tracker().Create(noxusGVRWithHash, resource, "default")
 	}
 
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "apiExportIdentityHash", nil)
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
 
-	result, err := storage.CustomResource.List(ctx, &internalversion.ListOptions{})
+	lister := storage.(rest.Lister)
+	result, err := lister.List(ctx, &internalversion.ListOptions{})
 	require.NoError(t, err)
 	require.IsType(t, &unstructured.UnstructuredList{}, result)
 	resultResources := result.(*unstructured.UnstructuredList).Items
@@ -230,7 +234,7 @@ func checkWatchEvents(t *testing.T, addEvents func(), watchCall func() (watch.In
 			require.Fail(t, "Watch event not received")
 		}
 		require.Equal(t, expectedEvent.Type, event.Type, "Event type is wrong")
-		require.True(t, apiequality.Semantic.DeepEqual(expectedEvent.Object, event.Object), "expected:\n%V\nactual:\n%V", expectedEvent.Object, event.Object)
+		require.True(t, apiequality.Semantic.DeepEqual(expectedEvent.Object, event.Object), cmp.Diff(expectedEvent.Object, event.Object))
 	}
 }
 
@@ -240,7 +244,7 @@ func TestWatch(t *testing.T) {
 	fakeWatcher := watch.NewFake()
 	defer fakeWatcher.Stop()
 	fakeClient.PrependWatchReactor("noxus", kubernetestesting.DefaultWatchReactor(fakeWatcher, nil))
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
@@ -258,7 +262,8 @@ func TestWatch(t *testing.T) {
 			fakeWatcher.Error(watchedError)
 		},
 		func() (watch.Interface, error) {
-			return storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
+			watcher := storage.(rest.Watcher)
+			return watcher.Watch(ctx, &internalversion.ListOptions{})
 		}, []watch.Event{
 			{Type: watch.Added, Object: resources[0]},
 			{Type: watch.Added, Object: resources[1]},
@@ -283,7 +288,7 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 	fakeWatcher := watch.NewFake()
 	defer fakeWatcher.Stop()
 	fakeClient.PrependWatchReactor("noxus:apiExportIdentityHash", kubernetestesting.DefaultWatchReactor(fakeWatcher, nil))
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "apiExportIdentityHash", nil)
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
 
@@ -301,7 +306,8 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 			fakeWatcher.Error(watchedError)
 		},
 		func() (watch.Interface, error) {
-			return storage.CustomResource.Watch(ctx, &internalversion.ListOptions{})
+			watcher := storage.(rest.Watcher)
+			return watcher.Watch(ctx, &internalversion.ListOptions{})
 		}, []watch.Event{
 			{Type: watch.Added, Object: resources[0]},
 			{Type: watch.Added, Object: resources[1]},
@@ -342,7 +348,7 @@ func TestUpdate(t *testing.T) {
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 	updated := resource.DeepCopy()
@@ -359,11 +365,12 @@ func TestUpdate(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, _, err = storage.CustomResource.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	updater := storage.(rest.Updater)
+	_, _, err = updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
 	_ = fakeClient.Tracker().Add(resource)
-	result, _, err := storage.CustomResource.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	result, _, err := updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	resultResource := result.(*unstructured.Unstructured)
 	require.NoError(t, err)
 	updatedGeneration, _, err := unstructured.NestedInt64(resultResource.UnstructuredContent(), "metadata", "generation")
@@ -381,7 +388,7 @@ func TestUpdate(t *testing.T) {
 	updated.SetResourceVersion("101")
 	newReplicas++
 	_ = unstructured.SetNestedField(updated.UnstructuredContent(), newReplicas, "spec", "replicas")
-	_, _, err = storage.CustomResource.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	_, _, err = updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "Operation cannot be fulfilled on noxus.mygroup.example.com \"foo\": the object has been modified; please apply your changes to the latest version and try again")
 
 	updates := 0
@@ -401,7 +408,7 @@ func TestStatusUpdate(t *testing.T) {
 	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), resource)
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
+	_, statusStorage := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 	statusUpdated := resource.DeepCopy()
@@ -417,7 +424,8 @@ func TestStatusUpdate(t *testing.T) {
 	newReplicas++
 	_ = unstructured.SetNestedField(statusUpdatedWithSpecChanged.UnstructuredContent(), newReplicas, "spec", "replicas")
 
-	result, _, err := storage.Status.Update(ctx, statusUpdated.GetName(), rest.DefaultUpdatedObjectInfo(statusUpdatedWithSpecChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	updater := statusStorage.(rest.Updater)
+	result, _, err := updater.Update(ctx, statusUpdated.GetName(), rest.DefaultUpdatedObjectInfo(statusUpdatedWithSpecChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	resultResource := result.(*unstructured.Unstructured)
 	require.NoError(t, err)
 	updatedGeneration, _, err := unstructured.NestedInt64(resultResource.UnstructuredContent(), "metadata", "generation")
@@ -437,7 +445,7 @@ func TestPatch(t *testing.T) {
 
 	backoff := retry.DefaultRetry
 	backoff.Steps = 5
-	storage := newStorage(t, &mockedClusterClient{fakeClient}, "", &backoff)
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "", &backoff)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Verb: "patch"})
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
@@ -453,7 +461,8 @@ func TestPatch(t *testing.T) {
 		return updated, nil
 	}
 
-	_, _, err := storage.CustomResource.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	updater := storage.(rest.Updater)
+	_, _, err := updater.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
 	_ = fakeClient.Tracker().Add(resource)
@@ -469,7 +478,7 @@ func TestPatch(t *testing.T) {
 		return true, resource, nil
 	})
 
-	resultObj, _, err := storage.CustomResource.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	resultObj, _, err := updater.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.NoError(t, err)
 	updates := 0
 	for _, action := range fakeClient.Actions() {
@@ -496,7 +505,7 @@ func TestPatch(t *testing.T) {
 	noMoreConflicts = backoff.Steps + 1
 	fakeClient.ClearActions()
 
-	_, _, err = storage.CustomResource.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	_, _, err = updater.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "Operation cannot be fulfilled on noxus.mygroup.example.com \"foo\": the object has been modified; please apply your changes to the latest version and try again")
 
 	updates = 0

@@ -90,6 +90,8 @@ func (b *base) New() runtime.Object {
 	return nil
 }
 
+func (b *base) Destroy() {}
+
 var _ rest.Storage = &base{}
 
 type getter struct{}
