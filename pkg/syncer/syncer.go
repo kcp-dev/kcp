@@ -89,9 +89,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// TODO(david): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
 	// TODO(david): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
 	// TODO(david): block until it hits the 10 minute overall test timeout.
-	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
-		klog.Infof("Attempting to retrieve the Syncer virtual workspace URL from WorkloadCluster %s|%s", cfg.KCPClusterName, cfg.WorkloadClusterName)
-
+	klog.Infof("Attempting to retrieve the Syncer virtual workspace URL from WorkloadCluster %s|%s", cfg.KCPClusterName, cfg.WorkloadClusterName)
+	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
 		workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
