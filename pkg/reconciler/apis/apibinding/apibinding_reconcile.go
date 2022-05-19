@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -462,6 +463,9 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 		},
 	}
 
+	// Copy the APIResourceSchema annotations and labels to the generated CRD.
+	propagateLabelAndAnnotations(schema, crd)
+
 	for _, version := range schema.Spec.Versions {
 		crdVersion := apiextensionsv1.CustomResourceDefinitionVersion{
 			Name:                     version.Name,
@@ -518,4 +522,31 @@ func apiExportLatestResourceSchemasChanged(apiBinding *apisv1alpha1.APIBinding, 
 	}
 
 	return !exportedSchemaUIDs.Equal(boundSchemaUIDs)
+}
+
+func propagateLabelAndAnnotations(source, target metav1.Object) {
+	targetAnnotations := target.GetAnnotations()
+	if targetAnnotations == nil {
+		targetAnnotations = make(map[string]string)
+	}
+	for k, v := range source.GetAnnotations() {
+		if strings.HasPrefix(k, "apis.kcp.dev") {
+			// Prevent users from overriding KCP API annotations
+			continue
+		}
+		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
+			// Do not propagate annotations added by kubectl CLI, such as kubectl.kubernetes.io/last-applied-configuration
+			continue
+		}
+		targetAnnotations[k] = v
+	}
+	target.SetAnnotations(targetAnnotations)
+
+	targetLabels := target.GetLabels()
+	if targetLabels == nil {
+		targetLabels = make(map[string]string)
+	}
+	for k, v := range source.GetLabels() {
+		targetLabels[k] = v
+	}
 }
