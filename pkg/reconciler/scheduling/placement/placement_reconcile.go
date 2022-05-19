@@ -151,6 +151,8 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 		}
 		chosenLocationName = l.Name
 		chosenClusters = ready
+		// We can stop searching as we found ready clusters
+		break
 	}
 	if chosenLocationName == "" {
 		// TODO(sttts): come up with some both quicker rescheduling initially, but also some backoff when scheduling fails again
