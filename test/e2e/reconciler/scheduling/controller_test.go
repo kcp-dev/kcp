@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,21 +53,28 @@ func TestScheduling(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, source)
 	negotiationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+	secondUserClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
 
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(source.DefaultConfig(t))
 	require.NoError(t, err)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(source.DefaultConfig(t))
 	require.NoError(t, err)
 
-	t.Logf("Check that there is no services resource in the ser workspace")
+	t.Logf("Check that there is no services resource in the user workspace")
 	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
+	t.Logf("Check that there is no services resource in the second user workspace")
+	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	require.Error(t, err)
+
+	workloadClusterName := "workloadcluster"
 	t.Logf("Creating a WorkloadCluster and syncer in %s", negotiationClusterName)
-	_ = framework.SyncerFixture{
+	syncerFixture := framework.SyncerFixture{
 		ResourcesToSync:      sets.NewString("services"),
 		UpstreamServer:       source,
 		WorkspaceClusterName: negotiationClusterName,
+		WorkloadClusterName:  workloadClusterName,
 		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
 			if !isLogicalCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -159,7 +167,6 @@ func TestScheduling(t *testing.T) {
 		return location.Status.AvailableInstances != nil && *location.Status.AvailableInstances == 1
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	t.Logf("Create a binding")
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubernetes",
@@ -173,6 +180,8 @@ func TestScheduling(t *testing.T) {
 			},
 		},
 	}
+
+	t.Logf("Create a binding in the user workspace")
 	_, err = kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
@@ -198,6 +207,79 @@ func TestScheduling(t *testing.T) {
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Create a binding in the second user workspace")
+	_, err = kcpClusterClient.Cluster(secondUserClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Wait for binding to be ready")
+	require.Eventually(t, func() bool {
+		binding, err := kcpClusterClient.Cluster(secondUserClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+		if err != nil {
+			klog.Errorf("Failed to list Locations: %v", err)
+			return false
+		}
+
+		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Wait for being able to list Services in the user workspace")
+	require.Eventually(t, func() bool {
+		_, err := kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		if errors.IsNotFound(err) {
+			return false
+		} else if err != nil {
+			klog.Errorf("Failed to list Services: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Create a service in the user workspace")
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "first",
+			Labels: map[string]string{
+				"state.internal.workloads.kcp.dev/" + workloadClusterName: "Sync",
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Create a service in the second user workspace")
+	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "second",
+			Labels: map[string]string{
+				"state.internal.workloads.kcp.dev/" + workloadClusterName: "Sync",
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Wait for the 2 services to be sync to the downstream cluster")
+	var downstreamServices *corev1.ServiceList
+	require.Eventually(t, func() bool {
+		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
+			LabelSelector: "internal.workloads.kcp.dev/cluster=" + workloadClusterName,
+		})
+		if errors.IsNotFound(err) {
+			return false
+		} else if err != nil {
+			klog.Errorf("Failed to list Services: %v", err)
+			return false
+		} else if len(downstreamServices.Items) < 2 {
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	require.Len(t, downstreamServices.Items, 2)
+
+	names := sets.NewString()
+	for _, downstreamService := range downstreamServices.Items {
+		names.Insert(downstreamService.Name)
+	}
+	require.Equal(t, names.List(), []string{"first", "second"})
 
 	t.Logf("Wait for placement annotation on the default namespace")
 	require.Eventually(t, func() bool {
