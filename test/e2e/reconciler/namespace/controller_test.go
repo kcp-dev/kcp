@@ -139,8 +139,10 @@ func TestNamespaceScheduler(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				crdClusterClient, err := apiextensionsclient.NewClusterForConfig(server.DefaultConfig(t))
 				require.NoError(t, err, "failed to construct apiextensions client for server")
+
 				dynamicClusterClient, err := dynamic.NewClusterForConfig(server.DefaultConfig(t))
 				require.NoError(t, err, "failed to construct dynamic client for server")
+
 				kubeClusterClient, err := kubernetes.NewClusterForConfig(server.DefaultConfig(t))
 				require.NoError(t, err, "failed to construct kubernetes client for server")
 
@@ -151,12 +153,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				}
 				cluster, err = server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, cluster, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cluster")
-				require.Eventually(t, func() bool {
-					cluster, err = server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
-					conditions.MarkTrue(cluster, "Ready")
-					cluster, err = server.kcpClient.WorkloadV1alpha1().WorkloadClusters().UpdateStatus(ctx, cluster, metav1.UpdateOptions{})
-					return err == nil
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
 				go wait.UntilWithContext(ctx, func(ctx context.Context) {
 					patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
 					_, err := server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Patch(ctx, cluster.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
