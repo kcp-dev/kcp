@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
@@ -147,7 +148,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				require.Equal(t, toYAML(t, []*metav1.APIResourceList{
+				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
 					deploymentsAPIResourceList(kubelikeWorkspaceName),
 					{
 						TypeMeta: metav1.TypeMeta{
@@ -194,13 +195,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							Verbs:              metav1.Verbs{"get", "patch", "update"},
 							StorageVersionHash: "",
 						}),
-				}), toYAML(t, sortAPIResourceList(kubelikeAPIResourceLists)))
+				}, sortAPIResourceList(kubelikeAPIResourceLists)))
 
 				wildwestVWDiscoverClient, err := clientgodiscovery.NewDiscoveryClientForConfig(wildwestSyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClient.ServerGroupsAndResources()
 				require.NoError(t, err)
-				require.Equal(t, toYAML(t, []*metav1.APIResourceList{
+				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
 					deploymentsAPIResourceList(wildwestWorkspaceName),
 					requiredCoreAPIResourceList(wildwestWorkspaceName),
 					{
@@ -227,7 +228,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							},
 						},
 					},
-				}), toYAML(t, sortAPIResourceList(wildwestAPIResourceLists)))
+				}, sortAPIResourceList(wildwestAPIResourceLists)))
 			},
 		},
 		{
@@ -278,8 +279,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				virtualWorkspaceCowboy, err := virtualWorkspaceClusterClient.Cluster(logicalcluster.New(wildwestWorkspaceName)).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
-				require.Equal(t, kcpCowboy.Spec, virtualWorkspaceCowboy.Spec)
-				require.Equal(t, kcpCowboy.Status, virtualWorkspaceCowboy.Status)
+				require.Empty(t, cmp.Diff(kcpCowboy.Spec, virtualWorkspaceCowboy.Spec))
+				require.Empty(t, cmp.Diff(kcpCowboy.Status, virtualWorkspaceCowboy.Status))
 
 				t.Log("Patch luckyluke via virtual workspace to report in status that joe is in prison")
 				_, err = virtualWorkspaceClusterClient.Cluster(logicalcluster.New(wildwestWorkspaceName)).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
@@ -298,8 +299,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NotEqual(t, expectedModifiedKcpCowboy.ResourceVersion, modifiedkcpCowboy)
 
 				t.Log("Verify resource version, managed fields and generation")
-				require.Equal(t, expectedModifiedKcpCowboy.Spec, modifiedkcpCowboy.Spec)
-				require.Equal(t, expectedModifiedKcpCowboy.Status, modifiedkcpCowboy.Status)
+				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, modifiedkcpCowboy.Spec))
+				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Status, modifiedkcpCowboy.Status))
 			},
 		},
 	}
