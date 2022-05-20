@@ -27,6 +27,9 @@ const (
 
 	// PlacementAnnotationKey is the label key for the label holding a PlacementAnnotation struct.
 	PlacementAnnotationKey = "scheduling.kcp.dev/placement"
+
+	// InternalNegotiationWorkspaceAnnotationKey is the label key storing the negotiation workspace.
+	InternalNegotiationWorkspaceAnnotationKey = "internal.scheduling.kcp.dev/negotiation-workspace"
 )
 
 // PlacementAnnotation is the type marshalled into the PlacementAnnotationKey annotation on

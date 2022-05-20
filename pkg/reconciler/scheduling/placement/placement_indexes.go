@@ -37,28 +37,15 @@ func indexByWorksapce(obj interface{}) ([]string, error) {
 	return []string{lcluster.String()}, nil
 }
 
-const indexUnscheduledNamedspacesKey = "unscheduled"
-
-func indexUnscheduledNamespaces(obj interface{}) ([]string, error) {
+func indexByNegotiationWorkspace(obj interface{}) ([]string, error) {
 	ns, ok := obj.(*corev1.Namespace)
 	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be an Namespace, but is %T", obj)
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
 	}
 
-	if _, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]; !found {
-		return []string{indexUnscheduledNamedspacesKey}, nil
-	}
-	return []string{}, nil
-}
-
-func indexUnscheduledByWorkspace(obj interface{}) ([]string, error) {
-	ns, ok := obj.(*corev1.Namespace)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be an Namespace, but is %T", obj)
+	if negotiationWorkspace, found := ns.Annotations[schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey]; found && negotiationWorkspace != "" {
+		return []string{negotiationWorkspace}, nil
 	}
 
-	if _, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]; !found {
-		return []string{logicalcluster.From(ns).String()}, nil
-	}
 	return []string{}, nil
 }
