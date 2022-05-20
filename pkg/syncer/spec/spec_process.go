@@ -190,7 +190,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 			return err
 		}
 	} else {
-		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, c.upstreamClusterName, upstreamObj.GetNamespace())
+		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, l.LogicalCluster, l.Namespace)
 	}
 
 	return nil
@@ -208,14 +208,15 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 		upstreamObjCopy := upstreamObj.DeepCopy()
 		name := upstreamObjCopy.GetName()
 		namespace := upstreamObjCopy.GetNamespace()
+		logicalCluster := logicalcluster.From(upstreamObjCopy)
 
 		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.workloadClusterName)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
-		if _, err := c.upstreamClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Failed adding finalizer upstream on resource %s|%s/%s: %v", c.upstreamClusterName, namespace, name, err)
+		if _, err := c.upstreamClient.Cluster(logicalCluster).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
+			klog.Errorf("Failed adding finalizer upstream on resource %s|%s/%s: %v", logicalCluster, namespace, name, err)
 			return err
 		}
-		klog.Infof("Updated resource %s|%s/%s with syncer finalizer upstream", c.upstreamClusterName, namespace, name)
+		klog.Infof("Updated resource %s|%s/%s with syncer finalizer upstream", logicalCluster, namespace, name)
 	}
 
 	return nil
@@ -232,6 +233,8 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			return err
 		}
 	}
+
+	upstreamObjLogicalCluster := logicalcluster.From(upstreamObj)
 
 	downstreamObj := upstreamObj.DeepCopy()
 	downstreamObj.SetUID("")
@@ -312,7 +315,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 				if apierrors.IsNotFound(err) {
 					// That's not an error.
 					// Just think about removing the finalizer from the KCP location-specific resource:
-					if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamObj.GetNamespace(), c.workloadClusterName, c.upstreamClusterName, upstreamObj.GetName()); err != nil {
+					if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamObj.GetNamespace(), c.workloadClusterName, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
 						return err
 					}
 					return nil
