@@ -243,6 +243,14 @@ func TestScheduling(t *testing.T) {
 				"state.internal.workloads.kcp.dev/" + workloadClusterName: "Sync",
 			},
 		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:     80,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
@@ -252,6 +260,14 @@ func TestScheduling(t *testing.T) {
 			Name: "second",
 			Labels: map[string]string{
 				"state.internal.workloads.kcp.dev/" + workloadClusterName: "Sync",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:     80,
+					Protocol: corev1.ProtocolTCP,
+				},
 			},
 		},
 	}, metav1.CreateOptions{})
@@ -273,6 +289,11 @@ func TestScheduling(t *testing.T) {
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	syncedServicesYaml, err := yaml.Marshal(downstreamServices)
+	require.NoError(t, err)
+	t.Logf("Synced services:\n%s", syncedServicesYaml)
+
 	require.Len(t, downstreamServices.Items, 2)
 
 	names := sets.NewString()
