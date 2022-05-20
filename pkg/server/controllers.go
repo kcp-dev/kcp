@@ -62,7 +62,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
-	kcpnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	virtualworkspaceurlscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/virtualworkspaceurls"
 )
 
@@ -323,6 +324,35 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 	if err != nil {
 		return err
 	}
+
+	namespaceScheduler := workloadnamespace.NewController(
+		kubeClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters().Lister(),
+		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
+	)
+
+	s.AddPostStartHook("kcp-install-workload-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-namespace-scheduler: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go namespaceScheduler.Start(ctx, 2)
+		return nil
+	})
+	return nil
+}
+
+func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-resource-scheduler")
+	kubeClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -335,20 +365,17 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 		return err
 	}
 
-	namespaceScheduler := kcpnamespace.NewController(
+	namespaceScheduler := workloadresource.NewController(
 		dynamicClusterClient,
 		metadataClusterClient,
 		kubeClient.DiscoveryClient,
 		kubeClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters().Lister(),
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
 		s.options.Extra.DiscoveryPollInterval,
 	)
 
-	s.AddPostStartHook("kcp-install-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+	s.AddPostStartHook("kcp-install-workload-resource-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-namespace-scheduler: %v", err)
 			// nolint:nilerr

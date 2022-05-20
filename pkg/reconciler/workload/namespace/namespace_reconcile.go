@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -28,11 +27,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -41,18 +37,15 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const (
-	DeprecatedScheduledClusterNamespaceLabel = "workloads.kcp.dev/cluster"
-	SchedulingDisabledLabel                  = "experimental.workloads.kcp.dev/scheduling-disabled"
+	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
 
-	// The presence of `workloads.kcp.dev/schedulable: true` on a workspace
-	// enables scheduling for the contents of the workspace. It is applied by
-	// default to workspaces of type `Universal`.
+	// WorkspaceSchedulableLabel on a workspace enables scheduling for the contents
+	// of the workspace. It is applied by default to workspaces of type `Universal`.
 	WorkspaceSchedulableLabel = "workloads.kcp.dev/schedulable"
 )
 
@@ -91,125 +84,38 @@ func init() {
 	}
 }
 
-// reconcileResource is responsible for setting the cluster for a resource of
-// any type, to match the cluster where its namespace is assigned.
-func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
-	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
-		klog.V(4).Infof("Skipping reconciliation of ingress %s/%s", unstr.GetNamespace(), unstr.GetName())
-		return nil
-	}
+// reconcileNamespace is responsible for assigning a namespace to a cluster, if
+// it does not already have one.
+//
+// After assigning (or if it's already assigned), this also updates all
+// resources in the namespace to be assigned to the namespace's cluster.
+func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logicalcluster.Name, ns *corev1.Namespace) error {
+	klog.Infof("Reconciling namespace %s|%s", lclusterName, ns.Name)
 
-	klog.V(2).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
-
-	// If the resource is not namespaced (incl if the resource is itself a
-	// namespace), ignore it.
-	if unstr.GetNamespace() == "" {
-		klog.V(4).Infof("GVR %q %s|%s had no namespace; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
-		return nil
-	}
-
-	// Align the resource's assigned cluster with the namespace's assigned
-	// cluster.
-	// First, get the namespace object (from the cached lister).
-	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, unstr.GetNamespace()))
-	if apierrors.IsNotFound(err) {
-		// Namespace was deleted; this resource will eventually get deleted too, so ignore
-		return nil
-	}
+	workspaceSchedulingEnabled, err := isWorkspaceSchedulable(c.workspaceLister.Get, logicalcluster.From(ns))
 	if err != nil {
-		return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, unstr.GetNamespace(), unstr.GetName(), err)
+		return err
 	}
-
-	if !scheduleRequirement.Matches(labels.Set(ns.Labels)) {
-		// Do not schedule the resource transitively, and let external controllers
-		// or users be responsible for it, consistently with the scheduling of the
-		// namespace.
+	if !workspaceSchedulingEnabled {
+		klog.V(4).Infof("Scheduling is disabled for the workspace of namespace %s|%s", lclusterName, ns.Name)
 		return nil
 	}
 
-	lbls := unstr.GetLabels()
-	if lbls == nil {
-		lbls = map[string]string{}
-	}
-	//nolint:staticcheck
-	previousCluster, newCluster := shared.DeprecatedGetAssignedWorkloadCluster(lbls), shared.DeprecatedGetAssignedWorkloadCluster(ns.Labels)
-	if previousCluster == newCluster {
-		// Already assigned to the right cluster.
-		return nil
+	if ns.Labels == nil {
+		ns.Labels = map[string]string{}
 	}
 
-	// Update the resource's assignment.
-	patchType, patchBytes, err := clusterLabelPatchBytes(previousCluster, newCluster)
+	ns, _, err = c.ensureNamespaceScheduledDeprecated(ctx, ns)
 	if err != nil {
-		klog.Errorf("error creating patch for %s %s|%s: %v", gvr.String(), unstr.GetClusterName(), unstr.GetName(), err)
 		return err
 	}
 
-	if updated, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
-		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	_, err = c.ensureScheduledStatus(ctx, ns)
+	if err != nil {
 		return err
-	} else {
-		klog.V(2).Infof("Patched cluster assignment for %q %s|%s/%s: %q -> %q. Labels=%v",
-			gvr, lclusterName, ns.Name, unstr.GetName(), previousCluster, newCluster, updated.GetLabels())
 	}
+
 	return nil
-}
-
-func (c *Controller) reconcileGVR(ctx context.Context, gvr schema.GroupVersionResource) error {
-	// Update all resources in the namespace with the cluster assignment.
-	listers, _ := c.ddsif.Listers()
-	lister, found := listers[gvr]
-	if !found {
-		return fmt.Errorf("informer for %q is not synced; re-enqueueing", gvr)
-	}
-
-	// Enqueue workqueue items to reconcile every resource of this type, in
-	// all namespaces.
-	objs, err := lister.List(labels.Everything())
-	if err != nil {
-		return err
-	}
-	for _, obj := range objs {
-		c.enqueueResource(gvr, obj)
-	}
-	return nil
-}
-
-// ensureScheduled attempts to ensure the namespace is assigned to a viable cluster. This
-// will succeed without error if a cluster is assigned or if there are no viable clusters
-// to assign to. The condition of not being scheduled to a cluster will be reflected in
-// the namespace's status rather than by returning an error.
-func (c *Controller) ensureScheduled(ctx context.Context, ns *corev1.Namespace) (*corev1.Namespace, bool, error) {
-	oldPClusterName := ns.Labels[DeprecatedScheduledClusterNamespaceLabel]
-
-	scheduler := namespaceScheduler{
-		getCluster:   c.clusterLister.Get,
-		listClusters: c.clusterLister.List,
-	}
-	newPClusterName, err := scheduler.AssignCluster(ns)
-	if err != nil {
-		return ns, false, err
-	}
-
-	if oldPClusterName == newPClusterName {
-		return ns, false, nil
-	}
-
-	klog.V(2).Infof("Patching to update cluster assignment for namespace %s|%s: %s -> %s",
-		logicalcluster.From(ns), ns.Name, oldPClusterName, newPClusterName)
-	patchType, patchBytes, err := schedulingClusterLabelPatchBytes(oldPClusterName, newPClusterName)
-	if err != nil {
-		klog.Errorf("Failed to create patch for cluster assignment: %v", err)
-		return ns, false, err
-	}
-
-	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
-		Patch(ctx, ns.Name, patchType, patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return ns, false, err
-	}
-
-	return patchedNamespace, true, nil
 }
 
 // ensureScheduledStatus ensures the status of the given namespace reflects the
@@ -233,126 +139,6 @@ func (c *Controller) ensureScheduledStatus(ctx context.Context, ns *corev1.Names
 	}
 
 	return patchedNamespace, nil
-}
-
-// reconcileNamespace is responsible for assigning a namespace to a cluster, if
-// it does not already have one.
-//
-// After assigning (or if it's already assigned), this also updates all
-// resources in the namespace to be assigned to the namespace's cluster.
-func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logicalcluster.Name, ns *corev1.Namespace) error {
-	klog.Infof("Reconciling namespace %s|%s", lclusterName, ns.Name)
-
-	workspaceSchedulingEnabled, err := isWorkspaceSchedulable(c.workspaceLister.Get, logicalcluster.From(ns))
-	if err != nil {
-		return err
-	}
-	if !workspaceSchedulingEnabled {
-		klog.V(4).Infof("Scheduling is disabled for the workspace of namespace %s|%s", lclusterName, ns.Name)
-		return nil
-	}
-
-	if ns.Labels == nil {
-		ns.Labels = map[string]string{}
-	}
-
-	ns, rescheduled, err := c.ensureScheduled(ctx, ns)
-	if err != nil {
-		return err
-	}
-	ns, err = c.ensureScheduledStatus(ctx, ns)
-	if err != nil {
-		return err
-	}
-
-	// schedule resources in the namespace for rescheduling only if the namespace
-	// has not gotten rescheduling just now. We know that this namespace is requeued.
-	// Then we get another chance to reschedule the resources, and we avoid that
-	// resources are scheduled to a location in the stale namespace lister.
-	if !rescheduled {
-		return c.enqueueResourcesForNamespace(ns)
-	}
-
-	return nil
-}
-
-// enqueueResourcesForNamespace adds the resources contained by the given
-// namespace to the queue if there scheduling label differs from the namespace's.
-func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
-	clusterName := logicalcluster.From(ns)
-	nsLocation := ns.Labels[DeprecatedScheduledClusterNamespaceLabel]
-
-	klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): getting listers", clusterName, ns.Name)
-	listers, notSynced := c.ddsif.Listers()
-	for gvr, lister := range listers {
-		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
-		if err != nil {
-			return err
-		}
-
-		klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): got %d items for GVR %q", clusterName, ns.Name, len(objs), gvr.String())
-
-		var enqueuedResources []string
-		for _, obj := range objs {
-			u := obj.(*unstructured.Unstructured)
-
-			// TODO(ncdc): remove this when we have namespaced listers that only return for the scoped cluster (https://github.com/kcp-dev/kcp/issues/685).
-			if logicalcluster.From(u) != clusterName {
-				continue
-			}
-
-			objLocation := u.GetLabels()[DeprecatedScheduledClusterNamespaceLabel]
-			if objLocation != nsLocation {
-				c.enqueueResource(gvr, obj)
-
-				if klog.V(2).Enabled() && !klog.V(4).Enabled() && len(enqueuedResources) < 10 {
-					enqueuedResources = append(enqueuedResources, u.GetName())
-				}
-
-				klog.V(3).Infof("Enqueuing %s %s|%s/%s to schedule to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
-			} else {
-				klog.V(4).Infof("Skipping %s %s|%s/%s because it is already scheduled to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
-			}
-		}
-
-		if len(enqueuedResources) > 0 {
-			if len(enqueuedResources) == 10 {
-				enqueuedResources = append(enqueuedResources, "...")
-			}
-			klog.V(2).Infof("Enqueuing some GVR %q in namespace %s|%s to schedule to %q: %s", gvr, logicalcluster.From(ns), ns.Name, nsLocation, strings.Join(enqueuedResources, ","))
-		}
-	}
-
-	// For all types whose informer hasn't synced yet, enqueue a workqueue
-	// item to check that GVR again later (reconcileGVR, above).
-	for _, gvr := range notSynced {
-		klog.V(3).Infof("Informer for GVR %q is not synced, needed for namespace %s|%s; re-enqueueing", gvr, logicalcluster.From(ns), ns.Name)
-		c.enqueueGVR(gvr)
-	}
-
-	return nil
-}
-
-// clusterLabelPatchBytes returns a patch expressing an operation
-// to add, replace to the given value, or delete the cluster assignment label on
-// a resource.
-func clusterLabelPatchBytes(old, new string) (types.PatchType, []byte, error) {
-	patches := make(map[string]interface{})
-
-	if new == "" && old != "" {
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+old] = nil
-	} else if new != "" && old == "" {
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+new] = string(workloadv1alpha1.ResourceStateSync)
-	} else {
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+old] = nil
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+new] = string(workloadv1alpha1.ResourceStateSync)
-	}
-
-	bs, err := json.Marshal(map[string]interface{}{"metadata": map[string]interface{}{"labels": patches}})
-	if err != nil {
-		return "", nil, err
-	}
-	return types.MergePatchType, bs, nil
 }
 
 // schedulingClusterLabelPatchBytes returns a patch expressing an operation
