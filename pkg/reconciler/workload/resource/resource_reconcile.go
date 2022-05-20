@@ -20,9 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,85 +35,133 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
-func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, unstr *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
 	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
-		klog.V(4).Infof("Skipping reconciliation of ingress %s/%s", unstr.GetNamespace(), unstr.GetName())
+		klog.V(4).Infof("Skipping reconciliation of ingress %s/%s", obj.GetNamespace(), obj.GetName())
 		return nil
 	}
 
-	klog.V(2).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, unstr.GetNamespace(), unstr.GetName())
+	klog.V(2).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
-	if unstr.GetNamespace() == "" {
-		klog.V(4).Infof("GVR %q %s|%s had no namespace; ignoring", gvr.String(), unstr.GetClusterName(), unstr.GetName())
+	if obj.GetNamespace() == "" {
+		klog.V(4).Infof("GVR %q %s|%s had no namespace; ignoring", gvr.String(), obj.GetClusterName(), obj.GetName())
 		return nil
 	}
 
 	// Align the resource's assigned cluster with the namespace's assigned
 	// cluster.
 	// First, get the namespace object (from the cached lister).
-	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, unstr.GetNamespace()))
+	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, obj.GetNamespace()))
 	if apierrors.IsNotFound(err) {
 		// Namespace was deleted; this resource will eventually get deleted too, so ignore
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, unstr.GetNamespace(), unstr.GetName(), err)
+		return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, obj.GetNamespace(), obj.GetName(), err)
 	}
 
-	lbls := unstr.GetLabels()
-	if lbls == nil {
-		lbls = map[string]string{}
-	}
-	//nolint:staticcheck
-	previousCluster, newCluster := shared.DeprecatedGetAssignedWorkloadCluster(lbls), shared.DeprecatedGetAssignedWorkloadCluster(ns.Labels)
-	if previousCluster == newCluster {
-		// Already assigned to the right cluster.
+	annotationPatch, labelPatch := computePlacement(ns, obj)
+
+	// create patch
+	if len(labelPatch) == 0 && len(annotationPatch) == 0 {
 		return nil
 	}
 
-	// TODO(ncdc): wildcard partial metadata requests are now including CRs that come via APIBindings. Multiple e2e tests
-	// manually assign a scheduling label to a resource but not its namespace. The resources were getting synced based
-	// on the manually assigned label, and staying with that assignment. But now because wildcard partial metadata
-	// lists include these bound CRs, not having the namespace assigned is a problem. For now, don't unassign a
-	// resource that is scheduled if the namespace's assignment is unset.
-	if previousCluster != "" && newCluster == "" {
-		return nil
+	patch := map[string]interface{}{}
+	if len(labelPatch) > 0 {
+		if err := unstructured.SetNestedField(patch, labelPatch, "metadata", "labels"); err != nil {
+			klog.Errorf("unexpected unstructured error: %v", err)
+			return err // should never happen
+		}
 	}
-
-	// Update the resource's assignment.
-	patchType, patchBytes, err := clusterLabelPatchBytes(previousCluster, newCluster)
+	if len(annotationPatch) > 0 {
+		if err := unstructured.SetNestedField(patch, labelPatch, "metadata", "annotations"); err != nil {
+			klog.Errorf("unexpected unstructured error: %v", err)
+			return err // should never happen
+		}
+	}
+	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		klog.Errorf("error creating patch for %s %s|%s: %v", gvr.String(), unstr.GetClusterName(), unstr.GetName(), err)
+		klog.Errorf("unexpected marshal error: %v", err)
 		return err
 	}
 
-	if updated, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
-		Patch(ctx, unstr.GetName(), patchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
+		Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
-	} else {
-		klog.V(2).Infof("Patched cluster assignment for %q %s|%s/%s: %q -> %q. Labels=%v",
-			gvr, lclusterName, ns.Name, unstr.GetName(), previousCluster, newCluster, updated.GetLabels())
 	}
+
+	annotationsString, err := json.Marshal(annotationPatch)
+	if err != nil {
+		klog.Errorf("unexpected marshal error for %#v: %v", annotationPatch, err)
+		return err
+	}
+	labelsString, err := json.Marshal(labelPatch)
+	if err != nil {
+		klog.Errorf("unexpected marshal error %#v: %v", labelPatch, err)
+		return err
+	}
+	klog.V(2).Infof("Patched cluster assignment for %q %s|%s/%s: labels=%v, annotations=%v", gvr, lclusterName, ns.Name, obj.GetName(), string(labelsString), string(annotationsString))
 	return nil
 }
 
+// computePlacement computes the patch against annotations and labels. Nil means to remove the key.
+func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
+	nsLocations, nsDeleting := locations(ns.Annotations, ns.Labels, true)
+	objLocations, objDeleting := locations(obj.GetAnnotations(), obj.GetLabels(), false)
+	if objLocations.Equal(nsLocations) && objDeleting.Equal(nsDeleting) {
+		// already correctly assigned.
+		return
+	}
+
+	// create merge patch
+	annotationPatch = map[string]interface{}{}
+	labelPatch = map[string]interface{}{}
+	for _, loc := range objLocations.Difference(nsLocations).List() {
+		// location was removed from namespace, but is still on the object
+		labelPatch[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+loc] = nil
+		if _, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found {
+			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nil
+		}
+	}
+	for _, loc := range nsLocations.Intersection(nsLocations).List() {
+		if nsTimestamp, found := ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found && validRFC3339(nsTimestamp) {
+			objTimestamp, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]
+			if !found || !validRFC3339(objTimestamp) {
+				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nsTimestamp
+			}
+		}
+	}
+	for _, loc := range nsLocations.Difference(objLocations).List() {
+		// location was missing on the object
+		// TODO(sttts): add way to go into pending state first, maybe with a namespace annotation
+		labelPatch[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+loc] = string(workloadv1alpha1.ResourceStateSync)
+	}
+
+	if len(annotationPatch) == 0 {
+		annotationPatch = nil
+	}
+	if len(labelPatch) == 0 {
+		labelPatch = nil
+	}
+
+	return
+}
+
 func (c *Controller) reconcileGVR(gvr schema.GroupVersionResource) error {
-	// Update all resources in the namespace with the cluster assignment.
 	listers, _ := c.ddsif.Listers()
 	lister, found := listers[gvr]
 	if !found {
 		return fmt.Errorf("informer for %q is not synced; re-enqueueing", gvr)
 	}
 
-	// Enqueue workqueue items to reconcile every resource of this type, in
-	// all namespaces.
+	// Update all resources in the namespaces with cluster assignment.
 	objs, err := lister.List(labels.Everything())
 	if err != nil {
 		return err
@@ -122,24 +172,7 @@ func (c *Controller) reconcileGVR(gvr schema.GroupVersionResource) error {
 	return nil
 }
 
-// clusterLabelPatchBytes returns a patch expressing an operation
-// to add, replace to the given value, or delete the cluster assignment label on
-// a resource.
-func clusterLabelPatchBytes(old, new string) (types.PatchType, []byte, error) {
-	patches := make(map[string]interface{})
-
-	if new == "" && old != "" {
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+old] = nil
-	} else if new != "" && old == "" {
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+new] = string(workloadv1alpha1.ResourceStateSync)
-	} else {
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+old] = nil
-		patches[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+new] = string(workloadv1alpha1.ResourceStateSync)
-	}
-
-	bs, err := json.Marshal(map[string]interface{}{"metadata": map[string]interface{}{"labels": patches}})
-	if err != nil {
-		return "", nil, err
-	}
-	return types.MergePatchType, bs, nil
+func validRFC3339(ts string) bool {
+	_, err := time.Parse(time.RFC3339, ts)
+	return err == nil
 }
