@@ -108,4 +108,11 @@ const (
 	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
 	// instead of state.internal.workloads.kcp.dev/<workload-cluster-name> which is used upstream.
 	InternalDownstreamClusterLabel = "internal.workloads.kcp.dev/cluster"
+
+	// SchedulingDisabledLabel on a namespace disables workload placement and scheduling.
+	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
+
+	// WorkspaceSchedulableLabel on a workspace enables scheduling for the contents
+	// of the workspace. It is applied by default to workspaces of type `Universal`.
+	WorkspaceSchedulableLabel = "workloads.kcp.dev/schedulable"
 )
