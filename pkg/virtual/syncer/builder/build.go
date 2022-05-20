@@ -125,9 +125,10 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				kcpClusterClient,
 				wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters(),
 				wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources(),
-				func(logicalClusterName logicalcluster.Name, workloadClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec) (apidefinition.APIDefinition, error) {
+				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
+				func(logicalClusterName logicalcluster.Name, workloadClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
-					def, err := apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(ctx, dynamicClusterClient, workloadClusterName))
+					def, err := apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(ctx, dynamicClusterClient, workloadClusterName, apiExportIdentityHash))
 					if err != nil {
 						cancelFn()
 						return nil, err
@@ -148,6 +149,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"workloadclusters":       wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer(),
 					"negotiatedapiresources": wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources().Informer(),
+					"apiexports":             wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
 						return errors.New("informer not synced")

@@ -39,7 +39,7 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, workloadClusterName string) apiserver.RestProviderFunc {
+func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, workloadClusterName, apiExportIdentityHash string) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -65,6 +65,7 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 		storage := registry.NewStorage(
 			ctx,
 			resource,
+			apiExportIdentityHash,
 			kind,
 			listKind,
 			strategy,
