@@ -18,6 +18,8 @@ package cluster
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -68,7 +70,7 @@ func TestScheduling(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	workloadClusterName := "workloadcluster"
+	workloadClusterName := fmt.Sprintf("workloadcluster-%d", +rand.Intn(1000000))
 	t.Logf("Creating a WorkloadCluster and syncer in %s", negotiationClusterName)
 	syncerFixture := framework.SyncerFixture{
 		ResourcesToSync:      sets.NewString("services"),
