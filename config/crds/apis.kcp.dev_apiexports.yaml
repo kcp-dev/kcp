@@ -79,6 +79,15 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              policy:
+                description: policy will allow for a service provider to set a upper
+                  bound on what is allowed
+                properties:
+                  local:
+                    description: LocalAPIExportPolicy will tell the APIBinding authorizer
+                      to check policy in the local namespace of the API Export
+                    type: object
+                type: object
             type: object
           status:
             description: Status communicates the observed state.

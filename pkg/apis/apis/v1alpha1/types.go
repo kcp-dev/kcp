@@ -346,6 +346,10 @@ type APIExportSpec struct {
 	//
 	// +optional
 	Identity *Identity `json:"identity"`
+
+	// policy will allow for a service provider to set a upper bound on what is allowed
+	// +optional
+	Policy *APIExportPolicy `json:"policy"`
 }
 
 // Identity defines the identity of an APIExport, i.e. determines the etcd prefix
@@ -356,6 +360,18 @@ type Identity struct {
 	// +optional
 	SecretRef *corev1.SecretReference `json:"secretRef"`
 }
+
+// APIExportPolicy is a wrapper type around the multiple options that would be allowed.
+type APIExportPolicy struct {
+	//Local is policy that is defined in same namespace as API Export.
+
+	// +optional
+	Local *LocalAPIExportPolicy `json:"local"`
+}
+
+// LocalAPIExportPolicy will tell the APIBinding authorizer to check policy in the local namespace
+// of the API Export
+type LocalAPIExportPolicy struct{}
 
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatus struct {
