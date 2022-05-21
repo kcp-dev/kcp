@@ -78,6 +78,12 @@ func NewController(
 		return nil, err
 	}
 
+	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace: indexByWorksapce,
+	}); err != nil {
+		return nil, err
+	}
+
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj) },
