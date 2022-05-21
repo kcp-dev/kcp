@@ -62,6 +62,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
+	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
@@ -737,6 +738,41 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-workloads-apiexport-create-controller"
+	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := workloadsapiexportcreate.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 	if err != nil {
 		return err

@@ -20,12 +20,13 @@ import (
 	"runtime"
 
 	"github.com/spf13/pflag"
+
+	"k8s.io/klog/v2"
 )
 
 // DefaultOptions are the default options for the apiresource controller.
 func DefaultOptions() *Options {
 	return &Options{
-		AutoPublishAPIs: true,
 		// Consumed by server instantiation
 		NumThreads: runtime.NumCPU(),
 	}
@@ -34,6 +35,7 @@ func DefaultOptions() *Options {
 // BindOptions binds the apiresource controller options to the flag set.
 func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
 	fs.BoolVar(&o.AutoPublishAPIs, "auto-publish-apis", o.AutoPublishAPIs, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
+	fs.MarkDeprecated("auto-publish-apis", "This flag is deprecated and ignored. It will be removed in a future release.") // nolint: errcheck
 	fs.IntVar(&o.NumThreads, "apiresource-controller-threads", o.NumThreads, "Number of threads to use for the cluster controller.")
 	return o
 }
@@ -45,5 +47,10 @@ type Options struct {
 }
 
 func (o *Options) Validate() error {
+	if o.AutoPublishAPIs {
+		klog.Warningf("--auto-publish-apis is deprecated and ignored. Please remove it from the command line.")
+		o.AutoPublishAPIs = false
+	}
+
 	return nil
 }

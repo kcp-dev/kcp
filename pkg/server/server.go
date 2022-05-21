@@ -469,6 +469,9 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := s.installWorkloadsAPIExportController(ctx, controllerConfig, server); err != nil {
 				return err
 			}
+			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
 		}
 	}
 
