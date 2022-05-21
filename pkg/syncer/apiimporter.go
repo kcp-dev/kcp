@@ -24,6 +24,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -269,6 +270,9 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			if err := apiResourceImport.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema); err != nil {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
+			}
+			if value, found := pulledCrd.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; found {
+				apiResourceImport.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
 			}
 			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Create(ctx, apiResourceImport, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImport.Name, err)
