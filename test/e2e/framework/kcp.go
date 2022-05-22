@@ -299,7 +299,7 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 		if ignored {
 			continue
 		}
-		_, err := output.Write(append(line, []byte(`\n`)...))
+		_, err := output.Write(append(line, []byte("\n")...))
 		if err != nil {
 			c.t.Logf("failed to write log line: %v", err)
 		}
