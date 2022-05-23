@@ -22,17 +22,12 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
 )
-
-const SyncerVirtualWorkspaceName = "syncer"
 
 type Syncer struct{}
 
@@ -57,10 +52,8 @@ func (o *Syncer) Validate(flagPrefix string) []error {
 
 func (o *Syncer) NewVirtualWorkspaces(
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
-	wildcardKubeInformers informers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	virtualWorkspaces := []framework.VirtualWorkspace{

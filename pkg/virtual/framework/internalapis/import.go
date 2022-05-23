@@ -17,8 +17,11 @@ limitations under the License.
 package internalapis
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -29,7 +32,7 @@ import (
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/util"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 )
 
@@ -87,7 +90,7 @@ var KCPInternalAPIs = []InternalAPI{
 	},
 }
 
-func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []common.GetOpenAPIDefinitions, defs ...InternalAPI) ([]*apiresourcev1alpha1.CommonAPIResourceSpec, error) {
+func createAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGetters []common.GetOpenAPIDefinitions, defs ...InternalAPI) ([]*apisv1alpha1.APIResourceSchema, error) {
 	config := genericapiserver.DefaultOpenAPIConfig(func(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 		result := make(map[string]common.OpenAPIDefinition)
 
@@ -119,7 +122,7 @@ func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []c
 		return nil, err
 	}
 
-	var apis []*apiresourcev1alpha1.CommonAPIResourceSpec
+	var apis []*apisv1alpha1.APIResourceSchema
 	for _, def := range defs {
 		gvk := def.GroupVersion.WithKind(def.Names.Kind)
 		var schemaProps apiextensionsv1.JSONSchemaProps
@@ -127,17 +130,32 @@ func ImportInternalAPIs(schemes []*runtime.Scheme, openAPIDefinitionsGetters []c
 		if len(errs) > 0 {
 			return nil, errors.NewAggregate(errs)
 		}
-		spec := &apiresourcev1alpha1.CommonAPIResourceSpec{
-			GroupVersion:                  apiresourcev1alpha1.GroupVersion(gvk.GroupVersion()),
-			Scope:                         def.ResourceSope,
-			CustomResourceDefinitionNames: def.Names,
+		group := def.GroupVersion.Group
+		if group == "" {
+			group = "core"
+		}
+		spec := &apisv1alpha1.APIResourceSchema{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("internal.%s.%s", def.Names.Plural, group),
+			},
+			Spec: apisv1alpha1.APIResourceSchemaSpec{
+				Group: def.GroupVersion.Group,
+				Names: def.Names,
+				Scope: def.ResourceSope,
+				Versions: []apisv1alpha1.APIResourceVersion{
+					{
+						Name:    "v1",
+						Served:  true,
+						Storage: true,
+						Schema:  runtime.RawExtension{},
+					},
+				},
+			},
 		}
 		if def.HasStatus {
-			spec.SubResources = append(spec.SubResources, apiresourcev1alpha1.SubResource{
-				Name: apiresourcev1alpha1.StatusSubResourceName,
-			})
+			spec.Spec.Versions[0].Subresources.Status = &apiextensionsv1.CustomResourceSubresourceStatus{}
 		}
-		if err := spec.SetSchema(&schemaProps); err != nil {
+		if err := spec.Spec.Versions[0].SetSchema(&schemaProps); err != nil {
 			return nil, err
 		}
 

@@ -45,8 +45,6 @@ func NewOptions() *Options {
 	}
 }
 
-// TODO: possibly add the prefix back here (for nicer stuff on the vw standalone commandline)
-// and move the constant to the server package
 func (v *Options) Validate() []error {
 	var errs []error
 
@@ -56,7 +54,6 @@ func (v *Options) Validate() []error {
 	return errs
 }
 
-// TODO: possibly add the prefix back here (for nicer stuff on the vw standalone commandline)
 func (v *Options) AddFlags(fs *pflag.FlagSet) {
 	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
@@ -77,7 +74,7 @@ func (o *Options) NewVirtualWorkspaces(
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}

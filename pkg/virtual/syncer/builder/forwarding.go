@@ -34,12 +34,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, workloadClusterName, apiExportIdentityHash string) apiserver.RestProviderFunc {
+// NewStorageBuilder returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
+func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -74,7 +74,7 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 			nil,
 			clusterClient,
 			nil,
-			wrapStorageWithLabelSelector(map[string]string{workloadv1alpha1.InternalClusterResourceStateLabelPrefix + workloadClusterName: string(workloadv1alpha1.ResourceStateSync)}),
+			wrapper,
 		)
 
 		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need
@@ -136,7 +136,8 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 	}
 }
 
-func wrapStorageWithLabelSelector(labelSelector map[string]string) registry.StorageWrapper {
+// WithLabelSelector returns a storage wrapper that implement label based filtering.
+func WithLabelSelector(labelSelector map[string]string) registry.StorageWrapper {
 	return func(resource schema.GroupResource, storage *registry.StoreFuncs) *registry.StoreFuncs {
 		requirements, selectable := labels.SelectorFromSet(labels.Set(labelSelector)).Requirements()
 		if !selectable {

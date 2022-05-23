@@ -35,7 +35,6 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dyncamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
@@ -100,34 +99,28 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		}
 		foundGroupVersion = true
 
-		var (
-			storageVersionHash string
-			subresources       apiresourcev1alpha1.SubResources
-		)
-
-		apiResourceSpec := apiDef.GetAPIResourceSpec()
-		subresources = apiResourceSpec.SubResources
-
-		storageVersionHash = discovery.StorageVersionHash(apiDef.GetClusterName().String(), gvr.Group, gvr.Version, apiDef.GetAPIResourceSpec().Kind)
-
+		apiResourceSchema := apiDef.GetAPIResourceSchema()
+		storageVersionHash := discovery.StorageVersionHash(apiDef.GetClusterName().String(), gvr.Group, gvr.Version, apiResourceSchema.Spec.Names.Kind)
 		apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
-			Name:               apiResourceSpec.Plural,
-			SingularName:       apiResourceSpec.Singular,
-			Namespaced:         apiResourceSpec.Scope == apiextensionsv1.NamespaceScoped,
-			Kind:               apiResourceSpec.Kind,
+			Name:               apiResourceSchema.Spec.Names.Plural,
+			SingularName:       apiResourceSchema.Spec.Names.Singular,
+			Namespaced:         apiResourceSchema.Spec.Scope == apiextensionsv1.NamespaceScoped,
+			Kind:               apiResourceSchema.Spec.Names.Kind,
 			Verbs:              supportedVerbs(apiDef.GetStorage()),
-			ShortNames:         apiResourceSpec.ShortNames,
-			Categories:         apiResourceSpec.Categories,
+			ShortNames:         apiResourceSchema.Spec.Names.ShortNames,
+			Categories:         apiResourceSchema.Spec.Names.Categories,
 			StorageVersionHash: storageVersionHash,
 		})
 
-		if subresources != nil && subresources.Contains("status") {
-			apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
-				Name:       apiResourceSpec.Plural + "/status",
-				Namespaced: apiResourceSpec.Scope == apiextensionsv1.NamespaceScoped,
-				Kind:       apiResourceSpec.Kind,
-				Verbs:      supportedVerbs(apiDef.GetSubResourceStorage("status")),
-			})
+		for i := range apiResourceSchema.Spec.Versions {
+			if v := apiResourceSchema.Spec.Versions[i]; v.Subresources.Status != nil {
+				apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
+					Name:       apiResourceSchema.Spec.Names.Plural + "/status",
+					Namespaced: apiResourceSchema.Spec.Scope == apiextensionsv1.NamespaceScoped,
+					Kind:       apiResourceSchema.Spec.Names.Kind,
+					Verbs:      supportedVerbs(apiDef.GetSubResourceStorage("status")),
+				})
+			}
 		}
 
 		// TODO(david): Add scale sub-resource ???

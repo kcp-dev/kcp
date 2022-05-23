@@ -19,14 +19,11 @@ package apireconciler
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -34,36 +31,33 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	apiresourcelistersv1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylistersv1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 const (
-	controllerName = "kcp-virtual-syncer-api-reconciler"
-	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
+	ControllerName = "kcp-virtual-syncer-api-reconciler"
+	byWorkspace    = ControllerName + "-byWorkspace" // will go away with scoping
 )
 
-type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, workloadClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec, apiExportIdentityHash string) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(workloadClusterName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
 
-// NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
-// and delegates the corresponding WorkloadClusterAPI management to the given WorkloadClusterAPIManager.
 func NewAPIReconciler(
 	kcpClusterClient kcpclient.ClusterInterface,
 	workloadClusterInformer tenancyv1alpha1.WorkloadClusterInformer,
-	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
+	apiResourceSchemaInformer apisinformer.APIResourceSchemaInformer,
 	apiExportInformer apisinformer.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 ) (*APIReconciler, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
@@ -71,9 +65,10 @@ func NewAPIReconciler(
 		workloadClusterLister:  workloadClusterInformer.Lister(),
 		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
 
-		negotiatedAPIResourceLister:  negotiatedAPIResourceInformer.Lister(),
-		negotiatedAPIResourceIndexer: negotiatedAPIResourceInformer.Informer().GetIndexer(),
+		apiResourceSchemaLister:  apiResourceSchemaInformer.Lister(),
+		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
 
+		apiExportLister:  apiExportInformer.Lister(),
 		apiExportIndexer: apiExportInformer.Informer().GetIndexer(),
 
 		queue: queue,
@@ -89,7 +84,7 @@ func NewAPIReconciler(
 		return nil, err
 	}
 
-	if err := negotiatedAPIResourceInformer.Informer().AddIndexers(cache.Indexers{
+	if err := apiResourceSchemaInformer.Informer().AddIndexers(cache.Indexers{
 		byWorkspace: indexByWorksapce,
 	}); err != nil {
 		return nil, err
@@ -110,44 +105,52 @@ func NewAPIReconciler(
 		},
 	})
 
-	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueNegotiatedAPIResource(obj)
-		},
-		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueNegotiatedAPIResource(obj)
+			c.enqueueAPIResourceSchema(obj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueNegotiatedAPIResource(obj)
+			c.enqueueAPIResourceSchema(obj)
 		},
 	})
 
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj)
+	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			if err != nil {
+				return false
+			}
+			_, name := clusters.SplitClusterAwareKey(key)
+			return name == apiexport.TemporaryComputeServiceExportName
 		},
-		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIExport(obj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj)
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.enqueueAPIExport(obj)
+			},
+			UpdateFunc: func(_, obj interface{}) {
+				c.enqueueAPIExport(obj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.enqueueAPIExport(obj)
+			},
 		},
 	})
 
 	return c, nil
 }
 
-// APIReconciler is a controller that reconciles APIResourceImport resources
-// and delegates the corresponding WorkloadClusterAPI management to the given WorkloadClusterAPIManager.
+// APIReconciler is a controller watching APIExports, APIResourceSchemas and WorkloadClusters, and updates the
+// API definitions driving the virtual workspace.
 type APIReconciler struct {
 	kcpClusterClient kcpclient.ClusterInterface
 
 	workloadClusterLister  tenancylistersv1alpha1.WorkloadClusterLister
 	workloadClusterIndexer cache.Indexer
 
-	negotiatedAPIResourceLister  apiresourcelistersv1alpha1.NegotiatedAPIResourceLister
-	negotiatedAPIResourceIndexer cache.Indexer
+	apiResourceSchemaLister  apislisters.APIResourceSchemaLister
+	apiResourceSchemaIndexer cache.Indexer
 
+	apiExportLister  apislisters.APIExportLister
 	apiExportIndexer cache.Indexer
 
 	queue workqueue.RateLimitingInterface
@@ -159,101 +162,59 @@ type APIReconciler struct {
 }
 
 func (c *APIReconciler) enqueueWorkloadCluster(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	clusterName, name := clusters.SplitClusterAwareKey(key)
-	resources, err := c.negotiatedAPIResourceIndexer.ByIndex(byWorkspace, clusterName.String())
+	exports, err := c.apiExportIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range resources {
-		r := obj.(*apiresourcev1alpha1.NegotiatedAPIResource)
+	if len(exports) == 0 {
+		klog.V(2).Infof("No kubernetes APIExport found for WorkloadCluster %s|%s", clusterName, name)
+		return
+	}
 
-		resourceKey := name + "::" + clusters.ToClusterAwareKey(clusterName, r.Name)
-
-		klog.V(2).Infof("Queueing NegotiatedAPIResource %s|%s for workload cluster %s", clusterName, r.Name, name)
-		c.queue.Add(resourceKey)
+	for _, obj := range exports {
+		export := obj.(*apisv1alpha1.APIExport)
+		klog.V(2).Infof("Queueing APIExport %s|%s for WorkloadCluster %s", clusterName, export.Name, name)
+		c.enqueueAPIExport(obj)
 	}
 }
 
-func (c *APIReconciler) enqueueNegotiatedAPIResource(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	clusterName, name := clusters.SplitClusterAwareKey(key)
-	workloadClusters, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
+	exports, err := c.apiExportIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range workloadClusters {
-		wc := obj.(*workloadv1alpha1.WorkloadCluster)
-
-		resourceKey := wc.Name + "::" + clusters.ToClusterAwareKey(clusterName, name)
-
-		klog.V(2).Infof("Queueing NegotiatedAPIResource %s|%s for workload cluster %s", clusterName, name, wc.Name)
-		c.queue.Add(resourceKey)
+	for _, obj := range exports {
+		export := obj.(*apisv1alpha1.APIExport)
+		klog.V(2).Infof("Queueing APIExport %s|%s for APIResourceSchema %s", clusterName, export.Name, name)
+		c.enqueueAPIExport(obj)
 	}
-}
-
-func apiExportGroupResources(apiExport *apisv1alpha1.APIExport) map[schema.GroupResource]interface{} {
-	grs := map[schema.GroupResource]interface{}{}
-	for _, resourceSchema := range apiExport.Spec.LatestResourceSchemas {
-		parts := strings.SplitN(resourceSchema, ".", 3)
-		if len(parts) != 3 {
-			klog.Errorf("invalid LatestResourceSchemas list element on APIExport %s|%s: %s", logicalcluster.From(apiExport), apiExport.Name, resourceSchema)
-			continue
-		}
-		gr := schema.GroupResource{
-			Resource: parts[1],
-			Group:    parts[2],
-		}
-		if gr.Group == "core" {
-			gr.Group = ""
-		}
-		grs[gr] = nil
-	}
-	return grs
 }
 
 func (c *APIReconciler) enqueueAPIExport(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-
-	apiExport := obj.(*apisv1alpha1.APIExport)
-	grs := apiExportGroupResources(apiExport)
-
-	clusterName, _ := clusters.SplitClusterAwareKey(key)
-	resources, err := c.negotiatedAPIResourceIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, obj := range resources {
-		r := obj.(*apiresourcev1alpha1.NegotiatedAPIResource)
-
-		if _, hasAPIExportGR := grs[resourceNameToGVR(r.Name).GroupResource()]; hasAPIExportGR {
-			// TODO(david): For now we still use the NegotiatedAPIResource as the source of truth for the
-			// API and the schema.
-			// But wen the KCPLocationAPI feature gate would be enabled by default, we should change this and
-			// use APIExports and APIResourceSchemas as the unique source of truth for exposed APIs.
-			c.enqueueNegotiatedAPIResource(r)
-		}
-	}
+	c.queue.Add(key)
 }
 
 func (c *APIReconciler) startWorker(ctx context.Context) {
@@ -265,8 +226,8 @@ func (c *APIReconciler) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	klog.Infof("Starting %s controller", ControllerName)
+	defer klog.Infof("Shutting down %s controller", ControllerName)
 
 	go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 
@@ -301,7 +262,7 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -311,129 +272,29 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *APIReconciler) process(ctx context.Context, key string) error {
-	comps := strings.SplitN(key, "::", 2)
-	if len(comps) != 2 {
-		return fmt.Errorf("invalid key %q", key)
-	}
-	workloadClusterName, resourceKey := comps[0], comps[1]
-	clusterName, resourceName := clusters.SplitClusterAwareKey(resourceKey)
-	apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(clusterName, workloadClusterName))
-
-	_, err := c.workloadClusterLister.Get(clusters.ToClusterAwareKey(clusterName, workloadClusterName))
+	clusterName, apiExportName := clusters.SplitClusterAwareKey(key)
+	apiExport, err := c.apiExportLister.Get(key)
 	if err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("failed to get workload cluster %s|%s from lister: %v", clusterName, workloadClusterName, err)
-		return nil // nothing we can do here
-	} else if apierrors.IsNotFound(err) {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-
-		if oldSet, found := c.apiSets[apiDomainKey]; found {
-			klog.V(3).Infof("Workload cluster %s|%s not found. Removing resource %s.", clusterName, workloadClusterName, resourceName)
-			for _, v := range oldSet {
-				v.TearDown()
-			}
-			delete(c.apiSets, apiDomainKey)
-		} else {
-			klog.V(4).Infof("Workload cluster %s|%s not found. No need to remove resource %s.", clusterName, workloadClusterName, resourceName)
-		}
-
-		return nil
-	}
-
-	resource, err := c.negotiatedAPIResourceLister.Get(resourceKey)
-	if err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("failed to get NegotiatedAPIResource with key %s from lister: %v", resourceKey)
+		klog.Errorf("failed to get APIExport %s|%s from lister: %v", clusterName, apiExportName, err)
 		return nil // nothing we can do here
 	}
-	shouldRemove := false
-	var reason string
-	if apierrors.IsNotFound(err) {
-		shouldRemove = true
-		reason = "not found"
-	} else if !resource.IsConditionTrue(apiresourcev1alpha1.Published) {
-		reason = "not published"
-	}
-	resourceGVR := resourceNameToGVR(resourceName)
-	if shouldRemove {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-		oldSet, ok := c.apiSets[apiDomainKey]
-		if !ok {
-			return nil
-		}
-		newSet := make(apidefinition.APIDefinitionSet, len(oldSet))
-		for gvr, v := range oldSet {
-			if gvr == resourceGVR {
-				klog.V(3).Infof("NegotiatedAPIResource %s|%s is %s. Removing resource from workload cluster %s.", clusterName, resourceName, reason, workloadClusterName)
-				v.TearDown()
-				continue
-			}
-			newSet[gvr] = v
-		}
 
-		c.apiSets[apiDomainKey] = newSet
-
-		return nil
-	}
-
-	// TODO(david): For now we still use the NegotiatedAPIResource as the source of truth for the
-	// API and the schema.
-	// But wen the KCPLocationAPI feature gate would be enabled by default, we should change this and
-	// use APIExports and APIResourceSchemas as the unique source of truth for exposed APIs.
-	var apiExportIdentityHash string
-	apiExports, err := c.apiExportIndexer.ByIndex(byWorkspace, clusterName.String())
+	cs, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
-		runtime.HandleError(err)
+		klog.Errorf("Failed to get WorkloadClusters in %q: %v", clusterName, err)
+		return nil // nothing we can do here
 	}
 
-	for _, obj := range apiExports {
-		e := obj.(*apisv1alpha1.APIExport)
-
-		apiExportGRs := apiExportGroupResources(e)
-		if _, hasAPIExportGR := apiExportGRs[resourceGVR.GroupResource()]; hasAPIExportGR {
-			apiExportIdentityHash = e.Status.IdentityHash
-			break
+	var errs []error
+	for _, obj := range cs {
+		cluster := obj.(*workloadv1alpha1.WorkloadCluster)
+		apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(clusterName, cluster.Name))
+		if err := c.reconcile(ctx, apiExport, apiDomainKey, cluster.Name); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
-	// both resource and workload cluster exist and resource is published. Upsert APIDefinition
-	klog.V(3).Infof("Upserting resource %s|%s for workload cluster %s", clusterName, resourceName, workloadClusterName)
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	oldSet, foundOld := c.apiSets[apiDomainKey]
-	newSet := make(apidefinition.APIDefinitionSet, len(oldSet)+1)
-	if !foundOld {
-		for _, api := range internalAPIs {
-			def, err := c.createAPIDefinition(clusterName, workloadClusterName, api, apiExportIdentityHash)
-			if err != nil {
-				klog.Errorf("Failed to create APIDefinition for %s|%s: %v", clusterName, resourceName, err)
-				continue // nothing we can do, skip it
-			}
-			newSet[schema.GroupVersionResource{
-				Group:    api.GroupVersion.Group,
-				Version:  api.GroupVersion.Version,
-				Resource: api.Plural,
-			}] = def
-		}
-	}
-	for gvr, v := range oldSet {
-		if gvr == resourceGVR {
-			v.TearDown()
-			continue
-		}
-		newSet[gvr] = v
-	}
-	def, err := c.createAPIDefinition(clusterName, workloadClusterName, &resource.Spec.CommonAPIResourceSpec, apiExportIdentityHash)
-	if err != nil {
-		klog.Errorf("Failed to create APIDefinition for %s|%s: %v", clusterName, resourceName, err)
-		return nil // nothing we can do
-	}
-	newSet[resourceGVR] = def
-
-	c.apiSets[apiDomainKey] = newSet
-
-	return nil
+	return errors.NewAggregate(errs)
 }
 
 func (c *APIReconciler) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
@@ -442,13 +303,4 @@ func (c *APIReconciler) GetAPIDefinitionSet(_ context.Context, key dynamiccontex
 
 	apiSet, ok := c.apiSets[key]
 	return apiSet, ok, nil
-}
-
-func resourceNameToGVR(key string) schema.GroupVersionResource {
-	parts := strings.SplitN(key, ".", 3)
-	resource, version, group := parts[0], parts[1], parts[2]
-	if group == "core" {
-		group = ""
-	}
-	return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 }

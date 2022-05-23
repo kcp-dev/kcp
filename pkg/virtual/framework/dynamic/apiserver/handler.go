@@ -38,6 +38,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
@@ -154,7 +155,21 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	apiResourceSpec := apiDef.GetAPIResourceSpec()
+	apiResourceSchema := apiDef.GetAPIResourceSchema()
+	var apiResourceVersion *apisv1alpha1.APIResourceVersion
+	for i := range apiResourceSchema.Spec.Versions {
+		if v := &apiResourceSchema.Spec.Versions[i]; v.Name == requestInfo.APIVersion {
+			apiResourceVersion = v
+			break
+		}
+	}
+	if apiResourceVersion == nil {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(fmt.Errorf("unable to find API version %q in API definition", requestInfo.APIVersion)),
+			errorCodecs, schema.GroupVersion{},
+			w, req)
+		return
+	}
 
 	verb := strings.ToUpper(requestInfo.Verb)
 	resource := requestInfo.Resource
@@ -176,7 +191,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req, err := apiextensionsapiserver.ConvertProtobufRequestsToJson(verb, req, schema.GroupVersionKind{
 			Group:   requestInfo.APIGroup,
 			Version: requestInfo.APIVersion,
-			Kind:    apiResourceSpec.Kind,
+			Kind:    apiResourceSchema.Spec.Names.Kind,
 		})
 		if err != nil {
 			responsewriters.ErrorNegotiated(
@@ -192,9 +207,9 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var handlerFunc http.HandlerFunc
-	subresources := apiResourceSpec.SubResources
+	subresources := apiResourceVersion.Subresources
 	switch {
-	case subresource == "status" && subresources != nil && subresources.Contains("status"):
+	case subresource == "status" && subresources.Status != nil:
 		handlerFunc = r.serveStatus(w, req, requestInfo, apiDef, supportedTypes)
 	case len(subresource) == 0:
 		handlerFunc = r.serveResource(w, req, requestInfo, apiDef, supportedTypes)

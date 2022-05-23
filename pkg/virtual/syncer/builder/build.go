@@ -29,7 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -45,7 +46,12 @@ const SyncerVirtualWorkspaceName string = "syncer"
 
 // BuildVirtualWorkspace builds a SyncerVirtualWorkspace by instanciating a DynamicVirtualWorkspace which, combined with a
 // ForwardingREST REST storage implementation, serves a WorkloadClusterAPI list maintained by the APIReconciler controller.
-func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, wildcardKcpInformers kcpinformer.SharedInformerFactory) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(
+	rootPathPrefix string,
+	dynamicClusterClient dynamic.ClusterInterface,
+	kcpClusterClient kcpclient.ClusterInterface,
+	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+) framework.VirtualWorkspace {
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -124,11 +130,15 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
 				wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters(),
-				wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources(),
+				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(logicalClusterName logicalcluster.Name, workloadClusterName string, spec *apiresourcev1alpha1.CommonAPIResourceSpec, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+				func(workloadClusterName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
-					def, err := apiserver.CreateServingInfoFor(mainConfig, logicalClusterName, spec, provideForwardingRestStorage(ctx, dynamicClusterClient, workloadClusterName, apiExportIdentityHash))
+					storageWrapper := WithLabelSelector(map[string]string{
+						workloadv1alpha1.InternalClusterResourceStateLabelPrefix + workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
+					})
+					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
+					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
 						return nil, err
@@ -143,13 +153,13 @@ func BuildVirtualWorkspace(rootPathPrefix string, dynamicClusterClient dynamic.C
 				return nil, err
 			}
 
-			if err := mainConfig.AddPostStartHook("apiresourceimports.kcp.dev-api-reconciler", func(hookContext genericapiserver.PostStartHookContext) error {
+			if err := mainConfig.AddPostStartHook(apireconciler.ControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 				defer close(readyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
-					"workloadclusters":       wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer(),
-					"negotiatedapiresources": wildcardKcpInformers.Apiresource().V1alpha1().NegotiatedAPIResources().Informer(),
-					"apiexports":             wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+					"workloadclusters":   wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer(),
+					"apiresourceschemas": wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+					"apiexports":         wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
 						return errors.New("informer not synced")

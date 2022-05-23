@@ -40,7 +40,15 @@ type mux interface {
 	Handle(pattern string, handler http.Handler)
 }
 
-func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient kubernetesclient.ClusterInterface, dynamicClusterClient dynamic.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, auth genericapiserver.AuthenticationInfo, externalAddress string, preHandlerChainMux mux) error {
+func (s *Server) installVirtualWorkspaces(
+	ctx context.Context,
+	kubeClusterClient kubernetesclient.ClusterInterface,
+	dynamicClusterClient dynamic.ClusterInterface,
+	kcpClusterClient kcpclient.ClusterInterface,
+	auth genericapiserver.AuthenticationInfo,
+	externalAddress string,
+	preHandlerChainMux mux,
+) error {
 	// create virtual workspaces
 	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		virtualcommandoptions.DefaultRootPathPrefix,
@@ -53,6 +61,7 @@ func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient
 	if err != nil {
 		return err
 	}
+
 	s.AddPostStartHook("kcp-start-virtual-workspace-extra-informers", func(ctx genericapiserver.PostStartHookContext) error {
 		for _, start := range extraInformerStarts {
 			start(ctx.StopCh)
@@ -66,19 +75,25 @@ func (s *Server) installVirtualWorkspaces(ctx context.Context, kubeClusterClient
 	// create apiserver, with its own delegation chain
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
+
 	codecs := serializer.NewCodecFactory(scheme)
+
 	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
 	recommendedConfig.Authentication = auth
+
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, extraInformerStarts, virtualWorkspaces...)
 	if err != nil {
 		return err
 	}
 	rootAPIServerConfig.GenericConfig.ExternalAddress = externalAddress
+
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
+
 	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return err
 	}
+
 	preparedRootAPIServer := rootAPIServer.GenericAPIServer.PrepareRun()
 
 	// this **must** be done after PrepareRun() as it sets up the openapi endpoints

@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -494,4 +496,28 @@ type APIResourceSchemaList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []APIResourceSchema `json:"items"`
+}
+
+func (v *APIResourceVersion) GetSchema() *apiextensionsv1.JSONSchemaProps {
+	if v.Schema.Raw == nil {
+		return nil, nil
+	}
+	var schema apiextensionsv1.JSONSchemaProps
+	if err := json.Unmarshal(v.Schema.Raw, &schema); err != nil {
+		panic(err)
+	}
+	return &schema
+}
+
+func (v *APIResourceVersion) SetSchema(schema *apiextensionsv1.JSONSchemaProps) error {
+	if schema == nil {
+		v.Schema.Raw = nil
+		return nil
+	}
+	raw, err := json.Marshal(schema)
+	if err != nil {
+		return err
+	}
+	v.Schema.Raw = raw
+	return nil
 }
