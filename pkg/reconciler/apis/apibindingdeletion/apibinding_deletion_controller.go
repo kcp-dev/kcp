@@ -200,7 +200,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		return c.patchFinalizer(ctx, apibindingCopy, append(apibindingCopy.Finalizers, APIBindingFinalizer))
+		apibindingCopy.Finalizers = append(apibindingCopy.Finalizers, APIBindingFinalizer)
+		_, err := c.kcpClusterClient.Cluster(logicalcluster.From(apibindingCopy)).ApisV1alpha1().APIBindings().Update(
+			ctx, apibindingCopy, metav1.UpdateOptions{})
+
+		return err
 	}
 
 	resourceRemaining, err := c.deleteAllCRs(ctx, apibindingCopy)
@@ -321,31 +325,6 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.
 	return err
 }
 
-func (c *Controller) patchFinalizer(ctx context.Context, binding *apisv1alpha1.APIBinding, finalizers []string) error {
-	finalizerData := &metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			ResourceVersion: binding.ResourceVersion,
-			UID:             binding.UID,
-			Finalizers:      finalizers,
-		},
-	}
-
-	patch, err := json.Marshal(finalizerData)
-	if err != nil {
-		return err
-	}
-
-	// remove finalizers field if there is no remaining finalizers,
-	if len(finalizers) == 0 {
-		patch = []byte(
-			fmt.Sprintf("{\"metadata\": {\"finalizers\": [], \"uid\": %q, \"resourceVersion\": %q}}", binding.UID, binding.ResourceVersion))
-	}
-
-	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(binding)).ApisV1alpha1().APIBindings().Patch(
-		ctx, binding.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-	return err
-}
-
 // finalizeAPIBinding removes the specified finalizer and finalizes the apibinding
 func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1alpha1.APIBinding) error {
 	copiedFinalizers := []string{}
@@ -359,5 +338,9 @@ func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1a
 		return nil
 	}
 
-	return c.patchFinalizer(ctx, apibinding, copiedFinalizers)
+	apibinding.Finalizers = copiedFinalizers
+	_, err := c.kcpClusterClient.Cluster(logicalcluster.From(apibinding)).ApisV1alpha1().APIBindings().Update(
+		ctx, apibinding, metav1.UpdateOptions{})
+
+	return err
 }

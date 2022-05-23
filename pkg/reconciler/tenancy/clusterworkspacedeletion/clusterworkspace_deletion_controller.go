@@ -178,7 +178,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return nil
 		}
 
-		return c.patchFinalizer(ctx, workspace, append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer))
+		workspaceCopy.Finalizers = append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer)
+		_, err := c.kcpClient.Cluster(logicalcluster.From(workspaceCopy)).TenancyV1alpha1().ClusterWorkspaces().Update(
+			ctx, workspaceCopy, metav1.UpdateOptions{})
+
+		return err
 	}
 
 	err = c.deleter.Delete(ctx, workspaceCopy)
@@ -229,31 +233,6 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 	return err
 }
 
-func (c *Controller) patchFinalizer(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace, finalizers []string) error {
-	finalizerData := &metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			ResourceVersion: ws.ResourceVersion,
-			UID:             ws.UID,
-			Finalizers:      finalizers,
-		},
-	}
-
-	patch, err := json.Marshal(finalizerData)
-	if err != nil {
-		return err
-	}
-
-	// remove finalizers field if there is no remaining finalizers,
-	if len(finalizers) == 0 {
-		patch = []byte(
-			fmt.Sprintf("{\"metadata\": {\"finalizers\": [], \"uid\": %q, \"resourceVersion\": %q}}", ws.UID, ws.ResourceVersion))
-	}
-
-	_, err = c.kcpClient.Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces().Patch(
-		ctx, ws.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-	return err
-}
-
 // finalizeNamespace removes the specified finalizer and finalizes the workspace
 func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	copiedFinalizers := []string{}
@@ -267,5 +246,9 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 		return nil
 	}
 
-	return c.patchFinalizer(ctx, workspace, copiedFinalizers)
+	workspace.Finalizers = copiedFinalizers
+	_, err := c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Update(
+		ctx, workspace, metav1.UpdateOptions{})
+
+	return err
 }
