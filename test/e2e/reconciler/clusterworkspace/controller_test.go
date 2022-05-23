@@ -237,11 +237,11 @@ func unschedulable(object *tenancyv1alpha1.ClusterWorkspace) error {
 func scheduled(target string) func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	return func(object *tenancyv1alpha1.ClusterWorkspace) error {
 		if isUnschedulable(object) {
-			klog.Infof("Workspace %s is unschedulable", object.Name)
+			klog.Infof("Workspace %s|%s is unschedulable", logicalcluster.From(object), object.Name)
 			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 		}
 		if object.Status.Location.Current != target {
-			klog.Infof("Workspace %s is scheduled to %s, expected %s", object.Name, object.Status.Location.Current, target)
+			klog.Infof("Workspace %s|%s is scheduled to %s, expected %s", logicalcluster.From(object), object.Name, object.Status.Location.Current, target)
 			return fmt.Errorf("expected workspace.status.location.current to be %q, got %q", target, object.Status.Location.Current)
 		}
 		return nil
