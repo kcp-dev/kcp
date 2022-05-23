@@ -123,7 +123,6 @@ func TestMutate(t *testing.T) {
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-						ServiceAccountName:           "kcp-default",
 						Containers: []corev1.Container{
 							{
 								Name:  "test-container",
@@ -200,7 +199,6 @@ func TestMutate(t *testing.T) {
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-						ServiceAccountName:           "kcp-default",
 						Containers: []corev1.Container{
 							{
 								Name:  "test-container",
@@ -281,7 +279,6 @@ func TestMutate(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-							ServiceAccountName:           "kcp-default",
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -364,7 +361,6 @@ func TestMutate(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-							ServiceAccountName:           "kcp-default",
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -458,7 +454,6 @@ func TestMutate(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-							ServiceAccountName:           "kcp-default",
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
