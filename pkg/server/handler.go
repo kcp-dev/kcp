@@ -152,6 +152,17 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	}
 }
 
+// WithAnnotations initializes the audit annotations in the context. Without intialization, there
+// won't be any annotations.
+func WithAnnotations(handler http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		handler.ServeHTTP(w, req.WithContext(
+			kaudit.WithAuditAnnotations(req.Context()),
+		))
+	})
+}
+
+// WithClusterAnnotation annotates the cluster name from the context into the audit logs
 func WithClusterAnnotation(handler http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		cluster := request.ClusterFrom(req.Context())

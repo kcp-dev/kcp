@@ -230,6 +230,9 @@ func (s *Server) Run(ctx context.Context) error {
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
 		apiHandler = WithAcceptHeader(apiHandler)
 
+		// initializes Annotations and should therefore be called as early as possible in the handler chain
+		apiHandler = WithAnnotations(apiHandler)
+
 		return apiHandler
 	}
 
