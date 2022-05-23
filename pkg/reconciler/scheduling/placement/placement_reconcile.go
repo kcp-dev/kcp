@@ -102,7 +102,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 		if binding.Spec.Reference.Workspace == nil {
 			continue
 		}
-		if binding.Spec.Reference.Workspace.ExportName != reconcilerapiexport.TemporaryComputerServiceExportName {
+		if binding.Spec.Reference.Workspace.ExportName != reconcilerapiexport.TemporaryComputeServiceExportName {
 			continue
 		}
 		negotationClusterName := orgClusterName.Join(binding.Spec.Reference.Workspace.WorkspaceName)

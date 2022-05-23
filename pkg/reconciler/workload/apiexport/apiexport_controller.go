@@ -44,8 +44,8 @@ const (
 	controllerName = "kcp-workload-apiexport"
 	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
 
-	// TemporaryComputerServiceExportName is a temporary singleton name of compute service exports.
-	TemporaryComputerServiceExportName = "kubernetes"
+	// TemporaryComputeServiceExportName is a temporary singleton name of compute service exports.
+	TemporaryComputeServiceExportName = "kubernetes"
 )
 
 // NewController returns a new controller instance.
@@ -91,7 +91,7 @@ func NewController(
 		FilterFunc: func(obj interface{}) bool {
 			switch t := obj.(type) {
 			case *apisv1alpha1.APIExport:
-				return t.Name == TemporaryComputerServiceExportName
+				return t.Name == TemporaryComputeServiceExportName
 			}
 			return false
 		},
