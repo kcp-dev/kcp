@@ -102,11 +102,8 @@ type WorkspaceExportReference struct {
 type APIBindingPhaseType string
 
 const (
-	APIBindingPhaseBinding   APIBindingPhaseType = "Binding"
-	APIBindingPhaseBound     APIBindingPhaseType = "Bound"
-	APIBindingPhaseRebinding APIBindingPhaseType = "Rebinding"
-
-	DefaultAPIBindingInitializer = "apis.kcp.dev/binding"
+	APIBindingPhaseBinding APIBindingPhaseType = "Binding"
+	APIBindingPhaseBound   APIBindingPhaseType = "Bound"
 )
 
 // APIBindingStatus records which schemas are bound.
