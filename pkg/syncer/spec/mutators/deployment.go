@@ -17,18 +17,23 @@ limitations under the License.
 package mutators
 
 import (
+	"fmt"
 	"net/url"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 	utilspointer "k8s.io/utils/pointer"
 )
 
 type DeploymentMutator struct {
-	upstreamURL *url.URL
+	upstreamURL  *url.URL
+	secretLister cache.GenericLister
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -39,9 +44,10 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
-func NewDeploymentMutator(upstreamURL *url.URL) *DeploymentMutator {
+func NewDeploymentMutator(upstreamURL *url.URL, secretLister cache.GenericLister) *DeploymentMutator {
 	return &DeploymentMutator{
-		upstreamURL: upstreamURL,
+		upstreamURL:  upstreamURL,
+		secretLister: secretLister,
 	}
 }
 
@@ -64,8 +70,40 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 	// Alias for the template.spec to improve readability.
 	templateSpec := &deployment.Spec.Template.Spec
 
-	if templateSpec.ServiceAccountName == "" || templateSpec.ServiceAccountName == "default" {
-		templateSpec.ServiceAccountName = "kcp-default"
+	desiredServiceAccountName := "default"
+	if templateSpec.ServiceAccountName != "" && templateSpec.ServiceAccountName != "default" {
+		desiredServiceAccountName = templateSpec.ServiceAccountName
+	}
+
+	secretList, err := dm.secretLister.List(labels.Everything())
+	if err != nil {
+		klog.Errorf("Failed to list secrets: %v", err)
+		return err
+	}
+
+	desiredSecretName := ""
+	for _, secretObj := range secretList {
+		var secret *corev1.Secret
+		switch obj := secretObj.(type) {
+		case *corev1.Secret:
+			secret = obj
+		case *unstructured.Unstructured:
+			unstructured := secretObj.(*unstructured.Unstructured).UnstructuredContent()
+			err = runtime.DefaultUnstructuredConverter.
+				FromUnstructured(unstructured, &secret)
+			if err != nil {
+				klog.Errorf("Failed to convert unstructured object to secret: %v", err)
+				return err
+			}
+		default:
+			return fmt.Errorf("unknown object type: %T", secretObj)
+		}
+
+		// Find the SA token that matches the service account name and that is scheduled to the same workloadcluster
+		// as the deployment (so we know it is available downstream).
+		if val, ok := secret.Annotations["kubernetes.io/service-account.name"]; ok && val == desiredServiceAccountName {
+			desiredSecretName = "kcp-" + secret.Name
+		}
 	}
 
 	// Setting AutomountServiceAccountToken to false allow us to control the ServiceAccount
@@ -104,7 +142,7 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 						//                them non-valid for KCP. (Also it removes the ClusterName included in the JWT token)
 						Secret: &corev1.SecretProjection{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "kcp-default-token",
+								Name: desiredSecretName,
 							},
 							Items: []corev1.KeyToPath{
 								{

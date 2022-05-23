@@ -57,16 +57,9 @@ type Controller struct {
 
 func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClusterName logicalcluster.Name, workloadClusterName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
-	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL)
-	secretMutator := specmutators.NewSecretMutator()
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-
-		mutators: mutatorGvrMap{
-			deploymentMutator.GVR(): deploymentMutator.Mutate,
-			secretMutator.GVR():     secretMutator.Mutate,
-		},
 
 		upstreamClient:      upstreamClient,
 		downstreamClient:    downstreamClient,
@@ -98,6 +91,13 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 			},
 		})
 		klog.InfoS("Set up informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
+	}
+
+	secretMutator := specmutators.NewSecretMutator()
+	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Lister())
+	c.mutators = mutatorGvrMap{
+		deploymentMutator.GVR(): deploymentMutator.Mutate,
+		secretMutator.GVR():     secretMutator.Mutate,
 	}
 
 	return &c, nil

@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"embed"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,23 +89,23 @@ func TestSyncerLifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	// TODO(marun) The name mapping should be defined for reuse outside of the transformName method in pkg/syncer
-	serviceAccountName := "kcp-default"
-	secretName := "kcp-default-token"
-	configMapName := "kcp-root-ca.crt"
-
-	t.Logf("Waiting for downstream service account %s/%s to be created...", downstreamNamespaceName, serviceAccountName)
+	var secretName string
+	t.Logf("Waiting for upstream service account secret to be created...")
 	require.Eventually(t, func() bool {
-		// TODO(marun) The name mapping should be defined for reuse outside of the transformName method in pkg/syncer
-		_, err = downstreamKubeClient.CoreV1().ServiceAccounts(downstreamNamespaceName).Get(ctx, serviceAccountName, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
+		secretNamePrefix := "default-token-"
+		upstreamSecrets, err := upstreamKubeClient.CoreV1().Secrets(upstreamNamespace.Name).List(ctx, metav1.ListOptions{})
+		require.NoError(t, err)
+		if len(upstreamSecrets.Items) == 0 {
 			return false
 		}
-		if err != nil {
-			t.Errorf("saw an error waiting for downstream service account %s/%s to be created: %v", downstreamNamespaceName, serviceAccountName, err)
-			return false
+		for _, secret := range upstreamSecrets.Items {
+			if strings.HasPrefix(secret.Name, secretNamePrefix) {
+				secretName = "kcp-" + secret.Name
+				return true
+			}
 		}
-		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream service account %s/%s was not created", downstreamNamespaceName, serviceAccountName)
+		return false
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream service account secret was not created...")
 
 	t.Logf("Waiting for downstream service account secret %s/%s to be created...", downstreamNamespaceName, secretName)
 	require.Eventually(t, func() bool {
@@ -118,6 +119,8 @@ func TestSyncerLifecycle(t *testing.T) {
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream service account secret %s/%s was not created", downstreamNamespaceName, secretName)
+
+	configMapName := "kcp-root-ca.crt"
 
 	t.Logf("Waiting for downstream configmap %s/%s to be created...", downstreamNamespaceName, configMapName)
 	require.Eventually(t, func() bool {

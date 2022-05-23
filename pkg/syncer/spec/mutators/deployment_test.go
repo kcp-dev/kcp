@@ -29,8 +29,10 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	utilspointer "k8s.io/utils/pointer"
 )
 
@@ -43,7 +45,7 @@ var kcpApiAccessVolume = corev1.Volume{
 				{
 					Secret: &corev1.SecretProjection{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "kcp-default-token",
+							Name: "kcp-default-token-1234",
 						},
 						Items: []corev1.KeyToPath{
 							{
@@ -84,10 +86,26 @@ var kcpApiAccessVolumeMount = corev1.VolumeMount{
 func TestMutate(t *testing.T) {
 	for _, c := range []struct {
 		desc                                   string
+		upstreamSecrets                        []corev1.Secret
 		originalDeployment, expectedDeployment *appsv1.Deployment
 		config                                 *rest.Config
 	}{{
 		desc: "Deployment without Envs or volumes is mutated.",
+		upstreamSecrets: []corev1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-token-1234",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "default",
+					},
+				},
+				Data: map[string][]byte{
+					"token":     []byte("token"),
+					"namespace": []byte("namespace"),
+				},
+			},
+		},
 		originalDeployment: &appsv1.Deployment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Deployment",
@@ -123,7 +141,6 @@ func TestMutate(t *testing.T) {
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-						ServiceAccountName:           "kcp-default",
 						Containers: []corev1.Container{
 							{
 								Name:  "test-container",
@@ -159,6 +176,21 @@ func TestMutate(t *testing.T) {
 		},
 	}, {
 		desc: "Deployment with one env var gets mutated but the already existing env var remains the same",
+		upstreamSecrets: []corev1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-token-1234",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "default",
+					},
+				},
+				Data: map[string][]byte{
+					"token":     []byte("token"),
+					"namespace": []byte("namespace"),
+				},
+			},
+		},
 		originalDeployment: &appsv1.Deployment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Deployment",
@@ -200,7 +232,6 @@ func TestMutate(t *testing.T) {
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-						ServiceAccountName:           "kcp-default",
 						Containers: []corev1.Container{
 							{
 								Name:  "test-container",
@@ -240,6 +271,21 @@ func TestMutate(t *testing.T) {
 		},
 	},
 		{desc: "Deployment with an env var named KUBERNETES_SERVICE_PORT gets mutated and it is overridden and not duplicated",
+			upstreamSecrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default-token-1234",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
@@ -281,7 +327,6 @@ func TestMutate(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-							ServiceAccountName:           "kcp-default",
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -316,6 +361,21 @@ func TestMutate(t *testing.T) {
 				Host: "https://4.5.6.7:12345",
 			}},
 		{desc: "Deployment with an existing VolumeMount named kcp-api-access gets mutated and it is overridden and not duplicated",
+			upstreamSecrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default-token-1234",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
@@ -364,7 +424,6 @@ func TestMutate(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-							ServiceAccountName:           "kcp-default",
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -400,6 +459,21 @@ func TestMutate(t *testing.T) {
 			}},
 
 		{desc: "Deployment with an existing Volume named kcp-api-access gets mutated and it is overridden and not duplicated",
+			upstreamSecrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default-token-1234",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
@@ -458,7 +532,6 @@ func TestMutate(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
-							ServiceAccountName:           "kcp-default",
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -497,7 +570,11 @@ func TestMutate(t *testing.T) {
 			t.Run(c.desc, func(t *testing.T) {
 				upstreamURL, err := url.Parse(c.config.Host)
 				require.NoError(t, err)
-				dm := NewDeploymentMutator(upstreamURL)
+				lister := fakeLister{resources: nil}
+				for _, secret := range c.upstreamSecrets {
+					lister.resources = append(lister.resources, secret.DeepCopyObject())
+				}
+				dm := NewDeploymentMutator(upstreamURL, lister)
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toRuntimeObject() = %v", err)
 
@@ -513,6 +590,22 @@ func TestMutate(t *testing.T) {
 			})
 		}
 	}
+}
+
+type fakeLister struct {
+	resources []runtime.Object
+}
+
+func (fl fakeLister) List(selector labels.Selector) (ret []runtime.Object, err error) {
+	return fl.resources, nil
+}
+
+func (fl fakeLister) Get(name string) (runtime.Object, error) {
+	return nil, nil
+}
+
+func (fl fakeLister) ByNamespace(namespace string) cache.GenericNamespaceLister {
+	return nil
 }
 
 func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
