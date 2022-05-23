@@ -68,6 +68,10 @@ build: ## Build the project
 	go build -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
+.PHONY: build-all
+build-all: WHAT := ./cmd/...
+build-all: build
+
 install: WHAT ?= ./cmd/...
 install:
 	go install -ldflags="$(LDFLAGS)" $(WHAT)
@@ -124,9 +128,10 @@ COUNT ?= 1
 E2E_PARALLELISM ?= 1
 
 .PHONY: test-e2e
-test-e2e: TEST_ARGS ?= ./test/e2e...
-test-e2e: build
-	NO_GORUN=1 go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(TEST_ARGS)
+test-e2e: TEST_ARGS ?=
+test-e2e: WHAT ?= ./test/e2e...
+test-e2e: build-all
+	NO_GORUN=1 go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
 
 .PHONY: test
 test: WHAT ?= ./...
