@@ -34,217 +34,177 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
-type Store struct {
-	// NewFunc returns a new instance of the type this registry returns for a
-	// GET of a single object, e.g.:
-	//
-	// curl GET /apis/group/version/namespaces/my-ns/myresource/name-of-object
-	NewFunc func() runtime.Object
+// StoreFuncs holds proto-functions that can be mutated by successive actors to wrap behavior.
+// Ultimately you can pick and choose which functions to expose in the end, depending on how much
+// of REST storage you need.
+type StoreFuncs struct {
+	FactoryFunc
+	ListFactoryFunc
+	DestroyerFunc
 
-	// NewListFunc returns a new list of the type this registry; it is the
-	// type returned when the resource is listed, e.g.:
-	//
-	// curl GET /apis/group/version/namespaces/my-ns/myresource
-	NewListFunc func() runtime.Object
+	GetterFunc
+	CreaterFunc
+	GracefulDeleterFunc
+	CollectionDeleterFunc
+	ListerFunc
+	UpdaterFunc
+	WatcherFunc
 
-	// CreateStrategy implements resource-specific behavior during creation.
-	CreateStrategy rest.RESTCreateStrategy
-
-	// UpdateStrategy implements resource-specific behavior during updates.
-	UpdateStrategy rest.RESTUpdateStrategy
-
-	// DeleteStrategy implements resource-specific behavior during deletion.
-	DeleteStrategy rest.RESTDeleteStrategy
-
-	// TableConvertor is an optional interface for transforming items or lists
-	// of items into tabular output. If unset, the default will be used.
-	TableConvertor rest.TableConvertor
-
-	// ResetFieldsStrategy provides the fields reset by the strategy that
-	// should not be modified by the user.
-	ResetFieldsStrategy rest.ResetFieldsStrategy
-
-	resource                  schema.GroupVersionResource
-	apiExportIdentityHash     string
-	dynamicClusterClient      dynamic.ClusterInterface
-	subResources              []string
-	patchConflictRetryBackoff wait.Backoff
-
-	// stopWatchesCh closing means that all existing watches are closed.
-	stopWatchesCh <-chan struct{}
-
-	// getter is what we use for self-referential GET calls to allow upstream
-	// users to change the behavior
-	getter rest.Getter
+	TableConvertorFunc
+	CategoriesProviderFunc
+	ResetFieldsStrategyFunc
 }
 
-var _ rest.StandardStorage = &Store{}
-
-// New implements RESTStorage.New.
-func (s *Store) New() runtime.Object {
-	return s.NewFunc()
-}
-
-// Destroy implements RESTStorage.New.
-func (s *Store) Destroy() {
-	// Do nothing
-}
-
-// NewList implements rest.Lister.
-func (s *Store) NewList() runtime.Object {
-	return s.NewListFunc()
-}
-
-// GetResetFields implements rest.ResetFieldsStrategy
-func (s *Store) GetResetFields() map[fieldpath.APIVersion]*fieldpath.Set {
-	if s.ResetFieldsStrategy == nil {
-		return nil
-	}
-	return s.ResetFieldsStrategy.GetResetFields()
-}
-
-// List returns a list of items matching labels and field according to the store's PredicateFunc.
-func (s *Store) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	var v1ListOptions metav1.ListOptions
-	if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
-		return nil, err
-	}
-
-	delegate, err := s.getClientResource(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return delegate.List(ctx, v1ListOptions)
-}
-
-// Get implements rest.Getter
-func (s *Store) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	delegate, err := s.getClientResource(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return delegate.Get(ctx, name, *options, s.subResources...)
-}
-
-// Watch implements rest.Watcher.
-func (s *Store) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	var v1ListOptions metav1.ListOptions
-	if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
-		return nil, err
-	}
-	delegate, err := s.getClientResource(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	watchCtx, cancelFn := context.WithCancel(ctx)
-	go func() {
-		select {
-		case <-s.stopWatchesCh:
-			cancelFn()
-		case <-ctx.Done():
-			return
-		}
-	}()
-
-	return delegate.Watch(watchCtx, v1ListOptions)
-}
-
-// Update implements rest.Updater
-func (s *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	delegate, err := s.getClientResource(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
-	doUpdate := func() (*unstructured.Unstructured, error) {
-		oldObj, err := s.getter.Get(ctx, name, &metav1.GetOptions{})
+func DefaultDynamicDelegatedStoreFuncs(
+	factory FactoryFunc,
+	listFactory ListFactoryFunc,
+	destroyerFunc DestroyerFunc,
+	createStrategy rest.RESTCreateStrategy,
+	updateStrategy rest.RESTUpdateStrategy,
+	deleteStrategy rest.RESTDeleteStrategy,
+	tableConvertor rest.TableConvertor,
+	resetFieldsStrategy rest.ResetFieldsStrategy,
+	resource schema.GroupVersionResource,
+	apiExportIdentityHash string,
+	categories []string,
+	dynamicClusterClient dynamic.ClusterInterface,
+	subResources []string,
+	patchConflictRetryBackoff wait.Backoff,
+	stopWatchesCh <-chan struct{},
+) *StoreFuncs {
+	client := clientGetter(dynamicClusterClient, createStrategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	s := &StoreFuncs{}
+	s.FactoryFunc = factory
+	s.ListFactoryFunc = listFactory
+	s.DestroyerFunc = destroyerFunc
+	s.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+		delegate, err := client(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		obj, err := objInfo.UpdatedObject(ctx, oldObj)
+		return delegate.Get(ctx, name, *options, subResources...)
+	}
+	s.CreaterFunc = nil           // not currently supported
+	s.GracefulDeleterFunc = nil   // not currently supported
+	s.CollectionDeleterFunc = nil // not currently supported
+	s.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+		var v1ListOptions metav1.ListOptions
+		if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
+			return nil, err
+		}
+
+		delegate, err := client(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		unstructuredObj, ok := obj.(*unstructured.Unstructured)
-		if !ok {
-			return nil, fmt.Errorf("not an Unstructured: %#v", obj)
-		}
-
-		s.UpdateStrategy.PrepareForUpdate(ctx, obj, oldObj)
-		if errs := s.UpdateStrategy.ValidateUpdate(ctx, obj, oldObj); len(errs) > 0 {
-			return nil, kerrors.NewInvalid(unstructuredObj.GroupVersionKind().GroupKind(), unstructuredObj.GetName(), errs)
-		}
-		if err := updateValidation(ctx, obj.DeepCopyObject(), oldObj.DeepCopyObject()); err != nil {
-			return nil, err
-		}
-
-		return delegate.Update(ctx, unstructuredObj, *options, s.subResources...)
+		return delegate.List(ctx, v1ListOptions)
 	}
+	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, false, err
+		}
 
-	requestInfo, _ := genericapirequest.RequestInfoFrom(ctx)
-	if requestInfo != nil && requestInfo.Verb == "patch" {
-		var result *unstructured.Unstructured
-		err := retry.RetryOnConflict(s.patchConflictRetryBackoff, func() error {
-			var err error
-			result, err = doUpdate()
-			return err
-		})
+		doUpdate := func() (*unstructured.Unstructured, error) {
+			oldObj, err := s.Get(ctx, name, &metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+
+			obj, err := objInfo.UpdatedObject(ctx, oldObj)
+			if err != nil {
+				return nil, err
+			}
+
+			unstructuredObj, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				return nil, fmt.Errorf("not an Unstructured: %#v", obj)
+			}
+
+			updateStrategy.PrepareForUpdate(ctx, obj, oldObj)
+			if errs := updateStrategy.ValidateUpdate(ctx, obj, oldObj); len(errs) > 0 {
+				return nil, kerrors.NewInvalid(unstructuredObj.GroupVersionKind().GroupKind(), unstructuredObj.GetName(), errs)
+			}
+			if err := updateValidation(ctx, obj.DeepCopyObject(), oldObj.DeepCopyObject()); err != nil {
+				return nil, err
+			}
+
+			return delegate.Update(ctx, unstructuredObj, *options, subResources...)
+		}
+
+		requestInfo, _ := genericapirequest.RequestInfoFrom(ctx)
+		if requestInfo != nil && requestInfo.Verb == "patch" {
+			var result *unstructured.Unstructured
+			err := retry.RetryOnConflict(patchConflictRetryBackoff, func() error {
+				var err error
+				result, err = doUpdate()
+				return err
+			})
+			return result, false, err
+		}
+
+		result, err := doUpdate()
 		return result, false, err
 	}
 
-	result, err := doUpdate()
-	return result, false, err
-}
-
-func (s *Store) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *Store) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *Store) DeleteCollection(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *Store) ConvertToTable(ctx context.Context, object runtime.Object, tableOptions runtime.Object) (*metav1.Table, error) {
-	return s.TableConvertor.ConvertToTable(ctx, object, tableOptions)
-}
-
-func (s *Store) getClientResource(ctx context.Context) (dynamic.ResourceInterface, error) {
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
-	if err != nil {
-		return nil, err
-	}
-	gvr := s.resource
-	clusterName := cluster.Name
-	if cluster.Wildcard {
-		clusterName = logicalcluster.Wildcard
-		if s.apiExportIdentityHash != "" {
-			gvr.Resource += ":" + s.apiExportIdentityHash
+	s.WatcherFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+		var v1ListOptions metav1.ListOptions
+		if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
+			return nil, err
 		}
-	}
-	client := s.dynamicClusterClient.Cluster(clusterName)
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	if s.CreateStrategy.NamespaceScoped() {
-		if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-			return client.Resource(gvr).Namespace(namespace), nil
+		watchCtx, cancelFn := context.WithCancel(ctx)
+		go func() {
+			select {
+			case <-stopWatchesCh:
+				cancelFn()
+			case <-ctx.Done():
+				return
+			}
+		}()
+
+		return delegate.Watch(watchCtx, v1ListOptions)
+	}
+	s.TableConvertorFunc = tableConvertor.ConvertToTable
+	s.CategoriesProviderFunc = func() []string {
+		return categories
+	}
+	s.ResetFieldsStrategyFunc = resetFieldsStrategy.GetResetFields
+	return s
+}
+
+func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
+	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
+		cluster, err := genericapirequest.ValidClusterFrom(ctx)
+		if err != nil {
+			return nil, err
+		}
+		gvr := resource
+		clusterName := cluster.Name
+		if cluster.Wildcard {
+			clusterName = logicalcluster.Wildcard
+			if apiExportIdentityHash != "" {
+				gvr.Resource += ":" + apiExportIdentityHash
+			}
+		}
+		client := dynamicClusterClient.Cluster(clusterName)
+
+		if namespaceScoped {
+			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
+				return client.Resource(gvr).Namespace(namespace), nil
+			} else {
+				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
+			}
 		} else {
-			return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", s.resource.String())
+			return client.Resource(gvr), nil
 		}
-	} else {
-		return client.Resource(gvr), nil
 	}
 }

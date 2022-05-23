@@ -62,7 +62,7 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 			scaleSpec,
 		)
 
-		storage := registry.NewStorage(
+		storage, statusStorage := registry.NewStorage(
 			ctx,
 			resource,
 			apiExportIdentityHash,
@@ -77,19 +77,67 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 			wrapStorageWithLabelSelector(map[string]string{workloadv1alpha1.InternalClusterResourceStateLabelPrefix + workloadClusterName: string(workloadv1alpha1.ResourceStateSync)}),
 		)
 
+		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need
 		subresourceStorages = make(map[string]rest.Storage)
 		if statusEnabled {
-			subresourceStorages["status"] = storage.Status
+			subresourceStorages["status"] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.GetterFunc
+				registry.UpdaterFunc
+				// patch is implicit as we have get + update
+
+				registry.TableConvertorFunc
+				registry.CategoriesProviderFunc
+				registry.ResetFieldsStrategyFunc
+			}{
+				FactoryFunc:   statusStorage.FactoryFunc,
+				DestroyerFunc: statusStorage.DestroyerFunc,
+
+				GetterFunc:  statusStorage.GetterFunc,
+				UpdaterFunc: statusStorage.UpdaterFunc,
+
+				TableConvertorFunc:      statusStorage.TableConvertorFunc,
+				CategoriesProviderFunc:  statusStorage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: statusStorage.ResetFieldsStrategyFunc,
+			}
 		}
 
 		// TODO(sttts): add scale subresource
 
-		return storage.CustomResource, subresourceStorages
+		return &struct {
+			registry.FactoryFunc
+			registry.ListFactoryFunc
+			registry.DestroyerFunc
+
+			registry.GetterFunc
+			registry.ListerFunc
+			registry.UpdaterFunc
+			registry.WatcherFunc
+
+			registry.TableConvertorFunc
+			registry.CategoriesProviderFunc
+			registry.ResetFieldsStrategyFunc
+		}{
+			FactoryFunc:     storage.FactoryFunc,
+			ListFactoryFunc: storage.ListFactoryFunc,
+			DestroyerFunc:   storage.DestroyerFunc,
+
+			GetterFunc:  storage.GetterFunc,
+			ListerFunc:  storage.ListerFunc,
+			UpdaterFunc: storage.UpdaterFunc,
+			WatcherFunc: storage.WatcherFunc,
+
+			TableConvertorFunc:      storage.TableConvertorFunc,
+			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
+			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
+		}, subresourceStorages
 	}
 }
 
 func wrapStorageWithLabelSelector(labelSelector map[string]string) registry.StorageWrapper {
-	return func(resource schema.GroupResource, storage customresource.Store) customresource.Store {
+	return func(resource schema.GroupResource, storage *registry.StoreFuncs) *registry.StoreFuncs {
 		requirements, selectable := labels.SelectorFromSet(labels.Set(labelSelector)).Requirements()
 		if !selectable {
 			// we can't return an error here since this ends up inside of the k8s apiserver code where
@@ -98,62 +146,44 @@ func wrapStorageWithLabelSelector(labelSelector map[string]string) registry.Stor
 			panic(fmt.Sprintf("creating a new store with an unselectable set: %v", labelSelector))
 		}
 
-		return &LabelSelectingStore{
-			DefaultQualifiedResource: resource,
-			Store:                    storage,
-			filter:                   requirements,
+		delegateLister := storage.ListerFunc
+		storage.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+			selector := options.LabelSelector
+			if selector == nil {
+				selector = labels.Everything()
+			}
+			options.LabelSelector = selector.Add(requirements...)
+			return delegateLister.List(ctx, options)
 		}
+
+		delegateGetter := storage.GetterFunc
+		storage.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+			obj, err := delegateGetter.Get(ctx, name, options)
+			if err != nil {
+				return obj, err
+			}
+
+			metaObj, ok := obj.(metav1.Object)
+			if !ok {
+				return nil, fmt.Errorf("expected a metav1.Object, got %T", obj)
+			}
+			if !labels.Everything().Add(requirements...).Matches(labels.Set(metaObj.GetLabels())) {
+				return nil, kerrors.NewNotFound(resource, name)
+			}
+
+			return obj, err
+		}
+
+		delegateWatcher := storage.WatcherFunc
+		storage.WatcherFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+			selector := options.LabelSelector
+			if selector == nil {
+				selector = labels.Everything()
+			}
+			options.LabelSelector = selector.Add(requirements...)
+			return delegateWatcher.Watch(ctx, options)
+		}
+
+		return storage
 	}
-}
-
-type LabelSelectingStore struct {
-	// DefaultQualifiedResource is the pluralized name of the resource.
-	// This field is used if there is no request info present in the context.
-	// See qualifiedResourceFromContext for details.
-	DefaultQualifiedResource schema.GroupResource
-
-	// this is the storage we're wrapping
-	customresource.Store
-
-	filter labels.Requirements
-}
-
-var _ customresource.Store = &LabelSelectingStore{}
-
-// List returns a list of items matching labels and field according to the store's PredicateFunc.
-func (s *LabelSelectingStore) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	selector := options.LabelSelector
-	if selector == nil {
-		selector = labels.Everything()
-	}
-	options.LabelSelector = selector.Add(s.filter...)
-	return s.Store.List(ctx, options)
-}
-
-// Get implements rest.Getter
-func (s *LabelSelectingStore) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	obj, err := s.Store.Get(ctx, name, options)
-	if err != nil {
-		return obj, err
-	}
-
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return nil, fmt.Errorf("expected a metav1.Object, got %T", obj)
-	}
-	if !labels.Everything().Add(s.filter...).Matches(labels.Set(metaObj.GetLabels())) {
-		return nil, kerrors.NewNotFound(s.DefaultQualifiedResource, name)
-	}
-
-	return obj, err
-}
-
-// Watch implements rest.Watcher.
-func (s *LabelSelectingStore) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	selector := options.LabelSelector
-	if selector == nil {
-		selector = labels.Everything()
-	}
-	options.LabelSelector = selector.Add(s.filter...)
-	return s.Store.Watch(ctx, options)
 }
