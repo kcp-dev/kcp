@@ -46,7 +46,6 @@ import (
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
@@ -169,7 +168,7 @@ func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 	toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1beta1.SchemeGroupVersion.Version, "workspaces/")
 
 	return func(w http.ResponseWriter, req *http.Request) {
-		cluster := genericapirequest.ClusterFrom(req.Context())
+		cluster := request.ClusterFrom(req.Context())
 		if cluster.Name.Empty() {
 			apiHandler.ServeHTTP(w, req)
 			return

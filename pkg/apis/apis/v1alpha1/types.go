@@ -172,6 +172,10 @@ const (
 	// NamingConflictsReason is a reason for the BindingUpToDate condition that at least one API coming in from the APIBinding
 	// has a naming conflict with other APIs.
 	NamingConflictsReason = "NamingConflicts"
+
+	// BindingResourceDeleteSuccess is a condition for APIBinding that indicates the resources relating this binding are deleted
+	// successfully when the APIBinding is deleting
+	BindingResourceDeleteSuccess conditionsv1alpha1.ConditionType = "BindingResourceDeleteSuccess"
 )
 
 // These are annotations for bound CRDs

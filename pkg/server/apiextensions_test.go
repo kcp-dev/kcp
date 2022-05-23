@@ -21,9 +21,113 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 func TestSystemCRDsLogicalClusterName(t *testing.T) {
 	require.Equal(t, SystemCRDLogicalCluster.String(), reservedcrdgroups.SystemCRDLogicalClusterName, "reservedcrdgroups admission check should match SystemCRDLogicalCluster")
+}
+
+func TestDecorateCRDWithBinding(t *testing.T) {
+	now := metav1.Now()
+
+	tests := []struct {
+		name               string
+		crd                *apiextensionsv1.CustomResourceDefinition
+		deleteTime         *metav1.Time
+		identity           string
+		expectedConditions []apiextensionsv1.CustomResourceDefinitionCondition
+		expectedAnnotation map[string]string
+	}{
+		{
+			name: "update annotation only",
+			crd: &apiextensionsv1.CustomResourceDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Status: apiextensionsv1.CustomResourceDefinitionStatus{
+					Conditions: []apiextensionsv1.CustomResourceDefinitionCondition{
+						{Type: apiextensionsv1.Established, Status: apiextensionsv1.ConditionTrue},
+					},
+				},
+			},
+			deleteTime: nil,
+			identity:   "bob",
+			expectedConditions: []apiextensionsv1.CustomResourceDefinitionCondition{
+				{Type: apiextensionsv1.Established, Status: apiextensionsv1.ConditionTrue},
+			},
+			expectedAnnotation: map[string]string{
+				apisv1alpha1.AnnotationAPIIdentityKey: "bob",
+				"foo":                                 "bar",
+			},
+		},
+		{
+			name: "apibinding is deleting",
+			crd: &apiextensionsv1.CustomResourceDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Status: apiextensionsv1.CustomResourceDefinitionStatus{
+					Conditions: []apiextensionsv1.CustomResourceDefinitionCondition{
+						{Type: apiextensionsv1.Established, Status: apiextensionsv1.ConditionTrue},
+					},
+				},
+			},
+			deleteTime: &now,
+			identity:   "bob",
+			expectedConditions: []apiextensionsv1.CustomResourceDefinitionCondition{
+				{Type: apiextensionsv1.Established, Status: apiextensionsv1.ConditionTrue},
+				{Type: apiextensionsv1.Terminating, Status: apiextensionsv1.ConditionTrue},
+			},
+			expectedAnnotation: map[string]string{
+				apisv1alpha1.AnnotationAPIIdentityKey: "bob",
+				"foo":                                 "bar",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			crdCopy := tt.crd.DeepCopy()
+
+			newCrd := decorateCRDWithBinding(crdCopy, tt.identity, tt.deleteTime)
+
+			if !equality.Semantic.DeepEqual(tt.crd, crdCopy) {
+				t.Errorf("expect crd not mutated, but got %v", crdCopy)
+			}
+
+			for _, expCondition := range tt.expectedConditions {
+				cond := apiextensionshelpers.FindCRDCondition(newCrd, expCondition.Type)
+				if cond == nil {
+					t.Fatalf("Missing status condition %v", expCondition.Type)
+				}
+
+				if cond.Status != expCondition.Status {
+					t.Errorf("expect condition status %q, got %q for type %s", expCondition.Status, cond.Status, cond.Type)
+				}
+
+				if cond.Reason != expCondition.Reason {
+					t.Errorf("expect condition reason %q, got %q for type %s", expCondition.Reason, cond.Reason, cond.Type)
+				}
+			}
+
+			if !equality.Semantic.DeepEqual(newCrd.Annotations, tt.expectedAnnotation) {
+				t.Errorf("expect annotion %v, got %v", tt.expectedAnnotation, newCrd.Annotations)
+			}
+
+			if !newCrd.DeletionTimestamp.Equal(tt.deleteTime) {
+				t.Errorf("expect deletetime %v, got %v", tt.deleteTime, newCrd.DeletionTimestamp)
+			}
+		})
+	}
 }

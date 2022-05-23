@@ -25,12 +25,13 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -258,8 +259,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 
 			// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
 			// the correct etcd resource prefix.
-			crd = shallowCopyCRD(crd)
-			crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = boundResource.Schema.IdentityHash
+			crd = decorateCRDWithBinding(crd, boundResource.Schema.IdentityHash, apiBinding.DeletionTimestamp)
 
 			ret = append(ret, crd)
 			seen.Insert(crdName(crd))
@@ -382,6 +382,33 @@ func shallowCopyCRD(in *apiextensionsv1.CustomResourceDefinition) *apiextensions
 	return &out
 }
 
+// decorateCRDWithBinding copy and mutate crd by
+// 1. adding identity annotation
+// 2. terminating status when apibinding is deleting
+func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identity string, deleteTime *metav1.Time) *apiextensionsv1.CustomResourceDefinition {
+	out := shallowCopyCRD(in)
+
+	out.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = identity
+
+	if deleteTime.IsZero() {
+		return out
+	}
+
+	out.Status.Conditions = make([]apiextensionsv1.CustomResourceDefinitionCondition, len(in.Status.Conditions))
+
+	out.Status.Conditions = append(out.Status.Conditions, in.Status.Conditions...)
+
+	out.DeletionTimestamp = deleteTime.DeepCopy()
+
+	// This is not visible, only for apiextension to remove "create" verb when serving and discovery.
+	apiextensionshelpers.SetCRDCondition(out, apiextensionsv1.CustomResourceDefinitionCondition{
+		Type:   apiextensionsv1.Terminating,
+		Status: apiextensionsv1.ConditionTrue,
+	})
+
+	return out
+}
+
 // partialMetadataCRD modifies CRD and replaces all version schemas with minimal ones suitable for partial object
 // metadata.
 func partialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
@@ -419,7 +446,7 @@ func (c *apiBindingAwareCRDLister) getWildcard(name string) (*apiextensionsv1.Cu
 	}
 
 	if crd == nil {
-		return nil, errors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
 	return crd, nil
@@ -438,7 +465,7 @@ func (c *apiBindingAwareCRDLister) getForIdentity(name, identity string) (*apiex
 	}
 
 	if len(apiBindings) == 0 {
-		return nil, errors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
 	// TODO(ncdc): if there are multiple bindings that match on identity/group/resource, do we need to consider some
@@ -455,7 +482,7 @@ func (c *apiBindingAwareCRDLister) getForIdentity(name, identity string) (*apiex
 	}
 
 	if boundCRDName == "" {
-		return nil, errors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
 	crdKey := clusters.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundCRDName)
@@ -466,8 +493,7 @@ func (c *apiBindingAwareCRDLister) getForIdentity(name, identity string) (*apiex
 
 	// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
 	// the correct etcd resource prefix. Use a shallow copy because deep copy is expensive (but deep copy the annotations).
-	crd = shallowCopyCRD(crd)
-	crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = identity
+	crd = decorateCRDWithBinding(crd, identity, apiBinding.DeletionTimestamp)
 
 	return crd, nil
 }
@@ -542,8 +568,7 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name str
 
 				// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
 				// the correct etcd resource prefix.
-				crd = shallowCopyCRD(crd)
-				crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = boundResource.Schema.IdentityHash
+				crd = decorateCRDWithBinding(crd, boundResource.Schema.IdentityHash, apiBinding.DeletionTimestamp)
 
 				return crd, nil
 			}

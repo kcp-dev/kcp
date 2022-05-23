@@ -120,11 +120,12 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				}, wait.ForeverTestTimeout, 1*time.Second)
 
 				t.Logf("Clean finalizer to remove the configmap")
-				configmap, err = kubeClient.CoreV1().ConfigMaps(metav1.NamespaceDefault).Get(ctx, configmap.Name, metav1.GetOptions{})
-				require.NoError(t, err, "failed to get configmap in workspace %s", workspace.Name)
-
-				configmap.Finalizers = []string{}
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+					configmap, err = kubeClient.CoreV1().ConfigMaps(metav1.NamespaceDefault).Get(ctx, configmap.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					configmap.Finalizers = []string{}
 					_, err := kubeClient.CoreV1().ConfigMaps(metav1.NamespaceDefault).Update(ctx, configmap, metav1.UpdateOptions{})
 					return err
 				})
