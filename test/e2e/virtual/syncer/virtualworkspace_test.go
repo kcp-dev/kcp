@@ -316,7 +316,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				t.Log("Create an APIExport in the wildwest workspace")
 				export := &apisv1alpha1.APIExport{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "wildwest",
+						Name: "kubernetes",
 					},
 					Spec: apisv1alpha1.APIExportSpec{},
 				}
@@ -344,7 +344,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				t.Logf("Create a binding in the other workspace (kubelike)")
 				binding := &apisv1alpha1.APIBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "wildwest",
+						Name: "kubernetes",
 					},
 					Spec: apisv1alpha1.APIBindingSpec{
 						Reference: apisv1alpha1.ExportReference{
