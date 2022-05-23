@@ -267,9 +267,9 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 			return nil, err
 		}
 	}
-	// TODO(jmprusi): Added ServiceAccounts, Configmaps and Secrets to the default syncing, but we should figure out
+	// TODO(jmprusi): Added Configmaps and Secrets to the default syncing, but we should figure out
 	//                a way to avoid doing that: https://github.com/kcp-dev/kcp/issues/727
-	gvrstrs := sets.NewString("serviceaccounts.v1.", "configmaps.v1.", "secrets.v1.") // A syncer should always watch serviceaccounts, secrets and configmaps.
+	gvrstrs := sets.NewString("configmaps.v1.", "secrets.v1.") // A syncer should always watch secrets and configmaps.
 	for _, r := range rs {
 		// v1 -> v1.
 		// apps/v1 -> v1.apps
