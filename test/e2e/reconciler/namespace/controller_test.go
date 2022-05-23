@@ -124,7 +124,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					ns.Labels[nscontroller.SchedulingDisabledLabel] = ""
+					ns.Labels[workloadv1alpha1.SchedulingDisabledLabel] = ""
 					_, err = server.client.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
 					return err
 				})

@@ -41,14 +41,6 @@ import (
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
-const (
-	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
-
-	// WorkspaceSchedulableLabel on a workspace enables scheduling for the contents
-	// of the workspace. It is applied by default to workspaces of type `Universal`.
-	WorkspaceSchedulableLabel = "workloads.kcp.dev/schedulable"
-)
-
 var (
 	scheduleRequirement           labels.Requirement
 	scheduleEmptyLabelRequirement labels.Requirement
@@ -71,13 +63,13 @@ func init() {
 		scheduleEmptyLabelRequirement = *req
 	}
 	// This matches namespaces that should be scheduled automatically by the namespace controller
-	if req, err := labels.NewRequirement(SchedulingDisabledLabel, selection.DoesNotExist, []string{}); err != nil {
+	if req, err := labels.NewRequirement(workloadv1alpha1.SchedulingDisabledLabel, selection.DoesNotExist, []string{}); err != nil {
 		klog.Fatalf("error creating the schedule label requirement: %v", err)
 	} else {
 		scheduleRequirement = *req
 	}
 	// This matches workspaces whose contents should be scheduled.
-	if req, err := labels.NewRequirement(WorkspaceSchedulableLabel, selection.Equals, []string{"true"}); err != nil {
+	if req, err := labels.NewRequirement(workloadv1alpha1.WorkspaceSchedulableLabel, selection.Equals, []string{"true"}); err != nil {
 		klog.Fatalf("error creating the schedule label requirement: %v", err)
 	} else {
 		workspaceSchedulableRequirement = *req

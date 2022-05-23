@@ -116,14 +116,14 @@ func TestAssignCluster(t *testing.T) {
 		"scheduling disabled set to empty -> no change even for unknown cluster name": {
 			labels: map[string]string{
 				DeprecatedScheduledClusterNamespaceLabel: unknownClusterName,
-				SchedulingDisabledLabel:                  "",
+				workloadv1alpha1.SchedulingDisabledLabel: "",
 			},
 			expectedCluster: unknownClusterName,
 		},
 		"scheduling disabled set to any value -> no change even for unknown cluster name": {
 			labels: map[string]string{
 				DeprecatedScheduledClusterNamespaceLabel: unknownClusterName,
-				SchedulingDisabledLabel:                  "foo",
+				workloadv1alpha1.SchedulingDisabledLabel: "foo",
 			},
 			expectedCluster: unknownClusterName,
 		},

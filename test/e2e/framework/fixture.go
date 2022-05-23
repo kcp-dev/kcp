@@ -50,10 +50,10 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
-	nscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
@@ -256,7 +256,7 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 
 	labels := map[string]string{}
 	if !schedulable {
-		labels[nscontroller.WorkspaceSchedulableLabel] = "false"
+		labels[workloadv1alpha1.WorkspaceSchedulableLabel] = "false"
 	}
 
 	ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{

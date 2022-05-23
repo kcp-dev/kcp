@@ -124,7 +124,7 @@ func TestIsWorkspaceSchedulable(t *testing.T) {
 		t.Run(testCase.testName, func(t *testing.T) {
 			labels := map[string]string{}
 			if testCase.schedulable {
-				labels[WorkspaceSchedulableLabel] = "true"
+				labels[workloadv1alpha1.WorkspaceSchedulableLabel] = "true"
 			}
 			getWorkspace := func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 				return &tenancyv1alpha1.ClusterWorkspace{

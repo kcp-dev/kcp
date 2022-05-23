@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -36,14 +37,14 @@ func TestSetScheduledCondition(t *testing.T) {
 	}{
 		"disabled label present but empty": {
 			labels: map[string]string{
-				SchedulingDisabledLabel:                  "",
+				workloadv1alpha1.SchedulingDisabledLabel: "",
 				DeprecatedScheduledClusterNamespaceLabel: "foo",
 			},
 			reason: NamespaceReasonSchedulingDisabled,
 		},
 		"disabled label present but not empty": {
 			labels: map[string]string{
-				SchedulingDisabledLabel:                  "false",
+				workloadv1alpha1.SchedulingDisabledLabel: "false",
 				DeprecatedScheduledClusterNamespaceLabel: "foo",
 			},
 			reason: NamespaceReasonSchedulingDisabled,
