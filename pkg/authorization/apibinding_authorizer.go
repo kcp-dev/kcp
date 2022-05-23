@@ -125,11 +125,11 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
 	}
 
-	if apiExport.Spec.Policy == nil {
+	if apiExport.Spec.MaximalPermissionPolicy == nil {
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	if apiExport.Spec.Policy.Local == nil {
+	if apiExport.Spec.MaximalPermissionPolicy.Local == nil {
 		return a.delegate.Authorize(ctx, attr)
 	}
 

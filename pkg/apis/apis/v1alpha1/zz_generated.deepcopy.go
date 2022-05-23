@@ -237,8 +237,8 @@ func (in *APIExportSpec) DeepCopyInto(out *APIExportSpec) {
 		*out = new(Identity)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Policy != nil {
-		in, out := &in.Policy, &out.Policy
+	if in.MaximalPermissionPolicy != nil {
+		in, out := &in.MaximalPermissionPolicy, &out.MaximalPermissionPolicy
 		*out = new(APIExportPolicy)
 		(*in).DeepCopyInto(*out)
 	}

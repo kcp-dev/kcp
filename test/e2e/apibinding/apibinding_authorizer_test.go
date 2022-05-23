@@ -144,15 +144,12 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Logf("Make sure user 2 can list cowboys in consumer workspace %q", consumer)
+
 			// This is needed to make sure the RBAC is updated in the informers
-			err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
-				_, err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
-				if err != nil {
-					return false, fmt.Errorf("error %w retrieving cowboys in consumer workspace %q", err, consumer)
-				}
-				return true, nil
-			})
-			require.NoError(t, err)
+			require.Eventually(t, func() bool {
+				_, err := user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+				return err == nil
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-2 to list cowboys")
 
 			cowboy2 := &wildwestv1alpha1.Cowboy{
 				ObjectMeta: metav1.ObjectMeta{
@@ -225,7 +222,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, 
 		},
 	}
 	if serviceProviderWorkspace == rbacServiceProvider {
-		cowboysAPIExport.Spec.Policy = &apisv1alpha1.APIExportPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
+		cowboysAPIExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.APIExportPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
 		//install RBAC that allows 	create/list/get/update/watch on cowboys for system:authenticated
 		t.Logf("Install RBAC for API Export in serviceProvider1")
 		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "system:authenticated", "Group", []string{rbacv1.VerbAll})
@@ -243,17 +240,14 @@ func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace lo
 
 	t.Logf("Make sure list shows nothing to start")
 	cowboyClient := wildwestClusterClient.Cluster(consumer1Workspace).WildwestV1alpha1().Cowboys("default")
-	var err error
 	var cowboys *wildwestv1alpha1.CowboyList
 	// Adding a poll here to wait for the user's to get access via RBAC informer updates.
-	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+
+	require.Eventually(t, func() bool {
+		var err error
 		cowboys, err = cowboyClient.List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return false, fmt.Errorf("error %w retrieving cowboys in consumer workspace %q", err, consumer1Workspace)
-		}
-		return true, nil
-	})
-	require.NoError(t, err, "error listing cowboys inside consumer workspace %q", consumer1Workspace)
+		return err == nil
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to list ")
 	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
 
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumer1Workspace)
@@ -264,7 +258,7 @@ func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace lo
 			Namespace: "default",
 		},
 	}
-	_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
+	_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
 
 }

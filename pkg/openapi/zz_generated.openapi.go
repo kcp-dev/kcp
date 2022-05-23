@@ -1378,9 +1378,9 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity"),
 						},
 					},
-					"policy": {
+					"maximalPermissionPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "policy will allow for a service provider to set a upper bound on what is allowed",
+							Description: "maximalPermissionPolicy will allow for a service provider to set a upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportPolicy"),
 						},
 					},
