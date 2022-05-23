@@ -199,6 +199,7 @@ func TestReconcileBinding(t *testing.T) {
 		wantBoundAPIExport                      bool
 		wantInitialBindingComplete              bool
 		wantInitialBindingCompleteInternalError bool
+		wantInitialBindingCompleteSchemaInvalid bool
 		wantPhaseBound                          bool
 		wantBoundResources                      []apisv1alpha1.BoundAPIResource
 		wantNamingConflict                      bool
@@ -252,7 +253,7 @@ func TestReconcileBinding(t *testing.T) {
 			getCRDError:                             apierrors.NewNotFound(schema.GroupResource{}, ""),
 			wantCreateCRD:                           true,
 			createCRDError:                          apierrors.NewInvalid(apiextensionsv1.Kind("CustomResourceDefinition"), "todaywidgetsuid", field.ErrorList{field.Forbidden(field.NewPath("foo"), "details")}),
-			wantInitialBindingCompleteInternalError: true,
+			wantInitialBindingCompleteSchemaInvalid: true,
 			wantError:                               false,
 		},
 		"create CRD fails - other error": {
@@ -615,6 +616,15 @@ func TestReconcileBinding(t *testing.T) {
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 					Reason:   apisv1alpha1.InternalErrorReason,
+				})
+			}
+
+			if tc.wantInitialBindingCompleteSchemaInvalid {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.InitialBindingCompleted,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.APIResourceSchemaInvalidReason,
 				})
 			}
 		})

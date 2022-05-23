@@ -18,7 +18,6 @@ package apibinding
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"testing"
 	"time"
@@ -41,9 +40,6 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
-
-//go:embed *.yaml
-var testFiles embed.FS
 
 func TestAPIBinding(t *testing.T) {
 	t.Parallel()
@@ -224,22 +220,4 @@ func TestAPIBinding(t *testing.T) {
 
 	t.Logf("Verify that consumer workspace 3 (%q) bound to service provider workspace 2 (%q) wildcard list works", consumer3Workspace, serviceProvider2Workspace)
 	verifyWildcardList(consumer3Workspace, 1)
-}
-
-func groupExists(list *metav1.APIGroupList, group string) bool {
-	for _, g := range list.Groups {
-		if g.Name == group {
-			return true
-		}
-	}
-	return false
-}
-
-func resourceExists(list *metav1.APIResourceList, resource string) bool {
-	for _, r := range list.APIResources {
-		if r.Name == resource {
-			return true
-		}
-	}
-	return false
 }
