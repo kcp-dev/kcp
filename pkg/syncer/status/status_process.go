@@ -187,12 +187,8 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 // TransformName changes the object name into the desired one upstream.
 func transformName(syncedObject *unstructured.Unstructured) {
 	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
-	serviceAccountGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
 
 	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
 		syncedObject.SetName("kube-root-ca.crt")
-	}
-	if syncedObject.GroupVersionKind() == serviceAccountGVR && syncedObject.GetName() == "kcp-default" {
-		syncedObject.SetName("default")
 	}
 }

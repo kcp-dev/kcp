@@ -64,10 +64,6 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 	// Alias for the template.spec to improve readability.
 	templateSpec := &deployment.Spec.Template.Spec
 
-	if templateSpec.ServiceAccountName == "" || templateSpec.ServiceAccountName == "default" {
-		templateSpec.ServiceAccountName = "kcp-default"
-	}
-
 	// Setting AutomountServiceAccountToken to false allow us to control the ServiceAccount
 	// VolumeMount and Volume definitions.
 	templateSpec.AutomountServiceAccountToken = utilspointer.BoolPtr(false)

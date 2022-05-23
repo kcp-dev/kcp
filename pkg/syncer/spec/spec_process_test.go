@@ -1017,7 +1017,6 @@ func setPodSpecServiceAccount(fields ...string) unstructuredChange {
 	err := json.Unmarshal([]byte(`{
 	"automountServiceAccountToken":false,
 	"containers":null,
-	"serviceAccountName":"kcp-default",
 	"volumes":[
 		{"name":"kcp-api-access","projected":{
 			"defaultMode":420,
