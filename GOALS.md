@@ -15,7 +15,7 @@ As an ecosystem participant, `kcp` is a reusable component that allows you to:
 As an application team, `kcp` allows you to:
 
 * Deploy services, serverless applications, and containers side by side using familiar declarative config tooling from the Kubernetes ecosystem
-* Go from the very small (laptop) to the very large (deployed around the world) without changing how your development workflow
+* Go from the very small (laptop) to the very large (deployed around the world) without changing your development workflow
 
 As an application infrastructure team, `kcp` allows you to:
 
