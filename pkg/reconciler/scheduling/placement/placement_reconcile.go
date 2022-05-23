@@ -37,6 +37,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	locationreconciler "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
+	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
@@ -99,6 +100,9 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 			continue
 		}
 		if binding.Spec.Reference.Workspace == nil {
+			continue
+		}
+		if binding.Spec.Reference.Workspace.ExportName != reconcilerapiexport.TemporaryComputerServiceExportName {
 			continue
 		}
 		negotationClusterName := orgClusterName.Join(binding.Spec.Reference.Workspace.WorkspaceName)
