@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -485,8 +484,14 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 		},
 	}
 
-	// Copy the APIResourceSchema annotations and labels to the generated CRD.
-	propagateLabelAndAnnotations(schema, crd)
+	// Propagate the protected API approval annotation, `api-approved.kubernetes.io`, if any.
+	// API groups that match `*.k8s.io` or `*.kubernetes.io` are owned by the Kubernetes community,
+	// and protected by API review. The API server rejects the creation of a CRD whose group is
+	// protected, unless the approval annotation is present.
+	// See https://github.com/kubernetes/enhancements/pull/1111 for more details.
+	if value, found := schema.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; found {
+		crd.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
+	}
 
 	for _, version := range schema.Spec.Versions {
 		crdVersion := apiextensionsv1.CustomResourceDefinitionVersion{
@@ -544,31 +549,4 @@ func apiExportLatestResourceSchemasChanged(apiBinding *apisv1alpha1.APIBinding, 
 	}
 
 	return !exportedSchemaUIDs.Equal(boundSchemaUIDs)
-}
-
-func propagateLabelAndAnnotations(source, target metav1.Object) {
-	targetAnnotations := target.GetAnnotations()
-	if targetAnnotations == nil {
-		targetAnnotations = make(map[string]string)
-	}
-	for k, v := range source.GetAnnotations() {
-		if strings.HasPrefix(k, "apis.kcp.dev") {
-			// Prevent users from overriding KCP API annotations
-			continue
-		}
-		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
-			// Do not propagate annotations added by kubectl CLI, such as kubectl.kubernetes.io/last-applied-configuration
-			continue
-		}
-		targetAnnotations[k] = v
-	}
-	target.SetAnnotations(targetAnnotations)
-
-	targetLabels := target.GetLabels()
-	if targetLabels == nil {
-		targetLabels = make(map[string]string)
-	}
-	for k, v := range source.GetLabels() {
-		targetLabels[k] = v
-	}
 }
