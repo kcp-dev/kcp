@@ -274,6 +274,7 @@ func binding(name string, workspaceName string) *apisv1alpha1.APIBinding {
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
 					WorkspaceName: workspaceName,
+					ExportName:    "kubernetes",
 				},
 			},
 		},

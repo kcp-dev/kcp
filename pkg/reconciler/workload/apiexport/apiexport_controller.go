@@ -43,6 +43,9 @@ import (
 const (
 	controllerName = "kcp-workload-apiexport"
 	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
+
+	// TemporaryComputeServiceExportName is a temporary singleton name of compute service exports.
+	TemporaryComputeServiceExportName = "kubernetes"
 )
 
 // NewController returns a new controller instance.
@@ -84,10 +87,19 @@ func NewController(
 		return nil, err
 	}
 
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj) },
+	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			switch t := obj.(type) {
+			case *apisv1alpha1.APIExport:
+				return t.Name == TemporaryComputeServiceExportName
+			}
+			return false
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj) },
+			UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj) },
+			DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj) },
+		},
 	})
 
 	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
