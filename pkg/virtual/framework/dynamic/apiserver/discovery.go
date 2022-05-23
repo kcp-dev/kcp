@@ -32,6 +32,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -107,9 +108,6 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		apiResourceSpec := apiDef.GetAPIResourceSpec()
 		subresources = apiResourceSpec.SubResources
 
-		// TODO: get the list of verbs from the REST storage instance
-		verbs := metav1.Verbs([]string{"get", "list", "patch", "create", "update", "watch"})
-
 		storageVersionHash = discovery.StorageVersionHash(apiDef.GetClusterName().String(), gvr.Group, gvr.Version, apiDef.GetAPIResourceSpec().Kind)
 
 		apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
@@ -117,19 +115,18 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 			SingularName:       apiResourceSpec.Singular,
 			Namespaced:         apiResourceSpec.Scope == apiextensionsv1.NamespaceScoped,
 			Kind:               apiResourceSpec.Kind,
-			Verbs:              verbs,
+			Verbs:              supportedVerbs(apiDef.GetStorage()),
 			ShortNames:         apiResourceSpec.ShortNames,
 			Categories:         apiResourceSpec.Categories,
 			StorageVersionHash: storageVersionHash,
 		})
 
 		if subresources != nil && subresources.Contains("status") {
-			// TODO: get the list of verbs from the StatusREST storage instance
 			apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
 				Name:       apiResourceSpec.Plural + "/status",
 				Namespaced: apiResourceSpec.Scope == apiextensionsv1.NamespaceScoped,
 				Kind:       apiResourceSpec.Kind,
-				Verbs:      metav1.Verbs([]string{"get", "patch", "update"}),
+				Verbs:      supportedVerbs(apiDef.GetSubResourceStorage("status")),
 			})
 		}
 
@@ -146,6 +143,35 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 	}
 
 	discovery.NewAPIVersionHandler(codecs, schema.GroupVersion{Group: requestedGroup, Version: requestedVersion}, resourceListerFunc).ServeHTTP(w, req)
+}
+
+func supportedVerbs(storage rest.Storage) metav1.Verbs {
+	var verbs metav1.Verbs // given the below order, these will always be in lexicographical order
+	if _, canCreate := storage.(rest.Creater); canCreate {
+		verbs = append(verbs, "create")
+	}
+	if _, canDelete := storage.(rest.GracefulDeleter); canDelete {
+		verbs = append(verbs, "delete")
+	}
+	if _, canDeleteCollections := storage.(rest.CollectionDeleter); canDeleteCollections {
+		verbs = append(verbs, "deletecollection")
+	}
+	if _, canGet := storage.(rest.Getter); canGet {
+		verbs = append(verbs, "get")
+	}
+	if _, canList := storage.(rest.Lister); canList {
+		verbs = append(verbs, "list")
+	}
+	if _, canPatch := storage.(rest.Patcher); canPatch {
+		verbs = append(verbs, "patch")
+	}
+	if _, canUpdate := storage.(rest.Updater); canUpdate {
+		verbs = append(verbs, "update")
+	}
+	if _, canWatch := storage.(rest.Watcher); canWatch {
+		verbs = append(verbs, "watch")
+	}
+	return verbs
 }
 
 type groupDiscoveryHandler struct {
