@@ -246,6 +246,10 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	return NewWorkspaceWithWorkloads(t, server, orgClusterName, workspaceType, schedulable)
 }
 
+func NewUnschedulableWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, workspaceType string) (clusterName logicalcluster.Name) {
+	return NewWorkspaceWithWorkloads(t, server, orgClusterName, workspaceType, false)
+}
+
 func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, workspaceType string, schedulable bool) (clusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
