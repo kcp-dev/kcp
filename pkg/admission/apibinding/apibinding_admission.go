@@ -107,16 +107,32 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		return admission.NewForbidden(a, fmt.Errorf("%v", errs))
 	}
 
-	// Determine the cluster name for the referenced export
+	// Verify the workspace reference.
+	var apiExportClusterName logicalcluster.Name
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("error determining workspace: %w", err))
 	}
-	org, hasParent := cluster.Name.Parent()
-	if !hasParent {
-		return admission.NewForbidden(a, fmt.Errorf("%q is not a valid workspace name: %w", cluster.Name, err))
+	switch {
+	case apiBinding.Spec.Reference.Workspace.LogicalCluster != "":
+		absoluteRef := logicalcluster.New(apiBinding.Spec.Reference.Workspace.LogicalCluster)
+		absoluteRefParent, _ := absoluteRef.Parent()
+		isAncestor := cluster.Name.HasPrefix(absoluteRef)
+		isAncestorChild := cluster.Name != absoluteRefParent && cluster.Name.HasPrefix(absoluteRefParent)
+		if !isAncestor && !isAncestorChild {
+			return admission.NewForbidden(a, fmt.Errorf("spec.reference.workspace.absolute: not pointing to an ancestor or child of an ancestor of %q", cluster.Name))
+		}
+		apiExportClusterName = absoluteRef
+	case apiBinding.Spec.Reference.Workspace.WorkspaceName != "":
+		org, hasParent := cluster.Name.Parent()
+		if !hasParent {
+			// this should only be possible if cluster is "root".
+			return admission.NewForbidden(a, fmt.Errorf("spec.reference.workspace.name: not a sibling of %q", cluster.Name))
+		}
+		apiExportClusterName = org.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName)
+	default:
+		return admission.NewForbidden(a, fmt.Errorf("workspace reference is missing")) // this should not happen due to validation
 	}
-	apiExportClusterName := org.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName)
 
 	// Access check
 	if err := o.checkAPIExportAccess(ctx, a.GetUserInfo(), apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName); err != nil {

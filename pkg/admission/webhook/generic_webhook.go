@@ -89,12 +89,6 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 }
 
 func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
-	parentClusterName, hasParent := clusterName.Parent()
-	if !hasParent {
-		// APIBindings in root are not possible (they can only point to sibling workspaces).
-		return logicalcluster.New(""), false, nil
-	}
-
 	objs, err := p.apiBindingsIndexer.ByIndex(byWorkspaceIndex, clusterName.String())
 	if err != nil {
 		return logicalcluster.New(""), false, err
@@ -108,7 +102,8 @@ func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, cl
 				continue
 			}
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				return parentClusterName.Join(apiBinding.Status.BoundAPIExport.Workspace.WorkspaceName), true, nil
+				clusterRef, ok := apiBinding.Status.BoundAPIExport.Workspace.GetLogicalCluster(clusterName)
+				return clusterRef, ok, nil
 			}
 		}
 	}

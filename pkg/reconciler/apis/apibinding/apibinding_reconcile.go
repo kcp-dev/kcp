@@ -520,15 +520,17 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 }
 
 func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.Name, error) {
-	parent, hasParent := logicalcluster.From(apiBinding).Parent()
-	if !hasParent {
-		return logicalcluster.Name{}, fmt.Errorf("a APIBinding in %s cannot reference a workspace", logicalcluster.From(apiBinding))
-	}
 	if apiBinding.Spec.Reference.Workspace == nil {
 		// cannot happen due to APIBinding validation
 		return logicalcluster.Name{}, fmt.Errorf("APIBinding does not specify an APIExport")
 	}
-	return parent.Join(apiBinding.Spec.Reference.Workspace.WorkspaceName), nil
+
+	exportRef, ok := apiBinding.Spec.Reference.Workspace.GetLogicalCluster(logicalcluster.From(apiBinding))
+	if !ok {
+		// this will never happen due to validation
+		return logicalcluster.Name{}, fmt.Errorf("invalid export reference")
+	}
+	return exportRef, nil
 }
 
 func referencedAPIExportChanged(apiBinding *apisv1alpha1.APIBinding) bool {
