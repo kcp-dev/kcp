@@ -109,7 +109,7 @@ const (
 	// instead of state.internal.workloads.kcp.dev/<workload-cluster-name> which is used upstream.
 	InternalDownstreamClusterLabel = "internal.workloads.kcp.dev/cluster"
 
-	// SchedulingDisabledLabel on a namespace disables workload placement and scheduling.
+	// SchedulingDisabledLabel on a namespace with value "true" disables workload placement and scheduling.
 	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
 
 	// WorkspaceSchedulableLabel on a workspace enables scheduling for the contents
