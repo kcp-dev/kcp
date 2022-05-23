@@ -18,6 +18,7 @@
 # https://github.com/kubernetes-sigs/cluster-api-provider-gcp/blob/c26a68b23e9317323d5d37660fe9d29b3d2ff40c/scripts/go_install.sh
 
 set -o errexit
+set -o nounset
 set -o pipefail
 
 if [ -z "${1}" ]; then
