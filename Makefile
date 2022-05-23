@@ -69,8 +69,8 @@ build: ## Build the project
 .PHONY: build
 
 .PHONY: build-all
-build-all: WHAT := ./cmd/...
-build-all: build
+build-all:
+	@$(MAKE) build WHAT=./cmd/...
 
 install: WHAT ?= ./cmd/...
 install:
