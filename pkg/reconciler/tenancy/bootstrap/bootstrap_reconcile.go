@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	typeInitializerKeyDomain = "initializers.tenancy.kcp.dev"
+	typeInitializerKeyDomain = "tenancy.kcp.dev"
 )
 
 func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
