@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apireconciler
+package internalapis
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +34,7 @@ func init() {
 	schemes := []*runtime.Scheme{legacyscheme.Scheme}
 	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
 
-	if apis, err := apidefinition.ImportInternalAPIs(schemes, openAPIDefinitionsGetters, apidefinition.KCPInternalAPIs...); err != nil {
+	if apis, err := ImportInternalAPIs(schemes, openAPIDefinitionsGetters, KCPInternalAPIs...); err != nil {
 		panic(err)
 	} else {
 		internalAPIs = apis
