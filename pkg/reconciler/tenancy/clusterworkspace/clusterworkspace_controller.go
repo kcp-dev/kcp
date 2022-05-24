@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -223,7 +224,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("invalid key: %q: %v", key, err)
 		return nil
@@ -240,6 +241,35 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	previous := obj
 	obj = obj.DeepCopy()
 
+	reconcileMetadata(obj)
+
+	// If the object being reconciled changed as a result, update it.
+	if !equality.Semantic.DeepEqual(previous.ObjectMeta, obj.ObjectMeta) {
+		// to ensure they appear in the patch as preconditions
+		previous.ObjectMeta.UID = ""
+		previous.ObjectMeta.ResourceVersion = ""
+		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
+			ObjectMeta: previous.ObjectMeta,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to Marshal old data for workspace %s|%s: %w", clusterName, name, err)
+		}
+
+		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
+			ObjectMeta: obj.ObjectMeta,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to Marshal new data for workspace %s|%s: %w", clusterName, name, err)
+		}
+
+		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return fmt.Errorf("failed to create patch for workspace %s|%s: %w", clusterName, name, err)
+		}
+		_, uerr := c.kcpClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		return uerr
+	}
+
 	if err := c.reconcile(ctx, obj); err != nil {
 		return err
 	}
@@ -250,7 +280,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: previous.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal old data for workspace %s|%s: %w", clusterName, name, err)
 		}
 
 		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
@@ -261,18 +291,40 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal new data for workspace %s|%s: %w", clusterName, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to create patch for workspace %s|%s: %w", clusterName, name, err)
 		}
 		_, uerr := c.kcpClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
 	return nil
+}
+
+func reconcileMetadata(workspace *tenancyv1alpha1.ClusterWorkspace) {
+	if workspace.Labels == nil {
+		workspace.Labels = map[string]string{}
+	}
+	workspace.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel] = string(workspace.Status.Phase)
+
+	initializerKeys := sets.NewString()
+	for _, initializer := range workspace.Status.Initializers {
+		key := string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
+		initializerKeys.Insert(key)
+		workspace.Labels[key] = ""
+	}
+
+	for key := range workspace.Labels {
+		if strings.HasPrefix(key, tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix) {
+			if !initializerKeys.Has(key) {
+				delete(workspace.Labels, key)
+			}
+		}
+	}
 }
 
 func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {

@@ -21,12 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	labelvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
@@ -62,7 +60,6 @@ type clusterWorkspace struct {
 
 // Ensure that the required admission interfaces are implemented.
 var _ admission.ValidationInterface = &clusterWorkspace{}
-var _ admission.MutationInterface = &clusterWorkspace{}
 
 var phaseOrdinal = map[tenancyv1alpha1.ClusterWorkspacePhaseType]int{
 	tenancyv1alpha1.ClusterWorkspacePhaseType(""):     1,
@@ -87,6 +84,13 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 	cw := &tenancyv1alpha1.ClusterWorkspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
+	}
+
+	for i, initializer := range cw.Status.Initializers {
+		key := string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
+		if len(key) > labelvalidation.LabelValueMaxLength {
+			return admission.NewForbidden(a, fmt.Errorf("status.initializers[%d] must be shorter than %d characters", i, labelvalidation.LabelValueMaxLength-len(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix)))
+		}
 	}
 
 	if a.GetOperation() == admission.Update {
@@ -132,50 +136,5 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 		}
 	}
 
-	return nil
-}
-
-func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
-	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
-		return nil
-	}
-
-	u, ok := a.GetObject().(*unstructured.Unstructured)
-	if !ok {
-		return fmt.Errorf("unexpected type %T", a.GetObject())
-	}
-	cw := &tenancyv1alpha1.ClusterWorkspace{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
-		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
-	}
-
-	if cw.Labels == nil {
-		cw.Labels = map[string]string{}
-	}
-	cw.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel] = string(cw.Status.Phase)
-
-	initializerKeys := sets.NewString()
-	for i, initializer := range cw.Status.Initializers {
-		key := string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
-		if len(key) > labelvalidation.LabelValueMaxLength {
-			return admission.NewForbidden(a, fmt.Errorf("status.initializers[%d] must be shorter than %d characters", i, labelvalidation.LabelValueMaxLength-len(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix)))
-		}
-		initializerKeys.Insert(key)
-		cw.Labels[key] = ""
-	}
-
-	for key := range cw.Labels {
-		if strings.HasPrefix(key, tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix) {
-			if !initializerKeys.Has(key) {
-				delete(cw.Labels, key)
-			}
-		}
-	}
-
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
-	if err != nil {
-		return err
-	}
-	u.Object = raw
 	return nil
 }
