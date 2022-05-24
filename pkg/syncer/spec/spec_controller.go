@@ -38,6 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
+	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 const (
@@ -111,7 +112,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 
 		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			DeleteFunc: func(obj interface{}) {
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+				key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
 				if err != nil {
 					runtime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
 					return
