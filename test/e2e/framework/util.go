@@ -31,6 +31,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
@@ -337,4 +338,20 @@ func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName l
 		},
 		CurrentContext: contextName,
 	}
+}
+
+func Eventually(t *testing.T, condition func() (bool, string), waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+	t.Helper()
+
+	var last string
+	require.Eventually(t, func() bool {
+		t.Helper()
+
+		ok, msg := condition()
+		if !ok && msg != "" && msg != last {
+			last = msg
+			t.Logf("Waiting for condition, but got: %s", msg)
+		}
+		return ok
+	}, waitFor, tick, msgAndArgs...)
 }
