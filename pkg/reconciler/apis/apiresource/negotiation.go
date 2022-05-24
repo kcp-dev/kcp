@@ -458,7 +458,9 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 
 	var apiResourceImportUpdateStatusFuncs []func() error
 
-	for _, apiResourceImport := range apiResourcesImports {
+	for i := range apiResourcesImports {
+		apiResourceImport := apiResourcesImports[i].DeepCopy()
+
 		if newNegotiatedAPIResource == nil {
 			newNegotiatedAPIResource = &apiresourcev1alpha1.NegotiatedAPIResource{
 				ObjectMeta: metav1.ObjectMeta{
