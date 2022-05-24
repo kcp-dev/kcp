@@ -114,15 +114,22 @@ func TestScheduling(t *testing.T) {
 		return len(resources.Items) > 0
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	t.Log("Create an APIExport in the negotiation domain")
-	export := &apisv1alpha1.APIExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubernetes",
-		},
-		Spec: apisv1alpha1.APIExportSpec{},
-	}
-	_, err = kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
-	require.NoError(t, err)
+	t.Log("Wait for \"kubernetes\" apiexport")
+	var export *apisv1alpha1.APIExport
+	require.Eventually(t, func() bool {
+		export, err = kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Log("Wait for \"kubernetes\" apibinding that is bound")
+	require.Eventually(t, func() bool {
+		binding, err := kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
+		if err != nil {
+			klog.Error(err)
+			return false
+		}
+		return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for APIResourceSchemas to show up in the negotiation workspace")
 	require.Eventually(t, func() bool {
