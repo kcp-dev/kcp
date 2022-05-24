@@ -64,5 +64,12 @@ func toAPIResourceSchema(r *v1alpha1.NegotiatedAPIResource, name string) *apisv1
 		}
 	}
 	schema.Spec.Versions[0].AdditionalPrinterColumns = r.Spec.CommonAPIResourceSpec.ColumnDefinitions.ToCustomResourceColumnDefinitions()
+
+	if value, found := r.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; found {
+		schema.Annotations = map[string]string{
+			apiextensionsv1.KubeAPIApprovedAnnotation: value,
+		}
+	}
+
 	return schema
 }

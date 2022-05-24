@@ -486,6 +486,9 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 				Reason:  "",
 				Message: "",
 			})
+			if value, found := apiResourceImport.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; found {
+				newNegotiatedAPIResource.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
+			}
 		} else {
 			allowUpdateNegotiatedSchema := !newNegotiatedAPIResource.IsConditionTrue(apiresourcev1alpha1.Enforced) &&
 				apiResourceImport.Spec.SchemaUpdateStrategy.CanUpdate(newNegotiatedAPIResource.IsConditionTrue(apiresourcev1alpha1.Published))

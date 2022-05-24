@@ -255,7 +255,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				scaleSubResource = nil
 			}
 
-			crd = &apiextensionsv1.CustomResourceDefinition{
+			publishedCRD := &apiextensionsv1.CustomResourceDefinition{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CustomResourceDefinition",
 					APIVersion: "apiextensions.k8s.io/v1",
@@ -292,9 +292,9 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				},
 			}
 			if len(additionalPrinterColumns) != 0 {
-				crd.Spec.Versions[0].AdditionalPrinterColumns = additionalPrinterColumns
+				publishedCRD.Spec.Versions[0].AdditionalPrinterColumns = additionalPrinterColumns
 			}
-			apiextensionsv1.SetDefaults_CustomResourceDefinition(crd)
+			apiextensionsv1.SetDefaults_CustomResourceDefinition(publishedCRD)
 
 			// In Kubernetes, to make it clear to the API consumer that APIs in *.k8s.io or *.kubernetes.io domains
 			// should be following all quality standards of core Kubernetes, CRDs under these domains
@@ -306,9 +306,15 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 			// But to please this Kubernetes approval requirement, let's add the required annotation in imported CRDs
 			// with one of the KCP PRs that hacked Kubernetes CRD support for KCP.
 			if apihelpers.IsProtectedCommunityGroup(gv.Group) {
-				crd.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
+				value := "https://github.com/kcp-dev/kubernetes/pull/4"
+				if crd != nil {
+					if existing := crd.ObjectMeta.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; existing != "" {
+						value = existing
+					}
+				}
+				publishedCRD.ObjectMeta.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
 			}
-			crds[groupResource] = crd
+			crds[groupResource] = publishedCRD
 		}
 	}
 	return crds, nil
