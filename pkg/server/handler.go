@@ -127,12 +127,19 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		} else {
 			clusterName = logicalcluster.New(req.Header.Get("X-Kubernetes-Cluster"))
 		}
+
 		var cluster request.Cluster
+
+		// This is necessary so wildcard (cross-cluster) partial metadata requests can succeed. The storage layer needs
+		// to know if a request is for partial metadata to be able to extract the cluster name from storage keys
+		// properly.
+		cluster.PartialMetadataRequest = isPartialMetadataRequest(req.Context())
+
 		switch {
 		case clusterName == logicalcluster.Wildcard:
 			// HACK: just a workaround for testing
 			cluster.Wildcard = true
-			//fallthrough
+			// fallthrough
 			cluster.Name = logicalcluster.Wildcard
 		case clusterName.Empty():
 			cluster.Name = genericcontrolplane.LocalAdminCluster
@@ -146,7 +153,9 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 			}
 			cluster.Name = clusterName
 		}
+
 		ctx := request.WithCluster(req.Context(), cluster)
+
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
@@ -187,6 +196,7 @@ func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		cluster := request.ClusterFrom(req.Context())
+
 		if cluster != nil && cluster.Wildcard {
 			requestInfo, ok := request.RequestInfoFrom(req.Context())
 			if !ok {
@@ -194,18 +204,23 @@ func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 					apierrors.NewInternalError(fmt.Errorf("missing requestInfo")),
 					errorCodecs, schema.GroupVersion{}, w, req,
 				)
+
 				return
 			}
+
 			if requestInfo.IsResourceRequest && !sets.NewString("list", "watch").Has(requestInfo.Verb) {
 				statusErr := apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb)
 				statusErr.ErrStatus.Message += " in the `*` logical cluster"
+
 				responsewriters.ErrorNegotiated(
 					statusErr,
 					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
 				)
+
 				return
 			}
 		}
+
 		apiHandler.ServeHTTP(w, req)
 	}
 }

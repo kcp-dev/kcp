@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -319,6 +320,10 @@ func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDe
 	// If crd was only partial metadata, make sure refreshed is too
 	if _, partialMetadata := crd.Annotations[annotationKeyPartialMetadata]; partialMetadata {
 		partialMetadataCRD(refreshed)
+
+		if strings.HasSuffix(string(crd.UID), ".wildcard.partial-metadata") {
+			refreshed.UID = crd.UID
+		}
 	}
 
 	return refreshed, nil
@@ -364,6 +369,10 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 	if isPartialMetadataRequest(ctx) {
 		crd = shallowCopyCRD(crd)
 		partialMetadataCRD(crd)
+
+		if clusterName == logicalcluster.Wildcard {
+			crd.UID = types.UID(name + ".wildcard.partial-metadata")
+		}
 	}
 
 	return crd, nil
@@ -619,10 +628,6 @@ func findCRD(name string, crds []*apiextensionsv1.CustomResourceDefinition) (*ap
 
 func findFirstCRDMatchingGroupResource(group, resource string, crds []*apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
 	for _, crd := range crds {
-		if _, bound := crd.Annotations[apisv1alpha1.AnnotationBoundCRDKey]; bound {
-			continue
-		}
-
 		if crd.Spec.Group == group && crd.Spec.Names.Plural == resource {
 			return crd
 		}

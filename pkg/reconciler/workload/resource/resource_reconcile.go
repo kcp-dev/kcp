@@ -76,6 +76,15 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return nil
 	}
 
+	// TODO(ncdc): wildcard partial metadata requests are now including CRs that come via APIBindings. Multiple e2e tests
+	// manually assign a scheduling label to a resource but not its namespace. The resources were getting synced based
+	// on the manually assigned label, and staying with that assignment. But now because wildcard partial metadata
+	// lists include these bound CRs, not having the namespace assigned is a problem. For now, don't unassign a
+	// resource that is scheduled if the namespace's assignment is unset.
+	if previousCluster != "" && newCluster == "" {
+		return nil
+	}
+
 	// Update the resource's assignment.
 	patchType, patchBytes, err := clusterLabelPatchBytes(previousCluster, newCluster)
 	if err != nil {

@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
@@ -242,8 +243,21 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		{
 			name: "access kcp resources through syncer virtual workspace",
 			work: func(ctx context.Context, t *testing.T, sourceConfig *rest.Config, kubelikeWorkspaceName, wildwestWorkspaceName logicalcluster.Name, kubelikeWorkspaceClient kubernetesclientset.Interface, wildwestWorkspaceClient wildwestclientset.Interface, kubelikeSyncerVirtualWorkspaceConfig, wildwestSyncerVirtualWorkspaceConfig *rest.Config, wildwestWorkloadClusterName string) {
+				t.Logf("Manually assign default namespace to wildwest workload cluster")
+				wildwestKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(sourceConfig)
+				require.NoError(t, err)
+				wildwestKubeClient := wildwestKubeClusterClient.Cluster(wildwestWorkspaceName)
+				ns, err := wildwestKubeClient.CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
+				require.NoError(t, err)
+				if ns.Labels == nil {
+					ns.Labels = map[string]string{}
+				}
+				ns.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+wildwestWorkloadClusterName] = "Sync"
+				_, err = wildwestKubeClient.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
+				require.NoError(t, err)
+
 				t.Log("Create cowboy luckyluke")
-				_, err := wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Create(ctx, &v1alpha1.Cowboy{
+				_, err = wildwestWorkspaceClient.WildwestV1alpha1().Cowboys("default").Create(ctx, &v1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 						Labels: map[string]string{
@@ -384,6 +398,16 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+				t.Logf("Manually assign default namespace to wildwest workload cluster")
+				ns, err := kubelikeWorkspaceClient.CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
+				require.NoError(t, err)
+				if ns.Labels == nil {
+					ns.Labels = map[string]string{}
+				}
+				ns.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+wildwestWorkloadClusterName] = "Sync"
+				_, err = kubelikeWorkspaceClient.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
+				require.NoError(t, err)
+
 				t.Log("Create cowboy luckyluke")
 
 				_, err = sourceWildwestClusterClient.Cluster(kubelikeWorkspaceName).WildwestV1alpha1().Cowboys("default").Create(ctx, &v1alpha1.Cowboy{
@@ -468,7 +492,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			sourceKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
-			kubelikeWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+			kubelikeWorkspace := framework.NewUnschedulableWorkspaceFixture(t, source, orgClusterName, "Universal")
 			kubelikeWorkspaceClient := sourceKubeClusterClient.Cluster(kubelikeWorkspace)
 
 			_ = framework.SyncerFixture{
@@ -544,7 +568,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			wildwestWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+			wildwestWorkspace := framework.NewUnschedulableWorkspaceFixture(t, source, orgClusterName, "Universal")
 			wildwestWorkspaceClient := sourceWildwestClusterClient.Cluster(wildwestWorkspace)
 			wildwestWorkloadClusterName := fmt.Sprintf("wildwest-%d", +rand.Intn(1000000))
 
@@ -590,11 +614,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			kubelikeVirtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "kubelike", nil, nil).ClientConfig()
 			require.NoError(t, err)
 			wildwestVirtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "wildwest", nil, nil).ClientConfig()
-			require.NoError(t, err)
-
-			_, err = sourceKubeClusterClient.Cluster(kubelikeWorkspace).CoreV1().Namespaces().Patch(ctx, "default", types.StrategicMergePatchType, []byte("{\"metadata\":{\"labels\":{\"experimental.workloads.kcp.dev/scheduling-disabled\":\"true\"}}}"), metav1.PatchOptions{})
-			require.NoError(t, err)
-			_, err = sourceKubeClusterClient.Cluster(wildwestWorkspace).CoreV1().Namespaces().Patch(ctx, "default", types.StrategicMergePatchType, []byte("{\"metadata\":{\"labels\":{\"experimental.workloads.kcp.dev/scheduling-disabled\":\"true\"}}}"), metav1.PatchOptions{})
 			require.NoError(t, err)
 
 			t.Log("Starting test...")
