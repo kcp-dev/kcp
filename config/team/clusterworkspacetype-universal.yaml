@@ -4,6 +4,6 @@ metadata:
   name: universal
 spec:
   initializers:
-  - initializers.tenancy.kcp.dev/universal
+  - tenancy.kcp.dev/universal
   additionalWorkspaceLabels:
     workloads.kcp.dev/schedulable: "true"

@@ -4,4 +4,4 @@ metadata:
   name: team
 spec:
   initializers:
-  - initializers.tenancy.kcp.dev/team
+  - tenancy.kcp.dev/team
