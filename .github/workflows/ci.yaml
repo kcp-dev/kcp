@@ -176,7 +176,7 @@ jobs:
           kind get kubeconfig > /tmp/kind-kubeconfig
           ARTIFACT_DIR=/tmp/e2e \
           PATH="${PATH}:$(pwd)/bin/" \
-          TEST_ARGS="./test/e2e... -args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --kcp-test-image=$(cat /tmp/kcp-test-image) --pcluster-kubeconfig=/tmp/kind-kubeconfig" \
+          TEST_ARGS="-args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --kcp-test-image=$(cat /tmp/kcp-test-image) --pcluster-kubeconfig=/tmp/kind-kubeconfig" \
           COUNT=2 \
           E2E_PARALLELISM=2 \
           make test-e2e
