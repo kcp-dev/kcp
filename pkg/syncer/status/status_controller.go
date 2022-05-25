@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -99,7 +100,7 @@ type queueKey struct {
 }
 
 func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
