@@ -151,11 +151,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		{
 			name: "isolated API domains per syncer",
 			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name) {
-				kubelikeVWDiscoverClient, err := clientgodiscovery.NewDiscoveryClientForConfig(kubelikeSyncerVWConfig)
+				kubelikeVWDiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(kubelikeSyncerVWConfig)
 				require.NoError(t, err)
 
 				t.Logf("Check discovery in kubelike virtual workspace")
-				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClient.ServerGroupsAndResources()
+				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
 				require.NoError(t, err)
 				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
 					deploymentsAPIResourceList(kubelikeClusterName.String()),
@@ -207,9 +207,9 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, sortAPIResourceList(kubelikeAPIResourceLists)))
 
 				t.Logf("Check discovery in wildwest virtual workspace")
-				wildwestVWDiscoverClient, err := clientgodiscovery.NewDiscoveryClientForConfig(wildwestSyncerVWConfig)
+				wildwestVWDiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(wildwestSyncerVWConfig)
 				require.NoError(t, err)
-				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClient.ServerGroupsAndResources()
+				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
 				require.NoError(t, err)
 				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
 					deploymentsAPIResourceList(wildwestClusterName.String()),
