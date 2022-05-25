@@ -49,7 +49,7 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/strfmt"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 )
 
@@ -58,16 +58,22 @@ var _ apidefinition.APIDefinition = (*servingInfo)(nil)
 // RestProviderFunc is the type of a function that builds REST storage implementations for the main resource and sub-resources, based on informations passed by the resource handler about a given API.
 type RestProviderFunc func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage)
 
-// CreateServingInfoFor method can be used by external components at any time to create an APIDefinition and add it to an APISetRetriever
-func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logicalClusterName logicalcluster.Name, apiResourceSpec *apiresourcev1alpha1.CommonAPIResourceSpec, restProvider RestProviderFunc) (apidefinition.APIDefinition, error) {
+// CreateServingInfoFor builds an APIDefinition for a apiResourceSchema.
+func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, restProvider RestProviderFunc) (apidefinition.APIDefinition, error) {
 	equivalentResourceRegistry := runtime.NewEquivalentResourceRegistry()
 
-	v1OpenAPISchema, err := apiResourceSpec.GetSchema()
+	// find given version in schema
+	apiResourceVersion, found := findAPIResourceVersion(apiResourceSchema, version)
+	if !found {
+		return nil, fmt.Errorf("version %q not found in APIResourceSchema %s|%s", version, logicalcluster.From(apiResourceSchema), apiResourceSchema.Name)
+	}
+
+	internalSchema := &apiextensionsinternal.JSONSchemaProps{}
+	openapiSchema, err := apiResourceVersion.GetSchema()
 	if err != nil {
 		return nil, err
 	}
-	internalSchema := &apiextensionsinternal.JSONSchemaProps{}
-	if err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(v1OpenAPISchema, internalSchema, nil); err != nil {
+	if err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(openapiSchema, internalSchema, nil); err != nil {
 		return nil, fmt.Errorf("failed converting CRD validation to internal version: %w", err)
 	}
 	structuralSchema, err := structuralschema.NewStructural(internalSchema)
@@ -80,18 +86,19 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 	// we don't own structuralSchema completely, e.g. defaults are not deep-copied. So better make a copy here.
 	structuralSchema = structuralSchema.DeepCopy()
 
-	resource := schema.GroupVersionResource{Group: apiResourceSpec.GroupVersion.Group, Version: apiResourceSpec.GroupVersion.Version, Resource: apiResourceSpec.Plural}
-	kind := schema.GroupVersionKind{Group: apiResourceSpec.GroupVersion.Group, Version: apiResourceSpec.GroupVersion.Version, Kind: apiResourceSpec.Kind}
-	listKind := schema.GroupVersionKind{Group: apiResourceSpec.GroupVersion.Group, Version: apiResourceSpec.GroupVersion.Version, Kind: apiResourceSpec.ListKind}
+	gvr := schema.GroupVersionResource{Group: apiResourceSchema.Spec.Group, Version: version, Resource: apiResourceSchema.Spec.Names.Plural}
+	gvk := schema.GroupVersionKind{Group: apiResourceSchema.Spec.Group, Version: version, Kind: apiResourceSchema.Spec.Names.Kind}
+	listGVK := schema.GroupVersionKind{Group: apiResourceSchema.Spec.Group, Version: version, Kind: apiResourceSchema.Spec.Names.ListKind}
 
 	if err := structuraldefaulting.PruneDefaults(structuralSchema); err != nil {
 		// This should never happen. If it does, it is a programming error.
-		utilruntime.HandleError(fmt.Errorf("failed to prune defaults for schema %s|%s: %w", logicalClusterName.String(), resource.String(), err))
+		utilruntime.HandleError(fmt.Errorf("failed to prune defaults for schema %s|%s: %w", logicalcluster.From(apiResourceSchema), gvr.String(), err))
 		return nil, fmt.Errorf("the server could not properly serve the CR schema") // validation should avoid this
 	}
 
 	s, err := buildOpenAPIV2(
-		apiResourceSpec,
+		apiResourceSchema,
+		apiResourceVersion,
 		builder.Options{
 			V2: true,
 			SkipFilterSchemaForKubectlOpenAPIV2Validation: true,
@@ -106,12 +113,12 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 
 	openAPIModels, err := utilopenapi.ToProtoModels(s)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("error building openapi models for %s: %w", kind.String(), err))
+		utilruntime.HandleError(fmt.Errorf("error building openapi models for %s: %w", gvk.String(), err))
 		openAPIModels = nil
 	} else {
 		modelsByGKV, err = openapi.GetModelsByGKV(openAPIModels)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("error gathering openapi models by GKV for %s: %w", kind.String(), err))
+			utilruntime.HandleError(fmt.Errorf("error gathering openapi models by GKV for %s: %w", gvk.String(), err))
 			modelsByGKV = nil
 		}
 	}
@@ -131,14 +138,14 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 	// In addition to Unstructured objects (Custom Resources), we also may sometimes need to
 	// decode unversioned Options objects, so we delegate to parameterScheme for such types.
 	parameterScheme := runtime.NewScheme()
-	parameterScheme.AddUnversionedTypes(schema.GroupVersion{Group: apiResourceSpec.GroupVersion.Group, Version: apiResourceSpec.GroupVersion.Version},
+	parameterScheme.AddUnversionedTypes(schema.GroupVersion{Group: apiResourceSchema.Spec.Group, Version: version},
 		&metav1.ListOptions{},
 		&metav1.GetOptions{},
 		&metav1.DeleteOptions{},
 	)
 	parameterCodec := runtime.NewParameterCodec(parameterScheme)
 
-	equivalentResourceRegistry.RegisterKindFor(resource, "", kind)
+	equivalentResourceRegistry.RegisterKindFor(gvr, "", gvk)
 
 	typer := apiextensionsapiserver.NewUnstructuredObjectTyper(parameterScheme)
 	creator := apiextensionsapiserver.UnstructuredCreator{}
@@ -153,9 +160,9 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 
 	subResourcesValidators := map[string]*validate.SchemaValidator{}
 
-	if subresources := apiResourceSpec.SubResources; subresources != nil && subresources.Contains("status") {
+	if status := apiResourceVersion.Subresources.Status; status != nil {
 		var statusValidator *validate.SchemaValidator
-		equivalentResourceRegistry.RegisterKindFor(resource, "status", kind)
+		equivalentResourceRegistry.RegisterKindFor(gvr, "status", gvk)
 		// for the status subresource, validate only against the status schema
 		if internalValidationSchema != nil && internalValidationSchema.OpenAPIV3Schema != nil && internalValidationSchema.OpenAPIV3Schema.Properties != nil {
 			if statusSchema, ok := internalValidationSchema.OpenAPIV3Schema.Properties["status"]; ok {
@@ -169,44 +176,44 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 		subResourcesValidators["status"] = statusValidator
 	}
 
-	table, err := tableconvertor.New(apiResourceSpec.ColumnDefinitions.ToCustomResourceColumnDefinitions())
+	table, err := tableconvertor.New(apiResourceVersion.AdditionalPrinterColumns)
 	if err != nil {
-		klog.V(2).Infof("The CRD for %s|%s has an invalid printer specification, falling back to default printing: %v", logicalClusterName.String(), kind.String(), err)
+		klog.V(2).Infof("The CRD for %s|%s has an invalid printer specification, falling back to default printing: %v", logicalcluster.From(apiResourceSchema), gvk.String(), err)
 	}
 
 	storage, subresourceStorages := restProvider(
-		resource,
-		kind,
-		listKind,
+		gvr,
+		gvk,
+		listGVK,
 		typer,
 		table,
-		apiResourceSpec.Scope == apiextensionsv1.NamespaceScoped,
+		apiResourceSchema.Spec.Scope == apiextensionsv1.NamespaceScoped,
 		validator,
 		subResourcesValidators,
 		structuralSchema,
 	)
 
-	selfLinkPrefixPrefix := path.Join("apis", apiResourceSpec.GroupVersion.Group, apiResourceSpec.GroupVersion.Version)
-	if apiResourceSpec.GroupVersion.Group == "" {
-		selfLinkPrefixPrefix = path.Join("api", apiResourceSpec.GroupVersion.Version)
+	selfLinkPrefixPrefix := path.Join("apis", apiResourceSchema.Spec.Group, version)
+	if apiResourceSchema.Spec.Group == "" {
+		selfLinkPrefixPrefix = path.Join("api", version)
 	}
 	selfLinkPrefix := ""
-	switch apiResourceSpec.Scope {
+	switch apiResourceSchema.Spec.Scope {
 	case apiextensionsv1.ClusterScoped:
-		selfLinkPrefix = "/" + selfLinkPrefixPrefix + "/" + apiResourceSpec.Plural + "/"
+		selfLinkPrefix = "/" + selfLinkPrefixPrefix + "/" + apiResourceSchema.Spec.Names.Plural + "/"
 	case apiextensionsv1.NamespaceScoped:
 		selfLinkPrefix = "/" + selfLinkPrefixPrefix + "/namespaces/"
 	}
 
-	clusterScoped := apiResourceSpec.Scope == apiextensionsv1.ClusterScoped
+	clusterScoped := apiResourceSchema.Spec.Scope == apiextensionsv1.ClusterScoped
 
 	// CRDs explicitly do not support protobuf, but some objects returned by the API server do
 	negotiatedSerializer := apiextensionsapiserver.NewUnstructuredNegotiatedSerializer(
 		typer,
 		creator,
 		safeConverter,
-		map[string]*structuralschema.Structural{kind.Version: structuralSchema},
-		kind.GroupKind(),
+		map[string]*structuralschema.Structural{gvk.Version: structuralSchema},
+		gvk.GroupKind(),
 		false,
 	)
 	var standardSerializers []runtime.SerializerInfo
@@ -230,15 +237,15 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 		Convertor:           safeConverter,
 		Defaulter: apiextensionsapiserver.NewUnstructuredDefaulter(
 			parameterScheme,
-			map[string]*structuralschema.Structural{kind.Version: structuralSchema},
-			kind.GroupKind(),
+			map[string]*structuralschema.Structural{gvk.Version: structuralSchema},
+			gvk.GroupKind(),
 		),
 		Typer:                    typer,
 		UnsafeConvertor:          unsafeConverter,
 		EquivalentResourceMapper: equivalentResourceRegistry,
-		Resource:                 resource,
-		Kind:                     kind,
-		HubGroupVersion:          kind.GroupVersion(),
+		Resource:                 gvr,
+		Kind:                     gvk,
+		HubGroupVersion:          gvk.GroupVersion(),
 		MetaGroupVersion:         metav1.SchemeGroupVersion,
 		TableConvertor:           table,
 		Authorizer:               genericConfig.Authorization.Authorizer,
@@ -261,7 +268,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 			}
 			requestScope = &reqScope
 		} else {
-			return nil, fmt.Errorf("storage for resource %q should define GetResetFields", kind.String())
+			return nil, fmt.Errorf("storage for resource %q should define GetResetFields", gvk.String())
 		}
 	}
 
@@ -291,27 +298,27 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, logica
 					return nil, err
 				}
 			} else {
-				return nil, fmt.Errorf("storage for resource %q status should define GetResetFields", kind.String())
+				return nil, fmt.Errorf("storage for resource %q status should define GetResetFields", gvk.String())
 			}
 		}
 	}
 
 	ret := &servingInfo{
-		logicalClusterName: logicalClusterName,
-		apiResourceSpec:    apiResourceSpec,
+		apiResourceSchema:  apiResourceSchema,
 		storage:            storage,
 		statusStorage:      statusStorage,
 		requestScope:       requestScope,
 		statusRequestScope: &statusScope,
+		logicalClusterName: logicalcluster.From(apiResourceSchema),
 	}
 
 	return ret, nil
 }
 
-// servingInfo stores enough information to serve the storage for the apiResourceSpec
+// servingInfo stores enough information to serve the storage for the apiResourceSchema
 type servingInfo struct {
 	logicalClusterName logicalcluster.Name
-	apiResourceSpec    *apiresourcev1alpha1.CommonAPIResourceSpec
+	apiResourceSchema  *apisv1alpha1.APIResourceSchema
 
 	storage       rest.Storage
 	statusStorage rest.Storage
@@ -322,8 +329,8 @@ type servingInfo struct {
 
 // Implement APIDefinition interface
 
-func (apiDef *servingInfo) GetAPIResourceSpec() *apiresourcev1alpha1.CommonAPIResourceSpec {
-	return apiDef.apiResourceSpec
+func (apiDef *servingInfo) GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema {
+	return apiDef.apiResourceSchema
 }
 func (apiDef *servingInfo) GetClusterName() logicalcluster.Name {
 	return apiDef.logicalClusterName
@@ -373,39 +380,35 @@ func (u nopConverter) ConvertFieldLabel(gvk schema.GroupVersionKind, label, valu
 }
 
 // buildOpenAPIV2 builds OpenAPI v2 for the given apiResourceSpec
-func buildOpenAPIV2(apiResourceSpec *apiresourcev1alpha1.CommonAPIResourceSpec, opts builder.Options) (*spec.Swagger, error) {
-	version := apiResourceSpec.GroupVersion.Version
-	schema, err := apiResourceSpec.GetSchema()
+func buildOpenAPIV2(apiResourceSchema *apisv1alpha1.APIResourceSchema, apiResourceVersion *apisv1alpha1.APIResourceVersion, opts builder.Options) (*spec.Swagger, error) {
+	openapiSchema, err := apiResourceVersion.GetSchema()
 	if err != nil {
 		return nil, err
 	}
-	var subResources apiextensionsv1.CustomResourceSubresources
-	for _, subResource := range apiResourceSpec.SubResources {
-		if subResource.Name == "scale" {
-			subResources.Scale = &apiextensionsv1.CustomResourceSubresourceScale{
-				SpecReplicasPath:   ".spec.replicas",
-				StatusReplicasPath: ".status.replicas",
-			}
-		}
-		if subResource.Name == "status" {
-			subResources.Status = &apiextensionsv1.CustomResourceSubresourceStatus{}
-		}
-	}
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: apiResourceSpec.GroupVersion.Group,
-			Names: apiResourceSpec.CustomResourceDefinitionNames,
+			Group: apiResourceSchema.Spec.Group,
+			Names: apiResourceSchema.Spec.Names,
 			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
 				{
-					Name: version,
+					Name: apiResourceVersion.Name,
 					Schema: &apiextensionsv1.CustomResourceValidation{
-						OpenAPIV3Schema: schema,
+						OpenAPIV3Schema: openapiSchema,
 					},
-					Subresources: &subResources,
+					Subresources: &apiResourceVersion.Subresources,
 				},
 			},
-			Scope: apiResourceSpec.Scope,
+			Scope: apiResourceSchema.Spec.Scope,
 		},
 	}
-	return builder.BuildOpenAPIV2(crd, version, opts)
+	return builder.BuildOpenAPIV2(crd, apiResourceVersion.Name, opts)
+}
+
+func findAPIResourceVersion(schema *apisv1alpha1.APIResourceSchema, version string) (*apisv1alpha1.APIResourceVersion, bool) {
+	for i := range schema.Spec.Versions {
+		if vs := &schema.Spec.Versions[i]; vs.Name == version {
+			return vs, true
+		}
+	}
+	return nil, false
 }

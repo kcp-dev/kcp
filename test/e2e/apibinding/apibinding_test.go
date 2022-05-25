@@ -29,7 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -220,4 +223,32 @@ func TestAPIBinding(t *testing.T) {
 
 	t.Logf("Verify that consumer workspace 3 (%q) bound to service provider workspace 2 (%q) wildcard list works", consumer3Workspace, serviceProvider2Workspace)
 	verifyWildcardList(consumer3Workspace, 1)
+
+	t.Logf("Smoke test virtual workspace with explicit workspace")
+	rawConfig, err := server.RawConfig()
+	require.NoError(t, err)
+	vwClusterClient, err := dynamic.NewClusterForConfig(apiexportVWConfig(t, rawConfig, serviceProvider2Workspace, "today-cowboys"))
+	require.NoError(t, err)
+	gvr := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys")
+	list, err := vwClusterClient.Cluster(consumer3Workspace).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing through virtual workspace with explicit workspace")
+	require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with explicit workspace")
+
+	t.Logf("Smoke test virtual workspace with wildcard")
+	list, err = vwClusterClient.Cluster(logicalcluster.Wildcard).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing through virtual workspace wildcard")
+	require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
+}
+
+func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, clusterName logicalcluster.Name, apiexportName string) *rest.Config {
+	virtualWorkspaceRawConfig := kubeconfig.DeepCopy()
+	virtualWorkspaceRawConfig.Clusters["apiexport"] = kubeconfig.Clusters["system:admin"].DeepCopy()
+	virtualWorkspaceRawConfig.Clusters["apiexport"].Server = fmt.Sprintf("%s/services/apiexport/%s/%s/", kubeconfig.Clusters["system:admin"].Server, clusterName.String(), apiexportName)
+	virtualWorkspaceRawConfig.Contexts["apiexport"] = kubeconfig.Contexts["system:admin"].DeepCopy()
+	virtualWorkspaceRawConfig.Contexts["apiexport"].Cluster = "apiexport"
+
+	config, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "apiexport", nil, nil).ClientConfig()
+	require.NoError(t, err)
+
+	return config
 }

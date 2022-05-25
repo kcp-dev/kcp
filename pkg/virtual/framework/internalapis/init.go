@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apireconciler
+package internalapis
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,20 +23,19 @@ import (
 	_ "k8s.io/kubernetes/pkg/apis/core/install"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-// internalAPIs contains a list of internal APIs that should be exposed for the syncer of any WorkloadCluster.
-var internalAPIs []*apiresourcev1alpha1.CommonAPIResourceSpec
+// Schemas contains a list of internal APIs that should be exposed for the syncer of any WorkloadCluster.
+var Schemas []*apisv1alpha1.APIResourceSchema
 
 func init() {
 	schemes := []*runtime.Scheme{legacyscheme.Scheme}
 	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
 
-	if apis, err := apidefinition.ImportInternalAPIs(schemes, openAPIDefinitionsGetters, apidefinition.KCPInternalAPIs...); err != nil {
+	if apis, err := createAPIResourceSchemas(schemes, openAPIDefinitionsGetters, KCPInternalAPIs...); err != nil {
 		panic(err)
 	} else {
-		internalAPIs = apis
+		Schemas = apis
 	}
 }

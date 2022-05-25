@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apidefinition
+package internalapis
 
 import (
 	"embed"
@@ -79,17 +79,17 @@ func TestImportInternalAPIs(t *testing.T) {
 	tenancyScheme := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(tenancyScheme)
 	require.NoError(t, err)
-	importedAPISpecs, err := ImportInternalAPIs(
+	schemas, err := createAPIResourceSchemas(
 		[]*runtime.Scheme{legacyscheme.Scheme, tenancyScheme},
 		[]common.GetOpenAPIDefinitions{k8sopenapi.GetOpenAPIDefinitions, kcpopenapi.GetOpenAPIDefinitions},
 		apisToImport...)
 	require.NoError(t, err)
-	require.Len(t, importedAPISpecs, 3)
-	for _, importedAPISpec := range importedAPISpecs {
-		expectedContent, err := embeddedResources.ReadFile(path.Join("fixtures", importedAPISpec.Plural+".yaml"))
+	require.Len(t, schemas, 3)
+	for _, schema := range schemas {
+		expectedContent, err := embeddedResources.ReadFile(path.Join("fixtures", schema.Spec.Names.Plural+".yaml"))
 		require.NoError(t, err)
-		actualContent, err := yaml.Marshal(importedAPISpec)
+		actualContent, err := yaml.Marshal(schema)
 		require.NoError(t, err)
-		assert.Equal(t, string(expectedContent), string(actualContent))
+		assert.Equal(t, string(expectedContent), string(actualContent), "got:\n%s", string(actualContent))
 	}
 }

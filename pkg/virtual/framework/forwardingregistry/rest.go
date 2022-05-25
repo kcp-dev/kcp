@@ -41,6 +41,9 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 	if patchConflictRetryBackoff == nil {
 		patchConflictRetryBackoff = &retry.DefaultRetry
 	}
+	if wrapper == nil {
+		wrapper = func(_ schema.GroupResource, funcs *StoreFuncs) *StoreFuncs { return funcs }
+	}
 
 	factory := func() runtime.Object {
 		// set the expected group/version/kind in the new object as a signal to the versioning decoder

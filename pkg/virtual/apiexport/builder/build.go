@@ -19,6 +19,7 @@ package builder
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
@@ -27,72 +28,69 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
+	virtualdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
 )
 
-const SyncerVirtualWorkspaceName string = "syncer"
+const VirtualWorkspaceName string = "apiexport"
 
-// BuildVirtualWorkspace builds a SyncerVirtualWorkspace by instanciating a DynamicVirtualWorkspace which, combined with a
-// ForwardingREST REST storage implementation, serves a WorkloadClusterAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) framework.VirtualWorkspace {
-
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
 
 	readyCh := make(chan struct{})
 
-	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		Name: SyncerVirtualWorkspaceName,
-		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			select {
-			case <-readyCh:
-			default:
-				return
-			}
+	return &virtualdynamic.DynamicVirtualWorkspace{
+		Name: VirtualWorkspaceName,
 
+		RootPathResolver: func(path string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			completedContext = requestContext
-			if !strings.HasPrefix(urlPath, rootPathPrefix) {
+
+			if !strings.HasPrefix(path, rootPathPrefix) {
 				return
 			}
-			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 			// Incoming requests to this virtual workspace will look like:
-			//  /services/syncer/root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
-			//                  └───────────────────────────┐
+			//  /services/apiexport/root:org:ws/<apiexport-name>/clusters/*/api/v1/configmaps
+			//                     └────────────────────────┐
 			// Where the withoutRootPathPrefix starts here: ┘
+			withoutRootPathPrefix := strings.TrimPrefix(path, rootPathPrefix)
+
 			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
-			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+			if len(parts) < 3 {
 				return
 			}
-			workloadCusterName := parts[1]
-			apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), workloadCusterName))
+
+			apiExportClusterName, apiExportName := parts[0], parts[1]
+			if apiExportClusterName == "" {
+				return
+			}
+			if apiExportName == "" {
+				return
+			}
 
 			realPath := "/"
 			if len(parts) > 2 {
 				realPath += parts[2]
 			}
 
-			//  /services/syncer/root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
-			//                  ┌───────────────────────────────────┘
-			// We are now here: ┘
+			//  /services/apiexport/root:org:ws/<apiexport-name>/clusters/*/api/v1/configmaps
+			//                     ┌────────────────────────────┘
+			// We are now here: ───┘
 			// Now, we parse out the logical cluster.
 			if !strings.HasPrefix(realPath, "/clusters/") {
 				return // don't accept
@@ -111,32 +109,32 @@ func BuildVirtualWorkspace(
 			}
 
 			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			completedContext = syncercontext.WithWorkloadClusterName(completedContext, workloadCusterName)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
-			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
+			key := fmt.Sprintf("%s/%s", apiExportClusterName, apiExportName)
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, dynamiccontext.APIDomainKey(key))
+
+			prefixToStrip = strings.TrimSuffix(path, realPath)
 			accepted = true
+
 			return
 		},
+
 		Ready: func() error {
 			select {
 			case <-readyCh:
 				return nil
 			default:
-				return errors.New("syncer virtual workspace controllers are not started")
+				return errors.New("apiexport virtual workspace controllers are not started")
 			}
 		},
+
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
-				wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters(),
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(workloadClusterName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageWrapper := WithLabelSelector(map[string]string{
-						workloadv1alpha1.InternalClusterResourceStateLabelPrefix + workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
-					})
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
+					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, nil)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -156,7 +154,6 @@ func BuildVirtualWorkspace(
 				defer close(readyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
-					"workloadclusters":   wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer(),
 					"apiresourceschemas": wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 					"apiexports":         wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
 				} {

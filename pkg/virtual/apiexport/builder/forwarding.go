@@ -18,18 +18,12 @@ package builder
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/kube-openapi/pkg/validation/validate"
@@ -115,6 +109,9 @@ func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterfa
 			registry.ListerFunc
 			registry.UpdaterFunc
 			registry.WatcherFunc
+			registry.CreaterFunc
+			registry.CollectionDeleterFunc
+			registry.GracefulDeleterFunc
 
 			registry.TableConvertorFunc
 			registry.CategoriesProviderFunc
@@ -124,67 +121,17 @@ func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterfa
 			ListFactoryFunc: storage.ListFactoryFunc,
 			DestroyerFunc:   storage.DestroyerFunc,
 
-			GetterFunc:  storage.GetterFunc,
-			ListerFunc:  storage.ListerFunc,
-			UpdaterFunc: storage.UpdaterFunc,
-			WatcherFunc: storage.WatcherFunc,
+			GetterFunc:            storage.GetterFunc,
+			ListerFunc:            storage.ListerFunc,
+			UpdaterFunc:           storage.UpdaterFunc,
+			WatcherFunc:           storage.WatcherFunc,
+			CreaterFunc:           storage.CreaterFunc,
+			CollectionDeleterFunc: storage.CollectionDeleterFunc,
+			GracefulDeleterFunc:   storage.GracefulDeleterFunc,
 
 			TableConvertorFunc:      storage.TableConvertorFunc,
 			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
 			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
 		}, subresourceStorages
-	}
-}
-
-// WithLabelSelector returns a storage wrapper that implement label based filtering.
-func WithLabelSelector(labelSelector map[string]string) registry.StorageWrapper {
-	return func(resource schema.GroupResource, storage *registry.StoreFuncs) *registry.StoreFuncs {
-		requirements, selectable := labels.SelectorFromSet(labels.Set(labelSelector)).Requirements()
-		if !selectable {
-			// we can't return an error here since this ends up inside of the k8s apiserver code where
-			// no errors are expected, so the best we can do is panic - this is likely ok since there's
-			// no real way that the syncer virtual workspace would ever create an unselectable selector
-			panic(fmt.Sprintf("creating a new store with an unselectable set: %v", labelSelector))
-		}
-
-		delegateLister := storage.ListerFunc
-		storage.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-			selector := options.LabelSelector
-			if selector == nil {
-				selector = labels.Everything()
-			}
-			options.LabelSelector = selector.Add(requirements...)
-			return delegateLister.List(ctx, options)
-		}
-
-		delegateGetter := storage.GetterFunc
-		storage.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-			obj, err := delegateGetter.Get(ctx, name, options)
-			if err != nil {
-				return obj, err
-			}
-
-			metaObj, ok := obj.(metav1.Object)
-			if !ok {
-				return nil, fmt.Errorf("expected a metav1.Object, got %T", obj)
-			}
-			if !labels.Everything().Add(requirements...).Matches(labels.Set(metaObj.GetLabels())) {
-				return nil, kerrors.NewNotFound(resource, name)
-			}
-
-			return obj, err
-		}
-
-		delegateWatcher := storage.WatcherFunc
-		storage.WatcherFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-			selector := options.LabelSelector
-			if selector == nil {
-				selector = labels.Everything()
-			}
-			options.LabelSelector = selector.Add(requirements...)
-			return delegateWatcher.Watch(ctx, options)
-		}
-
-		return storage
 	}
 }

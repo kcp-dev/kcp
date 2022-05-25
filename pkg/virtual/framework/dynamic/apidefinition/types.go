@@ -25,15 +25,14 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/apiserver/pkg/registry/rest"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 // APIDefinition provides access to all the information needed to serve a given API resource
 type APIDefinition interface {
-	// GetAPIResourceSpec provides the API resource specification, which contains the
-	// API Names, sub-resource definitions, and the OpenAPIv3 schema.
-	GetAPIResourceSpec() *apiresourcev1alpha1.CommonAPIResourceSpec
+	// GetAPIResourceSchema returns the API schema this definition serves.
+	GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema
 
 	// GetClusterName provides the name of the logical cluster where the resource specification comes from.
 	GetClusterName() logicalcluster.Name

@@ -42,7 +42,7 @@ import (
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dyncamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
@@ -56,15 +56,15 @@ func (masr mockedAPISetRetriever) GetAPIDefinitionSet(ctx context.Context, key d
 }
 
 type mockedAPIDefinition struct {
-	apiResourceSpec    *v1alpha1.CommonAPIResourceSpec
+	apiResourceSchema  *apisv1alpha1.APIResourceSchema
 	store              rest.Storage
 	subresourcesStores map[string]rest.Storage
 }
 
 var _ apidefinition.APIDefinition = (*mockedAPIDefinition)(nil)
 
-func (apiDef *mockedAPIDefinition) GetAPIResourceSpec() *v1alpha1.CommonAPIResourceSpec {
-	return apiDef.apiResourceSpec
+func (apiDef *mockedAPIDefinition) GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema {
+	return apiDef.apiResourceSchema
 }
 func (apiDef *mockedAPIDefinition) GetClusterName() logicalcluster.Name {
 	return logicalcluster.New("logicalClusterName")
@@ -127,17 +127,21 @@ func TestRouting(t *testing.T) {
 			Version:  "v1",
 			Resource: "customresources",
 		}: &mockedAPIDefinition{
-			apiResourceSpec: &v1alpha1.CommonAPIResourceSpec{
-				GroupVersion: v1alpha1.GroupVersion{
-					Group:   "custom",
-					Version: "v1",
-				},
-				Scope: apiextensionsv1.NamespaceScoped,
-				CustomResourceDefinitionNames: apiextensionsv1.CustomResourceDefinitionNames{
-					Plural:   "customresources",
-					Singular: "customresource",
-					Kind:     "CustomResource",
-					ListKind: "CustomResourceList",
+			apiResourceSchema: &apisv1alpha1.APIResourceSchema{
+				Spec: apisv1alpha1.APIResourceSchemaSpec{
+					Group: "custom",
+					Versions: []apisv1alpha1.APIResourceVersion{
+						{
+							Name: "v1",
+						},
+					},
+					Scope: apiextensionsv1.NamespaceScoped,
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Plural:   "customresources",
+						Singular: "customresource",
+						Kind:     "CustomResource",
+						ListKind: "CustomResourceList",
+					},
 				},
 			},
 			store: &struct {
@@ -151,19 +155,25 @@ func TestRouting(t *testing.T) {
 			Version:  "v1",
 			Resource: "services",
 		}: &mockedAPIDefinition{
-			apiResourceSpec: &v1alpha1.CommonAPIResourceSpec{
-				GroupVersion: v1alpha1.GroupVersion{
-					Group:   "",
-					Version: "v1",
+			apiResourceSchema: &apisv1alpha1.APIResourceSchema{
+				Spec: apisv1alpha1.APIResourceSchemaSpec{
+					Group: "",
+					Versions: []apisv1alpha1.APIResourceVersion{
+						{
+							Name: "v1",
+							Subresources: apiextensionsv1.CustomResourceSubresources{
+								Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+							},
+						},
+					},
+					Scope: apiextensionsv1.NamespaceScoped,
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Plural:   "services",
+						Singular: "service",
+						Kind:     "Service",
+						ListKind: "ServiceList",
+					},
 				},
-				Scope: apiextensionsv1.NamespaceScoped,
-				CustomResourceDefinitionNames: apiextensionsv1.CustomResourceDefinitionNames{
-					Plural:   "services",
-					Singular: "service",
-					Kind:     "Service",
-					ListKind: "ServiceList",
-				},
-				SubResources: []v1alpha1.SubResource{{Name: "status"}},
 			},
 			store: &struct {
 				*base
@@ -807,20 +817,27 @@ func TestRouting(t *testing.T) {
 	}
 }
 
-func exampleAPIResourceSpec() *v1alpha1.CommonAPIResourceSpec {
-	return &v1alpha1.CommonAPIResourceSpec{
-		GroupVersion: v1alpha1.GroupVersion{
-			Group:   "stable.example.com",
-			Version: "v1beta1",
-		},
-		CustomResourceDefinitionNames: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural: "examples", Singular: "example", Kind: "Example", ShortNames: []string{"ex"}, ListKind: "ExampleList", Categories: []string{"all"},
-		},
-		Scope: apiextensionsv1.ClusterScoped,
-		SubResources: v1alpha1.SubResources{
-			v1alpha1.SubResource{
-				Name: "status",
+func exampleAPIResourceSchema() *apisv1alpha1.APIResourceSchema {
+	return &apisv1alpha1.APIResourceSchema{
+		Spec: apisv1alpha1.APIResourceSchemaSpec{
+			Group: "stable.example.com",
+			Versions: []apisv1alpha1.APIResourceVersion{
+				{
+					Name: "v1beta1",
+					Subresources: apiextensionsv1.CustomResourceSubresources{
+						Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+					},
+				},
 			},
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:     "examples",
+				Singular:   "example",
+				Kind:       "Example",
+				ShortNames: []string{"ex"},
+				ListKind:   "ExampleList",
+				Categories: []string{"all"},
+			},
+			Scope: apiextensionsv1.ClusterScoped,
 		},
 	}
 }
@@ -866,11 +883,10 @@ func TestBuildOpenAPIModelsForApply(t *testing.T) {
 		},
 	}
 
-	spec := exampleAPIResourceSpec()
-
+	schema := exampleAPIResourceSchema()
 	for i, test := range tests {
-		_ = spec.SetSchema(test.OpenAPIV3Schema)
-		swagger, err := buildOpenAPIV2(spec, builder.Options{V2: true, SkipFilterSchemaForKubectlOpenAPIV2Validation: true, StripValueValidation: true, StripNullable: true, AllowNonStructural: false})
+		_ = schema.Spec.Versions[0].SetSchema(test.OpenAPIV3Schema)
+		swagger, err := buildOpenAPIV2(schema, &schema.Spec.Versions[0], builder.Options{V2: true, SkipFilterSchemaForKubectlOpenAPIV2Validation: true, StripValueValidation: true, StripNullable: true, AllowNonStructural: false})
 		require.NoError(t, err)
 
 		openAPIModels, err := utilopenapi.ToProtoModels(swagger)

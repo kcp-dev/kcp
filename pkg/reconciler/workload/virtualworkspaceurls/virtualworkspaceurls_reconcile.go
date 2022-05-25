@@ -28,7 +28,7 @@ import (
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	synceroptions "github.com/kcp-dev/kcp/pkg/virtual/syncer/options"
+	syncerbuilder "github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
 )
 
 func (c *Controller) reconcile(workloadCluster *workloadv1alpha1.WorkloadCluster, workspaceShards []*v1alpha1.ClusterWorkspaceShard) (*workloadv1alpha1.WorkloadCluster, error) {
@@ -45,7 +45,7 @@ func (c *Controller) reconcile(workloadCluster *workloadv1alpha1.WorkloadCluster
 			syncerVirtualWorkspaceURL.Path = path.Join(
 				syncerVirtualWorkspaceURL.Path,
 				virtualworkspacesoptions.DefaultRootPathPrefix,
-				synceroptions.SyncerVirtualWorkspaceName,
+				syncerbuilder.SyncerVirtualWorkspaceName,
 				logicalcluster.From(workloadClusterCopy).String(),
 				workloadClusterCopy.Name,
 			)

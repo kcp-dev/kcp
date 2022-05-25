@@ -25,6 +25,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	synceroptions "github.com/kcp-dev/kcp/pkg/virtual/syncer/options"
@@ -36,27 +37,27 @@ const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 type Options struct {
 	Workspaces *workspacesoptions.Workspaces
 	Syncer     *synceroptions.Syncer
+	APIExport  *apiexportoptions.APIExport
 }
 
 func NewOptions() *Options {
 	return &Options{
 		Workspaces: workspacesoptions.NewWorkspaces(),
 		Syncer:     synceroptions.NewSyncer(),
+		APIExport:  apiexportoptions.NewAPIExport(),
 	}
 }
 
-// TODO: possibly add the prefix back here (for nicer stuff on the vw standalone commandline)
-// and move the constant to the server package
 func (v *Options) Validate() []error {
 	var errs []error
 
 	errs = append(errs, v.Workspaces.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, v.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, v.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
 
-// TODO: possibly add the prefix back here (for nicer stuff on the vw standalone commandline)
 func (v *Options) AddFlags(fs *pflag.FlagSet) {
 	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
@@ -77,7 +78,14 @@ func (o *Options) NewVirtualWorkspaces(
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
+	if err != nil {
+		return nil, nil, err
+	}
+	extraInformers = append(extraInformers, inf...)
+	workspaces = append(workspaces, vws...)
+
+	inf, vws, err = o.APIExport.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}

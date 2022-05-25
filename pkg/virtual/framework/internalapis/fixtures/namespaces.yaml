@@ -1,0 +1,91 @@
+metadata:
+  creationTimestamp: null
+  name: internal.namespaces.core
+spec:
+  group: ""
+  names:
+    kind: Namespace
+    plural: namespaces
+    singular: namespace
+  scope: Cluster
+  versions:
+  - name: v1
+    schema:
+      description: Namespace provides a scope for Names. Use of multiple namespaces
+        is optional.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: 'Spec defines the behavior of the Namespace. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          properties:
+            finalizers:
+              description: 'Finalizers is an opaque list of values that must be empty
+                to permanently remove object from storage. More info: https://kubernetes.io/docs/tasks/administer-cluster/namespaces/'
+              items:
+                type: string
+              type: array
+          type: object
+        status:
+          description: 'Status describes the current status of a Namespace. More info:
+            https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          properties:
+            conditions:
+              description: Represents the latest available observations of a namespace's
+                current state.
+              items:
+                description: NamespaceCondition contains details about state of namespace.
+                properties:
+                  lastTransitionTime:
+                    format: date-time
+                    type: string
+                  message:
+                    type: string
+                  reason:
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: |-
+                      Type of namespace controller condition.
+
+                      Possible enum values:
+                       - `"NamespaceContentRemaining"` contains information about resources remaining in a namespace.
+                       - `"NamespaceDeletionContentFailure"` contains information about namespace deleter errors during deletion of resources.
+                       - `"NamespaceDeletionDiscoveryFailure"` contains information about namespace deleter errors during resource discovery.
+                       - `"NamespaceDeletionGroupVersionParsingFailure"` contains information about namespace deleter errors parsing GV for legacy types.
+                       - `"NamespaceFinalizersRemaining"` contains information about which finalizers are on resources remaining in a namespace.
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - type
+              x-kubernetes-list-type: map
+            phase:
+              description: |-
+                Phase is the current lifecycle phase of the namespace. More info: https://kubernetes.io/docs/tasks/administer-cluster/namespaces/
+
+                Possible enum values:
+                 - `"Active"` means the namespace is available for use in the system
+                 - `"Terminating"` means the namespace is undergoing graceful termination
+              type: string
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -23,26 +23,26 @@ import (
 
 	"k8s.io/client-go/dynamic"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
 )
 
-type Syncer struct{}
+type APIExport struct{}
 
-func NewSyncer() *Syncer {
-	return &Syncer{}
+func NewAPIExport() *APIExport {
+	return &APIExport{}
 }
 
-func (o *Syncer) AddFlags(flags *pflag.FlagSet, prefix string) {
+func (o *APIExport) AddFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
 }
 
-func (o *Syncer) Validate(flagPrefix string) []error {
+func (o *APIExport) Validate(flagPrefix string) []error {
 	if o == nil {
 		return nil
 	}
@@ -51,10 +51,10 @@ func (o *Syncer) Validate(flagPrefix string) []error {
 	return errs
 }
 
-func (o *Syncer) NewVirtualWorkspaces(
+func (o *APIExport) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	virtualWorkspaces := []framework.VirtualWorkspace{
@@ -63,6 +63,6 @@ func (o *Syncer) NewVirtualWorkspaces(
 	return nil, virtualWorkspaces, nil
 }
 
-func (o *Syncer) Name() string {
-	return builder.SyncerVirtualWorkspaceName
+func (o *APIExport) Name() string {
+	return builder.VirtualWorkspaceName
 }
