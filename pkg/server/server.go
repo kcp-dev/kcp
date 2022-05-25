@@ -226,6 +226,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		apiHandler = WithWorkspaceProjection(apiHandler)
 		apiHandler = WithClusterAnnotation(apiHandler)
+		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
 		apiHandler = WithClusterScope(apiHandler)
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
 		apiHandler = WithAcceptHeader(apiHandler)
