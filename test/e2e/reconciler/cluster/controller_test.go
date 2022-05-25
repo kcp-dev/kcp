@@ -160,16 +160,11 @@ func TestClusterController(t *testing.T) {
 			sourceConfig := source.DefaultConfig(t)
 			sourceKubeClusterClient, err := kubernetesclient.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceCrdClusterClient, err := apiextensionsclientset.NewClusterForConfig(sourceConfig)
-			require.NoError(t, err)
 			sourceWildwestClusterClient, err := wildwestclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
 
-			sourceCrdClient := sourceCrdClusterClient.Cluster(wsClusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
-
-			fixturewildwest.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 			syncerFixture := framework.SyncerFixture{
 				ResourcesToSync:      sets.NewString("cowboys.wildwest.dev"),
