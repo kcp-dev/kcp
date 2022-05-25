@@ -81,8 +81,8 @@ func TestProtectedAPI(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					WorkspaceName: providerWorkspace.Base(),
-					ExportName:    "gateway-api",
+					Path:       providerWorkspace.String(),
+					ExportName: "gateway-api",
 				},
 			},
 		},

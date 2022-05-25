@@ -97,8 +97,8 @@ func TestAPIBinding(t *testing.T) {
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.ExportReference{
 					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						WorkspaceName: providerWorkspace.Base(),
-						ExportName:    "today-cowboys",
+						Path:       providerWorkspace.String(),
+						ExportName: "today-cowboys",
 					},
 				},
 			},
@@ -164,8 +164,8 @@ func TestAPIBinding(t *testing.T) {
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.ExportReference{
 					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						WorkspaceName: serviceProvider2Workspace.Base(),
-						ExportName:    "today-cowboys",
+						Path:       serviceProvider2Workspace.String(),
+						ExportName: "today-cowboys",
 					},
 				},
 			},

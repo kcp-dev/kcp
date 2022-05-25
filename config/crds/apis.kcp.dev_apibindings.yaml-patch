@@ -5,5 +5,4 @@
 - op: add
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/reference/properties/workspace/oneOf
   value:
-  - required: ["name"]
-  - required: ["absolute"]
+  - required: ["path"]

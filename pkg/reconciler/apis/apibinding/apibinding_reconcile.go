@@ -525,12 +525,7 @@ func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluste
 		return logicalcluster.Name{}, fmt.Errorf("APIBinding does not specify an APIExport")
 	}
 
-	exportRef, ok := apiBinding.Spec.Reference.Workspace.GetLogicalCluster(logicalcluster.From(apiBinding))
-	if !ok {
-		// this will never happen due to validation
-		return logicalcluster.Name{}, fmt.Errorf("invalid export reference")
-	}
-	return exportRef, nil
+	return logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path), nil
 }
 
 func referencedAPIExportChanged(apiBinding *apisv1alpha1.APIBinding) bool {

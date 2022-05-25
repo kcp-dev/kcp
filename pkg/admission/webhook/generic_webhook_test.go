@@ -137,7 +137,7 @@ func TestDispatch(t *testing.T) {
 						},
 						BoundAPIExport: &v1alpha1.ExportReference{
 							Workspace: &v1alpha1.WorkspaceExportReference{
-								WorkspaceName: "source-cluster",
+								Path: "root:org:source-cluster",
 							},
 						},
 					},
@@ -194,7 +194,7 @@ func TestDispatch(t *testing.T) {
 						},
 						BoundAPIExport: &v1alpha1.ExportReference{
 							Workspace: &v1alpha1.WorkspaceExportReference{
-								WorkspaceName: "source-cluster",
+								Path: "root:org:source-cluster",
 							},
 						},
 					},
@@ -213,7 +213,7 @@ func TestDispatch(t *testing.T) {
 						},
 						BoundAPIExport: &v1alpha1.ExportReference{
 							Workspace: &v1alpha1.WorkspaceExportReference{
-								WorkspaceName: "source-cluster",
+								Path: "root:org:source-cluster",
 							},
 						},
 					},

@@ -37,7 +37,7 @@ func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
 	}
 
 	if apiBinding.Spec.Reference.Workspace != nil {
-		apiExportClusterName, ok := apiBinding.Spec.Reference.Workspace.GetLogicalCluster(logicalcluster.From(apiBinding))
+		apiExportClusterName := logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path)
 		if !ok {
 			// this will never happen due to validation
 			return []string{}, fmt.Errorf("invalid export reference")

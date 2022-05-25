@@ -84,18 +84,11 @@ type ExportReference struct {
 // WorkspaceExportReference describes an API and backing implementation that are provided by an actor in the
 // specified Workspace.
 type WorkspaceExportReference struct {
-	// name is a workspace name in the same parent workspace, i.e. a sibling workspace.
-	//
-	// +optional
-	// +kube:validation:MinLength=1
-	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-	WorkspaceName string `json:"name,omitempty"`
-
-	// absolute is an absolute reference to a workspace, e.g. root:org:ws. The workspace must
+	// path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must
 	// be some ancestor or a child of some ancestor.
 	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	LogicalCluster string `json:"absolute,omitempty"`
+	Path string `json:"path,omitempty"`
 
 	// Name of the APIExport that describes the API.
 	//
