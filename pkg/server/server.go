@@ -175,7 +175,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister()); err != nil {
+	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory); err != nil {
 		return err
 	}
 	newTokenOrEmpty, tokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)

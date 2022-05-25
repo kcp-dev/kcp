@@ -51,6 +51,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingStatus":                      schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExport":                             schema_pkg_apis_apis_v1alpha1_APIExport(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportList":                         schema_pkg_apis_apis_v1alpha1_APIExportList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportPolicy":                       schema_pkg_apis_apis_v1alpha1_APIExportPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportSpec":                         schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportStatus":                       schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchema":                     schema_pkg_apis_apis_v1alpha1_APIResourceSchema(ref),
@@ -61,6 +62,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema":                schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference":                       schema_pkg_apis_apis_v1alpha1_ExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity":                              schema_pkg_apis_apis_v1alpha1_Identity(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                  schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference":              schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":          schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource":            schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref),
@@ -1323,6 +1325,26 @@ func schema_pkg_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_pkg_apis_apis_v1alpha1_APIExportPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportPolicy is a wrapper type around the multiple options that would be allowed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"local": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"},
+	}
+}
+
 func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1356,11 +1378,17 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity"),
 						},
 					},
+					"maximalPermissionPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "maximalPermissionPolicy will allow for a service provider to set a upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportPolicy"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportPolicy", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity"},
 	}
 }
 
@@ -1783,6 +1811,17 @@ func schema_pkg_apis_apis_v1alpha1_Identity(ref common.ReferenceCallback) common
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.SecretReference"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocalAPIExportPolicy will tell the APIBinding authorizer to check policy in the local namespace of the API Export",
+				Type:        []string{"object"},
+			},
+		},
 	}
 }
 

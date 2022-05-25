@@ -25,6 +25,7 @@ The following authorizers are configured in kcp:
 |----------------------------------------|--------------------------------------------------------------------------------|
 | Top-Level organization authorizer      | checks that the user is allowed to access the organization (access and member) |
 | Workspace content authorizer           | determines additional groups a user gets inside of a workspace                 |
+| API binding authorizer                 | validates the RBAC policy in the api exporters workspace                       |
 | Local Policy authorizer                | validates the RBAC policy in the workspace that is accessed                    |
 | Kubernetes Bootstrap Policy authorizer | validates the RBAC Kubernetes standard policy                                  |
 
@@ -32,24 +33,26 @@ They are related in the following way:
 
 1. top-level organization authorizer must allow
 2. workspace content authorizer must allow, and adds additional (virtual per-request) groups to the request user influencing the follow authorizers.
-3. one of the local authorizer or bootstrap policy authorizer must allow.
+3. api binding authorizer must allow
+4. one of the local authorizer or bootstrap policy authorizer must allow.
 
 ```
-                                                           ┌──────────────────┐
-                                                           │                  │
-                                                           │ Local Policy     │
-         ┌──────────────┐    ┌────────────────────┐   ┌───►│ authorizer       ├─┐
-         │              │    │                    │   │    │                  │ │
- request │ Top-level    │    │ Workspace  ┌───────┴─┐ │    └──────────────────┘ ▼
-────────►│ Organization ├───►│ Content    │+ groups ├─┤                         OR──►
-         │ authorizer   │    │ authorizer └───────┬─┘ │    ┌──────────────────┐ ▲
-         │              │    │                    │   │    │                  │ │
-         └──────────────┘    └────────────────────┘   └───►│ Bootstrap Policy ├─┘
-                                                           │ authorizer       │
-                                                           │                  │
-                                                           └──────────────────┘
+                                                                                    ┌──────────────┐
+                                                                                    │              │
+           ┌─────────────────┐     ┌───────────────┐        ┌─────────────┐   ┌────►│ Local Policy ├──┐
+           │ Top-level       │     │               │        │             │   │     │ authorizer   │  │
+ request   │ Organization    │     │ Workspace ┌───┴───┐    │ API Binding │   │     │              │  │
+──────────►│ authorizer      ├────►│ Content   │+groups├───►│ authorizer  ├───┤     └──────────────┘  │
+           │                 │     │ authorizer└───┬───┘    │             │   │                       ▼
+           │                 │     │               │        └─────────────┘   │                       OR───►
+           └─────────────────┘     └───────────────┘                          │     ┌──────────────┐  ▲
+                                                                              │     │  Bootstrap   │  │
+                                                                              └────►│  Policy      ├──┘
+                                                                                    │  authorizer  │
+                                                                                    │              │
+                                                                                    └──────────────┘
 ```
-
+[ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWlpaGOjFKlUCWkaUZkFWSWlEC5MQoKdAAPJrS82hKA9FoQkxMHm2c0YQhgGoViQ5FuJhM3RPIsXgCFvXTdoE855OfnJijEJCfk5lcCVQyB0eAgpSG5Bfo5qSWpeaghQ1GGCGLoEtC%2BMhaE%2BFJDiYBDeOi1MLS1OISqKh%2FUXpiXmZVYklmfh667eH5RdnFBYnJqWie3IIebiDFjgGeCk6ZeSmZeelYXIPpWIhrCIQwJDBRvALWPweLKuf8vJLUPKi%2FtNOL8ksLilFUYhqGatASqOFTSEk3M7CmXfSYwxU1qJatQTWXUCxjgkfT9pDmEuwyJIbCDLxu8g9CjgF055EU1qiBQ4buGTjciBIqpBWQoEDfRPVSEiWOnPLzS4oVihILFFCyDrVtRA1MSGaBlWBQJfDcMoOW9QJqDqW%2BV5GsQhOgmVWkFSkxSrVKtQBJrg9s)
 ## Top-Level Organization authorizer
 
 An top-level organization is a workspace directly under root. When a user accesses a top-level organization or
