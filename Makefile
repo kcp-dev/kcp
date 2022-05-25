@@ -96,6 +96,7 @@ $(YAML_PATCH):
 	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
 codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
+	go mod download
 	./hack/update-codegen.sh
 	$(MAKE) imports
 .PHONY: codegen
