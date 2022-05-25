@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,6 +32,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 const (
