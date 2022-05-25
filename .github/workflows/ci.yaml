@@ -67,15 +67,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          path: kcp
       - uses: actions/setup-go@v3
         with:
           go-version: v1.17
       - name: Check dependencies
         run: |
-          cd kcp
-          hack/validate-k8s.sh
+          make verify-k8s-deps
 
   lint:
     name: lint

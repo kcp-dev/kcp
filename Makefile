@@ -139,6 +139,10 @@ test: WHAT ?= ./...
 test:
 	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
 
+.PHONY: verify-k8s-deps
+verify-k8s-deps:
+	hack/validate-k8s.sh
+
 .PHONY: demos
 demos: build ## Runs all the default demos (kubecon and apiNegotiation).
 	cd contrib/demo && ./runDemoScripts.sh
