@@ -236,7 +236,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 		ws, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		if err != nil {
-			klog.Errorf("failed to get workspace %s: %v", org.Name, err)
+			t.Logf("failed to get workspace %s: %v", org.Name, err)
 			return false
 		}
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
@@ -299,7 +299,7 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
 		if err != nil {
-			klog.Errorf("failed to get workspace %s: %v", ws.Name, err)
+			t.Logf("failed to get workspace %s: %v", ws.Name, err)
 			return false
 		}
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady

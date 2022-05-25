@@ -38,6 +38,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
 )
@@ -133,7 +134,7 @@ func BuildVirtualWorkspace(
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
 				func(workloadClusterName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageWrapper := WithLabelSelector(map[string]string{
+					storageWrapper := forwardingregistry.WithLabelSelector(map[string]string{
 						workloadv1alpha1.InternalClusterResourceStateLabelPrefix + workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
 					})
 					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
