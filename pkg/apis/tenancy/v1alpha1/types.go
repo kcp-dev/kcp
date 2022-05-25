@@ -131,6 +131,8 @@ type ClusterWorkspaceTypeList struct {
 
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
+//
+// +kubebuilder:validation:MaxLength=32
 type ClusterWorkspaceInitializer string
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace

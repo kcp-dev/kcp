@@ -53,6 +53,7 @@ spec:
                   description: ClusterWorkspaceInitializer is a unique string corresponding
                     to a cluster workspace initialization controller for the given
                     type of workspaces.
+                  maxLength: 32
                   type: string
                 type: array
             type: object

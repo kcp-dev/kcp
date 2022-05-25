@@ -20,13 +20,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
-	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -334,118 +330,6 @@ func TestValidate(t *testing.T) {
 				&user.DefaultInfo{},
 			),
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspace{
-				Handler: admission.NewHandler(admission.Create, admission.Update),
-			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
-			if err := o.Validate(ctx, tt.a, nil); (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestAdmit(t *testing.T) {
-	tests := []struct {
-		name           string
-		a              admission.Attributes
-		expectedLabels map[string]string
-		wantErr        bool
-	}{
-		{
-			name: "adds missing labels on creation",
-			a: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto", "venus", "apollo",
-					},
-				},
-			}),
-			expectedLabels: map[string]string{
-				"internal.kcp.dev/phase":              "Ready",
-				"internal.kcp.dev/initializer.pluto":  "",
-				"internal.kcp.dev/initializer.venus":  "",
-				"internal.kcp.dev/initializer.apollo": "",
-			},
-		},
-		{
-			name: "adds missing labels removed on mutation",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"internal.kcp.dev/phase":              "Ready",
-						"internal.kcp.dev/initializer.pluto":  "",
-						"internal.kcp.dev/initializer.venus":  "",
-						"internal.kcp.dev/initializer.apollo": "",
-					},
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto", "venus", "apollo",
-					},
-				},
-			}, &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"internal.kcp.dev/initializer.pluto":  "",
-						"internal.kcp.dev/initializer.apollo": "",
-					},
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto", "venus", "apollo",
-					},
-				},
-			}),
-			expectedLabels: map[string]string{
-				"internal.kcp.dev/phase":              "Ready",
-				"internal.kcp.dev/initializer.pluto":  "",
-				"internal.kcp.dev/initializer.venus":  "",
-				"internal.kcp.dev/initializer.apollo": "",
-			},
-		},
-		{
-			name: "removes previously-needed labels removed on mutation that removes initializer",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"internal.kcp.dev/phase":             "Ready",
-						"internal.kcp.dev/initializer.pluto": "",
-						"internal.kcp.dev/initializer.venus": "",
-					},
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto",
-					},
-				},
-			}, &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"internal.kcp.dev/phase":             "Ready",
-						"internal.kcp.dev/initializer.pluto": "",
-						"internal.kcp.dev/initializer.venus": "",
-					},
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto", "venus",
-					},
-				},
-			}),
-			expectedLabels: map[string]string{
-				"internal.kcp.dev/phase":             "Ready",
-				"internal.kcp.dev/initializer.pluto": "",
-			},
-		},
 		{
 			name: "error from adding an initializer that's too long",
 			a: createAttr(&tenancyv1alpha1.ClusterWorkspace{
@@ -464,19 +348,9 @@ func TestAdmit(t *testing.T) {
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
-			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
-				t.Errorf("Admit() error = %v, wantErr %v", err, tt.wantErr)
+			if err := o.Validate(ctx, tt.a, nil); (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
-
-			u, ok := tt.a.GetObject().(*unstructured.Unstructured)
-			require.True(t, ok, "unexpected type %T", tt.a.GetObject())
-
-			cw := &tenancyv1alpha1.ClusterWorkspace{}
-			require.NoError(t, runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw),
-				"failed to convert unstructured to ClusterWorkspace",
-			)
-
-			require.Empty(t, cmp.Diff(cw.ObjectMeta.Labels, tt.expectedLabels))
 		})
 	}
 }
