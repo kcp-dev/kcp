@@ -509,14 +509,18 @@ func groupVersionResources(rls []*metav1.APIResourceList) (map[schema.GroupVersi
 // it can be that the source of the resource is another workspace.
 // TODO(sttts): this is a hack, there should be serious mechanism to map in resources into workspaces.
 var virtualResources = sets.NewString(
-	"workspaces.tenancy.dev",
+	"workspaces.tenancy.kcp.dev",
 )
 
 type isNotVirtualResource struct{}
 
 // Match checks if a resource contains all the given verbs.
 func (vr isNotVirtualResource) Match(groupVersion string, r *metav1.APIResource) bool {
-	gr := metav1.GroupResource{Group: r.Group, Resource: r.Name}
+	gv, err := schema.ParseGroupVersion(groupVersion)
+	if err != nil {
+		return true
+	}
+	gr := metav1.GroupResource{Group: gv.Group, Resource: r.Name}
 	return !virtualResources.Has(gr.String())
 }
 
