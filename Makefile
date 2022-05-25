@@ -143,6 +143,10 @@ test:
 verify-k8s-deps:
 	hack/validate-k8s.sh
 
+.PHONY: verify-imports
+verify-imports:
+	hack/verify-imports.sh
+
 .PHONY: demos
 demos: build ## Runs all the default demos (kubecon and apiNegotiation).
 	cd contrib/demo && ./runDemoScripts.sh

@@ -48,19 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          path: kcp
       - uses: actions/setup-go@v3
         with:
           go-version: v1.17
       - name: Check imports
         run: |
-          cd kcp
-          make imports
-          if  ! git diff --exit-code; then
-            echo "imports are out of date, run make imports"
-            exit 1
-          fi
+          make verify-imports
 
   deps:
     name: deps
