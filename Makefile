@@ -96,6 +96,7 @@ $(YAML_PATCH):
 	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
 codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
+	go mod download
 	./hack/update-codegen.sh
 	$(MAKE) imports
 .PHONY: codegen
@@ -137,6 +138,14 @@ test-e2e: build-all
 test: WHAT ?= ./...
 test:
 	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
+
+.PHONY: verify-k8s-deps
+verify-k8s-deps:
+	hack/validate-k8s.sh
+
+.PHONY: verify-imports
+verify-imports:
+	hack/verify-imports.sh
 
 .PHONY: demos
 demos: build ## Runs all the default demos (kubecon and apiNegotiation).
