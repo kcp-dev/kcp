@@ -681,7 +681,8 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 				OwnerReferences: []metav1.OwnerReference{
 					NegotiatedAPIResourceAsOwnerReference(negotiatedApiResource),
 				},
-				ClusterName: negotiatedApiResource.ClusterName,
+				//TODO: (shawn-hurley) We need to figure out how to set this
+				ClusterName: logicalcluster.From(negotiatedApiResource).String(),
 			},
 			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 				Scope: negotiatedApiResource.Spec.Scope,

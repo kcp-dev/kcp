@@ -167,8 +167,9 @@ func (c *ClusterReconciler) enqueueAPIResourceImportRelatedCluster(obj interface
 	if apiResourceImport != nil {
 		c.enqueue(&metav1.PartialObjectMetadata{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        apiResourceImport.Spec.Location,
-				ClusterName: apiResourceImport.ClusterName,
+				Name: apiResourceImport.Spec.Location,
+				// TODO: (shawn-hurley)
+				ClusterName: logicalcluster.From(apiResourceImport).String(),
 			},
 		})
 	}

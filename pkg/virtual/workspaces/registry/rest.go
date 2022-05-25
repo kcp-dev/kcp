@@ -392,7 +392,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 	}
 	var existingClusterWorkspace *tenancyv1alpha1.ClusterWorkspace
 	for _, ws := range obj.Items {
-		if ws.Name == workspace.Name && ws.ClusterName == workspace.ClusterName {
+		if ws.Name == workspace.Name && logicalcluster.From(&ws).String() == logicalcluster.From(workspace).String() {
 			existingClusterWorkspace = workspace
 			break
 		}
