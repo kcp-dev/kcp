@@ -82,7 +82,7 @@ func NewController(
 			var ret []*apisv1alpha1.APIBinding
 
 			for i := range list {
-				if list[i].ClusterName != clusterName.String() {
+				if logicalcluster.From(list[i]) != clusterName {
 					continue
 				}
 

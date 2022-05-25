@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -36,6 +38,7 @@ type clusterManager struct {
 }
 
 func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error {
+	clusterClusterName := logicalcluster.From(cluster)
 	defer conditions.SetSummary(
 		cluster,
 		conditions.WithConditions(
@@ -50,21 +53,21 @@ func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha
 		latestHeartbeat = cluster.Status.LastSyncerHeartbeatTime.Time
 	}
 	if latestHeartbeat.IsZero() {
-		klog.V(5).Infof("Marking HeartbeatHealthy false for WorkloadCluster %s|%s due to no heartbeat", cluster.ClusterName, cluster.Name)
+		klog.V(5).Infof("Marking HeartbeatHealthy false for WorkloadCluster %s|%s due to no heartbeat", clusterClusterName, cluster.Name)
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
 			conditionsapi.ConditionSeverityWarning,
 			"No heartbeat yet seen")
 	} else if time.Since(latestHeartbeat) > c.heartbeatThreshold {
-		klog.V(5).Infof("Marking HeartbeatHealthy false for WorkloadCluster %s|%s due to a stale heartbeat", cluster.ClusterName, cluster.Name)
+		klog.V(5).Infof("Marking HeartbeatHealthy false for WorkloadCluster %s|%s due to a stale heartbeat", clusterClusterName, cluster.Name)
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
 			conditionsapi.ConditionSeverityWarning,
 			"No heartbeat since %s", latestHeartbeat)
 	} else {
-		klog.V(5).Infof("Marking Heartbeat healthy true for WorkloadCluster %s|%s", cluster.ClusterName, cluster.Name)
+		klog.V(5).Infof("Marking Heartbeat healthy true for WorkloadCluster %s|%s", clusterClusterName, cluster.Name)
 		conditions.MarkTrue(cluster, workloadv1alpha1.HeartbeatHealthy)
 
 		// Enqueue another check after which the heartbeat should have been updated again.

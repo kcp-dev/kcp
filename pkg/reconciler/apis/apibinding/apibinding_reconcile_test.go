@@ -977,6 +977,7 @@ func (b *bindingBuilder) Build() *apisv1alpha1.APIBinding {
 }
 
 func (b *bindingBuilder) WithClusterName(clusterName string) *bindingBuilder {
+	//TODO (shawn-hurley): We may need to change how we set this
 	b.ClusterName = clusterName
 	return b
 }

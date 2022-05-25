@@ -56,7 +56,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	case apisv1alpha1.APIBindingPhaseBound:
 		return c.reconcileBound(ctx, apiBinding)
 	default:
-		klog.Errorf("Invalid phase %q for APIBinding %s|%s", apiBinding.Status.Phase, apiBinding.ClusterName, apiBinding.Name)
+		klog.Errorf("Invalid phase %q for APIBinding %s|%s", apiBinding.Status.Phase, logicalcluster.From(apiBinding).String(), apiBinding.Name)
 		return nil
 	}
 }
@@ -147,12 +147,14 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		schema, err := c.getAPIResourceSchema(apiExportClusterName, schemaName)
+		bindingClusterName := logicalcluster.From(apiBinding)
+		exportClustername := logicalcluster.From(apiExport)
 		if err != nil {
 			klog.Errorf(
 				"Error binding APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
-				apiBinding.ClusterName, apiBinding.Name,
-				apiExport.ClusterName, apiExport.Name,
-				apiExport.ClusterName, schemaName,
+				bindingClusterName, apiBinding.Name,
+				exportClustername, apiExport.Name,
+				exportClustername, schemaName,
 				err,
 			)
 
@@ -175,9 +177,9 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		if err != nil {
 			klog.Errorf(
 				"Error generating CRD for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
-				apiBinding.ClusterName, apiBinding.Name,
-				apiExport.ClusterName, apiExport.Name,
-				apiExport.ClusterName, schemaName,
+				bindingClusterName, apiBinding.Name,
+				apiExportClusterName, apiExport.Name,
+				apiExportClusterName, schemaName,
 				err,
 			)
 
@@ -237,9 +239,9 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			return fmt.Errorf(
 				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
 				ShadowWorkspaceName, crd.Name,
-				apiBinding.ClusterName, apiBinding.Name,
-				apiExport.ClusterName, apiExport.Name,
-				apiExport.ClusterName, schemaName,
+				bindingClusterName, apiBinding.Name,
+				apiExportClusterName, apiExport.Name,
+				apiExportClusterName, schemaName,
 				err,
 			)
 		}
@@ -255,6 +257,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			// Create flow
 
 			if _, err := c.createCRD(ctx, ShadowWorkspaceName, crd); err != nil {
+				schemaClusterName := logicalcluster.From(schema)
 				if apierrors.IsInvalid(err) {
 					status := apierrors.APIStatus(nil)
 					// The error is guaranteed to implement APIStatus here
@@ -264,7 +267,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 						apisv1alpha1.BindingUpToDate,
 						apisv1alpha1.APIResourceSchemaInvalidReason,
 						conditionsv1alpha1.ConditionSeverityError,
-						fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schema.ClusterName, schemaName, status.Status().Details.Causes),
+						fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schemaClusterName, schemaName, status.Status().Details.Causes),
 					)
 					// Only change InitialBindingCompleted if it's false
 					if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
@@ -273,15 +276,15 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 							apisv1alpha1.InitialBindingCompleted,
 							apisv1alpha1.APIResourceSchemaInvalidReason,
 							conditionsv1alpha1.ConditionSeverityError,
-							fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schema.ClusterName, schemaName, status.Status().Details.Causes),
+							fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schemaClusterName, schemaName, status.Status().Details.Causes),
 						)
 					}
 
 					klog.Errorf(
 						"Error creating CRD for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %v",
-						apiBinding.ClusterName, apiBinding.Name,
-						apiExport.ClusterName, apiExport.Name,
-						apiExport.ClusterName, schemaName,
+						bindingClusterName, apiBinding.Name,
+						apiExportClusterName, apiExport.Name,
+						apiExportClusterName, schemaName,
 						err,
 					)
 
@@ -381,6 +384,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
 	apiExportClusterName, err := getAPIExportClusterName(apiBinding)
+	apiBindingClusterName := logicalcluster.From(apiBinding)
 	if err != nil {
 		// Should never happen
 		conditions.MarkFalse(
@@ -395,7 +399,7 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 	}
 
 	if referencedAPIExportChanged(apiBinding) {
-		klog.V(4).Infof("APIBinding %s|%s needs rebinding because it now points to a different APIExport", apiBinding.ClusterName, apiBinding.Name)
+		klog.V(4).Infof("APIBinding %s|%s needs rebinding because it now points to a different APIExport", apiBindingClusterName, apiBinding.Name)
 
 		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
 
@@ -457,7 +461,7 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 	}
 
 	if apiExportLatestResourceSchemasChanged(apiBinding, exportedSchemas) {
-		klog.V(4).Infof("APIBinding %s|%s needs rebinding because the APIExport's latestResourceSchemas has changed", apiBinding.ClusterName, apiBinding.Name)
+		klog.V(4).Infof("APIBinding %s|%s needs rebinding because the APIExport's latestResourceSchemas has changed", apiBindingClusterName, apiBinding.Name)
 
 		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
 	}
@@ -472,7 +476,7 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 			Name:        string(schema.UID),
 			Annotations: map[string]string{
 				apisv1alpha1.AnnotationBoundCRDKey:      "",
-				apisv1alpha1.AnnotationSchemaClusterKey: schema.ClusterName,
+				apisv1alpha1.AnnotationSchemaClusterKey: logicalcluster.From(schema).String(),
 				apisv1alpha1.AnnotationSchemaNameKey:    schema.Name,
 			},
 		},

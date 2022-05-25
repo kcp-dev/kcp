@@ -44,7 +44,8 @@ const (
 
 // reconcile is triggered on every change to an ingress resource, or it's associated services (by tracker).
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
-	klog.InfoS("reconciling Ingress", "ClusterName", ingress.ClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
+	ingressClusterName := logicalcluster.From(ingress)
+	klog.InfoS("reconciling Ingress", "ClusterName", ingressClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	//nolint:staticcheck
 	if shared.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
@@ -63,7 +64,8 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 }
 
 func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.Ingress) error {
-	ownedByRootIngressSelector, err := createOwnedBySelector(logicalcluster.From(ingress), ingress.Name, ingress.Namespace)
+	ingressClusterName := logicalcluster.From(ingress)
+	ownedByRootIngressSelector, err := createOwnedBySelector(ingressClusterName, ingress.Name, ingress.Namespace)
 	if err != nil {
 		return err
 	}
@@ -87,9 +89,10 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 
 	// Create the new leaves
 	for _, leaf := range toCreate {
-		klog.InfoS("Creating leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
+		leafClusterName := logicalcluster.From(leaf)
+		klog.InfoS("Creating leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if _, err := c.client.Cluster(logicalcluster.From(ingress)).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if _, err := c.client.Cluster(ingressClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			//TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to create leaf: %w", err)
 		}
@@ -97,9 +100,10 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 
 	// Delete the old leaves
 	for _, leaf := range toDelete {
-		klog.InfoS("Deleting leaf", "ClusterName", leaf.ClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
+		leafClusterName := logicalcluster.From(leaf)
+		klog.InfoS("Deleting leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if err := c.client.Cluster(logicalcluster.From(ingress)).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		if err := c.client.Cluster(ingressClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			//TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to delete leaf: %w", err)
 		}
@@ -164,12 +168,13 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 			}
 			found = true
 
+			leafClusterName := logicalcluster.From(currentLeaf)
 			if equality.Semantic.DeepEqual(currentLeaf.Spec, desiredLeaf.Spec) {
-				klog.InfoS("Leaf is up to date", "ClusterName", currentLeaf.ClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
+				klog.InfoS("Leaf is up to date", "ClusterName", leafClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
 				continue
 			}
 
-			klog.InfoS("Updating leaf", "ClusterName", currentLeaf.ClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
+			klog.InfoS("Updating leaf", "ClusterName", leafClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
 			updated := currentLeaf.DeepCopy()
 			updated.Spec = desiredLeaf.Spec
 			if _, err := c.client.Cluster(logicalcluster.From(currentLeaf)).NetworkingV1().Ingresses(currentLeaf.Namespace).Update(ctx, updated, metav1.UpdateOptions{}); err != nil {

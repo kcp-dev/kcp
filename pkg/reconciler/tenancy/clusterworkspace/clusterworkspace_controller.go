@@ -276,6 +276,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+	workspaceClusterName := logicalcluster.From(workspace)
 	switch workspace.Status.Phase {
 	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
 		// possibly de-schedule while still in scheduling phase
@@ -327,21 +328,20 @@ func (c *Controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target ClusterWorkspaceShard: %v.", err)
 					return err // requeue
 				}
-				logicalCluster := logicalcluster.From(workspace)
-				u.Path = path.Join(u.Path, logicalCluster.Join(workspace.Name).Path())
+				u.Path = path.Join(u.Path, workspaceClusterName.Join(workspace.Name).Path())
 
 				workspace.Status.BaseURL = u.String()
 				workspace.Status.Location.Current = targetShard.Name
 
 				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-				klog.Infof("Scheduled workspace %s|%s to %s|%s", workspace.ClusterName, workspace.Name, targetShard.ClusterName, targetShard.Name)
+				klog.Infof("Scheduled workspace %s|%s to %s|%s", workspaceClusterName, workspace.Name, logicalcluster.From(targetShard), targetShard.Name)
 			} else {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No available shards to schedule the workspace.")
 				failures := make([]string, 0, len(invalidShards))
 				for name, x := range invalidShards {
 					failures = append(failures, fmt.Sprintf("  %s: reason %q, message %q", name, x.reason, x.message))
 				}
-				klog.Infof("No valid shards found for workspace %s|%s, skipped:\n%s", workspace.ClusterName, workspace.Name, strings.Join(failures, "\n"))
+				klog.Infof("No valid shards found for workspace %s|%s, skipped:\n%s", workspaceClusterName, workspace.Name, strings.Join(failures, "\n"))
 			}
 		}
 
