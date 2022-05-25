@@ -252,7 +252,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 			// system CRDs take priority over APIBindings from the local workspace.
 			if seen.Has(crdName(crd)) {
 				// Came from system
-				klog.Infof("Skipping APIBinding CRD %s|%s because it came in via system CRDs", crd.ClusterName, crd.Name)
+				klog.Infof("For cluster %s CR access skipping APIBinding CRD %s|%s because it came in via system CRDs", clusterName, logicalcluster.From(crd), crd.Name)
 				continue
 			}
 
@@ -280,7 +280,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 
 		// system CRDs and local APIBindings take priority over CRDs from the local workspace.
 		if seen.Has(crdName(crd)) {
-			klog.Infof("Skipping local CRD %s|%s because it came in via APIBindings or system CRDs", crd.ClusterName, crd.Name)
+			klog.Infof("For cluster %s CR access skipping local CRD %s|%s because it came in via APIBindings or system CRDs", clusterName, logicalcluster.From(crd), crd.Name)
 			continue
 		}
 
