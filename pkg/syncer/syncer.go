@@ -130,7 +130,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
 	downstreamConfig.UserAgent = "kcp#status-syncer/" + kcpVersion
 
-	upstreamDynamicClient, err := dynamic.NewClusterForConfig(upstreamConfig)
+	upstreamDynamicClusterClient, err := dynamic.NewClusterForConfig(upstreamConfig)
 	if err != nil {
 		return err
 	}
@@ -138,12 +138,13 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
-	upstreamDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(upstreamConfig)
+	upstreamDiscoveryClusterClient, err := discovery.NewDiscoveryClientForConfig(upstreamConfig)
 	if err != nil {
 		return err
 	}
+	upstreamDiscoveryClient := upstreamDiscoveryClusterClient.WithCluster(logicalcluster.Wildcard)
 
-	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.WorkloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
 	})
 	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(downstreamDynamicClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -194,14 +195,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClient, downstreamDynamicClient, upstreamInformers, downstreamInformers)
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
 
 	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.WorkloadClusterName, resources)
 	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.KCPClusterName, cfg.WorkloadClusterName, advancedSchedulingEnabled,
-		upstreamDynamicClient, downstreamDynamicClient, upstreamInformers, downstreamInformers)
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
