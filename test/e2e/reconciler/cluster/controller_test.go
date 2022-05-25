@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,6 +37,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -78,6 +80,7 @@ func TestClusterController(t *testing.T) {
 
 				nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(cowboy), Namespace: cowboy.Namespace}
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
+
 				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)
 				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)
 				require.Eventually(t, func() bool {
@@ -92,17 +95,20 @@ func TestClusterController(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected namespace to be created in sink")
 
 				t.Logf("Expecting same spec to show up in sink")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					if got, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
-							return false
+							cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
+							if err != nil {
+								return false, fmt.Sprintf("error getting cowboy %q: %v", cowboy.Name, err)
+							}
+							return false, fmt.Sprintf("Downstream cowboy couldn't be found. Here is the upstream cowboy:\n%s", toYaml(t, cowboy))
 						}
-						klog.Errorf("Error getting cowboy %q in sink: %v", cowboy.Name, err)
-						return false
+						return false, fmt.Sprintf("error getting cowboy %q in sink: %v", cowboy.Name, err)
 					} else if diff := cmp.Diff(cowboy.Spec, got.Spec); diff != "" {
-						return false
+						return false, fmt.Sprintf("spec mismatch (-want +got):\n%s", diff)
 					}
-					return true
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected cowboy to be synced to sink with right spec")
 
 				t.Logf("Patching status in sink")
@@ -154,16 +160,11 @@ func TestClusterController(t *testing.T) {
 			sourceConfig := source.DefaultConfig(t)
 			sourceKubeClusterClient, err := kubernetesclient.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceCrdClusterClient, err := apiextensionsclientset.NewClusterForConfig(sourceConfig)
-			require.NoError(t, err)
 			sourceWildwestClusterClient, err := wildwestclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
 
-			sourceCrdClient := sourceCrdClusterClient.Cluster(wsClusterName)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
-
-			fixturewildwest.Create(t, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 			syncerFixture := framework.SyncerFixture{
 				ResourcesToSync:      sets.NewString("cowboys.wildwest.dev"),
@@ -203,4 +204,10 @@ func TestClusterController(t *testing.T) {
 			testCase.work(ctx, t, runningServers)
 		})
 	}
+}
+
+func toYaml(t *testing.T, obj interface{}) string {
+	bytes, err := yaml.Marshal(obj)
+	require.NoError(t, err)
+	return string(bytes)
 }

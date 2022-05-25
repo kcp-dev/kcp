@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -31,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	kubernetesclient "k8s.io/client-go/kubernetes"
@@ -42,6 +44,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
@@ -49,14 +52,14 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 const (
-	controllerName            = "kcp-scheduling-placement"
-	unscheduledNamedspacesKey = "unscheduledNamespaces"
-	byWorkspace               = controllerName + "-byWorkspace" // will go away with scoping
-	unscheduledByWorkspaceKey = "unscheduledByWorkspaceKey"
+	controllerName         = "kcp-scheduling-placement"
+	byWorkspace            = controllerName + "-byWorkspace" // will go away with scoping
+	byNegotiationWorkspace = controllerName + "-byNegotiationWorkspace"
 )
 
 // NewController returns a new controller placing namespaces onto locations by create
@@ -64,7 +67,7 @@ const (
 func NewController(
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
-	namespaceClusterInformer coreinformers.NamespaceInformer,
+	namespaceInformer coreinformers.NamespaceInformer,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	locationInformer schedulinginformers.LocationInformer,
 	workloadClusterInformer workloadinformers.WorkloadClusterInformer,
@@ -81,8 +84,8 @@ func NewController(
 		kubeClusterClient: kubeClusterClient,
 		kcpClusterClient:  kcpClusterClient,
 
-		namespaceLister:  namespaceClusterInformer.Lister(),
-		namespaceIndexer: namespaceClusterInformer.Informer().GetIndexer(),
+		namespaceLister:  namespaceInformer.Lister(),
+		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
 
 		apiBindignLister:  apiBindingInformer.Lister(),
 		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
@@ -112,10 +115,9 @@ func NewController(
 		return nil, err
 	}
 
-	if err := namespaceClusterInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:               indexByWorksapce,
-		unscheduledNamedspacesKey: indexUnscheduledNamespaces,
-		unscheduledByWorkspaceKey: indexUnscheduledByWorkspace,
+	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace:            indexByWorksapce,
+		byNegotiationWorkspace: indexByNegotiationWorkspace,
 	}); err != nil {
 		return nil, err
 	}
@@ -124,6 +126,12 @@ func NewController(
 		FilterFunc: func(obj interface{}) bool {
 			switch binding := obj.(type) {
 			case *apisv1alpha1.APIBinding:
+				if binding.Spec.Reference.Workspace == nil {
+					return false
+				}
+				if binding.Spec.Reference.Workspace.ExportName != apiexport.TemporaryComputeServiceExportName {
+					return false
+				}
 				return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
 			case cache.DeletedFinalStateUnknown:
 				return true
@@ -138,12 +146,13 @@ func NewController(
 		},
 	})
 
-	namespaceClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
+	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
+	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch ns := obj.(type) {
 			case *corev1.Namespace:
-				_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
-				return !found // only without annotation, neither empty (= don't touch me) nor non-empty (= already scheduled)
+				return !namespaceBlocklist.Has(ns.Name)
 			case cache.DeletedFinalStateUnknown:
 				return true
 			default:
@@ -157,8 +166,44 @@ func NewController(
 		},
 	})
 
-	// intentionally do not react to Location and WorkloadCluster changes. We requeue
-	// unschedulable namespaces instead.
+	locationInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) { c.enqueueLocation(obj) },
+			UpdateFunc: func(old, obj interface{}) {
+				oldLoc := old.(*schedulingv1alpha1.Location)
+				newLoc := obj.(*schedulingv1alpha1.Location)
+				if !reflect.DeepEqual(oldLoc.Spec, newLoc.Spec) || !reflect.DeepEqual(oldLoc.ObjectMeta, newLoc.ObjectMeta) {
+					c.enqueueLocation(obj)
+				}
+			},
+			DeleteFunc: func(obj interface{}) { c.enqueueLocation(obj) },
+		},
+	)
+
+	workloadClusterInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) { c.enqueueLocation(obj) },
+			UpdateFunc: func(old, obj interface{}) {
+				oldCluster := old.(*workloadv1alpha1.WorkloadCluster)
+				oldClusterCopy := *oldCluster
+				oldClusterCopy.Status.LastSyncerHeartbeatTime = nil
+				oldClusterCopy.Status.VirtualWorkspaces = nil
+				oldClusterCopy.Status.Capacity = nil
+
+				newCluster := obj.(*workloadv1alpha1.WorkloadCluster)
+				newClusterCopy := *newCluster
+				newClusterCopy.Status.LastSyncerHeartbeatTime = nil
+				newClusterCopy.Status.VirtualWorkspaces = nil
+				newClusterCopy.Status.Capacity = nil
+
+				// compare ignoring heart-beat
+				if !reflect.DeepEqual(oldClusterCopy, newClusterCopy) {
+					c.enqueueWorkloadCluster(obj)
+				}
+			},
+			DeleteFunc: func(obj interface{}) { c.enqueueLocation(obj) },
+		},
+	)
 
 	return c, nil
 }
@@ -193,26 +238,20 @@ func (c *controller) enqueueAPIBinding(obj interface{}) {
 	}
 	clusterName, bindingName := clusters.SplitClusterAwareKey(key)
 
-	namespaces, err := c.namespaceIndexer.ByIndex(unscheduledByWorkspaceKey, clusterName.String())
+	namespaces, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("error getting namespaces for binding %s: %w", clusterName.String(), err))
+		runtime.HandleError(err)
 		return
 	}
 
 	for _, obj := range namespaces {
-		ns, ok := obj.(*corev1.Namespace)
-		if !ok {
-			runtime.HandleError(fmt.Errorf("obj is supposed to be a Namespace, but is %T", obj))
-			continue
-		}
-
-		klog.Infof("Mapping APIBinding %s|%s to unscheduled namespace %s", clusterName.String(), bindingName, ns.Name)
+		ns := obj.(*corev1.Namespace)
+		klog.Infof("Queueing namespace %s|%s because APIBinding %q changed", clusterName.String(), ns.Name, bindingName)
 		key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 		c.queue.Add(key)
 	}
 }
 
-// enqueueNamespace enqueues a namespace.
 func (c *controller) enqueueNamespace(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
@@ -223,6 +262,50 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 
 	klog.Infof("Queueing Namespace %s|%s", clusterName.String(), name)
 	c.queue.Add(key)
+}
+
+func (c *controller) enqueueLocation(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, name := clusters.SplitClusterAwareKey(key)
+
+	nss, err := c.namespaceIndexer.ByIndex(byNegotiationWorkspace, clusterName.String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	for _, obj := range nss {
+		ns := obj.(*corev1.Namespace)
+		key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+		klog.Infof("Queueing namespace %s|%s because location %s|%s changed", logicalcluster.From(ns), ns.Name, clusterName, name)
+		c.queue.Add(key)
+	}
+}
+
+func (c *controller) enqueueWorkloadCluster(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, name := clusters.SplitClusterAwareKey(key)
+
+	nss, err := c.namespaceIndexer.ByIndex(byNegotiationWorkspace, clusterName.String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	for _, obj := range nss {
+		ns := obj.(*corev1.Namespace)
+		key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+		klog.Infof("Queueing namespace %s|%s because WorkloadCluster %s|%s changed", logicalcluster.From(ns), ns.Name, clusterName, name)
+		c.queue.Add(key)
+	}
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.

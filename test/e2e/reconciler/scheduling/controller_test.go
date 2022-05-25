@@ -114,15 +114,22 @@ func TestScheduling(t *testing.T) {
 		return len(resources.Items) > 0
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	t.Log("Create an APIExport in the negotiation domain")
-	export := &apisv1alpha1.APIExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubernetes",
-		},
-		Spec: apisv1alpha1.APIExportSpec{},
-	}
-	_, err = kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
-	require.NoError(t, err)
+	t.Log("Wait for \"kubernetes\" apiexport")
+	var export *apisv1alpha1.APIExport
+	require.Eventually(t, func() bool {
+		export, err = kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Log("Wait for \"kubernetes\" apibinding that is bound")
+	framework.Eventually(t, func() (bool, string) {
+		binding, err := kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
+		if err != nil {
+			klog.Error(err)
+			return false, ""
+		}
+		return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound, toYaml(binding)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for APIResourceSchemas to show up in the negotiation workspace")
 	require.Eventually(t, func() bool {
@@ -160,13 +167,10 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for available instances in the location")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		location, err := kcpClusterClient.Cluster(negotiationClusterName).SchedulingV1alpha1().Locations().Get(ctx, location.Name, metav1.GetOptions{})
 		require.NoError(t, err)
-
-		klog.Infof(toYaml(location))
-
-		return location.Status.AvailableInstances != nil && *location.Status.AvailableInstances == 1
+		return location.Status.AvailableInstances != nil && *location.Status.AvailableInstances == 1, fmt.Sprintf("instances in status not updated:\n%s", toYaml(location))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	binding := &apisv1alpha1.APIBinding{
@@ -188,14 +192,12 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		binding, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 		if err != nil {
-			klog.Errorf("Failed to list Locations: %v", err)
-			return false
+			return false, fmt.Sprintf("failed to list Locations: %v", err)
 		}
-
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
+		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -215,14 +217,13 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		binding, err := kcpClusterClient.Cluster(secondUserClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 		if err != nil {
-			klog.Errorf("Failed to list Locations: %v", err)
-			return false
+			return false, fmt.Sprintf("failed to list Locations: %v", err)
 		}
 
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
+		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -305,13 +306,11 @@ func TestScheduling(t *testing.T) {
 	require.Equal(t, names.List(), []string{"first", "second"})
 
 	t.Logf("Wait for placement annotation on the default namespace")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		ns, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 		require.NoError(t, err)
 
-		klog.Infof(toYaml(ns))
-
-		return ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey] != ""
+		return ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey] != "", fmt.Sprintf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, toYaml(ns))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
 

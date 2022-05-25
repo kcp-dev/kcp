@@ -18,6 +18,7 @@ package location
 
 import (
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -47,11 +48,23 @@ func LocationWorkloadClusters(workloadClusters []*workloadv1alpha1.WorkloadClust
 
 // FilterReady returns the ready workload clusters.
 func FilterReady(workloadClusters []*workloadv1alpha1.WorkloadCluster) []*workloadv1alpha1.WorkloadCluster {
-	var ready []*workloadv1alpha1.WorkloadCluster
+	ready := make([]*workloadv1alpha1.WorkloadCluster, 0, len(workloadClusters))
 	for _, wc := range workloadClusters {
 		if conditions.IsTrue(wc, conditionsapi.ReadyCondition) && !wc.Spec.Unschedulable {
 			ready = append(ready, wc)
 		}
 	}
 	return ready
+}
+
+// FilterNonEvicting filters out the evicting workload clusters.
+func FilterNonEvicting(workloadClusters []*workloadv1alpha1.WorkloadCluster) []*workloadv1alpha1.WorkloadCluster {
+	ret := make([]*workloadv1alpha1.WorkloadCluster, 0, len(workloadClusters))
+	now := time.Now()
+	for _, wc := range workloadClusters {
+		if wc.Spec.EvictAfter == nil || now.Before(wc.Spec.EvictAfter.Time) {
+			ret = append(ret, wc)
+		}
+	}
+	return ret
 }

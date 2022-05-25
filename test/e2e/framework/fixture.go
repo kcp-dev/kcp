@@ -73,7 +73,6 @@ func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
 		"--discovery-poll-interval=5s",
 		"--token-auth-file", tokenAuthFile,
 		"--run-virtual-workspaces=true",
-		"--feature-gates=KCPLocationAPI=true",
 	}
 }
 

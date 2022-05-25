@@ -46,7 +46,6 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 )
 
 const controllerName = "kcp-workload-resource-scheduler"
@@ -109,7 +108,7 @@ func NewController(
 func scheduleStateLabels(ls map[string]string) map[string]string {
 	ret := make(map[string]string, len(ls))
 	for k, v := range ls {
-		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) || k == namespace.DeprecatedScheduledClusterNamespaceLabel {
+		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) {
 			ret[k] = v
 		}
 	}
@@ -301,7 +300,8 @@ var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node
 // namespace to the queue if there scheduling label differs from the namespace's.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	clusterName := logicalcluster.From(ns)
-	nsLocation := ns.Labels[namespace.DeprecatedScheduledClusterNamespaceLabel]
+
+	nsLocations, nsDeleting := locations(ns.Annotations, ns.Labels, true)
 
 	klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): getting listers", clusterName, ns.Name)
 	listers, notSynced := c.ddsif.Listers()
@@ -322,17 +322,17 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 				continue
 			}
 
-			objLocation := u.GetLabels()[namespace.DeprecatedScheduledClusterNamespaceLabel]
-			if objLocation != nsLocation {
+			objLocations, objDeleting := locations(u.GetAnnotations(), u.GetLabels(), false)
+			if !objLocations.Equal(nsLocations) || !objDeleting.Equal(nsDeleting) {
 				c.enqueueResource(gvr, obj)
 
 				if klog.V(2).Enabled() && !klog.V(4).Enabled() && len(enqueuedResources) < 10 {
 					enqueuedResources = append(enqueuedResources, u.GetName())
 				}
 
-				klog.V(3).Infof("Enqueuing %s %s|%s/%s to schedule to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
+				klog.V(3).Infof("Enqueuing %s %s|%s/%s to schedule to %v", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
 			} else {
-				klog.V(4).Infof("Skipping %s %s|%s/%s because it is already scheduled to %q", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocation)
+				klog.V(4).Infof("Skipping %s %s|%s/%s because it is already scheduled to %v", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
 			}
 		}
 
@@ -340,7 +340,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			if len(enqueuedResources) == 10 {
 				enqueuedResources = append(enqueuedResources, "...")
 			}
-			klog.V(2).Infof("Enqueuing some GVR %q in namespace %s|%s to schedule to %q: %s", gvr, logicalcluster.From(ns), ns.Name, nsLocation, strings.Join(enqueuedResources, ","))
+			klog.V(2).Infof("Enqueuing some GVR %q in namespace %s|%s to schedule to %v: %s", gvr, logicalcluster.From(ns), ns.Name, nsLocations.List(), strings.Join(enqueuedResources, ","))
 		}
 	}
 
@@ -352,4 +352,21 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	}
 
 	return nil
+}
+
+func locations(annotations, labels map[string]string, skipPending bool) (locations sets.String, deleting sets.String) {
+	locations = sets.NewString()
+	deleting = sets.NewString()
+
+	for k, v := range labels {
+		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) && (!skipPending || v == string(workloadv1alpha1.ResourceStateSync)) {
+			locations.Insert(strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix))
+		}
+	}
+	for k := range annotations {
+		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
+			deleting.Insert(strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix))
+		}
+	}
+	return
 }

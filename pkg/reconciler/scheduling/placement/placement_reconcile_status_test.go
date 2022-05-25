@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package namespace
+package placement
 
 import (
 	"testing"
@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
@@ -31,37 +32,40 @@ import (
 
 func TestSetScheduledCondition(t *testing.T) {
 	testCases := map[string]struct {
-		labels    map[string]string
-		scheduled bool
-		reason    conditionsapi.ConditionType
+		labels      map[string]string
+		annotations map[string]string
+		scheduled   bool
+		reason      conditionsapi.ConditionType
 	}{
-		"disabled label present but empty": {
+		"disabled label true": {
+			labels: map[string]string{
+				workloadv1alpha1.SchedulingDisabledLabel: "true",
+			},
+			annotations: map[string]string{
+				schedulingv1alpha1.PlacementAnnotationKey: `{"foo":"Pending"}`,
+			},
+			reason: NamespaceReasonSchedulingDisabled,
+		},
+		"disabled label empty": {
 			labels: map[string]string{
 				workloadv1alpha1.SchedulingDisabledLabel: "",
-				DeprecatedScheduledClusterNamespaceLabel: "foo",
 			},
-			reason: NamespaceReasonSchedulingDisabled,
 		},
-		"disabled label present but not empty": {
+		"disabled label false": {
 			labels: map[string]string{
 				workloadv1alpha1.SchedulingDisabledLabel: "false",
-				DeprecatedScheduledClusterNamespaceLabel: "foo",
 			},
-			reason: NamespaceReasonSchedulingDisabled,
 		},
 		"scheduled": {
-			labels: map[string]string{
-				DeprecatedScheduledClusterNamespaceLabel: "foo",
+			annotations: map[string]string{
+				schedulingv1alpha1.PlacementAnnotationKey: `{"foo":"Pending"}`,
 			},
 			scheduled: true,
 		},
-		"unscheduled with label": {
-			labels: map[string]string{
-				DeprecatedScheduledClusterNamespaceLabel: "",
+		"unschedulable": {
+			annotations: map[string]string{
+				schedulingv1alpha1.PlacementAnnotationKey: `{}`,
 			},
-			reason: NamespaceReasonUnschedulable,
-		},
-		"unscheduled without label": {
 			reason: NamespaceReasonUnschedulable,
 		},
 	}
@@ -69,16 +73,23 @@ func TestSetScheduledCondition(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: testCase.labels,
+					Labels:      testCase.labels,
+					Annotations: testCase.annotations,
 				},
 			}
 			updatedNs := setScheduledCondition(ns)
-			condition := conditions.Get(&NamespaceConditionsAdapter{updatedNs}, NamespaceScheduled)
-			require.NotEmpty(t, condition, "condition missing")
-			scheduled := condition.Status == corev1.ConditionTrue
-			require.Equal(t, testCase.scheduled, scheduled, "unexpected value for scheduled")
-			if len(testCase.reason) > 0 {
-				require.Equal(t, string(testCase.reason), condition.Reason, "unexpected reason")
+
+			if !testCase.scheduled && testCase.reason == "" {
+				c := conditions.Get(&NamespaceConditionsAdapter{updatedNs}, NamespaceScheduled)
+				require.Nil(t, c)
+			} else {
+				c := conditions.Get(&NamespaceConditionsAdapter{updatedNs}, NamespaceScheduled)
+				require.NotNil(t, c)
+				scheduled := c.Status == corev1.ConditionTrue
+				require.Equal(t, testCase.scheduled, scheduled, "unexpected value for scheduled")
+				if len(testCase.reason) > 0 {
+					require.Equal(t, string(testCase.reason), c.Reason, "unexpected reason")
+				}
 			}
 		})
 	}

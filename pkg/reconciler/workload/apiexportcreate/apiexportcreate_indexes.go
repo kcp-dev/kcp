@@ -14,17 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package placement
+package apiexport
 
 import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 )
 
 func indexByWorksapce(obj interface{}) ([]string, error) {
@@ -35,17 +32,4 @@ func indexByWorksapce(obj interface{}) ([]string, error) {
 
 	lcluster := logicalcluster.From(metaObj)
 	return []string{lcluster.String()}, nil
-}
-
-func indexByNegotiationWorkspace(obj interface{}) ([]string, error) {
-	ns, ok := obj.(*corev1.Namespace)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
-	}
-
-	if negotiationWorkspace, found := ns.Annotations[schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey]; found && negotiationWorkspace != "" {
-		return []string{negotiationWorkspace}, nil
-	}
-
-	return []string{}, nil
 }
