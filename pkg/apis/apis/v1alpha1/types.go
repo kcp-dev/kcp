@@ -364,7 +364,7 @@ type Identity struct {
 
 // APIExportPolicy is a wrapper type around the multiple options that would be allowed.
 type APIExportPolicy struct {
-	//local is policy that is defined in same namespace as API Export.
+	// local is policy that is defined in same namespace as API Export.
 
 	// +optional
 	Local *LocalAPIExportPolicy `json:"local,omitempty"`
@@ -386,6 +386,19 @@ type APIExportStatus struct {
 	//
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// virtualWorkspaces contains all APIExport virtual workspace URLs.
+	// +optional
+	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
+}
+
+type VirtualWorkspace struct {
+	// url is an APIExport virtual workspace URL.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	URL string `json:"url"`
 }
 
 // APIExportList is a list of APIExport resources
