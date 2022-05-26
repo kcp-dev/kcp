@@ -133,6 +133,7 @@ type ClusterWorkspaceTypeList struct {
 // initialization controller for the given type of workspaces.
 //
 // +kubebuilder:validation:MaxLength=32
+// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`
 type ClusterWorkspaceInitializer string
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
@@ -322,5 +323,5 @@ const (
 	// ClusterWorkspaceInitializerLabelPrefix is the prefix for labels which match ClusterWorkspace.Status.Initializers,
 	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
 	// webhook.
-	ClusterWorkspaceInitializerLabelPrefix = "internal.kcp.dev/initializer."
+	ClusterWorkspaceInitializerLabelPrefix = "initializer.internal.kcp.dev-"
 )

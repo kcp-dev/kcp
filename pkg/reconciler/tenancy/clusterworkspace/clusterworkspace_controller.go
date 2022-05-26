@@ -305,6 +305,10 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
+func initializerLabelFor(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) string {
+	return string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
+}
+
 func reconcileMetadata(workspace *tenancyv1alpha1.ClusterWorkspace) {
 	if workspace.Labels == nil {
 		workspace.Labels = map[string]string{}
@@ -313,7 +317,7 @@ func reconcileMetadata(workspace *tenancyv1alpha1.ClusterWorkspace) {
 
 	initializerKeys := sets.NewString()
 	for _, initializer := range workspace.Status.Initializers {
-		key := string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
+		key := initializerLabelFor(initializer)
 		initializerKeys.Insert(key)
 		workspace.Labels[key] = ""
 	}

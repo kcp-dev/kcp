@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -88,8 +89,8 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 
 	for i, initializer := range cw.Status.Initializers {
 		key := string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
-		if len(key) > labelvalidation.LabelValueMaxLength {
-			return admission.NewForbidden(a, fmt.Errorf("status.initializers[%d] must be shorter than %d characters", i, labelvalidation.LabelValueMaxLength-len(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix)))
+		if errs := labelvalidation.IsQualifiedName(key); len(errs) > 0 {
+			return admission.NewForbidden(a, fmt.Errorf("status.initializers[%d] has an invalid value: %q: %s", i, initializer, strings.Join(errs, ", ")))
 		}
 	}
 
