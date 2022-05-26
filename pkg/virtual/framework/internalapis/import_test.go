@@ -28,13 +28,13 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	common "k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	_ "k8s.io/kubernetes/pkg/apis/core/install"
 	k8sopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 )
 
@@ -71,16 +71,16 @@ func TestImportInternalAPIs(t *testing.T) {
 				Kind:     "WorkloadCluster",
 			},
 			GroupVersion: schema.GroupVersion{Group: "workload.kcp.dev", Version: "v1alpha1"},
-			Instance:     &v1alpha1.WorkloadCluster{},
+			Instance:     &workloadv1alpha1.WorkloadCluster{},
 			ResourceSope: apiextensionsv1.ClusterScoped,
 			HasStatus:    true,
 		},
 	}
-	tenancyScheme := runtime.NewScheme()
-	err := v1alpha1.AddToScheme(tenancyScheme)
+	workloadScheme := runtime.NewScheme()
+	err := workloadv1alpha1.AddToScheme(workloadScheme)
 	require.NoError(t, err)
 	schemas, err := createAPIResourceSchemas(
-		[]*runtime.Scheme{legacyscheme.Scheme, tenancyScheme},
+		[]*runtime.Scheme{legacyscheme.Scheme, workloadScheme},
 		[]common.GetOpenAPIDefinitions{k8sopenapi.GetOpenAPIDefinitions, kcpopenapi.GetOpenAPIDefinitions},
 		apisToImport...)
 	require.NoError(t, err)
