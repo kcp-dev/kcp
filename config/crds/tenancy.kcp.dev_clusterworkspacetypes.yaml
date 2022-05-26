@@ -54,6 +54,7 @@ spec:
                     to a cluster workspace initialization controller for the given
                     type of workspaces.
                   maxLength: 32
+                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                   type: string
                 type: array
             type: object
