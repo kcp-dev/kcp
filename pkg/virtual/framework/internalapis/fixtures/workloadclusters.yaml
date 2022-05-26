@@ -9,7 +9,7 @@ spec:
     singular: workloadcluster
   scope: Cluster
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       description: WorkloadCluster describes a member cluster capable of running workloads.
       properties:
