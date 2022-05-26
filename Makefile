@@ -40,6 +40,10 @@ GOLANGCI_LINT_VER := v1.44.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
+GOTESTSUM_VER := v1.8.1
+GOTESTSUM_BIN := gotestsum
+GOTESTSUM := $(TOOLS_DIR)/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
+
 KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
 KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
@@ -95,6 +99,9 @@ $(CONTROLLER_GEN):
 $(YAML_PATCH):
 	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
+$(GOTESTSUM):
+	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
+
 codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
 	go mod download
 	./hack/update-codegen.sh
@@ -125,19 +132,34 @@ $(OPENSHIFT_GOIMPORTS):
 imports: $(OPENSHIFT_GOIMPORTS)
 	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
 
+ifdef ARTIFACT_DIR
+GOTESTSUM_ARGS += --junitfile=$(ARTIFACT_DIR)/junit.xml
+endif
+
+GO_TEST = go test
+ifdef USE_GOTESTSUM
+GO_TEST = $(GOTESTSUM) $(GOTESTSUM_ARGS) --
+endif
+
 COUNT ?= 1
 E2E_PARALLELISM ?= 1
 
 .PHONY: test-e2e
+ifdef USE_GOTESTSUM
+test-e2e: $(GOTESTSUM)
+endif
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all
-	NO_GORUN=1 go test -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
+	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
 
 .PHONY: test
+ifdef USE_GOTESTSUM
+test-e2e: $(GOTESTSUM)
+endif
 test: WHAT ?= ./...
 test:
-	go test -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
+	$(GO_TEST) -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
 
 .PHONY: verify-k8s-deps
 verify-k8s-deps:
