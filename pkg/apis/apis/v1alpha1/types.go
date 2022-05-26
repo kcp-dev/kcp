@@ -266,6 +266,10 @@ const (
 
 	IdentityVerificationFailedReason = "IdentityVerificationFailed"
 	IdentityGenerationFailedReason   = "IdentityGenerationFailed"
+
+	APIExportVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
+
+	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
 )
 
 // These are for APIExport identity.

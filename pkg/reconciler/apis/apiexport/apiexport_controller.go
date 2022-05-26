@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -42,8 +43,10 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 )
 
@@ -60,7 +63,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
 	apiExportInformer apisinformers.APIExportInformer,
-	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
+	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 	kubeClusterClient kubernetes.ClusterInterface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	secretInformer coreinformers.SecretInformer,
@@ -85,6 +88,9 @@ func NewController(
 		createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 			return err
+		},
+		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+			return clusterWorkspaceShardInformer.Lister().List(labels.Everything())
 		},
 	}
 
@@ -144,6 +150,20 @@ func NewController(
 		},
 	})
 
+	clusterWorkspaceShardInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.enqueueAllAPIExports(obj)
+			},
+			UpdateFunc: func(_, newObj interface{}) {
+				c.enqueueAllAPIExports(newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.enqueueAllAPIExports(obj)
+			},
+		},
+	)
+
 	return c, nil
 }
 
@@ -165,6 +185,8 @@ type controller struct {
 
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
 	createSecret func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error
+
+	listClusterWorkspaceShards func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 }
 
 // enqueueAPIBinding enqueues an APIExport .
@@ -177,6 +199,35 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 
 	klog.V(2).Infof("Queueing APIExport %q", key)
 	c.queue.Add(key)
+}
+
+func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
+	clusterWorkspaceShardKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(clusterWorkspaceShard)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	list, err := c.apiExportLister.List(labels.Everything())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	for i := range list {
+		key, err := cache.MetaNamespaceKeyFunc(list[i])
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
+
+		klog.V(2).InfoS("Queuing APIExport because ClusterWorkspaceShard changed",
+			"APIExport", key,
+			"ClusterWorkspaceShard", clusterWorkspaceShardKey,
+		)
+
+		c.queue.Add(key)
+	}
 }
 
 func (c *controller) enqueueSecret(obj interface{}) {

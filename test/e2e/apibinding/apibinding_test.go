@@ -19,9 +19,14 @@ package apibinding
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"path"
+	"reflect"
+	"sort"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
@@ -36,6 +41,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -67,6 +73,14 @@ func TestAPIBinding(t *testing.T) {
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
+	clusterWorkspaceShards, err := kcpClients.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing clusterworkspaceshards")
+
+	var clusterWorkspaceShardURLs []string
+	for _, s := range clusterWorkspaceShards.Items {
+		clusterWorkspaceShardURLs = append(clusterWorkspaceShardURLs, s.Spec.ExternalURL)
+	}
+
 	serviceProviderWorkspaces := []logicalcluster.Name{serviceProvider1Workspace, serviceProvider2Workspace}
 
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
@@ -84,8 +98,39 @@ func TestAPIBinding(t *testing.T) {
 				LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 			},
 		}
-		_, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+		cowboysAPIExport, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 		require.NoError(t, err)
+
+		var expectedURLs []string
+		for _, urlString := range clusterWorkspaceShardURLs {
+			u, err := url.Parse(urlString)
+			require.NoError(t, err, "error parsing %q", urlString)
+
+			u.Path = path.Join(u.Path, "services", "apiexport", serviceProviderWorkspace.String(), cowboysAPIExport.Name)
+			expectedURLs = append(expectedURLs, u.String())
+		}
+		sort.Strings(expectedURLs)
+
+		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
+		require.Eventually(t, func() bool {
+			e, err := kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Get(ctx, cowboysAPIExport.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderWorkspace, cowboysAPIExport.Name, err)
+			}
+
+			var actualURLs []string
+			for _, u := range e.Status.VirtualWorkspaces {
+				actualURLs = append(actualURLs, u.URL)
+			}
+
+			if !reflect.DeepEqual(expectedURLs, actualURLs) {
+				t.Logf("Unexpected URLs. Diff: %s", cmp.Diff(expectedURLs, actualURLs))
+				return false
+			}
+
+			return true
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExport %s|%s didn't get status.virtualWorkspaceURLs set correctly",
+			serviceProviderWorkspace, cowboysAPIExport.Name)
 	}
 
 	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.Name) {

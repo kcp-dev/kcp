@@ -22,16 +22,21 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
+	"net/url"
+	"path"
 
 	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 
+	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -88,6 +93,16 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 			apiExport,
 			apisv1alpha1.APIExportIdentityValid,
 			apisv1alpha1.IdentityVerificationFailedReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			err.Error(),
+		)
+	}
+
+	if err := c.updateVirtualWorkspaceURLs(apiExport); err != nil {
+		conditions.MarkFalse(
+			apiExport,
+			apisv1alpha1.APIExportVirtualWorkspaceURLsReady,
+			apisv1alpha1.ErrorGeneratingURLsReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			err.Error(),
 		)
@@ -170,6 +185,55 @@ func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clust
 	}
 
 	conditions.MarkTrue(apiExport, apisv1alpha1.APIExportIdentityValid)
+
+	return nil
+}
+
+func (c *controller) updateVirtualWorkspaceURLs(apiExport *apisv1alpha1.APIExport) error {
+	clusterWorkspaceShards, err := c.listClusterWorkspaceShards()
+	if err != nil {
+		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
+	}
+
+	desiredURLs := sets.NewString()
+	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
+		if clusterWorkspaceShard.Spec.ExternalURL == "" {
+			continue
+		}
+
+		u, err := url.Parse(clusterWorkspaceShard.Spec.ExternalURL)
+		if err != nil {
+			// Should never happen
+			klog.Errorf(
+				"Error parsing ClusterWorkspaceShard %s|%s spec.externalURL %q: %v",
+				logicalcluster.From(clusterWorkspaceShard),
+				clusterWorkspaceShard.Name,
+				clusterWorkspaceShard.Spec.ExternalURL,
+			)
+
+			continue
+		}
+
+		u.Path = path.Join(
+			u.Path,
+			virtualworkspacesoptions.DefaultRootPathPrefix,
+			apiexportbuilder.VirtualWorkspaceName,
+			logicalcluster.From(apiExport).String(),
+			apiExport.Name,
+		)
+
+		desiredURLs.Insert(u.String())
+	}
+
+	apiExport.Status.VirtualWorkspaces = nil
+
+	for _, u := range desiredURLs.List() {
+		apiExport.Status.VirtualWorkspaces = append(apiExport.Status.VirtualWorkspaces, apisv1alpha1.VirtualWorkspace{
+			URL: u,
+		})
+	}
+
+	conditions.MarkTrue(apiExport, apisv1alpha1.APIExportVirtualWorkspaceURLsReady)
 
 	return nil
 }
