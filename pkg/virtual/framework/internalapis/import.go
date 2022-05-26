@@ -144,7 +144,7 @@ func createAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGette
 				Scope: def.ResourceSope,
 				Versions: []apisv1alpha1.APIResourceVersion{
 					{
-						Name:    "v1",
+						Name:    def.GroupVersion.Version,
 						Served:  true,
 						Storage: true,
 						Schema:  runtime.RawExtension{},
