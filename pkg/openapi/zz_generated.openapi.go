@@ -1832,10 +1832,9 @@ func schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref common.Reference
 				Description: "WorkspaceExportReference describes an API and backing implementation that are provided by an actor in the specified Workspace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
+					"path": {
 						SchemaProps: spec.SchemaProps{
-							Description: "name is a workspace name in the same organization.",
-							Default:     "",
+							Description: "path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must be some ancestor or a child of some ancestor.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1849,7 +1848,7 @@ func schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"name", "exportName"},
+				Required: []string{"exportName"},
 			},
 		},
 	}

@@ -231,7 +231,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if binding.Spec.Reference.Workspace == nil {
 			continue
 		}
-		if binding.Spec.Reference.Workspace.WorkspaceName != clusterName.Base() {
+		if binding.Spec.Reference.Workspace.Path != clusterName.String() {
 			continue
 		}
 		if binding.Spec.Reference.Workspace.ExportName != reconcilerapiexport.TemporaryComputeServiceExportName {
@@ -249,8 +249,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					WorkspaceName: clusterName.Base(),
-					ExportName:    reconcilerapiexport.TemporaryComputeServiceExportName,
+					Path:       clusterName.String(),
+					ExportName: reconcilerapiexport.TemporaryComputeServiceExportName,
 				},
 			},
 		},

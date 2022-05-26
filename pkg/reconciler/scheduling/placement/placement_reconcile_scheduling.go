@@ -61,9 +61,7 @@ type placementReconciler struct {
 // TODO(sttts): avoid recalculations with some cache
 func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
 	clusterName := logicalcluster.From(ns)
-	orgClusterName, found := clusterName.Parent()
-	if !found || !clusterName.HasPrefix(tenancyv1alpha1.RootCluster) {
-		// ignore the root and every non-workspace.
+	if !clusterName.HasPrefix(tenancyv1alpha1.RootCluster) {
 		return reconcileStatusContinue, ns, nil
 	}
 
@@ -116,7 +114,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 		if binding.Spec.Reference.Workspace.ExportName != reconcilerapiexport.TemporaryComputeServiceExportName {
 			continue
 		}
-		negotationClusterName := orgClusterName.Join(binding.Spec.Reference.Workspace.WorkspaceName)
+		negotationClusterName := logicalcluster.New(binding.Spec.Reference.Workspace.Path)
 		clusters, err := r.listWorkloadClusters(negotationClusterName)
 		if err != nil {
 			errs = append(errs, err)
@@ -151,7 +149,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 		return workloadBindings[i].Name < workloadBindings[j].Name
 	})
 	binding := workloadBindings[0]
-	negotiationClusterName := orgClusterName.Join(binding.Spec.Reference.Workspace.WorkspaceName)
+	negotiationClusterName := logicalcluster.New(binding.Spec.Reference.Workspace.Path)
 
 	locations, err := r.listLocations(negotiationClusterName)
 	if err != nil {

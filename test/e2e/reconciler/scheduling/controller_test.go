@@ -180,8 +180,8 @@ func TestScheduling(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					WorkspaceName: negotiationClusterName.Base(),
-					ExportName:    "kubernetes",
+					Path:       negotiationClusterName.String(),
+					ExportName: "kubernetes",
 				},
 			},
 		},

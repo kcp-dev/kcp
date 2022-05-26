@@ -86,7 +86,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":null}}}}`,
 			wantRequeue:         time.Minute * 2,
@@ -115,7 +115,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				binding("kubernetes", "negotiation-workspace"),
+				binding("kubernetes", "root:org:negotiation-workspace"),
 			}},
 			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{logicalcluster.New("root:org:negotiation-workspace"): {
 				cluster("cluster123", "uid-123"),
@@ -131,7 +131,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
@@ -148,7 +148,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				validExport(binding("kubernetes", "negotiation-workspace")),
+				validExport(binding("kubernetes", "root:org:negotiation-workspace")),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
@@ -164,7 +164,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(binding("kubernetes", "negotiation-workspace")),
+				bound(binding("kubernetes", "root:org:negotiation-workspace")),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
@@ -180,7 +180,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
@@ -211,7 +211,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
 				logicalcluster.New("root:org:negotiation-workspace"): {
@@ -242,7 +242,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
@@ -305,7 +305,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
@@ -341,7 +341,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
@@ -366,7 +366,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
@@ -393,7 +393,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{
 				logicalcluster.New("root:org:negotiation-workspace"): {
@@ -425,7 +425,7 @@ func TestPlacementReconciler(t *testing.T) {
 				},
 			},
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "negotiation-workspace"))),
+				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
 			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
 				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
@@ -512,7 +512,7 @@ func withInstances(location *schedulingv1alpha1.Location, labels map[string]stri
 	return location
 }
 
-func binding(name string, workspaceName string) *apisv1alpha1.APIBinding {
+func binding(name string, Path string) *apisv1alpha1.APIBinding {
 	return &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -520,8 +520,8 @@ func binding(name string, workspaceName string) *apisv1alpha1.APIBinding {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					WorkspaceName: workspaceName,
-					ExportName:    "kubernetes",
+					Path:       Path,
+					ExportName: "kubernetes",
 				},
 			},
 		},

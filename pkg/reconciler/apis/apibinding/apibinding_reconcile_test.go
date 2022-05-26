@@ -67,12 +67,12 @@ var (
 	unbound = newBindingBuilder().
 		WithClusterName("org:ws").
 		WithName("my-binding").
-		WithWorkspaceReference("some-workspace", "some-export")
+		WithWorkspaceReference("org:some-workspace", "some-export")
 
 	binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
 
 	rebinding = binding.DeepCopy().
-			WithBoundAPIExport("some-workspace", "some-export").
+			WithBoundAPIExport("org:some-workspace", "some-export").
 			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.dev", "widgets").
@@ -81,11 +81,11 @@ var (
 				BoundAPIResource,
 		)
 
-	invalidSchema = binding.DeepCopy().WithWorkspaceReference("some-workspace", "invalid-schema")
+	invalidSchema = binding.DeepCopy().WithWorkspaceReference("org:some-workspace", "invalid-schema")
 
 	bound = unbound.DeepCopy().
 		WithPhase(apisv1alpha1.APIBindingPhaseBound).
-		WithBoundAPIExport("some-workspace", "some-export").
+		WithBoundAPIExport("org:some-workspace", "some-export").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("mygroup", "someresources").
@@ -100,8 +100,8 @@ var (
 	conflicting = unbound.DeepCopy().
 			WithName("conflicting").
 			WithPhase(apisv1alpha1.APIBindingPhaseBound).
-			WithWorkspaceReference("some-workspace", "conflict").
-			WithBoundAPIExport("some-workspace", "conflict").
+			WithWorkspaceReference("org:some-workspace", "conflict").
+			WithBoundAPIExport("org:some-workspace", "conflict").
 			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("other.io", "widgets").
@@ -235,7 +235,7 @@ func TestReconcileBinding(t *testing.T) {
 		},
 		"APIExport doesn't have identity hash yet": {
 			apiBinding: binding.DeepCopy().
-				WithWorkspaceReference("some-workspace", "no-identity-hash").Build(),
+				WithWorkspaceReference("org:some-workspace", "no-identity-hash").Build(),
 			wantAPIExportValid: false,
 		},
 		"APIResourceSchema invalid": {
@@ -644,7 +644,7 @@ func TestReconcileBound(t *testing.T) {
 	}{
 		"bound becomes binding when referenced export changes": {
 			apiBinding: bound.DeepCopy().
-				WithWorkspaceReference("new-workspace", "new-export").
+				WithWorkspaceReference("root:org:new-workspace", "new-export").
 				Build(),
 			wantBinding: true,
 		},
@@ -992,10 +992,10 @@ func (b *bindingBuilder) WithoutWorkspaceReference() *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) WithWorkspaceReference(workspaceName, exportName string) *bindingBuilder {
+func (b *bindingBuilder) WithWorkspaceReference(path, exportName string) *bindingBuilder {
 	b.Spec.Reference.Workspace = &apisv1alpha1.WorkspaceExportReference{
-		WorkspaceName: workspaceName,
-		ExportName:    exportName,
+		Path:       path,
+		ExportName: exportName,
 	}
 	return b
 }
@@ -1005,11 +1005,11 @@ func (b *bindingBuilder) WithPhase(phase apisv1alpha1.APIBindingPhaseType) *bind
 	return b
 }
 
-func (b *bindingBuilder) WithBoundAPIExport(workspaceName, exportName string) *bindingBuilder {
+func (b *bindingBuilder) WithBoundAPIExport(path, exportName string) *bindingBuilder {
 	b.Status.BoundAPIExport = &apisv1alpha1.ExportReference{
 		Workspace: &apisv1alpha1.WorkspaceExportReference{
-			WorkspaceName: workspaceName,
-			ExportName:    exportName,
+			Path:       path,
+			ExportName: exportName,
 		},
 	}
 	return b

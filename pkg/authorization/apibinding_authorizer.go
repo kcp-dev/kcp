@@ -110,12 +110,7 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	parentCluster, ok := lcluster.Parent()
-	if !ok {
-		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
-	}
-
-	apiExport, found, err := a.getAPIExport(parentCluster, bindingLogicalCluster)
+	apiExport, found, err := a.getAPIExport(bindingLogicalCluster)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
 	}
@@ -173,8 +168,8 @@ func (a *apiBindingAccessAuthorizer) getAPIBindingReference(attr authorizer.Attr
 	return nil, false, nil
 }
 
-func (a *apiBindingAccessAuthorizer) getAPIExport(parentCluster logicalcluster.Name, exportRef *apisv1alpha1.ExportReference) (*v1alpha1.APIExport, bool, error) {
-	objs, err := a.apiExportIndexer.ByIndex(byWorkspaceIndex, parentCluster.Join(exportRef.Workspace.WorkspaceName).String())
+func (a *apiBindingAccessAuthorizer) getAPIExport(exportRef *apisv1alpha1.ExportReference) (*v1alpha1.APIExport, bool, error) {
+	objs, err := a.apiExportIndexer.ByIndex(byWorkspaceIndex, exportRef.Workspace.Path)
 	if err != nil {
 		return nil, false, err
 	}

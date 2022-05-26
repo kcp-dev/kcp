@@ -48,17 +48,21 @@ spec:
                     description: workspace is a reference to an APIExport in the same
                       organization. The creator of the APIBinding needs to have access
                       to the APIExport with the verb `bind` in order to bind to it.
+                    oneOf:
+                    - required:
+                      - path
                     properties:
                       exportName:
                         description: Name of the APIExport that describes the API.
                         type: string
-                      name:
-                        description: name is a workspace name in the same organization.
-                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      path:
+                        description: path is an absolute reference to a workspace,
+                          e.g. root:org:ws. The workspace must be some ancestor or
+                          a child of some ancestor.
+                        pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                     required:
                     - exportName
-                    - name
                     type: object
                 type: object
             required:
@@ -82,13 +86,14 @@ spec:
                       exportName:
                         description: Name of the APIExport that describes the API.
                         type: string
-                      name:
-                        description: name is a workspace name in the same organization.
-                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      path:
+                        description: path is an absolute reference to a workspace,
+                          e.g. root:org:ws. The workspace must be some ancestor or
+                          a child of some ancestor.
+                        pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                     required:
                     - exportName
-                    - name
                     type: object
                 type: object
               boundResources:

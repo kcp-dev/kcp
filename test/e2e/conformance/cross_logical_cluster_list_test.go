@@ -244,8 +244,8 @@ func bindToExport(
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					WorkspaceName: exportClusterName.Base(),
-					ExportName:    "sheriffs",
+					Path:       exportClusterName.String(),
+					ExportName: "sheriffs",
 				},
 			},
 		},

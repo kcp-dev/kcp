@@ -58,12 +58,12 @@ func ValidateAPIBindingReference(reference apisv1alpha1.ExportReference, path *f
 	// For now, workspace is required via OpenAPI. But just in case...
 	if workspace := reference.Workspace; workspace != nil {
 		// These are required by OpenAPI, but just in case...
-		if workspace.WorkspaceName == "" {
-			allErrs = append(allErrs, field.Required(path.Child("name"), ""))
+		if workspace.Path == "" {
+			allErrs = append(allErrs, field.Required(path.Child("workspace").Child("path"), ""))
 		}
 
 		if workspace.ExportName == "" {
-			allErrs = append(allErrs, field.Required(path.Child("exportName"), ""))
+			allErrs = append(allErrs, field.Required(path.Child("workspace").Child("exportName"), ""))
 		}
 	}
 

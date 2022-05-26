@@ -35,7 +35,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	newAPIBinding := new(bindingBuilder).
 		WithClusterName("root:org:ws").
 		WithName("newBinding").
-		WithWorkspaceReference("exportWS", "export0").
+		WithWorkspaceReference("root:org:exportWS", "export0").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).WithSchema("export0-schema1", "e0-s1").BoundAPIResource,
 		).
@@ -44,7 +44,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	existingBinding1 := new(bindingBuilder).
 		WithClusterName("root:org:ws").
 		WithName("existing1").
-		WithWorkspaceReference("exportWS", "export1").
+		WithWorkspaceReference("root:org:exportWS", "export1").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).WithSchema("export1-schema1", "e1-s1").BoundAPIResource,
 			new(boundAPIResourceBuilder).WithSchema("export1-schema2", "e1-s2").BoundAPIResource,
@@ -54,7 +54,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	existingBinding2 := new(bindingBuilder).
 		WithClusterName("root:org:ws").
 		WithName("existing2").
-		WithWorkspaceReference("exportWS", "export2").
+		WithWorkspaceReference("root:org:exportWS", "export2").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).WithSchema("export2-schema1", "e2-s1").BoundAPIResource,
 			new(boundAPIResourceBuilder).WithSchema("export2-schema2", "e2-s2").BoundAPIResource,
