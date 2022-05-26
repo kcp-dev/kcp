@@ -39,6 +39,9 @@ func NewSyncerCommand() *cobra.Command {
 		Use:   "syncer",
 		Short: "Synchronizes resources in `kcp` assigned to the clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := options.Logs.ValidateAndApply(); err != nil {
+				return err
+			}
 			if err := options.Complete(); err != nil {
 				return err
 			}
