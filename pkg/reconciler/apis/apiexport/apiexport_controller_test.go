@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
@@ -45,15 +46,18 @@ func TestReconcile(t *testing.T) {
 		apiExportHasExpectedHash             bool
 		apiExportHasSomeOtherHash            bool
 		hasPreexistingVerifyFailure          bool
+		listClusterWorkspaceShardsError      error
 
-		wantGenerationFailed   bool
-		wantError              bool
-		wantCreateSecretCalled bool
-		wantUnsetIdentity      bool
-		wantDefaultSecretRef   bool
-		wantStatusHashSet      bool
-		wantVerifyFailure      bool
-		wantIdentityValid      bool
+		wantGenerationFailed          bool
+		wantError                     bool
+		wantCreateSecretCalled        bool
+		wantUnsetIdentity             bool
+		wantDefaultSecretRef          bool
+		wantStatusHashSet             bool
+		wantVerifyFailure             bool
+		wantIdentityValid             bool
+		wantVirtualWorkspaceURLsError bool
+		wantVirtualWorkspaceURLsReady bool
 	}{
 		"create secret when ref is nil and secret doesn't exist": {
 			secretExists: false,
@@ -81,6 +85,8 @@ func TestReconcile(t *testing.T) {
 
 			wantStatusHashSet: true,
 			wantIdentityValid: true,
+
+			wantVirtualWorkspaceURLsReady: true,
 		},
 		"identity verification fails when reference secret doesn't exist": {
 			secretRefSet: true,
@@ -103,6 +109,18 @@ func TestReconcile(t *testing.T) {
 			hasPreexistingVerifyFailure: true,
 
 			wantIdentityValid: true,
+
+			wantVirtualWorkspaceURLsReady: true,
+		},
+		"error listing clusterworkspaceshards": {
+			secretRefSet: true,
+			secretExists: true,
+
+			wantStatusHashSet: true,
+			wantIdentityValid: true,
+
+			listClusterWorkspaceShardsError: errors.New("foo"),
+			wantVirtualWorkspaceURLsError:   true,
 		},
 	}
 
@@ -144,6 +162,32 @@ func TestReconcile(t *testing.T) {
 				createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
 					createSecretCalled = true
 					return tc.createSecretError
+				},
+				listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+					if tc.listClusterWorkspaceShardsError != nil {
+						return nil, tc.listClusterWorkspaceShardsError
+					}
+
+					return []*tenancyv1alpha1.ClusterWorkspaceShard{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								ClusterName: "root:org:ws",
+								Name:        "shard1",
+							},
+							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+								ExternalURL: "https://server-1.kcp.dev/",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								ClusterName: "root:org:ws",
+								Name:        "shard2",
+							},
+							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+								ExternalURL: "https://server-2.kcp.dev/",
+							},
+						},
+					}, nil
 				},
 			}
 
@@ -223,6 +267,21 @@ func TestReconcile(t *testing.T) {
 
 			if tc.wantIdentityValid {
 				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha1.APIExportIdentityValid))
+			}
+
+			if tc.wantVirtualWorkspaceURLsError {
+				requireConditionMatches(t, apiExport,
+					conditions.FalseCondition(
+						apisv1alpha1.APIExportVirtualWorkspaceURLsReady,
+						apisv1alpha1.ErrorGeneratingURLsReason,
+						conditionsv1alpha1.ConditionSeverityError,
+						"",
+					),
+				)
+			}
+
+			if tc.wantVirtualWorkspaceURLsReady {
+				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha1.APIExportVirtualWorkspaceURLsReady))
 			}
 		})
 	}

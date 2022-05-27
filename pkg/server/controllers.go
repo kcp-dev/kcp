@@ -626,7 +626,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 		kubeClusterClient,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kubeSharedInformerFactory.Core().V1().Secrets(),

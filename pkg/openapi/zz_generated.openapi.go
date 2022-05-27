@@ -63,6 +63,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference":                       schema_pkg_apis_apis_v1alpha1_ExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity":                              schema_pkg_apis_apis_v1alpha1_Identity(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                  schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace":                      schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference":              schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":          schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource":            schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref),
@@ -1420,11 +1421,25 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 							},
 						},
 					},
+					"virtualWorkspaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtualWorkspaces contains all APIExport virtual workspace URLs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -1820,6 +1835,27 @@ func schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCall
 			SchemaProps: spec.SchemaProps{
 				Description: "LocalAPIExportPolicy will tell the APIBinding authorizer to check policy in the local namespace of the API Export",
 				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is an APIExport virtual workspace URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
 			},
 		},
 	}
