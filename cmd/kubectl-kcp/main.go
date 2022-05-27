@@ -27,6 +27,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/klog/v2"
 
+	crdcmd "github.com/kcp-dev/kcp/pkg/cliplugins/crd/cmd"
 	workloadcmd "github.com/kcp-dev/kcp/pkg/cliplugins/workload/cmd"
 	workspacecmd "github.com/kcp-dev/kcp/pkg/cliplugins/workspace/cmd"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
@@ -72,6 +73,9 @@ func main() {
 		os.Exit(1)
 	}
 	root.AddCommand(workloadCmd)
+
+	crdCmd := crdcmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	root.AddCommand(crdCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
