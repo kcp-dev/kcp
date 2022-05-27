@@ -309,6 +309,13 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 			Type: workspaceType,
 		},
 	}, metav1.CreateOptions{})
+	if apierrors.IsNotFound(err) {
+		// STOP THE BLEEDING: currently, kcp forwards workspace resource request to the workspace virtual apiserver
+		// indpenedently whether the CRD is installed in the workspace. Universal workspaces though don't have that
+		// resource, but the virtual apiserver return 404 in that case, confusingly for clients.
+		// This hack avoids a message confusing for the user.
+		return fmt.Errorf("creating a workspace under a Universal type workspace is not supported")
+	}
 	if apierrors.IsAlreadyExists(err) && ignoreExisting {
 		preExisting = true
 		ws, err = kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
