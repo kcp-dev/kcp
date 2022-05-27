@@ -93,6 +93,9 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
+tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS)
+.PHONY: tools
+
 $(CONTROLLER_GEN):
 	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
 
