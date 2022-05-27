@@ -438,7 +438,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 		tokenAuthFile := framework.WriteTokenAuthFile(t)
 		server = framework.PrivateKcpServer(t,
-			append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile),
+			append(
+				append([]string{}, framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...),
 				"--run-virtual-workspaces=false",
 				fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
 			)...,
