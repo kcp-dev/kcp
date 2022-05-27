@@ -72,7 +72,6 @@ func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
 	return []string{
 		"--discovery-poll-interval=5s",
 		"--token-auth-file", tokenAuthFile,
-		"--run-virtual-workspaces=true",
 	}
 }
 
