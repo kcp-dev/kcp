@@ -158,7 +158,7 @@ test-e2e: build-all
 
 .PHONY: test
 ifdef USE_GOTESTSUM
-test-e2e: $(GOTESTSUM)
+test: $(GOTESTSUM)
 endif
 test: WHAT ?= ./...
 test:
