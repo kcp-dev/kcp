@@ -63,7 +63,7 @@ import (
 
 func init() {
 	klog.InitFlags(flag.CommandLine)
-	if err := flag.Lookup("v").Value.Set("2"); err != nil {
+	if err := flag.Lookup("v").Value.Set("6"); err != nil {
 		panic(err)
 	}
 }

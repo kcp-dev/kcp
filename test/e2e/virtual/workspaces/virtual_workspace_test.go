@@ -443,6 +443,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			"--run-virtual-workspaces=false",
 			fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
 			"--token-auth-file", tokenAuthFile,
+			"--v=6",
 		)
 
 		// write kubeconfig to disk, next to kcp kubeconfig
