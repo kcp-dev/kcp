@@ -18,6 +18,7 @@ package framework
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -46,6 +47,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -58,6 +60,13 @@ import (
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
+
+func init() {
+	klog.InitFlags(flag.CommandLine)
+	if err := flag.Lookup("v").Value.Set("2"); err != nil {
+		panic(err)
+	}
+}
 
 // TestServerArgs returns the set of kcp args used to start a test
 // server using the token auth file from the working tree.
