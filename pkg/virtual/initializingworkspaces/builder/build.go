@@ -26,7 +26,7 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	crdinfomer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
+	crdlisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -131,7 +131,7 @@ func BuildVirtualWorkspace(
 			retriever := &apiSetRetriever{
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
-				crdInformer:          wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions(),
+				crdLister:            wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 			}
 
 			if err := mainConfig.AddPostStartHook(initializingworkspaces.VirtualWorkspaceName, func(hookContext genericapiserver.PostStartHookContext) error {
@@ -158,13 +158,13 @@ func BuildVirtualWorkspace(
 type apiSetRetriever struct {
 	config               genericapiserver.CompletedConfig
 	dynamicClusterClient dynamic.ClusterInterface
-	crdInformer          crdinfomer.CustomResourceDefinitionInformer
+	crdLister            crdlisters.CustomResourceDefinitionLister
 }
 
 func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
 	initializerName := string(key)
 
-	crd, err := a.crdInformer.Lister().Get(
+	crd, err := a.crdLister.Get(
 		clusters.ToClusterAwareKey(
 			logicalcluster.New(reservedcrdgroups.SystemCRDLogicalClusterName),
 			"clusterworkspaces.tenancy.kcp.dev",
