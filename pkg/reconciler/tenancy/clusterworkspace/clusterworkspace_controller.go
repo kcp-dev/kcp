@@ -238,7 +238,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		}
 		return err
 	}
-	previous := obj
+	previous := obj.DeepCopy()
 	obj = obj.DeepCopy()
 
 	reconcileMetadata(obj)
