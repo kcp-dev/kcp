@@ -18,6 +18,7 @@ package framework
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -59,6 +60,13 @@ import (
 	conditionsapi "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
+
+func init() {
+	klog.InitFlags(flag.CommandLine)
+	if err := flag.Lookup("v").Value.Set("2"); err != nil {
+		panic(err)
+	}
+}
 
 // TestServerArgs returns the set of kcp args used to start a test
 // server using the token auth file from the working tree.
