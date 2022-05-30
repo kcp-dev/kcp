@@ -25,6 +25,8 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/spf13/cobra"
 
+	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -96,13 +98,22 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 		return err
 	}
 
+	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
+	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
+
+	apiextensionsClusterClient, err := apiextensionclientset.NewClusterForConfig(kubeClientConfig)
+	if err != nil {
+		return err
+	}
+
+	wildcardApiextensionsClient := apiextensionsClusterClient.Cluster(logicalcluster.Wildcard)
+	wildcardApiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(wildcardApiextensionsClient, 10*time.Minute)
+
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(kubeClientConfig)
 	if err != nil {
 		return err
 	}
 
-	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
 	if err != nil {
 		return err
@@ -111,7 +122,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
-	extraInformerStarts, virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(o.RootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	extraInformerStarts, virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(o.RootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
 	if err != nil {
 		return err
 	}
@@ -128,6 +139,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, append(extraInformerStarts,
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
+		wildcardApiextensionsInformers.Start,
 	), virtualWorkspaces...)
 	if err != nil {
 		return err

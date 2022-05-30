@@ -56,6 +56,7 @@ func (s *Server) installVirtualWorkspaces(
 		dynamicClusterClient,
 		kcpClusterClient,
 		s.kubeSharedInformerFactory,
+		s.apiextensionsSharedInformerFactory,
 		s.kcpSharedInformerFactory,
 	)
 	if err != nil {
