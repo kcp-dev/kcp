@@ -31,17 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          path: kcp
-      - uses: actions/checkout@v3
-        with:
-          repository: kubernetes/repo-infra
-          ref: master
-          path: repo-infra
-          fetch-depth: 1
       - run: |
-          cd kcp
-          ./../repo-infra/hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate
+          make verify-boilerplate
 
   imports:
     name: imports
