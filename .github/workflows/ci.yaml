@@ -98,7 +98,7 @@ jobs:
         with:
           go-version: v1.17
       - run: make build
-      - run: PATH="${PATH}:$(pwd)/bin/" make test
+      - run: make test
 
   e2e:
     name: e2e
@@ -109,7 +109,7 @@ jobs:
         with:
           go-version: v1.17
       - run: make build
-      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" E2E_PARALLELISM=2 make test-e2e
+      - run: ARTIFACT_DIR=/tmp/e2e E2E_PARALLELISM=2 make test-e2e
       - uses: cytopia/upload-artifact-retry-action@v0.1.2
         if: ${{ always() }}
         with:
@@ -125,7 +125,7 @@ jobs:
         with:
           go-version: v1.17
       - run: make build
-      - run: ARTIFACT_DIR=/tmp/e2e PATH="${PATH}:$(pwd)/bin/" COUNT=5 E2E_PARALLELISM=2 make test-e2e
+      - run: ARTIFACT_DIR=/tmp/e2e COUNT=5 E2E_PARALLELISM=2 make test-e2e
       - uses: cytopia/upload-artifact-retry-action@v0.1.2
         if: ${{ always() }}
         with:
@@ -163,7 +163,6 @@ jobs:
       - run: |-
           kind get kubeconfig > /tmp/kind-kubeconfig
           ARTIFACT_DIR=/tmp/e2e \
-          PATH="${PATH}:$(pwd)/bin/" \
           TEST_ARGS="-args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --kcp-test-image=$(cat /tmp/kcp-test-image) --pcluster-kubeconfig=/tmp/kind-kubeconfig" \
           COUNT=2 \
           E2E_PARALLELISM=2 \

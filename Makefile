@@ -18,7 +18,9 @@ SHELL := /usr/bin/env bash
 GO_INSTALL = ./hack/go-install.sh
 
 TOOLS_DIR=hack/tools
-GOBIN_DIR := $(abspath $(TOOLS_DIR))
+TOOLS_GOBIN_DIR := $(abspath $(TOOLS_DIR))
+GOBIN_DIR=$(abspath ./bin )
+PATH := $(GOBIN_DIR):$(TOOLS_GOBIN_DIR):$(PATH)
 TMPDIR := $(shell mktemp -d)
 
 CONTROLLER_GEN_VER := v0.7.0
@@ -38,7 +40,7 @@ export OPENSHIFT_GOIMPORTS # so hack scripts can use it
 
 GOLANGCI_LINT_VER := v1.44.2
 GOLANGCI_LINT_BIN := golangci-lint
-GOLANGCI_LINT := $(GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
+GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
 GOTESTSUM_VER := v1.8.1
 GOTESTSUM_BIN := gotestsum
@@ -82,7 +84,7 @@ install:
 .PHONY: install
 
 $(GOLANGCI_LINT):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
 lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run --timeout=10m ./...
@@ -97,13 +99,13 @@ tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT
 .PHONY: tools
 
 $(CONTROLLER_GEN):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
 
 $(YAML_PATCH):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
 $(GOTESTSUM):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
 
 codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
 	go mod download
@@ -129,7 +131,7 @@ verify-codegen:
 	fi
 
 $(OPENSHIFT_GOIMPORTS):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/openshift-eng/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/openshift-eng/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
 
 .PHONY: imports
 imports: $(OPENSHIFT_GOIMPORTS)
