@@ -28,10 +28,12 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
@@ -46,6 +48,7 @@ const VirtualWorkspaceName string = "apiexport"
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
+	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
@@ -177,6 +180,34 @@ func BuildVirtualWorkspace(
 
 			return apiReconciler, nil
 		},
+		Authorizer: getAuthorizer(kubeClusterClient),
+	}
+}
+
+func getAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc {
+	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+		apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
+		parts := strings.Split(string(apiDomainKey), "/")
+		if len(parts) < 2 {
+			return authorizer.DecisionNoOpinion, "unable to determine api export", fmt.Errorf("access not permitted")
+		}
+
+		apiExportCluster, apiExportName := parts[0], parts[1]
+		authz, err := delegated.NewDelegatedAuthorizer(logicalcluster.New(apiExportCluster), client)
+		if err != nil {
+			return authorizer.DecisionNoOpinion, "error", err
+		}
+
+		SARAttributes := authorizer.AttributesRecord{
+			User:       attr.GetUser(),
+			Verb:       "content",
+			Name:       apiExportName,
+			APIGroup:   apisv1alpha1.SchemeGroupVersion.Group,
+			APIVersion: apisv1alpha1.SchemeGroupVersion.Version,
+			Resource:   "apiexport",
+		}
+
+		return authz.Authorize(ctx, SARAttributes)
 	}
 }
 
