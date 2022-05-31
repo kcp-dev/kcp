@@ -53,7 +53,7 @@ go install "${CODEGEN_PKG}"/cmd/openapi-gen
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1 \
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1 \
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1 \
 --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
 --output-package github.com/kcp-dev/kcp/pkg/openapi -O zz_generated.openapi \
 --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
