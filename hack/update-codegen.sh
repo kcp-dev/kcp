@@ -26,12 +26,14 @@ fi
 "$(dirname "${BASH_SOURCE[0]}")/update-codegen-clients.sh"
 
 # Update generated CRD YAML
-${CONTROLLER_GEN} \
+cd pkg/apis
+../../${CONTROLLER_GEN} \
     crd \
     rbac:roleName=manager-role \
     webhook \
-    paths="./pkg/apis/..." \
-    output:crd:artifacts:config=config/crds
+    paths="./..." \
+    output:crd:artifacts:config=../../config/crds
+cd -
 
 for F in ./config/crds/*.yaml; do
     if [ -f "${F}-patch" ]; then
