@@ -92,7 +92,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterList":               schema_pkg_apis_workload_v1alpha1_WorkloadClusterList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterSpec":               schema_pkg_apis_workload_v1alpha1_WorkloadClusterSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterStatus":             schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref),
-		"github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition":    schema_conditions_apis_conditions_v1alpha1_Condition(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition":    schema_conditions_apis_conditions_v1alpha1_Condition(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                       schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                   schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                    schema_pkg_apis_meta_v1_APIResource(ref),
@@ -1214,7 +1214,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -1224,7 +1224,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -1415,7 +1415,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -1439,7 +1439,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -2436,7 +2436,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardStatus(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -2446,7 +2446,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardStatus(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -2498,7 +2498,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -2537,7 +2537,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation", "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -3013,7 +3013,7 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -3057,7 +3057,7 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

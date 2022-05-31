@@ -32,10 +32,10 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	utilconditions "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	utilconditions "github.com/kcp-dev/kcp/third_party/conditions/util/conditions"
 )
 
 func TestWorkspaceController(t *testing.T) {
