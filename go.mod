@@ -11,9 +11,9 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.5
+	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster v1.0.0
 	github.com/muesli/reflow v0.1.0
-	github.com/onsi/gomega v1.10.1
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
@@ -22,14 +22,14 @@ require (
 	go.uber.org/multierr v1.7.0
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
-	k8s.io/api v0.0.0
-	k8s.io/apiextensions-apiserver v0.0.0
+	k8s.io/api v0.23.5
+	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5
-	k8s.io/apiserver v0.0.0
-	k8s.io/cli-runtime v0.0.0
-	k8s.io/client-go v0.0.0
-	k8s.io/code-generator v0.0.0
-	k8s.io/component-base v0.0.0
+	k8s.io/apiserver v0.23.5
+	k8s.io/cli-runtime v0.23.5
+	k8s.io/client-go v0.23.5
+	k8s.io/code-generator v0.23.5
+	k8s.io/component-base v0.23.5
 	k8s.io/klog/v2 v2.30.0
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 	k8s.io/kubernetes v1.23.5
@@ -39,6 +39,7 @@ require (
 )
 
 replace (
+	github.com/kcp-dev/kcp/pkg/apis => ./pkg/apis
 	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20220524063253-5bb0eeecf2cf
 	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20220524063253-5bb0eeecf2cf
 	k8s.io/apimachinery => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20220524063253-5bb0eeecf2cf
