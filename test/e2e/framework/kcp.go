@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -188,11 +189,26 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		opt(&runOpts)
 	}
 
-	ctx, cleanupCancel := context.WithCancel(context.Background())
+	// We close this channel when the kcp server has stopped
+	shutdownComplete := make(chan struct{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cleanup := func() {
+		cancel()
+		close(shutdownComplete)
+	}
+
 	c.t.Cleanup(func() {
-		c.t.Log("cleanup: ending kcp server")
-		cleanupCancel()
-		<-ctx.Done()
+		c.t.Log("cleanup: canceling context")
+		cancel()
+
+		// Wait for the kcp server to stop
+		c.t.Log("cleanup: waiting for shutdownComplete")
+
+		<-shutdownComplete
+
+		c.t.Log("cleanup: received shutdownComplete")
 	})
 	c.ctx = ctx
 
@@ -207,27 +223,28 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 			all.AddFlagSet(fs)
 		}
 		if err := all.Parse(c.args); err != nil {
-			cleanupCancel()
+			cleanup()
 			return err
 		}
 
 		completed, err := serverOptions.Complete()
 		if err != nil {
-			cleanupCancel()
+			cleanup()
 			return err
 		}
 		if errs := completed.Validate(); len(errs) > 0 {
-			cleanupCancel()
+			cleanup()
 			return apierrors.NewAggregate(errs)
 		}
 
 		s, err := server.NewServer(completed)
 		if err != nil {
-			cleanupCancel()
+			cleanup()
 			return err
 		}
 		go func() {
-			defer func() { cleanupCancel() }()
+			defer cleanup()
+
 			if err := s.Run(ctx); err != nil && ctx.Err() == nil {
 				c.t.Errorf("`kcp` failed: %v", err)
 			}
@@ -236,41 +253,57 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		return nil
 	}
 
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
+	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
+	cmd := exec.Command(commandLine[0], commandLine[1:]...)
 	logFile, err := os.Create(filepath.Join(c.artifactDir, "kcp.log"))
 	if err != nil {
-		cleanupCancel()
+		cleanup()
 		return fmt.Errorf("could not create log file: %w", err)
 	}
+
+	// Closing the logfile is necessary so the cmd.Wait() call in the goroutine below can finish (it only finishes
+	// waiting when the internal io.Copy goroutines for stdin/stdout/stderr are done, and that doesn't happen if
+	// the log file remains open.
+	c.t.Cleanup(func() {
+		logFile.Close()
+	})
+
 	log := bytes.Buffer{}
+
 	writers := []io.Writer{&log, logFile}
+
 	if runOpts.streamLogs {
 		prefix := fmt.Sprintf("%s: ", c.name)
 		writers = append(writers, prefixer.New(os.Stdout, func() string { return prefix }))
 	}
+
 	mw := io.MultiWriter(writers...)
 	cmd.Stdout = mw
 	cmd.Stderr = mw
+
 	if err := cmd.Start(); err != nil {
-		cleanupCancel()
+		cleanup()
 		return err
 	}
 
 	c.t.Cleanup(func() {
 		// Ensure child process is killed on cleanup
-		err := cmd.Process.Kill()
+		err := cmd.Process.Signal(syscall.SIGTERM)
 		if err != nil {
 			c.t.Errorf("Saw an error trying to kill `kcp`: %v", err)
 		}
 	})
 
 	go func() {
-		defer func() { cleanupCancel() }()
+		defer cleanup()
+
 		err := cmd.Wait()
-		data := c.filterKcpLogs(&log)
+
 		if err != nil && ctx.Err() == nil {
 			// we care about errors in the process that did not result from the
 			// context expiring and us ending the process
+			data := c.filterKcpLogs(&log)
 			c.t.Errorf("`kcp` failed: %v logs:\n%v", err, data)
 		}
 	}()
