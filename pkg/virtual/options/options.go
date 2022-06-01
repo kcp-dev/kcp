@@ -85,7 +85,7 @@ func (o *Options) NewVirtualWorkspaces(
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
+	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}
