@@ -17,21 +17,19 @@ limitations under the License.
 package rootapiserver
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/client-go/rest"
 	componentbaseversion "k8s.io/component-base/version"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
@@ -111,7 +109,6 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	}
 
 	c.GenericConfig.BuildHandlerChainFunc = c.getRootHandlerChain(delegateAPIServer)
-	c.GenericConfig.RequestInfoResolver = c
 	c.GenericConfig.ReadyzChecks = append(c.GenericConfig.ReadyzChecks, asHealthCheck(readys))
 
 	genericServer, err := c.GenericConfig.New("virtual-workspaces-root-apiserver", delegateAPIServer)
@@ -147,67 +144,41 @@ func (readys asHealthCheck) Check(req *http.Request) error {
 	return nil
 }
 
-func (c completedConfig) resolveRootPaths(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-	completedContext = requestContext
-	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
-		if accepted, prefixToStrip, completedContext := virtualWorkspace.ResolveRootPath(urlPath, requestContext); accepted {
-			return accepted, prefixToStrip, virtualcontext.WithVirtualWorkspaceName(completedContext, virtualWorkspace.GetName())
-		}
-	}
-	return
-}
-
 func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
 	return func(apiHandler http.Handler, genericConfig *genericapiserver.Config) http.Handler {
-		return genericapiserver.DefaultBuildHandlerChain(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(
+			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				_, err := virtualcontext.VirtualWorkspaceNameFrom(req.Context())
+				if err == nil {
+					delegatedHandler := delegateAPIServer.UnprotectedHandler()
+					if delegatedHandler != nil {
+						delegatedHandler.ServeHTTP(w, req)
+					}
+					return
+				}
+				klog.Error(err)
+				apiHandler.ServeHTTP(w, req)
+			}), c.GenericConfig.Config)
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			requestContext := req.Context()
 			// detect old kubectl plugins and inject warning headers
 			if req.UserAgent() == "Go-http-client/2.0" {
 				// TODO(sttts): in the future compare the plugin version to the server version and warn outside of skew compatibility guarantees.
-				warning.AddWarning(req.Context(), "",
+				warning.AddWarning(requestContext, "",
 					fmt.Sprintf("You are using an old kubectl-kcp plugin. Please update to a version matching the kcp server version %q.", componentbaseversion.Get().GitVersion))
 			}
 
-			if accepted, prefixToStrip, context := c.resolveRootPaths(req.URL.Path, req.Context()); accepted {
-				req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
-				req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
-				req = req.WithContext(context)
-				delegatedHandler := delegateAPIServer.UnprotectedHandler()
-				if delegatedHandler != nil {
-					delegatedHandler.ServeHTTP(w, req)
+			for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
+				if accepted, prefixToStrip, completedContext := virtualWorkspace.ResolveRootPath(req.URL.Path, requestContext); accepted {
+					req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
+					req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
+					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, virtualWorkspace.GetName()))
+					break
 				}
-				return
 			}
-			apiHandler.ServeHTTP(w, req)
-		}), c.GenericConfig.Config)
+			delegateAfterDefaultHandlerChain.ServeHTTP(w, req)
+		})
 	}
-}
-
-var _ genericapirequest.RequestInfoResolver = (*completedConfig)(nil)
-
-// NewRequestInfo method makes the `completedConfig` an implementation of a RequestInfoResolver.
-// And when creating the RootAPIServer (in the New method), the RequestInfoResolver of the
-// associated GenericConfig is replaced by the `completedConfig`.
-//
-// Since we reuse the DefaultBuildChainHandler in our customized getRootChainHandler method
-// (that checks the URL Path against virtual workspace root paths), that means that the RequestInfo
-// object will be created, as part of the DefaultBuildChainHandler.
-//
-// So we also override the RequestInfoResolver in order to use the same URL Path as the one
-// that will be forwarded to the virtual workspace deletegated APIServers.
-func (c completedConfig) NewRequestInfo(req *http.Request) (*genericapirequest.RequestInfo, error) {
-	defaultResolver := genericapiserver.NewRequestInfoResolver(c.GenericConfig.Config)
-	if accepted, prefixToStrip, _ := c.resolveRootPaths(req.URL.Path, req.Context()); accepted {
-		p := strings.TrimPrefix(req.URL.Path, prefixToStrip)
-		rp := strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
-		r2 := new(http.Request)
-		*r2 = *req
-		r2.URL = new(url.URL)
-		*r2.URL = *req.URL
-		r2.URL.Path = p
-		r2.URL.RawPath = rp
-		return defaultResolver.NewRequestInfo(r2)
-	}
-	return defaultResolver.NewRequestInfo(req)
 }
 
 func NewRootAPIConfig(recommendedConfig *genericapiserver.RecommendedConfig, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
