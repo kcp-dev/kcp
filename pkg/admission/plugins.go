@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
+	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdannotations"
@@ -65,6 +66,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	kcpmutatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
+	crdnooverlappinggvr.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -93,6 +95,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kcpmutatingwebhook.Register(plugins)
 	reservedcrdannotations.Register(plugins)
 	reservedcrdgroups.Register(plugins)
+	crdnooverlappinggvr.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.NewString(
