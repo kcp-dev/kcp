@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/klog/v2"
 
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -103,11 +104,15 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 
 	director := genericServer.Handler.Director
 	genericServer.Handler.Director = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		if vwName := r.Context().Value(virtualcontext.VirtualWorkspaceNameKey); vwName != nil {
-			if vwNameString, isString := vwName.(string); isString && vwNameString == virtualWorkspaceName {
-				director.ServeHTTP(rw, r)
-				return
-			}
+		vwName, err := virtualcontext.VirtualWorkspaceNameFrom(r.Context())
+		if err != nil {
+			klog.Error(err)
+			http.NotFoundHandler().ServeHTTP(rw, r)
+			return
+		}
+		if vwName == virtualWorkspaceName {
+			director.ServeHTTP(rw, r)
+			return
 		}
 		delegatedHandler := delegationTarget.UnprotectedHandler()
 		if delegatedHandler != nil {

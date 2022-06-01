@@ -16,8 +16,27 @@ limitations under the License.
 
 package context
 
+import (
+	"context"
+	"errors"
+)
+
 type virtualWorkspaceNameKeyType string
 
-// VirtualWorkspaceNameKey is a context key that contains the name of the
+// virtualWorkspaceNameKey is a context key that contains the name of the
 // virtual workspace that should serve a given request according to its URL path.
-const VirtualWorkspaceNameKey virtualWorkspaceNameKeyType = "VirtualWorkspaceName"
+const virtualWorkspaceNameKey virtualWorkspaceNameKeyType = "VirtualWorkspaceName"
+
+// WithVirtualWorkspaceName adds the VirtualWorkspace name to the context.
+func WithVirtualWorkspaceName(ctx context.Context, virtualWorkspaceName string) context.Context {
+	return context.WithValue(ctx, virtualWorkspaceNameKey, virtualWorkspaceName)
+}
+
+// VirtualWorkspaceNameFrom retrieves the VirtualWorkspace name from the context, if any.
+func VirtualWorkspaceNameFrom(ctx context.Context) (string, error) {
+	wcn, hasVirtualWorkspaceName := ctx.Value(virtualWorkspaceNameKey).(string)
+	if !hasVirtualWorkspaceName {
+		return "", errors.New("context must contain a valid non-empty virtual workspace name")
+	}
+	return wcn, nil
+}
