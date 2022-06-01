@@ -25,6 +25,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -235,8 +236,19 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	}
 
 	upstreamObjLogicalCluster := logicalcluster.From(upstreamObj)
-
 	downstreamObj := upstreamObj.DeepCopy()
+
+	// Run name transformations on the downstreamObj.
+	transformedName := getTransformedName(downstreamObj)
+
+	// Run any transformations on the object before we apply it to the downstream cluster.
+	if mutator, ok := c.mutators[gvr]; ok {
+		if err := mutator(downstreamObj); err != nil {
+			return err
+		}
+	}
+
+	downstreamObj.SetName(transformedName)
 	downstreamObj.SetUID("")
 	downstreamObj.SetResourceVersion("")
 	downstreamObj.SetNamespace(downstreamNamespace)
@@ -257,16 +269,6 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	delete(labels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+c.workloadClusterName)
 	labels[workloadv1alpha1.InternalDownstreamClusterLabel] = c.workloadClusterName
 	downstreamObj.SetLabels(labels)
-
-	// Run name transformations on the downstreamObj.
-	transformName(downstreamObj)
-
-	// Run any transformations on the object before we apply it to the downstream cluster.
-	if mutator, ok := c.mutators[gvr]; ok {
-		if err := mutator(downstreamObj); err != nil {
-			return err
-		}
-	}
 
 	if c.advancedSchedulingEnabled {
 		specDiffPatch := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterSpecDiffAnnotationPrefix+c.workloadClusterName]
@@ -343,18 +345,19 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	return nil
 }
 
-// transformName changes the object name into the desired one downstream.
-func transformName(syncedObject *unstructured.Unstructured) {
-	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
-	secretGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+// getTransformedName returns the desired object name.
+func getTransformedName(syncedObject *unstructured.Unstructured) string {
+	configMapGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	secretGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 
-	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
-		syncedObject.SetName("kcp-root-ca.crt")
+	if syncedObject.GroupVersionKind() == configMapGVK && syncedObject.GetName() == "kube-root-ca.crt" {
+		return "kcp-root-ca.crt"
 	}
-	// TODO(jmprusi): We are rewriting the name of the object into a non random one so we can reference it from the deployment transformer
-	//                but this means that means than more than one default-token-XXXX object will overwrite the same "kcp-default-token"
-	//				  object. This must be fixed.
-	if syncedObject.GroupVersionKind() == secretGVR && strings.Contains(syncedObject.GetName(), "default-token-") {
-		syncedObject.SetName("kcp-default-token")
+	// Only rename the default-token-* secrets that are owned by the default SA.
+	if syncedObject.GroupVersionKind() == secretGVK && strings.HasPrefix(syncedObject.GetName(), "default-token-") {
+		if saName, ok := syncedObject.GetAnnotations()[corev1.ServiceAccountNameKey]; ok && saName == "default" {
+			return "kcp-" + syncedObject.GetName()
+		}
 	}
+	return syncedObject.GetName()
 }

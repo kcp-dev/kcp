@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,7 +44,7 @@ var kcpApiAccessVolume = corev1.Volume{
 				{
 					Secret: &corev1.SecretProjection{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "kcp-default-token",
+							Name: "kcp-default-token-1234",
 						},
 						Items: []corev1.KeyToPath{
 							{
@@ -81,20 +82,43 @@ var kcpApiAccessVolumeMount = corev1.VolumeMount{
 	ReadOnly:  true,
 }
 
-func TestMutate(t *testing.T) {
+func TestDeploymentMutate(t *testing.T) {
 	for _, c := range []struct {
 		desc                                   string
+		upstreamSecrets                        []*corev1.Secret
 		originalDeployment, expectedDeployment *appsv1.Deployment
 		config                                 *rest.Config
 	}{{
 		desc: "Deployment without Envs or volumes is mutated.",
+		upstreamSecrets: []*corev1.Secret{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default-token-1234",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "default",
+					},
+				},
+				Data: map[string][]byte{
+					"token":     []byte("token"),
+					"namespace": []byte("namespace"),
+				},
+			},
+		},
 		originalDeployment: &appsv1.Deployment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Deployment",
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-deployment",
+				Name:        "test-deployment",
+				Namespace:   "namespace",
+				ClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -116,7 +140,9 @@ func TestMutate(t *testing.T) {
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-deployment",
+				Name:        "test-deployment",
+				Namespace:   "namespace",
+				ClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -158,13 +184,35 @@ func TestMutate(t *testing.T) {
 		},
 	}, {
 		desc: "Deployment with one env var gets mutated but the already existing env var remains the same",
+		upstreamSecrets: []*corev1.Secret{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default-token-1234",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "default",
+					},
+				},
+				Data: map[string][]byte{
+					"token":     []byte("token"),
+					"namespace": []byte("namespace"),
+				},
+			},
+		},
 		originalDeployment: &appsv1.Deployment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Deployment",
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-deployment",
+				Name:        "test-deployment",
+				Namespace:   "namespace",
+				ClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -192,7 +240,9 @@ func TestMutate(t *testing.T) {
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-deployment",
+				Name:        "test-deployment",
+				Namespace:   "namespace",
+				ClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -238,13 +288,35 @@ func TestMutate(t *testing.T) {
 		},
 	},
 		{desc: "Deployment with an env var named KUBERNETES_SERVICE_PORT gets mutated and it is overridden and not duplicated",
+			upstreamSecrets: []*corev1.Secret{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Secret",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "default-token-1234",
+						Namespace:   "namespace",
+						ClusterName: "root:default:testing",
+						Annotations: map[string]string{
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-deployment",
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -272,7 +344,9 @@ func TestMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-deployment",
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -313,13 +387,35 @@ func TestMutate(t *testing.T) {
 				Host: "https://4.5.6.7:12345",
 			}},
 		{desc: "Deployment with an existing VolumeMount named kcp-api-access gets mutated and it is overridden and not duplicated",
+			upstreamSecrets: []*corev1.Secret{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Secret",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "default-token-1234",
+						Namespace:   "namespace",
+						ClusterName: "root:default:testing",
+						Annotations: map[string]string{
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-deployment",
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -354,7 +450,9 @@ func TestMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-deployment",
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -394,15 +492,36 @@ func TestMutate(t *testing.T) {
 			config: &rest.Config{
 				Host: "https://4.5.6.7:12345",
 			}},
-
 		{desc: "Deployment with an existing Volume named kcp-api-access gets mutated and it is overridden and not duplicated",
+			upstreamSecrets: []*corev1.Secret{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Secret",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "default-token-1234",
+						Namespace:   "namespace",
+						ClusterName: "root:default:testing",
+						Annotations: map[string]string{
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
 			originalDeployment: &appsv1.Deployment{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Deployment",
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-deployment",
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -447,7 +566,9 @@ func TestMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-deployment",
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -492,7 +613,17 @@ func TestMutate(t *testing.T) {
 			t.Run(c.desc, func(t *testing.T) {
 				upstreamURL, err := url.Parse(c.config.Host)
 				require.NoError(t, err)
-				dm := NewDeploymentMutator(upstreamURL)
+
+				dm := NewDeploymentMutator(upstreamURL, func(upstreamLogicalCluster logicalcluster.Name, namespace string) ([]*unstructured.Unstructured, error) {
+					unstructuredObjects := make([]*unstructured.Unstructured, 0, len(c.upstreamSecrets))
+					for _, obj := range c.upstreamSecrets {
+						unstObj, err := toUnstructured(obj)
+						require.NoError(t, err)
+						unstructuredObjects = append(unstructuredObjects, unstObj)
+					}
+					return unstructuredObjects, nil
+				})
+
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toRuntimeObject() = %v", err)
 

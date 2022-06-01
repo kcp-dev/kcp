@@ -87,23 +87,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(nsLocator)
 	require.NoError(t, err)
 
-	// TODO(marun) The name mapping should be defined for reuse outside of the transformName method in pkg/syncer
-	secretName := "kcp-default-token"
 	configMapName := "kcp-root-ca.crt"
-
-	t.Logf("Waiting for downstream service account secret %s/%s to be created...", downstreamNamespaceName, secretName)
-	require.Eventually(t, func() bool {
-		_, err = downstreamKubeClient.CoreV1().Secrets(downstreamNamespaceName).Get(ctx, secretName, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return false
-		}
-		if err != nil {
-			t.Errorf("saw an error waiting for downstream service account secret %s/%s to be created: %v", downstreamNamespaceName, secretName, err)
-			return false
-		}
-		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream service account secret %s/%s was not created", downstreamNamespaceName, secretName)
-
 	t.Logf("Waiting for downstream configmap %s/%s to be created...", downstreamNamespaceName, configMapName)
 	require.Eventually(t, func() bool {
 		_, err = downstreamKubeClient.CoreV1().ConfigMaps(downstreamNamespaceName).Get(ctx, configMapName, metav1.GetOptions{})
@@ -151,7 +135,11 @@ func TestSyncerLifecycle(t *testing.T) {
 			deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			klog.Info(toYaml(deployment))
-			return expectedAvailableReplicas == deployment.Status.AvailableReplicas
+			if expectedAvailableReplicas == deployment.Status.AvailableReplicas {
+				return true
+			}
+			dumpPodEvents(downstreamKubeClient, downstreamNamespaceName, ctx, t)
+			return false
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s didn't get available", downstreamNamespaceName, upstreamDeployment.Name)
 
 		// This test creates a deployment upstream, and will run downstream with a mutated projected
@@ -240,6 +228,16 @@ func TestSyncerLifecycle(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s was not synced", downstreamNamespaceName, upstreamDeployment.Name)
 
+}
+
+func dumpPodEvents(downstreamKubeClient *kubernetesclientset.Clientset, downstreamNamespaceName string, ctx context.Context, t *testing.T) {
+	eventList, err := downstreamKubeClient.CoreV1().Events(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	for _, event := range eventList.Items {
+		if event.InvolvedObject.Kind == "Pod" {
+			t.Logf("Event for POD %s/%s: %s", event.InvolvedObject.Namespace, event.InvolvedObject.Name, event.Message)
+		}
+	}
 }
 
 func toYaml(obj interface{}) string {
