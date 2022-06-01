@@ -21,7 +21,6 @@ import (
 	goflags "flag"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"os"
 	"time"
 
@@ -33,12 +32,17 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/version"
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/proxy"
+	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
 
@@ -80,30 +84,60 @@ routed based on paths.`,
 				return errors.NewAggregate(errs)
 			}
 
-			var handler http.Handler
-			handler, err := proxy.NewHandler(&options.Proxy)
-			if err != nil {
-				return err
-			}
-
 			var servingInfo *genericapiserver.SecureServingInfo
 			var loopbackClientConfig *restclient.Config
 			if err := options.SecureServing.ApplyTo(&servingInfo, &loopbackClientConfig); err != nil {
 				return err
 			}
-
 			var authenticationInfo genericapiserver.AuthenticationInfo
 			if err := options.Authentication.ApplyTo(&authenticationInfo, servingInfo); err != nil {
 				return err
 			}
 
+			// start index
+			rootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.RootKubeconfig}, nil).ClientConfig()
+			if err != nil {
+				return fmt.Errorf("failed to load root kubeconfig: %w", err)
+			}
+			rootShardConfig, err := kcpclient.NewClusterForConfig(rootConfig)
+			if err != nil {
+				return fmt.Errorf("failed to create root client: %w", err)
+			}
+			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfig.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
+			indexController, err := index.NewController(
+				rootConfig.Host,
+				kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+				func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.ClusterInterface, error) {
+					shardConfig := restclient.CopyConfig(rootConfig)
+					shardConfig.Host = shard.Spec.BaseURL
+					shardClient, err := kcpclient.NewClusterForConfig(rootConfig)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
+					}
+					return shardClient, nil
+				},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to create ClusterWorkspace index controller: %w", err)
+			}
+			go indexController.Start(ctx, 2)
+
+			kcpSharedInformerFactory.Start(ctx.Done())
+			kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+
+			// start the server
+			handler, err := proxy.NewHandler(&options.Proxy, indexController)
+			if err != nil {
+				return err
+			}
 			failedHandler := newUnauthorizedHandler()
 			handler = withOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
 
 			requestInfoFactory := requestinfo.NewFactory()
-			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
-			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
 
+			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
+			handler = genericfilters.WithHTTPLogging(handler)
+			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
 			doneCh, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
 			if err != nil {
 				return err

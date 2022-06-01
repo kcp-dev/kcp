@@ -20,13 +20,12 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 func ParseClusterURL(host string) (*url.URL, logicalcluster.Name, error) {
@@ -46,19 +45,9 @@ func ParseClusterURL(host string) (*url.URL, logicalcluster.Name, error) {
 			break
 		}
 	}
-	if clusterName.Empty() || !IsValid(clusterName) {
+	if clusterName.Empty() || !tenancyhelper.IsValidCluster(clusterName) {
 		return nil, logicalcluster.Name{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
 	}
 
 	return &ret, clusterName, nil
-}
-
-var lclusterRegExp = regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9](:[a-z][a-z0-9-]*[a-z0-9])*$`)
-
-func IsValid(cluster logicalcluster.Name) bool {
-	if !lclusterRegExp.MatchString(cluster.String()) {
-		return false
-	}
-
-	return cluster.HasPrefix(v1alpha1.RootCluster) || cluster.HasPrefix(logicalcluster.New("system"))
 }
