@@ -29,11 +29,13 @@ import (
 	crdlisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -118,6 +120,10 @@ func BuildVirtualWorkspace(
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
+		},
+		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+			klog.Error("the authorizer for the 'initializingworkspaces' virtual workspace is not implemented !")
+			return authorizer.DecisionAllow, "", nil
 		},
 		Ready: func() error {
 			select {

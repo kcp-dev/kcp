@@ -79,5 +79,5 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Authorize(ctx context.Context, a a
 	if vw.Authorizer != nil {
 		return vw.Authorizer(ctx, a)
 	}
-	return authorizer.DecisionAllow, "", nil
+	return authorizer.DecisionNoOpinion, "", nil
 }

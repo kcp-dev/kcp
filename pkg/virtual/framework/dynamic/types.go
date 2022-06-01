@@ -58,5 +58,5 @@ func (vw *DynamicVirtualWorkspace) Authorize(ctx context.Context, a authorizer.A
 	if vw.Authorizer != nil {
 		return vw.Authorizer(ctx, a)
 	}
-	return authorizer.DecisionAllow, "", nil
+	return authorizer.DecisionNoOpinion, "", nil
 }
