@@ -87,23 +87,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(nsLocator)
 	require.NoError(t, err)
 
-	// TODO(marun) The name mapping should be defined for reuse outside of the transformName method in pkg/syncer
-	secretName := "kcp-default-token"
 	configMapName := "kcp-root-ca.crt"
-
-	t.Logf("Waiting for downstream service account secret %s/%s to be created...", downstreamNamespaceName, secretName)
-	require.Eventually(t, func() bool {
-		_, err = downstreamKubeClient.CoreV1().Secrets(downstreamNamespaceName).Get(ctx, secretName, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return false
-		}
-		if err != nil {
-			t.Errorf("saw an error waiting for downstream service account secret %s/%s to be created: %v", downstreamNamespaceName, secretName, err)
-			return false
-		}
-		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream service account secret %s/%s was not created", downstreamNamespaceName, secretName)
-
 	t.Logf("Waiting for downstream configmap %s/%s to be created...", downstreamNamespaceName, configMapName)
 	require.Eventually(t, func() bool {
 		_, err = downstreamKubeClient.CoreV1().ConfigMaps(downstreamNamespaceName).Get(ctx, configMapName, metav1.GetOptions{})

@@ -17,7 +17,10 @@ limitations under the License.
 package mutators
 
 import (
+	"fmt"
 	"net/url"
+
+	"github.com/kcp-dev/logicalcluster"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,8 +30,11 @@ import (
 	utilspointer "k8s.io/utils/pointer"
 )
 
+type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]*unstructured.Unstructured, error)
+
 type DeploymentMutator struct {
 	upstreamURL *url.URL
+	listSecrets ListSecretFunc
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -39,34 +45,54 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
-func NewDeploymentMutator(upstreamURL *url.URL) *DeploymentMutator {
+func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc) *DeploymentMutator {
 	return &DeploymentMutator{
 		upstreamURL: upstreamURL,
+		listSecrets: secretLister,
 	}
 }
 
 // Mutate applies the mutator changes to the object.
-func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) error {
+func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 	var deployment appsv1.Deployment
 	err := runtime.DefaultUnstructuredConverter.FromUnstructured(
-		downstreamObj.UnstructuredContent(),
+		obj.UnstructuredContent(),
 		&deployment)
 	if err != nil {
 		return err
 	}
+	upstreamLogicalName := logicalcluster.From(obj)
 
-	// If the deployment has no serviceaccount defined or it is "default", that means that it is using the default one
-	// and we need will need to override it with our own, "kcp-default"
-	//
-	// If the deployment has a serviceaccount defined, that means we need to synchronize the created service account
-	// down to the workloadcluster, so we don't modify it, and expect the scheduler to do the job.
-	//
-	// Alias for the template.spec to improve readability.
 	templateSpec := &deployment.Spec.Template.Spec
+
+	desiredServiceAccountName := "default"
+	if templateSpec.ServiceAccountName != "" && templateSpec.ServiceAccountName != "default" {
+		desiredServiceAccountName = templateSpec.ServiceAccountName
+	}
+
+	secretList, err := dm.listSecrets(upstreamLogicalName, deployment.Namespace)
+	if err != nil {
+		return fmt.Errorf("error listing secrets for workspace %s: %w", upstreamLogicalName.String(), err)
+	}
+
+	desiredSecretName := ""
+	for _, secret := range secretList {
+		// Find the SA token that matches the service account name.
+		if val, ok := secret.GetAnnotations()[corev1.ServiceAccountNameKey]; ok && val == desiredServiceAccountName {
+			desiredSecretName = secret.GetName()
+			break
+		}
+	}
+
+	if desiredSecretName == "" {
+		return fmt.Errorf("couldn't find a token upstream for the serviceaccount %s/%s in workspace %s", desiredServiceAccountName, deployment.Namespace, upstreamLogicalName.String())
+	}
 
 	// Setting AutomountServiceAccountToken to false allow us to control the ServiceAccount
 	// VolumeMount and Volume definitions.
 	templateSpec.AutomountServiceAccountToken = utilspointer.BoolPtr(false)
+	// Set to empty the serviceAccountName on podTemplate as we are not syncing the serviceAccount down to the workload cluster.
+	templateSpec.ServiceAccountName = ""
 
 	kcpExternalHost := dm.upstreamURL.Hostname()
 	kcpExternalPort := dm.upstreamURL.Port()
@@ -94,13 +120,9 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 				DefaultMode: utilspointer.Int32Ptr(420),
 				Sources: []corev1.VolumeProjection{
 					{
-						// TODO(jmprusi): Investigate if instead of using a secret directly we should use the serviceaccount
-						//                in order to get a bound token. We will need to investigate this
-						//                as the pcluster keeps rewriting the serviceaccount and its tokens values rendering
-						//                them non-valid for KCP. (Also it removes the ClusterName included in the JWT token)
 						Secret: &corev1.SecretProjection{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "kcp-default-token",
+								Name: desiredSecretName,
 							},
 							Items: []corev1.KeyToPath{
 								{
@@ -174,7 +196,7 @@ func (dm *DeploymentMutator) Mutate(downstreamObj *unstructured.Unstructured) er
 	}
 
 	// Set the changes back into the obj.
-	downstreamObj.SetUnstructuredContent(unstructured)
+	obj.SetUnstructuredContent(unstructured)
 
 	return nil
 }
