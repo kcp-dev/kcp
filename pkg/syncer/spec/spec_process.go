@@ -25,6 +25,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -346,11 +347,17 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 // getTransformedName returns the desired object name.
 func getTransformedName(syncedObject *unstructured.Unstructured) string {
-	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	configMapGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	secretGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 
-	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kube-root-ca.crt" {
+	if syncedObject.GroupVersionKind() == configMapGVK && syncedObject.GetName() == "kube-root-ca.crt" {
 		return "kcp-root-ca.crt"
 	}
-
+	// Only rename the default-token-* secrets that are owned by the default SA.
+	if syncedObject.GroupVersionKind() == secretGVK && strings.HasPrefix(syncedObject.GetName(), "default-token-") {
+		if saName, ok := syncedObject.GetAnnotations()[corev1.ServiceAccountNameKey]; ok && saName == "default" {
+			return "kcp-" + syncedObject.GetName()
+		}
+	}
 	return syncedObject.GetName()
 }

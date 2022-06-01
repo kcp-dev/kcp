@@ -44,7 +44,7 @@ var kcpApiAccessVolume = corev1.Volume{
 				{
 					Secret: &corev1.SecretProjection{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "default-token-1234",
+							Name: "kcp-default-token-1234",
 						},
 						Items: []corev1.KeyToPath{
 							{

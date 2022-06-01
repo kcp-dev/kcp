@@ -1099,7 +1099,7 @@ func setPodSpecServiceAccount(fields ...string) unstructuredChange {
 		{"name":"kcp-api-access","projected":{
 			"defaultMode":420,
 			"sources":[
-				{"secret":{"items":[{"key":"token","path":"token"},{"key":"namespace","path":"namespace"}],"name": "default-token-abc"}},
+				{"secret":{"items":[{"key":"token","path":"token"},{"key":"namespace","path":"namespace"}],"name": "kcp-default-token-abc"}},
 				{"configMap":{"items":[{"key":"ca.crt","path":"ca.crt"}],"name":"kcp-root-ca.crt"}}
 			]
 		}}

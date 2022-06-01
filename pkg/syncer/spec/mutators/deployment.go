@@ -79,6 +79,10 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 	for _, secret := range secretList {
 		// Find the SA token that matches the service account name.
 		if val, ok := secret.GetAnnotations()[corev1.ServiceAccountNameKey]; ok && val == desiredServiceAccountName {
+			if desiredServiceAccountName == "default" {
+				desiredSecretName = "kcp-" + secret.GetName()
+				break
+			}
 			desiredSecretName = secret.GetName()
 			break
 		}
