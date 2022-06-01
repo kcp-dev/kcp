@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
@@ -57,6 +58,7 @@ type GroupVersionAPISet struct {
 type FixedGroupVersionsVirtualWorkspace struct {
 	Name                string
 	RootPathResolver    framework.RootPathResolverFunc
+	Authorizer          authorizer.AuthorizerFunc
 	Ready               framework.ReadyFunc
 	GroupVersionAPISets []GroupVersionAPISet
 }
@@ -71,4 +73,11 @@ func (vw *FixedGroupVersionsVirtualWorkspace) IsReady() error {
 
 func (vw *FixedGroupVersionsVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 	return vw.RootPathResolver(urlPath, context)
+}
+
+func (vw *FixedGroupVersionsVirtualWorkspace) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+	if vw.Authorizer != nil {
+		return vw.Authorizer(ctx, a)
+	}
+	return authorizer.DecisionAllow, "", nil
 }

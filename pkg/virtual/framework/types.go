@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 )
 
@@ -43,6 +44,7 @@ type ReadyFunc func() error
 // fixedgvs package, which allows adding well-defined APIs
 // in a limited number of group/versions, implemented as Rest storages.
 type VirtualWorkspace interface {
+	authorizer.Authorizer
 	GetName() string
 	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
 	IsReady() error

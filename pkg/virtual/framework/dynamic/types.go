@@ -19,6 +19,7 @@ package dynamic
 import (
 	"context"
 
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -32,6 +33,7 @@ var _ framework.VirtualWorkspace = (*DynamicVirtualWorkspace)(nil)
 type DynamicVirtualWorkspace struct {
 	Name             string
 	RootPathResolver framework.RootPathResolverFunc
+	Authorizer       authorizer.AuthorizerFunc
 	Ready            framework.ReadyFunc
 
 	// BootstrapAPISetManagement creates, initializes and returns an apidefinition.APIDefinitionSetGetter.
@@ -50,4 +52,11 @@ func (vw *DynamicVirtualWorkspace) IsReady() error {
 
 func (vw *DynamicVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 	return vw.RootPathResolver(urlPath, context)
+}
+
+func (vw *DynamicVirtualWorkspace) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+	if vw.Authorizer != nil {
+		return vw.Authorizer(ctx, a)
+	}
+	return authorizer.DecisionAllow, "", nil
 }
