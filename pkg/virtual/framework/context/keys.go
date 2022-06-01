@@ -18,7 +18,6 @@ package context
 
 import (
 	"context"
-	"errors"
 )
 
 type virtualWorkspaceNameKeyType string
@@ -33,10 +32,7 @@ func WithVirtualWorkspaceName(ctx context.Context, virtualWorkspaceName string) 
 }
 
 // VirtualWorkspaceNameFrom retrieves the VirtualWorkspace name from the context, if any.
-func VirtualWorkspaceNameFrom(ctx context.Context) (string, error) {
+func VirtualWorkspaceNameFrom(ctx context.Context) (string, bool) {
 	wcn, hasVirtualWorkspaceName := ctx.Value(virtualWorkspaceNameKey).(string)
-	if !hasVirtualWorkspaceName {
-		return "", errors.New("context must contain a valid non-empty virtual workspace name")
-	}
-	return wcn, nil
+	return wcn, hasVirtualWorkspaceName
 }

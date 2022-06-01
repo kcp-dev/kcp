@@ -29,7 +29,6 @@ import (
 	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/client-go/rest"
 	componentbaseversion "k8s.io/component-base/version"
-	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
@@ -148,15 +147,13 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 	return func(apiHandler http.Handler, genericConfig *genericapiserver.Config) http.Handler {
 		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(
 			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				_, err := virtualcontext.VirtualWorkspaceNameFrom(req.Context())
-				if err == nil {
+				if _, virtualWorkspaceNameExists := virtualcontext.VirtualWorkspaceNameFrom(req.Context()); virtualWorkspaceNameExists {
 					delegatedHandler := delegateAPIServer.UnprotectedHandler()
 					if delegatedHandler != nil {
 						delegatedHandler.ServeHTTP(w, req)
 					}
 					return
 				}
-				klog.Error(err)
 				apiHandler.ServeHTTP(w, req)
 			}), c.GenericConfig.Config)
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
