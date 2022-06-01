@@ -17,6 +17,7 @@ limitations under the License.
 package apiserver
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/kcp-dev/logicalcluster"
@@ -25,12 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/klog/v2"
 
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
@@ -82,9 +83,9 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 	}
 	director := genericServer.Handler.Director
 	genericServer.Handler.Director = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		vwName, err := virtualcontext.VirtualWorkspaceNameFrom(r.Context())
-		if err != nil {
-			klog.Error(err)
+		vwName, found := virtualcontext.VirtualWorkspaceNameFrom(r.Context())
+		if !found {
+			utilruntime.HandleError(errors.New("context should always contain a virtual workspace name when hitting a virtual workspace delegated APIServer"))
 			http.NotFoundHandler().ServeHTTP(rw, r)
 			return
 		}
