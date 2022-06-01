@@ -19,6 +19,7 @@ package mutators
 import (
 	"fmt"
 	"net/url"
+	"sort"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -74,6 +75,15 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 	if err != nil {
 		return fmt.Errorf("error listing secrets for workspace %s: %w", upstreamLogicalName.String(), err)
 	}
+
+	// In order to avoid triggering a deployment update on resyncs, we need to make sure that the list
+	// of secrets is sorted by creationTimsestamp. So if the user creates a new token for a given serviceaccount
+	// the first one will be picked always.
+	sort.Slice(secretList, func(i, j int) bool {
+		iCreationTimestamp := secretList[i].GetCreationTimestamp()
+		jCreationTimestamp := secretList[j].GetCreationTimestamp()
+		return iCreationTimestamp.Before(&jCreationTimestamp)
+	})
 
 	desiredSecretName := ""
 	for _, secret := range secretList {
