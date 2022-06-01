@@ -34,6 +34,7 @@ import (
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 type mux interface {
@@ -81,6 +82,13 @@ func (s *Server) installVirtualWorkspaces(
 
 	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
 	recommendedConfig.Authentication = auth
+
+	authorizationOptions := virtualoptions.NewAuthorization()
+	authorizationOptions.AlwaysAllowGroups = s.options.Authorization.AlwaysAllowGroups
+	authorizationOptions.AlwaysAllowPaths = s.options.Authorization.AlwaysAllowPaths
+	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
+		return err
+	}
 
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, extraInformerStarts, virtualWorkspaces...)
 	if err != nil {

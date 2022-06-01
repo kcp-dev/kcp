@@ -45,7 +45,9 @@ type Options struct {
 
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
-	Logs           logs.Options
+	Authorization  virtualworkspacesoptions.Authorization
+
+	Logs logs.Options
 
 	VirtualWorkspaces virtualworkspacesoptions.Options
 }
@@ -58,6 +60,7 @@ func NewOptions() *Options {
 
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
+		Authorization:  *virtualworkspacesoptions.NewAuthorization(),
 		Logs:           *logs.NewOptions(),
 
 		VirtualWorkspaces: *virtualworkspacesoptions.NewOptions(),
