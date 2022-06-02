@@ -136,6 +136,9 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	if err := o.Authentication.ApplyTo(&recommendedConfig.Authentication, recommendedConfig.SecureServing, recommendedConfig.OpenAPIConfig); err != nil {
 		return err
 	}
+	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
+		return err
+	}
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, append(extraInformerStarts,
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,

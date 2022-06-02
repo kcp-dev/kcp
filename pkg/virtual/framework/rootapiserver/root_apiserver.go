@@ -24,7 +24,6 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/client-go/rest"
@@ -189,10 +188,6 @@ func NewRootAPIConfig(recommendedConfig *genericapiserver.RecommendedConfig, inf
 	recommendedConfig.Config.LoopbackClientConfig = &rest.Config{
 		Host: "loopback-config-not-wired-for-now",
 	}
-
-	// TODO: in the future it would probably be a mix between a delegated authorizer (delegating to some KCP instance)
-	// and a specific authorizer whose rules would be defined by each prefix-based virtual workspace.
-	recommendedConfig.Authorization.Authorizer = authorizerfactory.NewAlwaysAllowAuthorizer()
 
 	ret := &RootAPIConfig{
 		GenericConfig: recommendedConfig,

@@ -24,11 +24,13 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -90,6 +92,10 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 					)
 			}
 			return
+		},
+		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+			klog.Error("the authorizer for the 'workdspaces' virtual workspace is not implemented !")
+			return authorizer.DecisionAllow, "", nil
 		},
 		GroupVersionAPISets: []fixedgvs.GroupVersionAPISet{
 			{

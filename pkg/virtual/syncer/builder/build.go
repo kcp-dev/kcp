@@ -23,11 +23,13 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
+	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -117,6 +119,10 @@ func BuildVirtualWorkspace(
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
+		},
+		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+			klog.Error("the authorizer for the 'syncer' virtual workspace is not implemented !")
+			return authorizer.DecisionAllow, "", nil
 		},
 		Ready: func() error {
 			select {
