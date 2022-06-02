@@ -17,14 +17,17 @@ limitations under the License.
 package plugin
 
 import (
+	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -40,10 +43,7 @@ func NewCRDSnapshot(opts *Options) *CRDSnapshot {
 }
 
 func (c *CRDSnapshot) Execute() error {
-	var (
-		in  io.Reader
-		err error
-	)
+	var in io.Reader
 
 	if c.options.Filename == "-" {
 		in = c.options.In
@@ -58,11 +58,6 @@ func (c *CRDSnapshot) Execute() error {
 		in = f
 	}
 
-	data, err := ioutil.ReadAll(in)
-	if err != nil {
-		return fmt.Errorf("error reading: %w", err)
-	}
-
 	scheme := runtime.NewScheme()
 	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
 		return err
@@ -72,21 +67,6 @@ func (c *CRDSnapshot) Execute() error {
 	}
 
 	codecs := serializer.NewCodecFactory(scheme)
-
-	decoded, _, err := codecs.UniversalDecoder(apiextensionsv1.SchemeGroupVersion).Decode(data, nil, nil)
-	if err != nil {
-		return err
-	}
-
-	crd, ok := decoded.(*apiextensionsv1.CustomResourceDefinition)
-	if !ok {
-		return fmt.Errorf("unexpected type for CRD %T", decoded)
-	}
-
-	apiResourceSchema, err := apisv1alpha1.CRDToAPIResourceSchema(crd, c.options.Prefix)
-	if err != nil {
-		return fmt.Errorf("error converting CRD: %w", err)
-	}
 
 	var mediaType string
 	switch c.options.OutputFormat {
@@ -105,12 +85,44 @@ func (c *CRDSnapshot) Execute() error {
 
 	encoder := codecs.EncoderForVersion(info.Serializer, apisv1alpha1.SchemeGroupVersion)
 
-	out, err := runtime.Encode(encoder, apiResourceSchema)
-	if err != nil {
-		return fmt.Errorf("error converting CRD to an APIResourceSchema: %w", err)
-	}
+	d := kubeyaml.NewYAMLReader(bufio.NewReader(in))
 
-	fmt.Fprintln(c.options.Out, string(out))
+	for {
+		doc, err := d.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		if len(bytes.TrimSpace(doc)) == 0 {
+			continue
+		}
+
+		decoded, _, err := codecs.UniversalDecoder(apiextensionsv1.SchemeGroupVersion).Decode(doc, nil, nil)
+		if err != nil {
+			return err
+		}
+
+		crd, ok := decoded.(*apiextensionsv1.CustomResourceDefinition)
+		if !ok {
+			return fmt.Errorf("unexpected type for CRD %T", decoded)
+		}
+
+		apiResourceSchema, err := apisv1alpha1.CRDToAPIResourceSchema(crd, c.options.Prefix)
+		if err != nil {
+			return fmt.Errorf("error converting CRD: %w", err)
+		}
+
+		out, err := runtime.Encode(encoder, apiResourceSchema)
+		if err != nil {
+			return fmt.Errorf("error converting CRD to an APIResourceSchema: %w", err)
+		}
+
+		fmt.Fprintln(c.options.Out, string(out))
+		fmt.Fprintln(c.options.Out, "---")
+	}
 
 	return nil
 }
