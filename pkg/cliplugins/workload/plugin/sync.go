@@ -243,7 +243,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 			Resources:     []string{"workloadclusters/status"},
 		},
 		{
-			Verbs:     []string{"get", "create", "update", "list", "watch"},
+			Verbs:     []string{"get", "create", "update", "delete", "list", "watch"},
 			APIGroups: []string{apiresourcev1alpha1.SchemeGroupVersion.Group},
 			Resources: []string{"apiresourceimports"},
 		},
