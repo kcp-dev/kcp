@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
@@ -220,8 +221,84 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 		return "", fmt.Errorf("failed to get the ServiceAccount %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
 	}
 
-	// Grant the service account cluster-admin on the workspace
-	// TODO(sttts): remove this once syncer workspace access goes through the virtual workspace
+	// Create a cluster role that provides the syncer the minimal permissions
+	// required by KCP to manage the workload cluster, and by the syncer virtual
+	// workspace to sync.
+	rules := []rbacv1.PolicyRule{
+		{
+			Verbs:         []string{"sync"},
+			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
+			ResourceNames: []string{workloadClusterName},
+			Resources:     []string{"workloadclusters"},
+		},
+		{
+			Verbs:     []string{"get", "list", "watch"},
+			APIGroups: []string{workloadv1alpha1.SchemeGroupVersion.Group},
+			Resources: []string{"workloadclusters"},
+		},
+		{
+			Verbs:         []string{"update", "patch"},
+			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
+			ResourceNames: []string{workloadClusterName},
+			Resources:     []string{"workloadclusters/status"},
+		},
+		{
+			Verbs:     []string{"get", "create", "update", "list", "watch"},
+			APIGroups: []string{apiresourcev1alpha1.SchemeGroupVersion.Group},
+			Resources: []string{"apiresourceimports"},
+		},
+	}
+
+	cr, err := kubeClient.RbacV1().ClusterRoles().Get(ctx,
+		authResourceName,
+		metav1.GetOptions{})
+	switch {
+	case errors.IsNotFound(err):
+		if _, err = kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            authResourceName,
+				OwnerReferences: workloadClusterOwnerReferences,
+			},
+			Rules: rules,
+		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+			return "", err
+		}
+	case err == nil:
+		oldData, err := json.Marshal(rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: cr.OwnerReferences,
+			},
+			Rules: cr.Rules,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal old data for ClusterRole %s|%s: %w", workloadClusterName, authResourceName, err)
+		}
+
+		newData, err := json.Marshal(rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             cr.UID,
+				ResourceVersion: cr.ResourceVersion,
+				OwnerReferences: mergeOwnerReference(cr.OwnerReferences, workloadClusterOwnerReferences),
+			},
+			Rules: rules,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal new data for ClusterRole %s|%s: %w", workloadClusterName, authResourceName, err)
+		}
+
+		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return "", fmt.Errorf("failed to create patch for ClusterRole %s|%s: %w", workloadClusterName, authResourceName, err)
+		}
+
+		if _, err = kubeClient.RbacV1().ClusterRoles().Patch(ctx, cr.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			return "", fmt.Errorf("failed to patch ClusterRole %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
+		}
+	default:
+		return "", err
+	}
+
+	// Grant the service account the role created just above in the workspace
 	subjects := []rbacv1.Subject{{
 		Kind:      "ServiceAccount",
 		Name:      authResourceName,
@@ -229,58 +306,30 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	}}
 	roleRef := rbacv1.RoleRef{
 		Kind:     "ClusterRole",
-		Name:     "cluster-admin",
+		Name:     authResourceName,
 		APIGroup: "rbac.authorization.k8s.io",
 	}
-	crb, err := kubeClient.RbacV1().ClusterRoleBindings().Get(ctx,
+
+	_, err = kubeClient.RbacV1().ClusterRoleBindings().Get(ctx,
 		authResourceName,
 		metav1.GetOptions{})
-	switch {
-	case errors.IsNotFound(err):
-		if _, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            authResourceName,
-				OwnerReferences: workloadClusterOwnerReferences,
-			},
-			Subjects: subjects,
-			RoleRef:  roleRef,
-		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !errors.IsNotFound(err) {
+		return "", err
+	}
+	if err == nil {
+		if err := kubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, authResourceName, metav1.DeleteOptions{}); err != nil {
 			return "", err
 		}
-	case err == nil:
-		oldData, err := json.Marshal(rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				OwnerReferences: crb.OwnerReferences,
-			},
-			Subjects: crb.Subjects,
-			RoleRef:  crb.RoleRef,
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal old data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
-		}
+	}
 
-		newData, err := json.Marshal(rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				UID:             crb.UID,
-				ResourceVersion: crb.ResourceVersion,
-				OwnerReferences: mergeOwnerReference(crb.OwnerReferences, workloadClusterOwnerReferences),
-			},
-			Subjects: subjects,
-			RoleRef:  roleRef,
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal new data for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
-		}
-
-		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-		if err != nil {
-			return "", fmt.Errorf("failed to create patch for ClusterRoleBinding %s|%s: %w", workloadClusterName, authResourceName, err)
-		}
-
-		if _, err = kubeClient.RbacV1().ClusterRoleBindings().Patch(ctx, crb.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-			return "", fmt.Errorf("failed to patch ClusterRoleBinding %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
-		}
-	default:
+	if _, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            authResourceName,
+			OwnerReferences: workloadClusterOwnerReferences,
+		},
+		Subjects: subjects,
+		RoleRef:  roleRef,
+	}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
 		return "", err
 	}
 
