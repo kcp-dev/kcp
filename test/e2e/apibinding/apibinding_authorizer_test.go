@@ -162,7 +162,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			require.Error(t, err)
 		} else {
 			t.Logf("Make sure that the status of cowboy can be updated in workspace %q", consumer)
-			_, err = cowboyClient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
+			_, err = cowboyClient.Update(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
 			require.NoError(t, err, "expected error updating status of cowboys")
 		}
 	}

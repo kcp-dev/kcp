@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
@@ -123,11 +122,6 @@ func BuildVirtualWorkspace(
 			return
 		},
 
-		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-			klog.Error("the authorizer for the 'initializingworkspaces' virtual workspace is not implemented !")
-			return authorizer.DecisionAllow, "", nil
-		},
-
 		Ready: func() error {
 			select {
 			case <-readyCh:
@@ -199,12 +193,14 @@ func getAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc
 		}
 
 		SARAttributes := authorizer.AttributesRecord{
-			User:       attr.GetUser(),
-			Verb:       "content",
-			Name:       apiExportName,
-			APIGroup:   apisv1alpha1.SchemeGroupVersion.Group,
-			APIVersion: apisv1alpha1.SchemeGroupVersion.Version,
-			Resource:   "apiexport",
+			APIGroup:        apisv1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      apisv1alpha1.SchemeGroupVersion.Version,
+			User:            attr.GetUser(),
+			Verb:            attr.GetVerb(),
+			Name:            apiExportName,
+			Resource:        "apiexports",
+			ResourceRequest: true,
+			Subresource:     "content",
 		}
 
 		return authz.Authorize(ctx, SARAttributes)
