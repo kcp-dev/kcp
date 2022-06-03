@@ -65,6 +65,6 @@ jobs:
           sed -i -e 's/tag: "[0-9a-f]\{7\}"/tag: "${{ needs.build.outputs.sha_short }}"/' kcp/unstable-values.yaml
           git config user.email "klape+kcp-bot@redhat.com"
           git config user.name "KCP Bot"
-          git add manifest/unstable-values.yaml
+          git add kcp/unstable-values.yaml
           git commit -m "Automatic update of test environment to ${{ needs.build.outputs.sha_short }}"
           git push origin main
