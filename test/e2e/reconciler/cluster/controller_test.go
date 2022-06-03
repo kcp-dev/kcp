@@ -71,7 +71,7 @@ func TestClusterController(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "timothy",
 						Labels: map[string]string{
-							"state.internal.workloads.kcp.dev/" + sinkClusterName: string(workloadv1alpha1.ResourceStateSync),
+							"state.internal.workload.kcp.dev/" + sinkClusterName: string(workloadv1alpha1.ResourceStateSync),
 						},
 					},
 					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
