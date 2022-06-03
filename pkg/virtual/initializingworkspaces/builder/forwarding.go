@@ -28,12 +28,13 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializerName string) apiserver.RestProviderFunc {
+func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializerWorkspace, initializerName string) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -52,6 +53,14 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 			nil, // no scale here
 		)
 
+		labelSelector := map[string]string{
+			tenancyv1alpha1.ClusterWorkspacePhaseLabel: string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
+		}
+		key, value := initialization.InitializerToLabel(tenancyv1alpha1.ClusterWorkspaceInitializer{
+			Name: initializerName,
+			Path: initializerWorkspace,
+		})
+		labelSelector[key] = value
 		storage, _ := registry.NewStorage(
 			ctx,
 			resource,
@@ -64,10 +73,7 @@ func provideForwardingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 			nil,
 			clusterClient,
 			nil,
-			registry.WithLabelSelector(map[string]string{
-				tenancyv1alpha1.ClusterWorkspacePhaseLabel:                               string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
-				tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializerName: "",
-			}),
+			registry.WithLabelSelector(labelSelector),
 		)
 
 		// only expose LIST+WATCH

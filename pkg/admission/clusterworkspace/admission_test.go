@@ -153,7 +153,7 @@ func TestValidate(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{{Name: "a"}},
 					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				},
@@ -167,7 +167,7 @@ func TestValidate(t *testing.T) {
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{{Name: "a"}},
 					},
 				}),
 			wantErr: true,
@@ -197,7 +197,7 @@ func TestValidate(t *testing.T) {
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{{Name: "a"}},
 						Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 						BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 					},
@@ -228,7 +228,7 @@ func TestValidate(t *testing.T) {
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{{Name: "a"}},
 					},
 				}),
 		},
@@ -273,7 +273,7 @@ func TestValidate(t *testing.T) {
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{{Name: "a"}},
 					},
 				}),
 			wantErr: true,
@@ -329,17 +329,6 @@ func TestValidate(t *testing.T) {
 				false,
 				&user.DefaultInfo{},
 			),
-		},
-		{
-			name: "error from adding an initializer that's too long",
-			a: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"really-could-be-a-shorter-name-but-we-didnt-know-about-the-length-restriction",
-					},
-				},
-			}),
-			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

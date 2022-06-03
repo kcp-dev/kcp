@@ -19,6 +19,7 @@ package initializingworkspaces
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"sort"
 	"strings"
@@ -39,6 +40,7 @@ import (
 	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -58,7 +60,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	virtualWorkspaceRawConfig := rawConfig.DeepCopy()
 
 	virtualWorkspaceRawConfig.Clusters["virtual"] = adminCluster.DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["virtual"].Server = adminCluster.Server + "/services/initializingworkspaces/whatever"
+	virtualWorkspaceRawConfig.Clusters["virtual"].Server = adminCluster.Server + "/services/initializingworkspaces/whatever/something"
 	virtualWorkspaceRawConfig.Contexts["virtual"] = adminContext.DeepCopy()
 	virtualWorkspaceRawConfig.Contexts["virtual"].Cluster = "virtual"
 
@@ -132,12 +134,22 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		clusterWorkspaceTypeNames[name] = name + suffix()
 	}
-	clusterWorkspaceInitializerNames := map[string]tenancyv1alpha1.ClusterWorkspaceInitializer{}
+	clusterWorkspaceInitializers := map[string]tenancyv1alpha1.ClusterWorkspaceInitializer{}
 	for _, name := range []string{
 		"alpha", "beta",
 	} {
-		clusterWorkspaceInitializerNames[name] = tenancyv1alpha1.ClusterWorkspaceInitializer(name + "-" + suffix())
+		clusterWorkspaceInitializers[name] = tenancyv1alpha1.ClusterWorkspaceInitializer{
+			Name: name + "-" + suffix(),
+			Path: "root:org:ws",
+		}
 	}
+
+	// in order to test that collisions on the simple name are not enough to see others' data in this VW,
+	// we add a conflicting entry here that looks very much like `alpha`
+	otherClusterWorkspaceInitializer := clusterWorkspaceInitializers["alpha"]
+	otherClusterWorkspaceInitializer = *otherClusterWorkspaceInitializer.DeepCopy()
+	otherClusterWorkspaceInitializer.Path = "root:something:else"
+	clusterWorkspaceInitializers["other-alpha"] = otherClusterWorkspaceInitializer
 
 	for name, initializers := range map[string][]string{
 		"alpha": {"alpha"},
@@ -146,7 +158,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		var initializerNames []tenancyv1alpha1.ClusterWorkspaceInitializer
 		for _, initializerName := range initializers {
-			initializerNames = append(initializerNames, clusterWorkspaceInitializerNames[initializerName])
+			initializerNames = append(initializerNames, clusterWorkspaceInitializers[initializerName])
 		}
 		_, err = sourceKcpTenancyClient.ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
@@ -190,11 +202,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	clients := map[string]tenancyv1alpha1client.ClusterWorkspaceInterface{}
 	for _, initializer := range []string{
-		"alpha", "beta",
+		"alpha", "beta", "other-alpha",
 	} {
-		initializerName := clusterWorkspaceInitializerNames[initializer]
+		clusterWorkspaceInitializer := clusterWorkspaceInitializers[initializer]
 		virtualWorkspaceRawConfig.Clusters[initializer] = adminCluster.DeepCopy()
-		virtualWorkspaceRawConfig.Clusters[initializer].Server = adminCluster.Server + "/services/initializingworkspaces/" + string(initializerName)
+		virtualWorkspaceRawConfig.Clusters[initializer].Server = fmt.Sprintf("%s/services/initializingworkspaces/%s/%s", adminCluster.Server, clusterWorkspaceInitializer.Path, clusterWorkspaceInitializer.Name)
 		virtualWorkspaceRawConfig.Contexts[initializer] = adminContext.DeepCopy()
 		virtualWorkspaceRawConfig.Contexts[initializer].Cluster = initializer
 		virtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, initializer, nil, nil).ClientConfig()
@@ -215,8 +227,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	for initializer, expected := range map[string][]tenancyv1alpha1.ClusterWorkspace{
-		"alpha": {workspacesByType[clusterWorkspaceTypeNames["alpha"]], workspacesByType[clusterWorkspaceTypeNames["gamma"]]},
-		"beta":  {workspacesByType[clusterWorkspaceTypeNames["beta"]], workspacesByType[clusterWorkspaceTypeNames["gamma"]]},
+		"alpha":       {workspacesByType[clusterWorkspaceTypeNames["alpha"]], workspacesByType[clusterWorkspaceTypeNames["gamma"]]},
+		"beta":        {workspacesByType[clusterWorkspaceTypeNames["beta"]], workspacesByType[clusterWorkspaceTypeNames["gamma"]]},
+		"other-alpha": {},
 	} {
 		sort.Slice(expected, func(i, j int) bool {
 			return expected[i].UID < expected[j].UID
@@ -354,7 +367,8 @@ func workspaceLabelsUpToDate(t *testing.T, workspace tenancyv1alpha1.ClusterWork
 		return false
 	}
 	for _, initializer := range workspace.Status.Initializers {
-		if _, exists := workspace.ObjectMeta.Labels[string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix+initializer)]; !exists {
+		key, value := initialization.InitializerToLabel(initializer)
+		if existingValue, exists := workspace.ObjectMeta.Labels[key]; !exists || existingValue != value {
 			t.Logf("workspace %s initializer labels are not updated yet", workspace.Name)
 			return false
 		}

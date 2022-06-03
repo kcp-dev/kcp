@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -108,7 +109,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				_, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{{Name: "a", Path: "root:org:ws"}},
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
@@ -134,12 +135,10 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 					workspace, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err)
-					for i, initializer := range workspace.Status.Initializers {
-						if initializer == "a" {
-							workspace.Status.Initializers = append(workspace.Status.Initializers[:i], workspace.Status.Initializers[i+1:]...)
-							break
-						}
-					}
+					workspace.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.ClusterWorkspaceInitializer{
+						Name: "a",
+						Path: "root:org:ws",
+					}, workspace.Status.Initializers)
 					_, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().UpdateStatus(ctx, workspace, metav1.UpdateOptions{})
 					return err
 				})

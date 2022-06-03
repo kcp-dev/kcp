@@ -21,12 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	labelvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 
@@ -85,13 +83,6 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 	cw := &tenancyv1alpha1.ClusterWorkspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
-	}
-
-	for i, initializer := range cw.Status.Initializers {
-		key := string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
-		if errs := labelvalidation.IsQualifiedName(key); len(errs) > 0 {
-			return admission.NewForbidden(a, fmt.Errorf("status.initializers[%d] has an invalid value: %q: %s", i, initializer, strings.Join(errs, ", ")))
-		}
 	}
 
 	if a.GetOperation() == admission.Update {

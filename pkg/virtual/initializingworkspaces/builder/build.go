@@ -79,23 +79,28 @@ func BuildVirtualWorkspace(
 			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 			// Incoming requests to this virtual workspace will look like:
-			//  /services/initializingworkspaces/<initializer>/clusters/*/apis/workload.kcp.dev/v1alpha1/workloadclusters
+			//  /services/initializingworkspaces/<workspace>/<initializer>/clusters/*/apis/workload.kcp.dev/v1alpha1/workloadclusters
 			//                                  └───────────┐
 			// Where the withoutRootPathPrefix starts here: ┘
-			parts := strings.SplitN(withoutRootPathPrefix, "/", 2)
-			if len(parts) < 2 {
+			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
+			if len(parts) < 3 {
 				return
 			}
 
-			initializerName := parts[0]
+			initializerWorkspace := parts[0]
+			if initializerWorkspace == "" {
+				return
+			}
+
+			initializerName := parts[1]
 			if initializerName == "" {
 				return
 			}
 
-			realPath := "/" + parts[1]
+			realPath := "/" + parts[2]
 
-			//  /services/initializingworkspaces/<initializer>/clusters/*/apis/workload.kcp.dev/v1alpha1/workloadclusters
-			//                  ┌─────────────────────────────┘
+			//  /services/initializingworkspaces/<workspace>/<initializer>/clusters/*/apis/workload.kcp.dev/v1alpha1/workloadclusters
+			//                  ┌─────────────────────────────────────────┘
 			// We are now here: ┘
 			// Now, we parse out the logical cluster and validate that only wildcard requests are allowed.
 			if !strings.HasPrefix(realPath, "/clusters/") {
@@ -116,7 +121,7 @@ func BuildVirtualWorkspace(
 			}
 
 			completedContext = genericapirequest.WithCluster(requestContext, genericapirequest.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, dynamiccontext.APIDomainKey(initializerName))
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, dynamiccontext.APIDomainKey(fmt.Sprintf("%s|%s", initializerWorkspace, initializerName)))
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
@@ -168,7 +173,11 @@ type apiSetRetriever struct {
 }
 
 func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
-	initializerName := string(key)
+	parts := strings.Split(string(key), "|")
+	if len(parts) != 2 {
+		return nil, false, fmt.Errorf("invalid API domain key, expected workspace|initializerName: %q", key)
+	}
+	initializerWorkspace, initializerName := parts[0], parts[1]
 
 	crd, err := a.crdLister.Get(
 		clusters.ToClusterAwareKey(
@@ -224,7 +233,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 			a.config,
 			apiResourceSchema,
 			version.Name,
-			provideForwardingRestStorage(ctx, a.dynamicClusterClient, initializerName),
+			provideForwardingRestStorage(ctx, a.dynamicClusterClient, initializerWorkspace, initializerName),
 		)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to create serving info: %w", err)

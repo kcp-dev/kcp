@@ -72,6 +72,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpec":                          schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationStatus":                        schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceInitializer":              schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceInitializer(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceList":                     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceShard":                    schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShard(ref),
@@ -2204,6 +2205,36 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref common.ReferenceCallb
 	}
 }
 
+func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceInitializer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace initialization controller for the given type of workspaces.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is a unique string corresponding to a cluster workspace initialization controller for the given type of workspaces.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is an absolute reference to the workspace that owns this initializer, e.g. root:org:ws.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "path"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2525,9 +2556,8 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceInitializer"),
 									},
 								},
 							},
@@ -2537,7 +2567,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceInitializer", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -2644,9 +2674,8 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceInitializer"),
 									},
 								},
 							},
@@ -2671,6 +2700,8 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceInitializer"},
 	}
 }
 

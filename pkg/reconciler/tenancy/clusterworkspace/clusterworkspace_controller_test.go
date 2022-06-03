@@ -17,40 +17,14 @@ limitations under the License.
 package clusterworkspace
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
-
-func TestClusterWorkspaceInitializerLabelPrefix(t *testing.T) {
-	// we want to be able to add this prefix to any valid initializer and have it
-	// end up as a valid label, so it needs to be a DNS 1123 subdomain
-	if errs := validation.IsDNS1123Subdomain(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + "a"); len(errs) > 0 {
-		t.Errorf("tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix invalid: %s", strings.Join(errs, ", "))
-	}
-}
-
-func TestInitializerLabelFor(t *testing.T) {
-	for _, testCase := range []tenancyv1alpha1.ClusterWorkspaceInitializer{
-		"simple",
-		"QualifiedName",
-		"qualified.Name",
-		"qualified-123-name",
-		"with.dns/prefix",
-		"with.dns/prefix_and.Qualified-name",
-	} {
-		label := initializerLabelFor(testCase)
-		if errs := validation.IsQualifiedName(label); len(errs) > 0 {
-			t.Errorf("initializer %q produces an invalid label %q: %s", testCase, label, strings.Join(errs, ", "))
-		}
-	}
-}
 
 func TestReconcileMetadata(t *testing.T) {
 	for _, testCase := range []struct {
@@ -64,16 +38,18 @@ func TestReconcileMetadata(t *testing.T) {
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto", "venus", "apollo",
+						{Name: "pluto", Path: "root:org:ws"},
+						{Name: "venus", Path: "root:org:ws"},
+						{Name: "apollo", Path: "root:org:ws"},
 					},
 				},
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase":              "Ready",
-					"initializer.internal.kcp.dev-pluto":  "",
-					"initializer.internal.kcp.dev-venus":  "",
-					"initializer.internal.kcp.dev-apollo": "",
+					"internal.kcp.dev/phase": "Ready",
+					"initializer.internal.kcp.dev/2cf63e1fc0d673be2a7c7e394a17426b45": "2cf63e1fc0d673be2a7c7e394a17426b45735b89b6c14fa5684541c9",
+					"initializer.internal.kcp.dev/384afe078ecbaec83f15760c079c1becb7": "384afe078ecbaec83f15760c079c1becb7a675d339e1dc87429ca4f9",
+					"initializer.internal.kcp.dev/97d3317200419270f9e121d5a2db4e2d14": "97d3317200419270f9e121d5a2db4e2d14c1c7508d4e2b48bdd7dec4",
 				},
 			},
 		},
@@ -82,24 +58,26 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase":              "Ready",
-						"initializer.internal.kcp.dev-pluto":  "",
-						"initializer.internal.kcp.dev-apollo": "",
+						"internal.kcp.dev/phase": "Ready",
+						"initializer.internal.kcp.dev/2cf63e1fc0d673be2a7c7e394a17426b45": "2cf63e1fc0d673be2a7c7e394a17426b45735b89b6c14fa5684541c9",
+						"initializer.internal.kcp.dev/97d3317200419270f9e121d5a2db4e2d14": "97d3317200419270f9e121d5a2db4e2d14c1c7508d4e2b48bdd7dec4",
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto", "venus", "apollo",
+						{Name: "pluto", Path: "root:org:ws"},
+						{Name: "venus", Path: "root:org:ws"},
+						{Name: "apollo", Path: "root:org:ws"},
 					},
 				},
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase":              "Ready",
-					"initializer.internal.kcp.dev-pluto":  "",
-					"initializer.internal.kcp.dev-venus":  "",
-					"initializer.internal.kcp.dev-apollo": "",
+					"internal.kcp.dev/phase": "Ready",
+					"initializer.internal.kcp.dev/2cf63e1fc0d673be2a7c7e394a17426b45": "2cf63e1fc0d673be2a7c7e394a17426b45735b89b6c14fa5684541c9",
+					"initializer.internal.kcp.dev/384afe078ecbaec83f15760c079c1becb7": "384afe078ecbaec83f15760c079c1becb7a675d339e1dc87429ca4f9",
+					"initializer.internal.kcp.dev/97d3317200419270f9e121d5a2db4e2d14": "97d3317200419270f9e121d5a2db4e2d14c1c7508d4e2b48bdd7dec4",
 				},
 			},
 		},
@@ -108,22 +86,22 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase":              "Ready",
-						"initializer.internal.kcp.dev-pluto":  "",
-						"initializer.internal.kcp.dev-apollo": "",
+						"internal.kcp.dev/phase": "Ready",
+						"initializer.internal.kcp.dev/2cf63e1fc0d673be2a7c7e394a17426b45": "2cf63e1fc0d673be2a7c7e394a17426b45735b89b6c14fa5684541c9",
+						"initializer.internal.kcp.dev/384afe078ecbaec83f15760c079c1becb7": "384afe078ecbaec83f15760c079c1becb7a675d339e1dc87429ca4f9",
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"pluto",
+						{Name: "pluto", Path: "root:org:ws"},
 					},
 				},
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase":             "Ready",
-					"initializer.internal.kcp.dev-pluto": "",
+					"internal.kcp.dev/phase": "Ready",
+					"initializer.internal.kcp.dev/2cf63e1fc0d673be2a7c7e394a17426b45": "2cf63e1fc0d673be2a7c7e394a17426b45735b89b6c14fa5684541c9",
 				},
 			},
 		},

@@ -89,7 +89,10 @@ func TestAdmit(t *testing.T) {
 						Name: "root:org#$#foo",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+							{Name: "a", Path: "root:org:ws"},
+							{Name: "b", Path: "root:org:ws"},
+						},
 					},
 				},
 			},
@@ -101,10 +104,13 @@ func TestAdmit(t *testing.T) {
 					Type: "Foo",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Phase: tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+						{Name: "a", Path: "root:org:ws"},
+						{Name: "b", Path: "root:org:ws"},
+					},
+					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
 				&tenancyv1alpha1.ClusterWorkspace{
@@ -127,10 +133,13 @@ func TestAdmit(t *testing.T) {
 					Type: "Foo",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Phase: tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+						{Name: "a", Path: "root:org:ws"},
+						{Name: "b", Path: "root:org:ws"},
+					},
+					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
 		},
@@ -142,7 +151,10 @@ func TestAdmit(t *testing.T) {
 						Name: "root:org#$#foo",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+							{Name: "a", Path: "root:org:ws"},
+							{Name: "b", Path: "root:org:ws"},
+						},
 					},
 				},
 			},
@@ -273,7 +285,10 @@ func TestAdmit(t *testing.T) {
 						Name: "root:org#$#foo",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+							{Name: "a", Path: "root:org:ws"},
+							{Name: "b", Path: "root:org:ws"},
+						},
 						AdditionalWorkspaceLabels: map[string]string{
 							"new-label":      "default",
 							"existing-label": "default",
@@ -478,7 +493,10 @@ func TestValidate(t *testing.T) {
 						Name: "root:org#$#foo",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+							{Name: "a", Path: "root:org:ws"},
+							{Name: "b", Path: "root:org:ws"},
+						},
 					},
 				},
 			},
@@ -491,7 +509,7 @@ func TestValidate(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"}, // b missing
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{{Name: "a", Path: "root:org:ws"}}, // b missing
 				},
 			},
 				&tenancyv1alpha1.ClusterWorkspace{
@@ -515,7 +533,10 @@ func TestValidate(t *testing.T) {
 						Name: "root:org#$#foo",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+							{Name: "a", Path: "root:org:ws"},
+							{Name: "b", Path: "root:org:ws"},
+						},
 					},
 				},
 			},
@@ -528,10 +549,14 @@ func TestValidate(t *testing.T) {
 						Type: "Foo",
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b", "c"},
-						Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-						BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+						Phase: tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+							{Name: "a", Path: "root:org:ws"},
+							{Name: "b", Path: "root:org:ws"},
+							{Name: "c", Path: "root:org:ws"},
+						},
+						Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+						BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 					},
 				},
 				&tenancyv1alpha1.ClusterWorkspace{

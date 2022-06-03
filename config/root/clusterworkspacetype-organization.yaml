@@ -4,4 +4,5 @@ metadata:
   name: organization
 spec:
   initializers:
-  - tenancy.kcp.dev/organization
+  - name: tenancy.kcp.dev/organization
+    path: root

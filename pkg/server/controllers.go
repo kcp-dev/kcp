@@ -426,7 +426,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		"Organization",
+		"Organization", "root",
 		configorganization.Bootstrap,
 	)
 	if err != nil {
@@ -438,7 +438,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		"Team",
+		"Team", "root",
 		configteam.Bootstrap,
 	)
 	if err != nil {
@@ -450,7 +450,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		"Universal",
+		"Universal", "root",
 		configuniversal.Bootstrap,
 	)
 	if err != nil {

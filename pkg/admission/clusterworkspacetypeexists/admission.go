@@ -28,7 +28,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -143,14 +143,8 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	}
 
 	// add initializers from type to workspace
-	existing := sets.NewString()
-	for _, i := range cw.Status.Initializers {
-		existing.Insert(string(i))
-	}
 	for _, i := range cwt.Spec.Initializers {
-		if !existing.Has(string(i)) {
-			cw.Status.Initializers = append(cw.Status.Initializers, i)
-		}
+		cw.Status.Initializers = initialization.EnsureInitializerPresent(i, cw.Status.Initializers)
 	}
 
 	return updateUnstructured(u, cw)
@@ -234,13 +228,9 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 	if a.GetOperation() == admission.Update && transitioningToInitializing {
 		// this is a transition to initializing. Check that all initializers are there
 		// (no other admission plugin removed any).
-		existing := sets.NewString()
-		for _, initializer := range cw.Status.Initializers {
-			existing.Insert(string(initializer))
-		}
 		for _, initializer := range cwt.Spec.Initializers {
-			if !existing.Has(string(initializer)) {
-				return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
+			if !initialization.InitializerPresent(initializer, cw.Status.Initializers) {
+				return admission.NewForbidden(a, fmt.Errorf("spec.initializers %s|%s does not exist", initializer.Path, initializer.Name))
 			}
 		}
 	}

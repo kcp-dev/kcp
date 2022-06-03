@@ -131,10 +131,19 @@ type ClusterWorkspaceTypeList struct {
 
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
-//
-// +kubebuilder:validation:MaxLength=32
-// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`
-type ClusterWorkspaceInitializer string
+type ClusterWorkspaceInitializer struct {
+	// name is a unique string corresponding to a cluster workspace
+	// initialization controller for the given type of workspaces.
+	//
+	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`
+	Name string `json:"name"`
+
+	// path is an absolute reference to the workspace that owns this initializer, e.g. root:org:ws.
+	//
+	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	Path string `json:"path"`
+}
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
 type ClusterWorkspacePhaseType string
@@ -323,5 +332,5 @@ const (
 	// ClusterWorkspaceInitializerLabelPrefix is the prefix for labels which match ClusterWorkspace.Status.Initializers,
 	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
 	// webhook.
-	ClusterWorkspaceInitializerLabelPrefix = "initializer.internal.kcp.dev-"
+	ClusterWorkspaceInitializerLabelPrefix = "initializer.internal.kcp.dev/"
 )

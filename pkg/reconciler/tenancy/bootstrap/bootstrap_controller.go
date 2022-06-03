@@ -53,7 +53,7 @@ func NewController(
 	crdClusterClient apiextensionclientset.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	workspaceType string,
+	workspaceType, initializerPath string,
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface) error,
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
@@ -69,8 +69,9 @@ func NewController(
 		syncChecks: []cache.InformerSynced{
 			workspaceInformer.Informer().HasSynced,
 		},
-		workspaceType: workspaceType,
-		bootstrap:     bootstrap,
+		workspaceType:   workspaceType,
+		initializerPath: initializerPath,
+		bootstrap:       bootstrap,
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -96,8 +97,9 @@ type controller struct {
 
 	syncChecks []cache.InformerSynced
 
-	workspaceType string
-	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface) error
+	workspaceType   string
+	initializerPath string
+	bootstrap       func(context.Context, discovery.DiscoveryInterface, dynamic.Interface) error
 }
 
 func (c *controller) enqueue(obj interface{}) {
