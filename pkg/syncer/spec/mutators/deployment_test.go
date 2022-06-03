@@ -608,6 +608,137 @@ func TestDeploymentMutate(t *testing.T) {
 			config: &rest.Config{
 				Host: "https://4.5.6.7:12345",
 			}},
+		{desc: "Deployment with an EnvVar value coming from the DownwardAPI,only the metadata.namespace should be made static",
+			upstreamSecrets: []*corev1.Secret{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Secret",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "default-token-1234",
+						Namespace:   "namespace",
+						ClusterName: "root:default:testing",
+						Annotations: map[string]string{
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
+			originalDeployment: &appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: new(int32),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "test-container",
+									Image: "test-image",
+									Env: []corev1.EnvVar{
+										{
+											Name: "DOWNWARDAPI_ENV_NAMESPACE",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name: "DOWNWARDAPI_ENV_NAME",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.name",
+												},
+											},
+										},
+										{
+											Name:  "MYENV",
+											Value: "myenv",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedDeployment: &appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-deployment",
+					Namespace:   "namespace",
+					ClusterName: "root:default:testing",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: new(int32),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+							Containers: []corev1.Container{
+								{
+									Name:  "test-container",
+									Image: "test-image",
+									Env: []corev1.EnvVar{
+										{
+											Name:  "DOWNWARDAPI_ENV_NAMESPACE",
+											Value: "namespace",
+										},
+										{
+											Name: "DOWNWARDAPI_ENV_NAME",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.name",
+												},
+											},
+										},
+										{
+											Name:  "MYENV",
+											Value: "myenv",
+										},
+										{
+											Name:  "KUBERNETES_SERVICE_PORT",
+											Value: "12345",
+										},
+										{
+											Name:  "KUBERNETES_SERVICE_PORT_HTTPS",
+											Value: "12345",
+										},
+										{
+											Name:  "KUBERNETES_SERVICE_HOST",
+											Value: "4.5.6.7",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										kcpApiAccessVolumeMount,
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								kcpApiAccessVolume,
+							},
+						},
+					},
+				},
+			},
+			config: &rest.Config{
+				Host: "https://4.5.6.7:12345",
+			}},
 	} {
 		{
 			t.Run(c.desc, func(t *testing.T) {
