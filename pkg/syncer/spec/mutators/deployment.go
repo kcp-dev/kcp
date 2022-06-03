@@ -168,27 +168,30 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 		},
 	}
 
-	// Override Envs and add the VolumeMount to all the containers
+	// Override Envs, resolve downwardAPI FieldRef and add the VolumeMount to all the containers
 	for i := range deployment.Spec.Template.Spec.Containers {
 		for _, overrideEnv := range overrideEnvs {
 			templateSpec.Containers[i].Env = updateEnv(templateSpec.Containers[i].Env, overrideEnv)
 		}
+		templateSpec.Containers[i].Env = resolveDownwardAPIFieldRefEnv(templateSpec.Containers[i].Env, deployment)
 		templateSpec.Containers[i].VolumeMounts = updateVolumeMount(templateSpec.Containers[i].VolumeMounts, serviceAccountMount)
 	}
 
-	// Override Envs and add the VolumeMount to all the Init containers
+	// Override Envs, resolve downwardAPI FieldRef and add the VolumeMount to all the Init containers
 	for i := range templateSpec.InitContainers {
 		for _, overrideEnv := range overrideEnvs {
 			templateSpec.InitContainers[i].Env = updateEnv(templateSpec.InitContainers[i].Env, overrideEnv)
 		}
+		templateSpec.InitContainers[i].Env = resolveDownwardAPIFieldRefEnv(templateSpec.InitContainers[i].Env, deployment)
 		templateSpec.InitContainers[i].VolumeMounts = updateVolumeMount(templateSpec.InitContainers[i].VolumeMounts, serviceAccountMount)
 	}
 
-	// Override Envs and add the VolumeMount to all the Ephemeral containers
+	// Override Envs, resolve downwardAPI FieldRef and add the VolumeMount to all the Ephemeral containers
 	for i := range templateSpec.EphemeralContainers {
 		for _, overrideEnv := range overrideEnvs {
 			templateSpec.EphemeralContainers[i].Env = updateEnv(templateSpec.EphemeralContainers[i].Env, overrideEnv)
 		}
+		templateSpec.EphemeralContainers[i].Env = resolveDownwardAPIFieldRefEnv(templateSpec.EphemeralContainers[i].Env, deployment)
 		templateSpec.EphemeralContainers[i].VolumeMounts = updateVolumeMount(templateSpec.EphemeralContainers[i].VolumeMounts, serviceAccountMount)
 	}
 
@@ -213,6 +216,22 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 	obj.SetUnstructuredContent(unstructured)
 
 	return nil
+}
+
+// resolveDownwardAPIFieldRefEnv replaces the downwardAPI FieldRef EnvVars with the value from the deployment, right now it only replaces the metadata.namespace
+func resolveDownwardAPIFieldRefEnv(envs []corev1.EnvVar, deployment appsv1.Deployment) []corev1.EnvVar {
+	var result []corev1.EnvVar
+	for _, env := range envs {
+		if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil && env.ValueFrom.FieldRef.FieldPath == "metadata.namespace" {
+			result = append(result, corev1.EnvVar{
+				Name:  env.Name,
+				Value: deployment.Namespace,
+			})
+		} else {
+			result = append(result, env)
+		}
+	}
+	return result
 }
 
 // findEnv finds an env in a list of envs
