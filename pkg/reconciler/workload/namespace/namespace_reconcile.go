@@ -67,7 +67,7 @@ func (c *Controller) reconcileNamespace(ctx context.Context, lclusterName logica
 }
 
 // ensureNamespaceScheduled will ensure every placement to a location is properly represented in the
-// state.workloads.kcp.dev/* labels.
+// state.workload.kcp.dev/* labels.
 func (c *Controller) ensureNamespaceScheduled(ctx context.Context, ns *corev1.Namespace, placement schedulingv1alpha1.PlacementAnnotation) (*corev1.Namespace, bool, error) {
 	expectedPlacement := map[string]interface{}{}   // nil means to remove the key
 	expectedAnnotations := map[string]interface{}{} // nil means to remove the key
@@ -139,7 +139,7 @@ func applyPlacement(placementKey string, state schedulingv1alpha1.PlacementState
 
 	switch state {
 	case schedulingv1alpha1.PlacementStatePending:
-		// ensure the state.workloads.kcp.dev/* label is set
+		// ensure the state.workload.kcp.dev/* label is set
 		// TODO(sttts): add UID lookup for the workload cluster here
 		if state, found := existingLabels[stateLabelKey]; !found || state != string(workloadv1alpha1.ResourceStateSync) {
 			klog.V(3).Infof("Setting %s label on namespace %s|%s to %s", stateLabelKey, logicalcluster.From(ns), ns.Name, workloadCluster)

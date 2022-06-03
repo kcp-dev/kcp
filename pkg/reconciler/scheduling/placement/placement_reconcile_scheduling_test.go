@@ -98,7 +98,7 @@ func TestPlacementReconciler(t *testing.T) {
 					Name:        "test",
 					ClusterName: "root:org:ws",
 					Labels: map[string]string{
-						"experimental.workloads.kcp.dev/scheduling-disabled": "true",
+						"experimental.workload.kcp.dev/scheduling-disabled": "true",
 					},
 					Annotations: map[string]string{
 						"scheduling.kcp.dev/placement": `{"foo": "bar"}`,
