@@ -35,8 +35,8 @@ import (
 
 func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var comps = strings.SplitN(strings.TrimLeft(req.URL.Path, "/"), "/", 3)
-		if len(comps) != 3 || comps[0] != "clusters" {
+		var cs = strings.SplitN(strings.TrimLeft(req.URL.Path, "/"), "/", 3)
+		if len(cs) != 3 || cs[0] != "clusters" {
 			http.NotFound(w, req)
 			return
 		}
@@ -48,7 +48,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		clusterName := logicalcluster.New(comps[1])
+		clusterName := logicalcluster.New(cs[1])
 		if !tenancyhelper.IsValidCluster(clusterName) {
 			// this includes wildcards
 			klog.V(4).Infof("Invalid cluster name %q", req.URL.Path)

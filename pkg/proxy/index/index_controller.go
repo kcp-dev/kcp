@@ -43,6 +43,7 @@ const (
 	clusterWorkspaceResyncPeriod = 2 * time.Hour
 )
 
+// Index implements a mapping from logical cluster to (shard) URL.
 type Index interface {
 	Lookup(logicalCluster logicalcluster.Name) (string, bool)
 }
@@ -53,7 +54,7 @@ func NewController(
 	rootHost string,
 	clusterWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
 	clientGetter ClusterWorkspaceClientGetter,
-) (*Controller, error) {
+) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
@@ -153,11 +154,11 @@ func NewController(
 		},
 	})
 
-	return c, nil
+	return c
 }
 
 // Controller watches ClusterWorkspaceShards on the root shard, and then starts informers
-// for every ClusterWorkspaceShards, watching the ClusterWorkspaces on them. It then
+// for every ClusterWorkspaceShard, watching the ClusterWorkspaces on them. It then
 // updates the workspace index, which maps logical clusters to shard URLs.
 type Controller struct {
 	queue workqueue.RateLimitingInterface

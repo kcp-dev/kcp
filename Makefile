@@ -185,7 +185,7 @@ test-e2e-shared: build-all
 	mkdir -p $(LOG_DIR)
 	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}"; \
 	TEST_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image) && test -n "$${TEST_IMAGE}"; \
-	NO_GORUN=1 ./bin/test-server > $(LOG_DIR)/kcp.log 2>&1 & PID=$$!; echo "PID $$PID"; \
+	NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" 2>&1 & PID=$$!; echo "PID $$PID"; \
 	trap 'kill -TERM $$PID' TERM INT EXIT; \
 	echo "Starting tests:"; \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \

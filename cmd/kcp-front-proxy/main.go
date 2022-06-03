@@ -104,7 +104,7 @@ routed based on paths.`,
 				return fmt.Errorf("failed to create root client: %w", err)
 			}
 			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfig.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
-			indexController, err := index.NewController(
+			indexController := index.NewController(
 				rootConfig.Host,
 				kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 				func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.ClusterInterface, error) {
@@ -117,9 +117,7 @@ routed based on paths.`,
 					return shardClient, nil
 				},
 			)
-			if err != nil {
-				return fmt.Errorf("failed to create ClusterWorkspace index controller: %w", err)
-			}
+
 			go indexController.Start(ctx, 2)
 
 			kcpSharedInformerFactory.Start(ctx.Done())
