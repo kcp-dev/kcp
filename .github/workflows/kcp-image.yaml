@@ -62,7 +62,7 @@ jobs:
 
       - name: Update sha and commit
         run: |-
-          sed -i -e 's/tag: "[0-9a-f]\{7\}"/tag: "${{ needs.build.outputs.sha_short }}"/' manifest/unstable-values.yaml
+          sed -i -e 's/tag: "[0-9a-f]\{7\}"/tag: "${{ needs.build.outputs.sha_short }}"/' kcp/unstable-values.yaml
           git config user.email "klape+kcp-bot@redhat.com"
           git config user.name "KCP Bot"
           git add manifest/unstable-values.yaml
