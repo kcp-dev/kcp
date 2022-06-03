@@ -12,11 +12,11 @@ the compute consumers.
 The APIs used for Compute as a Service are:
 
 1. `scheduling.kcp.dev/v1alpha1` – we call the outcome of this *placement* of namespaces.
-2. `workloads.kcp.dev/v1alpha1` – responsible for the syncer component of TMC.
+2. `workload.kcp.dev/v1alpha1` – responsible for the syncer component of TMC.
 
 ## Main Concepts
 
-- `WorkloadCluster` in `workloads.kcp.dev/v1alpha1` – representations of Kubernetes clusters that are attached to a kcp installation to
+- `WorkloadCluster` in `workload.kcp.dev/v1alpha1` – representations of Kubernetes clusters that are attached to a kcp installation to
   execute workload objects from the users' workspaces. On the workload clusters, there is one syncer
   process for each `WorkloadCluster` object. 
 
@@ -53,7 +53,7 @@ There are two state machines involved in TMC.
    track the placement decisions of the user namespaces. The actors are:
    - the *placement controller* (= scheduler), which is responsible for the placement decision.
    - the *workload/namespace controller*, which is responsible for implementing the placement via syncing of workload objects to physical clusters.
-2. the *syncing state machine*, stored in the `state.internal.workloads.kcp.dev/<cluster-id>` labels on workload objects. This state machine is used to
+2. the *syncing state machine*, stored in the `state.internal.workload.kcp.dev/<cluster-id>` labels on workload objects. This state machine is used to
    track the syncing of workload objects to physical clusters. The actors are:
    - the *workload controller*, which is responsible for syncing workload objects to physical clusters.
    - the *workload/namespace controller*, which is responsible for implement the syncing via syncing of workload objects to physical clusters.
@@ -96,37 +96,37 @@ As soon as the `scheduling.kcp.dev/placement` annotation is set with state `Pend
 controller will pick up the namespace and
 
 1. set the `scheduling.kcp.dev/placement` annotation state to `Bound` and
-2. set the `state.internal.workloads.kcp.dev/<cluster-id>` label to `Sync`.
+2. set the `state.internal.workload.kcp.dev/<cluster-id>` label to `Sync`.
 
-Then the workload resource controller will copy the `state.internal.workloads.kcp.dev/<cluster-id>` label to the 
+Then the workload resource controller will copy the `state.internal.workload.kcp.dev/<cluster-id>` label to the 
 resources in that namespace.
 
 Note: in the future, the label on the resources is first set to empty string `""`, and a coordination controller will be 
 able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
-`finalizers.workloads.kcp.dev/<cluster-id>` annotation such that the coordination controller gets full control over 
+`finalizers.workload.kcp.dev/<cluster-id>` annotation such that the coordination controller gets full control over 
 the downstream life-cycle of the objects per location (imagine an ingress that blocks downstream removal until the new replicas
 have been launched on another workload cluster). Finally, the coordination controller will replace the empty string with `Sync`
 such that the state machine continues.
 
 With the state label set to `Sync`, the syncer will start seeing the resources in the namespace
 and starts syncing them downstream, first by creating the namespace. Before syncing, it will also set 
-a finalizer `workloads.kcp.dev/syncer-<cluster-id>` on the upstream object in order to delay upstream deletion until
+a finalizer `workload.kcp.dev/syncer-<cluster-id>` on the upstream object in order to delay upstream deletion until
 the downstream object is also deleted.
 
 When the `scheduling.kcp.dev/placement` annotation signals `Removing`, the namespace controller will
-add the `deletion.internal.workloads.kcp.dev/<cluster-id>` annotation with a RFC3339 timestamp. The virtual workspace apiserver
+add the `deletion.internal.workload.kcp.dev/<cluster-id>` annotation with a RFC3339 timestamp. The virtual workspace apiserver
 will translate that annotation into a deletion timestamp on the object the syncer sees. The syncer
 notices that as a started deletion flow. As soon as there are no coordination controller finalizers registered via the
-`finalizers.workloads.kcp.dev/<cluster-id>` annotation anymore, the syncer will start a deletion of the downstream object.
+`finalizers.workload.kcp.dev/<cluster-id>` annotation anymore, the syncer will start a deletion of the downstream object.
 
 When the downstream deletion is complete, the syncer will remove the finalizer from the upstream object, and the
-`state.internal.workloads.kcp.dev/<cluster-id>` labels gets deleted as well. The syncer stops seeing the object in the virtual
+`state.internal.workload.kcp.dev/<cluster-id>` labels gets deleted as well. The syncer stops seeing the object in the virtual
 workspace.
 
-In case of namespaces, the workload namespace controller will notice that removal of the `state.internal.workloads.kcp.dev/<cluster-id>` 
+In case of namespaces, the workload namespace controller will notice that removal of the `state.internal.workload.kcp.dev/<cluster-id>` 
 labels and set the `scheduling.kcp.dev/placement` state to `Unbound`. The placement controller will notice and remove the
 `scheduling.kcp.dev/placement` for that location.
 
-Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.internal.workloads.kcp.dev/<cluster-id>` 
+Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.internal.workload.kcp.dev/<cluster-id>` 
 label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
-downstream namespace deletion via `state.internal.workloads.kcp.dev/<cluster-id>` label removal.
+downstream namespace deletion via `state.internal.workload.kcp.dev/<cluster-id>` label removal.
