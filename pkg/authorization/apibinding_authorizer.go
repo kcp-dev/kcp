@@ -18,6 +18,7 @@ package authorization
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -26,7 +27,6 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	clientgoinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-	klog "k8s.io/klog/v2"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -43,7 +43,7 @@ const (
 // bound resource or not. If the resource is bound we will check the user has RBAC access in the
 // exported resources workspace. If it is not allowed we will return NoDecision, if allowed we
 // will call the delegate authorizer.
-func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
 	if _, found := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
 		err := kcpInformers.Apis().V1alpha1().APIBindings().Informer().AddIndexers(
 			cache.Indexers{
@@ -54,7 +54,7 @@ func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInforme
 		)
 		if err != nil {
 			// nothing we can do here. But this should also never happen. We check for existence before.
-			klog.Errorf("failed to add indexer for APIBindings: %v", err)
+			return nil, fmt.Errorf("failed to add indexer for APIBindings: %w", err)
 		}
 	}
 	if _, found := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
@@ -67,7 +67,7 @@ func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInforme
 		)
 		if err != nil {
 			// nothing we can do here. But this should also never happen. We check for existence before.
-			klog.Errorf("failed to add indexer for APIBindings: %v", err)
+			return nil, fmt.Errorf("failed to add indexer for APIExports: %w", err)
 		}
 	}
 
@@ -82,7 +82,7 @@ func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInforme
 		apiBindingIndexer:  kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		apiExportIndexer:   kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
 		delegate:           delegate,
-	}
+	}, nil
 }
 
 type apiBindingAccessAuthorizer struct {
@@ -92,7 +92,7 @@ type apiBindingAccessAuthorizer struct {
 	delegate           authorizer.Authorizer
 }
 
-func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	apiBindingAccessDenied := "bound api access is not permitted"
 
 	// get the cluster from the ctx.
