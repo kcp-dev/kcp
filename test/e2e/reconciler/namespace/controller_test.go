@@ -146,7 +146,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					ns.Labels["experimental.workloads.kcp.dev/scheduling-disabled"] = "true"
+					ns.Labels["experimental.workload.kcp.dev/scheduling-disabled"] = "true"
 					_, err = server.client.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
 					return err
 				})

@@ -243,7 +243,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"state.internal.workloads.kcp.dev/" + workloadClusterName: "Sync",
+				"state.internal.workload.kcp.dev/" + workloadClusterName: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -262,7 +262,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "second",
 			Labels: map[string]string{
-				"state.internal.workloads.kcp.dev/" + workloadClusterName: "Sync",
+				"state.internal.workload.kcp.dev/" + workloadClusterName: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -280,7 +280,7 @@ func TestScheduling(t *testing.T) {
 	var downstreamServices *corev1.ServiceList
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "internal.workloads.kcp.dev/cluster=" + workloadClusterName,
+			LabelSelector: "internal.workload.kcp.dev/cluster=" + workloadClusterName,
 		})
 		if errors.IsNotFound(err) {
 			return false
