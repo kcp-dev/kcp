@@ -67,7 +67,7 @@ func NewHandler(o *proxyoptions.Options, index index.Index) (http.Handler, error
 
 		u, err := url.Parse(m.Backend)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create path mapping for path %q: %w", m.Path, err)
+			return nil, fmt.Errorf("failed to create path mapping for path %q: failed to parse URL %q: %w", m.Path, m.Backend, err)
 		}
 
 		transport, err := newTransport(m.ProxyClientCert, m.ProxyClientKey, m.BackendServerCA)

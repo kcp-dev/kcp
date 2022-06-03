@@ -34,7 +34,7 @@ import (
 func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read CA file %q: %w", caFile, err)
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -42,7 +42,7 @@ func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, er
 
 	cert, err := tls.LoadX509KeyPair(clientCert, clientKeyFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load client certificate %q or key %q: %w", clientCert, clientKeyFile, err)
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
