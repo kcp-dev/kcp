@@ -28,6 +28,8 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,13 +146,18 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 
+	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(server.DefaultConfig(t))
+	require.NoError(t, err)
+	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(server.DefaultConfig(t))
+	require.NoError(t, err)
+
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name)
+		work func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestWorkloadClusterName string)
 	}{
 		{
 			name: "isolated API domains per syncer",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestWorkloadClusterName string) {
 				kubelikeVWDiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(kubelikeSyncerVWConfig)
 				require.NoError(t, err)
 
@@ -242,8 +249,105 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			},
 		},
 		{
+			name: "access is authorized",
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestWorkloadClusterName string) {
+				ctx, cancelFunc := context.WithCancel(context.Background())
+				t.Cleanup(cancelFunc)
+
+				t.Logf("Create two service accounts")
+				_, err := kubeClusterClient.Cluster(wildwestClusterName).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "service-account-1",
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err)
+				_, err = kubeClusterClient.Cluster(wildwestClusterName).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "service-account-2",
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err)
+				var token1, token2 string
+				require.Eventually(t, func() bool {
+					secrets, err := kubeClusterClient.Cluster(wildwestClusterName).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+					require.NoError(t, err, "failed to list secrets")
+					for _, secret := range secrets.Items {
+						if secret.Annotations[corev1.ServiceAccountNameKey] == "service-account-1" {
+							token1 = string(secret.Data[corev1.ServiceAccountTokenKey])
+						}
+						if secret.Annotations[corev1.ServiceAccountNameKey] == "service-account-2" {
+							token2 = string(secret.Data[corev1.ServiceAccountTokenKey])
+						}
+					}
+					return token1 != "" && token2 != ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for default service account not created")
+
+				configUser1 := userConfigWithToken(token1, wildwestSyncerVWConfig)
+				configUser2 := userConfigWithToken(token2, wildwestSyncerVWConfig)
+
+				vwClusterClientUser1, err := wildwestclientset.NewClusterForConfig(configUser1)
+				require.NoError(t, err)
+				vwClusterClientUser2, err := wildwestclientset.NewClusterForConfig(configUser2)
+				require.NoError(t, err)
+
+				t.Logf("Check discovery in wildwest virtual workspace with unprivileged service-account-1, expecting forbidden")
+				_, err = vwClusterClientUser1.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				require.Error(t, err)
+				require.True(t, errors.IsForbidden(err))
+
+				t.Logf("Giving service-account-2 permissions to access wildwest virtual workspace")
+				_, err = kubeClusterClient.Cluster(wildwestClusterName).RbacV1().ClusterRoleBindings().Create(ctx,
+					&rbacv1.ClusterRoleBinding{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "service-account-2-sync-access",
+						},
+						Subjects: []rbacv1.Subject{
+							{
+								Kind:      "ServiceAccount",
+								Name:      "service-account-2",
+								Namespace: "default",
+							},
+						},
+						RoleRef: rbacv1.RoleRef{
+							APIGroup: "rbac.authorization.k8s.io",
+							Kind:     "ClusterRole",
+							Name:     wildwestWorkloadClusterName + "-syncer",
+						},
+					}, metav1.CreateOptions{},
+				)
+				require.NoError(t, err)
+				_, err = kubeClusterClient.Cluster(wildwestClusterName).RbacV1().ClusterRoles().Create(ctx,
+					&rbacv1.ClusterRole{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: wildwestWorkloadClusterName + "-syncer",
+						},
+						Rules: []rbacv1.PolicyRule{
+							{
+								Verbs:         []string{"sync"},
+								APIGroups:     []string{"workload.kcp.dev"},
+								Resources:     []string{"workloadclusters"},
+								ResourceNames: []string{wildwestWorkloadClusterName},
+							},
+						},
+					}, metav1.CreateOptions{},
+				)
+				require.NoError(t, err)
+
+				t.Logf("Check discovery in wildwest virtual workspace with unprivileged service-account-2, expecting success")
+				framework.Eventually(t, func() (bool, string) {
+					_, err = vwClusterClientUser2.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+					return err == nil, fmt.Sprintf("waiting for service-account-2 to be able to list cowboys: %v", err)
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				t.Logf("Double check that service-account-1 still cannot access wildwest virtual workspace")
+				_, err = vwClusterClientUser1.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				require.Error(t, err)
+				require.True(t, errors.IsForbidden(err))
+			},
+		},
+		{
 			name: "access kcp resources through syncer virtual workspace",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestWorkloadClusterName string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -317,7 +421,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources through syncer virtual workspace, from a other workspace to the wildwest resources through an APIBinding",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestWorkloadClusterName string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -458,11 +562,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(server.DefaultConfig(t))
-			require.NoError(t, err)
-			wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(server.DefaultConfig(t))
-			require.NoError(t, err)
-
 			kubelikeWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
 
 			t.Logf("Deploying syncer into workspace %s", kubelikeWorkspace)
@@ -585,7 +684,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Log("Starting test...")
-			testCase.work(t, kubelikeVWConfig, wildwestVWConfig, kubelikeWorkspace, wildwestWorkspace)
+			testCase.work(t, kubelikeVWConfig, wildwestVWConfig, kubelikeWorkspace, wildwestWorkspace, wildwestWorkloadClusterName)
 		})
 	}
 }
@@ -608,4 +707,10 @@ func sortAPIResourceList(list []*metav1.APIResourceList) []*metav1.APIResourceLi
 		sort.Sort(ByName(resource.APIResources))
 	}
 	return list
+}
+
+func userConfigWithToken(token string, cfg *rest.Config) *rest.Config {
+	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.BearerToken = token
+	return cfgCopy
 }

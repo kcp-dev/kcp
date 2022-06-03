@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -53,12 +54,13 @@ func (o *Syncer) Validate(flagPrefix string) []error {
 
 func (o *Syncer) NewVirtualWorkspaces(
 	rootPathPrefix string,
+	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
+		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
 	}
 	return nil, virtualWorkspaces, nil
 }

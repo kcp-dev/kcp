@@ -27,12 +27,13 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
-	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -51,6 +52,7 @@ const SyncerVirtualWorkspaceName string = "syncer"
 // ForwardingREST REST storage implementation, serves a WorkloadClusterAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
+	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
@@ -121,8 +123,23 @@ func BuildVirtualWorkspace(
 			return
 		},
 		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-			klog.Error("the authorizer for the 'syncer' virtual workspace is not implemented !")
-			return authorizer.DecisionAllow, "", nil
+			workloadClusterKey := dynamiccontext.APIDomainKeyFrom(ctx)
+			negotiationWorkspaceName, workloadClusterName := clusters.SplitClusterAwareKey(string(workloadClusterKey))
+
+			authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, kubeClusterClient)
+			if err != nil {
+				return authorizer.DecisionNoOpinion, "Error", err
+			}
+			SARAttributes := authorizer.AttributesRecord{
+				User:            a.GetUser(),
+				Verb:            "sync",
+				Name:            workloadClusterName,
+				APIGroup:        workloadv1alpha1.SchemeGroupVersion.Group,
+				APIVersion:      workloadv1alpha1.SchemeGroupVersion.Version,
+				Resource:        "workloadclusters",
+				ResourceRequest: true,
+			}
+			return authz.Authorize(ctx, SARAttributes)
 		},
 		Ready: func() error {
 			select {
