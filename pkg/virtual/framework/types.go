@@ -49,4 +49,5 @@ type VirtualWorkspace interface {
 	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
 	IsReady() error
 	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
+	Authorize(context.Context, authorizer.Attributes) (authorizer.Decision, string, error)
 }
