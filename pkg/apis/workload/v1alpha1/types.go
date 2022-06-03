@@ -25,14 +25,14 @@ const (
 	ResourceStatePending ResourceState = ""
 	// ResourceStateSync is the state of a resource when it is synced to the workload cluster.
 	// This includes the deletion process until the resource is deleted downstream and the
-	// syncer removes the state.internal.workloads.kcp.dev/<workload-cluster-name> label.
+	// syncer removes the state.internal.workload.kcp.dev/<workload-cluster-name> label.
 	ResourceStateSync ResourceState = "Sync"
 )
 
 const (
 	// InternalClusterDeletionTimestampAnnotationPrefix is the prefix of the annotation
 	//
-	//   deletion.internal.workloads.kcp.dev/<workload-cluster-name>
+	//   deletion.internal.workload.kcp.dev/<workload-cluster-name>
 	//
 	// on upstream resources storing the timestamp when the workload cluster resource
 	// state was changed to "Delete". The syncer will see this timestamp as the deletion
@@ -41,11 +41,11 @@ const (
 	// The format is RFC3339.
 	//
 	// TODO(sttts): use workload-cluster-uid instead of workload-cluster-name
-	InternalClusterDeletionTimestampAnnotationPrefix = "deletion.internal.workloads.kcp.dev/"
+	InternalClusterDeletionTimestampAnnotationPrefix = "deletion.internal.workload.kcp.dev/"
 
 	// ClusterFinalizerAnnotationPrefix is the prefix of the annotation
 	//
-	//   finalizers.workloads.kcp.dev/<workload-cluster-name>
+	//   finalizers.workload.kcp.dev/<workload-cluster-name>
 	//
 	// on upstream resources storing a comma-separated list of finalizer names that are set on
 	// the workload cluster resource in the view of the syncer. This blocks the deletion of the
@@ -53,11 +53,11 @@ const (
 	// create back-pressure on the resource.
 	//
 	// TODO(sttts): use workload-cluster-uid instead of workload-cluster-name
-	ClusterFinalizerAnnotationPrefix = "finalizers.workloads.kcp.dev/"
+	ClusterFinalizerAnnotationPrefix = "finalizers.workload.kcp.dev/"
 
 	// InternalClusterResourceStateLabelPrefix is the prefix of the label
 	//
-	//   state.internal.workloads.kcp.dev/<workload-cluster-name>
+	//   state.internal.workload.kcp.dev/<workload-cluster-name>
 	//
 	// on upstream resources storing the state of the workload cluster syncer state machine.
 	// The workload controllers will set this label and the syncer will react and drive the
@@ -69,31 +69,31 @@ const (
 	//       start the sync process.
 	// - "Sync": the object is assigned and the syncer will start the sync process.
 	//
-	// While being in "Sync" state, a deletion timestamp in deletion.internal.workloads.kcp.dev/<workload-cluster-name>
+	// While being in "Sync" state, a deletion timestamp in deletion.internal.workload.kcp.dev/<workload-cluster-name>
 	// will signal the start of the deletion process of the object. During the deletion process
 	// the object will stay in "Sync" state. The syncer will block deletion while
-	// finalizers.workloads.kcp.dev/<workload-cluster-name> exists and is non-empty, and it
-	// will eventually remove state.internal.workloads.kcp.dev/<workload-cluster-name> after
+	// finalizers.workload.kcp.dev/<workload-cluster-name> exists and is non-empty, and it
+	// will eventually remove state.internal.workload.kcp.dev/<workload-cluster-name> after
 	// the object has been deleted downstream.
 	//
 	// The workload controllers will consider the object deleted from the workload cluster when
 	// the label is removed. They then set the placement state to "Unbound".
-	InternalClusterResourceStateLabelPrefix = "state.internal.workloads.kcp.dev/"
+	InternalClusterResourceStateLabelPrefix = "state.internal.workload.kcp.dev/"
 
 	// InternalClusterStatusAnnotationPrefix is the prefix of the annotation
 	//
-	//   experimental.status.workloads.kcp.dev/<workload-cluster-name>
+	//   experimental.status.workload.kcp.dev/<workload-cluster-name>
 	//
 	// on upstream resources storing the status of the downstream resource per workload cluster.
 	// Note that this is experimental and will disappear in the future without prior notice. It
 	// is used temporarily in the case that a resource is scheduled to multiple workload clusters.
 	//
 	// The format is JSON.
-	InternalClusterStatusAnnotationPrefix = "experimental.status.workloads.kcp.dev/"
+	InternalClusterStatusAnnotationPrefix = "experimental.status.workload.kcp.dev/"
 
 	// ClusterSpecDiffAnnotationPrefix is the prefix of the annotation
 	//
-	//   experimental.spec-diff.workloads.kcp.dev/<workload-cluster-name>
+	//   experimental.spec-diff.workload.kcp.dev/<workload-cluster-name>
 	//
 	// on upstream resources storing the desired spec diffs to be applied to the resource when syncing
 	// down to the <workload-cluster-name>. This feature requires the "Advanced Scheduling" feature gate
@@ -103,16 +103,16 @@ const (
 	// resource's Spec field.
 	//
 	// The format for the value of this annotation is: JSON Patch (https://tools.ietf.org/html/rfc6902).
-	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workloads.kcp.dev/"
+	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workload.kcp.dev/"
 
 	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
-	// instead of state.internal.workloads.kcp.dev/<workload-cluster-name> which is used upstream.
-	InternalDownstreamClusterLabel = "internal.workloads.kcp.dev/cluster"
+	// instead of state.internal.workload.kcp.dev/<workload-cluster-name> which is used upstream.
+	InternalDownstreamClusterLabel = "internal.workload.kcp.dev/cluster"
 
 	// SchedulingDisabledLabel on a namespace with value "true" disables workload placement and scheduling.
-	SchedulingDisabledLabel = "experimental.workloads.kcp.dev/scheduling-disabled"
+	SchedulingDisabledLabel = "experimental.workload.kcp.dev/scheduling-disabled"
 
 	// WorkspaceSchedulableLabel on a workspace enables scheduling for the contents
 	// of the workspace. It is applied by default to workspaces of type `Universal`.
-	WorkspaceSchedulableLabel = "workloads.kcp.dev/schedulable"
+	WorkspaceSchedulableLabel = "workload.kcp.dev/schedulable"
 )

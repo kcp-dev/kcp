@@ -322,7 +322,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -330,14 +330,14 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
 				}, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "",
@@ -350,7 +350,7 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "", map[string]string{
-							"state.internal.workloads.kcp.dev/us-west1": "Sync",
+							"state.internal.workload.kcp.dev/us-west1": "Sync",
 						}, nil, nil),
 						addDeploymentStatus(appsv1.DeploymentStatus{
 							Replicas: 15,
@@ -362,7 +362,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -375,7 +375,7 @@ func TestSyncerProcess(t *testing.T) {
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
 				}, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "",
@@ -389,7 +389,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -397,14 +397,14 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
 				}, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "",
@@ -418,9 +418,9 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.internal.workloads.kcp.dev/us-west1": "Sync",
+							"state.internal.workload.kcp.dev/us-west1": "Sync",
 						}, map[string]string{
-							"experimental.status.workloads.kcp.dev/us-west1": "{\"replicas\":15}",
+							"experimental.status.workload.kcp.dev/us-west1": "{\"replicas\":15}",
 						}, nil)))),
 			},
 		},
@@ -428,7 +428,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -436,18 +436,18 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
 				}, map[string]string{
-					"deletion.internal.workloads.kcp.dev/us-west1":   time.Now().Format(time.RFC3339),
-					"experimental.status.workloads.kcp.dev/us-west1": "{\"replicas\":15}",
-				}, []string{"workloads.kcp.dev/syncer-us-west1"}),
+					"deletion.internal.workload.kcp.dev/us-west1":   time.Now().Format(time.RFC3339),
+					"experimental.status.workload.kcp.dev/us-west1": "{\"replicas\":15}",
+				}, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			resourceToProcessLogicalClusterName: "",
 			resourceToProcessName:               "theDeployment",
@@ -463,7 +463,7 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
-					"internal.workloads.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
@@ -471,13 +471,13 @@ func TestSyncerProcess(t *testing.T) {
 			gvr:          schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: nil,
 			toResources: []runtime.Object{
-				namespace("test", "root:org:ws", map[string]string{"state.internal.workloads.kcp.dev/us-west1": "Sync"}, nil),
+				namespace("test", "root:org:ws", map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"}, nil),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workloads.kcp.dev/us-west1": "Sync",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
 				}, map[string]string{
-					"deletion.internal.workloads.kcp.dev/us-west1":   time.Now().Format(time.RFC3339),
-					"experimental.status.workloads.kcp.dev/us-west1": `{"replicas":15}`,
-				}, []string{"workloads.kcp.dev/syncer-us-west1"}),
+					"deletion.internal.workload.kcp.dev/us-west1":   time.Now().Format(time.RFC3339),
+					"experimental.status.workload.kcp.dev/us-west1": `{"replicas":15}`,
+				}, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			resourceToProcessLogicalClusterName: "",
 			resourceToProcessName:               "theDeployment",
