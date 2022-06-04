@@ -1,8 +1,12 @@
+<img alt="Logo" width="196px" align="left" src="./contrib/logo/blue-green.png"></img>
+
 # `kcp` provides a true multi-tenant Kubernetes control plane for workloads on many clusters
 
-![build status badge](https://github.com/kcp-dev/kcp/actions/workflows/ci.yaml/badge.svg)
-
 `kcp` is a generic [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRD) apiserver that is divided into multiple "[logical clusters](docs/investigations/logical-clusters.md)" that enable multitenancy of cluster-scoped resources such as CRDs and Namespaces. Each of these logical clusters is fully isolated from the others, allowing different teams, workloads, and use cases to live side by side.
+
+<br clear="left"/>
+
+![build status badge](https://github.com/kcp-dev/kcp/actions/workflows/ci.yaml/badge.svg)
 
 By default, `kcp` only knows about:
 
