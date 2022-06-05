@@ -45,6 +45,54 @@ Yes! This work is still in early development, which means it's _not ready for pr
 
  [![asciicast](https://asciinema.org/a/471709.svg)](https://asciinema.org/a/471709)
 
+## Workspaces in v0.5.0
+
+The workspaces are arranged in a tree.  Each vertex in the tree has a name.  The name of the root vertex is `root`, and no other vetex may have that name.  Other vertices can be addressed by a pathname formed by putting all the path's vertex names together, separated by colons.  For example, the pathname `root:default:foo` identifies the child `foo` of the child `default` of the `root`.
+
+The `kubectl kcp workspace` CLI can be used to work with workspaces.  You can use `ws` as a shorthand for `workspace`.
+
+There are four kinds of workspaces, as follows.
+
+- **The root workspace**.  There can be only one.  It can only have children of type Organization.
+- **Organization**.  Two types of children are allowed, Team and Universal.
+- **Team**.  One type of child is allowed, Universal.
+- **Universal**.  No children are allowed.
+
+Following is a typescript showing some workspace traversal and creation.
+
+```console
+$ kubectl kcp ws
+Current workspace is "root:default".
+
+$ kubectl kcp ws ..
+Current workspace is "root".
+
+$ kubectl kcp ws list
+NAME      TYPE           PHASE   URL
+default   Organization   Ready   https://1.2.3.4:6443/clusters/root:default
+
+$ kubectl kcp ws create --type Organization example-org
+Workspace "example-org" (type "Organization") created. Waiting for being ready.
+
+$ kubectl kcp ws list
+NAME          TYPE           PHASE   URL
+default       Organization   Ready   https://1.2.3.4:6443/clusters/root:default
+example-org   Organization   Ready   https://1.2.3.4:6443/clusters/root:example-org
+
+$ kubectl kcp ws use example-org
+Current workspace is "root:example-org" (type "Organization").
+
+$ kubectl kcp ws list
+
+$ kubectl kcp ws create --type Team example-team --enter
+Workspace "example-team" (type "Team") created. Waiting for being ready.
+Current workspace is "root:example-org:example-team".
+
+$ kubectl kcp ws create example-uni --enter        
+Workspace "example-uni" (type "Universal") created. Waiting for being ready.
+Current workspace is "root:example-org:example-team:example-uni".
+```
+
 ## Can `kcp` do anything else?
 
 Yes! Here are a few of our top-level goals:
