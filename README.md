@@ -51,14 +51,14 @@ The workspaces are arranged in a tree.  Each vertex in the tree has a name.  The
 
 The `kubectl kcp workspace` CLI can be used to work with workspaces.  You can use `ws` as a shorthand for `workspace`.
 
-There are four kinds of workspaces, as follows.
+There are four kinds of workspace built into kcp, as follows.  Any service built on top of kcp can use a different hierarchy.
 
 - **The root workspace**.  There can be only one.  It can only have children of type Organization.
 - **Organization**.  Two types of children are allowed, Team and Universal.
 - **Team**.  One type of child is allowed, Universal.
 - **Universal**.  No children are allowed.
 
-Following is a typescript showing some workspace traversal and creation.
+Following is a shell session showing some workspace traversal and creation.
 
 ```console
 $ kubectl kcp ws
