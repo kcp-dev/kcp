@@ -48,7 +48,7 @@ var (
 	%[1]s workspace -
 
 	# create a workspace and immediately enter it
-	%[1]s workspace create my-workspace --use
+	%[1]s workspace create my-workspace --enter
 
 	# create a context with the current workspace, e.g. root:default:my-workspace
 	%[1]s workspace create-context
