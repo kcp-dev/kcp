@@ -308,6 +308,8 @@ func TestCordonUncordonDrain(t *testing.T) {
 		workloadClusterName,
 	}
 
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
+
 	t.Log("Check workload after uncordon")
 	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
