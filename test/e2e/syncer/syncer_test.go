@@ -222,10 +222,6 @@ func TestCordonUncordonDrain(t *testing.T) {
 
 	upstreamCfg := upstreamServer.DefaultConfig(t)
 
-	//upstreamKubeClient, err := kubernetes.NewClusterForConfig(upstreamCfg)
-	//require.NoError(t, err, "failed to construct client for server")
-	//kcpClient := clients.Cluster(orgClusterName)
-
 	t.Log("Creating a workspace")
 	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
 
@@ -237,7 +233,6 @@ func TestCordonUncordonDrain(t *testing.T) {
 	clients, err := clientset.NewClusterForConfig(upstreamCfg)
 	require.NoError(t, err, "failed to construct client for server")
 	kcpClient := clients.Cluster(wsClusterName)
-	//orgKcpClient := clients.Cluster(orgClusterName)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
 	// its workload cluster to go ready. This implicitly validates the syncer
@@ -255,7 +250,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	t.Log("Check initial workload")
 	cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
-	require.Equal(t, false, cluster.Spec.Unschedulable)
+	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 
 	t.Log("Cordon workload")
@@ -264,19 +259,15 @@ func TestCordonUncordonDrain(t *testing.T) {
 		"cordon",
 		workloadClusterName,
 	}
-	expected := []byte(workloadClusterName + " cordoned\n")
-	output := framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
-	require.Equal(t, output, expected)
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
 
 	t.Log("Check workload after cordon")
 	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
-	require.Equal(t, true, cluster.Spec.Unschedulable)
+	require.True(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 
-	expected = []byte(workloadClusterName + " already cordoned\n")
-	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
-	require.Equal(t, output, expected)
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
 
 	t.Log("Uncordon workload")
 	subCommandUncordon := []string{
@@ -284,19 +275,15 @@ func TestCordonUncordonDrain(t *testing.T) {
 		"uncordon",
 		workloadClusterName,
 	}
-	expected = []byte(workloadClusterName + " uncordoned\n")
-	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
-	require.Equal(t, output, expected)
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
 	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
-	require.Equal(t, false, cluster.Spec.Unschedulable)
+	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 
-	expected = []byte(workloadClusterName + " already uncordoned\n")
-	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
-	require.Equal(t, output, expected)
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Drain workload")
 	subCommandDrain := []string{
@@ -304,23 +291,15 @@ func TestCordonUncordonDrain(t *testing.T) {
 		"drain",
 		workloadClusterName,
 	}
-	expected = []byte(workloadClusterName + " draining\n")
-	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
-	require.Equal(t, output, expected)
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
 
 	t.Log("Check workload after drain started")
 	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
-	require.Equal(t, true, cluster.Spec.Unschedulable)
+	require.True(t, cluster.Spec.Unschedulable)
 	require.NotNil(t, cluster.Spec.EvictAfter)
 
-	expected = []byte(workloadClusterName + " already draining\n")
-	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
-	require.Equal(t, output, expected)
-
-	//
-	// TODO: add a deployment before the drain and then check to see that the pods drained
-	//
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
 
 	t.Log("Remove drain, uncordon workload")
 	subCommandUncordon = []string{
@@ -329,14 +308,10 @@ func TestCordonUncordonDrain(t *testing.T) {
 		workloadClusterName,
 	}
 
-	expected = []byte(workloadClusterName + " uncordoned\n")
-	output = framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
-	require.Equal(t, output, expected)
-
 	t.Log("Check workload after uncordon")
 	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
-	require.Equal(t, false, cluster.Spec.Unschedulable)
+	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 
 }
