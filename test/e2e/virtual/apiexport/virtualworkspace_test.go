@@ -28,10 +28,12 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
 	"github.com/kcp-dev/kcp/config/helpers"
@@ -80,17 +82,41 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	createCowboyInConsumer(ctx, t, consumerWorkspace, wildwestClusterClient)
 
 	t.Logf("test that the admin user can use the virtual workspace to get cowboys")
-	vc := virtualClusterClient{cfg}
-	wildwestVCClient, err := vc.Cluster(serviceProviderWorkspace, "today-cowboys")
+	apiExport, err := kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+	require.NoError(t, err, "error getting APIExport")
+	require.Len(t, apiExport.Status.VirtualWorkspaces, 1, "unexpected virtual workspace URLs: %#v", apiExport.Status.VirtualWorkspaces)
+
+	apiExportVWCfg := rest.CopyConfig(cfg)
+	apiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
+
+	wildwestVCClients, err := wildwestclientset.NewClusterForConfig(apiExportVWCfg)
 	require.NoError(t, err)
-	cowboysProjected, err := wildwestVCClient.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+	cowboysProjected, err := wildwestVCClients.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cowboysProjected.Items))
 
+	// TODO(ncdc): revisit when ThingPermissionClaim is in
+	t.Logf("Ensuring the appropriate core/v1 resources are available")
+	dynamicVWClients, err := dynamic.NewClusterForConfig(apiExportVWCfg)
+	require.NoError(t, err, "error creating dynamic cluster client for %q", apiExportVWCfg.Host)
+
+	coreV1GVRs := []schema.GroupVersionResource{
+		{Version: "v1", Resource: "namespaces"},
+		{Version: "v1", Resource: "configmaps"},
+		{Version: "v1", Resource: "secrets"},
+		{Version: "v1", Resource: "serviceaccounts"},
+	}
+
+	for _, coreV1GVR := range coreV1GVRs {
+		t.Logf("Trying to wildcard list %q", coreV1GVR)
+		_, err = dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(coreV1GVR).List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "error listing %q", coreV1GVR)
+	}
+
 	// Attempt to use VW using user-1 should expect an error
 	t.Logf("Make sure that user-1 is denied")
-	user1VC := virtualClusterClient{config: userConfig("user-1", cfg)}
-	wwUser1VC, err := user1VC.Cluster(serviceProviderWorkspace, "today-cowboys")
+	user1VWCfg := userConfig("user-1", apiExportVWCfg)
+	wwUser1VC, err := wildwestclientset.NewClusterForConfig(user1VWCfg)
 	require.NoError(t, err)
 	_, err = wwUser1VC.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 	require.True(t, apierrors.IsForbidden(err))
@@ -130,8 +156,8 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	user2VC := virtualClusterClient{config: userConfig("user-2", cfg)}
-	wwUser2VC, err := user2VC.Cluster(serviceProviderWorkspace, "today-cowboys")
+	user2VWCfg := userConfig("user-2", apiExportVWCfg)
+	wwUser2VC, err := wildwestclientset.NewClusterForConfig(user2VWCfg)
 	require.NoError(t, err)
 	t.Logf("Get Cowboy and update status with user-2")
 	require.Eventually(t, func() bool {
