@@ -18,9 +18,7 @@ package conformance
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -33,7 +31,6 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,13 +40,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -106,41 +102,6 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	require.True(t, got.IsSuperset(expectedWorkspaces), "unexpected workspaces detected")
 }
 
-func newCRDWithSchemaDescription(group, description string) *apiextensionsv1.CustomResourceDefinition {
-	crdName := fmt.Sprintf("sheriffs.%s", group)
-
-	crd := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: group,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:   "sheriffs",
-				Singular: "sheriff",
-				Kind:     "Sheriff",
-				ListKind: "SheriffList",
-			},
-			Scope: "Namespaced",
-			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
-				{
-					Name:    "v1",
-					Served:  true,
-					Storage: true,
-					Schema: &apiextensionsv1.CustomResourceValidation{
-						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
-							Type:        "object",
-							Description: description,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return crd
-}
-
 func bootstrapCRD(
 	t *testing.T,
 	clusterName logicalcluster.Name,
@@ -152,138 +113,6 @@ func bootstrapCRD(
 
 	err := configcrds.CreateSingle(ctx, client, crd)
 	require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, clusterName)
-}
-
-func newAPIResourceSchemaWithDescription(group, description string) *apisv1alpha1.APIResourceSchema {
-	name := fmt.Sprintf("today.sheriffs.%s", group)
-
-	ret := &apisv1alpha1.APIResourceSchema{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: apisv1alpha1.APIResourceSchemaSpec{
-			Group: group,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:   "sheriffs",
-				Singular: "sheriff",
-				Kind:     "Sheriff",
-				ListKind: "SheriffList",
-			},
-			Scope: "Namespaced",
-			Versions: []apisv1alpha1.APIResourceVersion{
-				{
-					Name:    "v1",
-					Served:  true,
-					Storage: true,
-					Schema: runtime.RawExtension{
-						Raw: jsonOrDie(
-							&apiextensionsv1.JSONSchemaProps{
-								Type:        "object",
-								Description: description,
-							},
-						),
-					},
-				},
-			},
-		},
-	}
-
-	return ret
-}
-
-func newAPIExport(schemaName string) *apisv1alpha1.APIExport {
-	return &apisv1alpha1.APIExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "sheriffs",
-		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{schemaName},
-		},
-	}
-}
-
-func jsonOrDie(obj interface{}) []byte {
-	ret, err := json.Marshal(obj)
-	if err != nil {
-		panic(err)
-	}
-
-	return ret
-}
-
-func exportSchema(
-	ctx context.Context,
-	t *testing.T,
-	clusterName logicalcluster.Name,
-	clusterClient kcpclientset.ClusterInterface,
-	group string,
-	description string,
-) {
-	schema := newAPIResourceSchemaWithDescription(group, description)
-	t.Logf("Creating APIResourceSchema %s|%s", clusterName, schema.Name)
-	_, err := clusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating APIResourceSchema %s|%s", clusterName, schema.Name)
-
-	export := newAPIExport(schema.Name)
-	t.Logf("Creating APIExport %s|%s", clusterName, export.Name)
-	_, err = clusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating APIExport %s|%s", clusterName, export.Name)
-}
-
-func bindToExport(
-	ctx context.Context,
-	t *testing.T,
-	exportClusterName logicalcluster.Name,
-	bindingClusterName logicalcluster.Name,
-	clusterClient kcpclientset.ClusterInterface,
-) {
-	binding := &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: strings.Replace(exportClusterName.String(), ":", "-", -1),
-		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       exportClusterName.String(),
-					ExportName: "sheriffs",
-				},
-			},
-		},
-	}
-
-	t.Logf("Creating APIBinding %s|%s", bindingClusterName, binding.Name)
-	_, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating APIBinding %s|%s", bindingClusterName, binding.Name)
-
-	require.Eventually(t, func() bool {
-		b, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-		if err != nil {
-			t.Logf("Unexpected error getting APIBinding %s|%s: %v", bindingClusterName, binding.Name, err)
-			return false
-		}
-
-		return conditions.IsTrue(b, apisv1alpha1.InitialBindingCompleted)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
-}
-
-func createSheriff(ctx context.Context, t *testing.T, dynamicClusterClient dynamic.ClusterInterface, clusterName logicalcluster.Name, group, name string) {
-	name = strings.Replace(name, ":", "-", -1)
-
-	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
-
-	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
-
-	_, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": group + "/v1",
-			"kind":       "Sheriff",
-			"metadata": map[string]interface{}{
-				"name": name,
-			},
-		},
-	}, metav1.CreateOptions{})
-
-	require.NoError(t, err, "failed to create sheriff %s|default/%s", clusterName, name)
 }
 
 // ensure PartialObjectMetadata wildcard list works even with different CRD schemas
@@ -333,8 +162,8 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	group := uuid.New().String() + ".io"
 
-	sheriffCRD1 := newCRDWithSchemaDescription(group, "one")
-	sheriffCRD2 := newCRDWithSchemaDescription(group, "two")
+	sheriffCRD1 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "one")
+	sheriffCRD2 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "two")
 
 	sheriffsGVR := schema.GroupVersionResource{Group: sheriffCRD1.Spec.Group, Resource: "sheriffs", Version: "v1"}
 
@@ -360,20 +189,20 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	createSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1a, group, wsNormalCRD1a.String())
-	createSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1b, group, wsNormalCRD1b.String())
+	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1a, group, wsNormalCRD1a.String())
+	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1b, group, wsNormalCRD1b.String())
 
-	exportSchema(ctx, t, wsExport1a, kcpClusterClient, group, "export1")
-	bindToExport(ctx, t, wsExport1a, wsConsume1a, kcpClusterClient)
-	createSheriff(ctx, t, dynamicClusterClient, wsConsume1a, group, wsConsume1a.String())
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1a, kcpClusterClient, group, "export1")
+	apifixtures.BindToExport(ctx, t, wsExport1a, group, wsConsume1a, kcpClusterClient)
+	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1a, group, wsConsume1a.String())
 
-	exportSchema(ctx, t, wsExport1b, kcpClusterClient, group, "export1")
-	bindToExport(ctx, t, wsExport1b, wsConsume1b, kcpClusterClient)
-	createSheriff(ctx, t, dynamicClusterClient, wsConsume1b, group, wsConsume1b.String())
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1b, kcpClusterClient, group, "export1")
+	apifixtures.BindToExport(ctx, t, wsExport1b, group, wsConsume1b, kcpClusterClient)
+	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1b, group, wsConsume1b.String())
 
-	exportSchema(ctx, t, wsExport2, kcpClusterClient, group, "export2")
-	bindToExport(ctx, t, wsExport2, wsConsume2, kcpClusterClient)
-	createSheriff(ctx, t, dynamicClusterClient, wsConsume2, group, wsConsume2.String())
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport2, kcpClusterClient, group, "export2")
+	apifixtures.BindToExport(ctx, t, wsExport2, group, wsConsume2, kcpClusterClient)
+	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume2, group, wsConsume2.String())
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")
 	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
