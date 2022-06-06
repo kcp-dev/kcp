@@ -31,6 +31,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
@@ -58,7 +59,16 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 	// collect APIResourceSchemas
 	schemaIdentity := map[string]string{}
-	apiResourceSchemas := make([]*apisv1alpha1.APIResourceSchema, 0, len(apiExport.Spec.LatestResourceSchemas))
+
+	apiResourceSchemas := make([]*apisv1alpha1.APIResourceSchema, 0, len(apiExport.Spec.LatestResourceSchemas)+len(internalapis.Schemas))
+
+	// TODO(ncdc): switch to "ThingPermissionClaim" and remove this
+	for _, schema := range internalapis.Schemas {
+		shallow := *schema
+		shallow.ClusterName = logicalcluster.From(apiExport).String()
+		apiResourceSchemas = append(apiResourceSchemas, &shallow)
+	}
+
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		apiResourceSchema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
 		if err != nil && !apierrors.IsNotFound(err) {

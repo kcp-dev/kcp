@@ -18,15 +18,9 @@ package apiexport
 
 import (
 	"embed"
-	"path"
-
-	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-
-	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 )
 
 //go:embed *.yaml
@@ -48,17 +42,6 @@ func resourceExists(list *metav1.APIResourceList, resource string) bool {
 		}
 	}
 	return false
-}
-
-type virtualClusterClient struct {
-	config *rest.Config
-}
-
-func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name, exportName string) (*wildwestclientset.Cluster, error) {
-	config := rest.CopyConfig(c.config)
-	//	/services/apiexport/root:org:ws/<apiexport-name>/clusters/*/api/v1/configmaps
-	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "apiexport", cluster.String(), exportName)
-	return wildwestclientset.NewClusterForConfig(config)
 }
 
 func userConfig(username string, cfg *rest.Config) *rest.Config {
