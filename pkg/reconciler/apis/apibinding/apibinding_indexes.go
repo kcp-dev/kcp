@@ -21,6 +21,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -85,4 +86,16 @@ func indexAPIBindingsByIdentityGroupResourceFunc(obj interface{}) ([]string, err
 
 func IdentityGroupResourceKeyFunc(identity, group, resource string) string {
 	return fmt.Sprintf("%s/%s/%s", identity, group, resource)
+}
+
+const indexByWorkspace = "apiBindingsByWorkspace"
+
+func indexByWorkspaceFunc(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+
+	lcluster := logicalcluster.From(metaObj)
+	return []string{lcluster.String()}, nil
 }

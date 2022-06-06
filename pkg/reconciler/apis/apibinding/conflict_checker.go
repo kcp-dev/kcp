@@ -23,11 +23,12 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-type nameConflictChecker struct {
+type conflictChecker struct {
 	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	getAPIExport         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
@@ -35,9 +36,10 @@ type nameConflictChecker struct {
 
 	boundCRDs    []*apiextensionsv1.CustomResourceDefinition
 	crdToBinding map[string]*apisv1alpha1.APIBinding
+	crdIndexer   cache.Indexer
 }
 
-func (ncc *nameConflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBinding) error {
+func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBinding) error {
 	clusterName := logicalcluster.From(apiBindingToExclude)
 
 	apiBindings, err := ncc.listAPIBindings(clusterName)
@@ -90,7 +92,7 @@ func (ncc *nameConflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.A
 	return nil
 }
 
-func (ncc *nameConflictChecker) checkForConflicts(crd *apiextensionsv1.CustomResourceDefinition, apiBinding *apisv1alpha1.APIBinding) error {
+func (ncc *conflictChecker) checkForConflicts(crd *apiextensionsv1.CustomResourceDefinition, apiBinding *apisv1alpha1.APIBinding) error {
 	if err := ncc.getBoundCRDs(apiBinding); err != nil {
 		return fmt.Errorf("error checking for naming conflicts for APIBinding %s|%s: error getting CRDs: %w", logicalcluster.From(apiBinding), apiBinding.Name, err)
 	}
@@ -102,6 +104,22 @@ func (ncc *nameConflictChecker) checkForConflicts(crd *apiextensionsv1.CustomRes
 		}
 	}
 
+	return ncc.gvrConflict(crd, apiBinding)
+}
+
+func (ncc *conflictChecker) gvrConflict(crd *apiextensionsv1.CustomResourceDefinition, apiBinding *apisv1alpha1.APIBinding) error {
+	bindingClusterName := logicalcluster.From(apiBinding)
+	rawBindingClusterCRDs, err := ncc.crdIndexer.ByIndex(indexByWorkspace, bindingClusterName.String())
+	if err != nil {
+		return err
+	}
+	for _, rawBindClusterCRD := range rawBindingClusterCRDs {
+		bindingClusterCRD := rawBindClusterCRD.(*apiextensionsv1.CustomResourceDefinition)
+		if bindingClusterCRD.Spec.Group == crd.Spec.Group && bindingClusterCRD.Spec.Names.Plural == crd.Spec.Names.Plural {
+			return fmt.Errorf("cannot create %q CustomResourceDefinition with %q group and %q resource because it overlaps with %q CustomResourceDefinition in %q logical cluster",
+				crd.Name, crd.Spec.Group, crd.Spec.Names.Plural, bindingClusterCRD.Name, bindingClusterName)
+		}
+	}
 	return nil
 }
 

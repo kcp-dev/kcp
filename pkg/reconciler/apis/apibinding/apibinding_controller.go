@@ -155,6 +155,12 @@ func NewController(
 		},
 	})
 
+	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
+		indexByWorkspace: indexByWorkspaceFunc,
+	}); err != nil {
+		return nil, err
+	}
+
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj) },
