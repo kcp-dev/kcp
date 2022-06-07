@@ -28,6 +28,9 @@ jobs:
         id: vars
         run: echo "::set-output name=sha_short::$(echo ${{ github.sha }} | cut -b -7)"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
       # Build and push a KCP image, tagged with latest and the commit SHA.
       - name: Build KCP Image
         id: build-image
@@ -35,6 +38,7 @@ jobs:
         with:
           image: kcp
           tags: latest ${{ steps.vars.outputs.sha_short }} ${{ github.ref_name }}
+          archs: amd64, ppc64le, arm64
           containerfiles: |
             ./Dockerfile
 
