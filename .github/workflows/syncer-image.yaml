@@ -23,4 +23,4 @@ jobs:
 
       # Build and push a syncer image, tagged with the commit SHA and the branch name.
       - uses: imjasonh/setup-ko@v0.4
-      - run: ko publish -B ./cmd/syncer -t $(git rev-parse --short "$GITHUB_SHA"),${{ github.ref_name }}
+      - run: ko publish -B ./cmd/syncer --platform linux/amd64,linux/ppc64le,linux/arm64 -t $(git rev-parse --short "$GITHUB_SHA"),${{ github.ref_name }}
