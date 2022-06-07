@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 	kyaml "sigs.k8s.io/yaml"
 
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -116,6 +117,23 @@ func TestSyncerLifecycle(t *testing.T) {
 	// will have enabled deployments in the logical cluster.
 	upstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create deployment")
+
+	t.Logf("Waiting for upstream deployment %s/%s to get the syncer finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
+	require.Eventually(t, func() bool {
+		deployment, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for upstream deployment %s/%s to get the syncer finalizer: %v", upstreamNamespace.Name, upstreamDeployment.Name, err)
+		}
+		for _, finalizer := range deployment.Finalizers {
+			if finalizer == "workload.kcp.dev/syncer-"+syncerFixture.SyncerConfig.WorkloadClusterName {
+				return true
+			}
+		}
+		return false
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Upstream deployment %s/%s syncer finalizer was not added", upstreamNamespace.Name, upstreamDeployment.Name)
 
 	t.Logf("Waiting for downstream deployment %s/%s to be created...", downstreamNamespaceName, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
@@ -228,6 +246,90 @@ func TestSyncerLifecycle(t *testing.T) {
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s was not synced", downstreamNamespaceName, upstreamDeployment.Name)
+
+	// Add a virtual Finalizer to the deployment and update it.
+	t.Logf("Adding a virtual finalizer to the upstream deployment %s/%s in order to simulate an external controller", upstreamNamespace.Name, upstreamDeployment.Name)
+	upstreamDeployment, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	upstreamDeployment = upstreamDeployment.DeepCopy()
+	annotations := upstreamDeployment.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string, 0)
+	}
+	annotations["finalizers.workload.kcp.dev/"+syncerFixture.SyncerConfig.WorkloadClusterName] = "external-controller-finalizer"
+	upstreamDeployment.SetAnnotations(annotations)
+	_, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Update(ctx, upstreamDeployment, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Deleting upstream deployment %s/%s", upstreamNamespace.Name, upstreamDeployment.Name)
+	err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Delete(ctx, upstreamDeployment.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
+	require.NoError(t, err)
+
+	t.Logf("Checking if the upstream deployment %s/%s has the per-location deletion annotation set", upstreamNamespace.Name, upstreamDeployment.Name)
+	require.Eventually(t, func() bool {
+		deployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("saw an error waiting for the upstream deployment %s/%s to be annotated: %v", upstreamNamespace.Name, upstreamDeployment.Name, err)
+		}
+		if val, ok := deployment.GetAnnotations()["deletion.internal.workload.kcp.dev/"+syncerFixture.SyncerConfig.WorkloadClusterName]; ok && val != "" {
+			return true
+		}
+		return false
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment didn't get the per-location deletion annotation set or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
+
+	t.Logf("Checking if upstream deployment %s/%s is getting deleted, shouldn't as the syncer will not remove its finalizer due to the virtual finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
+	require.Never(t, func() bool {
+		if _, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Errorf("Deployment %s/%s was deleted", upstreamNamespace.Name, upstreamDeployment.Name)
+			} else {
+				t.Errorf("saw an error trying to get the upstream deployment %s/%s, err: %v", upstreamNamespace.Name, upstreamDeployment.Name, err)
+			}
+			return true
+		}
+		return false
+	}, 5*time.Second, time.Second, "upstream Deployment got deleted or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
+
+	t.Logf("Checking if the downstream deployment %s/%s is deleted or not (shouldn't as there's a virtual finalizer that blocks the deletion of the downstream resource)", downstreamNamespaceName, upstreamDeployment.Name)
+	require.Never(t, func() bool {
+		if _, err := downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Errorf("Deployment %s/%s was deleted", downstreamNamespaceName, upstreamDeployment.Name)
+			} else {
+				t.Errorf("saw an error trying to get the downstream deployment %s/%s, err: %v", downstreamNamespaceName, upstreamDeployment.Name, err)
+			}
+			return true
+		}
+		return false
+	}, 5*time.Second, time.Second, "downstream Deployment got deleted or there was an error", downstreamNamespaceName, upstreamDeployment.Name)
+
+	// deleting a virtual Finalizer on the deployment and updating it.
+	t.Logf("Removing the virtual finalizer on the upstream deployment %s/%s, the deployment deletion should go through after this", upstreamNamespace.Name, upstreamDeployment.Name)
+	upstreamDeployment, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	upstreamDeployment = upstreamDeployment.DeepCopy()
+	annotations = upstreamDeployment.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string, 0)
+	}
+	annotations["finalizers.workload.kcp.dev/"+syncerFixture.SyncerConfig.WorkloadClusterName] = ""
+	upstreamDeployment.SetAnnotations(annotations)
+	_, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Update(ctx, upstreamDeployment, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Waiting for upstream deployment %s/%s to be deleted", upstreamNamespace.Name, upstreamDeployment.Name)
+	require.Eventually(t, func() bool {
+		if _, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				return true
+			} else {
+				t.Errorf("saw an error trying to get the upstream deployment %s/%s, err: %v", upstreamNamespace.Name, upstreamDeployment.Name, err)
+			}
+		}
+		return false
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment %s/%s was not deleted", upstreamNamespace.Name, upstreamDeployment.Name)
 
 }
 
