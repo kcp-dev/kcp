@@ -383,7 +383,9 @@ func TestSyncerProcess(t *testing.T) {
 			workloadClusterName:                 "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo:   []clienttesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				getDeploymentAction("theDeployment", "test"),
+			},
 		},
 		"StatusSyncer with AdvancedScheduling, update status upstream": {
 			upstreamLogicalCluster: "root:org:ws",

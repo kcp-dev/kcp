@@ -100,12 +100,8 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return err
 	}
 	if !exists {
-		if c.advancedSchedulingEnabled {
-			// deleted downstream => remove finalizer upstream
-			klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-			return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.workloadClusterName, upstreamLogicalCluster, name)
-		}
-		return nil
+		klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.workloadClusterName, upstreamLogicalCluster, name)
 	}
 
 	// update upstream status
