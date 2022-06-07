@@ -36,6 +36,7 @@ import (
 	"k8s.io/klog/v2"
 	kyaml "sigs.k8s.io/yaml"
 
+	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -276,4 +277,111 @@ func TestSyncWorkload(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
 
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
+
+}
+
+func TestCordonUncordonDrain(t *testing.T) {
+	t.Parallel()
+
+	upstreamServer := framework.SharedKcpServer(t)
+
+	t.Log("Creating an organization")
+	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
+
+	upstreamCfg := upstreamServer.DefaultConfig(t)
+
+	t.Log("Creating a workspace")
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
+
+	// Write the upstream logical cluster config to disk for the workspace plugin
+	upstreamRawConfig, err := upstreamServer.RawConfig()
+	require.NoError(t, err)
+	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName)
+
+	clients, err := clientset.NewClusterForConfig(upstreamCfg)
+	require.NoError(t, err, "failed to construct client for server")
+	kcpClient := clients.Cluster(wsClusterName)
+
+	// The Start method of the fixture will initiate syncer start and then wait for
+	// its workload cluster to go ready. This implicitly validates the syncer
+	// heartbeating and the heartbeat controller setting the workload cluster ready in
+	// response.
+	syncerFixture := framework.SyncerFixture{
+		UpstreamServer:       upstreamServer,
+		WorkspaceClusterName: wsClusterName,
+	}.Start(t)
+	workloadClusterName := syncerFixture.SyncerConfig.WorkloadClusterName
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	t.Log("Check initial workload")
+	cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	require.False(t, cluster.Spec.Unschedulable)
+	require.Nil(t, cluster.Spec.EvictAfter)
+
+	t.Log("Cordon workload")
+	subCommandCordon := []string{
+		"workload",
+		"cordon",
+		workloadClusterName,
+	}
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
+
+	t.Log("Check workload after cordon")
+	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	require.True(t, cluster.Spec.Unschedulable)
+	require.Nil(t, cluster.Spec.EvictAfter)
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
+
+	t.Log("Uncordon workload")
+	subCommandUncordon := []string{
+		"workload",
+		"uncordon",
+		workloadClusterName,
+	}
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
+
+	t.Log("Check workload after uncordon")
+	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	require.False(t, cluster.Spec.Unschedulable)
+	require.Nil(t, cluster.Spec.EvictAfter)
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
+
+	t.Log("Drain workload")
+	subCommandDrain := []string{
+		"workload",
+		"drain",
+		workloadClusterName,
+	}
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
+
+	t.Log("Check workload after drain started")
+	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	require.True(t, cluster.Spec.Unschedulable)
+	require.NotNil(t, cluster.Spec.EvictAfter)
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
+
+	t.Log("Remove drain, uncordon workload")
+	subCommandUncordon = []string{
+		"workload",
+		"uncordon",
+		workloadClusterName,
+	}
+
+	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
+
+	t.Log("Check workload after uncordon")
+	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	require.False(t, cluster.Spec.Unschedulable)
+	require.Nil(t, cluster.Spec.EvictAfter)
+
 }
