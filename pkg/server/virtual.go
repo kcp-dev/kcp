@@ -43,6 +43,7 @@ type mux interface {
 
 func (s *Server) installVirtualWorkspaces(
 	ctx context.Context,
+	server *genericapiserver.GenericAPIServer,
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
@@ -100,6 +101,10 @@ func (s *Server) installVirtualWorkspaces(
 
 	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
 	if err != nil {
+		return err
+	}
+
+	if err := server.AddReadyzChecks(completedRootAPIServerConfig.GenericConfig.ReadyzChecks...); err != nil {
 		return err
 	}
 

@@ -25,6 +25,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/client-go/rest"
 	componentbaseversion "k8s.io/component-base/version"
@@ -88,8 +89,6 @@ func (c *completedConfig) WithOpenAPIAggregationController(delegatedAPIServer *g
 
 func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget) (*RootAPIServer, error) {
 	delegateAPIServer := delegationTarget
-
-	var readys []framework.ReadyFunc
 	vwNames := sets.NewString()
 	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
 		name := virtualWorkspace.GetName()
@@ -103,11 +102,10 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		if err != nil {
 			return nil, err
 		}
-		readys = append(readys, virtualWorkspace.IsReady)
 	}
 
 	c.GenericConfig.BuildHandlerChainFunc = c.getRootHandlerChain(delegateAPIServer)
-	c.GenericConfig.ReadyzChecks = append(c.GenericConfig.ReadyzChecks, asHealthCheck(readys))
+	c.GenericConfig.ReadyzChecks = append(c.GenericConfig.ReadyzChecks, asHealthChecks(c.ExtraConfig.VirtualWorkspaces)...)
 
 	genericServer, err := c.GenericConfig.New("virtual-workspaces-root-apiserver", delegateAPIServer)
 	if err != nil {
@@ -127,19 +125,24 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	return s, nil
 }
 
-type asHealthCheck []framework.ReadyFunc
-
-func (readys asHealthCheck) Name() string {
-	return "VirtualWotrkspaceAdditionalReadinessChecks"
+type asHealthCheck struct {
+	framework.VirtualWorkspace
 }
 
-func (readys asHealthCheck) Check(req *http.Request) error {
-	for _, ready := range readys {
-		if err := ready(); err != nil {
-			return err
-		}
+func (vw asHealthCheck) Name() string {
+	return vw.GetName()
+}
+
+func (vw asHealthCheck) Check(req *http.Request) error {
+	return vw.IsReady()
+}
+
+func asHealthChecks(workspaces []framework.VirtualWorkspace) []healthz.HealthChecker {
+	var healthCheckers []healthz.HealthChecker
+	for _, vw := range workspaces {
+		healthCheckers = append(healthCheckers, asHealthCheck{vw})
 	}
-	return nil
+	return healthCheckers
 }
 
 func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
