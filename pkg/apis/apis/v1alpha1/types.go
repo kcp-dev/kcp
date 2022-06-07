@@ -374,6 +374,12 @@ type APIExportSpec struct {
 	//
 	// +optional
 	MaximalPermissionPolicy *MaximalPermissionPolicy `json:"maximalPermissionPolicy,omitempty"`
+
+	// permissionClaims will allow the APIExport creator to ask for permissions in the given bound workspace
+	// Permissions are optional and should be the least access necessary to complete the functions that the service provider needs.
+	// Access is asked for on a GVR basis and can be filtered on objects by many different selectors.
+	// +optional
+	PermissionClaims []PermissionClaim `json:"permissionClaims,omitempty"`
 }
 
 // Identity defines the identity of an APIExport, i.e. determines the etcd prefix
@@ -395,6 +401,14 @@ type MaximalPermissionPolicy struct {
 // LocalAPIExportPolicy will tell the APIBinding authorizer to check policy in the local namespace
 // of the API Export
 type LocalAPIExportPolicy struct{}
+
+type PermissionClaim struct {
+	metav1.GroupResource `json:","`
+
+	// This is the identity for a given API Resource, It will be empty for core types.
+	// Note that one must look this up for a particular KCP instance.
+	IdentityHash string `json:"identityHash"`
+}
 
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatus struct {

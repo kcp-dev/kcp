@@ -34,6 +34,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
+const (
+	// Copy because  of circle imports
+	indexAPIExportByIdentity = "byIdentity"
+)
+
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
 	if apiExport == nil || apiExport.Status.IdentityHash == "" {
 		c.mutex.RLock()
@@ -57,29 +62,41 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	oldSet := c.apiSets[apiDomainKey]
 	c.mutex.RUnlock()
 
-	// collect APIResourceSchemas
-	schemaIdentity := map[string]string{}
-
-	apiResourceSchemas := make([]*apisv1alpha1.APIResourceSchema, 0, len(apiExport.Spec.LatestResourceSchemas)+len(internalapis.Schemas))
-
-	// TODO(ncdc): switch to "ThingPermissionClaim" and remove this
-	for _, schema := range internalapis.Schemas {
-		shallow := *schema
-		shallow.ClusterName = logicalcluster.From(apiExport).String()
-		apiResourceSchemas = append(apiResourceSchemas, &shallow)
+	// Get schemas and identities for base api export
+	apiResourceSchemas, schemaIdentity, err := c.getSchemasFromAPIExport(apiExport)
+	if err != nil {
+		return err
 	}
 
-	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		apiResourceSchema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
-		if err != nil && !apierrors.IsNotFound(err) {
-			return err
+	for _, pc := range apiExport.Spec.PermissionClaims {
+		if pc.IdentityHash != "" {
+			exports, err := c.apiExportIndexer.ByIndex(indexAPIExportByIdentity, pc.IdentityHash)
+			if err != nil {
+				return err
+			}
+			for _, export := range exports {
+				e, ok := export.(*apisv1alpha1.APIExport)
+				if !ok {
+					return fmt.Errorf("invalid type from apiExportIndexer got: %T, expected %T", export, apiExport)
+				}
+				schemas, schemaIDs, err := c.getSchemasFromAPIExport(e)
+				if err != nil {
+					return err
+				}
+				apiResourceSchemas = append(apiResourceSchemas, schemas...)
+				for k, v := range schemaIDs {
+					schemaIdentity[k] = v
+				}
+			}
+		} else {
+			for _, schema := range internalapis.Schemas {
+				if pc.GroupResource.Group == schema.Spec.Group && pc.GroupResource.Resource == schema.Spec.Names.Plural {
+					shallow := *schema
+					shallow.ClusterName = logicalcluster.From(apiExport).String()
+					apiResourceSchemas = append(apiResourceSchemas, &shallow)
+				}
+			}
 		}
-		if apierrors.IsNotFound(err) {
-			klog.V(3).Infof("APIResourceSchema %s in APIExport %s|% not found", schemaName, apiExport.Namespace, apiExport.Name)
-			continue
-		}
-		apiResourceSchemas = append(apiResourceSchemas, apiResourceSchema)
-		schemaIdentity[schemaName] = apiExport.Status.IdentityHash
 	}
 
 	// reconcile APIs for APIResourceSchemas
@@ -155,4 +172,23 @@ func gvrString(gvr schema.GroupVersionResource) string {
 		group = "core"
 	}
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
+}
+
+func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIResourceSchema, map[string]string, error) {
+	apiResourceSchemas := []*apisv1alpha1.APIResourceSchema{}
+	schemaIdentity := map[string]string{}
+	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+		apiResourceSchema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
+		if err != nil && !apierrors.IsNotFound(err) {
+			return nil, nil, err
+		}
+		if apierrors.IsNotFound(err) {
+			klog.V(3).Infof("APIResourceSchema %s in APIExport %s|% not found", schemaName, apiExport.Namespace, apiExport.Name)
+			continue
+		}
+		apiResourceSchemas = append(apiResourceSchemas, apiResourceSchema)
+		schemaIdentity[schemaName] = apiExport.Status.IdentityHash
+	}
+
+	return apiResourceSchemas, schemaIdentity, nil
 }
