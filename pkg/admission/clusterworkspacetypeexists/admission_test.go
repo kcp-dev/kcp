@@ -187,48 +187,6 @@ func TestAdmit(t *testing.T) {
 			},
 		},
 		{
-			name: "does nothing for universal type",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Universal",
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
-				},
-			},
-				&tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Universal",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					},
-				}),
-			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Universal",
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
-				},
-			},
-		},
-		{
 			name: "ignores different resources",
 			a: admission.NewAttributesRecord(
 				&unstructured.Unstructured{Object: map[string]interface{}{
@@ -428,31 +386,7 @@ func TestValidate(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name: "Universal always exists implicitly if authorized",
-			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Universal",
-				},
-			}),
-			authzDecision: authorizer.DecisionAllow,
-		},
-		{
-			name: "Universal fails if not authorized",
-			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Universal",
-				},
-			}),
-			authzDecision: authorizer.DecisionNoOpinion,
-		},
-		{
-			name: "Universal works too when it exists",
+			name: "Universal works when it exists",
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
