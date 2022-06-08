@@ -226,7 +226,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		sort.Slice(actual.Items, func(i, j int) bool {
 			return actual.Items[i].UID < actual.Items[j].UID
 		})
-		require.Empty(t, cmp.Diff(expected, actual.Items), "cluster workspace list for initializer %s incorrect", initializer)
+		require.Empty(t, cmp.Diff(pruneVolatileFields(expected), pruneVolatileFields(actual.Items)), "cluster workspace list for initializer %s incorrect", initializer)
 	}
 
 	t.Log("Start WATCH streams to confirm behavior on changes")
@@ -315,6 +315,15 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			break
 		}
 	}
+}
+
+func pruneVolatileFields(items []tenancyv1alpha1.ClusterWorkspace) []tenancyv1alpha1.ClusterWorkspace {
+	for i := range items {
+		items[i].ResourceVersion = ""
+		items[i].ManagedFields = nil
+		items[i].Finalizers = nil
+	}
+	return items
 }
 
 func workspaceForType(workspaceType string, testLabelSelector map[string]string) *tenancyv1alpha1.ClusterWorkspace {
