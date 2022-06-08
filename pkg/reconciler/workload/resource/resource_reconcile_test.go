@@ -18,6 +18,7 @@ package resource
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -34,11 +35,12 @@ func namespace(annotations, labels map[string]string) *corev1.Namespace {
 	}
 }
 
-func object(annotations, labels map[string]string) metav1.Object {
+func object(annotations, labels map[string]string, deletionTimestamp *metav1.Time) metav1.Object {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: annotations,
-			Labels:      labels,
+			Annotations:       annotations,
+			Labels:            labels,
+			DeletionTimestamp: deletionTimestamp,
 		},
 	}
 }
@@ -53,25 +55,25 @@ func TestComputePlacement(t *testing.T) {
 	}{
 		{name: "unscheduled namespace and object",
 			ns:  namespace(nil, nil),
-			obj: object(nil, nil),
+			obj: object(nil, nil, nil),
 		},
 		{name: "pending namespace, unscheduled object",
 			ns: namespace(nil, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-1": "",
 			}),
-			obj: object(nil, nil),
+			obj: object(nil, nil, nil),
 		},
 		{name: "invalid state value on namespace",
 			ns: namespace(nil, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-1": "Foo",
 			}),
-			obj: object(nil, nil),
+			obj: object(nil, nil, nil),
 		},
 		{name: "syncing namespace, unscheduled object",
 			ns: namespace(nil, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-1": "Sync",
 			}),
-			obj: object(nil, nil),
+			obj: object(nil, nil, nil),
 			wantLabelPatch: map[string]interface{}{
 				"state.internal.workload.kcp.dev/cluster-1": "Sync",
 			},
@@ -83,7 +85,7 @@ func TestComputePlacement(t *testing.T) {
 			}),
 			obj: object(nil, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-1": "Sync",
-			}),
+			}, nil),
 			wantLabelPatch: map[string]interface{}{
 				"state.internal.workload.kcp.dev/cluster-2": "Sync",
 			},
@@ -96,7 +98,7 @@ func TestComputePlacement(t *testing.T) {
 			}),
 			obj: object(nil, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-4": "Sync",
-			}),
+			}, nil),
 			wantLabelPatch: nil,
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
@@ -112,7 +114,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-3": "Sync",
-			}),
+			}, nil),
 		},
 		{name: "hard delete after namespace is not scheduled",
 			ns: namespace(nil, nil),
@@ -120,7 +122,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-3": "Sync", // removed hard because namespace is not scheduled
-			}),
+			}, nil),
 			wantLabelPatch: map[string]interface{}{
 				"state.internal.workload.kcp.dev/cluster-3": nil,
 			},
@@ -134,7 +136,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-3": "Sync",
-			}),
+			}, nil),
 			wantLabelPatch: map[string]interface{}{
 				"state.internal.workload.kcp.dev/cluster-3": nil,
 			},
@@ -150,7 +152,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-3": "Sync",
-			}),
+			}, nil),
 		},
 		{name: "multiple locations, added and removed on namespace and object",
 			ns: namespace(map[string]string{
@@ -166,7 +168,7 @@ func TestComputePlacement(t *testing.T) {
 				"state.internal.workload.kcp.dev/cluster-2": "Sync",
 				"state.internal.workload.kcp.dev/cluster-3": "Sync", // removed hard
 				"state.internal.workload.kcp.dev/cluster-4": "Sync",
-			}),
+			}, nil),
 			wantLabelPatch: map[string]interface{}{
 				"state.internal.workload.kcp.dev/cluster-1": "Sync",
 				"state.internal.workload.kcp.dev/cluster-3": nil,
@@ -185,6 +187,83 @@ func TestComputePlacement(t *testing.T) {
 			}
 			if diff := cmp.Diff(gotLabelPatch, tt.wantLabelPatch); diff != "" {
 				t.Errorf("incorrect label patch: %s", diff)
+			}
+		})
+	}
+}
+
+func TestPropagateDeletionTimestamp(t *testing.T) {
+	tests := []struct {
+		name                string
+		annotationPatch     map[string]interface{}
+		obj                 metav1.Object
+		wantAnnotationPatch map[string]interface{} // nil means delete
+	}{
+		{name: "Object is marked for deletion and has one location",
+			obj: object(nil, map[string]string{
+				"state.internal.workload.kcp.dev/cluster-1": "Sync",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			wantAnnotationPatch: map[string]interface{}{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+			},
+		}, {name: "Object is marked for deletion and has multiple locations",
+			obj: object(nil, map[string]string{
+				"state.internal.workload.kcp.dev/cluster-1": "Sync",
+				"state.internal.workload.kcp.dev/cluster-2": "Sync",
+				"state.internal.workload.kcp.dev/cluster-3": "Sync",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			wantAnnotationPatch: map[string]interface{}{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02 10:00:00 +0000 UTC",
+			},
+		},
+		{name: "Object is marked for deletion, has one location and the annotationPatch has some value, should be maintained",
+			obj: object(nil, map[string]string{
+				"state.internal.workload.kcp.dev/cluster-1": "Sync",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			annotationPatch: map[string]interface{}{
+				"new-annotation-that-we-dont-care-about": "new-value",
+			},
+			wantAnnotationPatch: map[string]interface{}{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+				"new-annotation-that-we-dont-care-about":       "new-value",
+			},
+		},
+		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, no change",
+			obj: object(map[string]string{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+			}, map[string]string{
+				"state.internal.workload.kcp.dev/cluster-1": "Sync",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			wantAnnotationPatch: map[string]interface{}{},
+		},
+		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, but with different time value, no update",
+			obj: object(map[string]string{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2000-01-01 10:00:00 +0000 UTC",
+			}, map[string]string{
+				"state.internal.workload.kcp.dev/cluster-1": "Sync",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			wantAnnotationPatch: map[string]interface{}{},
+		},
+		{name: "Object is marked for deletion, has one pending location, the deletionTimestamp of that location should be set",
+			obj: object(nil, map[string]string{
+				"state.internal.workload.kcp.dev/cluster-1": "",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			wantAnnotationPatch: map[string]interface{}{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+			},
+		},
+		{name: "Object is marked for deletion and has no locations",
+			obj:                 object(nil, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			wantAnnotationPatch: map[string]interface{}{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotAnnotationPatch := propagateDeletionTimestamp(tt.obj, tt.annotationPatch)
+			if diff := cmp.Diff(gotAnnotationPatch, tt.wantAnnotationPatch); diff != "" {
+				t.Errorf("incorrect annotation patch: %s", diff)
 			}
 		})
 	}
