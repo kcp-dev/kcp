@@ -102,17 +102,21 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return apierrors.NewInternalError(err)
 	}
 
-	cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
-	if err != nil && apierrors.IsNotFound(err) {
-		if cw.Spec.Type == "Universal" {
-			return nil // Universal is always valid
+	resolveCwt := func() (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+		cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
+		if err != nil && apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("spec.type %q does not exist", cw.Spec.Type)
+		} else if err != nil {
+			return nil, err
 		}
-		return admission.NewForbidden(a, fmt.Errorf("spec.type %q does not exist", cw.Spec.Type))
-	} else if err != nil {
-		return admission.NewForbidden(a, err)
+		return cwt, nil
 	}
 
 	if a.GetOperation() == admission.Create {
+		cwt, err := resolveCwt()
+		if err != nil {
+			return admission.NewForbidden(a, err)
+		}
 		addAdditionalWorkspaceLabels(cwt, cw)
 
 		return updateUnstructured(u, cw)
@@ -140,6 +144,11 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing
 	if !transitioningToInitializing {
 		return nil
+	}
+
+	cwt, err := resolveCwt()
+	if err != nil {
+		return admission.NewForbidden(a, err)
 	}
 
 	// add initializers from type to workspace
@@ -221,9 +230,6 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 
 		cwt, err = o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
 		if err != nil && apierrors.IsNotFound(err) {
-			if cw.Spec.Type == "Universal" {
-				return nil // Universal is always valid
-			}
 			return admission.NewForbidden(a, fmt.Errorf("spec.type %q does not exist", cw.Spec.Type))
 		} else if err != nil {
 			return admission.NewForbidden(a, err)
