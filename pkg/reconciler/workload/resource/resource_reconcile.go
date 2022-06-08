@@ -81,7 +81,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		}
 	}
 	if len(annotationPatch) > 0 {
-		if err := unstructured.SetNestedField(patch, labelPatch, "metadata", "annotations"); err != nil {
+		if err := unstructured.SetNestedField(patch, annotationPatch, "metadata", "annotations"); err != nil {
 			klog.Errorf("unexpected unstructured error: %v", err)
 			return err // should never happen
 		}
