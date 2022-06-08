@@ -101,7 +101,9 @@ func TestProtectedAPI(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "APIBinding %q in workspace %q did not complete", apiBinding.Name, consumerWorkspace)
 
 	t.Logf("Make sure gateway API resource shows up in workspace %q group version discovery", consumerWorkspace)
-	resources, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1alpha2")
-	require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
-	require.True(t, resourceExists(resources, "tlsroutes"), "consumer workspace %q discovery is missing tlsroutes resource", consumerWorkspace)
+	require.Eventually(t, func() bool {
+		resources, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1alpha2")
+		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
+		return resourceExists(resources, "tlsroutes")
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "consumer workspace %q discovery is missing tlsroutes resource", consumerWorkspace)
 }
