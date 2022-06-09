@@ -95,20 +95,20 @@ func TestClusterController(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected namespace to be created in sink")
 
 				t.Logf("Expecting same spec to show up in sink")
-				framework.Eventually(t, func() (bool, string) {
+				framework.Eventually(t, func() error {
 					if got, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
 							if err != nil {
-								return false, fmt.Sprintf("error getting cowboy %q: %v", cowboy.Name, err)
+								return fmt.Errorf("error getting cowboy %q: %w", cowboy.Name, err)
 							}
-							return false, fmt.Sprintf("Downstream cowboy couldn't be found. Here is the upstream cowboy:\n%s", toYaml(t, cowboy))
+							return fmt.Errorf("Downstream cowboy couldn't be found. Here is the upstream cowboy:\n%s", toYaml(t, cowboy))
 						}
-						return false, fmt.Sprintf("error getting cowboy %q in sink: %v", cowboy.Name, err)
+						return fmt.Errorf("error getting cowboy %q in sink: %w", cowboy.Name, err)
 					} else if diff := cmp.Diff(cowboy.Spec, got.Spec); diff != "" {
-						return false, fmt.Sprintf("spec mismatch (-want +got):\n%s", diff)
+						return fmt.Errorf("spec mismatch (-want +got):\n%s", diff)
 					}
-					return true, ""
+					return nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected cowboy to be synced to sink with right spec")
 
 				t.Logf("Patching status in sink")

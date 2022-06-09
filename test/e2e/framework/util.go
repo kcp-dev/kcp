@@ -340,18 +340,18 @@ func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName l
 	}
 }
 
-func Eventually(t *testing.T, condition func() (bool, string), waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+func Eventually(t *testing.T, condition func() error, waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
 	t.Helper()
 
 	var last string
 	require.Eventually(t, func() bool {
 		t.Helper()
 
-		ok, msg := condition()
-		if !ok && msg != "" && msg != last {
-			last = msg
-			t.Logf("Waiting for condition, but got: %s", msg)
+		err := condition()
+		if err != nil && err.Error() != last {
+			last = err.Error()
+			t.Logf("Waiting for condition, but got: %v", err)
 		}
-		return ok
+		return err == nil
 	}, waitFor, tick, msgAndArgs...)
 }

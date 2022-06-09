@@ -122,13 +122,15 @@ func TestScheduling(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for \"kubernetes\" apibinding that is bound")
-	framework.Eventually(t, func() (bool, string) {
+	framework.Eventually(t, func() error {
 		binding, err := kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
 		if err != nil {
-			klog.Error(err)
-			return false, ""
+			return err
 		}
-		return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound, toYaml(binding)
+		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
+			return fmt.Errorf("APIbinding was not bound: %v", toYaml(binding))
+		}
+		return nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for APIResourceSchemas to show up in the negotiation workspace")
@@ -167,10 +169,15 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for available instances in the location")
-	framework.Eventually(t, func() (bool, string) {
+	framework.Eventually(t, func() error {
 		location, err := kcpClusterClient.Cluster(negotiationClusterName).SchedulingV1alpha1().Locations().Get(ctx, location.Name, metav1.GetOptions{})
-		require.NoError(t, err)
-		return location.Status.AvailableInstances != nil && *location.Status.AvailableInstances == 1, fmt.Sprintf("instances in status not updated:\n%s", toYaml(location))
+		if err != nil {
+			return err
+		}
+		if location.Status.AvailableInstances == nil || *location.Status.AvailableInstances != 1 {
+			return fmt.Errorf("instances in status not updated:\n%s", toYaml(location))
+		}
+		return nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	binding := &apisv1alpha1.APIBinding{
@@ -192,12 +199,15 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
-	framework.Eventually(t, func() (bool, string) {
+	framework.Eventually(t, func() error {
 		binding, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 		if err != nil {
-			return false, fmt.Sprintf("failed to list Locations: %v", err)
+			return fmt.Errorf("failed to list Locations: %w", err)
 		}
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+		if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) {
+			return fmt.Errorf("binding not bound: %s", toYaml(binding))
+		}
+		return nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -217,13 +227,15 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
-	framework.Eventually(t, func() (bool, string) {
+	framework.Eventually(t, func() error {
 		binding, err := kcpClusterClient.Cluster(secondUserClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 		if err != nil {
-			return false, fmt.Sprintf("failed to list Locations: %v", err)
+			return fmt.Errorf("failed to list Locations: %w", err)
 		}
-
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+		if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) {
+			return fmt.Errorf("binding not bound: %s", toYaml(binding))
+		}
+		return nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -306,11 +318,15 @@ func TestScheduling(t *testing.T) {
 	require.Equal(t, names.List(), []string{"first", "second"})
 
 	t.Logf("Wait for placement annotation on the default namespace")
-	framework.Eventually(t, func() (bool, string) {
+	framework.Eventually(t, func() error {
 		ns, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
-		require.NoError(t, err)
-
-		return ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey] != "", fmt.Sprintf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, toYaml(ns))
+		if err != nil {
+			return err
+		}
+		if ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey] == "" {
+			return fmt.Errorf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, toYaml(ns))
+		}
+		return nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
 
