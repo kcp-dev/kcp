@@ -340,7 +340,7 @@ func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName l
 	}
 }
 
-func Eventually(t *testing.T, condition func() error, waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+func EventuallyNoError(t *testing.T, condition func() error, waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
 	t.Helper()
 
 	var last string

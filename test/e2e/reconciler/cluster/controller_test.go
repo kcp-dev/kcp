@@ -95,7 +95,7 @@ func TestClusterController(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected namespace to be created in sink")
 
 				t.Logf("Expecting same spec to show up in sink")
-				framework.Eventually(t, func() error {
+				framework.EventuallyNoError(t, func() error {
 					if got, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})

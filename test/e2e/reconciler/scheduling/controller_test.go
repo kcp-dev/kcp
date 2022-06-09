@@ -122,7 +122,7 @@ func TestScheduling(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for \"kubernetes\" apibinding that is bound")
-	framework.Eventually(t, func() error {
+	framework.EventuallyNoError(t, func() error {
 		binding, err := kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -169,7 +169,7 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for available instances in the location")
-	framework.Eventually(t, func() error {
+	framework.EventuallyNoError(t, func() error {
 		location, err := kcpClusterClient.Cluster(negotiationClusterName).SchedulingV1alpha1().Locations().Get(ctx, location.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -199,7 +199,7 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
-	framework.Eventually(t, func() error {
+	framework.EventuallyNoError(t, func() error {
 		binding, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to list Locations: %w", err)
@@ -227,7 +227,7 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
-	framework.Eventually(t, func() error {
+	framework.EventuallyNoError(t, func() error {
 		binding, err := kcpClusterClient.Cluster(secondUserClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to list Locations: %w", err)
@@ -318,7 +318,7 @@ func TestScheduling(t *testing.T) {
 	require.Equal(t, names.List(), []string{"first", "second"})
 
 	t.Logf("Wait for placement annotation on the default namespace")
-	framework.Eventually(t, func() error {
+	framework.EventuallyNoError(t, func() error {
 		ns, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
 			return err

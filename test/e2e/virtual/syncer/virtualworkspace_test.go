@@ -334,7 +334,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("Check discovery in wildwest virtual workspace with unprivileged service-account-2, expecting success")
-				framework.Eventually(t, func() error {
+				framework.EventuallyNoError(t, func() error {
 					_, err = vwClusterClientUser2.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 					if err != nil {
 						return fmt.Errorf("waiting for service-account-2 to be able to list cowboys: %w", err)
