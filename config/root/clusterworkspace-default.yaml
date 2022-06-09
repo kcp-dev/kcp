@@ -3,4 +3,6 @@ kind: ClusterWorkspace
 metadata:
   name: default
 spec:
-  type: Organization
+  type:
+    name: Organization
+    path: root

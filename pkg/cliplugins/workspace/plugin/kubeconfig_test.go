@@ -51,7 +51,7 @@ func TestCreate(t *testing.T) {
 		markReady          bool
 
 		newWorkspaceName                 string
-		newWorkspaceType                 string
+		newWorkspaceType                 tenancyv1alpha1.ClusterWorkspaceTypeReference
 		useAfterCreation, ignoreExisting bool
 
 		expected *clientcmdapi.Config
@@ -156,7 +156,10 @@ func TestCreate(t *testing.T) {
 						Name: name,
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
-						Type: "Universal",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Universal",
+							Path: "root",
+						},
 					},
 					Status: tenancyv1beta1.WorkspaceStatus{
 						Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -166,6 +169,15 @@ func TestCreate(t *testing.T) {
 			}
 			client := tenancyfake.NewSimpleClientset(objects...)
 
+			workspaceType := tt.newWorkspaceType
+			empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
+			if workspaceType == empty {
+				workspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					Name: "Universal",
+					Path: "root",
+				}
+			}
+
 			if tt.markReady {
 				client.PrependReactor("create", "workspaces", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
 					obj := action.(clientgotesting.CreateAction).GetObject().(*tenancyv1beta1.Workspace)
@@ -173,10 +185,7 @@ func TestCreate(t *testing.T) {
 					u := parseURLOrDie(u.String())
 					u.Path = currentClusterName.Join(obj.Name).Path()
 					obj.Status.URL = u.String()
-					obj.Spec.Type = tt.newWorkspaceType
-					if obj.Spec.Type == "" {
-						obj.Spec.Type = "Universal"
-					}
+					obj.Spec.Type = workspaceType
 					if err := client.Tracker().Create(tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"), obj, ""); err != nil {
 						return false, nil, err
 					}
@@ -206,7 +215,7 @@ func TestCreate(t *testing.T) {
 				},
 				IOStreams: genericclioptions.NewTestIOStreamsDiscard(),
 			}
-			err := kc.CreateWorkspace(context.Background(), tt.newWorkspaceName, tt.newWorkspaceType, tt.ignoreExisting, tt.useAfterCreation, time.Second)
+			err := kc.CreateWorkspace(context.Background(), tt.newWorkspaceName, workspaceType.Path+":"+string(workspaceType.Name), tt.ignoreExisting, tt.useAfterCreation, time.Second)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -632,7 +641,10 @@ func TestUse(t *testing.T) {
 							Name: name,
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
-							Type: "Universal",
+							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								Name: "Universal",
+								Path: "root",
+							},
 						},
 					}
 					if !tt.unready[lcluster][name] {

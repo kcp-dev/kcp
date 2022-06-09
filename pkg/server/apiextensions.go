@@ -57,6 +57,7 @@ import (
 var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
 type systemCRDProvider struct {
+	commonCRDs    sets.String
 	rootCRDs      sets.String
 	orgCRDs       sets.String
 	universalCRDs sets.String
@@ -74,7 +75,7 @@ func newSystemCRDProvider(
 	getCRD func(key string) (*apiextensionsv1.CustomResourceDefinition, error),
 ) *systemCRDProvider {
 	p := &systemCRDProvider{
-		rootCRDs: sets.NewString(
+		commonCRDs: sets.NewString(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaceshards.tenancy.kcp.dev"),
@@ -83,14 +84,8 @@ func newSystemCRDProvider(
 			// served by a native rest storage, projecting the clusterworkspaces.
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "workspaces.tenancy.kcp.dev"),
 		),
-		orgCRDs: sets.NewString(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
-
-			// the following is installed to get discovery and OpenAPI right. But it is actually
-			// served by a native rest storage, projecting the clusterworkspaces.
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "workspaces.tenancy.kcp.dev"),
-		),
+		rootCRDs: sets.NewString(),
+		orgCRDs:  sets.NewString(),
 		universalCRDs: sets.NewString(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiresourceimports.apiresource.kcp.dev"),
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "negotiatedapiresources.apiresource.kcp.dev"),
@@ -139,7 +134,7 @@ func (p *systemCRDProvider) List(clusterName logicalcluster.Name) ([]*apiextensi
 func (p *systemCRDProvider) Keys(clusterName logicalcluster.Name) sets.String {
 	switch {
 	case clusterName == tenancyv1alpha1.RootCluster:
-		return p.rootCRDs
+		return p.rootCRDs.Union(p.commonCRDs)
 	case clusterName.HasPrefix(tenancyv1alpha1.RootCluster):
 		parent, ws := clusterName.Split()
 
@@ -162,12 +157,12 @@ func (p *systemCRDProvider) Keys(clusterName logicalcluster.Name) sets.String {
 			return sets.NewString()
 		}
 
-		switch clusterWorkspace.Spec.Type {
+		switch clusterWorkspace.Spec.Type.Name {
 		case "Universal":
-			return p.universalCRDs
+			return p.universalCRDs.Union(p.commonCRDs)
 		case "Organization", "Team":
 			// TODO(sttts): this cannot be hardcoded. There might be other org-like types
-			return p.orgCRDs
+			return p.orgCRDs.Union(p.commonCRDs)
 		}
 	}
 

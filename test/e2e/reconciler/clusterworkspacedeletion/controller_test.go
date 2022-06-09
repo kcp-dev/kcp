@@ -56,7 +56,15 @@ func TestWorkspaceDeletionController(t *testing.T) {
 			name: "create and clean workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("Create a workspace with a shard")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"}}, metav1.CreateOptions{})
+				workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+					ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Universal",
+							Path: "root",
+						},
+					},
+				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 
 				t.Logf("Should have finalizer added in workspace")

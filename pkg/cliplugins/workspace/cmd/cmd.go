@@ -167,7 +167,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 			return kubeconfig.CreateWorkspace(cmd.Context(), args[0], workspaceType, ignoreExisting, enterAfterCreation, time.Minute)
 		},
 	}
-	createCmd.Flags().StringVar(&workspaceType, "type", "", "A workspace type (default: Universal)")
+	createCmd.Flags().StringVar(&workspaceType, "type", "", "A workspace type. The default type depends on where this child workspace is created.")
 	createCmd.Flags().BoolVar(&enterAfterCreation, "enter", enterAfterCreation, "Immediately enter the created workspace")
 	createCmd.Flags().BoolVar(&ignoreExisting, "ignore-existing", ignoreExisting, "Ignore if the workspace already exists")
 	createCmd.Flags().BoolVar(&enterAfterCreation, "use", enterAfterCreation, "Use the new workspace after a successful creation")

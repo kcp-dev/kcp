@@ -207,15 +207,29 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
 
-	org, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "e2e-org-",
-		},
-		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: "Organization",
-		},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err, "failed to create organization workspace")
+	// we are referring here to a ClusterWorkspaceType that may have just been created; if the admission controller
+	// does not have a fresh enough cache, our request will be denied as the admission controller does not know the
+	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
+	// types very infrequently, so we do not think this will be a serious UX issue in the product.
+	var org *tenancyv1alpha1.ClusterWorkspace
+	require.Eventually(t, func() bool {
+		var err error
+		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "e2e-org-",
+			},
+			Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					Name: "Organization",
+					Path: "root",
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Logf("error creating org workspace under %s: %v", tenancyv1alpha1.RootCluster, err)
+		}
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create org workspace under %s", tenancyv1alpha1.RootCluster)
 
 	t.Cleanup(func() {
 		if preserveTestResources() {
@@ -269,16 +283,30 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 		labels[workloadv1alpha1.WorkspaceSchedulableLabel] = "false"
 	}
 
-	ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "e2e-workspace-",
-			Labels:       labels,
-		},
-		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: workspaceType,
-		},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err, "failed to create workspace")
+	// we are referring here to a ClusterWorkspaceType that may have just been created; if the admission controller
+	// does not have a fresh enough cache, our request will be denied as the admission controller does not know the
+	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
+	// types very infrequently, so we do not think this will be a serious UX issue in the product.
+	var ws *tenancyv1alpha1.ClusterWorkspace
+	require.Eventually(t, func() bool {
+		var err error
+		ws, err = clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "e2e-workspace-",
+				Labels:       labels,
+			},
+			Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType),
+					Path: "root",
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Logf("error creating workspace under %s: %v", orgClusterName, err)
+		}
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace under %s", orgClusterName)
 
 	t.Cleanup(func() {
 		if preserveTestResources() {

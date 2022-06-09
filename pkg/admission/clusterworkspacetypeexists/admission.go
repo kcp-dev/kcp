@@ -26,6 +26,7 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -63,6 +64,7 @@ func Register(plugins *admission.Plugins) {
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister        tenancyv1alpha1lister.ClusterWorkspaceTypeLister
+	workspaceLister   tenancyv1alpha1lister.ClusterWorkspaceLister
 	kubeClusterClient *kubernetes.Cluster
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
@@ -97,25 +99,29 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 	}
 
-	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
-	if err != nil {
-		return apierrors.NewInternalError(err)
-	}
-
-	resolveCwt := func() (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-		cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
-		if err != nil && apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("spec.type %q does not exist", cw.Spec.Type)
-		} else if err != nil {
-			return nil, err
-		}
-		return cwt, nil
-	}
-
 	if a.GetOperation() == admission.Create {
-		cwt, err := resolveCwt()
-		if err != nil {
-			return admission.NewForbidden(a, err)
+		// if the user has not provided any type, use the default from the parent workspace
+		empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
+		if cw.Spec.Type == empty {
+			clusterName, err := genericapirequest.ClusterNameFrom(ctx)
+			if err != nil {
+				return apierrors.NewInternalError(err)
+			}
+			parentCwt, resolutionError := o.resolveParentType(clusterName)
+			if resolutionError != nil {
+				return admission.NewForbidden(a, resolutionError)
+			}
+			if parentCwt == nil {
+				return admission.NewForbidden(a, errors.New("spec.type must be set in the root workspace"))
+			}
+			cw.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: parentCwt.Spec.DefaultChildWorkspaceType,
+				Path: logicalcluster.From(parentCwt).String(),
+			}
+		}
+		cwt, resolutionError := o.resolveType(cw.Spec.Type)
+		if resolutionError != nil {
+			return admission.NewForbidden(a, resolutionError)
 		}
 		addAdditionalWorkspaceLabels(cwt, cw)
 
@@ -146,9 +152,9 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return nil
 	}
 
-	cwt, err := resolveCwt()
-	if err != nil {
-		return admission.NewForbidden(a, err)
+	cwt, resolutionError := o.resolveType(cw.Spec.Type)
+	if resolutionError != nil {
+		return admission.NewForbidden(a, resolutionError)
 	}
 
 	// add initializers from type to workspace
@@ -163,6 +169,80 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	}
 
 	return updateUnstructured(u, cw)
+}
+
+func (o *clusterWorkspaceTypeExists) resolveValidType(parentClusterName logicalcluster.Name, workspaceName string, ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	cwt, err := o.resolveType(ref)
+	if err != nil {
+		return nil, err
+	}
+	parentCwt, err := o.resolveParentType(parentClusterName)
+	if err != nil {
+		return nil, err
+	}
+	parentRef := tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToUpper(string(parentCwt.Name[0])) + parentCwt.Name[1:]),
+		Path: logicalcluster.From(parentCwt).String(),
+	}
+	if !setContainsType(parentCwt.Spec.AllowedChildWorkspaceTypes, parentRef, ref) {
+		return nil, fmt.Errorf("parent cluster workspace %q (of type %s) does not allow for child workspaces of type %s", parentClusterName, parentRef.String(), ref.String())
+	}
+	if !setContainsType(cwt.Spec.AllowedParentWorkspaceTypes, ref, parentRef) {
+		return nil, fmt.Errorf("cluster workspace %q (of type %s) does not allow for parent workspaces of type %s", workspaceName, ref.String(), parentRef.String())
+	}
+	return cwt, nil
+}
+
+func setContainsType(set []tenancyv1alpha1.ClusterWorkspaceTypeName, owner, query tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
+	// either the set allows any workspace
+	for _, allowed := range set {
+		if allowed == tenancyv1alpha1.AnyWorkspaceType {
+			return true
+		}
+	}
+	// or, it contains the name of the reference and matches on the cluster path
+	for _, allowed := range set {
+		if allowed == query.Name && owner.Path == query.Path {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	grandparent, parentHasParent := parentClusterName.Parent()
+	if !parentHasParent {
+		// the clusterWorkspace exists in the root logical cluster, and therefore there is no
+		// higher clusterWorkspaceType to check for allowed sub-types; the mere presence of the
+		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
+		return &tenancyv1alpha1.ClusterWorkspaceType{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        strings.ToLower(string(tenancyv1alpha1.RootWorkspaceType)),
+				ClusterName: tenancyv1alpha1.RootCluster.String(),
+			},
+			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+				AllowedChildWorkspaceTypes:  []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
+				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
+			},
+		}, nil
+	}
+	parentCluster, err := o.workspaceLister.Get(clusters.ToClusterAwareKey(grandparent, parentClusterName.Base()))
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve parent cluster workspace %q: %w", parentClusterName.String(), err)
+	}
+	parentCwt, resolutionError := o.resolveType(parentCluster.Spec.Type)
+	if resolutionError != nil {
+		return nil, fmt.Errorf("could not resolve type %s of parent cluster workspace %q: %w", parentCluster.Spec.Type.String(), parentClusterName.String(), err)
+	}
+	return parentCwt, nil
+}
+
+func (o *clusterWorkspaceTypeExists) resolveType(ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(ref.Path), strings.ToLower(string(ref.Name))))
+	if apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("spec.type %s does not exist", ref.String())
+	}
+	return cwt, err
 }
 
 // Validate ensures that
@@ -228,11 +308,10 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 			return apierrors.NewInternalError(err)
 		}
 
-		cwt, err = o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, strings.ToLower(cw.Spec.Type)))
-		if err != nil && apierrors.IsNotFound(err) {
-			return admission.NewForbidden(a, fmt.Errorf("spec.type %q does not exist", cw.Spec.Type))
-		} else if err != nil {
-			return admission.NewForbidden(a, err)
+		var resolutionError error
+		cwt, resolutionError = o.resolveValidType(clusterName, cw.Name, cw.Spec.Type)
+		if resolutionError != nil {
+			return admission.NewForbidden(a, resolutionError)
 		}
 	}
 
@@ -281,12 +360,20 @@ func (o *clusterWorkspaceTypeExists) ValidateInitialization() error {
 	if o.typeLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs an ClusterWorkspaceType lister")
 	}
+	if o.workspaceLister == nil {
+		return fmt.Errorf(PluginName + " plugin needs an ClusterWorkspace lister")
+	}
 	return nil
 }
 
 func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	o.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced)
+	typesReady := informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced
+	workspacesReady := informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced
+	o.SetReadyFunc(func() bool {
+		return typesReady() && workspacesReady()
+	})
 	o.typeLister = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Lister()
+	o.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 }
 
 func (o *clusterWorkspaceTypeExists) SetKubeClusterClient(kubeClusterClient *kubernetes.Cluster) {

@@ -281,7 +281,12 @@ func TestAdmit(t *testing.T) {
 						"name":              "test",
 						"creationTimestamp": nil,
 					},
-					"spec": map[string]interface{}{},
+					"spec": map[string]interface{}{
+						"type": map[string]interface{}{
+							"name": "",
+							"path": "",
+						},
+					},
 					"status": map[string]interface{}{
 						"location": map[string]interface{}{},
 					},

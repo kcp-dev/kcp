@@ -76,7 +76,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 			},
 				&tenancyv1alpha1.ClusterWorkspace{
@@ -84,7 +87,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Universal",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Universal",
+							Path: "root:org",
+						},
 					},
 				}),
 			wantErr: true,
@@ -96,7 +102,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -108,7 +117,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
@@ -125,7 +137,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{},
 			},
@@ -134,7 +149,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						BaseURL: "https://cluster/clsuters/test",
@@ -149,7 +167,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -163,7 +184,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -179,7 +203,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -193,7 +220,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -210,7 +240,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -224,7 +257,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
@@ -239,7 +275,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -256,7 +295,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -269,7 +311,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
@@ -285,7 +330,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -299,7 +347,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,

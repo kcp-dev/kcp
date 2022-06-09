@@ -5,3 +5,9 @@ metadata:
 spec:
   initializers:
   - tenancy.kcp.dev/organization
+  defaultChildWorkspaceType: Universal
+  allowedChildWorkspaceTypes:
+  - Team
+  - Universal
+  allowedParentWorkspaceTypes:
+  - Root

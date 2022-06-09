@@ -123,7 +123,8 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		return fmt.Errorf("current %q context not found", kc.currentContext)
 	}
 
-	var newServerHost, workspaceType string
+	var newServerHost string
+	var workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
 	switch name {
 	case "-":
 		prev, exists := kc.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
@@ -159,7 +160,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 			return err
 		}
 
-		return kc.currentWorkspace(ctx, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, "", false)
+		return kc.currentWorkspace(ctx, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, nil, false)
 
 	case "..":
 		config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
@@ -239,7 +240,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, newServerHost, workspaceType, false)
+	return kc.currentWorkspace(ctx, newServerHost, &workspaceType, false)
 }
 
 // CurrentWorkspace outputs the current workspace.
@@ -249,10 +250,10 @@ func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, shortWorkspaceOutput
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, config.Host, "", shortWorkspaceOutput)
+	return kc.currentWorkspace(ctx, config.Host, nil, shortWorkspaceOutput)
 }
 
-func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType string, shortWorkspaceOutput bool) error {
+func (kc *KubeConfig) currentWorkspace(ctx context.Context, host string, workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference, shortWorkspaceOutput bool) error {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		if shortWorkspaceOutput {
@@ -278,8 +279,8 @@ func (kc *KubeConfig) currentWorkspace(ctx context.Context, host, workspaceType 
 	}
 
 	message := fmt.Sprintf("Current workspace is %q", clusterName)
-	if workspaceType != "" {
-		message += fmt.Sprintf(" (type %q)", workspaceType)
+	if workspaceType != nil {
+		message += fmt.Sprintf(" (type %q)", workspaceType.String())
 	}
 	if workspaceName != workspacePrettyName {
 		message += fmt.Sprintf(" aliased as %q", workspacePrettyName)
@@ -300,13 +301,30 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
+	var structuredWorkspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
+	if workspaceType != "" {
+		separatorIndex := strings.LastIndex(workspaceType, ":")
+		switch separatorIndex {
+		case -1:
+			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType),
+				Path: currentClusterName.String(),
+			}
+		default:
+			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType[separatorIndex+1:]),
+				Path: workspaceType[:separatorIndex],
+			}
+		}
+	}
+
 	preExisting := false
 	ws, err := kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: workspaceName,
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
-			Type: workspaceType,
+			Type: structuredWorkspaceType,
 		},
 	}, metav1.CreateOptions{})
 	if apierrors.IsNotFound(err) {
@@ -325,8 +343,8 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 	}
 
 	if preExisting {
-		if workspaceType != "" && ws.Spec.Type != workspaceType {
-			return fmt.Errorf("workspace %q already exists with different type %q", workspaceName, ws.Spec.Type)
+		if ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
+			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", workspaceName, structuredWorkspaceType.String(), ws.Spec.Type.String())
 		}
 		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
 			fmt.Fprintf(kc.Out, "Workspace %q (type %q) already exists. Waiting for being ready.\n", workspaceName, ws.Spec.Type) // nolint: errcheck
