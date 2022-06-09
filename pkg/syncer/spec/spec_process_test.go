@@ -478,7 +478,7 @@ func TestSyncerProcess(t *testing.T) {
 		expectActionsOnFrom []clienttesting.Action
 		expectActionsOnTo   []clienttesting.Action
 	}{
-		"SpecSyncer upsert": {
+		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is created downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workload.kcp.dev/us-west1": "Sync",
@@ -499,88 +499,6 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
 			workloadClusterName:                 "us-west1",
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				patchDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							}, nil, nil)),
-							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
-						),
-					),
-				),
-			},
-		},
-		"SpecSyncer upstream deletion": {
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			fromResources: []runtime.Object{
-				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{"kubernetes.io/service-account.name": "default"},
-					map[string][]byte{
-						"token":     []byte("token"),
-						"namespace": []byte("namespace"),
-					}),
-				deployment("theDeployment", "test", "root:org:ws", nil, nil, nil),
-			},
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				deleteDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, sync downstream deployment": {
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			fromResources: []runtime.Object{
-				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{"kubernetes.io/service-account.name": "default"},
-					map[string][]byte{
-						"token":     []byte("token"),
-						"namespace": []byte("namespace"),
-					}),
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
-				}, nil, nil),
-			},
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
 
 			expectActionsOnFrom: []clienttesting.Action{
 				updateDeploymentAction("test",
@@ -620,7 +538,292 @@ func TestSyncerProcess(t *testing.T) {
 				),
 			},
 		},
-		"SpecSyncer with AdvancedScheduling, sync downstream deployment and apply SpecDiff": {
+		"SpecSyncer sync to downstream, syncer finalizer already there": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.internal.workload.kcp.dev/us-west1": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
+				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			workloadClusterName:                 "us-west1",
+
+			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				createNamespaceAction(
+					"",
+					changeUnstructured(
+						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
+							map[string]string{
+								"internal.workload.kcp.dev/cluster": "us-west1",
+							},
+							map[string]string{
+								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+							})),
+						removeNilOrEmptyFields,
+					),
+				),
+				patchDeploymentAction(
+					"theDeployment",
+					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
+					types.ApplyPatchType,
+					toJson(t,
+						changeUnstructured(
+							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+								"internal.workload.kcp.dev/cluster": "us-west1",
+							}, nil, nil)),
+							setNestedField(map[string]interface{}{}, "status"),
+							setPodSpecServiceAccount("spec", "template", "spec"),
+						),
+					),
+				),
+			},
+		},
+		"SpecSyncer upstream resource has state.internal annotation removed, expect deletion downstream": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.internal.workload.kcp.dev/us-west1": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws", nil, nil, nil),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			workloadClusterName:                 "us-west1",
+
+			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				deleteDeploymentAction(
+					"theDeployment",
+					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
+				),
+			},
+		},
+		"SpecSyncer deletion: object exist downstream": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.internal.workload.kcp.dev/us-west1": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			toResources: []runtime.Object{
+				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+					"internal.workload.kcp.dev/cluster": "us-west1",
+				},
+					map[string]string{
+						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					}),
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "root:org:ws", map[string]string{
+					"internal.workload.kcp.dev/cluster": "us-west1",
+				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
+			},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
+					[]string{"workload.kcp.dev/syncer-us-west1"}),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			workloadClusterName:                 "us-west1",
+
+			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				createNamespaceAction(
+					"",
+					changeUnstructured(
+						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
+							map[string]string{
+								"internal.workload.kcp.dev/cluster": "us-west1",
+							},
+							map[string]string{
+								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+							})),
+						removeNilOrEmptyFields,
+					),
+				),
+				deleteDeploymentAction(
+					"theDeployment",
+					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
+				),
+			},
+		},
+		"SpecSyncer deletion: object does not exists downstream, upstream finalizer should be removed": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.internal.workload.kcp.dev/us-west1": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			toResources: []runtime.Object{
+				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+					"internal.workload.kcp.dev/cluster": "us-west1",
+				},
+					map[string]string{
+						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					}),
+			},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"another.valid.annotation/this": "value",
+						"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
+					[]string{"workload.kcp.dev/syncer-us-west1"}),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			workloadClusterName:                 "us-west1",
+			expectActionsOnFrom: []clienttesting.Action{
+				getDeploymentAction("theDeployment", "test"),
+				updateDeploymentAction("test",
+					changeUnstructured(
+						toUnstructured(t, changeDeployment(
+							deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{"another.valid.annotation/this": "value"}, nil),
+						),
+						),
+						// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
+						//                as the test expects some null fields to be there...
+						setNestedField(map[string]interface{}{}, "metadata", "labels"),
+						setNestedField([]interface{}{}, "metadata", "finalizers"),
+						setNestedField(nil, "spec", "selector"),
+					)),
+			},
+			expectActionsOnTo: []clienttesting.Action{
+				createNamespaceAction(
+					"",
+					changeUnstructured(
+						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
+							map[string]string{
+								"internal.workload.kcp.dev/cluster": "us-west1",
+							},
+							map[string]string{
+								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+							})),
+						removeNilOrEmptyFields,
+					),
+				),
+				deleteDeploymentAction(
+					"theDeployment",
+					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
+				),
+			},
+		},
+		"SpecSyncer deletion: upstream object has external finalizer, the object shouldn't be deleted": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.internal.workload.kcp.dev/us-west1": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			toResources: []runtime.Object{
+				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+					"internal.workload.kcp.dev/cluster": "us-west1",
+				},
+					map[string]string{
+						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					}),
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+					"internal.workload.kcp.dev/cluster": "us-west1",
+				}, nil, nil),
+			},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{
+						"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
+						"finalizers.workload.kcp.dev/us-west1":        "another-controller-finalizer",
+					},
+					[]string{"workload.kcp.dev/syncer-us-west1"}),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			workloadClusterName:                 "us-west1",
+
+			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				createNamespaceAction(
+					"",
+					changeUnstructured(
+						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
+							map[string]string{
+								"internal.workload.kcp.dev/cluster": "us-west1",
+							},
+							map[string]string{
+								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+							})),
+						removeNilOrEmptyFields,
+					),
+				),
+				patchDeploymentAction(
+					"theDeployment",
+					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
+					types.ApplyPatchType,
+					toJson(t,
+						changeUnstructured(
+							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+								"internal.workload.kcp.dev/cluster": "us-west1",
+							}, map[string]string{
+								"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
+								"finalizers.workload.kcp.dev/us-west1":        "another-controller-finalizer",
+							}, nil)),
+							// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
+							//                as the test expects some null fields to be there...
+							setNestedField(nil, "spec", "selector"),
+							setNestedField(map[string]interface{}{}, "spec", "strategy"),
+							setNestedField(map[string]interface{}{
+								"metadata": map[string]interface{}{
+									"creationTimestamp": nil,
+								},
+								"spec": map[string]interface{}{
+									"containers": nil,
+								},
+							}, "spec", "template"),
+							setNestedField(map[string]interface{}{}, "status"),
+							setPodSpecServiceAccount("spec", "template", "spec"),
+						),
+					),
+				),
+			},
+		},
+		"SpecSyncer with AdvancedScheduling, sync deployment to downstream and apply SpecDiff": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.internal.workload.kcp.dev/us-west1": "Sync",
@@ -690,213 +893,6 @@ func TestSyncerProcess(t *testing.T) {
 								},
 							}, "spec", "template"),
 							setNestedField(map[string]interface{}{}, "status"),
-						),
-					),
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, deletion: object exist downstream": {
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			toResources: []runtime.Object{
-				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
-					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-					}),
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "root:org:ws", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
-			},
-			fromResources: []runtime.Object{
-				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{"kubernetes.io/service-account.name": "default"},
-					map[string][]byte{
-						"token":     []byte("token"),
-						"namespace": []byte("namespace"),
-					}),
-				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
-					[]string{"workload.kcp.dev/syncer-us-west1"}),
-			},
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				deleteDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, deletion: object does not exists downstream": {
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			toResources: []runtime.Object{
-				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
-					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-					}),
-			},
-			fromResources: []runtime.Object{
-				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{"kubernetes.io/service-account.name": "default"},
-					map[string][]byte{
-						"token":     []byte("token"),
-						"namespace": []byte("namespace"),
-					}),
-				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{"another.valid.annotation/this": "value",
-						"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
-					[]string{"workload.kcp.dev/syncer-us-west1"}),
-			},
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-			expectActionsOnFrom: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
-				updateDeploymentAction("test",
-					changeUnstructured(
-						toUnstructured(t, changeDeployment(
-							deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{"another.valid.annotation/this": "value"}, nil),
-						),
-						),
-						// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
-						//                as the test expects some null fields to be there...
-						setNestedField(map[string]interface{}{}, "metadata", "labels"),
-						setNestedField([]interface{}{}, "metadata", "finalizers"),
-						setNestedField(nil, "spec", "selector"),
-					)),
-			},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				deleteDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-				),
-			},
-		},
-		"SpecSyncer with AdvancedScheduling, deletion: upstream object has external finalizer": {
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			toResources: []runtime.Object{
-				namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
-					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-					}),
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
-			},
-			fromResources: []runtime.Object{
-				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{"kubernetes.io/service-account.name": "default"},
-					map[string][]byte{
-						"token":     []byte("token"),
-						"namespace": []byte("namespace"),
-					}),
-				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
-					map[string]string{
-						"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
-						"finalizers.workload.kcp.dev/us-west1":        "another-controller-finalizer",
-					},
-					[]string{"workload.kcp.dev/syncer-us-west1"}),
-			},
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
-			advancedSchedulingEnabled:           true,
-
-			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
-				patchDeploymentAction(
-					"theDeployment",
-					"kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							}, map[string]string{
-								"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
-								"finalizers.workload.kcp.dev/us-west1":        "another-controller-finalizer",
-							}, nil)),
-							// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
-							//                as the test expects some null fields to be there...
-							setNestedField(nil, "spec", "selector"),
-							setNestedField(map[string]interface{}{}, "spec", "strategy"),
-							setNestedField(map[string]interface{}{
-								"metadata": map[string]interface{}{
-									"creationTimestamp": nil,
-								},
-								"spec": map[string]interface{}{
-									"containers": nil,
-								},
-							}, "spec", "template"),
-							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
 						),
 					),
 				),

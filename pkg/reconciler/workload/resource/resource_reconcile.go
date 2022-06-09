@@ -68,6 +68,11 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	annotationPatch, labelPatch := computePlacement(ns, obj)
 
+	// If the object DeletionTimestamp is set, we should set all locations deletion timestamps annotations to the same value.
+	if obj.GetDeletionTimestamp() != nil {
+		annotationPatch = propagateDeletionTimestamp(obj, annotationPatch)
+	}
+
 	// create patch
 	if len(labelPatch) == 0 && len(annotationPatch) == 0 {
 		return nil
@@ -81,7 +86,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		}
 	}
 	if len(annotationPatch) > 0 {
-		if err := unstructured.SetNestedField(patch, labelPatch, "metadata", "annotations"); err != nil {
+		if err := unstructured.SetNestedField(patch, annotationPatch, "metadata", "annotations"); err != nil {
 			klog.Errorf("unexpected unstructured error: %v", err)
 			return err // should never happen
 		}
@@ -109,6 +114,21 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 	klog.V(2).Infof("Patched cluster assignment for %q %s|%s/%s: labels=%v, annotations=%v", gvr, lclusterName, ns.Name, obj.GetName(), string(labelsString), string(annotationsString))
 	return nil
+}
+
+func propagateDeletionTimestamp(obj metav1.Object, annotationPatch map[string]interface{}) map[string]interface{} {
+	klog.V(3).Infof("Resource is being deleted; setting the deletion per locations timestamps for %s|%s/%s", logicalcluster.From(obj).String(), obj.GetNamespace(), obj.GetName())
+	objAnnotations := obj.GetAnnotations()
+	objLocations, _ := locations(objAnnotations, obj.GetLabels(), false)
+	if annotationPatch == nil {
+		annotationPatch = make(map[string]interface{})
+	}
+	for location := range objLocations {
+		if val, ok := objAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location]; !ok || val == "" {
+			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location] = obj.GetDeletionTimestamp().String()
+		}
+	}
+	return annotationPatch
 }
 
 // computePlacement computes the patch against annotations and labels. Nil means to remove the key.
