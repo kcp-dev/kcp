@@ -26,7 +26,9 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -89,7 +91,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 		"export2-schema3": {ObjectMeta: metav1.ObjectMeta{UID: "e2-s3"}},
 	}
 
-	ncc := &nameConflictChecker{
+	ncc := &conflictChecker{
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			return []*apisv1alpha1.APIBinding{
 				newAPIBinding,
@@ -169,5 +171,65 @@ func TestNamesConflict(t *testing.T) {
 		t.Run(fmt.Sprintf("listkind-%s", v), func(t *testing.T) {
 			require.True(t, namesConflict(existing, crdWithNames(apiextensionsv1.CustomResourceDefinitionNames{ListKind: v})))
 		})
+	}
+}
+
+func TestGVRConflict(t *testing.T) {
+	scenarios := []struct {
+		name        string
+		initialCRDs []runtime.Object
+		crd         *apiextensionsv1.CustomResourceDefinition
+		binding     *apisv1alpha1.APIBinding
+		wantErr     bool
+	}{
+		{
+			name:    "no initial CRDs, no conflicts",
+			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
+			crd:     createCRD("", "crd1", "acmeGR", "acmeRS"),
+		},
+		{
+			name: "no conflict when non-overlapping initial CRDs exist",
+			initialCRDs: []runtime.Object{
+				createCRD("root:example", "crd1", "acmeGR", "acmeRS"),
+			},
+			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
+			crd:     createCRD("", "crd1", "acmeGR", "acmeRS"),
+		},
+		{
+			name: "creating conflicting CRD fails",
+			initialCRDs: []runtime.Object{
+				createCRD("root:acme", "crd1", "acmeGR", "acmeRS"),
+			},
+			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
+			crd:     createCRD("", "crd1", "acmeGR", "acmeRS"),
+			wantErr: true,
+		},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			if err := indexer.AddIndexers(cache.Indexers{indexByWorkspace: indexByWorkspaceFunc}); err != nil {
+				t.Fatal(err)
+			}
+			for _, obj := range scenario.initialCRDs {
+				if err := indexer.Add(obj); err != nil {
+					t.Error(err)
+				}
+			}
+			c := &conflictChecker{crdIndexer: indexer}
+			if err := c.gvrConflict(scenario.crd, scenario.binding); err != nil != scenario.wantErr {
+				t.Fatalf("error = %v, wantErr %v", err, scenario.wantErr)
+			}
+		})
+	}
+}
+
+func createCRD(clusterName, name, group, resource string) *apiextensionsv1.CustomResourceDefinition {
+	return &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{Name: name, ClusterName: clusterName},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: group,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{Plural: resource},
+		},
 	}
 }

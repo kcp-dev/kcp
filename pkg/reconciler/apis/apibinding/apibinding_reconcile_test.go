@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -507,6 +508,11 @@ func TestReconcileBinding(t *testing.T) {
 					return crd, tc.createCRDError
 				},
 				deletedCRDTracker: &lockedStringSet{},
+				crdIndexer:        cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}),
+			}
+
+			if err := c.crdIndexer.AddIndexers(cache.Indexers{indexByWorkspace: indexByWorkspaceFunc}); err != nil {
+				t.Fatal(err)
 			}
 
 			err := c.reconcile(context.Background(), tc.apiBinding)

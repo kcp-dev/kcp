@@ -194,15 +194,16 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			return nil
 		}
 
-		// Check for naming conflicts
-		nameConflictChecker := &nameConflictChecker{
+		// Check for conflicts
+		checker := &conflictChecker{
 			listAPIBindings:      c.listAPIBindings,
 			getAPIExport:         c.getAPIExport,
 			getAPIResourceSchema: c.getAPIResourceSchema,
 			getCRD:               c.getCRD,
+			crdIndexer:           c.crdIndexer,
 		}
 
-		if err := nameConflictChecker.checkForConflicts(crd, apiBinding); err != nil {
+		if err := checker.checkForConflicts(crd, apiBinding); err != nil {
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.BindingUpToDate,
