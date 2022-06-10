@@ -40,11 +40,6 @@ import (
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
-	if gvr.Group == "networking.k8s.io" && gvr.Resource == "ingresses" {
-		klog.V(4).Infof("Skipping reconciliation of ingress %s/%s", obj.GetNamespace(), obj.GetName())
-		return nil
-	}
-
 	klog.V(2).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a
