@@ -125,6 +125,30 @@ If you find yourself working on something that is unplanned and/or untracked (i.
 - New features start under a feature-gate (`--feature-gate GateName=true`). (At some point in the future), new feature-gates are off by default *at least* until the APIs are promoted to beta (we are not there before we have reached MVP).
 - Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. **We do not compromise on unit tests**. Every feature-gated code needs full unit tests as every other code-path.
 - Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.
+- We use [https://github.com/stretchr/testify/tree/master/require](github.com/stretchr/testify/require) a lot in tests, and avoid
+  [https://github.com/stretchr/testify/tree/master/assert](https://github.com/stretchr/testify/assert).
+
+  Note this subtle distinction of nested `require` statements:
+  ```Golang
+  require.Eventually(t, func() bool {
+    foos, err := client.List(...)
+    require.NoError(err) // fail fast, including failing require.Eventually immediately
+    return someCondition(foos)
+  }, ...)
+  ```
+  and
+  ```Golang
+  require.Eventually(t, func() bool {
+    foos, err := client.List(...)
+    if err != nil {
+       return false // keep trying
+    }
+    return someCondition(foos)
+  }, ...)
+  ```
+  The first fails fast on every client error. The second ignores client errors and keeps trying. Either
+  has its place, depending on whether the client error is to be expected (e.g. because of asynchronicity making the resource available),
+  or signals a real test problem.
 
 ### Using Kubebuilder CRD Validation Annotations
 
