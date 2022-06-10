@@ -1,6 +1,6 @@
 # kcp REST access patterns
 
-> Note: This document contains both present state and descritpions of possible future changes. 
+> Note: This document contains both present state and descriptions of possible future changes.
 
 ## Cluster Resources and APIs
 
@@ -45,7 +45,7 @@
 
 ### `/services/syncer/$syncerID/clusters/$cluster/apis/$group/$version/$resource`
 
-* Access via virtual workspace for a resource a syncer should see (transformed to location-specific view he syncer should have) for a given logical cluster
+* Access via virtual workspace for a resource a syncer should see (transformed to location-specific view the syncer should have) for a given logical cluster
 * CRUD for a specific cluster, specific CRD
 
 ### `/services/syncer/$syncerID/apis/$group/$version/$resource`
