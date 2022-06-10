@@ -25,10 +25,11 @@ import (
 type EmbeddedEtcd struct {
 	Enabled bool
 
-	Directory    string
-	PeerPort     string
-	ClientPort   string
-	WalSizeBytes int64
+	Directory       string
+	PeerPort        string
+	ClientPort      string
+	WalSizeBytes    int64
+	ForceNewCluster bool
 }
 
 func NewEmbeddedEtcd() *EmbeddedEtcd {
@@ -44,6 +45,7 @@ func (e *EmbeddedEtcd) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&e.PeerPort, "embedded-etcd-peer-port", e.PeerPort, "Port for embedded etcd peer")
 	fs.StringVar(&e.ClientPort, "embedded-etcd-client-port", e.ClientPort, "Port for embedded etcd client")
 	fs.Int64Var(&e.WalSizeBytes, "embedded-etcd-wal-size-bytes", e.WalSizeBytes, "Size of embedded etcd WAL")
+	fs.BoolVar(&e.ForceNewCluster, "embedded-etcd-force-new-cluster", e.ForceNewCluster, "Starts a new cluster from existing data restored from a different system")
 }
 
 func (e *EmbeddedEtcd) Validate() []error {

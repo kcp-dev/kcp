@@ -148,10 +148,11 @@ var (
 		"tls-sni-cert-key",                 // A pair of x509 certificate and private key file paths, optionally suffixed with a list of domain patterns which are fully qualified domain names, possibly with prefixed wildcard segments. The domain patterns also allow IP addresses, but IPs should only be used if the apiserver has visibility to the IP address requested by a client. If no domain patterns are provided, the names of the certificate are extracted. Non-wildcard matches trump over wildcard matches, explicit domain patterns trump over extracted names. For multiple key/certificate pairs, use the --tls-sni-cert-key multiple times. Examples: "example.crt,example.key" or "foo.crt,foo.key:*.foo.com,foo.com".
 
 		// Embedded etcd flags
-		"embedded-etcd-client-port",    // Port for embedded etcd client
-		"embedded-etcd-directory",      // Directory for embedded etcd
-		"embedded-etcd-peer-port",      // Port for embedded etcd peer
-		"embedded-etcd-wal-size-bytes", // Size of embedded etcd WAL
+		"embedded-etcd-client-port",       // Port for embedded etcd client
+		"embedded-etcd-directory",         // Directory for embedded etcd
+		"embedded-etcd-peer-port",         // Port for embedded etcd peer
+		"embedded-etcd-wal-size-bytes",    // Size of embedded etcd WAL
+		"embedded-etcd-force-new-cluster", // Starts a new cluster from existing data restored from a different system
 
 		// KCP Controllers flags
 		"auto-publish-apis",                      // If true, the APIs imported from physical clusters will be published automatically as CRDs
