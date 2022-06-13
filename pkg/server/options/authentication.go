@@ -142,12 +142,6 @@ func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName s
 		adminUserName: {Token: adminBearerToken},
 	}
 	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
-		// cross-cluster is the virtual cluster running by default
-		"cross-cluster": {
-			Server:                   baseHost + "/clusters/*",
-			CertificateAuthorityData: caData,
-			TLSServerName:            tlsServerName,
-		},
 		// root is the virtual cluster containing the organizations
 		"root": {
 			Server:                   baseHost + "/clusters/root",
@@ -168,10 +162,9 @@ func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName s
 		},
 	}
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
-		"cross-cluster": {Cluster: "cross-cluster", AuthInfo: adminUserName},
-		"root":          {Cluster: "root", AuthInfo: adminUserName},
-		"default":       {Cluster: "root:default", AuthInfo: adminUserName},
-		"system:admin":  {Cluster: "system:admin", AuthInfo: adminUserName},
+		"root":         {Cluster: "root", AuthInfo: adminUserName},
+		"default":      {Cluster: "root:default", AuthInfo: adminUserName},
+		"system:admin": {Cluster: "system:admin", AuthInfo: adminUserName},
 	}
 	kubeConfig.CurrentContext = "default"
 	return &kubeConfig
