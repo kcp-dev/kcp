@@ -53,7 +53,7 @@ func NewController(
 	crdClusterClient apiextensionclientset.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	workspaceType string,
+	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface) error,
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
@@ -96,7 +96,7 @@ type controller struct {
 
 	syncChecks []cache.InformerSynced
 
-	workspaceType string
+	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
 	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface) error
 }
 

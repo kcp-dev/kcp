@@ -94,7 +94,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
 
 	source := framework.SharedKcpServer(t)
-	orgClusterName := framework.NewOrganizationFixture(t, source)
+	clusterName := framework.NewWorkspaceFixture(t, source, tenancyv1alpha1.RootCluster, "Universal")
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -106,9 +106,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a Workspace that will not be Initializing and should not be shown in the virtual workspace
-	framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+	framework.NewWorkspaceFixture(t, source, clusterName, "Universal")
 
-	sourceKcpTenancyClient := sourceKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1()
+	sourceKcpTenancyClient := sourceKcpClusterClient.Cluster(clusterName).TenancyV1alpha1()
 
 	testLabelSelector := map[string]string{
 		"internal.kcp.dev/e2e-test": t.Name(),
@@ -139,6 +139,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		clusterWorkspaceInitializerNames[name] = tenancyv1alpha1.ClusterWorkspaceInitializer(name + "-" + suffix())
 	}
 
+	clusterWorkspaceTypes := map[string]*tenancyv1alpha1.ClusterWorkspaceType{}
 	for name, initializers := range map[string][]string{
 		"alpha": {"alpha"},
 		"beta":  {"beta"},
@@ -148,22 +149,24 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		for _, initializerName := range initializers {
 			initializerNames = append(initializerNames, clusterWorkspaceInitializerNames[initializerName])
 		}
-		_, err = sourceKcpTenancyClient.ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+		cwt, err := sourceKcpTenancyClient.ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterWorkspaceTypeNames[name],
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-				Initializers: initializerNames,
+				Initializers:                initializerNames,
+				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
 			},
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
+		clusterWorkspaceTypes[name] = cwt
 	}
 
 	t.Log("Create workspaces that using the new types, which will get stuck in initializing")
 	for _, workspaceType := range []string{
 		"alpha", "beta", "gamma",
 	} {
-		_, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypeNames[workspaceType], testLabelSelector), metav1.CreateOptions{})
+		_, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
 
@@ -211,7 +214,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	require.NoError(t, err)
 	workspacesByType := map[string]tenancyv1alpha1.ClusterWorkspace{}
 	for i := range workspaces.Items {
-		workspacesByType[strings.ToLower(workspaces.Items[i].Spec.Type)] = workspaces.Items[i]
+		workspacesByType[strings.ToLower(string(workspaces.Items[i].Spec.Type.Name))] = workspaces.Items[i]
 	}
 
 	for initializer, expected := range map[string][]tenancyv1alpha1.ClusterWorkspace{
@@ -242,7 +245,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Adding a new workspace that both watchers should see")
-	ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypeNames["gamma"], testLabelSelector), metav1.CreateOptions{})
+	ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes["gamma"], testLabelSelector), metav1.CreateOptions{})
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		workspace, err := sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
@@ -326,14 +329,17 @@ func pruneVolatileFields(items []tenancyv1alpha1.ClusterWorkspace) []tenancyv1al
 	return items
 }
 
-func workspaceForType(workspaceType string, testLabelSelector map[string]string) *tenancyv1alpha1.ClusterWorkspace {
+func workspaceForType(workspaceType *tenancyv1alpha1.ClusterWorkspaceType, testLabelSelector map[string]string) *tenancyv1alpha1.ClusterWorkspace {
 	return &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-workspace-",
 			Labels:       testLabelSelector,
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: strings.ToUpper(string(workspaceType[0])) + workspaceType[1:],
+			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToUpper(string(workspaceType.Name[0])) + workspaceType.Name[1:]),
+				Path: logicalcluster.From(workspaceType).String(),
+			},
 		},
 	}
 }

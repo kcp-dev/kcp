@@ -35,6 +35,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/utils/diff"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
@@ -77,6 +78,7 @@ func TestAdmit(t *testing.T) {
 	tests := []struct {
 		name        string
 		types       []*tenancyv1alpha1.ClusterWorkspaceType
+		workspaces  []*tenancyv1alpha1.ClusterWorkspace
 		a           admission.Attributes
 		expectedObj runtime.Object
 		wantErr     bool
@@ -86,7 +88,8 @@ func TestAdmit(t *testing.T) {
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
+						Name:        "foo",
+						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
@@ -98,7 +101,10 @@ func TestAdmit(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -112,7 +118,10 @@ func TestAdmit(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
@@ -124,7 +133,10 @@ func TestAdmit(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -139,7 +151,8 @@ func TestAdmit(t *testing.T) {
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
+						Name:        "foo",
+						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
@@ -151,7 +164,10 @@ func TestAdmit(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -165,7 +181,10 @@ func TestAdmit(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
@@ -177,7 +196,10 @@ func TestAdmit(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -228,7 +250,8 @@ func TestAdmit(t *testing.T) {
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
+						Name:        "foo",
+						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
@@ -247,7 +270,10 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 			}),
 			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
@@ -259,7 +285,61 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			},
+		},
+		{
+			name: "adds default workspace type if missing",
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						DefaultChildWorkspaceType: "Foo",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+				},
+			},
+			a: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{},
+			}),
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 			},
 		},
@@ -267,10 +347,11 @@ func TestAdmit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &clusterWorkspaceTypeExists{
-				Handler:    admission.NewHandler(admission.Create, admission.Update),
-				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
+				Handler:         admission.NewHandler(admission.Create, admission.Update),
+				typeLister:      fakeClusterWorkspaceTypeLister(tt.types),
+				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org:ws")})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
@@ -287,9 +368,11 @@ func TestAdmit(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name  string
-		types []*tenancyv1alpha1.ClusterWorkspaceType
-		attr  admission.Attributes
+		name       string
+		types      []*tenancyv1alpha1.ClusterWorkspaceType
+		workspaces []*tenancyv1alpha1.ClusterWorkspace
+		attr       admission.Attributes
+		path       logicalcluster.Name
 
 		authzDecision authorizer.Decision
 		authzError    error
@@ -298,10 +381,38 @@ func TestValidate(t *testing.T) {
 	}{
 		{
 			name: "passes create if type exists",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Foo"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Parent"},
 					},
 				},
 			},
@@ -310,29 +421,48 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 			}),
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "fails if type does not exists",
-			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+			name: "passes create if parent type allows all children",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
-				},
-			}),
-			wantErr: true,
-		},
-		{
-			name: "fails if type only exists in different workspace",
+			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:bigcorp#$#foo",
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Any"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Parent"},
 					},
 				},
 			},
@@ -341,19 +471,267 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}),
+			authzDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "passes create if child type allows all parents",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Foo"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Any"},
+					},
+				},
+			},
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}),
+			authzDecision: authorizer.DecisionAllow,
+		},
+		{
+			name:       "passes create if parent type missing but parent workspace is root",
+			path:       logicalcluster.New("root"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Any"},
+					},
+				},
+			},
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root",
+					},
+				},
+			}),
+			authzDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "fails if type does not exist",
+			path: logicalcluster.New("root:org:ws"),
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fails if type only exists in unrelated workspace",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Foo"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:bigcorp",
+					},
+				},
+			},
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fails if parent type doesn't allow child workspaces",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Any"},
+					},
+				},
+			},
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fails if child type doesn't allow parent workspaces",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Any"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{},
+					},
+				},
+			},
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 			}),
 			wantErr: true,
 		},
 		{
 			name: "fails if not allowed",
+			path: logicalcluster.New("root:org:ws"),
 			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 			}),
 			authzDecision: authorizer.DecisionNoOpinion,
@@ -361,36 +739,35 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "fails if denied",
-			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
-				},
-			}),
-			authzDecision: authorizer.DecisionDeny,
-			wantErr:       true,
-		},
-		{
-			name: "fails if authz error",
-			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
-				},
-			}),
-			authzError: errors.New("authorizer error"),
-			wantErr:    true,
-		},
-		{
-			name: "Universal works when it exists",
+			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#universal",
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Foo"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
 					},
 				},
 			},
@@ -399,20 +776,98 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Universal",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 			}),
-			authzDecision: authorizer.DecisionAllow,
+			authzDecision: authorizer.DecisionDeny,
+			wantErr:       true,
 		},
 		{
-			name: "validates initializers on phase transition",
+			name: "fails if authz error",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
+						Name:        "parent",
+						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Foo"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+				},
+			},
+			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}),
+			authzError: errors.New("authorizer error"),
+			wantErr:    true,
+		},
+		{
+			name: "validates initializers on phase transition",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "parent",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Foo"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						Initializers:                []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Any"},
 					},
 				},
 			},
@@ -421,7 +876,10 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: "Foo",
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -433,7 +891,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase: tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
@@ -443,13 +904,39 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "passes with all initializers or more on phase transition",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "ws",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Parent",
+							Path: "root:org",
+						},
+					},
+				},
+			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "root:org#$#foo",
+						Name:        "parent",
+						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Foo"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						Initializers:                []tenancyv1alpha1.ClusterWorkspaceInitializer{"a", "b"},
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{"Any"},
 					},
 				},
 			},
@@ -459,7 +946,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -473,7 +963,10 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: "Foo",
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "Foo",
+							Path: "root:org",
+						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 						Phase: tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
@@ -482,6 +975,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:  "ignores different resources",
+			path:  logicalcluster.New("root:org:ws"),
 			types: nil,
 			attr: admission.NewAttributesRecord(
 				&tenancyv1alpha1.ClusterWorkspaceShard{
@@ -505,8 +999,9 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &clusterWorkspaceTypeExists{
-				Handler:    admission.NewHandler(admission.Create, admission.Update),
-				typeLister: fakeClusterWorkspaceTypeLister(tt.types),
+				Handler:         admission.NewHandler(admission.Create, admission.Update),
+				typeLister:      fakeClusterWorkspaceTypeLister(tt.types),
+				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
@@ -514,7 +1009,7 @@ func TestValidate(t *testing.T) {
 					}, nil
 				},
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -538,11 +1033,34 @@ func (l fakeClusterWorkspaceTypeLister) Get(name string) (*tenancyv1alpha1.Clust
 
 func (l fakeClusterWorkspaceTypeLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	for _, t := range l {
-		if t.Name == name {
+		if clusters.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
 			return t, nil
 		}
 	}
 	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetype"), name)
+}
+
+type fakeClusterWorkspaceLister []*tenancyv1alpha1.ClusterWorkspace
+
+func (l fakeClusterWorkspaceLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
+	return l.ListWithContext(context.Background(), selector)
+}
+
+func (l fakeClusterWorkspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
+	return l, nil
+}
+
+func (l fakeClusterWorkspaceLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+	return l.GetWithContext(context.Background(), name)
+}
+
+func (l fakeClusterWorkspaceLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+	for _, t := range l {
+		if clusters.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
+			return t, nil
+		}
+	}
+	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspace"), name)
 }
 
 type fakeAuthorizer struct {

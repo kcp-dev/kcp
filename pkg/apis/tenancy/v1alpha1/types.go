@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
@@ -74,18 +76,42 @@ type ClusterWorkspaceSpec struct {
 
 	// type defines properties of the workspace both on creation (e.g. initial
 	// resources and initially installed APIs) and during runtime (e.g. permissions).
+	// If no type is provided, the default type for the workspace in which this workspace
+	// is nesting will be used.
 	//
-	// The type is a reference to a ClusterWorkspaceType in the same workspace
-	// with the same name, but lower-cased. The ClusterWorkspaceType existence is
-	// validated at admission during creation, with the exception of the
-	// "Universal" type whose existence is not required but respected if it exists.
-	// The type is immutable after creation. The use of a type is gated via
+	// The type is a reference to a ClusterWorkspaceType in the listed workspace, but
+	// lower-cased. The ClusterWorkspaceType existence is validated at admission during
+	// creation. The type is immutable after creation. The use of a type is gated via
 	// the RBAC clusterworkspacetypes/use resource permission.
 	//
 	// +optional
-	// +kubebuilder:default:="Universal"
-	// +kubebuilder:validation:Pattern=`^[A-Z][a-zA-Z0-9]+$`
-	Type string `json:"type,omitempty"`
+	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
+}
+
+// ClusterWorkspaceTypeReference is a globally unique, fully qualified reference to a
+// cluster workspace type.
+type ClusterWorkspaceTypeReference struct {
+	// name is the name of the ClusterWorkspaceType
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	Name ClusterWorkspaceTypeName `json:"name"`
+
+	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	Path string `json:"path"`
+}
+
+// ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
+//
+// +kubebuilder:validation:Pattern=`^[A-Z][a-zA-Z0-9]+$`
+type ClusterWorkspaceTypeName string
+
+func (r ClusterWorkspaceTypeReference) String() string {
+	return fmt.Sprintf("%q in workspace %q", r.Name, r.Path)
 }
 
 // ClusterWorkspaceType specifies behaviour of workspaces of this type.
@@ -117,6 +143,35 @@ type ClusterWorkspaceTypeSpec struct {
 	//
 	// +optional
 	AdditionalWorkspaceLabels map[string]string `json:"additionalWorkspaceLabels,omitempty"`
+
+	// defaultChildWorkspaceType is the ClusterWorkspaceType that will be used
+	// by default if another, nested ClusterWorkspace is created in a workspace
+	// of this type. When this field is unset, the user must specify a type when
+	// creating nested workspaces.
+	//
+	// +optional
+	DefaultChildWorkspaceType ClusterWorkspaceTypeName `json:"defaultChildWorkspaceType,omitempty"`
+
+	// allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes that can be
+	// created in a workspace of this type.
+	//
+	// By default, no type is allowed. This means no other workspace can be nested
+	// within a workspace of the given type. The name `*` allows any child type to
+	// be nested.
+	//
+	// +optional
+	AllowedChildWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedChildWorkspaceTypes,omitempty"`
+
+	// allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type
+	// can be created in.
+	//
+	// By default, no type is allowed. This means no other workspace can have a
+	// workspace of the given type nested inside it. The name `*` allows any parent
+	// type to nest this one.
+	//
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedParentWorkspaceTypes,omitempty"`
 }
 
 // ClusterWorkspaceTypeList is a list of cluster workspace types
@@ -324,4 +379,11 @@ const (
 	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
 	// webhook.
 	ClusterWorkspaceInitializerLabelPrefix = "initializer.internal.kcp.dev-"
+)
+
+const (
+	// AnyWorkspaceType is used in allowed child and parent type lists to denote that any type is permissible.
+	AnyWorkspaceType = ClusterWorkspaceTypeName("Any")
+	// RootWorkspaceType is a reference to the root logical cluster, which has no cluster workspace type
+	RootWorkspaceType = ClusterWorkspaceTypeName("Root")
 )

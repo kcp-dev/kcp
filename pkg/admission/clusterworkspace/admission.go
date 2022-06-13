@@ -107,7 +107,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 		if errs := validation.ValidateImmutableField(cw.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
 			return admission.NewForbidden(a, errs.ToAggregate())
 		}
-		if old.Spec.Type != cw.Spec.Type {
+		if old.Spec.Type.Path != cw.Spec.Type.Path || old.Spec.Type.Name != cw.Spec.Type.Name {
 			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
 		}
 

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -54,6 +55,8 @@ type clusterWorkspaceType struct {
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&clusterWorkspaceType{})
 
+var nameRegex = regexp.MustCompile(`^[a-z][a-zA-Z0-9]+$`)
+
 func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspacetypes") {
 		return nil
@@ -66,6 +69,10 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 	cwt := &tenancyv1alpha1.ClusterWorkspaceType{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cwt); err != nil {
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
+	}
+
+	if !nameRegex.MatchString(cwt.Name) {
+		return fmt.Errorf("cluster workspace type names must match regexp %q", nameRegex)
 	}
 
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
