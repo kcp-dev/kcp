@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// Locations returns a LocationInformer.
 	Locations() LocationInformer
+	// Placements returns a PlacementInformer.
+	Placements() PlacementInformer
 }
 
 type version struct {
@@ -42,4 +44,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // Locations returns a LocationInformer.
 func (v *version) Locations() LocationInformer {
 	return &locationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Placements returns a PlacementInformer.
+func (v *version) Placements() PlacementInformer {
+	return &placementInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

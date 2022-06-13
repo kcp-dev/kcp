@@ -66,7 +66,10 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 	}
 
 	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
-		crds = append(crds, metav1.GroupResource{Group: scheduling.GroupName, Resource: "locations"})
+		crds = append(crds,
+			metav1.GroupResource{Group: scheduling.GroupName, Resource: "locations"},
+			metav1.GroupResource{Group: scheduling.GroupName, Resource: "placements"},
+		)
 	}
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {

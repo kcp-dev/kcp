@@ -32,6 +32,7 @@ import (
 type SchedulingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	LocationsGetter
+	PlacementsGetter
 }
 
 // SchedulingV1alpha1Client is used to interact with features provided by the scheduling.kcp.dev group.
@@ -42,6 +43,10 @@ type SchedulingV1alpha1Client struct {
 
 func (c *SchedulingV1alpha1Client) Locations() LocationInterface {
 	return newLocations(c)
+}
+
+func (c *SchedulingV1alpha1Client) Placements() PlacementInterface {
+	return newPlacements(c)
 }
 
 // NewForConfig creates a new SchedulingV1alpha1Client for the given config.
