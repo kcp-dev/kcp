@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -65,6 +66,98 @@ func updateAttr(newAPIBinding, oldAPIBinding *apisv1alpha1.APIBinding) admission
 		false,
 		&user.DefaultInfo{},
 	)
+}
+
+func TestAdmit(t *testing.T) {
+	tests := []struct {
+		name           string
+		attr           admission.Attributes
+		authzDecision  authorizer.Decision
+		authzError     error
+		expectedErrors []string
+		expectedObject runtime.Object
+	}{
+		{
+			name: "Create: passes with no reference",
+			attr: createAttr(
+				newAPIBinding().withName("test").APIBinding,
+			),
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").APIBinding),
+		},
+		{
+			name: "Create: with absolute workspace reference",
+			attr: createAttr(
+				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:aunt", "someExport").APIBinding,
+			),
+			authzDecision:  authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:aunt", "someExport").APIBinding),
+		},
+		{
+			name: "Create: with absolute workspace reference",
+			attr: createAttr(
+				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "someExport").APIBinding,
+			),
+			authzDecision:  authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:ws", "someExport").APIBinding),
+		},
+		{
+			name: "Update: with absolute workspace reference",
+			attr: updateAttr(
+				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
+				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
+			),
+			authzDecision:  authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding),
+		},
+		{
+			name: "Update: with changing absolute workspace reference",
+			attr: updateAttr(
+				newAPIBinding().withAbsoluteWorkspaceReference("root:org:foo", "someExport").APIBinding,
+				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
+			),
+			authzDecision:  authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withAbsoluteWorkspaceReference("root:org:foo", "someExport").APIBinding),
+		},
+		{
+			name: "Update: without absolute workspace reference",
+			attr: updateAttr(
+				newAPIBinding().withAbsoluteWorkspaceReference("", "someExport").APIBinding,
+				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
+			),
+			authzDecision:  authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withAbsoluteWorkspaceReference("root:org:ws", "someExport").APIBinding),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			o := &apiBindingAdmission{
+				Handler: admission.NewHandler(admission.Create, admission.Update),
+				createAuthorizer: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+					return &fakeAuthorizer{
+						tc.authzDecision,
+						tc.authzError,
+					}, nil
+				},
+			}
+
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.From(tc.attr.GetObject().(metav1.Object))})
+
+			err := o.Admit(ctx, tc.attr, nil)
+
+			wantErr := len(tc.expectedErrors) > 0
+			require.Equal(t, wantErr, err != nil)
+
+			if err != nil {
+				t.Logf("Got admission errors: %v", err)
+				for _, expected := range tc.expectedErrors {
+					require.Contains(t, err.Error(), expected)
+				}
+			} else {
+				require.Equal(t, tc.expectedObject, tc.attr.GetObject())
+			}
+		})
+	}
 }
 
 func TestValidate(t *testing.T) {
