@@ -19,7 +19,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -523,7 +522,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		klog.Errorf("failed to get delegated authorizer for logical cluster %s", userInfo.GetName(), orgClusterName)
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
 	}
-	typeName := strings.ToLower(string(workspace.Spec.Type.Name))
+	typeName := tenancyv1alpha1.ObjectName(workspace.Spec.Type.Name)
 	if len(typeName) == 0 {
 		typeName = "universal"
 	}

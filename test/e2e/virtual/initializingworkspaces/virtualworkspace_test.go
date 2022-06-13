@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"math/rand"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +38,7 @@ import (
 	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -128,33 +128,27 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 	clusterWorkspaceTypeNames := map[string]string{}
 	for _, name := range []string{
-		"alpha", "beta", "gamma",
+		"alpha",
 	} {
 		clusterWorkspaceTypeNames[name] = name + suffix()
 	}
 	clusterWorkspaceInitializerNames := map[string]tenancyv1alpha1.ClusterWorkspaceInitializer{}
 	for _, name := range []string{
-		"alpha", "beta",
+		"alpha",
 	} {
 		clusterWorkspaceInitializerNames[name] = tenancyv1alpha1.ClusterWorkspaceInitializer(name + "-" + suffix())
 	}
 
 	clusterWorkspaceTypes := map[string]*tenancyv1alpha1.ClusterWorkspaceType{}
-	for name, initializers := range map[string][]string{
-		"alpha": {"alpha"},
-		"beta":  {"beta"},
-		"gamma": {"alpha", "beta"},
+	for _, name := range []string{
+		"alpha",
 	} {
-		var initializerNames []tenancyv1alpha1.ClusterWorkspaceInitializer
-		for _, initializerName := range initializers {
-			initializerNames = append(initializerNames, clusterWorkspaceInitializerNames[initializerName])
-		}
 		cwt, err := sourceKcpTenancyClient.ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterWorkspaceTypeNames[name],
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-				Initializers:                initializerNames,
+				Initializer:                 true,
 				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
 			},
 		}, metav1.CreateOptions{})
@@ -164,7 +158,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	t.Log("Create workspaces that using the new types, which will get stuck in initializing")
 	for _, workspaceType := range []string{
-		"alpha", "beta", "gamma",
+		"alpha",
 	} {
 		_, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
 		require.NoError(t, err)
@@ -179,7 +173,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			t.Logf("error listing workspaces: %v", err)
 			return false
 		}
-		if len(workspaces.Items) != 3 {
+		if len(workspaces.Items) != 1 {
 			t.Logf("got %d workspaces, expected 3", len(workspaces.Items))
 			return false
 		}
@@ -193,9 +187,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	clients := map[string]tenancyv1alpha1client.ClusterWorkspaceInterface{}
 	for _, initializer := range []string{
-		"alpha", "beta",
+		"alpha",
 	} {
-		initializerName := clusterWorkspaceInitializerNames[initializer]
+		initializerName := initialization.InitializerForType(clusterWorkspaceTypes[initializer])
 		virtualWorkspaceRawConfig.Clusters[initializer] = adminCluster.DeepCopy()
 		virtualWorkspaceRawConfig.Clusters[initializer].Server = adminCluster.Server + "/services/initializingworkspaces/" + string(initializerName)
 		virtualWorkspaceRawConfig.Contexts[initializer] = adminContext.DeepCopy()
@@ -214,12 +208,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	require.NoError(t, err)
 	workspacesByType := map[string]tenancyv1alpha1.ClusterWorkspace{}
 	for i := range workspaces.Items {
-		workspacesByType[strings.ToLower(string(workspaces.Items[i].Spec.Type.Name))] = workspaces.Items[i]
+		workspacesByType[tenancyv1alpha1.ObjectName(workspaces.Items[i].Spec.Type.Name)] = workspaces.Items[i]
 	}
 
 	for initializer, expected := range map[string][]tenancyv1alpha1.ClusterWorkspace{
-		"alpha": {workspacesByType[clusterWorkspaceTypeNames["alpha"]], workspacesByType[clusterWorkspaceTypeNames["gamma"]]},
-		"beta":  {workspacesByType[clusterWorkspaceTypeNames["beta"]], workspacesByType[clusterWorkspaceTypeNames["gamma"]]},
+		"alpha": {workspacesByType[clusterWorkspaceTypeNames["alpha"]]},
 	} {
 		sort.Slice(expected, func(i, j int) bool {
 			return expected[i].UID < expected[j].UID
@@ -235,7 +228,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Log("Start WATCH streams to confirm behavior on changes")
 	watchers := map[string]watch.Interface{}
 	for _, initializer := range []string{
-		"alpha", "beta",
+		"alpha",
 	} {
 		watcher, err := clients[initializer].Watch(ctx, metav1.ListOptions{
 			ResourceVersion: workspaces.ResourceVersion,
@@ -244,8 +237,8 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		watchers[initializer] = watcher
 	}
 
-	t.Log("Adding a new workspace that both watchers should see")
-	ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes["gamma"], testLabelSelector), metav1.CreateOptions{})
+	t.Log("Adding a new workspace that the watchers should see")
+	ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes["alpha"], testLabelSelector), metav1.CreateOptions{})
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		workspace, err := sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
@@ -336,10 +329,7 @@ func workspaceForType(workspaceType *tenancyv1alpha1.ClusterWorkspaceType, testL
 			Labels:       testLabelSelector,
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToUpper(string(workspaceType.Name[0])) + workspaceType.Name[1:]),
-				Path: logicalcluster.From(workspaceType).String(),
-			},
+			Type: tenancyv1alpha1.ReferenceFor(workspaceType),
 		},
 	}
 }
@@ -369,7 +359,8 @@ func workspaceLabelsUpToDate(t *testing.T, workspace tenancyv1alpha1.ClusterWork
 		return false
 	}
 	for _, initializer := range workspace.Status.Initializers {
-		if _, exists := workspace.ObjectMeta.Labels[string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix+initializer)]; !exists {
+		key, value := initialization.InitializerToLabel(initializer)
+		if got, exists := workspace.ObjectMeta.Labels[key]; !exists || got != value {
 			t.Logf("workspace %s initializer labels are not updated yet", workspace.Name)
 			return false
 		}

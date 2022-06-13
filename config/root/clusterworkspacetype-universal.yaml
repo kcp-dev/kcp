@@ -3,8 +3,7 @@ kind: ClusterWorkspaceType
 metadata:
   name: universal
 spec:
-  initializers:
-  - tenancy.kcp.dev/universal
+  initializer: true
   additionalWorkspaceLabels:
     workloads.kcp.dev/schedulable: "true"
   defaultChildWorkspaceType: Universal

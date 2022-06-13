@@ -168,8 +168,6 @@ type apiSetRetriever struct {
 }
 
 func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
-	initializerName := string(key)
-
 	crd, err := a.crdLister.Get(
 		clusters.ToClusterAwareKey(
 			logicalcluster.New(reservedcrdgroups.SystemCRDLogicalClusterName),
@@ -224,7 +222,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 			a.config,
 			apiResourceSchema,
 			version.Name,
-			provideForwardingRestStorage(ctx, a.dynamicClusterClient, initializerName),
+			provideForwardingRestStorage(ctx, a.dynamicClusterClient, tenancyv1alpha1.ClusterWorkspaceInitializer(key)),
 		)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to create serving info: %w", err)

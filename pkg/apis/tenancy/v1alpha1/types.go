@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -131,12 +132,19 @@ type ClusterWorkspaceType struct {
 }
 
 type ClusterWorkspaceTypeSpec struct {
-	// initializers are set of a ClusterWorkspace on creation and must be
-	// cleared by a controller before the workspace can be used. The workspace
-	// will stay in the phase "Initializing" state until all initializers are cleared.
+	// initializer determines if this ClusterWorkspaceType has an associated initializing
+	// controller. These controllers are used to add functionality to a ClusterWorkspace;
+	// all controllers must finish their work before the ClusterWorkspace becomes ready
+	// for use.
+	//
+	// One initializing controller is supported per ClusterWorkspaceType; the identifier
+	// for this initializer will be a colon-delimited string using the workspace in which
+	// the ClusterWorkspaceType is defined, and the type's name. For example, if a
+	// ClusterWorkspaceType `example` is created in the `root:org` workspace, the implicit
+	// initializer name is `root:org:example`.
 	//
 	// +optional
-	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+	Initializer bool `json:"initializer,omitempty"`
 
 	// additionalWorkspaceLabels are a set of labels that will be added to a
 	// ClusterWorkspace on creation.
@@ -174,6 +182,26 @@ type ClusterWorkspaceTypeSpec struct {
 	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedParentWorkspaceTypes,omitempty"`
 }
 
+// ObjectName converts the proper name of a type that users interact with to the
+// metadata.name of the ClusterWorkspaceType object.
+func ObjectName(typeName ClusterWorkspaceTypeName) string {
+	return strings.ToLower(string(typeName))
+}
+
+// TypeName converts the metadata.name of a ClusterWorkspaceType to the proper
+// name of a type, as users interact with it.
+func TypeName(objectName string) ClusterWorkspaceTypeName {
+	return ClusterWorkspaceTypeName(strings.ToUpper(string(objectName[0])) + objectName[1:])
+}
+
+// ReferenceFor returns a reference to the type.
+func ReferenceFor(cwt *ClusterWorkspaceType) ClusterWorkspaceTypeReference {
+	return ClusterWorkspaceTypeReference{
+		Name: TypeName(cwt.Name),
+		Path: logicalcluster.From(cwt).String(),
+	}
+}
+
 // ClusterWorkspaceTypeList is a list of cluster workspace types
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -187,8 +215,7 @@ type ClusterWorkspaceTypeList struct {
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
-// +kubebuilder:validation:MaxLength=32
-// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`
+// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[A-Z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$"
 type ClusterWorkspaceInitializer string
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
@@ -378,7 +405,7 @@ const (
 	// ClusterWorkspaceInitializerLabelPrefix is the prefix for labels which match ClusterWorkspace.Status.Initializers,
 	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
 	// webhook.
-	ClusterWorkspaceInitializerLabelPrefix = "initializer.internal.kcp.dev-"
+	ClusterWorkspaceInitializerLabelPrefix = "initializer.internal.kcp.dev/"
 )
 
 const (

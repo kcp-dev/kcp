@@ -2670,19 +2670,11 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"initializers": {
+					"initializer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "initializers are set of a ClusterWorkspace on creation and must be cleared by a controller before the workspace can be used. The workspace will stay in the phase \"Initializing\" state until all initializers are cleared.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
+							Description: "initializer determines if this ClusterWorkspaceType has an associated initializing controller. These controllers are used to add functionality to a ClusterWorkspace; all controllers must finish their work before the ClusterWorkspace becomes ready for use.\n\nOne initializing controller is supported per ClusterWorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the ClusterWorkspaceType is defined, and the type's name. For example, if a ClusterWorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:example`.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"additionalWorkspaceLabels": {
