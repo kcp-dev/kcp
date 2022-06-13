@@ -9,7 +9,6 @@
       not:
         enum:
         - root
-        - org
         - system
         - any
 - op: add
