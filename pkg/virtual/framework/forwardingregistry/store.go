@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	"github.com/kcp-dev/logicalcluster"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -72,9 +73,10 @@ func DefaultDynamicDelegatedStoreFuncs(
 	dynamicClusterClient dynamic.ClusterInterface,
 	subResources []string,
 	patchConflictRetryBackoff wait.Backoff,
+	transformers transforming.Transformers,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
-	client := clientGetter(dynamicClusterClient, createStrategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	client := clientGetter(dynamicClusterClient, createStrategy.NamespaceScoped(), resource, apiExportIdentityHash, transformers)
 	s := &StoreFuncs{}
 	s.FactoryFunc = factory
 	s.ListFactoryFunc = listFactory
@@ -173,6 +175,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Watch(watchCtx, v1ListOptions)
 	}
+
 	s.TableConvertorFunc = tableConvertor.ConvertToTable
 	s.CategoriesProviderFunc = func() []string {
 		return categories
@@ -181,7 +184,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 	return s
 }
 
-func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
+func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string, transformers transforming.Transformers) func(ctx context.Context) (dynamic.ResourceInterface, error) {
 	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
@@ -197,14 +200,24 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 		}
 		client := dynamicClusterClient.Cluster(clusterName)
 
-		if namespaceScoped {
-			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-				return client.Resource(gvr).Namespace(namespace), nil
-			} else {
-				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
-			}
+		if !namespaceScoped {
+			return &transforming.TransformingClient{
+				Transformations: transformers,
+				Client:          client.Resource(gvr),
+				Namespace:       "",
+				Resource:        gvr,
+			}, nil
+		}
+
+		if namespace, exists := genericapirequest.NamespaceFrom(ctx); exists {
+			return &transforming.TransformingClient{
+				Transformations: transformers,
+				Client:          client.Resource(gvr).Namespace(namespace),
+				Namespace:       namespace,
+				Resource:        gvr,
+			}, nil
 		} else {
-			return client.Resource(gvr), nil
+			return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
 		}
 	}
 }

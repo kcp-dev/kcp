@@ -29,6 +29,8 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
+
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 )
 
 // StorageWrapper allows consumers to wrap the delegating Store in order to add custom behavior around it.
@@ -37,7 +39,7 @@ type StorageWrapper func(schema.GroupResource, *StoreFuncs) *StoreFuncs
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
 func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiExportIdentityHash string, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) (mainStorage, statusStorage *StoreFuncs) {
+	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper, transformers transforming.Transformers) (mainStorage, statusStorage *StoreFuncs) {
 	if patchConflictRetryBackoff == nil {
 		patchConflictRetryBackoff = &retry.DefaultRetry
 	}
@@ -65,7 +67,7 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 		factory, listFactory, destroyer,
 		strategy, strategy, strategy, tableConvertor, strategy,
 		resource, apiExportIdentityHash, categories,
-		dynamicClusterClient, []string{}, *patchConflictRetryBackoff, ctx.Done(),
+		dynamicClusterClient, []string{}, *patchConflictRetryBackoff, transformers, ctx.Done(),
 	)
 	store := wrapper(resource.GroupResource(), delegate)
 
@@ -74,7 +76,7 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 		factory, listFactory, destroyer,
 		strategy, statusStrategy, strategy, tableConvertor, statusStrategy,
 		resource, apiExportIdentityHash, categories,
-		dynamicClusterClient, []string{"status"}, *patchConflictRetryBackoff, ctx.Done(),
+		dynamicClusterClient, []string{"status"}, *patchConflictRetryBackoff, transformers, ctx.Done(),
 	)
 	delegateUpdate := statusDelegate.UpdaterFunc
 	statusDelegate.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
