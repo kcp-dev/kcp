@@ -40,10 +40,10 @@ Yes! This work is still in early development, which means it's _not ready for pr
 
 `kcp` is currently a prototype, not a project. We're exploring these ideas here to try them out, experiment, and bounce them off each other.
 
-## Prototype 2 demo
-  Check out our latest demo recording showing workspaces, transparent multi-cluster, and API inheritance!
+## Latest demo: v0.4
+Check out our latest demo recording showing workspaces, transparent multi-cluster, and API inheritance!
 
- [![asciicast](https://asciinema.org/a/471709.svg)](https://asciinema.org/a/471709)
+[![Watch the video](https://img.youtube.com/vi/0trUxoQqdNk/0.jpg)](https://youtu.be/0trUxoQqdNk)
 
 ## Can `kcp` do anything else?
 
