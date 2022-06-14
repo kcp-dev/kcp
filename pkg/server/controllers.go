@@ -61,6 +61,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
@@ -421,6 +422,15 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
+	workspaceTypeController, err := clusterworkspacetype.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+	)
+	if err != nil {
+		return err
+	}
+
 	organizationController, err := bootstrap.NewController(
 		dynamicClusterClient,
 		crdClusterClient,
@@ -466,6 +476,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 		go workspaceController.Start(ctx, 2)
 		go workspaceShardController.Start(ctx, 2)
+		go workspaceTypeController.Start(ctx, 2)
 		go organizationController.Start(ctx, 2)
 		go teamController.Start(ctx, 2)
 		go universalController.Start(ctx, 2)
