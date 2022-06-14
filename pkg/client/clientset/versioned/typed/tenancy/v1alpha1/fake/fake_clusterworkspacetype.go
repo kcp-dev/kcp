@@ -97,6 +97,17 @@ func (c *FakeClusterWorkspaceTypes) Update(ctx context.Context, clusterWorkspace
 	return obj.(*v1alpha1.ClusterWorkspaceType), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeClusterWorkspaceTypes) UpdateStatus(ctx context.Context, clusterWorkspaceType *v1alpha1.ClusterWorkspaceType, opts v1.UpdateOptions) (*v1alpha1.ClusterWorkspaceType, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewRootUpdateSubresourceAction(clusterworkspacetypesResource, "status", clusterWorkspaceType), &v1alpha1.ClusterWorkspaceType{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.ClusterWorkspaceType), err
+}
+
 // Delete takes name of the clusterWorkspaceType and deletes it. Returns an error if one occurs.
 func (c *FakeClusterWorkspaceTypes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.

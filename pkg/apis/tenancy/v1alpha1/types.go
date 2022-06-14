@@ -129,6 +129,9 @@ type ClusterWorkspaceType struct {
 
 	// +optional
 	Spec ClusterWorkspaceTypeSpec `json:"spec,omitempty"`
+
+	// +optional
+	Status ClusterWorkspaceTypeStatus `json:"status,omitempty"`
 }
 
 type ClusterWorkspaceTypeSpec struct {
@@ -180,6 +183,42 @@ type ClusterWorkspaceTypeSpec struct {
 	// +optional
 	// +kubebuilder:validation:MinItems=1
 	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedParentWorkspaceTypes,omitempty"`
+}
+
+// These are valid conditions of ClusterWorkspaceType.
+const (
+	ClusterWorkspaceTypeVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
+
+	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
+)
+
+// ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.
+type ClusterWorkspaceTypeStatus struct {
+	// conditions is a list of conditions that apply to the APIExport.
+	//
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// virtualWorkspaces contains all APIExport virtual workspace URLs.
+	// +optional
+	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
+}
+
+type VirtualWorkspace struct {
+	// url is a ClusterWorkspaceType initialization virtual workspace URL.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	URL string `json:"url"`
+}
+
+func (in *ClusterWorkspaceType) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+func (in *ClusterWorkspaceType) SetConditions(conditions conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = conditions
 }
 
 // ObjectName converts the proper name of a type that users interact with to the

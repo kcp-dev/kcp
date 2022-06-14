@@ -43,6 +43,7 @@ type ClusterWorkspaceTypesGetter interface {
 type ClusterWorkspaceTypeInterface interface {
 	Create(ctx context.Context, clusterWorkspaceType *v1alpha1.ClusterWorkspaceType, opts v1.CreateOptions) (*v1alpha1.ClusterWorkspaceType, error)
 	Update(ctx context.Context, clusterWorkspaceType *v1alpha1.ClusterWorkspaceType, opts v1.UpdateOptions) (*v1alpha1.ClusterWorkspaceType, error)
+	UpdateStatus(ctx context.Context, clusterWorkspaceType *v1alpha1.ClusterWorkspaceType, opts v1.UpdateOptions) (*v1alpha1.ClusterWorkspaceType, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ClusterWorkspaceType, error)
@@ -131,6 +132,22 @@ func (c *clusterWorkspaceTypes) Update(ctx context.Context, clusterWorkspaceType
 		Cluster(c.cluster).
 		Resource("clusterworkspacetypes").
 		Name(clusterWorkspaceType.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(clusterWorkspaceType).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *clusterWorkspaceTypes) UpdateStatus(ctx context.Context, clusterWorkspaceType *v1alpha1.ClusterWorkspaceType, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspaceType, err error) {
+	result = &v1alpha1.ClusterWorkspaceType{}
+	err = c.client.Put().
+		Cluster(c.cluster).
+		Resource("clusterworkspacetypes").
+		Name(clusterWorkspaceType.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterWorkspaceType).
 		Do(ctx).
