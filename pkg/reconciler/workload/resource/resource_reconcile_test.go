@@ -204,7 +204,7 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"state.internal.workload.kcp.dev/cluster-1": "Sync",
 			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			},
 		}, {name: "Object is marked for deletion and has multiple locations",
 			obj: object(nil, map[string]string{
@@ -213,9 +213,9 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"state.internal.workload.kcp.dev/cluster-3": "Sync",
 			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
-				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02 10:00:00 +0000 UTC",
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00Z",
 			},
 		},
 		{name: "Object is marked for deletion, has one location and the annotationPatch has some value, should be maintained",
@@ -226,13 +226,13 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"new-annotation-that-we-dont-care-about": "new-value",
 			},
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 				"new-annotation-that-we-dont-care-about":       "new-value",
 			},
 		},
 		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, no change",
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			}, map[string]string{
 				"state.internal.workload.kcp.dev/cluster-1": "Sync",
 			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
@@ -251,7 +251,7 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"state.internal.workload.kcp.dev/cluster-1": "",
 			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			},
 		},
 		{name: "Object is marked for deletion and has no locations",

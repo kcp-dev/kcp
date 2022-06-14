@@ -120,7 +120,7 @@ func propagateDeletionTimestamp(obj metav1.Object, annotationPatch map[string]in
 	}
 	for location := range objLocations {
 		if val, ok := objAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location]; !ok || val == "" {
-			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location] = obj.GetDeletionTimestamp().String()
+			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location] = obj.GetDeletionTimestamp().Format(time.RFC3339)
 		}
 	}
 	return annotationPatch
