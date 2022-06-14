@@ -22,13 +22,9 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 type reconcileStatus int
@@ -39,20 +35,16 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error)
+	reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error)
 }
 
-func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error {
+func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) error {
 	reconcilers := []reconciler{
 		&placementReconciler{
-			listAPIBindings:      c.listAPIBindings,
-			listLocations:        c.listLocations,
-			listWorkloadClusters: c.listWorkloadClusters,
-			patchNamespace:       c.patchNamespace,
-			enqueueAfter:         c.enqueueAfter,
+			listLocations: c.listLocations,
 		},
-		&statusConditionReconciler{
-			patchNamespace: c.patchNamespace,
+		&placementNamespaceReconciler{
+			listNamespacesWithAnnotation: c.listNamespacesWithAnnotation,
 		},
 	}
 
@@ -61,7 +53,7 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	for _, r := range reconcilers {
 		var err error
 		var status reconcileStatus
-		status, ns, err = r.reconcile(ctx, ns)
+		status, placement, err = r.reconcile(ctx, placement)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -71,18 +63,6 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	}
 
 	return utilserrors.NewAggregate(errs)
-}
-
-func (c *controller) listAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-	items, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apisv1alpha1.APIBinding, 0, len(items))
-	for _, item := range items {
-		ret = append(ret, item.(*apisv1alpha1.APIBinding))
-	}
-	return ret, nil
 }
 
 func (c *controller) listLocations(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
@@ -97,18 +77,18 @@ func (c *controller) listLocations(clusterName logicalcluster.Name) ([]*scheduli
 	return ret, nil
 }
 
-func (c *controller) listWorkloadClusters(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
-	items, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
+func (c *controller) listNamespacesWithAnnotation(clusterName logicalcluster.Name) ([]*corev1.Namespace, error) {
+	items, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*workloadv1alpha1.WorkloadCluster, 0, len(items))
+	ret := make([]*corev1.Namespace, 0, len(items))
 	for _, item := range items {
-		ret = append(ret, item.(*workloadv1alpha1.WorkloadCluster))
+		ns := item.(*corev1.Namespace)
+		_, foundPlacement := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
+		if foundPlacement {
+			ret = append(ret, ns)
+		}
 	}
 	return ret, nil
-}
-
-func (c *controller) patchNamespace(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
-	return c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, name, pt, data, opts, subresources...)
 }

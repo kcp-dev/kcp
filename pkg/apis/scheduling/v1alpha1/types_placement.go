@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
 // placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.
@@ -48,10 +49,21 @@ type Placement struct {
 	Status PlacementStatus `json:"status,omitempty"`
 }
 
+func (in *Placement) SetConditions(c conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = c
+}
+
+func (in *Placement) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+var _ conditions.Getter = &Placement{}
+var _ conditions.Setter = &Placement{}
+
 type PlacementSpec struct {
 	// loacationSelectors represents a slice of label selector to select a location, these label selectors
 	// are logically ORed.
-	LoacationSelectors []metav1.LabelSelector `json:"locationSelectors,omitempty"`
+	LocationSelectors []metav1.LabelSelector `json:"locationSelectors,omitempty"`
 
 	// locationResource is the group-version-resource of the instances that are subject to the locations to select.
 	//
@@ -118,6 +130,25 @@ const (
 	// PlacementBound is the phase that the location has been selected by the placement, and at
 	// least one namespace has been bound to this placement.
 	PlacementBound = "Bound"
+)
+
+const (
+	// PlacementReady is a condition type for placement representing that the placement is ready
+	// for scheduling. The placement is NOT ready when location cannot be found for the placement,
+	// or the selected location does not match the placement spec.
+	PlacementReady conditionsv1alpha1.ConditionType = "Ready"
+
+	// LocationNotFoundReason is a reason for PlacementReady condition that a location cannot be
+	// found for this placement.
+	LocationNotFoundReason = "LocationNotFound"
+
+	// LocationInvalidReason is a reason for PlacementReady condition that a location is not valid
+	// for this placement anymore.
+	LocationInvalidReason = "LocationInvalid"
+
+	// LocationNotMatchReason is a reason for PlacementReady condition that no matched location for
+	// this placement can be found.
+	LocationNotMatchReason = "LocationNoMatch"
 )
 
 // PlacementList is a list of locations.

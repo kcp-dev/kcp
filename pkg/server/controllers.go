@@ -51,6 +51,7 @@ import (
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -64,6 +65,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/defaultplacement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
@@ -321,33 +323,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 	return nil
 }
 
-func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-namespace-scheduler")
-	kubeClient, err := kubernetes.NewClusterForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	namespaceScheduler := workloadnamespace.NewController(
-		kubeClient,
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.kubeSharedInformerFactory.Core().V1().Namespaces().Lister(),
-	)
-
-	s.AddPostStartHook("kcp-install-workload-namespace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
-		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			klog.Errorf("failed to finish post-start-hook kcp-install-namespace-scheduler: %v", err)
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go namespaceScheduler.Start(ctx, 2)
-		return nil
-	})
-	return nil
-}
-
-func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-resource-scheduler")
 	kubeClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
@@ -707,6 +683,81 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 	return nil
 }
 
+func (s *Server) installDefaultPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-workload-default-placement"
+	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := defaultplacement.NewController(
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-workload-namespace-scheduler"
+	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := workloadnamespace.NewController(
+		kubeClusterClient,
+		kcpClusterClient,
+		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Server) installSchedulingPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-scheduling-placement-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
@@ -723,9 +774,8 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 		kubeClusterClient,
 		kcpClusterClient,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
 	if err != nil {
 		return err
@@ -796,6 +846,7 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 	)
 	if err != nil {
 		return err

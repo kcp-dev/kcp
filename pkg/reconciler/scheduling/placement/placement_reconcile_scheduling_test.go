@@ -20,580 +20,215 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-func TestPlacementReconciler(t *testing.T) {
-	tests := map[string]struct {
-		apibindings      map[logicalcluster.Name][]*apisv1alpha1.APIBinding
-		locations        map[logicalcluster.Name][]*schedulingv1alpha1.Location
-		workloadClusters map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster
-		namespace        *corev1.Namespace
+func TestPlacementScheduling(t *testing.T) {
+	testCases := []struct {
+		name              string
+		locationSelectors []metav1.LabelSelector
+		locations         []*schedulingv1alpha1.Location
+		phase             schedulingv1alpha1.PlacementPhase
+		selectedLocation  *schedulingv1alpha1.LocationReference
 
-		listLocationsError        error
-		listAPIBindingsError      error
-		listWorkloadClustersError error
-		patchNamespaceError       error
+		listLocationsError error
 
-		wantPatch           string
-		wantReconcileStatus reconcileStatus
-		wantRequeue         time.Duration
-		wantError           bool
+		wantError          bool
+		wantPhase          schedulingv1alpha1.PlacementPhase
+		wantSelectLocation *schedulingv1alpha1.LocationReference
+		wantStatus         corev1.ConditionStatus
 	}{
-		"no placement, no binding, no locations, no workload cluster": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			wantReconcileStatus: reconcileStatusContinue,
+		{
+			name:       "no locations",
+			phase:      schedulingv1alpha1.PlacementPending,
+			wantPhase:  schedulingv1alpha1.PlacementPending,
+			wantStatus: corev1.ConditionFalse,
 		},
-		"existing placement, no binding, no locations, no workspaces workload cluster": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{"foo": "bar"}`,
+		{
+			name:  "bound location to the placement",
+			phase: schedulingv1alpha1.PlacementPending,
+			locationSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"cloud": "aws",
 					},
 				},
 			},
-			wantPatch:           `{"metadata":{"annotations":null,"resourceVersion":"1","uid":"uid"}}`,
-			wantReconcileStatus: reconcileStatusContinue,
+			locations: []*schedulingv1alpha1.Location{
+				newLocation("aws", map[string]string{"cloud": "aws"}),
+				newLocation("gcp", map[string]string{"cloud": "gcp"}),
+			},
+			wantPhase:  schedulingv1alpha1.PlacementUnbound,
+			wantStatus: corev1.ConditionTrue,
+			wantSelectLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
+			},
 		},
-		"existing placement, with binding, no locations, no workspaces workload cluster": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{"foo": "bar"}`,
+		{
+			name:  "update location to the placement",
+			phase: schedulingv1alpha1.PlacementUnbound,
+			locationSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"cloud": "gcp",
 					},
 				},
 			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			wantPatch:           `{"metadata":{"annotations":null,"resourceVersion":"1","uid":"uid"}}`,
-			wantRequeue:         time.Minute * 2,
-			wantReconcileStatus: reconcileStatusContinue,
+			selectedLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
+			},
+			locations: []*schedulingv1alpha1.Location{
+				newLocation("aws", map[string]string{"cloud": "aws"}),
+				newLocation("gcp", map[string]string{"cloud": "gcp"}),
+			},
+			wantPhase:  schedulingv1alpha1.PlacementUnbound,
+			wantStatus: corev1.ConditionTrue,
+			wantSelectLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "gcp",
+			},
 		},
-		"scheduling disabled": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-					Labels: map[string]string{
-						"experimental.workload.kcp.dev/scheduling-disabled": "true",
-					},
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{"foo": "bar"}`,
-					},
-				},
-			},
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"no placement, with workload cluster, but no location": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				binding("kubernetes", "root:org:negotiation-workspace"),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{logicalcluster.New("root:org:negotiation-workspace"): {
-				cluster("cluster123", "uid-123"),
-			}},
-			wantRequeue:         time.Minute * 2,
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"no placement, with location, no workload cluster": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
-			}},
-			wantRequeue:         time.Minute * 2,
-			wantReconcileStatus: reconcileStatusContinue,
-			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{}"},"resourceVersion":"1","uid":"uid"}}`,
-		},
-		"no placement, with location, no workload cluster, not bound binding": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				validExport(binding("kubernetes", "root:org:negotiation-workspace")),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
-			}},
-			wantRequeue:         time.Minute * 2,
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"no placement, with location, no workload cluster, invalid export": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(binding("kubernetes", "root:org:negotiation-workspace")),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1-az1"), map[string]string{"region": "us-east1"}),
-			}},
-			wantRequeue:         time.Minute * 2,
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"happy case: binding, locations and ready workload cluster exist, annotation does not": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					withLabels(cluster("us-east1-1", "uid-1"), map[string]string{"region": "us-east1"}),
-					withLabels(unready(cluster("us-east1-2", "uid-2")), map[string]string{"region": "us-east1"}),
-					withLabels(ready(cluster("us-east1-3", "uid-3")), map[string]string{"region": "us-east1"}),
-					withLabels(unschedulable(withConditions(cluster("us-east1-4", "uid-4"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"})), map[string]string{"region": "us-east1"}),
-
-					withLabels(ready(cluster("us-west1-1", "uid-11")), map[string]string{"region": "us-west1"}),
-					withLabels(ready(cluster("us-west1-2", "uid-12")), map[string]string{"region": "us-west1"}),
-				},
-				logicalcluster.New("root:org:somewhere-else"): {
-					cluster("us-east1-1", "uid-21"),
-					cluster("us-east1-2", "uid-22"),
-				},
-			},
-			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{\"root:org:negotiation-workspace+us-east1+us-east1-3\":\"Pending\"}"},"resourceVersion":"1","uid":"uid"}}`,
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"happy case: no location": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					withLabels(ready(cluster("us-east1-1", "uid-11")), map[string]string{"region": "us-east1"}),
-					withLabels(unschedulable(withConditions(cluster("us-east1-2", "uid-12"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"})), map[string]string{"region": "us-east1"}),
-				},
-			},
-			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{\"root:org:negotiation-workspace+default+us-east1-1\":\"Pending\"}"},"resourceVersion":"1","uid":"uid"}}`,
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"rescheduling": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{
-"root:org:negotiation-workspace+us-east1+us-east1-1":"Pending",
-"root:org:negotiation-workspace+us-east2+us-east2-1":"Bound",
-"root:org:negotiation-workspace+us-east3+us-east3-1":"Bound",
-"root:org:negotiation-workspace+us-east4+us-east4-1":"Removing",
-"root:org:negotiation-workspace+us-east5+us-east5-1":"Unbound",
-"root:org:negotiation-workspace+us-east6+us-east6-1":"Bound",
-"root:org:negotiation-workspace+us-east7+us-east7-1":"Bound"
-}`,
+		{
+			name:  "stick location when the placement is bound",
+			phase: schedulingv1alpha1.PlacementBound,
+			locationSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"cloud": "aws",
 					},
 				},
 			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
-				withInstances(location("us-east2"), map[string]string{"region": "us-east2"}),
-				withInstances(location("us-east3"), map[string]string{"region": "us-east3"}),
-				withInstances(location("us-east4"), map[string]string{"region": "us-east4"}),
-				withInstances(location("us-east5"), map[string]string{"region": "us-east5"}),
-				withInstances(location("us-east6"), map[string]string{"region": "us-east6"}),
-				withInstances(location("us-east7"), map[string]string{"region": "us-east7"}),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					unschedulable(evicting(withLabels(cluster("us-east1-1", "uid-11"), map[string]string{"region": "us-east1"}))), // should be rescheduled hard because pending
-					ready(withLabels(cluster("us-east1-2", "uid-12"), map[string]string{"region": "us-east1"})),
-
-					unschedulable(evicting(withLabels(cluster("us-east2-1", "uid-21"), map[string]string{"region": "us-east2"}))), // should be rescheduled softly because bound
-					ready(withLabels(cluster("us-east2-2", "uid-22"), map[string]string{"region": "us-east2"})),
-
-					ready(withLabels(cluster("us-east3-1", "uid-31"), map[string]string{"region": "us-east3"})), // should be kept because bound and ready
-					ready(withLabels(cluster("us-east3-2", "uid-32"), map[string]string{"region": "us-east3"})),
-
-					unschedulable(evicting(withLabels(cluster("us-east4-1", "uid-41"), map[string]string{"region": "us-east4"}))), // should be rescheduled because removing
-					ready(withLabels(cluster("us-east4-2", "uid-42"), map[string]string{"region": "us-east4"})),
-
-					unschedulable(withLabels(cluster("us-east5-1", "uid-51"), map[string]string{"region": "us-east5"})), // should be rescheduled hard because unbound
-					ready(withLabels(cluster("us-east5-2", "uid-52"), map[string]string{"region": "us-east5"})),
-
-					unschedulable(withLabels(cluster("us-east6-1", "uid-61"), map[string]string{"region": "us-east6"})), // should be kept bound because not evicting
-					ready(withLabels(cluster("us-east6-2", "uid-62"), map[string]string{"region": "us-east6"})),
-
-					unschedulable(evictingSoon(withLabels(cluster("us-east7-1", "uid-71"), map[string]string{"region": "us-east7"}))), // should be kept bound because not yet evicting
-					ready(withLabels(cluster("us-east7-2", "uid-72"), map[string]string{"region": "us-east7"})),
-				},
+			selectedLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
 			},
-			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"1","uid":"uid"}}`,
-				`{"root:org:negotiation-workspace+us-east2+us-east2-1":"Removing",`+
-					`"root:org:negotiation-workspace+us-east2+us-east2-2":"Pending",`+
-					`"root:org:negotiation-workspace+us-east3+us-east3-1":"Bound",`+
-					`"root:org:negotiation-workspace+us-east4+us-east4-1":"Removing",`+
-					`"root:org:negotiation-workspace+us-east4+us-east4-2":"Pending",`+
-					`"root:org:negotiation-workspace+us-east6+us-east6-1":"Bound",`+
-					`"root:org:negotiation-workspace+us-east7+us-east7-1":"Bound"}`),
-			wantReconcileStatus: reconcileStatusContinue,
+			locations: []*schedulingv1alpha1.Location{
+				newLocation("aws", map[string]string{"cloud": "aws"}),
+				newLocation("aws-1", map[string]string{"cloud": "aws"}),
+				newLocation("aws-2", map[string]string{"cloud": "aws"}),
+			},
+			wantPhase:  schedulingv1alpha1.PlacementBound,
+			wantStatus: corev1.ConditionTrue,
+			wantSelectLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
+			},
 		},
-		"location gone": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "test",
-					ClusterName:     "root:org:ws",
-					ResourceVersion: "1",
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{
-"root:org:negotiation-workspace+us-east7+us-east7-1":"Pending",
-"root:org:negotiation-workspace+us-east7+us-east7-2":"Bound",
-"root:org:negotiation-workspace+us-east7+us-east7-3":"Removing",
-"root:org:negotiation-workspace+us-east7+us-east7-4":"Unbound",
-"root:org:negotiation-workspace+us-east7+us-east7-5":"Bound"
-}`,
+		{
+			name:  "change location when the placement is bound",
+			phase: schedulingv1alpha1.PlacementBound,
+			locationSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"cloud": "gcp",
 					},
 				},
 			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
-				withInstances(location("us"), map[string]string{"foo": "bar"}),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					unschedulable(evicting(withLabels(cluster("us-east1-1", "uid-11"), map[string]string{"region": "us-east1"}))), // should be rescheduled hard because pending
-					ready(withLabels(cluster("us-east1-2", "uid-12"), map[string]string{"region": "us-east1"})),
-
-					ready(withLabels(cluster("us-east7-1", "uid-71"), map[string]string{"region": "us-east7"})),               // dropped because pending
-					ready(withLabels(cluster("us-east7-2", "uid-72"), map[string]string{"region": "us-east7"})),               // set to Removing because bound
-					ready(withLabels(cluster("us-east7-3", "uid-73"), map[string]string{"region": "us-east7"})),               // kept at Removing
-					ready(withLabels(cluster("us-east7-4", "uid-74"), map[string]string{"region": "us-east7"})),               // dropped because unbound
-					ready(withLabels(cluster("us-east7-5", "uid-75"), map[string]string{"region": "us-east7", "foo": "bar"})), // revived because also in another location
-				},
+			selectedLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
 			},
-			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"1","uid":"uid"}}`,
-				`{"root:org:negotiation-workspace+us+us-east7-5":"Bound",`+
-					`"root:org:negotiation-workspace+us-east7+us-east7-2":"Removing",`+
-					`"root:org:negotiation-workspace+us-east7+us-east7-3":"Removing"}`),
-			wantReconcileStatus: reconcileStatusContinue,
+			locations: []*schedulingv1alpha1.Location{
+				newLocation("aws", map[string]string{"cloud": "aws"}),
+			},
+			wantPhase:  schedulingv1alpha1.PlacementBound,
+			wantStatus: corev1.ConditionFalse,
+			wantSelectLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
+			},
 		},
-		"unschedulable": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "test",
-					ClusterName:     "root:org:ws",
-					ResourceVersion: "42",
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{}`,
+		{
+			name:  "no valid location when the placement is unbound",
+			phase: schedulingv1alpha1.PlacementUnbound,
+			locationSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"cloud": "gcp",
 					},
 				},
 			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					unschedulable(withLabels(cluster("us-east1-1", "uid-11"), map[string]string{"region": "us-east1"})),
-				},
+			selectedLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
 			},
-			wantRequeue:         time.Minute * 2,
-			wantReconcileStatus: reconcileStatusContinue,
+			locations: []*schedulingv1alpha1.Location{
+				newLocation("aws", map[string]string{"cloud": "aws"}),
+			},
+			wantPhase:  schedulingv1alpha1.PlacementPending,
+			wantStatus: corev1.ConditionFalse,
 		},
-		"evicting, not scheduled yet": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "test",
-					ClusterName:     "root:org:ws",
-					ResourceVersion: "42",
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{}`,
+		{
+			name:  "get location error",
+			phase: schedulingv1alpha1.PlacementUnbound,
+			locationSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"cloud": "aws",
 					},
 				},
 			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					evicting(withLabels(cluster("us-east1-1", "uid-11"), map[string]string{"region": "us-east1"})),
-				},
+			listLocationsError: fmt.Errorf("list location fails"),
+			selectedLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
 			},
-			wantRequeue:         time.Minute * 2,
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"different negotiation workspace": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-					Annotations: map[string]string{
-						"scheduling.kcp.dev/placement": `{
-"root:org:negotiation-workspace+us-east1+us-east1-1":"Pending",
-"root:org:elsewhere+us-east2+us-east2-1":"Bound",
-}`,
-					},
-				},
+			locations: []*schedulingv1alpha1.Location{
+				newLocation("aws", map[string]string{"cloud": "aws"}),
 			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
-				},
-				logicalcluster.New("root:org:elsewhere"): {
-					withInstances(location("us-east2"), map[string]string{"region": "us-east2"}),
-				},
+			wantPhase:  schedulingv1alpha1.PlacementUnbound,
+			wantStatus: corev1.ConditionFalse,
+			wantSelectLocation: &schedulingv1alpha1.LocationReference{
+				LocationName: "aws",
 			},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					ready(withLabels(cluster("us-east1-1", "uid-11"), map[string]string{"region": "us-east1"})),
-					ready(withLabels(cluster("us-east1-1", "uid-11"), map[string]string{"region": "us-east1"})),
-				},
-				logicalcluster.New("root:org:elsewhere"): {
-					ready(withLabels(cluster("us-east2-1", "uid-21"), map[string]string{"region": "us-east2"})),
-					ready(withLabels(cluster("us-east2-1", "uid-21"), map[string]string{"region": "us-east2"})),
-				},
-			},
-			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"1","uid":"uid"}}`,
-				`{"root:org:negotiation-workspace+us-east1+us-east1-1":"Pending"}`),
-			wantReconcileStatus: reconcileStatusContinue,
-		},
-		"patch fails": {
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					ClusterName: "root:org:ws",
-				},
-			},
-			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
-				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
-			}},
-			locations: map[logicalcluster.Name][]*schedulingv1alpha1.Location{logicalcluster.New("root:org:negotiation-workspace"): {
-				withInstances(location("us-east1"), map[string]string{"region": "us-east1"}),
-			}},
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
-				logicalcluster.New("root:org:negotiation-workspace"): {
-					withLabels(ready(cluster("us-east1-3", "uid-3")), map[string]string{"region": "us-east1"}),
-				},
-			},
-			patchNamespaceError: fmt.Errorf("boom"),
-			wantError:           true,
-			wantReconcileStatus: reconcileStatusStop,
+			wantError: true,
 		},
 	}
 
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			var requeuedAfter time.Duration
-			var gotPatch string
-			r := &placementReconciler{
-				listLocations: func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
-					if tc.listLocationsError != nil {
-						return nil, tc.listLocationsError
-					}
-					return tc.locations[clusterName], nil
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			testPlacement := &schedulingv1alpha1.Placement{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-placement",
 				},
-				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-					if tc.listLocationsError != nil {
-						return nil, tc.listLocationsError
-					}
-					return tc.apibindings[clusterName], nil
+				Spec: schedulingv1alpha1.PlacementSpec{
+					LocationSelectors: testCase.locationSelectors,
 				},
-				listWorkloadClusters: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
-					if tc.listWorkloadClustersError != nil {
-						return nil, tc.listWorkloadClustersError
-					}
-					return tc.workloadClusters[clusterName], nil
-				},
-				patchNamespace: func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
-					if tc.patchNamespaceError != nil {
-						return nil, tc.patchNamespaceError
-					}
-					gotPatch = string(data)
-					return &corev1.Namespace{}, nil
-				},
-				enqueueAfter: func(clusterName logicalcluster.Name, ns *corev1.Namespace, duration time.Duration) {
-					requeuedAfter = duration
+				Status: schedulingv1alpha1.PlacementStatus{
+					SelectedLocation: testCase.selectedLocation,
+					Phase:            testCase.phase,
 				},
 			}
 
-			// Set UID and ResourceVersion to make sure the we're verifying the full expectations for the patches
-			// (preconditions)
-			tc.namespace.UID = "uid"
-			tc.namespace.ResourceVersion = "1"
+			listLoaction := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
+				return testCase.locations, testCase.listLocationsError
+			}
 
-			status, _, err := r.reconcile(context.Background(), tc.namespace)
-			if tc.wantError {
+			reconciler := &placementReconciler{listLocations: listLoaction}
+			_, updated, err := reconciler.reconcile(context.TODO(), testPlacement)
+
+			if testCase.wantError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, status, tc.wantReconcileStatus)
-			require.Equal(t, tc.wantRequeue, requeuedAfter)
-			require.Equal(t, tc.wantPatch, gotPatch)
+			require.Equal(t, testCase.wantPhase, updated.Status.Phase)
+			c := conditions.Get(updated, schedulingv1alpha1.PlacementReady)
+			require.NotNil(t, c)
+			require.Equal(t, testCase.wantStatus, c.Status)
+			require.Equal(t, testCase.wantSelectLocation, updated.Status.SelectedLocation)
+
 		})
 	}
 }
 
-func location(name string) *schedulingv1alpha1.Location {
+func newLocation(name string, labels map[string]string) *schedulingv1alpha1.Location {
 	return &schedulingv1alpha1.Location{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: schedulingv1alpha1.LocationSpec{
-			Resource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
-				Version:  "v1alpha1",
-				Resource: "workloadclusters",
-			},
+			Name:   name,
+			Labels: labels,
 		},
 	}
-}
-
-func withInstances(location *schedulingv1alpha1.Location, labels map[string]string) *schedulingv1alpha1.Location {
-	location.Spec.InstanceSelector = &metav1.LabelSelector{
-		MatchLabels: labels,
-	}
-	return location
-}
-
-func binding(name string, Path string) *apisv1alpha1.APIBinding {
-	return &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       Path,
-					ExportName: "kubernetes",
-				},
-			},
-		},
-	}
-}
-
-func bound(binding *apisv1alpha1.APIBinding) *apisv1alpha1.APIBinding {
-	conditions.MarkTrue(binding, apisv1alpha1.InitialBindingCompleted)
-	return binding
-}
-
-func validExport(binding *apisv1alpha1.APIBinding) *apisv1alpha1.APIBinding {
-	conditions.MarkTrue(binding, apisv1alpha1.APIExportValid)
-	return binding
-}
-
-func cluster(name string, uid string) *workloadv1alpha1.WorkloadCluster {
-	ret := &workloadv1alpha1.WorkloadCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			UID:  types.UID(uid),
-		},
-		Spec:   workloadv1alpha1.WorkloadClusterSpec{},
-		Status: workloadv1alpha1.WorkloadClusterStatus{},
-	}
-
-	return ret
-}
-
-func withLabels(cluster *workloadv1alpha1.WorkloadCluster, labels map[string]string) *workloadv1alpha1.WorkloadCluster {
-	cluster.Labels = labels
-	return cluster
-}
-
-func withConditions(cluster *workloadv1alpha1.WorkloadCluster, conditions ...conditionsv1alpha1.Condition) *workloadv1alpha1.WorkloadCluster {
-	cluster.Status.Conditions = conditions
-	return cluster
-}
-
-func ready(cluster *workloadv1alpha1.WorkloadCluster) *workloadv1alpha1.WorkloadCluster {
-	return withConditions(cluster, conditionsv1alpha1.Condition{
-		Type:   "Ready",
-		Status: corev1.ConditionTrue,
-	})
-}
-
-func unready(cluster *workloadv1alpha1.WorkloadCluster) *workloadv1alpha1.WorkloadCluster {
-	return withConditions(cluster, conditionsv1alpha1.Condition{
-		Type:    "Ready",
-		Reason:  "NotReady",
-		Message: "Cluster is not ready",
-		Status:  corev1.ConditionFalse,
-	})
-}
-
-func evicting(cluster *workloadv1alpha1.WorkloadCluster) *workloadv1alpha1.WorkloadCluster {
-	minuteAgo := metav1.NewTime(time.Now().Add(-time.Minute))
-	cluster.Spec.EvictAfter = &minuteAgo
-	return cluster
-}
-
-func evictingSoon(cluster *workloadv1alpha1.WorkloadCluster) *workloadv1alpha1.WorkloadCluster {
-	inSomeMin := metav1.NewTime(time.Now().Add(5 * time.Minute))
-	cluster.Spec.EvictAfter = &inSomeMin
-	return cluster
-}
-
-func unschedulable(cluster *workloadv1alpha1.WorkloadCluster) *workloadv1alpha1.WorkloadCluster {
-	cluster.Spec.Unschedulable = true
-	return cluster
 }

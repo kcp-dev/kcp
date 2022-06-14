@@ -42,24 +42,16 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
 
 const (
-	controllerName         = "kcp-scheduling-placement"
-	byWorkspace            = controllerName + "-byWorkspace" // will go away with scoping
-	byNegotiationWorkspace = controllerName + "-byNegotiationWorkspace"
+	controllerName      = "kcp-scheduling-placement"
+	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
+	byLocationWorkspace = controllerName + "-byLoactionWorkspace"
 )
 
 // NewController returns a new controller placing namespaces onto locations by create
@@ -68,9 +60,8 @@ func NewController(
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	namespaceInformer coreinformers.NamespaceInformer,
-	apiBindingInformer apisinformers.APIBindingInformer,
 	locationInformer schedulinginformers.LocationInformer,
-	workloadClusterInformer workloadinformers.WorkloadClusterInformer,
+	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -87,20 +78,11 @@ func NewController(
 		namespaceLister:  namespaceInformer.Lister(),
 		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
 
-		apiBindignLister:  apiBindingInformer.Lister(),
-		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
-
 		locationLister:  locationInformer.Lister(),
 		locationIndexer: locationInformer.Informer().GetIndexer(),
 
-		workloadClusterLister:  workloadClusterInformer.Lister(),
-		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
-	}
-
-	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
+		placementLister:  placementInformer.Lister(),
+		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
 	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
@@ -109,42 +91,18 @@ func NewController(
 		return nil, err
 	}
 
-	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
+	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace:         indexByWorkspace,
+		byLocationWorkspace: indexByLocationWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:            indexByWorkspace,
-		byNegotiationWorkspace: indexByNegotiationWorkspace,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
-
-	apiBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			switch binding := obj.(type) {
-			case *apisv1alpha1.APIBinding:
-				if binding.Spec.Reference.Workspace == nil {
-					return false
-				}
-				if binding.Spec.Reference.Workspace.ExportName != apiexport.TemporaryComputeServiceExportName {
-					return false
-				}
-				return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
-			case cache.DeletedFinalStateUnknown:
-				return true
-			default:
-				return false
-			}
-		},
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj) },
-			DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj) },
-		},
-	})
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
@@ -160,50 +118,38 @@ func NewController(
 			}
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueNamespace(obj) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueNamespace(obj) },
-			DeleteFunc: func(obj interface{}) { c.enqueueNamespace(obj) },
+			AddFunc: c.enqueueNamespace,
+			UpdateFunc: func(old, obj interface{}) {
+				oldNs := old.(*corev1.Namespace)
+				newNs := obj.(*corev1.Namespace)
+
+				if !reflect.DeepEqual(oldNs.Annotations, newNs.Annotations) {
+					c.enqueueNamespace(obj)
+				}
+			},
+			DeleteFunc: c.enqueueNamespace,
 		},
 	})
 
 	locationInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) { c.enqueueLocation(obj) },
+			AddFunc: c.enqueueLocation,
 			UpdateFunc: func(old, obj interface{}) {
 				oldLoc := old.(*schedulingv1alpha1.Location)
 				newLoc := obj.(*schedulingv1alpha1.Location)
-				if !reflect.DeepEqual(oldLoc.Spec, newLoc.Spec) || !reflect.DeepEqual(oldLoc.ObjectMeta, newLoc.ObjectMeta) {
+				if !reflect.DeepEqual(oldLoc.Spec, newLoc.Spec) || !reflect.DeepEqual(oldLoc.Labels, newLoc.Labels) {
 					c.enqueueLocation(obj)
 				}
 			},
-			DeleteFunc: func(obj interface{}) { c.enqueueLocation(obj) },
+			DeleteFunc: c.enqueueLocation,
 		},
 	)
 
-	workloadClusterInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) { c.enqueueLocation(obj) },
-			UpdateFunc: func(old, obj interface{}) {
-				oldCluster := old.(*workloadv1alpha1.WorkloadCluster)
-				oldClusterCopy := *oldCluster
-				oldClusterCopy.Status.LastSyncerHeartbeatTime = nil
-				oldClusterCopy.Status.VirtualWorkspaces = nil
-				oldClusterCopy.Status.Capacity = nil
-
-				newCluster := obj.(*workloadv1alpha1.WorkloadCluster)
-				newClusterCopy := *newCluster
-				newClusterCopy.Status.LastSyncerHeartbeatTime = nil
-				newClusterCopy.Status.VirtualWorkspaces = nil
-				newClusterCopy.Status.Capacity = nil
-
-				// compare ignoring heart-beat
-				if !reflect.DeepEqual(oldClusterCopy, newClusterCopy) {
-					c.enqueueWorkloadCluster(obj)
-				}
-			},
-			DeleteFunc: func(obj interface{}) { c.enqueueLocation(obj) },
-		},
-	)
+	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.enqueuePlacement,
+		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj) },
+		DeleteFunc: c.enqueuePlacement,
+	})
 
 	return c, nil
 }
@@ -219,40 +165,14 @@ type controller struct {
 	namespaceLister  corelisters.NamespaceLister
 	namespaceIndexer cache.Indexer
 
-	apiBindignLister  apislisters.APIBindingLister
-	apiBindingIndexer cache.Indexer
-
 	locationLister  schedulinglisters.LocationLister
 	locationIndexer cache.Indexer
 
-	workloadClusterLister  workloadlisters.WorkloadClusterLister
-	workloadClusterIndexer cache.Indexer
+	placementLister  schedulinglisters.PlacementLister
+	placementIndexer cache.Indexer
 }
 
-// enqueueLocationDomain enqueues all namespaces.
-func (c *controller) enqueueAPIBinding(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	clusterName, bindingName := clusters.SplitClusterAwareKey(key)
-
-	namespaces, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, obj := range namespaces {
-		ns := obj.(*corev1.Namespace)
-		klog.Infof("Queueing namespace %s|%s because APIBinding %q changed", clusterName.String(), ns.Name, bindingName)
-		key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
-		c.queue.Add(key)
-	}
-}
-
-func (c *controller) enqueueNamespace(obj interface{}) {
+func (c *controller) enqueuePlacement(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -260,8 +180,31 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(key)
 
-	klog.Infof("Queueing Namespace %s|%s", clusterName.String(), name)
+	klog.V(2).Infof("Queueing Placement %s|%s", clusterName.String(), name)
 	c.queue.Add(key)
+}
+
+// enqueueNamespace enqueues all placements for the namespace.
+func (c *controller) enqueueNamespace(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, namespaceName := clusters.SplitClusterAwareKey(key)
+
+	placements, err := c.placementIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	for _, obj := range placements {
+		placement := obj.(*schedulingv1alpha1.Placement)
+		klog.V(2).Infof("Queueing placement %s|%s because Namespace %q changed", clusterName, placement.Name, namespaceName)
+		key := clusters.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
+		c.queue.Add(key)
+	}
 }
 
 func (c *controller) enqueueLocation(obj interface{}) {
@@ -272,38 +215,16 @@ func (c *controller) enqueueLocation(obj interface{}) {
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(key)
 
-	nss, err := c.namespaceIndexer.ByIndex(byNegotiationWorkspace, clusterName.String())
+	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range nss {
-		ns := obj.(*corev1.Namespace)
-		key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
-		klog.Infof("Queueing namespace %s|%s because location %s|%s changed", logicalcluster.From(ns), ns.Name, clusterName, name)
-		c.queue.Add(key)
-	}
-}
-
-func (c *controller) enqueueWorkloadCluster(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	clusterName, name := clusters.SplitClusterAwareKey(key)
-
-	nss, err := c.namespaceIndexer.ByIndex(byNegotiationWorkspace, clusterName.String())
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, obj := range nss {
-		ns := obj.(*corev1.Namespace)
-		key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
-		klog.Infof("Queueing namespace %s|%s because WorkloadCluster %s|%s changed", logicalcluster.From(ns), ns.Name, clusterName, name)
+	for _, obj := range placements {
+		placement := obj.(*schedulingv1alpha1.Placement)
+		key := clusters.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
+		klog.V(2).Infof("Queueing placement %s|%s because location %s|%s changed", logicalcluster.From(placement), placement.Name, clusterName, name)
 		c.queue.Add(key)
 	}
 }
@@ -350,14 +271,14 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("invalid key: %q: %v", key, err)
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.namespaceLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.placementLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -367,20 +288,18 @@ func (c *controller) process(ctx context.Context, key string) error {
 	old := obj
 	obj = obj.DeepCopy()
 
-	if err := c.reconcile(ctx, obj); err != nil {
-		return err
-	}
+	reconcileErr := c.reconcile(ctx, obj)
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
-		oldData, err := json.Marshal(corev1.Namespace{
+		oldData, err := json.Marshal(schedulingv1alpha1.Placement{
 			Status: old.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for LocationDomain %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal old data for placement %s|%s: %w", clusterName, name, err)
 		}
 
-		newData, err := json.Marshal(corev1.Namespace{
+		newData, err := json.Marshal(schedulingv1alpha1.Placement{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             old.UID,
 				ResourceVersion: old.ResourceVersion,
@@ -388,16 +307,17 @@ func (c *controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for LocationDomain %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal new data for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for LocationDomain %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
-		_, uerr := c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		klog.V(2).Infof("Patching placement %s|%s with patch %s", clusterName, obj.Name, string(patchBytes))
+		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
-	return nil
+	return reconcileErr
 }

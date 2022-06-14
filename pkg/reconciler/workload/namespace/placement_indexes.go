@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package placement
+package namespace
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 )
 
-func indexByWorkspace(obj interface{}) ([]string, error) {
+func indexByWorksapce(obj interface{}) ([]string, error) {
 	metaObj, ok := obj.(metav1.Object)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
@@ -36,15 +36,15 @@ func indexByWorkspace(obj interface{}) ([]string, error) {
 	return []string{lcluster.String()}, nil
 }
 
-func indexByLocationWorkspace(obj interface{}) ([]string, error) {
+func indexByLoactionWorkspace(obj interface{}) ([]string, error) {
 	placement, ok := obj.(*schedulingv1alpha1.Placement)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
 	}
 
-	if len(placement.Spec.LocationWorkspace) == 0 {
-		return []string{logicalcluster.From(placement).String()}, nil
+	if placement.Status.SelectedLocation == nil {
+		return []string{}, nil
 	}
 
-	return []string{placement.Spec.LocationWorkspace}, nil
+	return []string{placement.Status.SelectedLocation.Path}, nil
 }
