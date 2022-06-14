@@ -69,8 +69,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource":                  schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Location":                              schema_pkg_apis_scheduling_v1alpha1_Location(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationList":                          schema_pkg_apis_scheduling_v1alpha1_LocationList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationReference":                     schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpec":                          schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationStatus":                        schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Placement":                             schema_pkg_apis_scheduling_v1alpha1_Placement(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementList":                         schema_pkg_apis_scheduling_v1alpha1_PlacementList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementSpec":                         schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementStatus":                       schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceList":                     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref),
@@ -2073,6 +2078,36 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationList(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocationReference describes a loaction that are provided in the specified Workspace.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must be some ancestor or a child of some ancestor.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exportName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the Location.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"path", "exportName"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2155,6 +2190,192 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref common.ReferenceCall
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheudling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace uses this placement any more.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementSpec", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_scheduling_v1alpha1_PlacementList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PlacementList is a list of locations.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Placement"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Placement", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"locationSelectors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "loacationSelectors represents a slice of label selector to select a location, these label selectors are logically ORed.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+									},
+								},
+							},
+						},
+					},
+					"locationResource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "locationResource is the group-version-resource of the instances that are subject to the locations to select.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource"),
+						},
+					},
+					"namespaceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "namespaceSelector is a label selector to select ns. It match all ns by default, but can be specified to a certain set of ns.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"locationWorkspace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "locationWorkspace is an absolute reference to a workspace for the location. If it is not set, the workspace of APIBinding will be used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"locationResource"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
+func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "phase is the current phase of the placement",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"selectedLocation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selectedLocation is the location that a picked by this placement.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationReference"),
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current processing state of the Placement.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationReference", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 

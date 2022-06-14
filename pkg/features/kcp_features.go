@@ -41,6 +41,9 @@ const (
 	//
 	// Enable the scheduling.kcp.dev/v1alpha1 API group, and related controllers.
 	LocationAPI featuregate.Feature = "KCPLocationAPI"
+
+	// Enable the placement API in scheduling.kcp.dev/v1alpha1 API group, and related controllers.
+	PlacementAPI featuregate.Feature = "KCPPlacementAPI"
 )
 
 func init() {
@@ -83,7 +86,8 @@ func (f *kcpFeatureGate) Type() string {
 // in the generic control plane code. To add a new feature, define a key for it above and add it
 // here. The features will be available throughout Kubernetes binaries.
 var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
-	LocationAPI: {Default: true, PreRelease: featuregate.Alpha},
+	LocationAPI:  {Default: true, PreRelease: featuregate.Alpha},
+	PlacementAPI: {Default: false, PreRelease: featuregate.Alpha},
 
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:

@@ -33,6 +33,10 @@ func (c *FakeSchedulingV1alpha1) Locations() v1alpha1.LocationInterface {
 	return &FakeLocations{c}
 }
 
+func (c *FakeSchedulingV1alpha1) Placements() v1alpha1.PlacementInterface {
+	return &FakePlacements{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeSchedulingV1alpha1) RESTClient() rest.Interface {
