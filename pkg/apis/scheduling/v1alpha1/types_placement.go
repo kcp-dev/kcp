@@ -28,7 +28,7 @@ import (
 // turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location.
 // When the a namespace is annotated by another controller or user with the key of "scheudling.kcp.dev/placement",
 // the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement
-// is ignored in Bound state and reflected in the conditions. The placement will turns back to Unbound state when no namespace
+// is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace
 // uses this placement any more.
 //
 // +crd
@@ -62,7 +62,7 @@ type PlacementSpec struct {
 	// namespaceSelector is a label selector to select ns. It match all ns by default, but can be specified to
 	// a certain set of ns.
 	// +optional
-	NamespaceSelector metav1.LabelSelector `json:"namespaceSelector"`
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
 	// locationWorkspace is an absolute reference to a workspace for the location. If it is not set, the workspace of
 	// APIBinding will be used.

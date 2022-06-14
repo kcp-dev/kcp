@@ -29,7 +29,7 @@ spec:
           or user with the key of \"scheudling.kcp.dev/placement\", the namespace
           will pick one placement, and this placement is transfered to Bound state.
           Any update to spec of the placement is ignored in Bound state and reflected
-          in the conditions. The placement will turns back to Unbound state when no
+          in the conditions. The placement will turn back to Unbound state when no
           namespace uses this placement any more."
         properties:
           apiVersion:

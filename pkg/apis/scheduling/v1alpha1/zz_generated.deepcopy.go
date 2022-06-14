@@ -291,7 +291,11 @@ func (in *PlacementSpec) DeepCopyInto(out *PlacementSpec) {
 		}
 	}
 	out.LocationResource = in.LocationResource
-	in.NamespaceSelector.DeepCopyInto(&out.NamespaceSelector)
+	if in.NamespaceSelector != nil {
+		in, out := &in.NamespaceSelector, &out.NamespaceSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
