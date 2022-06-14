@@ -61,13 +61,14 @@ type PlacementSpec struct {
 
 	// namespaceSelector is a label selector to select ns. It match all ns by default, but can be specified to
 	// a certain set of ns.
-	NamespaceSelector metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+	// +optional
+	NamespaceSelector metav1.LabelSelector `json:"namespaceSelector"`
 
 	// locationWorkspace is an absolute reference to a workspace for the location. If it is not set, the workspace of
 	// APIBinding will be used.
 	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	LocationWorkspace *string `json:"locationWorkspace,omitempty"`
+	LocationWorkspace string `json:"locationWorkspace,omitempty"`
 }
 
 type PlacementStatus struct {

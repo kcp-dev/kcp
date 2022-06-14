@@ -68,6 +68,11 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
 		crds = append(crds,
 			metav1.GroupResource{Group: scheduling.GroupName, Resource: "locations"},
+		)
+	}
+
+	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.PlacementAPI) {
+		crds = append(crds,
 			metav1.GroupResource{Group: scheduling.GroupName, Resource: "placements"},
 		)
 	}

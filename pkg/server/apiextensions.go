@@ -106,17 +106,29 @@ func newSystemCRDProvider(
 	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
 		p.rootCRDs.Insert(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
 		)
 		p.orgCRDs.Insert(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
 		)
 
 		// the following is installed to get discovery and OpenAPI right. But it is actually
 		// served by a native rest storage, projecting the locations into this workspace.
 		p.universalCRDs.Insert(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
+		)
+	}
+
+	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.PlacementAPI) {
+		p.rootCRDs.Insert(
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
+		)
+		p.orgCRDs.Insert(
+			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
+		)
+
+		// the following is installed to get discovery and OpenAPI right. But it is actually
+		// served by a native rest storage, projecting the locations into this workspace.
+		p.universalCRDs.Insert(
 			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
 		)
 	}
