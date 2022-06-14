@@ -2087,6 +2087,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 					"path": {
 						SchemaProps: spec.SchemaProps{
 							Description: "path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must be some ancestor or a child of some ancestor.",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2100,7 +2101,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"exportName"},
+				Required: []string{"path", "exportName"},
 			},
 		},
 	}
@@ -2195,7 +2196,7 @@ func schema_pkg_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially, when a location is selected by the placement, the placement turns to UnBound state. In Pending or UnBound state, the selection rule can be updated to select another location. When the user annotates a namespace with the key of \"scheudling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transfered to Bound state. The spec of the placement is immutable in Bound state. The placement will turns back to Unbound state when no namespace uses this placement any more.",
+				Description: "placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheudling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turns back to Unbound state when no namespace uses this placement any more.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2346,7 +2347,6 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCal
 					"phase": {
 						SchemaProps: spec.SchemaProps{
 							Description: "phase is the current phase of the placement",
-							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2372,7 +2372,6 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"phase"},
 			},
 		},
 		Dependencies: []string{

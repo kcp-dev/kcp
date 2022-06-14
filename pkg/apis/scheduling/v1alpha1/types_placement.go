@@ -24,12 +24,12 @@ import (
 
 // placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.
 //
-// placement is in Pending state initially, when a location is selected by the placement, the placement
-// turns to UnBound state. In Pending or UnBound state, the selection rule can be updated to select another location.
-// When the user annotates a namespace with the key of "scheudling.kcp.dev/placement", the namespace will
-// pick one placement, and this placement is transfered to Bound state. The spec of the placement is immutable
-// in Bound state. The placement will turns back to Unbound state when no namespace uses this
-// placement any more.
+// placement is in Pending state initially. When a location is selected by the placement, the placement
+// turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location.
+// When the a namespace is annotated by another controller or user with the key of "scheudling.kcp.dev/placement",
+// the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement
+// is ignored in Bound state and reflected in the conditions. The placement will turns back to Unbound state when no namespace
+// uses this placement any more.
 //
 // +crd
 // +genclient
@@ -73,12 +73,12 @@ type PlacementSpec struct {
 type PlacementStatus struct {
 	// phase is the current phase of the placement
 	//
-	// +required
-	// +kubebuilder:Required
-	// +kubebuilder:validation:Enum="";Pending;Bound;UnBound
-	Phase PlacementPhase `json:"phase"`
+	// +kubebuilder:default=Pending
+	// +kubebuilder:validation:Enum=Pending;Bound;Unbound
+	Phase PlacementPhase `json:"phase,omitempty"`
 
 	// selectedLocation is the location that a picked by this placement.
+	// +optional
 	SelectedLocation *LocationReference `json:"selectedLocation,omitempty"`
 
 	// Current processing state of the Placement.
@@ -90,9 +90,11 @@ type PlacementStatus struct {
 type LocationReference struct {
 	// path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must
 	// be some ancestor or a child of some ancestor.
-	// +optional
+	//
+	// +required
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	Path string `json:"path,omitempty"`
+	Path string `json:"path"`
 
 	// Name of the Location.
 	//
@@ -108,9 +110,9 @@ const (
 	// PlacementPending is the phase that the location has not been selected for this placement.
 	PlacementPending = "Pending"
 
-	// PlacementUnBound is the phase that the location has been selected by the placement, but
+	// PlacementUnbound is the phase that the location has been selected by the placement, but
 	// no namespace is bound to this placement yet.
-	PlacementUnBound = "UnBound"
+	PlacementUnbound = "Unbound"
 
 	// PlacementBound is the phase that the location has been selected by the placement, and at
 	// least one namespace has been bound to this placement.
