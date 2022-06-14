@@ -203,6 +203,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		gvkForFilename := fmt.Sprintf("%s_%s", group, gvk.Kind)
 
 		file := path.Join(dir, fmt.Sprintf("%s-%s.yaml", gvkForFilename, accessor.GetName()))
+		file = strings.ReplaceAll(file, ":", "_") // github actions don't like colon because NTFS is unhappy with it in path names
 
 		serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
 		raw := bytes.Buffer{}

@@ -26,16 +26,22 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	clientgodiscovery "k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -99,11 +105,14 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	sourceConfig := source.DefaultConfig(t)
-	rawConfig, err := source.RawConfig()
-	require.NoError(t, err)
 
 	sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sourceConfig)
 	require.NoError(t, err)
+
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(sourceConfig)
+	require.NoError(t, err)
+
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, clusterName, []string{"user-1"}, nil, []string{"access"})
 
 	// Create a Workspace that will not be Initializing and should not be shown in the virtual workspace
 	framework.NewWorkspaceFixture(t, source, clusterName, "Universal")
@@ -153,6 +162,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			},
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
+		source.Artifact(t, func() (runtime.Object, error) {
+			return sourceKcpTenancyClient.ClusterWorkspaceTypes().Get(ctx, cwt.Name, metav1.GetOptions{})
+		})
 		clusterWorkspaceTypes[name] = cwt
 	}
 
@@ -160,8 +172,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, workspaceType := range []string{
 		"alpha",
 	} {
-		_, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
+		ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
 		require.NoError(t, err)
+		source.Artifact(t, func() (runtime.Object, error) {
+			return sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		})
 	}
 
 	t.Log("Wait for workspaces to get stuck in initializing")
@@ -180,25 +195,86 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		return workspacesStuckInInitializing(t, workspaces.Items...)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	t.Log("Create clients through the virtual workspace")
-	adminCluster := rawConfig.Clusters["system:admin"]
-	adminContext := rawConfig.Contexts["system:admin"]
-	virtualWorkspaceRawConfig := rawConfig.DeepCopy()
+	t.Log("Wait for cluster workspace types to have virtual workspace URLs published")
+	for _, initializer := range []string{
+		"alpha",
+	} {
+		var cwt *tenancyv1alpha1.ClusterWorkspaceType
+		require.Eventually(t, func() bool {
+			cwt, err = sourceKcpTenancyClient.ClusterWorkspaceTypes().Get(ctx, clusterWorkspaceTypes[initializer].Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			if len(cwt.Status.VirtualWorkspaces) == 0 {
+				t.Logf("cluster workspace type %q|%q does not have virtual workspace URLs published yet", logicalcluster.From(cwt), cwt.Name)
+				return false
+			}
+			return true
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
+		clusterWorkspaceTypes[initializer] = cwt
+	}
 
+	t.Log("Create clients through the virtual workspace")
 	clients := map[string]tenancyv1alpha1client.ClusterWorkspaceInterface{}
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		initializerName := initialization.InitializerForType(clusterWorkspaceTypes[initializer])
-		virtualWorkspaceRawConfig.Clusters[initializer] = adminCluster.DeepCopy()
-		virtualWorkspaceRawConfig.Clusters[initializer].Server = adminCluster.Server + "/services/initializingworkspaces/" + string(initializerName)
-		virtualWorkspaceRawConfig.Contexts[initializer] = adminContext.DeepCopy()
-		virtualWorkspaceRawConfig.Contexts[initializer].Cluster = initializer
-		virtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, initializer, nil, nil).ClientConfig()
-		require.NoError(t, err)
-		virtualKcpClusterClient, err := kcpclient.NewClusterForConfig(virtualWorkspaceConfig)
+		virtualWorkspaceConfig := rest.CopyConfig(sourceConfig)
+		virtualWorkspaceConfig.Host = clusterWorkspaceTypes[initializer].Status.VirtualWorkspaces[0].URL
+		virtualKcpClusterClient, err := kcpclient.NewClusterForConfig(userConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
 		clients[initializer] = virtualKcpClusterClient.Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces()
+	}
+
+	t.Log("Ensure that LIST calls through the virtual workspace fail authorization")
+	for _, initializer := range []string{
+		"alpha",
+	} {
+		_, err := clients[initializer].List(ctx, metav1.ListOptions{})
+		if !errors.IsForbidden(err) {
+			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
+		}
+	}
+
+	t.Log("Set up RBAC to allow future calls to succeed")
+	for _, initializer := range []string{
+		"alpha",
+	} {
+		cwt := clusterWorkspaceTypes[initializer]
+		role, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: string(initialization.InitializerForType(cwt)) + "-initializer",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					Verbs:         []string{"initialize"},
+					Resources:     []string{"clusterworkspacetypes"},
+					ResourceNames: []string{cwt.Name},
+					APIGroups:     []string{"tenancy.kcp.dev"},
+				},
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err)
+		source.Artifact(t, func() (runtime.Object, error) {
+			return kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Get(ctx, role.Name, metav1.GetOptions{})
+		})
+		binding, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: role.Name,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "ClusterRole",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     role.Name,
+			},
+			Subjects: []rbacv1.Subject{{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     "user-1",
+			}},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err)
+		source.Artifact(t, func() (runtime.Object, error) {
+			return kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+		})
 	}
 
 	t.Log("Ensure that LIST calls through the virtual workspace show the correct values")
@@ -217,12 +293,18 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		sort.Slice(expected, func(i, j int) bool {
 			return expected[i].UID < expected[j].UID
 		})
-		actual, err := clients[initializer].List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
-		require.NoError(t, err)
+		var actual *tenancyv1alpha1.ClusterWorkspaceList
+		require.Eventually(t, func() bool {
+			actual, err = clients[initializer].List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
+			if err != nil && !errors.IsForbidden(err) {
+				require.NoError(t, err)
+			}
+			return err == nil
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		sort.Slice(actual.Items, func(i, j int) bool {
 			return actual.Items[i].UID < actual.Items[j].UID
 		})
-		require.Empty(t, cmp.Diff(pruneVolatileFields(expected), pruneVolatileFields(actual.Items)), "cluster workspace list for initializer %s incorrect", initializer)
+		require.Empty(t, cmp.Diff(expected, actual.Items, cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion", "ManagedFields", "Finalizers")), "cluster workspace list for initializer %s incorrect", initializer)
 	}
 
 	t.Log("Start WATCH streams to confirm behavior on changes")
@@ -240,6 +322,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Log("Adding a new workspace that the watchers should see")
 	ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes["alpha"], testLabelSelector), metav1.CreateOptions{})
 	require.NoError(t, err)
+	source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+	})
 	require.Eventually(t, func() bool {
 		workspace, err := sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		if err != nil {
@@ -313,15 +398,6 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 }
 
-func pruneVolatileFields(items []tenancyv1alpha1.ClusterWorkspace) []tenancyv1alpha1.ClusterWorkspace {
-	for i := range items {
-		items[i].ResourceVersion = ""
-		items[i].ManagedFields = nil
-		items[i].Finalizers = nil
-	}
-	return items
-}
-
 func workspaceForType(workspaceType *tenancyv1alpha1.ClusterWorkspaceType, testLabelSelector map[string]string) *tenancyv1alpha1.ClusterWorkspace {
 	return &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -366,4 +442,10 @@ func workspaceLabelsUpToDate(t *testing.T, workspace tenancyv1alpha1.ClusterWork
 		}
 	}
 	return true
+}
+
+func userConfig(username string, cfg *rest.Config) *rest.Config {
+	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.BearerToken = username + "-token"
+	return cfgCopy
 }

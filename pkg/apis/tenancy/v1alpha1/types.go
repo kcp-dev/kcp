@@ -120,6 +120,7 @@ func (r ClusterWorkspaceTypeReference) String() string {
 // +crd
 // +genclient
 // +genclient:nonNamespaced
+// +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Cluster,categories=kcp
 type ClusterWorkspaceType struct {

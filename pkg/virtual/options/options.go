@@ -99,7 +99,7 @@ func (o *Options) NewVirtualWorkspaces(
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, wildcardApiExtensionsInformers)
+	inf, vws, err = o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers)
 	if err != nil {
 		return nil, nil, err
 	}
