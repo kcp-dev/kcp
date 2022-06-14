@@ -40,7 +40,6 @@ spec:
                 not:
                   enum:
                   - root
-                  - org
                   - system
                   - any
                 pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$
