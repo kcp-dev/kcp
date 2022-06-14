@@ -347,14 +347,14 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", workspaceName, structuredWorkspaceType.String(), ws.Spec.Type.String())
 		}
 		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
-			fmt.Fprintf(kc.Out, "Workspace %q (type %q) already exists. Waiting for being ready.\n", workspaceName, ws.Spec.Type) // nolint: errcheck
+			fmt.Fprintf(kc.Out, "Workspace %q (type %s) already exists. Waiting for being ready.\n", workspaceName, ws.Spec.Type) // nolint: errcheck
 		} else {
-			fmt.Fprintf(kc.Out, "Workspace %q (type %q) already exists.\n", workspaceName, ws.Spec.Type)
+			fmt.Fprintf(kc.Out, "Workspace %q (type %s) already exists.\n", workspaceName, ws.Spec.Type)
 		}
 	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
-		fmt.Fprintf(kc.Out, "Workspace %q (type %q) created. Waiting for being ready.\n", workspaceName, ws.Spec.Type) // nolint: errcheck
+		fmt.Fprintf(kc.Out, "Workspace %q (type %s) created. Waiting for being ready.\n", workspaceName, ws.Spec.Type) // nolint: errcheck
 	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		return fmt.Errorf("workspace %q (type %q) created but not ready", workspaceName, ws.Spec.Type)
+		return fmt.Errorf("workspace %q (type %s) created but not ready", workspaceName, ws.Spec.Type)
 	}
 
 	// STOP THE BLEEDING: the virtual workspace is still informer based (not good). We have to wait until it shows up.
