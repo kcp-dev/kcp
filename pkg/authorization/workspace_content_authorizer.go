@@ -100,35 +100,31 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		&rbac.ClusterRoleBindingLister{Lister: parentWorkspaceKubeInformer.ClusterRoleBindings().Lister()},
 	)
 
-	// TODO: decide if we want to require workspaces for all kcp variations. For now, only check if the workspace controllers are running,
-	// as that ensures the ClusterWorkspace CRD is installed, and that our shared informer factory can sync all its caches successfully.
-	if a.clusterWorkspaceLister != nil {
-		// check the workspace even exists
-		// TODO: using scoping when available
-		if ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, clusterWorkspace)); err != nil {
-			if errors.IsNotFound(err) {
-				return authorizer.DecisionDeny, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
-			}
-			return authorizer.DecisionNoOpinion, "", err
-		} else if len(ws.Status.Initializers) > 0 {
-			workspaceAttr := authorizer.AttributesRecord{
-				User:            attr.GetUser(),
-				Verb:            attr.GetVerb(),
-				APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-				APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-				Resource:        "clusterworkspaces",
-				Subresource:     "initialize",
-				Name:            clusterWorkspace,
-				ResourceRequest: true,
-			}
+	// check the workspace even exists
+	// TODO: using scoping when available
+	if ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, clusterWorkspace)); err != nil {
+		if errors.IsNotFound(err) {
+			return authorizer.DecisionDeny, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+		}
+		return authorizer.DecisionNoOpinion, "", err
+	} else if len(ws.Status.Initializers) > 0 {
+		workspaceAttr := authorizer.AttributesRecord{
+			User:            attr.GetUser(),
+			Verb:            attr.GetVerb(),
+			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+			Resource:        "clusterworkspaces",
+			Subresource:     "initialize",
+			Name:            clusterWorkspace,
+			ResourceRequest: true,
+		}
 
-			dec, reason, err := parentAuthorizer.Authorize(ctx, workspaceAttr)
-			if err != nil {
-				return dec, reason, err
-			}
-			if dec != authorizer.DecisionAllow {
-				return dec, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
-			}
+		dec, reason, err := parentAuthorizer.Authorize(ctx, workspaceAttr)
+		if err != nil {
+			return dec, reason, err
+		}
+		if dec != authorizer.DecisionAllow {
+			return dec, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
 		}
 	}
 
