@@ -249,7 +249,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       clusterName.String(),
 					ExportName: reconcilerapiexport.TemporaryComputeServiceExportName,
 				},
 			},

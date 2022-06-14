@@ -61,7 +61,46 @@ type apiBindingAdmission struct {
 
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&apiBindingAdmission{})
+var _ = admission.MutationInterface(&apiBindingAdmission{})
 var _ = admission.InitializationValidator(&apiBindingAdmission{})
+
+func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
+	if a.GetResource().GroupResource() != apisv1alpha1.Resource("apibindings") {
+		return nil
+	}
+
+	u, ok := a.GetObject().(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("unexpected type %T", a.GetObject())
+	}
+
+	apiBinding := &apisv1alpha1.APIBinding{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, apiBinding); err != nil {
+		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
+	}
+
+	if apiBinding.Spec.Reference.Workspace == nil {
+		return nil
+	}
+
+	// do defaulting
+	cluster, err := genericapirequest.ValidClusterFrom(ctx)
+	if err != nil {
+		return admission.NewForbidden(a, fmt.Errorf("error determining workspace: %w", err))
+	}
+	if apiBinding.Spec.Reference.Workspace.Path == "" {
+		apiBinding.Spec.Reference.Workspace.Path = cluster.Name.String()
+	}
+
+	// write back
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(apiBinding)
+	if err != nil {
+		return err
+	}
+	u.Object = raw
+
+	return nil
+}
 
 // Validate validates the creation and updating of APIBinding resources. It also performs a SubjectAccessReview
 // making sure the user is allowed to use the 'bind' verb with the referenced APIExport.
