@@ -381,17 +381,6 @@ func TestValidate(t *testing.T) {
 				&user.DefaultInfo{},
 			),
 		},
-		{
-			name: "error from adding an initializer that's too long",
-			a: createAttr(&tenancyv1alpha1.ClusterWorkspace{
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-						"really-could-be-a-shorter-name-but-we-didnt-know-about-the-length-restriction",
-					},
-				},
-			}),
-			wantErr: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

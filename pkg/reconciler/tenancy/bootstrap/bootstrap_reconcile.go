@@ -18,18 +18,14 @@ package bootstrap
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-)
-
-const (
-	typeInitializerKeyDomain = "tenancy.kcp.dev"
 )
 
 func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
@@ -41,15 +37,8 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	}
 
 	// have we done our work before?
-	found := false
-	initializerName := tenancyv1alpha1.ClusterWorkspaceInitializer(typeInitializerKeyDomain + "/" + strings.ToLower(string(c.workspaceType.Name)))
-	for _, i := range workspace.Status.Initializers {
-		if i == initializerName {
-			found = true
-			break
-		}
-	}
-	if !found {
+	initializerName := initialization.InitializerForReference(c.workspaceType)
+	if !initialization.InitializerPresent(initializerName, workspace.Status.Initializers) {
 		return nil
 	}
 
@@ -63,13 +52,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	}
 
 	// we are done. remove our initializer
-	newInitializers := make([]tenancyv1alpha1.ClusterWorkspaceInitializer, 0, len(workspace.Status.Initializers))
-	for _, i := range workspace.Status.Initializers {
-		if i != initializerName {
-			newInitializers = append(newInitializers, i)
-		}
-	}
-	workspace.Status.Initializers = newInitializers
+	workspace.Status.Initializers = initialization.EnsureInitializerAbsent(initializerName, workspace.Status.Initializers)
 
 	return nil
 }

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -29,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -37,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -157,15 +156,9 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return admission.NewForbidden(a, resolutionError)
 	}
 
-	// add initializers from type to workspace
-	existing := sets.NewString()
-	for _, i := range cw.Status.Initializers {
-		existing.Insert(string(i))
-	}
-	for _, i := range cwt.Spec.Initializers {
-		if !existing.Has(string(i)) {
-			cw.Status.Initializers = append(cw.Status.Initializers, i)
-		}
+	// add initializer from type to workspace
+	if cwt.Spec.Initializer {
+		cw.Status.Initializers = initialization.EnsureInitializerPresent(initialization.InitializerForType(cwt), cw.Status.Initializers)
 	}
 
 	return updateUnstructured(u, cw)
@@ -180,10 +173,7 @@ func (o *clusterWorkspaceTypeExists) resolveValidType(parentClusterName logicalc
 	if err != nil {
 		return nil, err
 	}
-	parentRef := tenancyv1alpha1.ClusterWorkspaceTypeReference{
-		Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToUpper(string(parentCwt.Name[0])) + parentCwt.Name[1:]),
-		Path: logicalcluster.From(parentCwt).String(),
-	}
+	parentRef := tenancyv1alpha1.ReferenceFor(parentCwt)
 	if !setContainsType(parentCwt.Spec.AllowedChildWorkspaceTypes, parentRef, ref) {
 		return nil, fmt.Errorf("parent cluster workspace %q (of type %s) does not allow for child workspaces of type %s", parentClusterName, parentRef.String(), ref.String())
 	}
@@ -217,7 +207,7 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
 		return &tenancyv1alpha1.ClusterWorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        strings.ToLower(string(tenancyv1alpha1.RootWorkspaceType)),
+				Name:        tenancyv1alpha1.ObjectName(tenancyv1alpha1.RootWorkspaceType),
 				ClusterName: tenancyv1alpha1.RootCluster.String(),
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
@@ -238,7 +228,7 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 }
 
 func (o *clusterWorkspaceTypeExists) resolveType(ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-	cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(ref.Path), strings.ToLower(string(ref.Name))))
+	cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(ref.Path), tenancyv1alpha1.ObjectName(ref.Name)))
 	if apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("spec.type %s does not exist", ref.String())
 	}
@@ -315,18 +305,12 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		}
 	}
 
-	// add initializers from type to workspace
-	if a.GetOperation() == admission.Update && transitioningToInitializing {
+	// add initializer from type to workspace
+	if a.GetOperation() == admission.Update && transitioningToInitializing && cwt.Spec.Initializer {
 		// this is a transition to initializing. Check that all initializers are there
 		// (no other admission plugin removed any).
-		existing := sets.NewString()
-		for _, initializer := range cw.Status.Initializers {
-			existing.Insert(string(initializer))
-		}
-		for _, initializer := range cwt.Spec.Initializers {
-			if !existing.Has(string(initializer)) {
-				return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
-			}
+		if initializer := initialization.InitializerForType(cwt); !initialization.InitializerPresent(initializer, cw.Status.Initializers) {
+			return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
 		}
 	}
 

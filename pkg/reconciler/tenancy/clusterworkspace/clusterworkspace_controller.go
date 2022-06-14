@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -305,10 +306,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func initializerLabelFor(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) string {
-	return string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
-}
-
 func reconcileMetadata(workspace *tenancyv1alpha1.ClusterWorkspace) {
 	if workspace.Labels == nil {
 		workspace.Labels = map[string]string{}
@@ -317,9 +314,9 @@ func reconcileMetadata(workspace *tenancyv1alpha1.ClusterWorkspace) {
 
 	initializerKeys := sets.NewString()
 	for _, initializer := range workspace.Status.Initializers {
-		key := initializerLabelFor(initializer)
+		key, value := initialization.InitializerToLabel(initializer)
 		initializerKeys.Insert(key)
-		workspace.Labels[key] = ""
+		workspace.Labels[key] = value
 	}
 
 	for key := range workspace.Labels {
