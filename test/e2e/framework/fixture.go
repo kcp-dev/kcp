@@ -275,6 +275,12 @@ func toYaml(t *testing.T, obj interface{}) string {
 
 type ClusterWorkspaceOption func(ws *tenancyv1alpha1.ClusterWorkspace)
 
+func WithShardConstraints(c tenancyv1alpha1.ShardConstraints) ClusterWorkspaceOption {
+	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
+		ws.Spec.Shard = &c
+	}
+}
+
 func WithType(path logicalcluster.Name, name tenancyv1alpha1.ClusterWorkspaceTypeName) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
 		ws.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
