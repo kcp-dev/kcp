@@ -40,6 +40,15 @@ func startShard(ctx context.Context, n uint, args []string, servingCA *crypto.CA
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
+	klog.Infof("Creating extra serving certs in .kcp with hostnames %v to be used by e2e webhooks", n, hostnames)
+	cert, err = servingCA.MakeServerCert(hostnames, 365)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create server cert: %w", err)
+	}
+	if err := cert.WriteCertConfigFile(".kcp/apiserver.crt", ".kcp/apiserver.key"); err != nil {
+		return nil, fmt.Errorf("failed to write server cert: %w", err)
+	}
+
 	if n > 0 {
 		args = append(args, "--root-kubeconfig=.kcp-0/root.kubeconfig")
 	}
