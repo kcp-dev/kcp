@@ -79,7 +79,7 @@ func TypeFrom(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (logicalc
 	case -1:
 		return logicalcluster.Name{}, "", fmt.Errorf("expected cluster workspace initializer in form workspace:name, not %q", initializer)
 	default:
-		return logicalcluster.New(string(initializer[:separatorIndex])), string(initializer[separatorIndex+1:]), nil
+		return logicalcluster.New(string(initializer[:separatorIndex])), tenancyv1alpha1.ObjectName(tenancyv1alpha1.ClusterWorkspaceTypeName(initializer[separatorIndex+1:])), nil
 	}
 }
 

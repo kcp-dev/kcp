@@ -23,6 +23,7 @@ import (
 
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
@@ -54,10 +55,11 @@ func (o *InitializingWorkspaces) Validate(flagPrefix string) []error {
 func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	dynamicClusterClient dynamic.ClusterInterface,
+	kubeClusterClient kubernetes.ClusterInterface,
 	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), dynamicClusterClient, wildcardApiExtensionsInformers),
+		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers),
 	}
 	return nil, virtualWorkspaces, nil
 }

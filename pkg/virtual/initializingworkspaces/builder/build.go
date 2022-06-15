@@ -33,13 +33,16 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -60,6 +63,7 @@ func init() {
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	dynamicClusterClient dynamic.ClusterInterface,
+	kubeClusterClient kubernetes.ClusterInterface,
 	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 ) framework.VirtualWorkspace {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -121,10 +125,7 @@ func BuildVirtualWorkspace(
 			accepted = true
 			return
 		},
-		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-			klog.Error("the authorizer for the 'initializingworkspaces' virtual workspace is not implemented !")
-			return authorizer.DecisionAllow, "", nil
-		},
+		Authorizer: newAuthorizer(kubeClusterClient),
 		Ready: func() error {
 			select {
 			case <-readyCh:
@@ -234,3 +235,30 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 }
 
 var _ apidefinition.APIDefinitionSetGetter = &apiSetRetriever{}
+
+func newAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc {
+	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+		workspace, name, err := initialization.TypeFrom(tenancyv1alpha1.ClusterWorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
+		if err != nil {
+			klog.V(2).Info(err)
+			return authorizer.DecisionNoOpinion, "unable to determine initializer", fmt.Errorf("access not permitted")
+		}
+
+		authz, err := delegated.NewDelegatedAuthorizer(workspace, client)
+		if err != nil {
+			return authorizer.DecisionNoOpinion, "error", err
+		}
+
+		SARAttributes := authorizer.AttributesRecord{
+			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+			User:            attr.GetUser(),
+			Verb:            "initialize",
+			Name:            name,
+			Resource:        "clusterworkspacetypes",
+			ResourceRequest: true,
+		}
+
+		return authz.Authorize(ctx, SARAttributes)
+	}
+}
