@@ -17,9 +17,11 @@ limitations under the License.
 package clusterworkspace
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -103,7 +105,12 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			reconcileMetadata(testCase.input)
+			reconciler := metaDataReconciler{}
+			status, err := reconciler.reconcile(context.Background(), testCase.input)
+
+			require.NoError(t, err)
+			require.Equal(t, reconcileStatusContinue, status)
+
 			if diff := cmp.Diff(testCase.input.ObjectMeta, testCase.expected); diff != "" {
 				t.Errorf("invalid output after reconciling metadata: %v", diff)
 			}
