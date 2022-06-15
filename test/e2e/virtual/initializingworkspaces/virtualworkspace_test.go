@@ -277,11 +277,15 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 	}
 
-	t.Log("Ensure that LIST calls through the virtual workspace show the correct values")
-	workspaces, err := sourceKcpTenancyClient.ClusterWorkspaces().List(ctx, metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(testLabelSelector).String(),
-	})
-	require.NoError(t, err)
+	t.Log("Ensure that LIST calls through the virtual workspace eventually show the correct values")
+	var workspaces *tenancyv1alpha1.ClusterWorkspaceList
+	require.Eventually(t, func() bool {
+		workspaces, err = sourceKcpTenancyClient.ClusterWorkspaces().List(ctx, metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(testLabelSelector).String(),
+		})
+		require.True(t, err == nil || errors.IsForbidden(err), "got %#v error from initial list, expected unauthorized or success", err)
+		return err == nil
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	workspacesByType := map[string]tenancyv1alpha1.ClusterWorkspace{}
 	for i := range workspaces.Items {
 		workspacesByType[tenancyv1alpha1.ObjectName(workspaces.Items[i].Spec.Type.Name)] = workspaces.Items[i]
