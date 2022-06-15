@@ -704,6 +704,8 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 
 	// Compose a new downstream config that uses the token
 	downstreamConfig := rest.CopyConfig(config)
+	downstreamConfig.CertData = nil
+	downstreamConfig.KeyData = nil
 	downstreamConfig.BearerToken = string(token)
 
 	return &syncer.SyncerConfig{
@@ -812,4 +814,18 @@ func Kubectl(t *testing.T, kubeconfigPath string, args ...string) []byte {
 	require.NoError(t, err)
 
 	return output
+}
+
+// ShardConfig returns a rest config that talk directly to the given shard.
+func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, shardName string, cfg *rest.Config) *rest.Config {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shardName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	shardCfg := rest.CopyConfig(cfg)
+	shardCfg.Host = shard.Spec.BaseURL
+
+	return shardCfg
 }

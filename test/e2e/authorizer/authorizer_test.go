@@ -55,8 +55,8 @@ func TestAuthorizer(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	server := framework.SharedKcpServer(t)
-
 	cfg := server.DefaultConfig(t)
+
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err)
 	kcpClusterClient, err := kcp.NewClusterForConfig(cfg)
@@ -125,15 +125,27 @@ func TestAuthorizer(t *testing.T) {
 			_, err := user2KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.NoError(t, err, "user-2 should be able to list configmaps in workspace2")
 		},
-		"cluster admins can use wildcard clusters": func(t *testing.T) {
-			_, err := kubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		"cluster admins can use wildcard clusters, non-cluster admin cannot": func(t *testing.T) {
+			// create client talking directly to root shard to test wildcard requests
+			rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
+			rootKubeClusterClient, err := kubernetes.NewClusterForConfig(rootCfg)
 			require.NoError(t, err)
-		},
-		"non-cluster admins can not use wildcard clusters": func(t *testing.T) {
-			_, err := user1KubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			user1RootKubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-1", rootCfg))
+			require.NoError(t, err)
+
+			_, err = rootKubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+			_, err = user1RootKubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "Only cluster admins can use all clusters at once")
 		},
 		"with system:admin permissions, workspace2 non-admin user-3 can list Namespaces with a bootstrap ClusterRole": func(t *testing.T) {
+			// get workspace2 shard and create a client to tweak the local bootstrap policy
+			org1Workspace, err := kcpClusterClient.Cluster(org1).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "workspace2", metav1.GetOptions{})
+			require.NoError(t, err)
+			shardCfg := framework.ShardConfig(t, kcpClusterClient, org1Workspace.Status.Location.Current, cfg)
+			shardKubeClusterClient, err := kubernetes.NewClusterForConfig(shardCfg)
+			require.NoError(t, err)
+
 			_, err = user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "User-3 shouldn't be able to list Namespaces")
 
@@ -167,10 +179,10 @@ func TestAuthorizer(t *testing.T) {
 					},
 				},
 			}
-			_, err = kubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
+			_, err = shardKubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			_, err = kubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
+			_, err = shardKubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
 			if err != nil && !errors.IsAlreadyExists(err) {
 				require.NoError(t, err)
 			}
@@ -197,6 +209,8 @@ func TestAuthorizer(t *testing.T) {
 
 func userConfig(username string, cfg *rest.Config) *rest.Config {
 	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.CertData = nil
+	cfgCopy.KeyData = nil
 	cfgCopy.BearerToken = username + "-token"
 	return cfgCopy
 }

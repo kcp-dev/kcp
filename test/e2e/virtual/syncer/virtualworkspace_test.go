@@ -720,6 +720,8 @@ func sortAPIResourceList(list []*metav1.APIResourceList) []*metav1.APIResourceLi
 
 func userConfigWithToken(token string, cfg *rest.Config) *rest.Config {
 	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.CertData = nil
+	cfgCopy.KeyData = nil
 	cfgCopy.BearerToken = token
 	return cfgCopy
 }

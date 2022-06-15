@@ -46,6 +46,8 @@ func resourceExists(list *metav1.APIResourceList, resource string) bool {
 
 func userConfig(username string, cfg *rest.Config) *rest.Config {
 	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.CertData = nil
+	cfgCopy.KeyData = nil
 	cfgCopy.BearerToken = username + "-token"
 	return cfgCopy
 }

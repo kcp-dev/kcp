@@ -152,6 +152,8 @@ func TestServiceAccounts(t *testing.T) {
 	for _, ttc := range testCases {
 		t.Run(ttc.name, func(t *testing.T) {
 			saRestConfig := server.DefaultConfig(t)
+			saRestConfig.CertData = nil
+			saRestConfig.KeyData = nil
 			saRestConfig.BearerToken = ttc.token(t)
 			saKubeClusterClient, err := kubernetes.NewClusterForConfig(saRestConfig)
 			require.NoError(t, err)
