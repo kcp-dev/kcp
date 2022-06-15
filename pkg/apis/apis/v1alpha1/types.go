@@ -379,8 +379,8 @@ type APIExportSpec struct {
 	// +optional
 	MaximalPermissionPolicy *MaximalPermissionPolicy `json:"maximalPermissionPolicy,omitempty"`
 
-	// permissionClaims will allow the APIExport creator to ask for permissions in the given bound workspace
-	// Permissions are optional and should be the least access necessary to complete the functions that the service provider needs.
+	// permissionClaims adds resources to the APIExports virtual workspace.
+	// permissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs.
 	// Access is asked for on a GVR basis and can be filtered on objects by many different selectors.
 	// +optional
 	PermissionClaims []PermissionClaim `json:"permissionClaims,omitempty"`
@@ -406,12 +406,35 @@ type MaximalPermissionPolicy struct {
 // of the API Export
 type LocalAPIExportPolicy struct{}
 
-type PermissionClaim struct {
-	metav1.GroupResource `json:","`
+const (
+	APIExportPermissionClaimLabelPrefix = "claimed.internal.apis.kcp.dev/"
+)
 
-	// This is the identity for a given API Resource, It will be empty for core types.
+type PermissionClaim struct {
+	GroupResource `json:","`
+
+	// This is the identity for a given APIExport that the APIResourceSchema belongs to.
+	// The hash can be found on APIExport and APIResourceSchema's status.
+	// It will be empty for core types.
 	// Note that one must look this up for a particular KCP instance.
-	IdentityHash string `json:"identityHash"`
+	// +optional
+	IdentityHash string `json:"identityHash,omitempty"`
+}
+
+// GroupResource identifies a resource.
+type GroupResource struct {
+	// group is the name of an API group.
+	//
+	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
+	// +optional
+	Group string `json:"group,omitempty"`
+
+	// resource is the name of the resource.
+	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
+	// +kubebuilder:validation:MinLength:1
+	// +required
+	// +kubebuilder:Required
+	Resource string `json:"resource"`
 }
 
 // APIExportStatus defines the observed state of APIExport.

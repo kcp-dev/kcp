@@ -36,12 +36,14 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
 const VirtualWorkspaceName string = "apiexport"
@@ -135,9 +137,27 @@ func BuildVirtualWorkspace(
 				kcpClusterClient,
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExport *apisv1alpha1.APIExport) (apidefinition.APIDefinition, error) {
+
+					if apiExport == nil {
+						return nil, fmt.Errorf("unable to get apiexport")
+					}
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, nil)
+
+					var wrapper forwardingregistry.StorageWrapper = nil
+					for _, claim := range apiExport.Spec.PermissionClaims {
+						if apiResourceSchema.Spec.Group == claim.Group && apiResourceSchema.Spec.Names.Plural == claim.Resource {
+							key, label, err := permissionclaims.PermissionClaimToLabel(claim)
+							if err != nil {
+								panic(fmt.Sprintf("unable to get permission claim label: %v", err))
+							}
+							wrapper = forwardingregistry.WithLabelSelector(map[string]string{key: label})
+							// Assume once we found the one matching there is not a second.
+							break
+						}
+					}
+
+					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExport, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
