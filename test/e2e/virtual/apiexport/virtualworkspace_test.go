@@ -231,7 +231,9 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	serviceProviderSherriffs := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	serviceProviderSherriffsNotUsed := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumerWorkspace2 := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 
@@ -247,10 +249,12 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 	require.NoError(t, err, "failed to construct wildwest cluster client for server")
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderSherriffs, kcpClientOld, "wild.wild.west", "board the wanderer")
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderSherriffsNotUsed, kcpClientOld, "wild.wild.west", "use the giant spider")
 
 	t.Logf("get the sheriffs api export's generated identity hash")
 	identityHash := ""
-	wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+	//TODO: convert to framework.Eventually
+	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
 		sheriffExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderSherriffs), "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -262,6 +266,7 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 		}
 		return false, nil
 	})
+	require.NoError(t, err)
 
 	t.Logf("Found identity hash: %v", identityHash)
 	apifixtures.BindToExport(ctx, t, serviceProviderSherriffs, "wild.wild.west", consumerWorkspace, kcpClientOld)
@@ -270,6 +275,11 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg)
 
 	createCowboyInConsumer(ctx, t, consumerWorkspace, wildwestClusterClient)
+
+	t.Logf("bind and create a Sheriff in: %v to prove that it would not be retrieved", consumerWorkspace2)
+	apifixtures.BindToExport(ctx, t, serviceProviderSherriffsNotUsed, "wild.wild.west", consumerWorkspace2, kcpClientOld)
+	apifixtures.CreateSheriff(ctx, t, dynamicClients, consumerWorkspace2, "wild.wild.west", "not-in-vw")
+
 	t.Logf("test that the admin user can use the virtual workspace to get cowboys")
 	apiExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
 	require.NoError(t, err, "error getting APIExport")
@@ -293,14 +303,96 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 		{Version: "v1", Resource: "configmaps"},
 		{Version: "v1", Resource: "secrets"},
 		{Version: "v1", Resource: "serviceaccounts"},
-		{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"},
 	}
 
 	for _, gvr := range grantedGVRs {
 		t.Logf("Trying to wildcard list %q", gvr)
-		_, err = dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
+		_, err := dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing %q", gvr)
 	}
+	t.Logf("Verify that no sherrifs are returned because we did not create one")
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}
+	ul, err := dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing %q", gvr)
+	require.Empty(t, ul.Items)
+}
+
+func TestAPIExportCorrectFiltration(t *testing.T) {
+	t.Parallel()
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	// Need to Create a Producer w/ APIExport
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	serviceProviderSherriffs := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumerWorkspace2 := framework.NewWorkspaceFixture(t, server, orgClusterName)
+
+	cfg := server.DefaultConfig(t)
+
+	kcpClients, err := clientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	kcpClientOld, err := clientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderSherriffs, kcpClientOld, "wild.wild.west", "board the wanderer")
+
+	t.Logf("get the sheriffs api export's generated identity hash")
+	identityHash := ""
+	//TODO: convert to framework.Eventually
+	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+		sheriffExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderSherriffs), "wild.wild.west", metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+
+		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
+			identityHash = sheriffExport.Status.IdentityHash
+			return true, nil
+		}
+		return false, nil
+	})
+	require.NoError(t, err)
+
+	t.Logf("Found identity hash: %v", identityHash)
+	apifixtures.BindToExport(ctx, t, serviceProviderSherriffs, "wild.wild.west", consumerWorkspace, kcpClientOld)
+	setUpServiceProviderWithPermissionClaims(ctx, dynamicClients, kcpClients, serviceProviderWorkspace, cfg, identityHash, t)
+	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg)
+
+	t.Logf("Create a sherriff that should be retrieved")
+	// We need to sleep for now, because the controller does not exist to make this eventually conistant.
+	time.Sleep(5 * time.Second)
+	apifixtures.CreateSheriff(ctx, t, dynamicClients, consumerWorkspace, "wild.wild.west", "in-vw")
+
+	t.Logf("bind and create a Sheriff in: %v to prove that it would not be retrieved", consumerWorkspace2)
+	apifixtures.BindToExport(ctx, t, serviceProviderSherriffs, "wild.wild.west", consumerWorkspace2, kcpClientOld)
+	// Wait for the cache to be caught up in the admision.
+	apifixtures.CreateSheriff(ctx, t, dynamicClients, consumerWorkspace2, "wild.wild.west", "not-in-vw")
+
+	t.Logf("test that the admin user can use the virtual workspace to get cowboys")
+	apiExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
+	require.NoError(t, err, "error getting APIExport")
+	require.Len(t, apiExport.Status.VirtualWorkspaces, 1, "unexpected virtual workspace URLs: %#v", apiExport.Status.VirtualWorkspaces)
+
+	apiExportVWCfg := rest.CopyConfig(cfg)
+	apiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
+
+	t.Logf("Ensuring the appropriate core/v1 resources are available")
+	dynamicVWClients, err := dynamic.NewClusterForConfig(apiExportVWCfg)
+	require.NoError(t, err, "error creating dynamic cluster client for %q", apiExportVWCfg.Host)
+
+	t.Logf("Verify that no sherrifs are returned because we did not create one")
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}
+	ul, err := dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing %q", gvr)
+	require.Len(t, ul.Items, 1)
 
 }
 
@@ -324,19 +416,19 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClient
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 			PermissionClaims: []apisv1alpha1.PermissionClaim{
 				{
-					GroupResource: metav1.GroupResource{Group: "", Resource: "namespaces"},
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "namespaces"},
 				},
 				{
-					GroupResource: metav1.GroupResource{Group: "", Resource: "configmaps"},
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				},
 				{
-					GroupResource: metav1.GroupResource{Group: "", Resource: "secrets"},
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
 				},
 				{
-					GroupResource: metav1.GroupResource{Group: "", Resource: "serviceaccounts"},
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
 				},
 				{
-					GroupResource: metav1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+					GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 					IdentityHash:  identityHash,
 				},
 			},

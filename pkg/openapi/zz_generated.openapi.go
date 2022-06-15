@@ -60,6 +60,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource":                            schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference":                             schema_pkg_apis_apis_v1alpha1_ExportReference(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.GroupResource":                               schema_pkg_apis_apis_v1alpha1_GroupResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity":                                    schema_pkg_apis_apis_v1alpha1_Identity(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
@@ -1379,7 +1380,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 					},
 					"permissionClaims": {
 						SchemaProps: spec.SchemaProps{
-							Description: "permissionClaims will allow the APIExport creator to ask for permissions in the given bound workspace Permissions are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GVR basis and can be filtered on objects by many different selectors.",
+							Description: "permissionClaims adds resources to the APIExports virtual workspace. permissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GVR basis and can be filtered on objects by many different selectors.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1814,6 +1815,35 @@ func schema_pkg_apis_apis_v1alpha1_ExportReference(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_apis_v1alpha1_GroupResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupResource identifies a resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the name of an API group.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the name of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"resource"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_apis_v1alpha1_Identity(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1875,14 +1905,12 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This is the identity for a given API Resource, It will be empty for core types. Note that one must look this up for a particular KCP instance.",
-							Default:     "",
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"identityHash"},
 			},
 		},
 	}

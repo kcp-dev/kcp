@@ -76,6 +76,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			}
 			for _, export := range exports {
 				e, ok := export.(*apisv1alpha1.APIExport)
+				e = e.DeepCopy()
 				if !ok {
 					return fmt.Errorf("invalid type from apiExportIndexer got: %T, expected %T", export, apiExport)
 				}
@@ -85,6 +86,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 				apiResourceSchemas = append(apiResourceSchemas, schemas...)
 				for k, v := range schemaIDs {
+					// Override the permisson claims that should be used. for this schema identity
+					v.Spec.PermissionClaims = apiExport.Spec.PermissionClaims
 					schemaIdentity[k] = v
 				}
 			}
@@ -94,6 +97,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 					shallow := *schema
 					shallow.ClusterName = logicalcluster.From(apiExport).String()
 					apiResourceSchemas = append(apiResourceSchemas, &shallow)
+					schemaIdentity[shallow.Name] = apiExport
 				}
 			}
 		}
@@ -129,6 +133,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, schemaIdentity[apiResourceSchema.Name])
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
+				klog.Errorf("error creating api definition for schema: %v/%v err: %v", apiResourceSchema.Spec.Group, apiResourceSchema.Spec.Names, err)
 				continue
 			}
 
@@ -174,9 +179,9 @@ func gvrString(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
 }
 
-func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIResourceSchema, map[string]string, error) {
+func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIResourceSchema, map[string]*apisv1alpha1.APIExport, error) {
 	apiResourceSchemas := []*apisv1alpha1.APIResourceSchema{}
-	schemaIdentity := map[string]string{}
+	schemaIdentity := map[string]*apisv1alpha1.APIExport{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		apiResourceSchema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -187,7 +192,7 @@ func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExpor
 			continue
 		}
 		apiResourceSchemas = append(apiResourceSchemas, apiResourceSchema)
-		schemaIdentity[schemaName] = apiExport.Status.IdentityHash
+		schemaIdentity[schemaName] = apiExport
 	}
 
 	return apiResourceSchemas, schemaIdentity, nil
