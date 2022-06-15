@@ -172,8 +172,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, workspaceType := range []string{
 		"alpha",
 	} {
-		ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
-		require.NoError(t, err)
+		var ws *tenancyv1alpha1.ClusterWorkspace
+		require.Eventually(t, func() bool {
+			ws, err = sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
+			return err == nil
+		}, wait.ForeverTestTimeout, time.Millisecond*100)
 		source.Artifact(t, func() (runtime.Object, error) {
 			return sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		})
