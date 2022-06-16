@@ -268,7 +268,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 
-			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 			client := kubeClient.Cluster(clusterName)
 

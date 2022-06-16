@@ -43,7 +43,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	workspaceClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	workspaceClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	t.Logf("Running test in cluster %s", workspaceClusterName)
 
 	cfg := server.DefaultConfig(t)

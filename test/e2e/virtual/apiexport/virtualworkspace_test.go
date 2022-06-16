@@ -55,8 +55,8 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	// Need to Create a Producer w/ APIExport
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 

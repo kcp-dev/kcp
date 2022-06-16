@@ -51,8 +51,8 @@ func TestAPIBindingDeletion(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 

@@ -127,27 +127,27 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	org := framework.NewOrganizationFixture(t, server)
 
 	// These 2 workspaces will have the same sheriffs CRD schema as normal CRDs
-	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org, "Universal")
-	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org, "Universal")
+	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org)
+	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org)
 
 	// This workspace will have a different sherrifs CRD schema as a normal CRD - will conflict with 1a/1b.
-	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org, "Universal")
+	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org)
 
 	// These 2 workspaces will export a sheriffs API with the same schema
-	wsExport1a := framework.NewWorkspaceFixture(t, server, org, "Universal")
-	wsExport1b := framework.NewWorkspaceFixture(t, server, org, "Universal")
+	wsExport1a := framework.NewWorkspaceFixture(t, server, org)
+	wsExport1b := framework.NewWorkspaceFixture(t, server, org)
 
 	// This workspace will export a sheriffs API with a different schema
-	wsExport2 := framework.NewWorkspaceFixture(t, server, org, "Universal")
+	wsExport2 := framework.NewWorkspaceFixture(t, server, org)
 
 	// This workspace will consume from wsExport1a
-	wsConsume1a := framework.NewWorkspaceFixture(t, server, org, "Universal")
+	wsConsume1a := framework.NewWorkspaceFixture(t, server, org)
 
 	// This workspace will consume from wsExport1b
-	wsConsume1b := framework.NewWorkspaceFixture(t, server, org, "Universal")
+	wsConsume1b := framework.NewWorkspaceFixture(t, server, org)
 
 	// This workspace will consume from wsExport2
-	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, "Universal")
+	wsConsume2 := framework.NewWorkspaceFixture(t, server, org)
 
 	// Make sure the informers aren't throttled because dynamic informers do lots of discovery which slows down tests
 	cfg := server.DefaultConfig(t)
@@ -263,7 +263,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	require.NoError(t, err, "error creating kube cluster client")
 
 	for i := 0; i < 3; i++ {
-		ws := framework.NewWorkspaceFixture(t, server, org, "Universal")
+		ws := framework.NewWorkspaceFixture(t, server, org)
 
 		configMapName := fmt.Sprintf("test-cm-%d", i)
 		configMap := &corev1.ConfigMap{

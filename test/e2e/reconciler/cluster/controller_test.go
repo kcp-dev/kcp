@@ -154,7 +154,7 @@ func TestClusterController(t *testing.T) {
 			t.Cleanup(cancelFunc)
 
 			t.Log("Creating a workspace")
-			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
 			// clients
 			sourceConfig := source.DefaultConfig(t)

@@ -100,7 +100,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
 
 	source := framework.SharedKcpServer(t)
-	clusterName := framework.NewWorkspaceFixture(t, source, tenancyv1alpha1.RootCluster, "Universal")
+	clusterName := framework.NewWorkspaceFixture(t, source, tenancyv1alpha1.RootCluster)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -115,7 +115,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, clusterName, []string{"user-1"}, nil, []string{"access"})
 
 	// Create a Workspace that will not be Initializing and should not be shown in the virtual workspace
-	framework.NewWorkspaceFixture(t, source, clusterName, "Universal")
+	framework.NewWorkspaceFixture(t, source, clusterName)
 
 	sourceKcpTenancyClient := sourceKcpClusterClient.Cluster(clusterName).TenancyV1alpha1()
 

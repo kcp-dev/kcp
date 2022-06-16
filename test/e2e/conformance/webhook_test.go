@@ -84,8 +84,8 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 	organization := framework.NewOrganizationFixture(t, server)
 	logicalClusters := []logicalcluster.Name{
-		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
-		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
+		framework.NewWorkspaceFixture(t, server, organization),
+		framework.NewWorkspaceFixture(t, server, organization),
 	}
 
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
@@ -203,8 +203,8 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	organization := framework.NewOrganizationFixture(t, server)
 	logicalClusters := []logicalcluster.Name{
-		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
-		framework.NewWorkspaceFixture(t, server, organization, "Universal"),
+		framework.NewWorkspaceFixture(t, server, organization),
+		framework.NewWorkspaceFixture(t, server, organization),
 	}
 
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)

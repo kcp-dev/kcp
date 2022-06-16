@@ -42,7 +42,7 @@ func TestRootCACertConfigmap(t *testing.T) {
 
 	server := framework.SharedKcpServer(t)
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)

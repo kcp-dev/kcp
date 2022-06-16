@@ -48,12 +48,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
@@ -199,13 +199,28 @@ func preserveTestResources() bool {
 	return os.Getenv("PRESERVE") != ""
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName logicalcluster.Name) {
+func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
 	cfg := server.DefaultConfig(t)
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
+
+	tmpl := &tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-org-",
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: "Organization",
+				Path: "root",
+			},
+		},
+	}
+	for _, opt := range options {
+		opt(tmpl)
+	}
 
 	// we are referring here to a ClusterWorkspaceType that may have just been created; if the admission controller
 	// does not have a fresh enough cache, our request will be denied as the admission controller does not know the
@@ -214,17 +229,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	var org *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "e2e-org-",
-			},
-			Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-				Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: "Organization",
-					Path: "root",
-				},
-			},
-		}, metav1.CreateOptions{})
+		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		if err != nil {
 			t.Logf("error creating org workspace under %s: %v", tenancyv1alpha1.RootCluster, err)
 		}
@@ -246,14 +251,14 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 		require.NoErrorf(t, err, "failed to delete organization workspace %s", org.Name)
 	})
 
-	require.Eventuallyf(t, func() bool {
+	Eventually(t, func() (bool, string) {
 		ws, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		if err != nil {
 			t.Logf("failed to get workspace %s: %v", org.Name, err)
-			return false
+			return false, ""
 		}
-		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, toYaml(t, ws)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
 	clusterName := tenancyv1alpha1.RootCluster.Join(org.Name)
@@ -261,16 +266,24 @@ func NewOrganizationFixture(t *testing.T, server RunningServer) (orgClusterName 
 	return clusterName
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, workspaceType string) (clusterName logicalcluster.Name) {
-	schedulable := workspaceType == "Universal"
-	return NewWorkspaceWithWorkloads(t, server, orgClusterName, workspaceType, schedulable)
+func toYaml(t *testing.T, obj interface{}) string {
+	bs, err := yaml.Marshal(obj)
+	require.NoError(t, err)
+	return string(bs)
 }
 
-func NewUnschedulableWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, workspaceType string) (clusterName logicalcluster.Name) {
-	return NewWorkspaceWithWorkloads(t, server, orgClusterName, workspaceType, false)
+type ClusterWorkspaceOption func(ws *tenancyv1alpha1.ClusterWorkspace)
+
+func WithType(path logicalcluster.Name, name tenancyv1alpha1.ClusterWorkspaceTypeName) ClusterWorkspaceOption {
+	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
+		ws.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Name: name,
+			Path: path.String(),
+		}
+	}
 }
 
-func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, workspaceType string, schedulable bool) (clusterName logicalcluster.Name) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -278,9 +291,19 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	labels := map[string]string{}
-	if !schedulable {
-		labels[workloadv1alpha1.WorkspaceSchedulableLabel] = "false"
+	tmpl := &tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-workspace-",
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Universal"),
+				Path: "root",
+			},
+		},
+	}
+	for _, opt := range options {
+		opt(tmpl)
 	}
 
 	// we are referring here to a ClusterWorkspaceType that may have just been created; if the admission controller
@@ -290,18 +313,7 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 	var ws *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		ws, err = clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "e2e-workspace-",
-				Labels:       labels,
-			},
-			Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-				Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType),
-					Path: "root",
-				},
-			},
-		}, metav1.CreateOptions{})
+		ws, err = clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		if err != nil {
 			t.Logf("error creating workspace under %s: %v", orgClusterName, err)
 		}
@@ -323,18 +335,18 @@ func NewWorkspaceWithWorkloads(t *testing.T, server RunningServer, orgClusterNam
 		require.NoErrorf(t, err, "failed to delete workspace %s", ws.Name)
 	})
 
-	require.Eventuallyf(t, func() bool {
+	Eventually(t, func() (bool, string) {
 		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
 		if err != nil {
 			t.Logf("failed to get workspace %s: %v", ws.Name, err)
-			return false
+			return false, err.Error()
 		}
-		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
+		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, toYaml(t, ws)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
 	wsClusterName := orgClusterName.Join(ws.Name)
-	t.Logf("Created %s workspace %s", workspaceType, wsClusterName)
+	t.Logf("Created %s workspace %s", ws.Spec.Type, wsClusterName)
 	return wsClusterName
 }
 

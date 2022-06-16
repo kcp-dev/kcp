@@ -252,7 +252,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				vwUser2Client := server.virtualUserKcpClients[1]
 
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1", "team-2")
-				parentCluster := framework.NewWorkspaceFixture(t, server, server.orgClusterName, "Universal")
+				parentCluster := framework.NewWorkspaceFixture(t, server, server.orgClusterName)
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, parentCluster, "team-1", "team-2")
 
 				t.Logf("Create custom ClusterWorkspaceType 'Custom'")

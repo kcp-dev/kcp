@@ -146,7 +146,7 @@ func TestIngressController(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			clusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+			clusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
 			// clients
 			sourceConfig := source.DefaultConfig(t)

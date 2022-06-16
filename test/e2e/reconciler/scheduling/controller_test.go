@@ -53,9 +53,9 @@ func TestScheduling(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	negotiationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
-	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
-	secondUserClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, "Universal")
+	negotiationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	secondUserClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(source.DefaultConfig(t))
 	require.NoError(t, err)

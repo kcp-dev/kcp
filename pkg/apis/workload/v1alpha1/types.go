@@ -111,8 +111,4 @@ const (
 
 	// SchedulingDisabledLabel on a namespace with value "true" disables workload placement and scheduling.
 	SchedulingDisabledLabel = "experimental.workload.kcp.dev/scheduling-disabled"
-
-	// WorkspaceSchedulableLabel on a workspace enables scheduling for the contents
-	// of the workspace. It is applied by default to workspaces of type `Universal`.
-	WorkspaceSchedulableLabel = "workload.kcp.dev/schedulable"
 )
