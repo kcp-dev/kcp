@@ -68,7 +68,7 @@ type WorkspaceResourcesDeleterInterface interface {
 	Delete(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) error
 }
 
-// NewNamespacedResourcesDeleter returns a new NamespacedResourcesDeleter.
+// NewWorkspacedResourcesDeleter returns a new NamespacedResourcesDeleter.
 func NewWorkspacedResourcesDeleter(
 	metadataClient metadata.Interface,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error)) WorkspaceResourcesDeleterInterface {
