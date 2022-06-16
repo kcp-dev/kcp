@@ -109,9 +109,10 @@ func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterfa
 			registry.ListerFunc
 			registry.UpdaterFunc
 			registry.WatcherFunc
-			registry.CreaterFunc
-			registry.CollectionDeleterFunc
-			registry.GracefulDeleterFunc
+			// TODO: add create, delete and deletecollection verbs support
+			// registry.CreaterFunc
+			// registry.CollectionDeleterFunc
+			// registry.GracefulDeleterFunc
 
 			registry.TableConvertorFunc
 			registry.CategoriesProviderFunc
@@ -121,13 +122,14 @@ func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterfa
 			ListFactoryFunc: storage.ListFactoryFunc,
 			DestroyerFunc:   storage.DestroyerFunc,
 
-			GetterFunc:            storage.GetterFunc,
-			ListerFunc:            storage.ListerFunc,
-			UpdaterFunc:           storage.UpdaterFunc,
-			WatcherFunc:           storage.WatcherFunc,
-			CreaterFunc:           storage.CreaterFunc,
-			CollectionDeleterFunc: storage.CollectionDeleterFunc,
-			GracefulDeleterFunc:   storage.GracefulDeleterFunc,
+			GetterFunc:  storage.GetterFunc,
+			ListerFunc:  storage.ListerFunc,
+			UpdaterFunc: storage.UpdaterFunc,
+			WatcherFunc: storage.WatcherFunc,
+			// TODO: add create, delete and deletecollection verbs support
+			// CreaterFunc:           storage.CreaterFunc,
+			// CollectionDeleterFunc: storage.CollectionDeleterFunc,
+			// GracefulDeleterFunc:   storage.GracefulDeleterFunc,
 
 			TableConvertorFunc:      storage.TableConvertorFunc,
 			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
