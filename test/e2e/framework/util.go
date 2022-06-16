@@ -345,15 +345,18 @@ func Eventually(t *testing.T, condition func() (bool, string), waitFor time.Dura
 	t.Helper()
 
 	var last string
+	start := time.Now()
 	require.Eventually(t, func() bool {
 		t.Helper()
 
 		ok, msg := condition()
-		if !ok && msg != "" && msg != last {
-			last = msg
-			t.Logf("Waiting for condition, but got: %s", msg)
-		} else if ok && msg != "" && last != "" {
-			t.Logf("Condition became true: %s", msg)
+		if time.Since(start) > waitFor/5 {
+			if !ok && msg != "" && msg != last {
+				last = msg
+				t.Logf("Waiting for condition, but got: %s", msg)
+			} else if ok && msg != "" && last != "" {
+				t.Logf("Condition became true: %s", msg)
+			}
 		}
 		return ok
 	}, waitFor, tick, msgAndArgs...)
