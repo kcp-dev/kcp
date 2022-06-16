@@ -343,10 +343,8 @@ func TestUse(t *testing.T) {
 			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
-			prettyNames: map[logicalcluster.Name]map[string]string{
-				logicalcluster.New("root:foo"): {"bar": "baz"},
-			},
-			param: "root:foo:bar",
+			prettyNames: map[logicalcluster.Name]map[string]string{},
+			param:       "root:foo:bar",
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
 				Contexts: map[string]*clientcmdapi.Context{
 					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
@@ -359,6 +357,35 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace doesn't exist error",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			prettyNames: map[logicalcluster.Name]map[string]string{},
+			param:       "root:foo:foe",
+			wantErr:     true,
+			wantErrors:  []string{"workspaces.tenancy.kcp.dev \"foe\" not found"},
+		},
+		{
+			name: "invalid workspace name format",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param:      "ju:nk",
+			wantErr:    true,
+			wantErrors: []string{"invalid workspace name format: ju:nk"},
 		},
 		{
 			name: "absolute name, no cluster URL",
