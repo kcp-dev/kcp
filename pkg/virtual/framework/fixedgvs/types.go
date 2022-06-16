@@ -24,6 +24,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -56,23 +57,25 @@ type GroupVersionAPISet struct {
 // the VirtualWorkspace interface, which allows adding well-defined APIs
 // in a limited number of group/versions, implemented as Rest storages.
 type FixedGroupVersionsVirtualWorkspace struct {
-	Name                string
+	Name                framework.VirtualWorkspaceName
 	RootPathResolver    framework.RootPathResolverFunc
 	Authorizer          authorizer.AuthorizerFunc
 	Ready               framework.ReadyFunc
 	GroupVersionAPISets []GroupVersionAPISet
 }
 
-func (vw *FixedGroupVersionsVirtualWorkspace) GetName() string {
-	return vw.Name
+func (vw *FixedGroupVersionsVirtualWorkspace) Names() framework.VirtualWorkspaceNames {
+	return []framework.VirtualWorkspaceName{vw.Name}
 }
 
-func (vw *FixedGroupVersionsVirtualWorkspace) IsReady() error {
-	return vw.Ready()
+func (vw *FixedGroupVersionsVirtualWorkspace) HealthCheckers() []healthz.HealthChecker {
+	return []healthz.HealthChecker{vw.Ready.HealthCheck(vw.Name)}
 }
 
-func (vw *FixedGroupVersionsVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-	return vw.RootPathResolver(urlPath, context)
+func (vw *FixedGroupVersionsVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, name framework.VirtualWorkspaceName, completedContext context.Context) {
+	accepted, prefixToStrip, completedContext = vw.RootPathResolver(urlPath, context)
+	name = vw.Name
+	return
 }
 
 func (vw *FixedGroupVersionsVirtualWorkspace) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {

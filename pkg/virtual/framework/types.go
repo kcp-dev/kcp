@@ -18,10 +18,24 @@ package framework
 
 import (
 	"context"
+	"net/http"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
 )
+
+type VirtualWorkspaceName string
+type VirtualWorkspaceNames []VirtualWorkspaceName
+
+func (names VirtualWorkspaceNames) Has(name VirtualWorkspaceName) bool {
+	for _, n := range names {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
 
 // RootPathResolverFunc is the type of a function that, based on the URL path of a request,
 // returns whether the request should be accepted and served by a given VirtuaWorkspace.
@@ -34,6 +48,12 @@ type RootPathResolverFunc func(urlPath string, context context.Context) (accepte
 // implementing the VtualWorkspace interface.
 type ReadyFunc func() error
 
+func (ready ReadyFunc) HealthCheck(name VirtualWorkspaceName) healthz.HealthChecker {
+	return healthz.NamedCheck(string(name), func(r *http.Request) error {
+		return ready()
+	})
+}
+
 // VirtualWorkspace is the definition of a virtual workspace
 // that will be registered and made available, at a given prefix,
 // inside a Root API server as a delegated API Server.
@@ -45,9 +65,9 @@ type ReadyFunc func() error
 // in a limited number of group/versions, implemented as Rest storages.
 type VirtualWorkspace interface {
 	authorizer.Authorizer
-	GetName() string
-	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
-	IsReady() error
+	Names() VirtualWorkspaceNames
+	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, name VirtualWorkspaceName, completedContext context.Context)
+	HealthCheckers() []healthz.HealthChecker
 	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
 	Authorize(context.Context, authorizer.Attributes) (authorizer.Decision, string, error)
 }

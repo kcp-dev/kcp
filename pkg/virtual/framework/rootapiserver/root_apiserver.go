@@ -91,11 +91,13 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	delegateAPIServer := delegationTarget
 	vwNames := sets.NewString()
 	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
-		name := virtualWorkspace.GetName()
-		if vwNames.Has(name) {
-			return nil, errors.New("Several virtual workspaces with the same name: " + name)
+		for _, name := range virtualWorkspace.Names() {
+			name := string(name)
+			if vwNames.Has(name) {
+				return nil, errors.New("Several virtual workspaces with the same name: " + name)
+			}
+			vwNames.Insert(name)
 		}
-		vwNames.Insert(name)
 
 		var err error
 		delegateAPIServer, err = virtualWorkspace.Register(c.GenericConfig, delegateAPIServer)
@@ -105,7 +107,12 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	}
 
 	c.GenericConfig.BuildHandlerChainFunc = c.getRootHandlerChain(delegateAPIServer)
-	c.GenericConfig.ReadyzChecks = append(c.GenericConfig.ReadyzChecks, asHealthChecks(c.ExtraConfig.VirtualWorkspaces)...)
+
+	var healthCheckers []healthz.HealthChecker
+	for _, vw := range c.ExtraConfig.VirtualWorkspaces {
+		healthCheckers = append(healthCheckers, vw.HealthCheckers()...)
+	}
+	c.GenericConfig.ReadyzChecks = append(c.GenericConfig.ReadyzChecks, healthCheckers...)
 
 	genericServer, err := c.GenericConfig.New("virtual-workspaces-root-apiserver", delegateAPIServer)
 	if err != nil {
@@ -123,26 +130,6 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	})
 
 	return s, nil
-}
-
-type asHealthCheck struct {
-	framework.VirtualWorkspace
-}
-
-func (vw asHealthCheck) Name() string {
-	return vw.GetName()
-}
-
-func (vw asHealthCheck) Check(req *http.Request) error {
-	return vw.IsReady()
-}
-
-func asHealthChecks(workspaces []framework.VirtualWorkspace) []healthz.HealthChecker {
-	var healthCheckers []healthz.HealthChecker
-	for _, vw := range workspaces {
-		healthCheckers = append(healthCheckers, asHealthCheck{vw})
-	}
-	return healthCheckers
 }
 
 func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
@@ -168,10 +155,10 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 			}
 
 			for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
-				if accepted, prefixToStrip, completedContext := virtualWorkspace.ResolveRootPath(req.URL.Path, requestContext); accepted {
+				if accepted, prefixToStrip, name, completedContext := virtualWorkspace.ResolveRootPath(req.URL.Path, requestContext); accepted {
 					req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
 					req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
-					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, virtualWorkspace.GetName()))
+					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, name))
 					break
 				}
 			}

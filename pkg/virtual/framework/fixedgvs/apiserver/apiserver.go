@@ -33,6 +33,7 @@ import (
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
 
@@ -72,8 +73,8 @@ func (c *GroupVersionAPIServerConfig) Complete() completedConfig {
 }
 
 // New returns a new instance of VirtualWorkspaceAPIServer from the given config.
-func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery.GroupManager, scheme *runtime.Scheme, delegationTarget genericapiserver.DelegationTarget) (*GroupVersionAPIServer, error) {
-	genericServer, err := c.GenericConfig.New(virtualWorkspaceName+"-"+c.ExtraConfig.GroupVersion.Group+"-virtual-workspace-apiserver", delegationTarget)
+func (c completedConfig) New(virtualWorkspaceName framework.VirtualWorkspaceName, groupManager discovery.GroupManager, scheme *runtime.Scheme, delegationTarget genericapiserver.DelegationTarget) (*GroupVersionAPIServer, error) {
+	genericServer, err := c.GenericConfig.New(string(virtualWorkspaceName)+"-"+c.ExtraConfig.GroupVersion.Group+"-virtual-workspace-apiserver", delegationTarget)
 	if err != nil {
 		return nil, err
 	}
