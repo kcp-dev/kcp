@@ -326,6 +326,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 	resourceScheduler, err := workloadresource.NewController(
 		dynamicClusterClient,
 		s.DynamicDiscoverySharedInformerFactory,
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 	)
 	if err != nil {

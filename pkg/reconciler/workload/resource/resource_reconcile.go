@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -35,7 +36,8 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/pkg/indexers"
+	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 // reconcileResource is responsible for setting the cluster for a resource of
@@ -74,12 +76,41 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		annotationPatch = propagateDeletionTimestamp(obj, annotationPatch)
 	}
 
+	// clean finalizers from removed syncers
+	filteredFinalizers := make([]string, 0, len(obj.GetFinalizers()))
+	for _, f := range obj.GetFinalizers() {
+		if !strings.HasPrefix(f, syncershared.SyncerFinalizerNamePrefix) {
+			filteredFinalizers = append(filteredFinalizers, f)
+			continue
+		}
+
+		syncTargetKey := strings.TrimPrefix(f, syncershared.SyncerFinalizerNamePrefix)
+		objs, err := c.syncTargetIndexer.ByIndex(indexers.SyncTargetsBySyncTargetKey, syncTargetKey)
+		if err != nil {
+			klog.Errorf("Error getting SyncTarget via SyncTargetKey %s index: %v", syncTargetKey, err)
+			continue
+		}
+		if len(objs) == 0 {
+			klog.V(3).Infof("SyncTarget under key %s was deleted, removing finalizer %q from %q %s|%s/%s", syncTargetKey, f, gvr, lclusterName, ns.Name, obj.GetName())
+			continue
+		}
+		aCluster := objs[0].(*workloadv1alpha1.SyncTarget)
+		klog.V(5).Infof("Keeping finalizer %q on %q %s|%s/%s because of SyncTarget %s|%s", f, gvr, lclusterName, ns.Name, obj.GetName(), logicalcluster.From(aCluster), aCluster.GetName())
+		filteredFinalizers = append(filteredFinalizers, f)
+	}
+
 	// create patch
-	if len(labelPatch) == 0 && len(annotationPatch) == 0 {
+	if len(labelPatch) == 0 && len(annotationPatch) == 0 && len(filteredFinalizers) == len(obj.GetFinalizers()) {
+		klog.V(4).Infof("Nothing to change for GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
 		return nil
 	}
 
-	patch := map[string]interface{}{}
+	patch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"UID":             obj.GetUID(),
+			"resourceVersion": obj.GetResourceVersion(),
+		},
+	}
 	if len(labelPatch) > 0 {
 		if err := unstructured.SetNestedField(patch, labelPatch, "metadata", "labels"); err != nil {
 			klog.Errorf("unexpected unstructured error: %v", err)
@@ -89,6 +120,11 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	if len(annotationPatch) > 0 {
 		if err := unstructured.SetNestedField(patch, annotationPatch, "metadata", "annotations"); err != nil {
 			klog.Errorf("unexpected unstructured error: %v", err)
+			return err // should never happen
+		}
+	}
+	if len(filteredFinalizers) != len(obj.GetFinalizers()) {
+		if err := unstructured.SetNestedStringSlice(patch, filteredFinalizers, "metadata", "finalizers"); err != nil {
 			return err // should never happen
 		}
 	}
@@ -139,7 +175,7 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 		var hasSyncerFinalizer, hasClusterFinalizer bool
 		// Check if there's still the syncer or the cluster finalizer.
 		for _, finalizer := range obj.GetFinalizers() {
-			if finalizer == shared.SyncerFinalizerNamePrefix+loc {
+			if finalizer == syncershared.SyncerFinalizerNamePrefix+loc {
 				hasSyncerFinalizer = true
 			}
 		}
@@ -182,14 +218,16 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 }
 
 func (c *Controller) reconcileGVR(gvr schema.GroupVersionResource) error {
-	listers, _ := c.ddsif.Listers()
-	lister, found := listers[gvr]
-	if !found {
+	inf, err := c.ddsif.ForResource(gvr)
+	if err != nil {
+		return err
+	}
+	if !inf.Informer().HasSynced() {
 		return fmt.Errorf("informer for %q is not synced; re-enqueueing", gvr)
 	}
 
 	// Update all resources in the namespaces with cluster assignment.
-	objs, err := lister.List(labels.Everything())
+	objs, err := inf.Lister().List(labels.Everything())
 	if err != nil {
 		return err
 	}
