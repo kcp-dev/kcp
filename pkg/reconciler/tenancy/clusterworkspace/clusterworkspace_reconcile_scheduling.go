@@ -26,6 +26,7 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/klog/v2"
@@ -62,12 +63,36 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 
 		if workspace.Status.Location.Current == "" {
 			selector := labels.Everything()
+			var shards []*tenancyv1alpha1.ClusterWorkspaceShard
+			if workspace.Spec.Shard != nil {
+				if workspace.Spec.Shard.Selector != nil {
+					var err error
+					selector, err = metav1.LabelSelectorAsSelector(workspace.Spec.Shard.Selector)
+					if err != nil {
+						conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "spec.location.selector is invalid: %v", err)
+						return reconcileStatusContinue, nil // don't retry, cannot do anything useful
+					}
+				}
+				if shardName := workspace.Spec.Shard.Name; shardName != "" {
+					shard, err := r.getShard(workspace.Spec.Shard.Name)
+					if err != nil && !errors.IsNotFound(err) {
+						return reconcileStatusStopAndRequeue, err
+					}
+					if errors.IsNotFound(err) {
+						conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "shard %q specified in spec.location.name does not exist: %v", shardName, err)
+						return reconcileStatusContinue, nil // retry is automatic when new shards show up
+					}
+					shards = []*tenancyv1alpha1.ClusterWorkspaceShard{shard}
+				}
+			}
 
-			// find a shard for this workspace, randomly
-			var err error
-			shards, err := r.listShards(selector)
-			if err != nil {
-				return reconcileStatusStopAndRequeue, err
+			if len(shards) == 0 {
+				// find a shard for this workspace, randomly
+				var err error
+				shards, err = r.listShards(selector)
+				if err != nil {
+					return reconcileStatusStopAndRequeue, err
+				}
 			}
 
 			validShards := make([]*tenancyv1alpha1.ClusterWorkspaceShard, 0, len(shards))
@@ -139,7 +164,8 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	// check scheduled shard. This has no influence on the workspace baseURL or shard assignment. This might be a trigger for
 	// a movement controller in the future (or a human intervention) to move workspaces off a shard.
 	if workspace.Status.Location.Current != "" {
-		if shard, err := r.getShard(workspace.Status.Location.Current); errors.IsNotFound(err) {
+		shard, err := r.getShard(workspace.Status.Location.Current)
+		if errors.IsNotFound(err) {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound, conditionsv1alpha1.ConditionSeverityError, "ClusterWorkspaceShard %q got deleted.", workspace.Status.Location.Current)
 		} else if err != nil {
 			return reconcileStatusStopAndRequeue, err
@@ -147,6 +173,28 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, reason, conditionsv1alpha1.ConditionSeverityError, message)
 		} else {
 			conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceShardValid)
+		}
+
+		if workspace.Spec.Shard != nil && shard != nil {
+			needsRescheduling := false
+			if workspace.Spec.Shard.Selector != nil {
+				var err error
+				selector, err := metav1.LabelSelectorAsSelector(workspace.Spec.Shard.Selector)
+				if err != nil {
+					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "spec.location.shardSelector is invalid: %v", err)
+					return reconcileStatusContinue, nil // don't retry, cannot do anything useful
+				}
+				needsRescheduling = !selector.Matches(labels.Set(shard.Labels))
+			} else if shardName := workspace.Spec.Shard.Name; shardName != "" && shardName != workspace.Status.Location.Current {
+				needsRescheduling = true
+			}
+			if needsRescheduling {
+				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnreschedulable, conditionsv1alpha1.ConditionSeverityError, "Needs rescheduling, but movement is not supported yet")
+			} else {
+				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+			}
+		} else {
+			conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 		}
 	}
 
