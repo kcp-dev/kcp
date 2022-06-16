@@ -30,29 +30,38 @@ type metaDataReconciler struct {
 }
 
 func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
-	if workspace.Labels == nil {
-		workspace.Labels = map[string]string{}
+	changed := false
+	if got, expected := workspace.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel], string(workspace.Status.Phase); got != expected {
+		if workspace.Labels == nil {
+			workspace.Labels = map[string]string{}
+		}
+		workspace.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel] = expected
+		changed = true
 	}
-	workspace.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel] = string(workspace.Status.Phase)
 
 	initializerKeys := sets.NewString()
 	for _, initializer := range workspace.Status.Initializers {
 		key, value := initialization.InitializerToLabel(initializer)
 		initializerKeys.Insert(key)
-		workspace.Labels[key] = value
+		if got, expected := workspace.Labels[key], value; got != expected {
+			workspace.Labels[key] = value
+			changed = true
+		}
 	}
 
 	for key := range workspace.Labels {
 		if strings.HasPrefix(key, tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix) {
 			if !initializerKeys.Has(key) {
 				delete(workspace.Labels, key)
+				changed = true
 			}
 		}
 	}
 
-	return reconcileStatusContinue, nil
-}
+	if changed {
+		// first update ObjectMeta before status
+		return reconcileStatusStopAndRequeue, nil
+	}
 
-func initializerLabelFor(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) string {
-	return string(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + initializer)
+	return reconcileStatusContinue, nil
 }

@@ -52,7 +52,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
 			} else if err != nil {
-				return reconcileStatusStop, err
+				return reconcileStatusStopAndRequeue, err
 			} else if valid, _, _ := isValidShard(shard); !valid {
 				klog.Infof("De-scheduling workspace %s|%s from invalid shard %q", tenancyv1alpha1.RootCluster, workspace.Name, current)
 				workspace.Status.Location.Current = ""
@@ -67,7 +67,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			var err error
 			shards, err := r.listShards(selector)
 			if err != nil {
-				return reconcileStatusStop, err
+				return reconcileStatusStopAndRequeue, err
 			}
 
 			validShards := make([]*tenancyv1alpha1.ClusterWorkspaceShard, 0, len(shards))
@@ -94,7 +94,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				if err != nil {
 					// shouldn't happen since we just checked in isValidShard
 					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target ClusterWorkspaceShard: %v.", err)
-					return reconcileStatusStop, err // requeue
+					return reconcileStatusStopAndRequeue, err // requeue
 				}
 				u.Path = path.Join(u.Path, workspaceClusterName.Join(workspace.Name).Path())
 
@@ -128,7 +128,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		if errors.IsNotFound(err) {
 			klog.Infof("Cannot move to nonexistent shard %q", tenancyv1alpha1.RootCluster, workspace.Name, target)
 		} else if err != nil {
-			return reconcileStatusStop, err
+			return reconcileStatusStopAndRequeue, err
 		}
 
 		klog.Infof("Moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
@@ -142,7 +142,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		if shard, err := r.getShard(workspace.Status.Location.Current); errors.IsNotFound(err) {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound, conditionsv1alpha1.ConditionSeverityError, "ClusterWorkspaceShard %q got deleted.", workspace.Status.Location.Current)
 		} else if err != nil {
-			return reconcileStatusStop, err
+			return reconcileStatusStopAndRequeue, err
 		} else if valid, reason, message := isValidShard(shard); !valid {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, reason, conditionsv1alpha1.ConditionSeverityError, message)
 		} else {

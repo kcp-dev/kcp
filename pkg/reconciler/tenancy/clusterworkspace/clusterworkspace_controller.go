@@ -176,16 +176,19 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
-	klog.Infof("processing key %q", key)
+	klog.V(2).Infof("Processing key %q", key)
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
 	}
 	c.queue.Forget(key)
 	return true
@@ -249,27 +252,28 @@ func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 	}
 
 	if specOrObjectMetaChanged && statusChanged {
-		klog.Errorf("Programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
-		c.enqueue(obj) // enqueue again to take care of the spec change, assuming the patch did nothing
+		// enqueue again to take care of the spec change, assuming the patch did nothing
+		return fmt.Errorf("Programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
 	}
 
 	return nil
 }
 
-func (c *Controller) process(ctx context.Context, key string) error {
+func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	obj, err := c.workspaceLister.Get(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil // object deleted before we handled it
+			return false, nil // object deleted before we handled it
 		}
-		return err
+		return false, err
 	}
 
 	old := obj
 	obj = obj.DeepCopy()
 
 	var errs []error
-	if err := c.reconcile(ctx, obj); err != nil {
+	requeue, err := c.reconcile(ctx, obj)
+	if err != nil {
 		errs = append(errs, err)
 	}
 
@@ -281,5 +285,5 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		errs = append(errs, err)
 	}
 
-	return utilerrors.NewAggregate(errs)
+	return requeue, utilerrors.NewAggregate(errs)
 }
