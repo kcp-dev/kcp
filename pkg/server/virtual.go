@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/dynamic"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -82,6 +83,12 @@ func (s *Server) installVirtualWorkspaces(
 	codecs := serializer.NewCodecFactory(scheme)
 
 	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
+	// the recommended config attaches healthz.PingHealthz, healthz.LogHealthz
+	// which already have been added to the server so just skip them here
+	// otherwise we will panic with duplicate path registration of "/readyz/ping"
+	recommendedConfig.HealthzChecks = []healthz.HealthChecker{}
+	recommendedConfig.ReadyzChecks = []healthz.HealthChecker{}
+	recommendedConfig.LivezChecks = []healthz.HealthChecker{}
 	recommendedConfig.Authentication = auth
 
 	authorizationOptions := virtualoptions.NewAuthorization()
