@@ -547,6 +547,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			var virtualUserlKcpClients []kcpclientset.ClusterInterface
 			for _, ci := range testCase.clientInfos {
 				userConfig := rest.CopyConfig(kcpConfig)
+				userConfig.CertData = nil
+				userConfig.KeyData = nil
 				userConfig.BearerToken = ci.Token
 				userClient := &virtualClusterClient{scope: ci.Scope, config: userConfig}
 				virtualUserlKcpClients = append(virtualUserlKcpClients, userClient)
