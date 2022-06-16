@@ -352,6 +352,8 @@ func Eventually(t *testing.T, condition func() (bool, string), waitFor time.Dura
 		if !ok && msg != "" && msg != last {
 			last = msg
 			t.Logf("Waiting for condition, but got: %s", msg)
+		} else if ok && msg != "" && last != "" {
+			t.Logf("Condition became true: %s", msg)
 		}
 		return ok
 	}, waitFor, tick, msgAndArgs...)
