@@ -537,6 +537,8 @@ func workspaceLabelsUpToDate(t *testing.T, workspace tenancyv1alpha1.ClusterWork
 
 func userConfig(username string, cfg *rest.Config) *rest.Config {
 	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.CertData = nil
+	cfgCopy.KeyData = nil
 	cfgCopy.BearerToken = username + "-token"
 	return cfgCopy
 }
