@@ -128,8 +128,8 @@ a `ClusterRole` must be created in `root:org:ws` with the following shape:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: 
-  clusterName: workspace-admin
+  name: workspace-admin
+  clusterName: root:org:ws
 rules:
 - apiGroups:
   - tenancy.kcp.dev
@@ -147,7 +147,8 @@ and the user must be bound to it via a `ClusterRoleBinding` in `root:org:ws` lik
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  clusterName: adam-admin
+  name: adam-admin
+  clusterName: root:org:ws
 subjects:
 - kind: User
   name: adam
@@ -156,6 +157,14 @@ roleRef:
   kind: ClusterRole
   name: workspace-admin
 ```
+
+### Initializing Workspaces
+
+By default, workspaces are only accessible to a user if they are in `Ready` phase. Workspaces that are initializing
+can be access only by users that are granted `admin` verb on the `clusterworkspaces/content` resource in the
+parent workspace.
+
+Service accounts declared within a workspace don't have access to initializing workspaces.
 
 ## Kubernetes Bootstrap Policy authorizer
 
@@ -173,3 +182,10 @@ and work just like in a regular Kubernetes cluster.
 Note: groups added by the workspace content authorizer can be used for role bindings in that workspace.
 
 It is possible to bind to roles and cluster roles in the bootstrap policy from a local policy `RoleBinding` or `ClusterRoleBinding`.
+
+# Service Accounts
+
+Kubernetes service accounts are granted access to the workspaces they are defined in and that are ready.
+
+E.g. a service account "default" in `root:org:ws:ws` is granted access to `root:org:ws:ws`, and through the
+workspace content authorizer it gains the `system:kcp:clusterworkspace:access` group membership.
