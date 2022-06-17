@@ -108,7 +108,6 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	crdnooverlappinggvr.Register(plugins)
 	reservedmetadata.Register(plugins)
 	permissionclaims.Register(plugins)
-
 }
 
 var defaultOnPluginsInKcp = sets.NewString(

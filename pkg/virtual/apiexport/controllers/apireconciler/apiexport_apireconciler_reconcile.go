@@ -86,7 +86,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 				apiResourceSchemas = append(apiResourceSchemas, schemas...)
 				for k, v := range schemaIDs {
-					// Override the permisson claims that should be used. for this schema identity
+					// Override the permission claims that should be used. for this schema identity
 					v.Spec.PermissionClaims = apiExport.Spec.PermissionClaims
 					schemaIdentity[k] = v
 				}

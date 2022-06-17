@@ -71,7 +71,7 @@ type APIBindingSpec struct {
 
 	// acceptedPermissionClaims records the permissions that are granted
 	// to the bound workspace.
-	// Access is granted on a GVR basis and can be filtered on objects by many different selectors.
+	// Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.
 	// +optional
 	AcceptedPermissionClaims []PermissionClaim `json:"acceptedPermissionClaims,omitempty"`
 }
@@ -150,7 +150,7 @@ type APIBindingStatus struct {
 	// observedAcceptedPermissionClaims records the permissions that the export provider is granted
 	// to the bound workspace. This is granted by binding implictily to a export that contains
 	// permissionClaims.
-	// Access is granted on a GVR basis and can be filtered on objects by many different selectors.
+	// Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.
 	// +optional
 	ObservedAcceptedPermissionClaims []PermissionClaim `json:"ObservedAcceptedPermissionClaims,omitempty"`
 }
@@ -400,7 +400,7 @@ type APIExportSpec struct {
 
 	// permissionClaims adds resources to the APIExports virtual workspace.
 	// permissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs.
-	// Access is asked for on a GVR basis and can be filtered on objects by many different selectors.
+	// Access is asked for on a GroupResource basis and can be filtered on objects by many different selectors.
 	// +optional
 	PermissionClaims []PermissionClaim `json:"permissionClaims,omitempty"`
 }
@@ -443,12 +443,15 @@ type PermissionClaim struct {
 // GroupResource identifies a resource.
 type GroupResource struct {
 	// group is the name of an API group.
+	// For core groups this is the empty string '""'.
 	//
 	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
 	// +optional
 	Group string `json:"group,omitempty"`
 
 	// resource is the name of the resource.
+	// Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+	// not provided by an api export.
 	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
 	// +kubebuilder:validation:MinLength:1
 	// +required

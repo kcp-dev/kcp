@@ -43,6 +43,10 @@ type permissionClaim struct {
 func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
 	// this will be responsible for making sure that the the observed state is equal to the accepted state. it should handle GC of claims from the given objects.
 
+	if len(apiBinding.Spec.AcceptedPermissionClaims) == 0 && len(apiBinding.Status.ObservedAcceptedPermissionClaims) == 0 {
+		return nil
+	}
+
 	lc := logicalcluster.From(apiBinding)
 
 	dc := c.discoveryClusterClient.WithCluster(lc)
