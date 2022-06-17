@@ -21,13 +21,16 @@ import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster"
+	"golang.org/x/sync/errgroup"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -47,6 +50,7 @@ type StoreFuncs struct {
 	GetterFunc
 	CreaterFunc
 	GracefulDeleterFunc
+	MayReturnFullObjectDeleterFunc
 	CollectionDeleterFunc
 	ListerFunc
 	UpdaterFunc
@@ -87,9 +91,101 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Get(ctx, name, *options, subResources...)
 	}
-	s.CreaterFunc = nil           // not currently supported
-	s.GracefulDeleterFunc = nil   // not currently supported
-	s.CollectionDeleterFunc = nil // not currently supported
+	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+		err := rest.BeforeCreate(createStrategy, ctx, obj)
+		if err != nil {
+			return nil, err
+		}
+		if createValidation != nil {
+			if err := createValidation(ctx, obj.DeepCopyObject()); err != nil {
+				return nil, err
+			}
+		}
+		unstructuredObj, ok := obj.(*unstructured.Unstructured)
+		if !ok {
+			return nil, fmt.Errorf("not an Unstructured: %#v", obj)
+		}
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
+	}
+	s.GracefulDeleterFunc = func(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+		obj, err := s.Get(ctx, name, &metav1.GetOptions{})
+		if err != nil {
+			return nil, false, err
+		}
+		graceful, gracefulPending, err := rest.BeforeDelete(deleteStrategy, ctx, obj, options)
+		if err != nil {
+			return nil, false, err
+		}
+		if deleteValidation != nil {
+			err = deleteValidation(ctx, obj.DeepCopyObject())
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+		err = delegate.Delete(ctx, name, *options, subResources...)
+		if err != nil {
+			return nil, false, err
+		}
+		return obj, !graceful && !gracefulPending, nil
+	}
+	s.MayReturnFullObjectDeleterFunc = func() bool {
+		return true
+	}
+	s.CollectionDeleterFunc = func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
+		list, err := s.List(ctx, listOptions)
+		if err != nil {
+			return nil, err
+		}
+		if meta.LenList(list) == 0 {
+			// Nothing to delete, return now
+			return list, nil
+		}
+
+		var deletedItems []runtime.Object
+		group, gCtx := errgroup.WithContext(ctx)
+		var errs []error
+		err = meta.EachListItem(list, func(object runtime.Object) error {
+			group.Go(func() error {
+				accessor, err := meta.Accessor(object)
+				if err != nil {
+					return err
+				}
+				obj, _, err := s.Delete(gCtx, accessor.GetName(), deleteValidation, options.DeepCopy())
+				if err != nil && !apierrors.IsNotFound(err) {
+					return err
+				}
+				deletedItems = append(deletedItems, obj)
+				return nil
+			})
+			return nil
+		})
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		err = group.Wait()
+		if err != nil {
+			if err := meta.SetList(list, deletedItems); err != nil {
+				errs = append(errs, err)
+			}
+			return list, errors.NewAggregate(errs)
+		}
+
+		err = meta.SetList(list, deletedItems)
+		if err != nil {
+			return nil, err
+		}
+
+		return list, nil
+	}
 	s.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 		var v1ListOptions metav1.ListOptions
 		if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
@@ -114,25 +210,22 @@ func DefaultDynamicDelegatedStoreFuncs(
 			if err != nil {
 				return nil, err
 			}
-
 			obj, err := objInfo.UpdatedObject(ctx, oldObj)
 			if err != nil {
 				return nil, err
 			}
-
+			err = rest.BeforeUpdate(updateStrategy, ctx, obj, oldObj)
+			if err != nil {
+				return nil, err
+			}
+			err = updateValidation(ctx, obj.DeepCopyObject(), oldObj.DeepCopyObject())
+			if err != nil {
+				return nil, err
+			}
 			unstructuredObj, ok := obj.(*unstructured.Unstructured)
 			if !ok {
 				return nil, fmt.Errorf("not an Unstructured: %#v", obj)
 			}
-
-			updateStrategy.PrepareForUpdate(ctx, obj, oldObj)
-			if errs := updateStrategy.ValidateUpdate(ctx, obj, oldObj); len(errs) > 0 {
-				return nil, kerrors.NewInvalid(unstructuredObj.GroupVersionKind().GroupKind(), unstructuredObj.GetName(), errs)
-			}
-			if err := updateValidation(ctx, obj.DeepCopyObject(), oldObj.DeepCopyObject()); err != nil {
-				return nil, err
-			}
-
 			return delegate.Update(ctx, unstructuredObj, *options, subResources...)
 		}
 
