@@ -359,18 +359,17 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	wsClusterName := logicalcluster.From(ws).Join(ws.Name)
 
 	// disocer resources at first
+	var (
+		deletionContentSuccessReason  string
+		deletionContentSuccessMessage string
+	)
 	resources, err := d.discoverResourcesFn(wsClusterName)
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
 
-		conditions.MarkFalse(
-			ws,
-			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			"DiscoveryFailed",
-			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
-		)
+		deletionContentSuccessReason = "DiscoveryFailed"
+		deletionContentSuccessMessage = err.Error()
 	}
 
 	deletableResources := discovery.FilteredBy(and{
@@ -382,13 +381,8 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
 
-		conditions.MarkFalse(
-			ws,
-			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			"GroupVersionParsingFailed",
-			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
-		)
+		deletionContentSuccessReason = "GroupVersionParsingFailed"
+		deletionContentSuccessMessage = err.Error()
 	}
 
 	numRemainingTotals := allGVRDeletionMetadata{
@@ -420,19 +414,23 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	if len(deleteContentErrs) > 0 {
 		errs = append(errs, deleteContentErrs...)
 
+		deletionContentSuccessReason = "ContentDeletionFailed"
+		deletionContentSuccessMessage = utilerrors.NewAggregate(deleteContentErrs).Error()
+	}
+
+	if deletionContentSuccessReason == "" {
+		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceDeletionContentSuccess)
+	} else {
 		conditions.MarkFalse(
 			ws,
 			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			"ContentDeletionFailed",
+			deletionContentSuccessReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			utilerrors.NewAggregate(deleteContentErrs).Error(),
+			deletionContentSuccessMessage,
 		)
 	}
 
-	if len(errs) == 0 {
-		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceDeletionContentSuccess)
-	}
-
+	var contentDeletedMessages []string
 	if len(numRemainingTotals.gvrToNumRemaining) != 0 {
 		remainingResources := []string{}
 		for gvr, numRemaining := range numRemainingTotals.gvrToNumRemaining {
@@ -443,14 +441,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		}
 		// sort for stable updates
 		sort.Strings(remainingResources)
-
-		conditions.MarkFalse(
-			ws,
-			tenancyv1alpha1.WorkspaceContentDeleted,
-			"SomeResourcesRemain",
-			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")),
-		)
+		contentDeletedMessages = append(contentDeletedMessages, fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")))
 	}
 
 	if len(numRemainingTotals.finalizersToNumRemaining) != 0 {
@@ -463,16 +454,18 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		}
 		// sort for stable updates
 		sort.Strings(remainingByFinalizer)
+		contentDeletedMessages = append(contentDeletedMessages, fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")))
+	}
+
+	if len(contentDeletedMessages) > 0 {
 		conditions.MarkFalse(
 			ws,
 			tenancyv1alpha1.WorkspaceContentDeleted,
-			"SomeFinalizersRemain",
+			"SomeResourcesRemain",
 			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")),
+			strings.Join(contentDeletedMessages, "; "),
 		)
-	}
-
-	if len(numRemainingTotals.finalizersToNumRemaining) == 0 && len(numRemainingTotals.gvrToNumRemaining) == 0 {
+	} else {
 		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceContentDeleted)
 	}
 
