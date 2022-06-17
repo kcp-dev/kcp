@@ -19,6 +19,7 @@ package forwardingregistry
 import (
 	"context"
 	"fmt"
+	goruntime "runtime"
 
 	"github.com/kcp-dev/logicalcluster"
 	"golang.org/x/sync/errgroup"
@@ -144,42 +145,56 @@ func DefaultDynamicDelegatedStoreFuncs(
 		if err != nil {
 			return nil, err
 		}
-		if meta.LenList(list) == 0 {
+		count := meta.LenList(list)
+		if count == 0 {
 			// Nothing to delete, return now
 			return list, nil
 		}
 
-		var deletedItems []runtime.Object
+		workers := goruntime.GOMAXPROCS(0)
+		if workers > count {
+			workers = count
+		}
+
+		objects := make(chan runtime.Object, workers)
+		var deletedObjects []runtime.Object
+
 		group, gCtx := errgroup.WithContext(ctx)
-		var errs []error
-		err = meta.EachListItem(list, func(object runtime.Object) error {
-			group.Go(func() error {
-				accessor, err := meta.Accessor(object)
-				if err != nil {
-					return err
-				}
-				obj, _, err := s.Delete(gCtx, accessor.GetName(), deleteValidation, options.DeepCopy())
-				if err != nil && !apierrors.IsNotFound(err) {
-					return err
-				}
-				deletedItems = append(deletedItems, obj)
+
+		group.Go(func() error {
+			defer close(objects)
+			return meta.EachListItem(list, func(object runtime.Object) error {
+				objects <- object
 				return nil
 			})
-			return nil
 		})
-		if err != nil {
-			errs = append(errs, err)
+
+		for i := 0; i < workers; i++ {
+			group.Go(func() error {
+				for obj := range objects {
+					accessor, err := meta.Accessor(obj)
+					if err != nil {
+						return err
+					}
+					deleted, _, err := s.Delete(gCtx, accessor.GetName(), deleteValidation, options.DeepCopy())
+					if err != nil && !apierrors.IsNotFound(err) {
+						return err
+					}
+					deletedObjects = append(deletedObjects, deleted)
+				}
+				return nil
+			})
 		}
 
 		err = group.Wait()
 		if err != nil {
-			if err := meta.SetList(list, deletedItems); err != nil {
-				errs = append(errs, err)
+			if e := meta.SetList(list, deletedObjects); e != nil {
+				return nil, errors.NewAggregate([]error{err, e})
 			}
-			return list, errors.NewAggregate(errs)
+			return list, err
 		}
 
-		err = meta.SetList(list, deletedItems)
+		err = meta.SetList(list, deletedObjects)
 		if err != nil {
 			return nil, err
 		}
