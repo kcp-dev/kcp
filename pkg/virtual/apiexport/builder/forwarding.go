@@ -28,13 +28,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
 // NewStorageBuilder returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
-func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterface, apiExport *v1alpha1.APIExport, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
+func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -60,7 +59,7 @@ func NewStorageBuilder(ctx context.Context, clusterClient dynamic.ClusterInterfa
 		storage, statusStorage := registry.NewStorage(
 			ctx,
 			resource,
-			apiExport.Status.IdentityHash,
+			apiExportIdentityHash,
 			kind,
 			listKind,
 			strategy,

@@ -412,7 +412,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBound
 	}
 
-	return nil
+	return c.reconcilePermissionClaims(ctx, apiBinding)
 }
 
 func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (rebind bool, err error) {

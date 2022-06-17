@@ -80,7 +80,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	setUpServiceProvider(ctx, dynamicClients, kcpClients, serviceProviderWorkspace, cfg, t)
 
-	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg)
+	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg, "")
 
 	createCowboyInConsumer(ctx, t, consumerWorkspace, wildwestClusterClient)
 
@@ -272,7 +272,7 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 	apifixtures.BindToExport(ctx, t, serviceProviderSherriffs, "wild.wild.west", consumerWorkspace, kcpClientOld)
 	setUpServiceProviderWithPermissionClaims(ctx, dynamicClients, kcpClients, serviceProviderWorkspace, cfg, identityHash, t)
 
-	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg)
+	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg, identityHash)
 
 	createCowboyInConsumer(ctx, t, consumerWorkspace, wildwestClusterClient)
 
@@ -364,7 +364,10 @@ func TestAPIExportCorrectFiltration(t *testing.T) {
 	t.Logf("Found identity hash: %v", identityHash)
 	apifixtures.BindToExport(ctx, t, serviceProviderSherriffs, "wild.wild.west", consumerWorkspace, kcpClientOld)
 	setUpServiceProviderWithPermissionClaims(ctx, dynamicClients, kcpClients, serviceProviderWorkspace, cfg, identityHash, t)
-	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg)
+
+	t.Logf("Create a sherriff that will be before the binding has occured to validate controller re-labels")
+	apifixtures.CreateSheriff(ctx, t, dynamicClients, consumerWorkspace, "wild.wild.west", "in-vw-before")
+	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg, identityHash)
 
 	t.Logf("Create a sherriff that should be retrieved")
 	// We need to sleep for now, because the controller does not exist to make this eventually conistant.
@@ -388,12 +391,19 @@ func TestAPIExportCorrectFiltration(t *testing.T) {
 	dynamicVWClients, err := dynamic.NewClusterForConfig(apiExportVWCfg)
 	require.NoError(t, err, "error creating dynamic cluster client for %q", apiExportVWCfg.Host)
 
-	t.Logf("Verify that no sherrifs are returned because we did not create one")
-	gvr := schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}
-	ul, err := dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "error listing %q", gvr)
-	require.Len(t, ul.Items, 1)
-
+	t.Logf("Verify that two sherrifs are eventually returned")
+	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+		gvr := schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}
+		ul, err := dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, nil
+		}
+		if len(ul.Items) == 2 {
+			return true, nil
+		}
+		return false, nil
+	})
+	require.NoError(t, err)
 }
 
 func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClients clientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, identityHash string, t *testing.T) {
@@ -462,7 +472,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, 
 	require.NoError(t, err)
 }
 
-func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWorkspace logicalcluster.Name, t *testing.T, kcpClients clientset.Interface, cfg *rest.Config) {
+func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWorkspace logicalcluster.Name, t *testing.T, kcpClients clientset.Interface, cfg *rest.Config, identityHash string) {
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerWorkspace)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -473,6 +483,24 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWork
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
 					Path:       providerWorkspace.String(),
 					ExportName: "today-cowboys",
+				},
+			},
+			AcceptedPermissionClaims: []apisv1alpha1.PermissionClaim{
+				{
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "namespaces"},
+				},
+				{
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+				},
+				{
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
+				},
+				{
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+				},
+				{
+					GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+					IdentityHash:  identityHash,
 				},
 			},
 		},

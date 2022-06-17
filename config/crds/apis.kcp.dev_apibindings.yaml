@@ -38,6 +38,31 @@ spec:
           spec:
             description: Spec holds the desired state.
             properties:
+              acceptedPermissionClaims:
+                description: acceptedPermissionClaims records the permissions that
+                  are granted to the bound workspace. Access is granted on a GVR basis
+                  and can be filtered on objects by many different selectors.
+                items:
+                  properties:
+                    group:
+                      description: group is the name of an API group.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    identityHash:
+                      description: This is the identity for a given APIExport that
+                        the APIResourceSchema belongs to. The hash can be found on
+                        APIExport and APIResourceSchema's status. It will be empty
+                        for core types. Note that one must look this up for a particular
+                        KCP instance.
+                      type: string
+                    resource:
+                      description: resource is the name of the resource.
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      type: string
+                  required:
+                  - resource
+                  type: object
+                type: array
               reference:
                 description: reference uniquely identifies an API to bind to.
                 oneOf:
@@ -72,6 +97,33 @@ spec:
           status:
             description: Status communicates the observed state.
             properties:
+              ObservedAcceptedPermissionClaims:
+                description: observedAcceptedPermissionClaims records the permissions
+                  that the export provider is granted to the bound workspace. This
+                  is granted by binding implictily to a export that contains permissionClaims.
+                  Access is granted on a GVR basis and can be filtered on objects
+                  by many different selectors.
+                items:
+                  properties:
+                    group:
+                      description: group is the name of an API group.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    identityHash:
+                      description: This is the identity for a given APIExport that
+                        the APIResourceSchema belongs to. The hash can be found on
+                        APIExport and APIResourceSchema's status. It will be empty
+                        for core types. Note that one must look this up for a particular
+                        KCP instance.
+                      type: string
+                    resource:
+                      description: resource is the name of the resource.
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      type: string
+                  required:
+                  - resource
+                  type: object
+                type: array
               boundExport:
                 description: "boundExport records the export this binding is bound
                   to currently. It can differ from the export that was specified in

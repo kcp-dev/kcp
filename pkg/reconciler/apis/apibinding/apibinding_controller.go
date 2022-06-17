@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -60,6 +62,8 @@ var (
 func NewController(
 	crdClusterClient apiextensionclientset.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
+	discoveryClusterClient discovery.DiscoveryClient,
+	dynamicClusterClient dynamic.ClusterInterface,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
@@ -68,9 +72,11 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
-		queue:            queue,
-		crdClusterClient: crdClusterClient,
-		kcpClusterClient: kcpClusterClient,
+		queue:                  queue,
+		crdClusterClient:       crdClusterClient,
+		kcpClusterClient:       kcpClusterClient,
+		dynamicClusterClient:   dynamicClusterClient,
+		discoveryClusterClient: discoveryClusterClient,
 
 		apiBindingsLister: apiBindingInformer.Lister(),
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
@@ -187,8 +193,10 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient apiextensionclientset.ClusterInterface
-	kcpClusterClient kcpclient.ClusterInterface
+	crdClusterClient       apiextensionclientset.ClusterInterface
+	kcpClusterClient       kcpclient.ClusterInterface
+	discoveryClusterClient discovery.DiscoveryClient
+	dynamicClusterClient   dynamic.ClusterInterface
 
 	apiBindingsLister  apislisters.APIBindingLister
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
