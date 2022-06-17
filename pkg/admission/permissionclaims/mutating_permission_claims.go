@@ -30,8 +30,8 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/permissionclaims"
 )
 
 const (
@@ -80,33 +80,22 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		if !ok {
 			return fmt.Errorf("expected a certain type")
 		}
-		// Get the export,
-		exports, err := m.apiExportIndexer.ByIndex(byWorkspaceIndex, binding.Status.BoundAPIExport.Workspace.Path)
-		if err != nil {
-			return err
-		}
-		for _, e := range exports {
-			export, ok := e.(*apisv1alpha1.APIExport)
-			if !ok {
-				return fmt.Errorf("expected a certain typet")
-			}
-			for _, pc := range export.Spec.PermissionClaims {
-				if pc.Group == a.GetKind().Group && pc.Resource == a.GetResource().Resource {
-					key, label, err := permissionclaims.PermissionClaimToLabel(pc)
-					if err != nil {
-						return err
-					}
-					u, ok := a.GetObject().(metav1.Object)
-					if !ok {
-						return fmt.Errorf("expected type")
-					}
-					l := u.GetLabels()
-					if l == nil {
-						l = map[string]string{}
-					}
-					l[key] = label
-					u.SetLabels(l)
+		for _, pc := range binding.Status.ObservedAcceptedPermissionClaims {
+			if pc.Group == a.GetKind().Group && pc.Resource == a.GetResource().Resource {
+				key, label, err := permissionclaims.PermissionClaimToLabel(pc)
+				if err != nil {
+					return err
 				}
+				u, ok := a.GetObject().(metav1.Object)
+				if !ok {
+					return fmt.Errorf("expected type")
+				}
+				l := u.GetLabels()
+				if l == nil {
+					l = map[string]string{}
+				}
+				l[key] = label
+				u.SetLabels(l)
 			}
 		}
 	}

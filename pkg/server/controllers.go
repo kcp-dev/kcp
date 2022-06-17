@@ -604,8 +604,17 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
 
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	discoveryClusterClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -618,6 +627,8 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	c, err := apibinding.NewController(
 		crdClusterClient,
 		kcpClusterClient,
+		*discoveryClusterClient,
+		dynamicClusterClient,
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),

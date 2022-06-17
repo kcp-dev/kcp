@@ -68,6 +68,12 @@ type APIBindingSpec struct {
 	// +required
 	// +kubebuilder:validation:Required
 	Reference ExportReference `json:"reference"`
+
+	// acceptedPermissionClaims records the permissions that are granted
+	// to the bound workspace.
+	// Access is granted on a GVR basis and can be filtered on objects by many different selectors.
+	// +optional
+	AcceptedPermissionClaims []PermissionClaim `json:"acceptedPermissionClaims,omitempty"`
 }
 
 // ExportReference describes a reference to an APIExport. Exactly one of the
@@ -140,6 +146,19 @@ type APIBindingStatus struct {
 	//
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// observedAcceptedPermissionClaims records the permissions that the export provider is granted
+	// to the bound workspace. This is granted by binding implictily to a export that contains
+	// permissionClaims.
+	// Access is granted on a GVR basis and can be filtered on objects by many different selectors.
+	// +optional
+	ObservedAcceptedPermissionClaims []PermissionClaim `json:"ObservedAcceptedPermissionClaims,omitempty"`
+}
+
+type PermissionClaimLabel struct {
+	GroupResource `json:","`
+	Key           string
+	Label         string
 }
 
 // These are valid conditions of APIBinding.

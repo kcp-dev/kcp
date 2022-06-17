@@ -33,10 +33,10 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
@@ -157,7 +157,7 @@ func BuildVirtualWorkspace(
 						}
 					}
 
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExport, wrapper)
+					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExport.Status.IdentityHash, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
