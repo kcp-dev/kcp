@@ -115,13 +115,13 @@ func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *tena
 	}
 
 	// there may still be content for us to remove
-	estimate, err := d.deleteAllContent(ctx, workspace)
+	estimate, message, err := d.deleteAllContent(ctx, workspace)
 	if err != nil {
 		return err
 	}
 
 	if estimate > 0 {
-		return &ResourcesRemainingError{estimate}
+		return &ResourcesRemainingError{estimate, message}
 	}
 
 	return nil
@@ -130,10 +130,15 @@ func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *tena
 // ResourcesRemainingError is used to inform the caller that all resources are not yet fully removed from the workspace.
 type ResourcesRemainingError struct {
 	Estimate int64
+	Message  string
 }
 
 func (e *ResourcesRemainingError) Error() string {
-	return fmt.Sprintf("some content remains in the workspace, estimate %d seconds before it is removed", e.Estimate)
+	ret := fmt.Sprintf("some content remains in the workspace, estimate %d seconds before it is removed", e.Estimate)
+	if e.Message == "" {
+		return ret
+	}
+	return fmt.Sprintf("%s: %s", ret, e.Message)
 }
 
 // operation is used for caching if an operation is supported on a dynamic client.
@@ -349,7 +354,7 @@ type allGVRDeletionMetadata struct {
 // deleteAllContent will use the dynamic client to delete each resource identified in groupVersionResources.
 // It returns an estimate of the time remaining before the remaining resources are deleted.
 // If estimate > 0, not all resources are guaranteed to be gone.
-func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (int64, error) {
+func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (int64, string, error) {
 	workspace := ws.Name
 	workspaceDeletedAt := *ws.DeletionTimestamp
 	var errs []error
@@ -457,20 +462,22 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		contentDeletedMessages = append(contentDeletedMessages, fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")))
 	}
 
+	message := ""
 	if len(contentDeletedMessages) > 0 {
+		message = strings.Join(contentDeletedMessages, "; ")
 		conditions.MarkFalse(
 			ws,
 			tenancyv1alpha1.WorkspaceContentDeleted,
 			"SomeResourcesRemain",
 			conditionsv1alpha1.ConditionSeverityError,
-			strings.Join(contentDeletedMessages, "; "),
+			message,
 		)
 	} else {
 		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceContentDeleted)
 	}
 
 	klog.V(4).Infof("workspace deletion controller - deleteAllContent - workspace: %s, estimate: %v, errors: %v", wsClusterName, estimate, utilerrors.NewAggregate(errs))
-	return estimate, utilerrors.NewAggregate(errs)
+	return estimate, message, utilerrors.NewAggregate(errs)
 }
 
 // estimateGracefulTermination will estimate the graceful termination required for the specific entity in the workspace

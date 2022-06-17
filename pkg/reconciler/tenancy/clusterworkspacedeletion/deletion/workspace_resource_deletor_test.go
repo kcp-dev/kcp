@@ -97,7 +97,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 				{"customresourcedefinitions", "list"},
 				{"customresourcedefinitions", "list"},
 			},
-			expectErrorOnDelete: &ResourcesRemainingError{5},
+			expectErrorOnDelete: &ResourcesRemainingError{5, "Some resources are remaining: secrets. has 2 resource instances"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   tenancyv1alpha1.WorkspaceDeletionContentSuccess,
@@ -122,7 +122,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 				{"customresourcedefinitions", "delete-collection"},
 				{"customresourcedefinitions", "list"},
 			},
-			expectErrorOnDelete: &ResourcesRemainingError{5},
+			expectErrorOnDelete: &ResourcesRemainingError{5, "Some resources are remaining: customresourcedefinitions.apiextensions.k8s.io has 2 resource instances"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   tenancyv1alpha1.WorkspaceDeletionContentSuccess,
