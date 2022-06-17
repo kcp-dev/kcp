@@ -1170,7 +1170,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 					},
 					"acceptedPermissionClaims": {
 						SchemaProps: spec.SchemaProps{
-							Description: "acceptedPermissionClaims records the permissions that are granted to the bound workspace. Access is granted on a GVR basis and can be filtered on objects by many different selectors.",
+							Description: "acceptedPermissionClaims records the permissions that are granted to the bound workspace. Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1250,7 +1250,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 					},
 					"ObservedAcceptedPermissionClaims": {
 						SchemaProps: spec.SchemaProps{
-							Description: "observedAcceptedPermissionClaims records the permissions that the export provider is granted to the bound workspace. This is granted by binding implictily to a export that contains permissionClaims. Access is granted on a GVR basis and can be filtered on objects by many different selectors.",
+							Description: "observedAcceptedPermissionClaims records the permissions that the export provider is granted to the bound workspace. This is granted by binding implictily to a export that contains permissionClaims. Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1409,7 +1409,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 					},
 					"permissionClaims": {
 						SchemaProps: spec.SchemaProps{
-							Description: "permissionClaims adds resources to the APIExports virtual workspace. permissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GVR basis and can be filtered on objects by many different selectors.",
+							Description: "permissionClaims adds resources to the APIExports virtual workspace. permissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GroupResource basis and can be filtered on objects by many different selectors.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1853,14 +1853,14 @@ func schema_pkg_apis_apis_v1alpha1_GroupResource(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"group": {
 						SchemaProps: spec.SchemaProps{
-							Description: "group is the name of an API group.",
+							Description: "group is the name of an API group. For core groups this is the empty string '\"\"'.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"resource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "resource is the name of the resource.",
+							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

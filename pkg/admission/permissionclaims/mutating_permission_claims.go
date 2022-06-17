@@ -43,9 +43,7 @@ type mutatingPermissionClaims struct {
 	*admission.Handler
 
 	apiBindingsIndexer cache.Indexer
-	apiExportIndexer   cache.Indexer
 	bindingReady       func() bool
-	exportReady        func() bool
 }
 
 var _ admission.MutationInterface = &mutatingPermissionClaims{}
@@ -54,17 +52,11 @@ func NewMutatingPermissionClaims() admission.MutationInterface {
 
 	p := &mutatingPermissionClaims{}
 	p.Handler = admission.NewHandler(admission.Create)
-	p.SetReadyFunc(func() bool {
-		if p.bindingReady() && p.exportReady() {
-			return true
-		}
-		return false
-	})
+	p.SetReadyFunc(p.bindingReady)
 	return p
 }
 
 func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-
 	lcluster, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		return err
@@ -126,9 +118,7 @@ func (m *mutatingPermissionClaims) SetKcpInformers(f kcpinformers.SharedInformer
 		}
 	}
 	m.apiBindingsIndexer = f.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
-	m.apiExportIndexer = f.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 	m.bindingReady = f.Apis().V1alpha1().APIBindings().Informer().HasSynced
-	m.exportReady = f.Apis().V1alpha1().APIExports().Informer().HasSynced
 }
 
 func Register(plugins *admission.Plugins) {

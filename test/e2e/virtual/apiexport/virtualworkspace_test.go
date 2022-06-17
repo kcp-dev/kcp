@@ -254,19 +254,19 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 	t.Logf("get the sheriffs api export's generated identity hash")
 	identityHash := ""
 	//TODO: convert to framework.Eventually
-	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+
+	framework.Eventually(t, func() (done bool, str string) {
 		sheriffExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderSherriffs), "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, err.Error()
 		}
 
 		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
 			identityHash = sheriffExport.Status.IdentityHash
-			return true, nil
+			return true, "found"
 		}
-		return false, nil
-	})
-	require.NoError(t, err)
+		return false, "try again"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Found identity hash: %v", identityHash)
 	apifixtures.BindToExport(ctx, t, serviceProviderSherriffs, "wild.wild.west", consumerWorkspace, kcpClientOld)
@@ -347,25 +347,25 @@ func TestAPIExportCorrectFiltration(t *testing.T) {
 	t.Logf("get the sheriffs api export's generated identity hash")
 	identityHash := ""
 	//TODO: convert to framework.Eventually
-	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+	framework.Eventually(t, func() (done bool, str string) {
 		sheriffExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderSherriffs), "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, err.Error()
 		}
 
 		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
 			identityHash = sheriffExport.Status.IdentityHash
-			return true, nil
+			return true, "found"
 		}
-		return false, nil
-	})
-	require.NoError(t, err)
+		return false, "not found"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Found identity hash: %v", identityHash)
 	apifixtures.BindToExport(ctx, t, serviceProviderSherriffs, "wild.wild.west", consumerWorkspace, kcpClientOld)
 	setUpServiceProviderWithPermissionClaims(ctx, dynamicClients, kcpClients, serviceProviderWorkspace, cfg, identityHash, t)
 
-	t.Logf("Create a sherriff that will be before the binding has occured to validate controller re-labels")
+	t.Logf("Create a sherriff that will be before the binding has occurred to validate controller re-labels")
 	apifixtures.CreateSheriff(ctx, t, dynamicClients, consumerWorkspace, "wild.wild.west", "in-vw-before")
 	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg, identityHash)
 
@@ -392,18 +392,17 @@ func TestAPIExportCorrectFiltration(t *testing.T) {
 	require.NoError(t, err, "error creating dynamic cluster client for %q", apiExportVWCfg.Host)
 
 	t.Logf("Verify that two sherrifs are eventually returned")
-	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+	framework.Eventually(t, func() (done bool, str string) {
 		gvr := schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}
 		ul, err := dynamicVWClients.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			return false, nil
+			return false, err.Error()
 		}
 		if len(ul.Items) == 2 {
-			return true, nil
+			return true, "found two items"
 		}
-		return false, nil
-	})
-	require.NoError(t, err)
+		return false, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
 func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClients clientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, identityHash string, t *testing.T) {

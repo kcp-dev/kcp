@@ -106,12 +106,13 @@ spec:
                 description: permissionClaims adds resources to the APIExports virtual
                   workspace. permissionClaims are optional and should be the least
                   access necessary to complete the functions that the service provider
-                  needs. Access is asked for on a GVR basis and can be filtered on
-                  objects by many different selectors.
+                  needs. Access is asked for on a GroupResource basis and can be filtered
+                  on objects by many different selectors.
                 items:
                   properties:
                     group:
-                      description: group is the name of an API group.
+                      description: group is the name of an API group. For core groups
+                        this is the empty string '""'.
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                       type: string
                     identityHash:
@@ -122,7 +123,9 @@ spec:
                         KCP instance.
                       type: string
                     resource:
-                      description: resource is the name of the resource.
+                      description: 'resource is the name of the resource. Note: it
+                        is worth noting that you can not ask for permissions for resource
+                        provided by a CRD not provided by an api export.'
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                       type: string
                   required:
