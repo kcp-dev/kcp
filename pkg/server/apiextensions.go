@@ -364,18 +364,19 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		// Not a system CRD, so check in priority order: identity, wildcard, "normal" single cluster
 
 		identity := IdentityFromContext(ctx)
-
-		switch {
-		case identity != "":
+		if identity != "" {
+			// Priority 2: APIBinding CRD
 			crd, err = c.getForIdentity(name, identity)
-		case clusterName == logicalcluster.Wildcard:
-			if partialMetadataRequest {
-				crd, err = c.getForWildcardPartialMetadata(name)
-			} else {
-				crd, err = c.getWildcard(name)
-			}
-		default:
-			crd, err = c.getForCluster(clusterName, name)
+		} else if clusterName == logicalcluster.Wildcard && partialMetadataRequest {
+			// Priority 3: partial metadata wildcard request
+			crd, err = c.getForWildcardPartialMetadata(name)
+		} else if clusterName == logicalcluster.Wildcard {
+			// Priority 4: full data wildcard request
+			// TODO(sttts): get rid of this case for non-system CRDs
+			crd, err = c.getForFullDataWildcard(name)
+		} else {
+			// Priority 5: normal CRD request
+			crd, err = c.get(clusterName, name)
 		}
 	}
 
@@ -451,16 +452,8 @@ func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 	}
 }
 
-func (c *apiBindingAwareCRDLister) getForCluster(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	if clusterName == logicalcluster.Wildcard {
-		return c.getWildcard(name)
-	}
-
-	return c.get(clusterName, name)
-}
-
-func (c *apiBindingAwareCRDLister) getWildcard(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	objs, err := c.crdIndexer.ByIndex(byGroupResourceName, name)
+func (c *apiBindingAwareCRDLister) getForFullDataWildcard(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	objs, err := c.crdIndexer.ByIndex(byGroupResourceName, name) // bound CRDs have different names and are therefore ignored
 	if err != nil {
 		return nil, err
 	}
