@@ -88,7 +88,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 		}
 		if needsPatch {
 			klog.V(4).Infof("Removing placement from namespace %s|%s, no api bindings", ns.Name)
-			if _, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"annotations":{%q:null}}}}`, schedulingv1alpha1.PlacementAnnotationKey)), metav1.PatchOptions{}); err != nil {
+			if _, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"annotations":{%q:null}}}`, schedulingv1alpha1.PlacementAnnotationKey)), metav1.PatchOptions{}); err != nil {
 				return reconcileStatusStop, nil, err
 			}
 		}

@@ -72,7 +72,7 @@ func TestPlacementReconciler(t *testing.T) {
 					},
 				},
 			},
-			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":null}}}}`,
+			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":null}}}`,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"existing placement, with binding, no locations, no workspaces workload cluster": {
@@ -88,7 +88,7 @@ func TestPlacementReconciler(t *testing.T) {
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
-			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":null}}}}`,
+			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":null}}}`,
 			wantRequeue:         time.Minute * 2,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
