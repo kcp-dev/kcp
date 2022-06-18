@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/metadata"
 	metadatafake "k8s.io/client-go/metadata/fake"
 	clienttesting "k8s.io/client-go/testing"
 
@@ -142,7 +143,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 				return resources, tt.gvrError
 			}
 			mockMetadataClient := metadatafake.NewSimpleMetadataClient(scheme, tt.existingObject...)
-			d := NewWorkspacedResourcesDeleter(mockMetadataClient, fn)
+			d := NewWorkspacedResourcesDeleter(&clusterMetaclient{mockMetadataClient}, fn)
 
 			err := d.Delete(context.TODO(), ws)
 			if !matchErrors(err, tt.expectErrorOnDelete) {
@@ -170,6 +171,14 @@ func TestWorkspaceTerminating(t *testing.T) {
 			}
 		})
 	}
+}
+
+type clusterMetaclient struct {
+	client metadata.Interface
+}
+
+func (c *clusterMetaclient) Cluster(name string) metadata.Interface {
+	return c.client
 }
 
 type metaAction struct {

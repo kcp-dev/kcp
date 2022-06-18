@@ -46,16 +46,18 @@ import (
 
 func NewController(
 	kcpClient kcpclient.ClusterInterface,
-	metadataClient metadata.Interface,
+	metadataClusterClient metadata.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "workspace-deletion")
 
 	c := &Controller{
-		queue:           queue,
-		kcpClient:       kcpClient,
-		workspaceLister: workspaceInformer.Lister(),
+		queue:                 queue,
+		kcpClient:             kcpClient,
+		metadataClusterClient: metadataClusterClient,
+		workspaceLister:       workspaceInformer.Lister(),
+		deleter:               deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -63,15 +65,15 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	c.deleter = deletion.NewWorkspacedResourcesDeleter(metadataClient, discoverResourcesFn)
-
 	return c
 }
 
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClient       kcpclient.ClusterInterface
+	kcpClient             kcpclient.ClusterInterface
+	metadataClusterClient metadata.ClusterInterface
+
 	workspaceLister tenancylister.ClusterWorkspaceLister
 	deleter         deletion.WorkspaceResourcesDeleterInterface
 }

@@ -287,7 +287,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	metadata, err := metadata.NewForConfig(config)
+	metadataClusterClient, err := metadata.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 
 	workspaceDeletionController := clusterworkspacedeletion.NewController(
 		kcpClusterClient,
-		metadata,
+		metadataClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		discoverResourcesFn,
 	)
