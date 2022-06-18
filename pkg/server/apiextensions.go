@@ -321,7 +321,7 @@ func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDe
 	}
 
 	// Start with a shallow copy
-	refreshed := shallowCopyCRD(updatedCRD)
+	refreshed := shallowCopyCRDAndDeepCopyAnnotations(updatedCRD)
 
 	// If crd has the identity annotation, make sure it's added to refreshed
 	if identity := crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey]; identity != "" {
@@ -330,7 +330,7 @@ func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDe
 
 	// If crd was only partial metadata, make sure refreshed is too
 	if _, partialMetadata := crd.Annotations[annotationKeyPartialMetadata]; partialMetadata {
-		partialMetadataCRD(refreshed)
+		makePartialMetadataCRD(refreshed)
 
 		if strings.HasSuffix(string(crd.UID), ".wildcard.partial-metadata") {
 			refreshed.UID = crd.UID
@@ -384,8 +384,8 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 	}
 
 	if partialMetadataRequest {
-		crd = shallowCopyCRD(crd)
-		partialMetadataCRD(crd)
+		crd = shallowCopyCRDAndDeepCopyAnnotations(crd)
+		makePartialMetadataCRD(crd)
 
 		if clusterName == logicalcluster.Wildcard {
 			crd.UID = types.UID(name + ".wildcard.partial-metadata")
@@ -395,12 +395,11 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 	return crd, nil
 }
 
-// shallowCopyCRD makes a shallow copy of in, with a deep copy of in.ObjectMeta.Annotations.
-func shallowCopyCRD(in *apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
+// shallowCopyCRDAndDeepCopyAnnotations makes a shallow copy of in, with a deep copy of in.ObjectMeta.Annotations.
+func shallowCopyCRDAndDeepCopyAnnotations(in *apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
 	out := *in
 
-	out.Annotations = make(map[string]string)
-
+	out.Annotations = make(map[string]string, len(in.Annotations))
 	for k, v := range in.Annotations {
 		out.Annotations[k] = v
 	}
@@ -412,7 +411,7 @@ func shallowCopyCRD(in *apiextensionsv1.CustomResourceDefinition) *apiextensions
 // 1. adding identity annotation
 // 2. terminating status when apibinding is deleting
 func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identity string, deleteTime *metav1.Time) *apiextensionsv1.CustomResourceDefinition {
-	out := shallowCopyCRD(in)
+	out := shallowCopyCRDAndDeepCopyAnnotations(in)
 
 	out.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = identity
 
@@ -434,14 +433,17 @@ func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identi
 	return out
 }
 
-// partialMetadataCRD modifies CRD and replaces all version schemas with minimal ones suitable for partial object
+// makePartialMetadataCRD modifies CRD and replaces all version schemas with minimal ones suitable for partial object
 // metadata.
-func partialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
+func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 	crd.Annotations[annotationKeyPartialMetadata] = ""
 
 	// set minimal schema that prunes everything but ObjectMeta
-	for _, v := range crd.Spec.Versions {
-		v.Schema = &apiextensionsv1.CustomResourceValidation{
+	old := crd.Spec.Versions
+	crd.Spec.Versions = make([]apiextensionsv1.CustomResourceDefinitionVersion, len(old))
+	copy(crd.Spec.Versions, old)
+	for i := range crd.Spec.Versions {
+		crd.Spec.Versions[i].Schema = &apiextensionsv1.CustomResourceValidation{
 			OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 				Type: "object",
 			},
