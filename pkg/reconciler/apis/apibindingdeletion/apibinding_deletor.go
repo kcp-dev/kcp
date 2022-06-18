@@ -44,7 +44,6 @@ type gvrDeletionMetadataTotal struct {
 }
 
 func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.APIBinding) (gvrDeletionMetadataTotal, error) {
-
 	totalResourceRemaining := gvrDeletionMetadataTotal{
 		gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
 		finalizersToNumRemaining: map[string]int{},
