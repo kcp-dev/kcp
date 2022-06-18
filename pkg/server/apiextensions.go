@@ -132,9 +132,9 @@ func newSystemCRDProvider(
 }
 
 func (p *systemCRDProvider) List(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-	var ret []*apiextensionsv1.CustomResourceDefinition
-
-	for _, key := range p.Keys(clusterName).List() {
+	keys := p.Keys(clusterName).List()
+	ret := make([]*apiextensionsv1.CustomResourceDefinition, 0, len(keys))
+	for _, key := range keys {
 		crd, err := p.getCRD(key)
 		if err != nil {
 			klog.Errorf("Failed to get CRD %s for %s: %v", key, clusterName, err)
@@ -190,6 +190,7 @@ func (p *systemCRDProvider) Keys(clusterName logicalcluster.Name) sets.String {
 type apiBindingAwareCRDLister struct {
 	kcpClusterClient     kcpclientset.ClusterInterface
 	crdLister            apiextensionslisters.CustomResourceDefinitionLister
+	crdIndexer           cache.Indexer
 	workspaceLister      tenancylisters.ClusterWorkspaceLister
 	apiBindingLister     apislisters.APIBindingLister
 	apiBindingIndexer    cache.Indexer
@@ -212,15 +213,6 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		return crd.Spec.Names.Plural + "." + crd.Spec.Group
 	}
 
-	selectAll := selector.Empty()
-	matchesSelector := func(crd *apiextensionsv1.CustomResourceDefinition) bool {
-		if selectAll {
-			return true
-		}
-
-		return selector.Matches(labels.Set(crd.Labels))
-	}
-
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
@@ -235,16 +227,12 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		seen.Insert(crdName(kcpSystemCRDs[i]))
 	}
 
-	apiBindings, err := c.apiBindingLister.List(labels.Everything())
+	objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO(sttts): optimize this looping by using an informer index
-	for _, apiBinding := range apiBindings {
-		if logicalcluster.From(apiBinding) != clusterName {
-			continue
-		}
+	for _, obj := range objs {
+		apiBinding := obj.(*apisv1alpha1.APIBinding)
 		if !conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 			continue
 		}
@@ -257,7 +245,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 				continue
 			}
 
-			if !matchesSelector(crd) {
+			if !selector.Matches(labels.Set(crd.Labels)) {
 				continue
 			}
 
@@ -280,13 +268,14 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	}
 
 	// TODO use scoping lister when available
-	crds, err := c.crdLister.List(selector)
+	objs, err = c.crdIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
 	}
-	for i := range crds {
-		crd := crds[i]
-		if logicalcluster.From(crd) != clusterName {
+	for _, obj := range objs {
+		crd := obj.(*apiextensionsv1.CustomResourceDefinition)
+
+		if !selector.Matches(labels.Set(crd.Labels)) {
 			continue
 		}
 
@@ -432,7 +421,6 @@ func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identi
 	}
 
 	out.Status.Conditions = make([]apiextensionsv1.CustomResourceDefinitionCondition, len(in.Status.Conditions))
-
 	out.Status.Conditions = append(out.Status.Conditions, in.Status.Conditions...)
 
 	out.DeletionTimestamp = deleteTime.DeepCopy()
@@ -470,23 +458,27 @@ func (c *apiBindingAwareCRDLister) getForCluster(clusterName logicalcluster.Name
 }
 
 func (c *apiBindingAwareCRDLister) getWildcard(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	// TODO use an index by group+resource
-	crds, err := c.crdLister.List(labels.Everything())
+	objs, err := c.crdIndexer.ByIndex(byGroupResourceName, name)
 	if err != nil {
 		return nil, err
 	}
 
-	crd, equivalentSchemas := findCRD(name, crds)
-	if !equivalentSchemas {
-		err = apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
-		return nil, err
+	var foundCRD *apiextensionsv1.CustomResourceDefinition
+	for _, obj := range objs {
+		crd := obj.(*apiextensionsv1.CustomResourceDefinition)
+
+		if foundCRD == nil {
+			foundCRD = crd
+		} else if !equality.Semantic.DeepEqual(foundCRD.Spec, crd.Spec) {
+			return nil, apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
+		}
 	}
 
-	if crd == nil {
+	if foundCRD == nil {
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	return crd, nil
+	return foundCRD, nil
 }
 
 // getForIdentity handles finding the right CRD for an incoming wildcard request with identity, such as
@@ -538,20 +530,16 @@ func (c *apiBindingAwareCRDLister) getForIdentity(name, identity string) (*apiex
 const annotationKeyPartialMetadata = "crd.kcp.dev/partial-metadata"
 
 func (c *apiBindingAwareCRDLister) getForWildcardPartialMetadata(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	// TODO add index on CRDs by group+resource
-	crds, err := c.crdLister.List(labels.Everything())
+	objs, err := c.crdIndexer.ByIndex(byGroupResourceName, name)
 	if err != nil {
 		return nil, err
 	}
 
-	group, resource := crdNameToGroupResource(name)
-
-	crd := findFirstCRDMatchingGroupResource(group, resource, crds)
-	if crd == nil {
+	if len(objs) == 0 {
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	return crd, nil
+	return objs[0].(*apiextensionsv1.CustomResourceDefinition), nil
 }
 
 func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -563,7 +551,6 @@ func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.Name,
 	systemCRDKeys := c.systemCRDProvider.Keys(clusterName)
 
 	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
-
 	if !systemCRDKeys.Has(systemCRDKeyName) {
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
@@ -577,15 +564,13 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name str
 	// Priority 1: see if it comes from any APIBindings
 	group, resource := crdNameToGroupResource(name)
 
-	// TODO use scoped lister when ready
-	apiBindings, err := c.apiBindingLister.List(labels.Everything())
+	objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
 	}
-	for _, apiBinding := range apiBindings {
-		if logicalcluster.From(apiBinding) != clusterName {
-			continue
-		}
+	for _, obj := range objs {
+		apiBinding := obj.(*apisv1alpha1.APIBinding)
+
 		if !conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 			continue
 		}
@@ -625,43 +610,6 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name str
 	}
 
 	return nil, apierrors.NewNotFound(schema.GroupResource{Group: apiextensionsv1.SchemeGroupVersion.Group, Resource: "customresourcedefinitions"}, name)
-}
-
-// findCRD tries to locate a CRD named crdName in crds. It returns the located CRD, if any, and a bool
-// indicating that if there were multiple matches, they all have the same spec (true) or not (false).
-func findCRD(name string, crds []*apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, bool) {
-	var crd *apiextensionsv1.CustomResourceDefinition
-
-	group, resource := crdNameToGroupResource(name)
-
-	for _, aCRD := range crds {
-		if _, bound := aCRD.Annotations[apisv1alpha1.AnnotationBoundCRDKey]; bound {
-			continue
-		}
-		if aCRD.Spec.Group != group || aCRD.Spec.Names.Plural != resource {
-			continue
-		}
-
-		if crd == nil {
-			crd = aCRD
-		} else {
-			if !equality.Semantic.DeepEqual(crd.Spec, aCRD.Spec) {
-				return nil, false
-			}
-		}
-	}
-
-	return crd, true
-}
-
-func findFirstCRDMatchingGroupResource(group, resource string, crds []*apiextensionsv1.CustomResourceDefinition) *apiextensionsv1.CustomResourceDefinition {
-	for _, crd := range crds {
-		if crd.Spec.Group == group && crd.Spec.Names.Plural == resource {
-			return crd
-		}
-	}
-
-	return nil
 }
 
 func crdNameToGroupResource(name string) (group, resource string) {
