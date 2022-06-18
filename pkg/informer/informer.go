@@ -18,6 +18,7 @@ package informer
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -52,9 +53,10 @@ type DynamicDiscoverySharedInformerFactory struct {
 	workspaceLister tenancylisters.ClusterWorkspaceLister
 	disco           clusterDiscovery
 	dynamicClient   dynamic.Interface
-	handler         GVREventHandler
+	handlers        []GVREventHandler
 	filterFunc      func(interface{}) bool
 	pollInterval    time.Duration
+	indexers        cache.Indexers
 
 	mu            sync.RWMutex // guards gvrs
 	gvrs          map[schema.GroupVersionResource]struct{}
@@ -150,14 +152,12 @@ func NewDynamicDiscoverySharedInformerFactory(
 	disco clusterDiscovery,
 	dynClient dynamic.Interface,
 	filterFunc func(obj interface{}) bool,
-	handler GVREventHandler,
 	pollInterval time.Duration,
-) DynamicDiscoverySharedInformerFactory {
-	return DynamicDiscoverySharedInformerFactory{
+) *DynamicDiscoverySharedInformerFactory {
+	return &DynamicDiscoverySharedInformerFactory{
 		workspaceLister: workspaceLister,
 		disco:           disco,
 		dynamicClient:   dynClient,
-		handler:         handler,
 		filterFunc:      filterFunc,
 		gvrs:            make(map[schema.GroupVersionResource]struct{}),
 		pollInterval:    pollInterval,
@@ -194,6 +194,24 @@ func (g GVREventHandlerFuncs) OnDelete(gvr schema.GroupVersionResource, obj inte
 	if g.DeleteFunc != nil {
 		g.DeleteFunc(gvr, obj)
 	}
+}
+
+func (d *DynamicDiscoverySharedInformerFactory) AddEventHandler(handler GVREventHandler) {
+	d.handlers = append(d.handlers, handler)
+}
+
+func (d *DynamicDiscoverySharedInformerFactory) AddIndexers(indexers cache.Indexers) error {
+	if d.indexers == nil {
+		d.indexers = map[string]cache.IndexFunc{}
+	}
+	for name, indexer := range indexers {
+		if _, found := d.indexers[name]; found {
+			return fmt.Errorf("indexer %q already exists", name)
+		}
+		d.indexers[name] = indexer
+	}
+
+	return nil
 }
 
 func (d *DynamicDiscoverySharedInformerFactory) Start(ctx context.Context) {
@@ -309,15 +327,30 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 
 		// We have the write lock, so call the LH variant
 		inf := d.informerForResourceLockHeld(gvr).Informer()
-
 		inf.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: d.filterFunc,
 			Handler: cache.ResourceEventHandlerFuncs{
-				AddFunc:    func(obj interface{}) { d.handler.OnAdd(gvr, obj) },
-				UpdateFunc: func(oldObj, newObj interface{}) { d.handler.OnUpdate(gvr, oldObj, newObj) },
-				DeleteFunc: func(obj interface{}) { d.handler.OnDelete(gvr, obj) },
+				AddFunc: func(obj interface{}) {
+					for _, h := range d.handlers {
+						h.OnAdd(gvr, obj)
+					}
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					for _, h := range d.handlers {
+						h.OnUpdate(gvr, oldObj, newObj)
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					for _, h := range d.handlers {
+						h.OnDelete(gvr, obj)
+					}
+				},
 			},
 		})
+
+		if err := inf.GetIndexer().AddIndexers(d.indexers); err != nil {
+			return err
+		}
 
 		// Set up a stop channel for this specific informer
 		stop := make(chan struct{})

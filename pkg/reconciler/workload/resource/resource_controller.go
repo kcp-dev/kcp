@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -44,26 +43,18 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
 const controllerName = "kcp-workload-resource-scheduler"
 
-type clusterDiscovery interface {
-	WithCluster(name logicalcluster.Name) discovery.DiscoveryInterface
-}
-
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
 func NewController(
 	dynamicClusterClient dynamic.ClusterInterface,
-	dynamicMetadataClusterClient dynamic.ClusterInterface,
-	clusterDiscoveryClient clusterDiscovery,
 	kubeClusterClient kubernetes.ClusterInterface,
-	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
+	ddsif *informer.DynamicDiscoverySharedInformerFactory,
 	namespaceInformer coreinformers.NamespaceInformer,
-	pollInterval time.Duration,
-) *Controller {
+) (*Controller, error) {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
 	gvrQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-gvr")
 
@@ -74,6 +65,8 @@ func NewController(
 		dynClient: dynamicClusterClient,
 
 		namespaceLister: namespaceInformer.Lister(),
+
+		ddsif: ddsif,
 
 		kubeClient: kubeClusterClient,
 	}
@@ -93,16 +86,13 @@ func NewController(
 		},
 	})
 
-	// Always do a * list/watch
-	c.ddsif = informer.NewDynamicDiscoverySharedInformerFactory(workspaceInformer.Lister(), clusterDiscoveryClient, dynamicMetadataClusterClient.Cluster(logicalcluster.Wildcard),
-		filterResource,
-		informer.GVREventHandlerFuncs{
-			AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
-			UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueResource(gvr, obj) },
-			DeleteFunc: nil, // Nothing to do.
-		}, pollInterval)
+	c.ddsif.AddEventHandler(informer.GVREventHandlerFuncs{
+		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
+		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueResource(gvr, obj) },
+		DeleteFunc: nil, // Nothing to do.
+	})
 
-	return c
+	return c, nil
 }
 
 func scheduleStateLabels(ls map[string]string) map[string]string {
@@ -124,21 +114,7 @@ type Controller struct {
 
 	namespaceLister corelisters.NamespaceLister
 
-	ddsif informer.DynamicDiscoverySharedInformerFactory
-}
-
-func filterResource(obj interface{}) bool {
-	current, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		klog.Warningf("Object was not Unstructured: %T", obj)
-		return false
-	}
-
-	if namespaceBlocklist.Has(current.GetNamespace()) {
-		klog.V(4).Infof("Skipping syncing namespace %s|%q", logicalcluster.From(current), current.GetNamespace())
-		return false
-	}
-	return true
+	ddsif *informer.DynamicDiscoverySharedInformerFactory
 }
 
 func filterNamespace(obj interface{}) bool {
@@ -199,8 +175,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting Resource scheduler")
 	defer klog.Info("Shutting down Resource scheduler")
-
-	c.ddsif.Start(ctx)
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startResourceWorker(ctx) }, time.Second, ctx.Done())

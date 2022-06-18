@@ -49,6 +49,11 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return nil
 	}
 
+	if namespaceBlocklist.Has(obj.GetNamespace()) {
+		klog.V(4).Infof("Skipping syncing namespace %s|%q", logicalcluster.From(obj), obj.GetNamespace())
+		return nil
+	}
+
 	// Align the resource's assigned cluster with the namespace's assigned
 	// cluster.
 	// First, get the namespace object (from the cached lister).

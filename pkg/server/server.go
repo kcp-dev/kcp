@@ -39,6 +39,7 @@ import (
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
@@ -55,6 +56,8 @@ import (
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/informer"
+	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
@@ -320,6 +323,20 @@ func (s *Server) Run(ctx context.Context) error {
 		),
 	)
 
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(server.LoopbackClientConfig)
+	if err != nil {
+		return err
+	}
+	ddsif := informer.NewDynamicDiscoverySharedInformerFactory(
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		kubeClusterClient.DiscoveryClient,
+		metadataClusterClient.Cluster(logicalcluster.Wildcard),
+		func(obj interface{}) bool { return true }, s.options.Extra.DiscoveryPollInterval,
+	)
+	if err := ddsif.AddIndexers(cache.Indexers{byWorkspace: indexByWorksapce}); err != nil {
+		return err
+	}
+
 	s.AddPostStartHook("kcp-start-informers", func(ctx genericapiserver.PostStartHookContext) error {
 		s.kubeSharedInformerFactory.Start(ctx.StopCh)
 		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
@@ -350,6 +367,9 @@ func (s *Server) Run(ctx context.Context) error {
 		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
 		klog.Infof("Finished start kcp informers")
+
+		klog.Infof("Starting dynamic metadata informer")
+		ddsif.Start(goContext(ctx))
 
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
@@ -442,7 +462,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
-		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig, ddsif); err != nil {
 			return err
 		}
 	}
