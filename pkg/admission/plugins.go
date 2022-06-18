@@ -40,8 +40,10 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageobjectinuseprotection"
 
 	"github.com/kcp-dev/kcp/pkg/admission/apibinding"
+	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
+	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacefinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
@@ -58,10 +60,12 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	workspacenamespacelifecycle.PluginName,
 	apiresourceschema.PluginName,
 	clusterworkspace.PluginName,
+	clusterworkspacefinalizer.PluginName,
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
 	apibinding.PluginName,
+	apibindingfinalizer.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
@@ -85,11 +89,13 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
 	clusterworkspace.Register(plugins)
+	clusterworkspacefinalizer.Register(plugins)
 	clusterworkspaceshard.Register(plugins)
 	clusterworkspacetype.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
 	apiresourceschema.Register(plugins)
 	apibinding.Register(plugins)
+	apibindingfinalizer.Register(plugins)
 	workspacenamespacelifecycle.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
 	kcpmutatingwebhook.Register(plugins)
@@ -107,11 +113,13 @@ var defaultOnPluginsInKcp = sets.NewString(
 
 	// KCP
 	clusterworkspace.PluginName,
+	clusterworkspacefinalizer.PluginName,
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
 	apiresourceschema.PluginName,
 	apibinding.PluginName,
+	apibindingfinalizer.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,

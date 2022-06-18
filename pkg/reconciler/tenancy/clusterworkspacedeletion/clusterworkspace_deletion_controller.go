@@ -156,24 +156,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return deleteErr
 	}
 
-	// add finalizer
-	workspaceCopy := workspace.DeepCopy()
-	if workspaceCopy.DeletionTimestamp.IsZero() {
-		for i := range workspaceCopy.Finalizers {
-			if workspaceCopy.Finalizers[i] == deletion.WorkspaceFinalizer {
-				return nil
-			}
-		}
-
-		workspaceCopy.Finalizers = append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer)
-
-		klog.V(2).Infof("Adding finalizer to workspace %s", key)
-		_, err := c.kcpClient.Cluster(logicalcluster.From(workspaceCopy)).TenancyV1alpha1().ClusterWorkspaces().Update(
-			ctx, workspaceCopy, metav1.UpdateOptions{})
-
-		return err
+	if workspace.DeletionTimestamp.IsZero() {
+		return nil
 	}
 
+	workspaceCopy := workspace.DeepCopy()
+
+	klog.V(2).Infof("Deleting workspace %s", key)
 	startTime := time.Now()
 	deleteErr = c.deleter.Delete(ctx, workspaceCopy)
 	if deleteErr == nil {

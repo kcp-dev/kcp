@@ -180,20 +180,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 
 	if apibinding.DeletionTimestamp.IsZero() {
-		for i := range apibinding.Finalizers {
-			if apibinding.Finalizers[i] == APIBindingFinalizer {
-				klog.V(4).Infof("Apibinding %v already has finalizer %v", key, APIBindingFinalizer)
-				return nil
-			}
-		}
-
-		klog.V(2).Infof("Adding finalizer to apibinding %v", key)
-		apibindingCopy := apibinding.DeepCopy()
-		apibindingCopy.Finalizers = append(apibindingCopy.Finalizers, APIBindingFinalizer)
-		_, err := c.kcpClusterClient.Cluster(logicalcluster.From(apibindingCopy)).ApisV1alpha1().APIBindings().Update(
-			ctx, apibindingCopy, metav1.UpdateOptions{})
-
-		return err
+		return nil
 	}
 
 	apibindingCopy := apibinding.DeepCopy()
