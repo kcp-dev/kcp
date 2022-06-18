@@ -78,7 +78,6 @@ func NewController(
 		metadataClient:    metadataClient,
 		kcpClusterClient:  kcpClusterClient,
 		apiBindingsLister: apiBindingInformer.Lister(),
-		apibindingSynced:  apiBindingInformer.Informer().HasSynced,
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -96,7 +95,6 @@ type Controller struct {
 	kcpClusterClient kcpclient.ClusterInterface
 
 	apiBindingsLister apislisters.APIBindingLister
-	apibindingSynced  cache.InformerSynced
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -115,10 +113,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting APIBinding Deletion controller")
 	defer klog.Info("Shutting down APIBinding Deletion controller")
-
-	if !cache.WaitForNamedCacheSync("apibinding-deletion", ctx.Done(), c.apibindingSynced) {
-		return
-	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
