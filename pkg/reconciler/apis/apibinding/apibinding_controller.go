@@ -370,6 +370,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for apibinding %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
+
+		klog.V(2).Infof("Patching apibinding %s|%s/%s: %s", clusterName, namespace, name, string(patchBytes))
 		_, uerr := c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
