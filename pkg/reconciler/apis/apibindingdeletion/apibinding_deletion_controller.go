@@ -246,7 +246,10 @@ func (c *Controller) mutateResourceRemainingStatus(resourceRemaining gvrDeletion
 			fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")),
 		)
 
-		return apibinding, &deletion.ResourcesRemainingError{Estimate: DeletionRecheckEstimateSeconds}
+		return apibinding, &deletion.ResourcesRemainingError{
+			Estimate: DeletionRecheckEstimateSeconds,
+			Message:  fmt.Sprintf("finalizers %s remaining", strings.Join(remainingByFinalizer, ", ")),
+		}
 	}
 
 	if len(resourceRemaining.gvrToNumRemaining) != 0 {
@@ -269,7 +272,10 @@ func (c *Controller) mutateResourceRemainingStatus(resourceRemaining gvrDeletion
 			fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")),
 		)
 
-		return apibinding, &deletion.ResourcesRemainingError{Estimate: DeletionRecheckEstimateSeconds}
+		return apibinding, &deletion.ResourcesRemainingError{
+			Estimate: DeletionRecheckEstimateSeconds,
+			Message:  fmt.Sprintf("resources %s remaining", strings.Join(remainingResources, ", ")),
+		}
 	}
 
 	conditions.MarkTrue(apibinding, apisv1alpha1.BindingResourceDeleteSuccess)

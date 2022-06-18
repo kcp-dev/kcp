@@ -119,6 +119,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
+	startTime := time.Now()
 	err := c.process(ctx, key)
 
 	if err == nil {
@@ -130,7 +131,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	var estimate *deletion.ResourcesRemainingError
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
-		klog.V(2).Infof("Content remaining in workspace %s, waiting %d seconds", key, t)
+		klog.V(2).Infof("Content remaining in workspace %s after %v, waiting %d seconds to continue: %v", key, time.Since(startTime), t, err)
+
 		c.queue.AddAfter(key, time.Duration(t)*time.Second)
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed
@@ -176,7 +178,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		klog.V(2).Infof("Finished deleting workspace %q content after %v", key, time.Since(startTime))
 		return c.finalizeWorkspace(ctx, workspaceCopy)
 	}
-	klog.V(2).Infof("Failed deleting workspace %q content after %v: %v", key, time.Since(startTime), deleteErr)
 
 	if err := c.patchCondition(ctx, workspace, workspaceCopy); err != nil {
 		return err
