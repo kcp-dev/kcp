@@ -64,7 +64,6 @@ func NewController(
 	})
 
 	c.deleter = deletion.NewWorkspacedResourcesDeleter(metadataClient, discoverResourcesFn)
-	c.workspaceSynced = workspaceInformer.Informer().HasSynced
 
 	return c
 }
@@ -74,7 +73,6 @@ type Controller struct {
 
 	kcpClient       kcpclient.ClusterInterface
 	workspaceLister tenancylister.ClusterWorkspaceLister
-	workspaceSynced cache.InformerSynced
 	deleter         deletion.WorkspaceResourcesDeleterInterface
 }
 
@@ -94,10 +92,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting ClusterWorkspace Deletion controller")
 	defer klog.Info("Shutting down ClusterWorkspace Deletion controller")
-
-	if !cache.WaitForNamedCacheSync("workspace-deletion", ctx.Done(), c.workspaceSynced) {
-		return
-	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
