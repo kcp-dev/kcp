@@ -44,7 +44,7 @@ func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
 		{
 			Name:        "Phase",
 			Type:        "string",
-			Description: "Workspace phase",
+			Description: "The current phase (e.g. Scheduling, Initializing, Ready, Deleting)",
 			Priority:    0,
 		},
 		{
@@ -69,6 +69,9 @@ func printWorkspace(workspace *tenancyv1beta1.Workspace, options kprinters.Gener
 	}
 
 	phase := workspace.Status.Phase
+	if workspace.DeletionTimestamp != nil {
+		phase = "Deleting"
+	}
 	row.Cells = append(row.Cells, workspace.Name, workspace.Spec.Type.Name, phase, workspace.Status.URL)
 
 	return []metav1.TableRow{row}, nil
