@@ -41,6 +41,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
 
@@ -49,6 +50,7 @@ func NewController(
 	metadataClusterClient metadata.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
+	ddsif *informer.DynamicDiscoverySharedInformerFactory,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "workspace-deletion")
 
@@ -57,6 +59,7 @@ func NewController(
 		kcpClient:             kcpClient,
 		metadataClusterClient: metadataClusterClient,
 		workspaceLister:       workspaceInformer.Lister(),
+		ddsif:                 ddsif,
 		deleter:               deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
 	}
 
@@ -75,7 +78,9 @@ type Controller struct {
 	metadataClusterClient metadata.ClusterInterface
 
 	workspaceLister tenancylister.ClusterWorkspaceLister
-	deleter         deletion.WorkspaceResourcesDeleterInterface
+
+	deleter deletion.WorkspaceResourcesDeleterInterface
+	ddsif   *informer.DynamicDiscoverySharedInformerFactory
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -84,7 +89,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	klog.Infof("Queueing workspace %q", key)
+	klog.V(4).Infof("Queueing workspace %q", key)
 	c.queue.Add(key)
 }
 
@@ -164,17 +169,22 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	klog.V(2).Infof("Deleting workspace %s", key)
 	startTime := time.Now()
-	deleteErr = c.deleter.Delete(ctx, workspaceCopy)
-	if deleteErr == nil {
-		klog.V(2).Infof("Finished deleting workspace %q content after %v", key, time.Since(startTime))
-		return c.finalizeWorkspace(ctx, workspaceCopy)
+	if deleteErr = c.deleter.Delete(ctx, workspaceCopy); deleteErr != nil {
+		if err := c.patchCondition(ctx, workspace, workspaceCopy); err != nil {
+			return err
+		}
+		return deleteErr
+	}
+	klog.V(2).Infof("Finished deleting workspace %q content after %v via discovery deletion", key, time.Since(startTime))
+
+	if remainderErr := c.checkForRemainders(ctx, workspaceCopy); remainderErr != nil {
+		if err := c.patchCondition(ctx, workspace, workspaceCopy); err != nil {
+			return err
+		}
+		return remainderErr
 	}
 
-	if err := c.patchCondition(ctx, workspace, workspaceCopy); err != nil {
-		return err
-	}
-
-	return deleteErr
+	return c.finalizeWorkspace(ctx, workspaceCopy)
 }
 
 func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alpha1.ClusterWorkspace) error {
@@ -212,6 +222,36 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 	klog.V(2).Infof("Patching workspace %s|%s: %s", logicalcluster.From(new), new.Name, string(patchBytes))
 	_, err = c.kcpClient.Cluster(logicalcluster.From(new)).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
+}
+
+// checkForRemainders uses the dynamic metadata informer to check for debris.
+func (c *Controller) checkForRemainders(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+	clusterName := logicalcluster.From(workspace).Join(workspace.Name)
+	listers, _ := c.ddsif.Listers()
+
+	first := true
+	for gvr := range listers {
+		objs, err := c.ddsif.IndexerFor(gvr).ByIndex("byWorkspace", clusterName.String())
+		if err != nil {
+			klog.Errorf("Failed to get objects for %s from index for workspace %s: %v", gvr.String(), clusterName, err)
+			continue
+		}
+
+		if len(objs) > 0 && first {
+			for _, obj := range objs {
+				// check the first object whether it is real
+				obj := obj.(metav1.Object)
+				_, err := c.metadataClusterClient.Cluster(clusterName.String()).Resource(gvr).Namespace(obj.GetClusterName()).Get(ctx, obj.GetName(), metav1.GetOptions{})
+				if err == nil {
+					klog.Warningf("Debris found for workspace %s:  %s %s|%s/%s", clusterName, gvr, obj.GetNamespace(), obj.GetName())
+					first = false
+					break
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // finalizeNamespace removes the specified finalizer and finalizes the workspace

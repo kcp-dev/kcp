@@ -450,7 +450,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkspaceScheduler(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installWorkspaceDeletionController(ctx, controllerConfig); err != nil {
+		if err := s.installWorkspaceDeletionController(ctx, controllerConfig, ddsif); err != nil {
 			return err
 		}
 	}
