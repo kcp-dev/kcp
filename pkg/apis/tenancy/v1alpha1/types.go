@@ -44,8 +44,8 @@ var RootCluster = logicalcluster.New("root")
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`,description="Type of the workspace"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
+// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.baseURL`,description="URL to access the workspace"
 type ClusterWorkspace struct {
 	metav1.TypeMeta `json:",inline"`
@@ -112,7 +112,7 @@ type ClusterWorkspaceTypeReference struct {
 type ClusterWorkspaceTypeName string
 
 func (r ClusterWorkspaceTypeReference) String() string {
-	return fmt.Sprintf("%q in workspace %q", r.Name, r.Path)
+	return fmt.Sprintf("%s:%s", r.Path, r.Name)
 }
 
 // ClusterWorkspaceType specifies behaviour of workspaces of this type.

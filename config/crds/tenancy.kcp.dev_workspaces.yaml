@@ -17,16 +17,16 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - description: Type of the workspace
-      jsonPath: .spec.type
-      name: Type
-      type: string
     - description: The current phase (e.g. Scheduling, Initializing, Ready)
       jsonPath: .status.phase
       name: Phase
       type: string
+    - description: Type of the workspace
+      jsonPath: .spec.type.name
+      name: Type
+      type: string
     - description: URL to access the workspace
-      jsonPath: .status.baseURL
+      jsonPath: .status.URL
       name: URL
       type: string
     name: v1beta1

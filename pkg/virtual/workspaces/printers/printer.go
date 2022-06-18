@@ -38,7 +38,7 @@ func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
 		{
 			Name:        "Type",
 			Type:        "string",
-			Description: "Workspace type",
+			Description: "Type of the workspace",
 			Priority:    0,
 		},
 		{
@@ -50,7 +50,7 @@ func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
 		{
 			Name:        "URL",
 			Type:        "string",
-			Description: "Workspace API Server URL",
+			Description: "URL to access the workspace",
 			Priority:    0,
 		},
 	}
@@ -68,7 +68,8 @@ func printWorkspace(workspace *tenancyv1beta1.Workspace, options kprinters.Gener
 		Object: runtime.RawExtension{Object: workspace},
 	}
 
-	row.Cells = append(row.Cells, workspace.Name, workspace.Spec.Type, workspace.Status.Phase, workspace.Status.URL)
+	phase := workspace.Status.Phase
+	row.Cells = append(row.Cells, workspace.Name, workspace.Spec.Type.Name, phase, workspace.Status.URL)
 
 	return []metav1.TableRow{row}, nil
 }
