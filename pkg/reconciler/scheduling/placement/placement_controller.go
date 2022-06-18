@@ -98,25 +98,25 @@ func NewController(
 	}
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:            indexByWorksapce,
+		byWorkspace:            indexByWorkspace,
 		byNegotiationWorkspace: indexByNegotiationWorkspace,
 	}); err != nil {
 		return nil, err

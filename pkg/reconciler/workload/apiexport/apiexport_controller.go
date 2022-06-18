@@ -70,19 +70,19 @@ func NewController(
 	}
 
 	if err := c.apiResourceSchemaIndexer.AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := negotiatedAPIResourceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}

@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func indexByWorksapce(obj interface{}) ([]string, error) {
+func indexByWorkspace(obj interface{}) ([]string, error) {
 	metaObj, ok := obj.(metav1.Object)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
