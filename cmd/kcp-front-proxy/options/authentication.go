@@ -41,7 +41,9 @@ type Authentication struct {
 
 // NewAuthentication creates a default Authentication
 func NewAuthentication() *Authentication {
-	return &Authentication{}
+	return &Authentication{
+		DisallowedGroups: []string{"system:masters"},
+	}
 }
 
 // ApplyTo sets up the x509 Authenticator if the client-ca-file option was passed
