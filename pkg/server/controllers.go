@@ -129,7 +129,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Run(2, ctx.Done())
+		go c.Run(10, ctx.Done())
 		return nil
 	})
 
@@ -315,7 +315,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go workspaceDeletionController.Start(ctx, 2)
+		go workspaceDeletionController.Start(ctx, 10)
 		return nil
 	})
 	return nil
@@ -611,7 +611,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go apibindingDeletionController.Start(goContext(hookContext), 2)
+		go apibindingDeletionController.Start(goContext(hookContext), 10)
 
 		return nil
 	}); err != nil {
