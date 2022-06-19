@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/kcp-dev/logicalcluster"
+	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
@@ -65,9 +66,9 @@ func updateAttr(ws, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes 
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name    string
-		a       admission.Attributes
-		wantErr bool
+		name           string
+		a              admission.Attributes
+		expectedErrors []string
 	}{
 		{
 			name: "rejects type mutations",
@@ -93,7 +94,7 @@ func TestValidate(t *testing.T) {
 						},
 					},
 				}),
-			wantErr: true,
+			expectedErrors: []string{"field is immutable"},
 		},
 		{
 			name: "rejects unsetting location",
@@ -128,7 +129,7 @@ func TestValidate(t *testing.T) {
 						},
 					},
 				}),
-			wantErr: true,
+			expectedErrors: []string{"status.location.current cannot be unset"},
 		},
 		{
 			name: "rejects unsetting baseURL",
@@ -158,7 +159,7 @@ func TestValidate(t *testing.T) {
 						BaseURL: "https://cluster/clsuters/test",
 					},
 				}),
-			wantErr: true,
+			expectedErrors: []string{"status.baseURL cannot be unset"},
 		},
 		{
 			name: "rejects transition from Initializing with non-empty initializers",
@@ -194,7 +195,7 @@ func TestValidate(t *testing.T) {
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
 					},
 				}),
-			wantErr: true,
+			expectedErrors: []string{"spec.initializers must be empty for phase Ready"},
 		},
 		{
 			name: "allows transition from Initializing with empty initializers",
@@ -321,7 +322,7 @@ func TestValidate(t *testing.T) {
 						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"a"},
 					},
 				}),
-			wantErr: true,
+			expectedErrors: []string{"status.baseURL must be set for phase Ready"},
 		},
 		{
 			name: "rejects transition to previous phase",
@@ -359,7 +360,7 @@ func TestValidate(t *testing.T) {
 						BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 					},
 				}),
-			wantErr: true,
+			expectedErrors: []string{"cannot transition from \"Ready\" to \"Initializing\""},
 		},
 		{
 			name: "ignores different resources",
@@ -388,8 +389,16 @@ func TestValidate(t *testing.T) {
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
-			if err := o.Validate(ctx, tt.a, nil); (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			err := o.Validate(ctx, tt.a, nil)
+
+			wantErr := len(tt.expectedErrors) > 0
+			require.Equal(t, wantErr, err != nil)
+
+			if err != nil {
+				t.Logf("Got admission errors: %v", err)
+				for _, expected := range tt.expectedErrors {
+					require.Contains(t, err.Error(), expected)
+				}
 			}
 		})
 	}
