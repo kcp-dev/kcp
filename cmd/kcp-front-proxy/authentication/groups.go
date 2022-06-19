@@ -14,21 +14,82 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package options
+package authentication
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/x509"
+	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
-
-	kcpauthentication "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/authentication"
 )
+
+// GroupFilter is a filter that filters out group that are not in the allowed groups,
+// and groups that are in the disallowed groups.
+type GroupFilter struct {
+	Authenticator authenticator.Request
+
+	PassOnGroups sets.String
+	DropGroups   sets.String
+
+	PassOnGroupPrefixes []string
+	DropGroupPrefixes   []string
+}
+
+var _ authenticator.Request = &GroupFilter{}
+
+func (a *GroupFilter) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	resp, ok, err := a.Authenticator.AuthenticateRequest(req)
+	if resp == nil || resp.User == nil {
+		return resp, ok, err
+	}
+
+	info := user.DefaultInfo{
+		Name:  resp.User.GetName(),
+		UID:   resp.User.GetUID(),
+		Extra: resp.User.GetExtra(),
+	}
+	resp.User = &info
+
+	groupsToPassOn := sets.NewString(resp.User.GetGroups()...)
+	if len(a.PassOnGroups) > 0 || len(a.PassOnGroupPrefixes) > 0 {
+	nextGroup:
+		for _, g := range groupsToPassOn.UnsortedList() {
+			if !a.PassOnGroups.Has(g) {
+				for _, prefix := range a.PassOnGroupPrefixes {
+					if strings.HasPrefix(g, prefix) {
+						goto nextGroup
+					}
+				}
+				groupsToPassOn.Delete(g)
+			}
+		}
+	}
+
+	for _, g := range groupsToPassOn.UnsortedList() {
+		if a.DropGroups.Has(g) {
+			groupsToPassOn.Delete(g)
+			continue
+		}
+		for _, prefix := range a.DropGroupPrefixes {
+			if strings.HasPrefix(g, prefix) {
+				groupsToPassOn.Delete(g)
+				break
+			}
+		}
+	}
+
+	info.Groups = groupsToPassOn.List()
+
+	return resp, ok, err
+}
 
 // Authentication wraps ClientCertAuthenticationOptions so we don't pull in
 // more auth machinery than we need with DelegatingAuthenticationOptions
@@ -56,32 +117,6 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 		}
 		authenticationInfo.Authenticator = x509.NewDynamic(clientCAProvider.VerifyOptions, x509.CommonNameUserConversion)
 	}
-
-	// only pass on those groups to the shards we want
-	if len(c.PassOnGroups) > 0 || len(c.DropGroups) > 0 {
-		filter := &kcpauthentication.GroupFilter{
-			Authenticator: authenticationInfo.Authenticator,
-			PassOnGroups:  sets.NewString(),
-			DropGroups:    sets.NewString(),
-		}
-		authenticationInfo.Authenticator = filter
-
-		for _, g := range c.PassOnGroups {
-			if strings.HasSuffix(g, "*") {
-				filter.PassOnGroupPrefixes = append(filter.PassOnGroupPrefixes, g[:len(g)-1])
-			} else {
-				filter.PassOnGroups.Insert(g)
-			}
-		}
-		for _, g := range c.DropGroups {
-			if strings.HasSuffix(g, "*") {
-				filter.DropGroupPrefixes = append(filter.DropGroupPrefixes, g[:len(g)-1])
-			} else {
-				filter.DropGroups.Insert(g)
-			}
-		}
-	}
-
 	return nil
 }
 
