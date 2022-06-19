@@ -563,7 +563,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 	logicalClusterName := NewWorkspaceFixture(t, server, org)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
-	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, logicalClusterName)
+	logicalConfig, kubeconfigPath := WriteSystemLogicalClusterConfig(t, rawConfig, logicalClusterName)
 	fakeServer := &unmanagedKCPServer{
 		name:           logicalClusterName.String(),
 		cfg:            logicalConfig,

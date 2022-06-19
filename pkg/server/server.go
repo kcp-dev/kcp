@@ -180,7 +180,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory); err != nil {
 		return err
 	}
-	newTokenOrEmpty, tokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)
+	nonPersistentKcpAdminToken, newShardAdminTokenOrEmpty, shardAdminTokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)
 	if err != nil {
 		return err
 	}
@@ -516,7 +516,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash); err != nil {
+	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, nonPersistentKcpAdminToken, newShardAdminTokenOrEmpty, shardAdminTokenHash); err != nil {
 		return err
 	}
 

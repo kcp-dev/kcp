@@ -217,8 +217,8 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			return nil, err
 		}
 	}
-	if !filepath.IsAbs(o.AdminAuthentication.TokenHashFilePath) {
-		o.AdminAuthentication.TokenHashFilePath, err = filepath.Abs(o.AdminAuthentication.TokenHashFilePath)
+	if !filepath.IsAbs(o.AdminAuthentication.ShardAdminTokenHashFilePath) {
+		o.AdminAuthentication.ShardAdminTokenHashFilePath, err = filepath.Abs(o.AdminAuthentication.ShardAdminTokenHashFilePath)
 		if err != nil {
 			return nil, err
 		}

@@ -35,19 +35,21 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 type AdminAuthentication struct {
 	KubeConfigPath string
 
 	// TODO: move into Secret in-cluster, maybe by using an "in-cluster" string as value
-	TokenHashFilePath string
+	ShardAdminTokenHashFilePath string
 }
 
 func NewAdminAuthentication(rootDir string) *AdminAuthentication {
 	return &AdminAuthentication{
-		KubeConfigPath:    filepath.Join(rootDir, "admin.kubeconfig"),
-		TokenHashFilePath: filepath.Join(rootDir, ".admin-token-store"),
+		KubeConfigPath:              filepath.Join(rootDir, "admin.kubeconfig"),
+		ShardAdminTokenHashFilePath: filepath.Join(rootDir, ".admin-token-store"),
 	}
 }
 
@@ -58,7 +60,7 @@ func (s *AdminAuthentication) Validate() []error {
 
 	errs := []error{}
 
-	if s.TokenHashFilePath == "" && s.KubeConfigPath != "" {
+	if s.ShardAdminTokenHashFilePath == "" && s.KubeConfigPath != "" {
 		errs = append(errs, fmt.Errorf("--admin-kubeconfig requires --admin-token-hash-file-path"))
 	}
 
@@ -72,90 +74,86 @@ func (s *AdminAuthentication) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&s.KubeConfigPath, "kubeconfig-path", s.KubeConfigPath,
 		"Path to which the administrative kubeconfig should be written at startup. If this is relative, it is relative to --root-directory.")
-	fs.StringVar(&s.TokenHashFilePath, "authentication-admin-token-path", s.TokenHashFilePath,
+	fs.StringVar(&s.ShardAdminTokenHashFilePath, "authentication-admin-token-path", s.ShardAdminTokenHashFilePath,
 		"Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.")
 }
 
-func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (newTokenOrEmpty string, tokenHash []byte, err error) {
+func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (nonPersistentKcpAdminToken string, newShardAdminTokenOrEmpty string, shardAdminTokenHash []byte, err error) {
 	// try to load existing token to reuse
-	tokenHash, err = ioutil.ReadFile(s.TokenHashFilePath)
+	shardAdminTokenHash, err = ioutil.ReadFile(s.ShardAdminTokenHashFilePath)
 	if os.IsNotExist(err) {
-		newTokenOrEmpty = uuid.New().String()
-		sum := sha256.Sum256([]byte(newTokenOrEmpty))
-		tokenHash = sum[:]
-		if err := ioutil.WriteFile(s.TokenHashFilePath, tokenHash, 0600); err != nil {
-			return "", nil, err
+		newShardAdminTokenOrEmpty = uuid.New().String()
+		sum := sha256.Sum256([]byte(newShardAdminTokenOrEmpty))
+		shardAdminTokenHash = sum[:]
+		if err := ioutil.WriteFile(s.ShardAdminTokenHashFilePath, shardAdminTokenHash, 0600); err != nil {
+			return "", "", nil, err
 		}
 	}
 
-	var uid = uuid.New().String()
-	adminUser := &user.DefaultInfo{
-		Name:   user.APIServerUser,
-		UID:    uid,
-		Groups: []string{user.SystemPrivilegedGroup},
-	}
+	nonPersistentKcpAdminToken = uuid.New().String()
+
+	shardAdminUser := &user.DefaultInfo{Name: "shard-admin", UID: uuid.New().String(), Groups: []string{user.SystemPrivilegedGroup}}
+	kcpAdminUser := &user.DefaultInfo{Name: "kcp-admin", UID: uuid.New().String(), Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup}}
 
 	newAuthenticator := bearertoken.New(authenticator.WrapAudienceAgnosticToken(config.Authentication.APIAudiences, authenticator.TokenFunc(func(ctx context.Context, requestToken string) (*authenticator.Response, bool, error) {
 		requestTokenHash := sha256.Sum256([]byte(requestToken))
-		if !bytes.Equal(requestTokenHash[:], tokenHash) {
-			return nil, false, nil
+		if bytes.Equal(requestTokenHash[:], shardAdminTokenHash) {
+			return &authenticator.Response{User: shardAdminUser}, true, nil
 		}
-		return &authenticator.Response{User: adminUser}, true, nil
+
+		if requestToken == nonPersistentKcpAdminToken {
+			return &authenticator.Response{User: kcpAdminUser}, true, nil
+		}
+
+		return nil, false, nil
 	})))
 
 	config.Authentication.Authenticator = authenticatorunion.New(newAuthenticator, config.Authentication.Authenticator)
 
-	return newTokenOrEmpty, tokenHash, nil
+	return nonPersistentKcpAdminToken, newShardAdminTokenOrEmpty, shardAdminTokenHash, nil
 }
 
-func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, newToken string, tokenHash []byte) error {
+func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, nonPersistentKcpAdminToken string, newShardAdminTokenOrEmpty string, shardAdminTokenHash []byte) error {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
 	externalKubeConfigHost := fmt.Sprintf("https://%s", config.ExternalAddress)
 
-	externalAdminUserName := "admin"
-	if newToken == "" {
+	shardAdminUserName := "shard-admin"
+	shardAdminToken := newShardAdminTokenOrEmpty
+	if shardAdminToken == "" {
 		// The same token will be used: retrieve it, but only if its hash matches the stored token hash.
 		existingExternalKubeConfig, err := clientcmd.LoadFromFile(s.KubeConfigPath)
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		if existingExternalKubeConfig != nil {
-			if externalAdminUser := existingExternalKubeConfig.AuthInfos[externalAdminUserName]; externalAdminUser != nil {
+			if externalAdminUser := existingExternalKubeConfig.AuthInfos[shardAdminUserName]; externalAdminUser != nil {
 				kubeConfigTokenHash := sha256.Sum256([]byte(externalAdminUser.Token))
-				if !bytes.Equal(kubeConfigTokenHash[:], tokenHash) {
-					return fmt.Errorf("admin token in file %s is not valid anymore. Remove file %s and restart KCP", s.KubeConfigPath, s.TokenHashFilePath)
+				if !bytes.Equal(kubeConfigTokenHash[:], shardAdminTokenHash) {
+					return fmt.Errorf("admin token in file %s is not valid anymore. Remove file %s and restart KCP", s.KubeConfigPath, s.ShardAdminTokenHashFilePath)
 				}
-				newToken = externalAdminUser.Token
+				shardAdminToken = externalAdminUser.Token
 			}
 		}
 	}
-	if newToken == "" {
-		return fmt.Errorf("cannot create the 'admin.kubeconfig` file with an empty token for the %s user", externalAdminUserName)
+	if shardAdminToken == "" {
+		return fmt.Errorf("cannot create the 'admin.kubeconfig` file with an empty token for the %s user", shardAdminUserName)
 	}
-	externalKubeConfig := createKubeConfig("admin", newToken, externalKubeConfigHost, "", externalCACert)
+	externalKubeConfig := createKubeConfig(nonPersistentKcpAdminToken, shardAdminToken, externalKubeConfigHost, "", externalCACert)
 	return clientcmd.WriteToFile(*externalKubeConfig, s.KubeConfigPath)
 }
 
-func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {
+func createKubeConfig(kcpAdminBearerToken, shardAdminBearerToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {
 	var kubeConfig clientcmdapi.Config
-	//Create Client and Shared
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-		adminUserName: {Token: adminBearerToken},
+		"kcp-admin":   {Token: kcpAdminBearerToken},
+		"shard-admin": {Token: shardAdminBearerToken},
 	}
 	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
-		// root is the virtual cluster containing the organizations
 		"root": {
 			Server:                   baseHost + "/clusters/root",
 			CertificateAuthorityData: caData,
 			TLSServerName:            tlsServerName,
 		},
-		// root:default is the default organization
-		"root:default": {
-			Server:                   baseHost + "/clusters/root:default",
-			CertificateAuthorityData: caData,
-			TLSServerName:            tlsServerName,
-		},
-		// system:admin is the virtual cluster running by default
 		"system:admin": {
 			Server:                   baseHost,
 			CertificateAuthorityData: caData,
@@ -163,10 +161,10 @@ func createKubeConfig(adminUserName, adminBearerToken, baseHost, tlsServerName s
 		},
 	}
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
-		"root":         {Cluster: "root", AuthInfo: adminUserName},
-		"default":      {Cluster: "root:default", AuthInfo: adminUserName},
-		"system:admin": {Cluster: "system:admin", AuthInfo: adminUserName},
+		"root":         {Cluster: "root", AuthInfo: "kcp-admin"},
+		"base":         {Cluster: "system:admin", AuthInfo: "kcp-admin"},
+		"system:admin": {Cluster: "system:admin", AuthInfo: "shard-admin"},
 	}
-	kubeConfig.CurrentContext = "default"
+	kubeConfig.CurrentContext = "root"
 	return &kubeConfig
 }
