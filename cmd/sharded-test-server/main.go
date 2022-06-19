@@ -80,7 +80,7 @@ func start(proxyFlags, shardFlags []string) error {
 	}
 	_, err = clientCA.MakeClientCertificate(".kcp/kcp-admin.crt", ".kcp/kcp-admin.key", &user.DefaultInfo{
 		Name:   "kcp-admin",
-		Groups: []string{"system:kcp:clusterworkspace:admin", "system:masters"},
+		Groups: []string{"system:kcp:clusterworkspace:admin"},
 	}, 365)
 	if err != nil {
 		fmt.Printf("failed to create kcp-admin client cert: %v\n", err)
