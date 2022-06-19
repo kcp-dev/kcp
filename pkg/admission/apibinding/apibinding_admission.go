@@ -121,7 +121,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 
 	// Return early if there's nothing to validate (but this should never happen because it's required via OpenAPI).
 	if apiBinding.Spec.Reference.Workspace == nil {
-		return nil
+		return admission.NewForbidden(a, fmt.Errorf(".spec.reference.workspace is required"))
 	}
 
 	// Object validation
