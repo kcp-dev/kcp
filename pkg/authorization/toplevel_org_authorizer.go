@@ -66,7 +66,7 @@ type topLevelOrgAccessAuthorizer struct {
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil || cluster == nil || cluster.Name.Empty() {
-		return authorizer.DecisionNoOpinion, "workspace access not permitted", err
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
 
 	workspaceAccessNotPermittedReason := fmt.Sprintf("%q workspace access not permitted", cluster.Name)

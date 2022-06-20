@@ -18,7 +18,6 @@ package authorization
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
@@ -41,6 +40,8 @@ import (
 	tenancyalphav1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
+
+const WorkspaceAcccessNotPermittedReason = "workspace access not permitted"
 
 func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyalphav1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
@@ -73,11 +74,11 @@ type workspaceContentAuthorizer struct {
 func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
 	// empty or non-root based workspaces have no meaning in the context of authorizing workspace content.
 	if cluster == nil || cluster.Name.Empty() || !cluster.Name.HasPrefix(tenancyv1alpha1.RootCluster) {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	subjectClusters := map[logicalcluster.Name]bool{}
@@ -96,13 +97,13 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
 			return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), bootstrap.SystemKcpClusterWorkspaceAccessGroup)))
 		}
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), err
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
 
 	// non-root workspaces must have a parent
 	parentClusterName, hasParent := cluster.Name.Parent()
 	if !hasParent {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	parentWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.rbacInformers)
@@ -119,13 +120,13 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, cluster.Name.Base()))
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
 		}
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
 	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing && ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	switch {
@@ -174,11 +175,11 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 
 	// non-admin subjects don't have access to initializing workspaces.
 	if ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing && !extraGroups.Has(bootstrap.SystemKcpClusterWorkspaceAdminGroup) {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	if len(extraGroups) == 0 {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("%q workspace access not permitted", cluster.Name), nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), extraGroups.List()...)))
