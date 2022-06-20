@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/component-base/cli"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/config"
@@ -145,7 +146,5 @@ func main() {
 
 	help.FitTerminal(cmd.OutOrStdout())
 
-	if err := cmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-	}
+	os.Exit(cli.Run(cmd))
 }
