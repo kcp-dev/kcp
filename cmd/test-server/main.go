@@ -17,13 +17,28 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
 
+	genericapiserver "k8s.io/apiserver/pkg/server"
+
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
+
+func main() {
+	if err := start(); err != nil {
+		// nolint: errorlint
+		if err, ok := err.(*exec.ExitError); ok {
+			os.Exit(err.ExitCode())
+		}
+		fmt.Fprintf(os.Stderr, "error: %v\n", err) // nolint:errcheck
+		os.Exit(1)
+	}
+}
 
 // Start a kcp server with the configuration expected by the e2e
 // tests. Useful for developing with a persistent server.
@@ -40,31 +55,27 @@ import (
 //
 //   $ go test -v --use-default-kcp-server
 //
-func main() {
+func start() error {
+	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
+	defer cancelFn()
+
 	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
 	commandLine = append(commandLine, os.Args[1:]...)
 	log.Printf("running: %v\n", strings.Join(commandLine, " "))
 
-	cmd := exec.Command(commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Start()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	// Ensure child process is killed when the parent is exiting
 	defer func() {
-		err := cmd.Process.Kill()
-		if err != nil {
-			log.Fatal(err)
-		}
+		cmd.Process.Kill() //nolint:errcheck
 	}()
 
-	err = cmd.Wait()
-	if err != nil {
-		log.Fatal(err)
-	}
+	return cmd.Wait()
 }
