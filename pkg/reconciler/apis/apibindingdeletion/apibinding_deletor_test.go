@@ -83,7 +83,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 					"dev.kcp.io/test": 1,
 				},
 			},
-			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5},
+			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5, Message: "finalizers dev.kcp.io/test in 1 resource instances remaining"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
@@ -100,7 +100,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 				},
 				finalizersToNumRemaining: map[string]int{},
 			},
-			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5},
+			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5, Message: "resources pods. has 1 resource instances remaining"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   apisv1alpha1.BindingResourceDeleteSuccess,

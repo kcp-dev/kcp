@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
@@ -78,6 +79,20 @@ type WorkspaceStatus struct {
 
 	// Phase of the workspace (Initializing / Active / Terminating). This field is ALPHA.
 	Phase v1alpha1.ClusterWorkspacePhaseType `json:"phase,omitempty"`
+
+	// Current processing state of the ClusterWorkspace.
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// initializers are set on creation by the system and must be cleared
+	// by a controller before the workspace can be used. The workspace will
+	// stay in the phase "Initializing" state until all initializers are cleared.
+	//
+	// A cluster workspace in "Initializing" state are gated via the RBAC
+	// clusterworkspaces/initialize resource permission.
+	//
+	// +optional
+	Initializers []v1alpha1.ClusterWorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 // WorkspaceList is a list of Workspaces

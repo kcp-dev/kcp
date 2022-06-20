@@ -46,16 +46,18 @@ import (
 
 func NewController(
 	kcpClient kcpclient.ClusterInterface,
-	metadataClient metadata.Interface,
+	metadataClusterClient metadata.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "workspace-deletion")
 
 	c := &Controller{
-		queue:           queue,
-		kcpClient:       kcpClient,
-		workspaceLister: workspaceInformer.Lister(),
+		queue:                 queue,
+		kcpClient:             kcpClient,
+		metadataClusterClient: metadataClusterClient,
+		workspaceLister:       workspaceInformer.Lister(),
+		deleter:               deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -63,18 +65,16 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	c.deleter = deletion.NewWorkspacedResourcesDeleter(metadataClient, discoverResourcesFn)
-	c.workspaceSynced = workspaceInformer.Informer().HasSynced
-
 	return c
 }
 
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClient       kcpclient.ClusterInterface
+	kcpClient             kcpclient.ClusterInterface
+	metadataClusterClient metadata.ClusterInterface
+
 	workspaceLister tenancylister.ClusterWorkspaceLister
-	workspaceSynced cache.InformerSynced
 	deleter         deletion.WorkspaceResourcesDeleterInterface
 }
 
@@ -94,10 +94,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	klog.Info("Starting ClusterWorkspace Deletion controller")
 	defer klog.Info("Shutting down ClusterWorkspace Deletion controller")
-
-	if !cache.WaitForNamedCacheSync("workspace-deletion", ctx.Done(), c.workspaceSynced) {
-		return
-	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -119,12 +115,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
-	klog.Infof("processing key %q", key)
+	klog.V(4).Infof("Processing key %q", key)
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
 
+	startTime := time.Now()
 	err := c.process(ctx, key)
 
 	if err == nil {
@@ -136,7 +133,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	var estimate *deletion.ResourcesRemainingError
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
-		klog.V(2).Infof("Content remaining in workspace %s, waiting %d seconds", key, t)
+		klog.V(2).Infof("Content remaining in workspace %s after %v, waiting %d seconds to continue: %v", key, time.Since(startTime), t, err)
+
 		c.queue.AddAfter(key, time.Duration(t)*time.Second)
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed
@@ -148,53 +146,35 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	startTime := time.Now()
-
-	defer func() {
-		klog.V(4).Infof("Finished syncing workspace %q (%v)", key, time.Since(startTime))
-	}()
-
-	workspace, err := c.workspaceLister.Get(key)
-	if apierrors.IsNotFound(err) {
-		klog.Infof("Workspace has been deleted %v", key)
+	workspace, deleteErr := c.workspaceLister.Get(key)
+	if apierrors.IsNotFound(deleteErr) {
+		klog.V(2).Infof("Workspace has been deleted %v", key)
 		return nil
 	}
-	if err != nil {
-		runtime.HandleError(fmt.Errorf("unable to retrieve workspace %v from store: %w", key, err))
-		return err
+	if deleteErr != nil {
+		runtime.HandleError(fmt.Errorf("unable to retrieve workspace %v from store: %w", key, deleteErr))
+		return deleteErr
+	}
+
+	if workspace.DeletionTimestamp.IsZero() {
+		return nil
 	}
 
 	workspaceCopy := workspace.DeepCopy()
-	if workspaceCopy.DeletionTimestamp.IsZero() {
-		hasFinalizer := false
-		for i := range workspaceCopy.Finalizers {
-			if workspaceCopy.Finalizers[i] == deletion.WorkspaceFinalizer {
-				hasFinalizer = true
-				break
-			}
-		}
 
-		if hasFinalizer {
-			return nil
-		}
-
-		workspaceCopy.Finalizers = append(workspaceCopy.Finalizers, deletion.WorkspaceFinalizer)
-		_, err := c.kcpClient.Cluster(logicalcluster.From(workspaceCopy)).TenancyV1alpha1().ClusterWorkspaces().Update(
-			ctx, workspaceCopy, metav1.UpdateOptions{})
-
-		return err
-	}
-
-	err = c.deleter.Delete(ctx, workspaceCopy)
-	if err == nil {
+	klog.V(2).Infof("Deleting workspace %s", key)
+	startTime := time.Now()
+	deleteErr = c.deleter.Delete(ctx, workspaceCopy)
+	if deleteErr == nil {
+		klog.V(2).Infof("Finished deleting workspace %q content after %v", key, time.Since(startTime))
 		return c.finalizeWorkspace(ctx, workspaceCopy)
 	}
 
-	if patchErr := c.patchCondition(ctx, workspace, workspaceCopy); patchErr != nil {
-		return patchErr
+	if err := c.patchCondition(ctx, workspace, workspaceCopy); err != nil {
+		return err
 	}
 
-	return err
+	return deleteErr
 }
 
 func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alpha1.ClusterWorkspace) error {
@@ -229,26 +209,23 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 		return fmt.Errorf("failed to create patch for workspace %s: %w", new.Name, err)
 	}
 
+	klog.V(2).Infof("Patching workspace %s|%s: %s", logicalcluster.From(new), new.Name, string(patchBytes))
 	_, err = c.kcpClient.Cluster(logicalcluster.From(new)).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
 // finalizeNamespace removes the specified finalizer and finalizes the workspace
 func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
-	copiedFinalizers := []string{}
 	for i := range workspace.Finalizers {
 		if workspace.Finalizers[i] == deletion.WorkspaceFinalizer {
-			continue
+			workspace.Finalizers = append(workspace.Finalizers[:i], workspace.Finalizers[i+1:]...)
+
+			klog.V(2).Infof("Removing finalizer from workspace %s|%s", logicalcluster.From(workspace), workspace.Name)
+			_, err := c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Update(
+				ctx, workspace, metav1.UpdateOptions{})
+			return err
 		}
-		copiedFinalizers = append(copiedFinalizers, workspace.Finalizers[i])
-	}
-	if len(workspace.Finalizers) == len(copiedFinalizers) {
-		return nil
 	}
 
-	workspace.Finalizers = copiedFinalizers
-	_, err := c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Update(
-		ctx, workspace, metav1.UpdateOptions{})
-
-	return err
+	return nil
 }

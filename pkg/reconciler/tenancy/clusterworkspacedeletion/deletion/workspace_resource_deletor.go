@@ -45,7 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/metadata"
 	"k8s.io/klog/v2"
@@ -68,13 +67,13 @@ type WorkspaceResourcesDeleterInterface interface {
 	Delete(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) error
 }
 
-// NewNamespacedResourcesDeleter returns a new NamespacedResourcesDeleter.
+// NewWorkspacedResourcesDeleter returns a new NamespacedResourcesDeleter.
 func NewWorkspacedResourcesDeleter(
-	metadataClient metadata.Interface,
+	metadataClusterClient metadata.ClusterInterface,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error)) WorkspaceResourcesDeleterInterface {
 	d := &workspacedResourcesDeleter{
-		metadataClient:      metadataClient,
-		discoverResourcesFn: discoverResourcesFn,
+		metadataClusterClient: metadataClusterClient,
+		discoverResourcesFn:   discoverResourcesFn,
 	}
 	return d
 }
@@ -84,7 +83,7 @@ var _ WorkspaceResourcesDeleterInterface = &workspacedResourcesDeleter{}
 // workspacedResourcesDeleter is used to delete all resources in a given workspace.
 type workspacedResourcesDeleter struct {
 	// Dynamic client to list and delete all resources in the workspace.
-	metadataClient metadata.Interface
+	metadataClusterClient metadata.ClusterInterface
 
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error)
 }
@@ -115,13 +114,13 @@ func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *tena
 	}
 
 	// there may still be content for us to remove
-	estimate, err := d.deleteAllContent(ctx, workspace)
+	estimate, message, err := d.deleteAllContent(ctx, workspace)
 	if err != nil {
 		return err
 	}
 
 	if estimate > 0 {
-		return &ResourcesRemainingError{estimate}
+		return &ResourcesRemainingError{estimate, message}
 	}
 
 	return nil
@@ -130,10 +129,15 @@ func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *tena
 // ResourcesRemainingError is used to inform the caller that all resources are not yet fully removed from the workspace.
 type ResourcesRemainingError struct {
 	Estimate int64
+	Message  string
 }
 
 func (e *ResourcesRemainingError) Error() string {
-	return fmt.Sprintf("some content remains in the workspace, estimate %d seconds before it is removed", e.Estimate)
+	ret := fmt.Sprintf("some content remains in the workspace, estimate %d seconds before it is removed", e.Estimate)
+	if e.Message == "" {
+		return ret
+	}
+	return fmt.Sprintf("%s: %s", ret, e.Message)
 }
 
 // operation is used for caching if an operation is supported on a dynamic client.
@@ -175,8 +179,8 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 		deletedNamespaces.Insert(item.GetNamespace())
 		background := metav1.DeletePropagationBackground
 		opts := metav1.DeleteOptions{PropagationPolicy: &background}
-		if err := d.metadataClient.Resource(gvr).Namespace(item.GetNamespace()).DeleteCollection(
-			genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: clusterName}), opts, metav1.ListOptions{}); err != nil {
+		if err := d.metadataClusterClient.Cluster(clusterName.String()).Resource(gvr).Namespace(item.GetNamespace()).DeleteCollection(
+			ctx, opts, metav1.ListOptions{}); err != nil {
 			deleteErrors = append(deleteErrors, err)
 			continue
 		}
@@ -205,7 +209,7 @@ func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, cluster
 		return nil, false, nil
 	}
 
-	partialList, err := d.metadataClient.Resource(gvr).Namespace(metav1.NamespaceAll).List(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: clusterName}), metav1.ListOptions{})
+	partialList, err := d.metadataClusterClient.Cluster(clusterName.String()).Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err == nil {
 		return partialList, true, nil
 	}
@@ -238,7 +242,7 @@ func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, cluster
 	for _, item := range unstructuredList.Items {
 		background := metav1.DeletePropagationBackground
 		opts := metav1.DeleteOptions{PropagationPolicy: &background}
-		if err = d.metadataClient.Resource(gvr).Namespace(item.GetNamespace()).Delete(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: clusterName}), item.GetName(), opts); err != nil && !errors.IsNotFound(err) && !errors.IsMethodNotSupported(err) {
+		if err = d.metadataClusterClient.Cluster(clusterName.String()).Resource(gvr).Namespace(item.GetNamespace()).Delete(ctx, item.GetName(), opts); err != nil && !errors.IsNotFound(err) && !errors.IsMethodNotSupported(err) {
 			return err
 		}
 	}
@@ -349,7 +353,7 @@ type allGVRDeletionMetadata struct {
 // deleteAllContent will use the dynamic client to delete each resource identified in groupVersionResources.
 // It returns an estimate of the time remaining before the remaining resources are deleted.
 // If estimate > 0, not all resources are guaranteed to be gone.
-func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (int64, error) {
+func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (int64, string, error) {
 	workspace := ws.Name
 	workspaceDeletedAt := *ws.DeletionTimestamp
 	var errs []error
@@ -359,18 +363,17 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	wsClusterName := logicalcluster.From(ws).Join(ws.Name)
 
 	// disocer resources at first
+	var (
+		deletionContentSuccessReason  string
+		deletionContentSuccessMessage string
+	)
 	resources, err := d.discoverResourcesFn(wsClusterName)
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
 
-		conditions.MarkFalse(
-			ws,
-			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			"DiscoveryFailed",
-			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
-		)
+		deletionContentSuccessReason = "DiscoveryFailed"
+		deletionContentSuccessMessage = err.Error()
 	}
 
 	deletableResources := discovery.FilteredBy(and{
@@ -382,13 +385,8 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
 
-		conditions.MarkFalse(
-			ws,
-			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			"GroupVersionParsingFailed",
-			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
-		)
+		deletionContentSuccessReason = "GroupVersionParsingFailed"
+		deletionContentSuccessMessage = err.Error()
 	}
 
 	numRemainingTotals := allGVRDeletionMetadata{
@@ -420,19 +418,23 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	if len(deleteContentErrs) > 0 {
 		errs = append(errs, deleteContentErrs...)
 
+		deletionContentSuccessReason = "ContentDeletionFailed"
+		deletionContentSuccessMessage = utilerrors.NewAggregate(deleteContentErrs).Error()
+	}
+
+	if deletionContentSuccessReason == "" {
+		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceDeletionContentSuccess)
+	} else {
 		conditions.MarkFalse(
 			ws,
 			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			"ContentDeletionFailed",
+			deletionContentSuccessReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			utilerrors.NewAggregate(deleteContentErrs).Error(),
+			deletionContentSuccessMessage,
 		)
 	}
 
-	if len(errs) == 0 {
-		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceDeletionContentSuccess)
-	}
-
+	var contentDeletedMessages []string
 	if len(numRemainingTotals.gvrToNumRemaining) != 0 {
 		remainingResources := []string{}
 		for gvr, numRemaining := range numRemainingTotals.gvrToNumRemaining {
@@ -443,14 +445,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		}
 		// sort for stable updates
 		sort.Strings(remainingResources)
-
-		conditions.MarkFalse(
-			ws,
-			tenancyv1alpha1.WorkspaceContentDeleted,
-			"SomeResourcesRemain",
-			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")),
-		)
+		contentDeletedMessages = append(contentDeletedMessages, fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")))
 	}
 
 	if len(numRemainingTotals.finalizersToNumRemaining) != 0 {
@@ -463,21 +458,25 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		}
 		// sort for stable updates
 		sort.Strings(remainingByFinalizer)
+		contentDeletedMessages = append(contentDeletedMessages, fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")))
+	}
+
+	message := ""
+	if len(contentDeletedMessages) > 0 {
+		message = strings.Join(contentDeletedMessages, "; ")
 		conditions.MarkFalse(
 			ws,
 			tenancyv1alpha1.WorkspaceContentDeleted,
-			"SomeFinalizersRemain",
+			"SomeResourcesRemain",
 			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")),
+			message,
 		)
-	}
-
-	if len(numRemainingTotals.finalizersToNumRemaining) == 0 && len(numRemainingTotals.gvrToNumRemaining) == 0 {
+	} else {
 		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceContentDeleted)
 	}
 
 	klog.V(4).Infof("workspace deletion controller - deleteAllContent - workspace: %s, estimate: %v, errors: %v", wsClusterName, estimate, utilerrors.NewAggregate(errs))
-	return estimate, utilerrors.NewAggregate(errs)
+	return estimate, message, utilerrors.NewAggregate(errs)
 }
 
 // estimateGracefulTermination will estimate the graceful termination required for the specific entity in the workspace

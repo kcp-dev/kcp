@@ -17,13 +17,22 @@ limitations under the License.
 package projection
 
 import (
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
-func ProjectClusterWorkspaceToWorkspace(from *v1alpha1.ClusterWorkspace, to *v1beta1.Workspace) {
+func ProjectClusterWorkspaceToWorkspace(from *tenancyv1alpha1.ClusterWorkspace, to *tenancyv1beta1.Workspace) {
 	to.ObjectMeta = from.ObjectMeta
 	to.Spec.Type = from.Spec.Type
 	to.Status.URL = from.Status.BaseURL
 	to.Status.Phase = from.Status.Phase
+	to.Status.Initializers = from.Status.Initializers
+
+	for i := range from.Status.Conditions {
+		c := &from.Status.Conditions[i]
+		switch c.Type {
+		case tenancyv1alpha1.WorkspaceContentDeleted, tenancyv1alpha1.WorkspaceDeletionContentSuccess:
+			to.Status.Conditions = append(to.Status.Conditions, *c)
+		}
+	}
 }
