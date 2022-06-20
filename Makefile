@@ -183,26 +183,6 @@ verify-k8s-deps:
 verify-imports:
 	hack/verify-imports.sh
 
-.PHONY: demos
-demos: build ## Runs all the default demos (kubecon and apiNegotiation).
-	cd contrib/demo && ./runDemoScripts.sh
-
-.PHONY: demo-apinegotiation
-demo-apinegotiation: build ## Run the API Negotiation demo.
-	cd contrib/demo && ./runDemoScripts.sh apiNegotiation
-
-.PHONY: demo-kubecon
-demo-kubecon: build ## Run the KubeCon demo.
-	cd contrib/demo && ./runDemoScripts.sh kubecon
-
-.PHONY: demo-ingress
-demo-ingress: build ## Run the Ingress demo.
-	cd contrib/demo && ./runDemoScripts.sh ingress
-
-.PHONY: demo-prototype2
-demo-prototype2: build ## Run the Prototype2 demo.
-	cd contrib/demo && ./runDemoScripts.sh prototype2
-
 .PHONY: help
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
