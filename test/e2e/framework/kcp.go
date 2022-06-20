@@ -56,6 +56,25 @@ import (
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 )
 
+type RunningServer interface {
+	Name() string
+	KubeconfigPath() string
+	RawConfig() (clientcmdapi.Config, error)
+	DefaultConfig(t *testing.T) *rest.Config
+	Artifact(t *testing.T, producer func() (runtime.Object, error))
+}
+
+// kcpConfig qualify a kcp server to start
+//
+// Deprecated for use outside this package. Prefer PrivateKcpServer().
+type kcpConfig struct {
+	Name string
+	Args []string
+
+	LogToConsole bool
+	RunInProcess bool
+}
+
 // kcpServer exposes a kcp invocation to a test and
 // ensures the following semantics:
 //  - the server will run only until the test deadline

@@ -17,8 +17,6 @@ limitations under the License.
 package framework
 
 import (
-	"bytes"
-	"context"
 	"embed"
 	"fmt"
 	"io"
@@ -33,21 +31,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
+	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/yaml"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 )
 
 //go:embed *.csv
@@ -152,16 +146,6 @@ func ScratchDirs(t *testing.T) (string, string, error) {
 	return artifactDir, dataDir, nil
 }
 
-var localSchemeBuilder = runtime.SchemeBuilder{
-	apiresourcev1alpha1.AddToScheme,
-	tenancyv1alpha1.AddToScheme,
-	workloadv1alpha1.AddToScheme,
-}
-
-func init() {
-	utilruntime.Must(localSchemeBuilder.AddToScheme(scheme.Scheme))
-}
-
 func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
 	artifact(t, c, producer)
 }
@@ -189,7 +173,10 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		err = os.MkdirAll(dir, 0755)
 		require.NoError(t, err, "could not create dir")
 
-		gvks, _, err := scheme.Scheme.ObjectKinds(data)
+		gvks, _, err := kubescheme.Scheme.ObjectKinds(data)
+		if err != nil {
+			gvks, _, err = kcpscheme.Scheme.ObjectKinds(data)
+		}
 		require.NoError(t, err, "error finding gvk for artifact")
 		require.NotEmpty(t, gvks, "found no gvk for artifact: %T", data)
 		gvk := gvks[0]
@@ -205,12 +192,10 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		file := path.Join(dir, fmt.Sprintf("%s-%s.yaml", gvkForFilename, accessor.GetName()))
 		file = strings.ReplaceAll(file, ":", "_") // github actions don't like colon because NTFS is unhappy with it in path names
 
-		serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{Yaml: true})
-		raw := bytes.Buffer{}
-		err = serializer.Encode(data, &raw)
+		bs, err := yaml.Marshal(data)
 		require.NoError(t, err, "error marshalling artifact")
 
-		err = ioutil.WriteFile(file, raw.Bytes(), 0644)
+		err = ioutil.WriteFile(file, bs, 0644)
 		require.NoError(t, err, "error writing artifact")
 	})
 }
@@ -273,49 +258,6 @@ func GetFreePort(t *testing.T) (string, error) {
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
 type WorkloadClusterOption func(cluster *workloadv1alpha1.WorkloadCluster)
-
-// CreateWorkloadCluster creates a new WorkloadCluster resource with
-// the desired name on a given server.
-func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer, opts ...WorkloadClusterOption) (*workloadv1alpha1.WorkloadCluster, error) {
-
-	// The name of the pcluster could be the name of a logical cluster
-	// which is of the form `org:workspace`. Since `:` isn't allowed
-	// in resource names, replacing it with '.' results in a name safe
-	// for use as a resource name.
-	safeClusterName := strings.ReplaceAll(pcluster.Name(), ":", ".")
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	cluster := &workloadv1alpha1.WorkloadCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: safeClusterName},
-		Spec:       workloadv1alpha1.WorkloadClusterSpec{},
-	}
-	for _, opt := range opts {
-		opt(cluster)
-	}
-
-	var err error
-	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, cluster, metav1.CreateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cluster: %w", err)
-	}
-	artifacts(t, func() (runtime.Object, error) {
-		return kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
-	})
-
-	return cluster, nil
-}
-
-func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
-	diff := cmp.Diff(x, y)
-	require.NotEmpty(t, diff, msgAndArgs...)
-}
-
-func RequireNoDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
-	diff := cmp.Diff(x, y)
-	require.Empty(t, diff, msgAndArgs...)
-}
 
 // LogicalClusterRawConfig returns the raw cluster config of the given config.
 func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Name) clientcmdapi.Config {

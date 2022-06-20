@@ -29,17 +29,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type User struct {
-	Name   string
-	Token  string
-	UID    string
-	Groups []string
-}
-
-var LoopbackUser User = User{
-	Name: "loopback",
-}
-
 // AdmitWorkspaceAccess create RBAC rules that allow the given users and/or groups to access the given, fully-qualified workspace, i.e.
 // the RBAC objects are create in its parent.
 func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.ClusterInterface, orgClusterName logicalcluster.Name, users []string, groups []string, verbs []string) {
