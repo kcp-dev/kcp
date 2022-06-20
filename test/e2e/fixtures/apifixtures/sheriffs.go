@@ -18,6 +18,7 @@ package apifixtures
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -34,7 +35,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 // NewSheriffsCRDWithSchemaDescription returns a minimal sheriffs CRD in the API group specified with the description
@@ -98,7 +98,7 @@ func NewSheriffsAPIResourceSchemaWithDescription(group, description string) *api
 					Served:  true,
 					Storage: true,
 					Schema: runtime.RawExtension{
-						Raw: framework.JSONOrDie(
+						Raw: jsonOrDie(
 							&v1.JSONSchemaProps{
 								Type:        "object",
 								Description: description,
@@ -172,4 +172,13 @@ func CreateSheriff(
 	}, metav1.CreateOptions{})
 
 	require.NoError(t, err, "failed to create sheriff %s|default/%s", clusterName, name)
+}
+
+func jsonOrDie(obj interface{}) []byte {
+	ret, err := json.Marshal(obj)
+	if err != nil {
+		panic(err)
+	}
+
+	return ret
 }

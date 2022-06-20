@@ -18,7 +18,6 @@ package framework
 
 import (
 	"bytes"
-	"context"
 	"embed"
 	"fmt"
 	"io"
@@ -33,7 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
@@ -273,49 +271,6 @@ func GetFreePort(t *testing.T) (string, error) {
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
 type WorkloadClusterOption func(cluster *workloadv1alpha1.WorkloadCluster)
-
-// CreateWorkloadCluster creates a new WorkloadCluster resource with
-// the desired name on a given server.
-func CreateWorkloadCluster(t *testing.T, artifacts ArtifactFunc, kcpClient kcpclientset.Interface, pcluster RunningServer, opts ...WorkloadClusterOption) (*workloadv1alpha1.WorkloadCluster, error) {
-
-	// The name of the pcluster could be the name of a logical cluster
-	// which is of the form `org:workspace`. Since `:` isn't allowed
-	// in resource names, replacing it with '.' results in a name safe
-	// for use as a resource name.
-	safeClusterName := strings.ReplaceAll(pcluster.Name(), ":", ".")
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	cluster := &workloadv1alpha1.WorkloadCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: safeClusterName},
-		Spec:       workloadv1alpha1.WorkloadClusterSpec{},
-	}
-	for _, opt := range opts {
-		opt(cluster)
-	}
-
-	var err error
-	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, cluster, metav1.CreateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cluster: %w", err)
-	}
-	artifacts(t, func() (runtime.Object, error) {
-		return kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cluster.Name, metav1.GetOptions{})
-	})
-
-	return cluster, nil
-}
-
-func RequireDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
-	diff := cmp.Diff(x, y)
-	require.NotEmpty(t, diff, msgAndArgs...)
-}
-
-func RequireNoDiff(t *testing.T, x, y interface{}, msgAndArgs ...interface{}) {
-	diff := cmp.Diff(x, y)
-	require.Empty(t, diff, msgAndArgs...)
-}
 
 // LogicalClusterRawConfig returns the raw cluster config of the given config.
 func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Name) clientcmdapi.Config {
