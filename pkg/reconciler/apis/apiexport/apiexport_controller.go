@@ -327,6 +327,8 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 		return nil
 	}
 
+	// apiExportForPatch ensures that only the spec/objectMeta fields will be changed
+	// or the status field but never both at the same time.
 	apiExportForPatch := func(apiExport *apisv1alpha1.APIExport) apisv1alpha1.APIExport {
 		var ret apisv1alpha1.APIExport
 		if specOrObjectMetaChanged {
@@ -376,6 +378,7 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 		return fmt.Errorf("failed to patch APIExport %s|%s: %w", clusterName, name, err)
 	}
 
+	// Despite having patched either just spec/objectMeta or status we should log an error indicating a programming error.
 	if specOrObjectMetaChanged && statusChanged {
 		klog.Errorf("Programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
 		c.enqueueAPIExport(obj) // enqueue again to take care of the spec change, assuming the patch did nothing
