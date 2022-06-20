@@ -72,7 +72,7 @@ func NewAPIReconciler(
 	}
 
 	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}

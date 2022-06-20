@@ -79,19 +79,19 @@ func NewAPIReconciler(
 	}
 
 	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := apiResourceSchemaInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
