@@ -54,7 +54,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
 
 	t.Log("Creating a workspace")
-	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
 	// its workload cluster to go ready. This implicitly validates the syncer
@@ -361,7 +361,7 @@ func TestSyncWorkload(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
 
 	t.Log("Creating a workspace")
-	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()
@@ -393,7 +393,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	upstreamCfg := upstreamServer.DefaultConfig(t)
 
 	t.Log("Creating a workspace")
-	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName, "Universal")
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()

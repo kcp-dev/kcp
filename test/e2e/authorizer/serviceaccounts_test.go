@@ -45,7 +45,7 @@ func TestServiceAccounts(t *testing.T) {
 
 	server := framework.SharedKcpServer(t)
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
@@ -163,7 +163,7 @@ func TestServiceAccounts(t *testing.T) {
 
 			t.Run("Access another workspace in the same org", func(t *testing.T) {
 				t.Log("Create namespace with the same name ")
-				otherClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+				otherClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 				_, err := kubeClusterClient.Cluster(otherClusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,
@@ -179,7 +179,7 @@ func TestServiceAccounts(t *testing.T) {
 			t.Run("Access an equally named workspace in another org", func(t *testing.T) {
 				t.Log("Create namespace with the same name")
 				otherOrgClusterName := framework.NewOrganizationFixture(t, server)
-				otherClusterName := framework.NewWorkspaceFixture(t, server, otherOrgClusterName, "Universal")
+				otherClusterName := framework.NewWorkspaceFixture(t, server, otherOrgClusterName)
 				_, err := kubeClusterClient.Cluster(otherClusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,

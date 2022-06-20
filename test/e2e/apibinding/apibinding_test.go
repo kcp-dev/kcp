@@ -59,11 +59,11 @@ func TestAPIBinding(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 

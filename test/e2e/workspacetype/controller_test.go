@@ -83,7 +83,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with an explicit non-existing type",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster, "Universal")
+				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster)
 				t.Logf("Create a workspace with explicit non-existing type")
 				workspace, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
@@ -139,7 +139,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with a type that has an initializer",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster, "Universal")
+				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster)
 				t.Logf("Create type Foo with an initializer")
 				cwt, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
@@ -203,8 +203,8 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			name: "create a workspace with deeper nesting",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				org := framework.NewOrganizationFixture(t, server)
-				team := framework.NewWorkspaceFixture(t, server, org, "Team")
-				universal := framework.NewWorkspaceFixture(t, server, team, "Universal")
+				team := framework.NewWorkspaceFixture(t, server, org, framework.WithType(tenancyv1alpha1.RootCluster, "Team"))
+				universal := framework.NewWorkspaceFixture(t, server, team)
 
 				require.Len(t, strings.Split(universal.String(), ":"), 4, "expecting root:org:team:universal, i.e. 4 levels")
 				require.True(t, strings.HasPrefix(universal.String(), team.String()), "expecting universal to be a child of team")

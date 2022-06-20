@@ -44,7 +44,7 @@ func TestCustomResourceCreation(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	sourceWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	sourceWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 

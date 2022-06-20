@@ -430,7 +430,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				kcpClusterClient, err := kcpclient.NewClusterForConfig(server.DefaultConfig(t))
 				require.NoError(t, err)
 
-				otherWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+				otherWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 				t.Logf("Create a binding in the other workspace")
 				binding := &apisv1alpha1.APIBinding{
@@ -565,7 +565,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			kubelikeWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+			kubelikeWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 			t.Logf("Deploying syncer into workspace %s", kubelikeWorkspace)
 			_ = framework.SyncerFixture{
@@ -611,7 +611,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			t.Log("Setting up an unrelated workspace with cowboys...")
 
-			unrelatedWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+			unrelatedWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 			unrelatedWorkspaceWorkspaceClient := wildwestClusterClient.Cluster(unrelatedWorkspace)
 
 			sourceCrdClient, err := apiextensionsclientset.NewClusterForConfig(server.DefaultConfig(t))
@@ -640,7 +640,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			wildwestWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+			wildwestWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 			wildwestWorkloadClusterName := fmt.Sprintf("wildwest-%d", +rand.Intn(1000000))
 
 			t.Logf("Deploying syncer into workspace %s", wildwestWorkspace)

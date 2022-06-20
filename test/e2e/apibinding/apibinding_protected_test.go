@@ -45,8 +45,8 @@ func TestProtectedAPI(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	providerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
-	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, "Universal")
+	providerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.DefaultConfig(t)
 
