@@ -221,7 +221,6 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 		kcpClusterClient.DiscoveryClient,
 		metadataClusterClient.Cluster(logicalcluster.Wildcard),
 		func(obj interface{}) bool { return true },
-		informer.GVREventHandlerFuncs{},
 		time.Second*2,
 	)
 	informerFactory.Start(ctx)
