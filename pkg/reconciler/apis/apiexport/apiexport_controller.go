@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
@@ -322,10 +323,6 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 	specOrObjectMetaChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec) || !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
 	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
 
-	if specOrObjectMetaChanged && statusChanged {
-		klog.Fatalf("Programmer error: spec and status changed in same reconcile iteration")
-	}
-
 	if !specOrObjectMetaChanged && !statusChanged {
 		return nil
 	}
@@ -375,7 +372,16 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 	}
 
 	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to patch APIExport %s|%s: %w", clusterName, name, err)
+	}
+
+	if specOrObjectMetaChanged && statusChanged {
+		klog.Errorf("Programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
+		c.enqueueAPIExport(obj) // enqueue again to take care of the spec change, assuming the patch did nothing
+	}
+
+	return nil
 }
 
 func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
