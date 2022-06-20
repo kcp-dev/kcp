@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # We need bash for some conditional logic below.
-SHELL := /usr/bin/env bash
+SHELL := /usr/bin/env bash -e
 
 GO_INSTALL = ./hack/go-install.sh
 
@@ -45,6 +45,8 @@ GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 GOTESTSUM_VER := v1.8.1
 GOTESTSUM_BIN := gotestsum
 GOTESTSUM := $(TOOLS_DIR)/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
+
+ARCH=$(subst 64,,$(shell uname -p))64
 
 KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
 KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
@@ -167,6 +169,28 @@ test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
 
+.PHONY: test-e2e-shared
+ifdef USE_GOTESTSUM
+test-e2e-shared: $(GOTESTSUM)
+endif
+test-e2e-shared: TEST_ARGS ?=
+test-e2e-shared: WHAT ?= ./test/e2e...
+ifdef ARTIFACT_DIR
+test-e2e-shared: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
+else
+test-e2e-shared: LOG_DIR ?= .kcp
+endif
+test-e2e-shared: build-all
+	kind get kubeconfig > "$(PWD)/kind.kubeconfig"
+	mkdir -p $(LOG_DIR)
+	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}"; \
+	TEST_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image) && test -n "$${TEST_IMAGE}"; \
+	NO_GORUN=1 ./bin/test-server > $(LOG_DIR)/kcp.log 2>&1 & PID=$$!; echo "PID $$PID"; \
+	trap 'kill -TERM $$PID' TERM INT EXIT; \
+	echo "Starting tests:"; \
+	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
+		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
+
 .PHONY: test
 ifdef USE_GOTESTSUM
 test: $(GOTESTSUM)
@@ -182,26 +206,6 @@ verify-k8s-deps:
 .PHONY: verify-imports
 verify-imports:
 	hack/verify-imports.sh
-
-.PHONY: demos
-demos: build ## Runs all the default demos (kubecon and apiNegotiation).
-	cd contrib/demo && ./runDemoScripts.sh
-
-.PHONY: demo-apinegotiation
-demo-apinegotiation: build ## Run the API Negotiation demo.
-	cd contrib/demo && ./runDemoScripts.sh apiNegotiation
-
-.PHONY: demo-kubecon
-demo-kubecon: build ## Run the KubeCon demo.
-	cd contrib/demo && ./runDemoScripts.sh kubecon
-
-.PHONY: demo-ingress
-demo-ingress: build ## Run the Ingress demo.
-	cd contrib/demo && ./runDemoScripts.sh ingress
-
-.PHONY: demo-prototype2
-demo-prototype2: build ## Run the Prototype2 demo.
-	cd contrib/demo && ./runDemoScripts.sh prototype2
 
 .PHONY: help
 help: ## Show this help.
