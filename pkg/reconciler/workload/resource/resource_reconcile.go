@@ -40,7 +40,7 @@ import (
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
-	klog.V(2).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
+	klog.V(4).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
@@ -97,22 +97,12 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return err
 	}
 
+	klog.V(2).Infof("Patching %q %s|%s/%s: %s", gvr, lclusterName, ns.Name, obj.GetName(), string(patchBytes))
 	if _, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
 		Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 
-	annotationsString, err := json.Marshal(annotationPatch)
-	if err != nil {
-		klog.Errorf("unexpected marshal error for %#v: %v", annotationPatch, err)
-		return err
-	}
-	labelsString, err := json.Marshal(labelPatch)
-	if err != nil {
-		klog.Errorf("unexpected marshal error %#v: %v", labelPatch, err)
-		return err
-	}
-	klog.V(2).Infof("Patched cluster assignment for %q %s|%s/%s: labels=%v, annotations=%v", gvr, lclusterName, ns.Name, obj.GetName(), string(labelsString), string(annotationsString))
 	return nil
 }
 
