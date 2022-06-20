@@ -124,7 +124,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 	}
 
 	var newServerHost string
-	var workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
+	var workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference
 	switch name {
 	case "-":
 		prev, exists := kc.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
@@ -209,7 +209,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 			}
 
 			newServerHost = ws.Status.URL
-			workspaceType = ws.Spec.Type
+			workspaceType = &ws.Spec.Type
 		}
 	}
 
@@ -240,7 +240,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, newServerHost, &workspaceType, false)
+	return kc.currentWorkspace(ctx, newServerHost, workspaceType, false)
 }
 
 // CurrentWorkspace outputs the current workspace.
