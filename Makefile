@@ -187,7 +187,27 @@ test-e2e-shared: build-all
 	TEST_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image) && test -n "$${TEST_IMAGE}"; \
 	NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" 2>&1 & PID=$$!; echo "PID $$PID"; \
 	trap 'kill -TERM $$PID' TERM INT EXIT; \
-	echo "Starting tests:"; \
+	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
+		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
+
+.PHONY: test-e2e-sharded
+ifdef USE_GOTESTSUM
+test-e2e-sharded: $(GOTESTSUM)
+endif
+test-e2e-sharded: TEST_ARGS ?=
+test-e2e-sharded: WHAT ?= ./test/e2e...
+ifdef ARTIFACT_DIR
+test-e2e-sharded: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
+else
+test-e2e-sharded: LOG_DIR ?= .kcp
+endif
+test-e2e-sharded: build-all
+	kind get kubeconfig > "$(PWD)/kind.kubeconfig"
+	mkdir -p $(LOG_DIR)
+	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}"; \
+	TEST_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image) && test -n "$${TEST_IMAGE}"; \
+	NO_GORUN=1 ./bin/sharded-test-server --v=2 2>&1 & PID=$$!; echo "PID $$PID"; \
+	trap 'kill -TERM $$PID' TERM INT EXIT; \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
 		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
 
