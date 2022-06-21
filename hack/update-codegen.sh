@@ -35,11 +35,11 @@ cd pkg/apis
     output:crd:artifacts:config=../../config/crds
 cd -
 
-for F in ./config/crds/*.yaml; do
-    if [ -f "${F}-patch" ]; then
-        echo "Applying ${F}"
-        ${YAML_PATCH} -o "${F}-patch" < "${F}" > "${F}.patched"
-        mv "${F}.patched" "${F}"
+for CRD in ./config/crds/*.yaml; do
+    if [ -f "${CRD}-patch" ]; then
+        echo "Applying ${CRD}"
+        ${YAML_PATCH} -o "${CRD}-patch" < "${CRD}" > "${CRD}.patched"
+        mv "${CRD}.patched" "${CRD}"
     fi
 done
 
@@ -49,3 +49,27 @@ ${CONTROLLER_GEN} \
     webhook \
     paths="./test/e2e/reconciler/cluster/..." \
     output:crd:artifacts:config=test/e2e/reconciler/cluster/
+
+for CRD in ./config/crds/*.yaml; do
+    if [[ "${CRD}" == *.apis.kcp.dev.yaml ]]; then
+        continue
+    fi
+
+    NAME=$(grep -E "^  name: " "${CRD}" | sed 's/  name: //')
+    SCHEMA="config/root-phase0/apiresourceschema-${NAME}.yaml"
+
+    echo -n "Verifying ${SCHEMA} ... "
+
+    PREFIX=v$(date '+%y%m%d')-$(git rev-parse --short HEAD)
+    ./bin/kubectl-kcp crd snapshot -f "${CRD}" --prefix "${PREFIX}" > new.yaml
+    if [ -f "${SCHEMA}" ] && diff -q <(grep -E -v "^  name: " "${SCHEMA}") <(grep -E -v "^  name: " new.yaml); then
+        echo "OK"
+        rm -f new.yaml
+    else
+        echo "Updating"
+        mv new.yaml "${SCHEMA}"
+
+        SCHEMA_NAME=$(grep -E "^  name: " "${SCHEMA}" | sed 's/  name: [^.]*\.//')
+        sed -i '' -e "s/^  - [a-z0-9][^.]*\.$(echo "${SCHEMA_NAME}" | sed 's/\./\\./g')/  - ${PREFIX}.${NAME}/" config/root-phase0/apiexport-*.yaml
+    fi
+done

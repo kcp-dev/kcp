@@ -1,0 +1,7 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: workload.kcp.dev
+spec:
+  latestResourceSchemas:
+  - v220628-546034da.workloadclusters.workload.kcp.dev

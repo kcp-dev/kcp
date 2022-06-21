@@ -1,0 +1,9 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: tenancy.kcp.dev
+spec:
+  latestResourceSchemas:
+  - v220628-546034da.clusterworkspaces.tenancy.kcp.dev
+  - v220628-546034da.clusterworkspacetypes.tenancy.kcp.dev
+  - v220628-546034da.workspaces.tenancy.kcp.dev
