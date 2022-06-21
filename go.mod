@@ -11,6 +11,7 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.5
+	github.com/kcp-dev/apimachinery v0.0.0-20220603205317-f4a9f59db5f3
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster v1.0.0
 	github.com/muesli/reflow v0.1.0
@@ -30,10 +31,10 @@ require (
 	k8s.io/client-go v0.23.5
 	k8s.io/code-generator v0.23.5
 	k8s.io/component-base v0.23.5
-	k8s.io/klog/v2 v2.30.0
+	k8s.io/klog/v2 v2.60.1
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 	k8s.io/kubernetes v1.23.5
-	k8s.io/utils v0.0.0-20211208161948-7d6a63dca704
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1
 	sigs.k8s.io/yaml v1.2.0
 )
