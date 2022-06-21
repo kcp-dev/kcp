@@ -92,15 +92,10 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Get(ctx, name, *options, subResources...)
 	}
-	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, _ rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
 		err := rest.BeforeCreate(createStrategy, ctx, obj)
 		if err != nil {
 			return nil, err
-		}
-		if createValidation != nil {
-			if err := createValidation(ctx, obj.DeepCopyObject()); err != nil {
-				return nil, err
-			}
 		}
 		unstructuredObj, ok := obj.(*unstructured.Unstructured)
 		if !ok {
@@ -112,7 +107,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 		}
 		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
 	}
-	s.GracefulDeleterFunc = func(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	s.GracefulDeleterFunc = func(ctx context.Context, name string, _ rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 		obj, err := s.Get(ctx, name, &metav1.GetOptions{})
 		if err != nil {
 			return nil, false, err
@@ -120,12 +115,6 @@ func DefaultDynamicDelegatedStoreFuncs(
 		graceful, gracefulPending, err := rest.BeforeDelete(deleteStrategy, ctx, obj, options)
 		if err != nil {
 			return nil, false, err
-		}
-		if deleteValidation != nil {
-			err = deleteValidation(ctx, obj.DeepCopyObject())
-			if err != nil {
-				return nil, false, err
-			}
 		}
 		delegate, err := client(ctx)
 		if err != nil {
@@ -214,7 +203,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.List(ctx, v1ListOptions)
 	}
-	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, _ rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
@@ -230,10 +219,6 @@ func DefaultDynamicDelegatedStoreFuncs(
 				return nil, err
 			}
 			err = rest.BeforeUpdate(updateStrategy, ctx, obj, oldObj)
-			if err != nil {
-				return nil, err
-			}
-			err = updateValidation(ctx, obj.DeepCopyObject(), oldObj.DeepCopyObject())
 			if err != nil {
 				return nil, err
 			}
