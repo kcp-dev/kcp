@@ -21,15 +21,17 @@ import (
 	"fmt"
 	"net/url"
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	utilconditions "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -124,18 +126,24 @@ func TestWorkspaceController(t *testing.T) {
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
 				parentName := logicalcluster.From(workspace)
 				workspaceClusterName := parentName.Join(workspace.Name)
-				err = server.orgExpect(workspace, func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
-					if err := scheduled(bostonShard.Name)(workspace); err != nil {
-						return err
+				framework.Eventually(t, func() (bool, string) {
+					workspace, err := server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					require.NoError(t, err)
+
+					if isUnschedulable(workspace) {
+						return false, fmt.Sprintf("unschedulable:\n%s", toYAML(t, workspace))
+					}
+					if workspace.Status.Location.Current != bostonShard.Name {
+						return false, fmt.Sprintf("current location is not %q:\n%s", bostonShard.Name, toYAML(t, workspace))
 					}
 					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
-						return fmt.Errorf("expected valid URL on workspace, got: %v", utilconditions.Get(workspace, tenancyv1alpha1.WorkspaceShardValid))
+						return false, fmt.Sprintf("shard is not valid:\n%s", toYAML(t, workspace))
 					}
-					if diff := cmp.Diff(workspace.Status.BaseURL, "https://kcp.dev"+workspaceClusterName.Path()); diff != "" {
-						return fmt.Errorf("got incorrect base URL on workspace: %v", diff)
+					if expected := "https://kcp.dev" + workspaceClusterName.Path(); workspace.Status.BaseURL != expected {
+						return false, fmt.Sprintf("baseURL is not %q:\n%s", expected, toYAML(t, workspace))
 					}
-					return nil
-				})
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
 				require.NoError(t, err, "did not see workspace updated")
 			},
 		},
@@ -222,6 +230,12 @@ func TestWorkspaceController(t *testing.T) {
 	}
 }
 
+func toYAML(t *testing.T, obj interface{}) string {
+	bs, err := yaml.Marshal(obj)
+	require.NoError(t, err, "failed to marshal object")
+	return string(bs)
+}
+
 func isUnschedulable(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
 }
@@ -232,20 +246,6 @@ func unschedulable(object *tenancyv1alpha1.ClusterWorkspace) error {
 		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
 	return nil
-}
-
-func scheduled(target string) func(workspace *tenancyv1alpha1.ClusterWorkspace) error {
-	return func(object *tenancyv1alpha1.ClusterWorkspace) error {
-		if isUnschedulable(object) {
-			klog.Infof("Workspace %s|%s is unschedulable", logicalcluster.From(object), object.Name)
-			return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
-		}
-		if object.Status.Location.Current != target {
-			klog.Infof("Workspace %s|%s is scheduled to %s, expected %s", logicalcluster.From(object), object.Name, object.Status.Location.Current, target)
-			return fmt.Errorf("expected workspace.status.location.current to be %q, got %q", target, object.Status.Location.Current)
-		}
-		return nil
-	}
 }
 
 func invalidShard(workspace *tenancyv1alpha1.ClusterWorkspace) error {
