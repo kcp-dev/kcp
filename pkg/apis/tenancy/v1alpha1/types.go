@@ -267,6 +267,8 @@ const (
 	ClusterWorkspacePhaseReady        ClusterWorkspacePhaseType = "Ready"
 )
 
+const ClusterWorkspaceOwnerAnnotationKey string = "tenancy.kcp.dev/owner"
+
 // ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.
 type ClusterWorkspaceStatus struct {
 	// Phase of the workspace  (Scheduling / Initializing / Ready)

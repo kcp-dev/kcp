@@ -18,12 +18,14 @@ package clusterworkspacetypeexists
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
 	"github.com/kcp-dev/logicalcluster"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -99,6 +101,28 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	}
 
 	if a.GetOperation() == admission.Create {
+		// ensure the user's UID is recorded in annotations
+		user := a.GetUserInfo()
+		info := &authenticationv1.UserInfo{
+			Username: user.GetName(),
+			UID:      user.GetUID(),
+			Groups:   user.GetGroups(),
+		}
+		extra := map[string]authenticationv1.ExtraValue{}
+		for k, v := range user.GetExtra() {
+			extra[k] = v
+		}
+		info.Extra = extra
+		rawInfo, err := json.Marshal(info)
+		if err != nil {
+			return fmt.Errorf("failed to marshal user info: %w", err)
+		}
+
+		if cw.Annotations == nil {
+			cw.Annotations = map[string]string{}
+		}
+		cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(rawInfo)
+
 		// if the user has not provided any type, use the default from the parent workspace
 		empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
 		if cw.Spec.Type == empty {
