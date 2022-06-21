@@ -324,7 +324,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("invalid key: %q: %v", key, err)
 		return nil
@@ -352,7 +352,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			Status: old.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for apibinding %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal old data for apibinding %s|%s: %w", clusterName, name, err)
 		}
 
 		newData, err := json.Marshal(apisv1alpha1.APIBinding{
@@ -363,15 +363,15 @@ func (c *controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for apibinding %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to Marshal new data for apibinding %s|%s: %w", clusterName, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for apibinding %s|%s/%s: %w", clusterName, namespace, name, err)
+			return fmt.Errorf("failed to create patch for apibinding %s|%s: %w", clusterName, name, err)
 		}
 
-		klog.V(2).Infof("Patching apibinding %s|%s/%s: %s", clusterName, namespace, name, string(patchBytes))
+		klog.V(2).Infof("Patching apibinding %s|%s: %s", clusterName, name, string(patchBytes))
 		_, uerr := c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
