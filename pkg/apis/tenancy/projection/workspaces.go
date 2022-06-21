@@ -31,7 +31,7 @@ func ProjectClusterWorkspaceToWorkspace(from *tenancyv1alpha1.ClusterWorkspace, 
 	for i := range from.Status.Conditions {
 		c := &from.Status.Conditions[i]
 		switch c.Type {
-		case tenancyv1alpha1.WorkspaceContentDeleted, tenancyv1alpha1.WorkspaceDeletionContentSuccess:
+		case tenancyv1alpha1.WorkspaceContentDeleted, tenancyv1alpha1.WorkspaceDeletionContentSuccess, tenancyv1alpha1.WorkspaceInitialized:
 			to.Status.Conditions = append(to.Status.Conditions, *c)
 		}
 	}

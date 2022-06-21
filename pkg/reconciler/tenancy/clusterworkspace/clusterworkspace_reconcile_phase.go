@@ -18,14 +18,23 @@ package clusterworkspace
 
 import (
 	"context"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
 type phaseReconciler struct {
 	getShardWithQuorum func(ctx context.Context, name string, options metav1.GetOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	getAPIBindings     func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 }
 
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
@@ -48,9 +57,29 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
 		}
 	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing:
-		if len(workspace.Status.Initializers) == 0 {
-			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
+		if len(workspace.Status.Initializers) > 0 {
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsapi.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
+			return reconcileStatusContinue, nil
 		}
+
+		bindings, err := r.getAPIBindings(logicalcluster.From(workspace).Join(workspace.Name))
+		if err != nil {
+			return reconcileStatusContinue, err
+		}
+		var unbound []string
+		for _, binding := range bindings {
+			if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) {
+				unbound = append(unbound, fmt.Sprintf("%s:%s", binding.Name, conditions.GetReason(binding, apisv1alpha1.InitialBindingCompleted)))
+			}
+		}
+		if len(unbound) > 0 {
+			sort.Strings(unbound)
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedAPIBindingNotBound, conditionsapi.ConditionSeverityInfo, "APIBindings not bound: %s", strings.Join(unbound, ", "))
+			return reconcileStatusContinue, nil
+		}
+
+		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
+		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 	}
 
 	return reconcileStatusContinue, nil

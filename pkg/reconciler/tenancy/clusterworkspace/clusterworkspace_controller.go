@@ -40,7 +40,9 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
@@ -52,6 +54,7 @@ func NewController(
 	kcpClient kcpclient.ClusterInterface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	rootWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
+	apiBindingsInformer apisinformer.APIBindingInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -62,23 +65,39 @@ func NewController(
 		workspaceLister:           workspaceInformer.Lister(),
 		rootWorkspaceShardIndexer: rootWorkspaceShardInformer.Informer().GetIndexer(),
 		rootWorkspaceShardLister:  rootWorkspaceShardInformer.Lister(),
+		apiBindingIndexer:         apiBindingsInformer.Informer().GetIndexer(),
+		apiBindingLister:          apiBindingsInformer.Lister(),
+	}
+
+	if err := c.workspaceIndexer.AddIndexers(map[string]cache.IndexFunc{
+		byCurrentShard: indexByCurrentShard,
+		unschedulable:  indexUnschedulable,
+		byPhase:        indexByPhase,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
+	}
+
+	if err := c.apiBindingIndexer.AddIndexers(map[string]cache.IndexFunc{
+		byWorkspace: indexByWorkspace,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add indexer for APIBinding: %w", err)
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
-	if err := c.workspaceIndexer.AddIndexers(map[string]cache.IndexFunc{
-		byCurrentShard: indexByCurrentShard,
-		unschedulable:  indexUnschedulable,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
-	}
 
 	rootWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },
+	})
+
+	apiBindingsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueBinding(obj) },
+		UpdateFunc: func(obj, _ interface{}) { c.enqueueBinding(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueBinding(obj) },
 	})
 
 	return c, nil
@@ -95,6 +114,9 @@ type Controller struct {
 
 	rootWorkspaceShardIndexer cache.Indexer
 	rootWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+
+	apiBindingIndexer cache.Indexer
+	apiBindingLister  apislisters.APIBindingLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -147,6 +169,22 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		klog.Infof("Queueing workspace %q on shard %q", key, name)
 		c.queue.Add(key)
 	}
+}
+
+func (c *Controller) enqueueBinding(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _ := clusters.SplitClusterAwareKey(key)
+	if clusterName == tenancyv1alpha1.RootCluster {
+		return
+	}
+	parent, ws := clusterName.Split()
+
+	klog.Infof("Queueing initializing workspace %s|%s because binding %q changed", parent, ws, key)
+	c.queue.Add(clusters.ToClusterAwareKey(parent, ws))
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {

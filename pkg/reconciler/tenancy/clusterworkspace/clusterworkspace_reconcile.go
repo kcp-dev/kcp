@@ -19,9 +19,12 @@ package clusterworkspace
 import (
 	"context"
 
+	logicalcluster "github.com/kcp-dev/logicalcluster"
+
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/clusters"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
@@ -47,6 +50,17 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 		},
 		&phaseReconciler{
 			getShardWithQuorum: c.kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get,
+			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+				objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+				if err != nil {
+					return nil, err
+				}
+				bindings := make([]*apisv1alpha1.APIBinding, len(objs))
+				for i, obj := range objs {
+					bindings[i] = obj.(*apisv1alpha1.APIBinding)
+				}
+				return bindings, nil
+			},
 		},
 	}
 

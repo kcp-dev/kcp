@@ -352,6 +352,15 @@ const (
 
 	// WorkspaceContentDeleted represents the status that all resources in the workspace is deleted.
 	WorkspaceContentDeleted conditionsv1alpha1.ConditionType = "WorkspaceContentDeleted"
+
+	// WorkspaceInitialized represents the status that initialization has finished.
+	WorkspaceInitialized conditionsv1alpha1.ConditionType = "WorkspaceInitialized"
+	// WorkspaceInitializedInitializerExists reason in WorkspaceInitialized condition means that there is at least
+	// one initializer still left.
+	WorkspaceInitializedInitializerExists = "InitializerExists"
+	// WorkspaceInitializedAPIBindingNotBound reason in WorkspaceInitialized condition means that at least
+	// one APIBinding is not yet bound to the workspace.
+	WorkspaceInitializedAPIBindingNotBound = "APIBindingNotBound"
 )
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and

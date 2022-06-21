@@ -403,6 +403,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 	if err != nil {
 		return err
