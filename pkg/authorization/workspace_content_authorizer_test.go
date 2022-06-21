@@ -87,7 +87,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "unknown",
 			requestingUser:     newUser("user-1"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"unknown" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "unknown requested workspace",
@@ -95,7 +95,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:unknown",
 			requestingUser:     newUser("user-1"),
 			wantDecision:       authorizer.DecisionDeny,
-			wantReason:         `"root:unknown" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "workspace without parent",
@@ -103,7 +103,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "rootwithoutparent",
 			requestingUser:     newUser("user-1"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"rootwithoutparent" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "non-permitted user is denied",
@@ -111,7 +111,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newUser("user-unknown"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"root:ready" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "permitted admin user is granted admin",
@@ -133,7 +133,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccount("sa", "anotherws"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"root:ready" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "permitted service account is granted access",
@@ -155,7 +155,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root",
 			requestingUser:     newServiceAccount("somebody", "someworkspace", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"root" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "authenticated permitted root service account is granted access on root",
@@ -170,7 +170,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:scheduling",
 			requestingUser:     newServiceAccount("somebody", "root", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"root:scheduling" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "permitted service account is denied on initializing workspace",
@@ -178,7 +178,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newServiceAccount("somebody", "initializing", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"root:initializing" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "permitted access user is denied on initializing workspace",
@@ -186,7 +186,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newUser("user-access"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `"root:initializing" workspace access not permitted`,
+			wantReason:         "workspace access not permitted",
 		},
 		{
 			testName: "permitted admin user is granted admin on initializing workspace",
