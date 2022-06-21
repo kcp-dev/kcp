@@ -14,6 +14,7 @@ require (
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster v1.0.0
 	github.com/muesli/reflow v0.1.0
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1

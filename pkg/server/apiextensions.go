@@ -19,11 +19,11 @@ package server
 import (
 	"context"
 	"fmt"
-	"mime"
 	_ "net/http/pprof"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
+	"github.com/munnerz/goautoneg"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -304,9 +304,19 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 }
 
 func isPartialMetadataRequest(ctx context.Context) bool {
-	if accept := ctx.Value(acceptHeaderContextKey).(string); len(accept) > 0 {
-		if _, params, err := mime.ParseMediaType(accept); err == nil {
-			return params["as"] == "PartialObjectMetadata" || params["as"] == "PartialObjectMetadataList"
+	accept := ctx.Value(acceptHeaderContextKey).(string)
+	if accept == "" {
+		return false
+	}
+
+	return isPartialMetadataHeader(accept)
+}
+
+func isPartialMetadataHeader(accept string) bool {
+	clauses := goautoneg.ParseAccept(accept)
+	for _, clause := range clauses {
+		if clause.Params["as"] == "PartialObjectMetadata" || clause.Params["as"] == "PartialObjectMetadataList" {
+			return true
 		}
 	}
 
@@ -359,18 +369,24 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		return nil, err
 	}
 
-	if crd == nil {
-		// Not a system CRD
+	partialMetadataRequest := isPartialMetadataRequest(ctx)
 
-		if identity := IdentityFromContext(ctx); identity != "" {
-			// Priority 2: identity request
+	if crd == nil {
+		// Not a system CRD, so check in priority order: identity, wildcard, "normal" single cluster
+
+		identity := IdentityFromContext(ctx)
+
+		switch {
+		case identity != "":
 			crd, err = c.getForIdentity(name, identity)
-		} else if isPartialMetadataRequest(ctx) {
-			// Priority 3: partial metadata
-			crd, err = c.getForPartialMetadata(name)
-		} else {
-			// Priority 4: full data
-			crd, err = c.getForFullData(clusterName, name)
+		case clusterName == logicalcluster.Wildcard:
+			if partialMetadataRequest {
+				crd, err = c.getForWildcardPartialMetadata(name)
+			} else {
+				crd, err = c.getWildcard(name)
+			}
+		default:
+			crd, err = c.getForCluster(clusterName, name)
 		}
 	}
 
@@ -378,7 +394,7 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		return nil, err
 	}
 
-	if isPartialMetadataRequest(ctx) {
+	if partialMetadataRequest {
 		crd = shallowCopyCRD(crd)
 		partialMetadataCRD(crd)
 
@@ -445,7 +461,7 @@ func partialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 	}
 }
 
-func (c *apiBindingAwareCRDLister) getForFullData(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) getForCluster(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	if clusterName == logicalcluster.Wildcard {
 		return c.getWildcard(name)
 	}
@@ -521,7 +537,7 @@ func (c *apiBindingAwareCRDLister) getForIdentity(name, identity string) (*apiex
 
 const annotationKeyPartialMetadata = "crd.kcp.dev/partial-metadata"
 
-func (c *apiBindingAwareCRDLister) getForPartialMetadata(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) getForWildcardPartialMetadata(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	// TODO add index on CRDs by group+resource
 	crds, err := c.crdLister.List(labels.Everything())
 	if err != nil {
