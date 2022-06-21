@@ -97,7 +97,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "tenancy.kcp.dev",
+					Group: "apis.kcp.dev",
 				},
 			}),
 			clusterName: "system:system-crds",
@@ -109,7 +109,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "tenancy.kcp.dev",
+					Group: "apis.kcp.dev",
 				},
 			}),
 			wantErr:     true,
@@ -140,10 +140,11 @@ func TestValidate(t *testing.T) {
 			name: "passes update reserved group in system crd logical cluster",
 			attr: updateAttr(&apiextensions.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:   "test",
+					Labels: map[string]string{"a": "b"},
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "tenancy.kcp.dev",
+					Group: "apis.kcp.dev",
 				},
 			},
 				&apiextensions.CustomResourceDefinition{
@@ -151,7 +152,7 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: apiextensions.CustomResourceDefinitionSpec{
-						Group: "foo.dev",
+						Group: "foo.apis.kcp.dev",
 					},
 				}),
 			clusterName: "system:system-crds",
@@ -160,10 +161,11 @@ func TestValidate(t *testing.T) {
 			name: "fails update reserved group outside of system crd logical cluster",
 			attr: updateAttr(&apiextensions.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:   "test",
+					Labels: map[string]string{"a": "b"},
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "tenancy.kcp.dev",
+					Group: "apis.kcp.dev",
 				},
 			},
 				&apiextensions.CustomResourceDefinition{
@@ -171,7 +173,7 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: apiextensions.CustomResourceDefinitionSpec{
-						Group: "foo.dev",
+						Group: "foo.apis.kcp.dev",
 					},
 				}),
 			wantErr:     true,
@@ -181,7 +183,8 @@ func TestValidate(t *testing.T) {
 			name: "passes update non-reserved group outside of system crd logical cluster",
 			attr: updateAttr(&apiextensions.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:   "test",
+					Labels: map[string]string{"a": "b"},
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
 					Group: "bar.dev",
@@ -192,7 +195,7 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: apiextensions.CustomResourceDefinitionSpec{
-						Group: "foo.dev",
+						Group: "bar.dev",
 					},
 				}),
 			clusterName: "root:org:ws",
