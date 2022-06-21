@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	kyaml "sigs.k8s.io/yaml"
 
@@ -150,15 +149,14 @@ func TestSyncerLifecycle(t *testing.T) {
 	if len(framework.TestConfig.PClusterKubeconfig()) > 0 {
 		t.Logf("Check for available replicas if downstream is capable of actually running the deployment")
 		expectedAvailableReplicas := int32(1)
-		require.Eventually(t, func() bool {
+		framework.Eventually(t, func() (bool, string) {
 			deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 			require.NoError(t, err)
-			klog.Info(toYaml(deployment))
 			if expectedAvailableReplicas == deployment.Status.AvailableReplicas {
-				return true
+				return true, ""
 			}
 			dumpPodEvents(downstreamKubeClient, downstreamNamespaceName, ctx, t)
-			return false
+			return false, toYaml(deployment)
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s didn't get available", downstreamNamespaceName, upstreamDeployment.Name)
 
 		// This test creates a deployment upstream, and will run downstream with a mutated projected
