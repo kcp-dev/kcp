@@ -18,9 +18,6 @@ package apiexport
 
 import (
 	"context"
-	cryptorand "crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
 	"fmt"
 	"net/url"
 	"path"
@@ -31,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -125,32 +121,8 @@ func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 	}
 }
 
-func (c *controller) generateIdentitySecret(apiExportName string) (*corev1.Secret, error) {
-	privateKey, err := rsa.GenerateKey(cryptorand.Reader, 4096)
-	if err != nil {
-		return nil, fmt.Errorf("error generating private key: %w", err)
-	}
-
-	encoded, err := keyutil.MarshalPrivateKeyToPEM(privateKey)
-	if err != nil {
-		return nil, fmt.Errorf("error encoding private key: %w", err)
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: c.secretNamespace,
-			Name:      apiExportName,
-		},
-		Data: map[string][]byte{
-			apisv1alpha1.SecretKeyAPIExportIdentity: encoded,
-		},
-	}
-
-	return secret, nil
-}
-
 func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) error {
-	secret, err := c.generateIdentitySecret(apiExportName)
+	secret, err := GenerateIdentitySecret(c.secretNamespace, apiExportName)
 	if err != nil {
 		return err
 	}
@@ -168,13 +140,10 @@ func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clust
 		return err
 	}
 
-	key := secret.Data[apisv1alpha1.SecretKeyAPIExportIdentity]
-	if len(key) == 0 {
-		return fmt.Errorf("secret is missing data.%s", apisv1alpha1.SecretKeyAPIExportIdentity)
+	hash, err := IdentityHash(secret)
+	if err != nil {
+		return err
 	}
-
-	hashBytes := sha256.Sum256(key)
-	hash := fmt.Sprintf("%x", hashBytes)
 
 	if apiExport.Status.IdentityHash == "" {
 		apiExport.Status.IdentityHash = hash
