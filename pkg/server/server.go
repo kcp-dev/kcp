@@ -27,9 +27,8 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -46,10 +45,11 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
+	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -57,7 +57,9 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
@@ -143,8 +145,18 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Setup kcp * informers
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig)
+	genericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
+
+	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
+	// The identities are not known before we can get them from the APIExports via the loopback client, hence we postpone
+	// this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
+	// The informers here are not  used before the informers are actually started (i.e. no race).
+	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig) // can only used for apis.kcp.dev
+	if err != nil {
+		return err
+	}
+	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(genericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
 		return err
 	}
@@ -168,8 +180,8 @@ func (s *Server) Run(ctx context.Context) error {
 	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsCrossClusterClient, resyncPeriod)
 
 	// Setup root informers
-	s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(v1alpha1.RootCluster), resyncPeriod)
-	s.rootKubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClusterClient.Cluster(v1alpha1.RootCluster), resyncPeriod)
+	s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
+	s.rootKubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
 
 	// Setup dynamic client
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(genericConfig.LoopbackClientConfig)
@@ -282,24 +294,6 @@ func (s *Server) Run(ctx context.Context) error {
 		apiBindingLister:  s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		apiBindingIndexer: s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		apiExportIndexer:  s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
-		systemCRDProvider: newSystemCRDProvider(
-			func(key string) (*v1alpha1.ClusterWorkspace, error) {
-				cws, err := s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Get(key)
-				if err == nil {
-					return cws, nil
-				}
-
-				if !apierrors.IsNotFound(err) {
-					return nil, err
-				}
-
-				clusterName, name := clusters.SplitClusterAwareKey(key)
-				cws, err = kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), name, metav1.GetOptions{})
-
-				return cws, err
-			},
-			s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister().Get,
-		),
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			key := clusters.ToClusterAwareKey(clusterName, name)
 			return s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
@@ -359,22 +353,64 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		klog.Infof("Finished bootstrapping system CRDs")
 
+		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
+		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
+
+		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			return exportsSynced && bindingsSynced, nil
+		}); err != nil {
+			klog.Errorf("failed to start APIExport and/or APIBinding informers: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		klog.Infof("Finished starting APIExport and APIBinding informers")
+
+		// bootstrap root workspace phase 0, no APIBinding resources yet
+		if err := configrootphase0.Bootstrap(goContext(ctx),
+			kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+		); err != nil {
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		klog.Infof("Bootstrapped root workspace phase 0")
+
+		klog.Infof("Getting kcp APIExport identities")
+
+		if err := wait.PollImmediateInfiniteWithContext(goContext(ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := resolveIdentities(ctx); err != nil {
+				klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
+				return false, nil
+			}
+			return true, nil
+		}); err != nil {
+			klog.Errorf("failed to get or create identities: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		klog.Infof("Finished getting kcp APIExport identities")
+
 		s.kcpSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
 
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
-		klog.Infof("Finished start kcp informers")
+		klog.Infof("Finished starting (remaining) kcp informers")
 
 		klog.Infof("Starting dynamic metadata informer")
 		ddsif.Start(goContext(ctx))
 
-		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
 		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(v1alpha1.RootCluster).Discovery(),
-			dynamicClusterClient.Cluster(v1alpha1.RootCluster),
+			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 			"root",
 
 			// TODO(sttts): move away from loopback, use external advertise address, an external CA and an access header enabled client servingCert for authentication
@@ -404,7 +440,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
-	controllerConfig := rest.CopyConfig(server.LoopbackClientConfig)
+	controllerConfig := rest.CopyConfig(identityConfig)
 
 	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
 		return err
