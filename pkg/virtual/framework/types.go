@@ -30,9 +30,41 @@ import (
 // the request to the given VirtualWorkspace delegated APIServer.
 type RootPathResolverFunc func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
 
+func (r RootPathResolverFunc) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	return r(urlPath, context)
+}
+
+var _ RootPathResolver = RootPathResolverFunc(nil)
+
+type RootPathResolver interface {
+	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
+}
+
 // ReadyFunc is the type of readiness check functions exposed by types
 // implementing the VtualWorkspace interface.
 type ReadyFunc func() error
+
+func (r ReadyFunc) IsReady() error {
+	return r()
+}
+
+var _ ReadyChecker = ReadyFunc(nil)
+
+type ReadyChecker interface {
+	IsReady() error
+}
+
+type Name string
+
+func (n Name) GetName() string {
+	return string(n)
+}
+
+var _ Namer = Name("")
+
+type Namer interface {
+	GetName() string
+}
 
 // VirtualWorkspace is the definition of a virtual workspace
 // that will be registered and made available, at a given prefix,
@@ -45,9 +77,8 @@ type ReadyFunc func() error
 // in a limited number of group/versions, implemented as Rest storages.
 type VirtualWorkspace interface {
 	authorizer.Authorizer
-	GetName() string
-	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
-	IsReady() error
+	Namer
+	RootPathResolver
+	ReadyChecker
 	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
-	Authorize(context.Context, authorizer.Attributes) (authorizer.Decision, string, error)
 }

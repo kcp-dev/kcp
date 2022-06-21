@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -69,6 +70,7 @@ func (v *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) NewVirtualWorkspaces(
+	cfg *rest.Config,
 	rootPathPrefix string,
 	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
@@ -99,7 +101,7 @@ func (o *Options) NewVirtualWorkspaces(
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers)
+	inf, vws, err = o.InitializingWorkspaces.NewVirtualWorkspaces(cfg, rootPathPrefix, dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}

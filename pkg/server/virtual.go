@@ -30,6 +30,7 @@ import (
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/dynamic"
 	kubernetesclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -44,6 +45,7 @@ type mux interface {
 
 func (s *Server) installVirtualWorkspaces(
 	ctx context.Context,
+	cfg *rest.Config,
 	server *genericapiserver.GenericAPIServer,
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
@@ -54,6 +56,7 @@ func (s *Server) installVirtualWorkspaces(
 ) error {
 	// create virtual workspaces
 	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
+		cfg,
 		virtualcommandoptions.DefaultRootPathPrefix,
 		kubeClusterClient,
 		dynamicClusterClient,
