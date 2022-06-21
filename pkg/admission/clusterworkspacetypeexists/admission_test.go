@@ -21,10 +21,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,13 +36,12 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
-	"k8s.io/utils/diff"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
+func createAttrWithUser(obj *tenancyv1alpha1.ClusterWorkspace, info user.Info) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		nil,
@@ -54,8 +53,12 @@ func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
 		admission.Create,
 		&metav1.CreateOptions{},
 		false,
-		&user.DefaultInfo{},
+		info,
 	)
+}
+
+func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
+	return createAttrWithUser(obj, &user.DefaultInfo{})
 }
 
 func updateAttr(obj, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
@@ -338,6 +341,9 @@ func TestAdmit(t *testing.T) {
 			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{}`,
+					},
 					Labels: map[string]string{
 						"new-label":      "default",
 						"existing-label": "non-default",
@@ -393,6 +399,52 @@ func TestAdmit(t *testing.T) {
 			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{}`,
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			},
+		},
+		{
+			name: "adds user information on create",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+				},
+			},
+			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}, &user.DefaultInfo{
+				Name:   "someone",
+				UID:    "id",
+				Groups: []string{"a", "b"},
+				Extra: map[string][]string{
+					"one": {"1", "01"},
+				},
+			}),
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
+					},
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -417,8 +469,8 @@ func TestAdmit(t *testing.T) {
 				got, ok := tt.a.GetObject().(*unstructured.Unstructured)
 				require.True(t, ok, "expected unstructured, got %T", tt.a.GetObject())
 				expected := helpers.ToUnstructuredOrDie(tt.expectedObj)
-				if !apiequality.Semantic.DeepEqual(expected, got) {
-					t.Fatalf("unexpected result (A expected, B got): %s", diff.ObjectDiff(expected, got))
+				if diff := cmp.Diff(expected, got); diff != "" {
+					t.Fatalf("got incorrect result: %v", diff)
 				}
 			}
 		})
