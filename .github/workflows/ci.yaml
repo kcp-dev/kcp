@@ -40,31 +40,15 @@ jobs:
       - uses: container-tools/kind-action@v1
         name: Kubernetes KinD Cluster w/local registry
 
-      # Publish a syncer image to the local registry
-      - uses: imjasonh/setup-ko@v0.4
-      - run: KO_DOCKER_REPO=${KIND_REGISTRY} ko publish ./cmd/syncer --insecure-registry -t $(git rev-parse --short "$GITHUB_SHA") > /tmp/syncer-image
-
-      # Publish a the kcp test image to the local registry
-      - run: KO_DOCKER_REPO=${KIND_REGISTRY} ko publish  ./test/e2e/fixtures/kcp-test-image --insecure-registry -t $(git rev-parse --short "$GITHUB_SHA") > /tmp/kcp-test-image
+      - run: |-
+          go install github.com/google/ko@latest
 
       - run: |-
-          export LOG_DIR=/tmp/e2e/shared-server/artifacts &&
-          mkdir -p ${LOG_DIR} &&
-          NO_GORUN=1 ./bin/test-server \
-          > ${LOG_DIR}/kcp.log 2>&1 &
-          echo $! > /tmp/kcp.pid
-
-      - run: |-
-          kind get kubeconfig > /tmp/kind-kubeconfig
+          LOG_DIR=/tmp/e2e/shared-server/artifacts \
           ARTIFACT_DIR=/tmp/e2e \
-          TEST_ARGS="-args --use-default-kcp-server --syncer-image=$(cat /tmp/syncer-image) --kcp-test-image=$(cat /tmp/kcp-test-image) --pcluster-kubeconfig=/tmp/kind-kubeconfig" \
           COUNT=2 \
           E2E_PARALLELISM=2 \
-          make test-e2e
-
-      - run: |-
-          kill $(cat /tmp/kcp.pid) || true
-          wait $(cat /tmp/kcp.pid) || true
+          make test-e2e-shared
 
       - uses: cytopia/upload-artifact-retry-action@v0.1.2
         if: ${{ always() }}
