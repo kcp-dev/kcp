@@ -116,11 +116,27 @@ func DefaultDynamicDelegatedStoreFuncs(
 		if err != nil {
 			return nil, false, err
 		}
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return nil, false, err
+		}
+		opts := options.DeepCopy()
+		if opts.Preconditions == nil {
+			opts.Preconditions = &metav1.Preconditions{}
+		}
+		if opts.Preconditions.UID == nil {
+			uid := accessor.GetUID()
+			opts.Preconditions.UID = &uid
+		}
+		if opts.Preconditions.ResourceVersion == nil {
+			rv := accessor.GetResourceVersion()
+			opts.Preconditions.ResourceVersion = &rv
+		}
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
 		}
-		err = delegate.Delete(ctx, name, *options, subResources...)
+		err = delegate.Delete(ctx, name, *opts, subResources...)
 		if err != nil {
 			return nil, false, err
 		}
