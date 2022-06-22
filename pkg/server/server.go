@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
@@ -43,6 +44,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	quotainstall "k8s.io/kubernetes/pkg/quota/v1/install"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
@@ -258,16 +260,30 @@ func (s *Server) Run(ctx context.Context) error {
 		return apiHandler
 	}
 
+	// TODO(ncdc): find a way to support the default configuration. For now, don't use it, because it is difficult
+	// to get support for the special evaluators for pods/services/pvcs.
+	// quotaConfiguration := quotainstall.NewQuotaConfigurationForAdmission()
+	quotaConfiguration := generic.NewConfiguration(nil, quotainstall.DefaultIgnoredResources())
+
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(s.kcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKubeInformersInitializer(s.kubeSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(kubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(kcpClusterClient),
 		// The external address is provided as a function, as its value may be updated
 		// with the default secure port, when the config is later completed.
 		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return genericConfig.ExternalAddress }),
+		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
+		kcpadmissioninitializers.NewServerShutdownInitializer(ctx.Done()),
 	}
 
-	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, admissionPluginInitializers, storageFactory)
+	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(
+		genericConfig,
+		s.options.GenericControlPlane,
+		s.kubeSharedInformerFactory,
+		admissionPluginInitializers,
+		storageFactory,
+	)
 	if err != nil {
 		return err
 	}
@@ -545,6 +561,12 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, server); err != nil {
 				return err
 			}
+		}
+	}
+
+	if s.options.Controllers.EnableAll || enabled.Has("kubequota") {
+		if err := s.installKubeQuotaController(ctx, controllerConfig, server); err != nil {
+			return err
 		}
 	}
 
