@@ -169,10 +169,11 @@ func TestValidate(t *testing.T) {
 		expectedErrors []string
 	}{
 		{
-			name: "Create: passes with no reference",
+			name: "Create: fails without reference",
 			attr: createAttr(
 				newAPIBinding().withName("test").APIBinding,
 			),
+			expectedErrors: []string{".spec.reference.workspace is required"},
 		},
 		{
 			name: "Create: missing workspace reference fails",
