@@ -30,9 +30,50 @@ import (
 // the request to the given VirtualWorkspace delegated APIServer.
 type RootPathResolverFunc func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
 
+func (r RootPathResolverFunc) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	return r(urlPath, context)
+}
+
+var _ RootPathResolver = RootPathResolverFunc(nil)
+
+type RootPathResolver interface {
+	// ResolveRootPath returns whether the request should be accepted and served by a given VirtualWorkspace. If accepted,
+	// the prefixToStrip is the prefix that is in-front of the kube-like API surface (including `/clusters/<something>`). E.g. for
+	//
+	//   /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/workloadclusters
+	//
+	// the prefixToStrip is `/services/initializingworkspaces/<initializer/clusters/<something>`.
+	//
+	// Depending on virtual workspace type, the returned context holds e.g. the APIDomainKey, the logical cluster or
+	// other values like scope, if that is part of the URL path.
+	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
+}
+
 // ReadyFunc is the type of readiness check functions exposed by types
 // implementing the VtualWorkspace interface.
 type ReadyFunc func() error
+
+func (r ReadyFunc) IsReady() error {
+	return r()
+}
+
+var _ ReadyChecker = ReadyFunc(nil)
+
+type ReadyChecker interface {
+	IsReady() error
+}
+
+type Name string
+
+func (n Name) GetName() string {
+	return string(n)
+}
+
+var _ Namer = Name("")
+
+type Namer interface {
+	GetName() string
+}
 
 // VirtualWorkspace is the definition of a virtual workspace
 // that will be registered and made available, at a given prefix,
@@ -45,9 +86,8 @@ type ReadyFunc func() error
 // in a limited number of group/versions, implemented as Rest storages.
 type VirtualWorkspace interface {
 	authorizer.Authorizer
-	GetName() string
-	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
-	IsReady() error
+	Namer
+	RootPathResolver
+	ReadyChecker
 	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
-	Authorize(context.Context, authorizer.Attributes) (authorizer.Decision, string, error)
 }

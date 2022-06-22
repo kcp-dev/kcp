@@ -20,11 +20,9 @@ import (
 	"github.com/spf13/pflag"
 
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -69,37 +67,34 @@ func (v *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) NewVirtualWorkspaces(
+	config *rest.Config,
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
-	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKubeInformers kubeinformers.SharedInformerFactory,
 	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
-
-	inf, vws, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardKcpInformers)
+	inf, vws, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
+	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.APIExport.NewVirtualWorkspaces(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
+	inf, vws, err = o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}
 	extraInformers = append(extraInformers, inf...)
 	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers)
+	inf, vws, err = o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardApiExtensionsInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, nil, err
 	}

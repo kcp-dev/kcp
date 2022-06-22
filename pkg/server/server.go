@@ -503,7 +503,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Virtual.Enabled {
-		if err := s.installVirtualWorkspaces(ctx, server, kubeClusterClient, dynamicClusterClient, kcpClusterClient, genericConfig.Authentication, genericConfig.ExternalAddress, preHandlerChainMux); err != nil {
+		if err := s.installVirtualWorkspaces(ctx, controllerConfig, server, genericConfig.Authentication, genericConfig.ExternalAddress, preHandlerChainMux); err != nil {
 			return err
 		}
 	} else if err := s.installVirtualWorkspacesRedirect(ctx, preHandlerChainMux); err != nil {

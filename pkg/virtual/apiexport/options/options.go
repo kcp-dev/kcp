@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -54,11 +55,23 @@ func (o *APIExport) Validate(flagPrefix string) []error {
 
 func (o *APIExport) NewVirtualWorkspaces(
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
-	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclientset.ClusterInterface,
+	config *rest.Config,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "apiexport-virtual-workspace")
+	kcpClusterClient, err := kcpclientset.NewClusterForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	virtualWorkspaces := []framework.VirtualWorkspace{
 		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
 	}

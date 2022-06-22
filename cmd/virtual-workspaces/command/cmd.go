@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
@@ -109,11 +108,6 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardApiextensionsClient := apiextensionsClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardApiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(wildcardApiextensionsClient, 10*time.Minute)
 
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(kubeClientConfig)
-	if err != nil {
-		return err
-	}
-
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
 	if err != nil {
 		return err
@@ -122,7 +116,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
-	extraInformerStarts, virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(o.RootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
+	extraInformerStarts, virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(kubeClientConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
 	if err != nil {
 		return err
 	}
