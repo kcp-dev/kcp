@@ -50,7 +50,6 @@ import (
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -347,7 +346,7 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 	return nil
 }
 
-func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
+func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config) error {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-resource-scheduler")
 	kubeClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
@@ -361,7 +360,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 	resourceScheduler, err := workloadresource.NewController(
 		dynamicClusterClient,
 		kubeClient,
-		ddsif,
+		s.dynamicDiscoverySharedInformerFactory,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 	)
 	if err != nil {
