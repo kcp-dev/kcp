@@ -149,9 +149,9 @@ func CreateSheriffsSchemaAndExport(
 	require.NoError(t, err, "error creating APIExport %s|%s", clusterName, export.Name)
 }
 
-// CreateSheriff creates an instance of a Sheriff CustomResource in the logical cluster identified by clusterName, in
+// createSheriff creates an instance of a Sheriff CustomResource in the logical cluster identified by clusterName, in
 // the specific API group, and with the specified name.
-func CreateSheriff(
+func createSheriff(
 	ctx context.Context,
 	t *testing.T,
 	dynamicClusterClient dynamic.ClusterInterface,
@@ -159,8 +159,6 @@ func CreateSheriff(
 	group, name string,
 ) {
 	name = strings.Replace(name, ":", "-", -1)
-
-	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
 
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 
@@ -179,6 +177,50 @@ func CreateSheriff(
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating Sheriff %s|%s", clusterName, name)
+}
+
+// CreateSheriff creates an instance of a Sheriff CustomResource in the logical cluster identified by clusterName, in
+// the specific API group, and with the specified name. It expects the creation to succeed.
+func CreateSheriff(
+	ctx context.Context,
+	t *testing.T,
+	dynamicClusterClient dynamic.ClusterInterface,
+	clusterName logicalcluster.Name,
+	group, name string,
+) {
+	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
+	err := createSheriff(ctx, t, dynamicClusterClient, clusterName, group, name)
+	require.NoError(t, err, "failed to create sheriff %s|default/%s", clusterName, name)
+}
+
+// CreateSheriffAndExpectError tries to create an instance of a Sheriff CustomResource in the logical cluster identified
+// by clusterName, in the specific API group, and with the specified name. It expects the creation to fail.
+func CreateSheriffAndExpectError(
+	ctx context.Context,
+	t *testing.T,
+	dynamicClusterClient dynamic.ClusterInterface,
+	clusterName logicalcluster.Name,
+	group, name string,
+) {
+	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
+	err := createSheriff(ctx, t, dynamicClusterClient, clusterName, group, name)
+	require.Error(t, err, "expected error creating sheriff %s|default/%s", clusterName, name)
+}
+
+func EventuallyCreateSheriff(
+	ctx context.Context,
+	t *testing.T,
+	dynamicClusterClient dynamic.ClusterInterface,
+	clusterName logicalcluster.Name,
+	group, name string,
+) {
+	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
+	framework.Eventually(t, func() (bool, string) {
+		if err := createSheriff(ctx, t, dynamicClusterClient, clusterName, group, name); err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to eventually create sheriff")
 }
 
 func jsonOrDie(obj interface{}) []byte {

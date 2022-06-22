@@ -33,6 +33,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
@@ -50,10 +51,12 @@ import (
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
@@ -810,6 +813,63 @@ func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, conf
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) installKubeQuotaController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-kube-quota-controller"
+	config = rest.AddUserAgent(config, controllerName)
+
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	// TODO(ncdc): should we make these configurable?
+	// TODO(ncdc): see if these are interpreted correctly from upstream.
+	const (
+		quotaResyncPeriod        = 5 * time.Minute
+		replenishmentPeriod      = 12 * time.Hour
+		workersPerLogicalCluster = 1
+	)
+
+	// This is a special purpose kube shared informer factory, just for the quota controllers. It is only used for
+	// pods, services, and pvcs, as those need to be strongly typed for the upstream quota logic to function.
+	kubeSharedInformerFactoryForQuota := informers.NewSharedInformerFactoryWithOptions(
+		kubeClusterClient.Cluster(logicalcluster.Wildcard),
+		resyncPeriod,
+		informers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
+		informers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+	)
+
+	c, err := kubequota.NewController(
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		kubeClusterClient,
+		kubeSharedInformerFactoryForQuota,
+		s.dynamicDiscoverySharedInformerFactory,
+		quotaResyncPeriod,
+		replenishmentPeriod,
+		workersPerLogicalCluster,
+		s.syncedCh,
 	)
 	if err != nil {
 		return err

@@ -46,3 +46,9 @@ type WantsKcpClusterClient interface {
 type WantsExternalAddressProvider interface {
 	SetExternalAddressProvider(externalAddressProvider func() string)
 }
+
+// WantsServerShutdownChannel interface should be implemented by admission plugins that want to perform cleanup
+// activities when the main server context/channel is done.
+type WantsServerShutdownChannel interface {
+	SetServerShutdownChannel(<-chan struct{})
+}
