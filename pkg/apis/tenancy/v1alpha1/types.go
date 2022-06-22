@@ -87,6 +87,30 @@ type ClusterWorkspaceSpec struct {
 	//
 	// +optional
 	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
+
+	// shard constraints onto which shards this cluster workspace can be scheduled to.
+	// if the constraint is not fulfilled by the current location stored in the status,
+	// movement will be attempted.
+	//
+	// Either shard name or shard selector must be specified.
+	//
+	// If the no shard constraints are specified, an aribtrary shard is chosen.
+	//
+	// +optional
+	Shard *ShardConstraints `json:"shard,omitempty"`
+}
+
+type ShardConstraints struct {
+	// name is the name of ClusterWorkspaceShard.
+	//
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name,omitempty"`
+
+	// selector is a label selector that filters shard scheduling targets.
+	//
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 // ClusterWorkspaceTypeReference is a globally unique, fully qualified reference to a
@@ -312,6 +336,10 @@ const (
 	// WorkspaceReasonReasonUnknown reason in WorkspaceScheduled means that scheduler has failed for
 	// some unexpected reason.
 	WorkspaceReasonReasonUnknown = "Unknown"
+	// WorkspaceReasonUnreschedulable reason in WorkspaceScheduled WorkspaceCondition means that the scheduler
+	// can't reschedule the workspace right now, for example because it not in Scheduling phase anymore and
+	// movement is not possible.
+	WorkspaceReasonUnreschedulable = "Unreschedulable"
 
 	// WorkspaceShardValid represents status of the connection process for this cluster workspace.
 	WorkspaceShardValid conditionsv1alpha1.ConditionType = "WorkspaceShardValid"

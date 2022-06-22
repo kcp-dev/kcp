@@ -66,6 +66,68 @@ spec:
             properties:
               readOnly:
                 type: boolean
+              shard:
+                description: "shard constraints onto which shards this cluster workspace
+                  can be scheduled to. if the constraint is not fulfilled by the current
+                  location stored in the status, movement will be attempted. \n Either
+                  shard name or shard selector must be specified. \n If the no shard
+                  constraints are specified, an aribtrary shard is chosen."
+                oneOf:
+                - required:
+                  - name
+                - required:
+                  - selector
+                properties:
+                  name:
+                    description: name is the name of ClusterWorkspaceShard.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  selector:
+                    description: selector is a label selector that filters shard scheduling
+                      targets.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: A label selector requirement is a selector
+                            that contains values, a key, and an operator that relates
+                            the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: operator represents a key's relationship
+                                to a set of values. Valid operators are In, NotIn,
+                                Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: values is an array of string values. If
+                                the operator is In or NotIn, the values array must
+                                be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced
+                                during a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: matchLabels is a map of {key,value} pairs. A
+                          single {key,value} in the matchLabels map is equivalent
+                          to an element of matchExpressions, whose key field is "key",
+                          the operator is "In", and the values array contains only
+                          "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                type: object
               type:
                 description: "type defines properties of the workspace both on creation
                   (e.g. initial resources and initially installed APIs) and during

@@ -90,6 +90,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeStatus":               schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints":                         schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                                 schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
@@ -2694,11 +2695,17 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref common.ReferenceC
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
 						},
 					},
+					"shard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shard constraints onto which shards this cluster workspace can be scheduled to. if the constraint is not fulfilled by the current location stored in the status, movement will be attempted.\n\nEither shard name or shard selector must be specified.\n\nIf the no shard constraints are specified, an aribtrary shard is chosen.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints"},
 	}
 }
 
@@ -3005,6 +3012,33 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.Refe
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of ClusterWorkspaceShard.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selector is a label selector that filters shard scheduling targets.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
