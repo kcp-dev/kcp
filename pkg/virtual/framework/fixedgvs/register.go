@@ -62,7 +62,7 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 
 		if groupVersionAPISet.OpenAPIDefinitions != nil {
 			cfg.GenericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(groupVersionAPISet.OpenAPIDefinitions, openapi.NewDefinitionNamer(scheme))
-			cfg.GenericConfig.OpenAPIConfig.Info.Title = "KCP Virtual Workspace for " + vw.Name
+			cfg.GenericConfig.OpenAPIConfig.Info.Title = "KCP Virtual Workspace for " + vwName
 			cfg.GenericConfig.SkipOpenAPIInstallation = true
 		}
 
@@ -80,7 +80,7 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 			config.GenericConfig.EnableDiscovery = false
 		}
 
-		server, err := config.New(vw.Name, vwGroupManager, scheme, delegateAPIServer)
+		server, err := config.New(vwName, vwGroupManager, scheme, delegateAPIServer)
 		if err != nil {
 			return nil, err
 		}

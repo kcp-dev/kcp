@@ -25,6 +25,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	virtualframework "github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
@@ -38,7 +39,7 @@ func Example() {
 	readyCh := make(chan struct{})
 
 	var _ = dynamic.DynamicVirtualWorkspace{
-		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+		RootPathResolver: virtualframework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			if someAPIDefinitionSetGetter == nil {
 				// If the APIDefinitionSetGetter is not initialized, don't accept the request
 				return
@@ -55,16 +56,16 @@ func Example() {
 			completedContext = dynamiccontext.WithAPIDomainKey(requestContext, apiDomainKey)
 			accepted = true
 			return
-		},
+		}),
 
-		Ready: func() error {
+		ReadyChecker: virtualframework.ReadyFunc(func() error {
 			select {
 			case <-readyCh:
 				return nil
 			default:
 				return errors.New("syncer virtual workspace controllers are not started")
 			}
-		},
+		}),
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 

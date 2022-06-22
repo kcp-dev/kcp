@@ -59,7 +59,7 @@ func BuildVirtualWorkspace(
 	readyCh := make(chan struct{})
 
 	return &virtualdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: func(path string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+		RootPathResolver: framework.RootPathResolverFunc(func(path string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			completedContext = requestContext
 
 			if !strings.HasPrefix(path, rootPathPrefix) {
@@ -118,16 +118,16 @@ func BuildVirtualWorkspace(
 			accepted = true
 
 			return
-		},
+		}),
 
-		Ready: func() error {
+		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-readyCh:
 				return nil
 			default:
 				return errors.New("apiexport virtual workspace controllers are not started")
 			}
-		},
+		}),
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(

@@ -47,8 +47,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-const WorkspacesVirtualWorkspaceName string = "workspaces"
-
 func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 	_ = registry.AddNameIndexers(crbInformer)
@@ -60,8 +58,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 	var globalClusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
 	return &fixedgvs.FixedGroupVersionsVirtualWorkspace{
-		Name: WorkspacesVirtualWorkspaceName,
-		Ready: func() error {
+		ReadyChecker: framework.ReadyFunc(func() error {
 			if globalClusterWorkspaceCache == nil || !globalClusterWorkspaceCache.HasSynced() {
 				return errors.New("ClusterWorkspaceCache is not ready for access")
 			}
@@ -71,8 +68,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 			}
 
 			return nil
-		},
-		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+		}),
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			completedContext = requestContext
 			if path := urlPath; strings.HasPrefix(path, rootPathPrefix) {
 				path = strings.TrimPrefix(path, rootPathPrefix)
@@ -92,11 +89,11 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 					)
 			}
 			return
-		},
-		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+		}),
+		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			klog.Error("the authorizer for the 'workdspaces' virtual workspace is not implemented !")
 			return authorizer.DecisionAllow, "", nil
-		},
+		}),
 		GroupVersionAPISets: []fixedgvs.GroupVersionAPISet{
 			{
 				GroupVersion:       tenancyv1beta1.SchemeGroupVersion,

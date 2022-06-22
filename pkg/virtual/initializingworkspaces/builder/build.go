@@ -73,7 +73,7 @@ func BuildVirtualWorkspace(
 	filterReadyCh := make(chan struct{})
 	filterName := initializingworkspaces.VirtualWorkspaceName + "-filtered"
 	filtered := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
 				return false, "", requestContext
@@ -87,16 +87,16 @@ func BuildVirtualWorkspace(
 			completedContext = genericapirequest.WithCluster(requestContext, cluster)
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
 			return true, prefixToStrip, completedContext
-		},
+		}),
 		Authorizer: newAuthorizer(kubeClusterClient),
-		Ready: func() error {
+		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-filterReadyCh:
 				return nil
 			default:
 				return fmt.Errorf("%s virtual workspace controllers are not started", filterName)
 			}
-		},
+		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			retriever := &apiSetRetriever{
 				config:               mainConfig,

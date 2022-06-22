@@ -17,8 +17,6 @@ limitations under the License.
 package dynamic
 
 import (
-	"context"
-
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
@@ -31,27 +29,12 @@ var _ framework.VirtualWorkspace = (*DynamicVirtualWorkspace)(nil)
 // DynamicVirtualWorkspace is an implementation of a framework.VirtualWorkspace which can dynamically serve resources,
 // based on API definitions (including an OpenAPI v3 schema), and a Rest storage provider.
 type DynamicVirtualWorkspace struct {
-	RootPathResolver framework.RootPathResolverFunc
-	Authorizer       authorizer.AuthorizerFunc
-	Ready            framework.ReadyFunc
+	framework.RootPathResolver
+	authorizer.Authorizer
+	framework.ReadyChecker
 
 	// BootstrapAPISetManagement creates, initializes and returns an apidefinition.APIDefinitionSetGetter.
 	// Usually it would also set up some logic that will call the apiserver.CreateServingInfoFor() method
 	// to add an apidefinition.APIDefinition in the apidefinition.APIDefinitionSetGetter on some event.
 	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error)
-}
-
-func (vw *DynamicVirtualWorkspace) IsReady() error {
-	return vw.Ready()
-}
-
-func (vw *DynamicVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-	return vw.RootPathResolver(urlPath, context)
-}
-
-func (vw *DynamicVirtualWorkspace) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	if vw.Authorizer != nil {
-		return vw.Authorizer(ctx, a)
-	}
-	return authorizer.DecisionNoOpinion, "", nil
 }
