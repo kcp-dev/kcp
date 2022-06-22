@@ -232,7 +232,11 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	}
 	key = parts[1]
 
-	obj, exists, err := c.ddsif.IndexerFor(*gvr).GetByKey(key)
+	inf, err := c.ddsif.InformerForResource(*gvr)
+	if err != nil {
+		return err
+	}
+	obj, exists, err := inf.Informer().GetIndexer().GetByKey(key)
 	if err != nil {
 		klog.Errorf("Error getting %q GVR %q from indexer: %v", key, gvrstr, err)
 		return err
