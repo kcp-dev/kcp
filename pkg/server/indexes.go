@@ -21,14 +21,16 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	byWorkspace = "byWorkspace"
+	byWorkspace         = "byWorkspace"
+	byGroupResourceName = "byGroupResourceName" // <plural>.<group>, core group uses "core"
 )
 
-func indexByWorksapce(obj interface{}) ([]string, error) {
+func indexByWorkspace(obj interface{}) ([]string, error) {
 	metaObj, ok := obj.(metav1.Object)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
@@ -36,4 +38,17 @@ func indexByWorksapce(obj interface{}) ([]string, error) {
 
 	lcluster := logicalcluster.From(metaObj)
 	return []string{lcluster.String()}, nil
+}
+
+func indexByGroupResourceName(obj interface{}) ([]string, error) {
+	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a apiextensionsv1.CustomResourceDefinition, but is %T", obj)
+	}
+
+	group := crd.Spec.Group
+	if group == "" {
+		group = "core"
+	}
+	return []string{fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, group)}, nil
 }

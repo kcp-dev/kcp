@@ -276,9 +276,15 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("configure api extensions: %w", err)
 	}
 
+	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                            // nolint: errcheck
+	s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                 // nolint: errcheck
+	s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexByGroupResourceName}) // nolint: errcheck
+	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                            // nolint: errcheck
+
 	apiBindingAwareCRDLister := &apiBindingAwareCRDLister{
 		kcpClusterClient:  kcpClusterClient,
 		crdLister:         s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+		crdIndexer:        s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
 		workspaceLister:   s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
 		apiBindingLister:  s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		apiBindingIndexer: s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
@@ -333,7 +339,7 @@ func (s *Server) Run(ctx context.Context) error {
 		metadataClusterClient.Cluster(logicalcluster.Wildcard),
 		func(obj interface{}) bool { return true }, s.options.Extra.DiscoveryPollInterval,
 	)
-	if err := ddsif.AddIndexers(cache.Indexers{byWorkspace: indexByWorksapce}); err != nil {
+	if err := ddsif.AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace}); err != nil {
 		return err
 	}
 
