@@ -391,7 +391,7 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Finished start kcp informers")
 
 		klog.Infof("Starting dynamic metadata informer")
-		s.dynamicDiscoverySharedInformerFactory.Start(goContext(ctx))
+		s.dynamicDiscoverySharedInformerFactory.StartPolling(goContext(ctx))
 
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
