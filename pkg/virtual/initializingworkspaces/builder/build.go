@@ -29,6 +29,7 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	crdlisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,6 +50,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -70,9 +72,19 @@ func BuildVirtualWorkspace(
 		rootPathPrefix += "/"
 	}
 
+	resolver := requestinfo.NewFactory()
+	isClusterWorkspaceRequest := func(path string) bool {
+		info, err := resolver.NewRequestInfo(&http.Request{URL: &url.URL{Path: path}})
+		if err != nil {
+			klog.V(2).Infof("failed to determine info for request: %v", err)
+			return false
+		}
+		return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"
+	}
+
 	filterReadyCh := make(chan struct{})
-	filterName := initializingworkspaces.VirtualWorkspaceName + "-filtered"
-	filtered := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+	filterName := initializingworkspaces.VirtualWorkspaceName + "-filtering"
+	filtering := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -101,11 +113,74 @@ func BuildVirtualWorkspace(
 			retriever := &apiSetRetriever{
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
+				exposeSubresources:   false,
 				crdLister:            wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+				storageProvider:      provideFilteringRestStorage,
 			}
 
 			if err := mainConfig.AddPostStartHook(filterName, func(hookContext genericapiserver.PostStartHookContext) error {
 				defer close(filterReadyCh)
+
+				for name, informer := range map[string]cache.SharedIndexInformer{
+					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
+				} {
+					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
+						return errors.New("informer not synced")
+					}
+				}
+
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+
+			return retriever, nil
+		},
+	}
+
+	delegateReadyCh := make(chan struct{})
+	delegateName := initializingworkspaces.VirtualWorkspaceName + "-delegating"
+	delegating := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
+			if !ok {
+				return false, "", ctx
+			}
+
+			if cluster.Wildcard {
+				// this virtual workspace requires that a specific cluster be provided
+				return false, "", ctx
+			}
+
+			// this delegating server only works for clusterworkspaces.tenancy.kcp.dev
+			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); !isClusterWorkspaceRequest(resourceURL) {
+				return false, "", ctx
+			}
+
+			completedContext = genericapirequest.WithCluster(ctx, cluster)
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
+			return true, prefixToStrip, completedContext
+		}),
+		Authorizer: newAuthorizer(kubeClusterClient),
+		ReadyChecker: framework.ReadyFunc(func() error {
+			select {
+			case <-delegateReadyCh:
+				return nil
+			default:
+				return fmt.Errorf("%s virtual workspace controllers are not started", delegateName)
+			}
+		}),
+		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+			retriever := &apiSetRetriever{
+				config:               mainConfig,
+				dynamicClusterClient: dynamicClusterClient,
+				exposeSubresources:   true,
+				crdLister:            wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+				storageProvider:      provideDelegatingRestStorage,
+			}
+
+			if err := mainConfig.AddPostStartHook(delegateName, func(hookContext genericapiserver.PostStartHookContext) error {
+				defer close(delegateReadyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
@@ -135,6 +210,11 @@ func BuildVirtualWorkspace(
 
 			if cluster.Wildcard {
 				// this virtual workspace requires that a specific cluster be provided
+				return false, "", context
+			}
+
+			// this proxying server does not handle requests for clusterworkspaces.tenancy.kcp.dev
+			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); isClusterWorkspaceRequest(resourceURL) {
 				return false, "", context
 			}
 
@@ -250,8 +330,9 @@ func BuildVirtualWorkspace(
 	}
 
 	return map[string]framework.VirtualWorkspace{
-		filterName:  filtered,
-		forwardName: forwarding,
+		filterName:   filtering,
+		delegateName: delegating,
+		forwardName:  forwarding,
 	}
 }
 
@@ -300,6 +381,8 @@ type apiSetRetriever struct {
 	config               genericapiserver.CompletedConfig
 	dynamicClusterClient dynamic.ClusterInterface
 	crdLister            crdlisters.CustomResourceDefinitionLister
+	exposeSubresources   bool
+	storageProvider      func(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) apiserver.RestProviderFunc
 }
 
 func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
@@ -313,37 +396,14 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 		return nil, false, err
 	}
 
-	apiResourceSchema := &apisv1alpha1.APIResourceSchema{
-		Spec: apisv1alpha1.APIResourceSchemaSpec{
-			Group: crd.Spec.Group,
-			Names: crd.Spec.Names,
-			Scope: crd.Spec.Scope,
-		},
+	apiResourceSchema, err := apisv1alpha1.CRDToAPIResourceSchema(crd, "fake") // the name of this object is not important to us here
+	if err != nil {
+		return nil, false, err
 	}
-
-	for i := range crd.Spec.Versions {
-		crdVersion := crd.Spec.Versions[i]
-
-		apiResourceVersion := apisv1alpha1.APIResourceVersion{
-			Name:                     crdVersion.Name,
-			Served:                   crdVersion.Served,
-			Storage:                  crdVersion.Storage,
-			Deprecated:               crdVersion.Deprecated,
-			DeprecationWarning:       crdVersion.DeprecationWarning,
-			AdditionalPrinterColumns: crdVersion.AdditionalPrinterColumns,
+	if !a.exposeSubresources {
+		for _, version := range apiResourceSchema.Spec.Versions {
+			version.Subresources = apiextensionsv1.CustomResourceSubresources{}
 		}
-
-		if crdVersion.Schema != nil && crdVersion.Schema.OpenAPIV3Schema != nil {
-			schemaBytes, err := json.Marshal(crdVersion.Schema.OpenAPIV3Schema)
-			if err != nil {
-				return nil, false, fmt.Errorf("error converting version %q schema: %w", crdVersion.Name, err)
-			}
-			apiResourceVersion.Schema.Raw = schemaBytes
-		}
-
-		// we never expose subresources for this virtual workspace
-
-		apiResourceSchema.Spec.Versions = append(apiResourceSchema.Spec.Versions, apiResourceVersion)
 	}
 
 	apis = make(apidefinition.APIDefinitionSet, len(apiResourceSchema.Spec.Versions))
@@ -357,7 +417,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 			a.config,
 			apiResourceSchema,
 			version.Name,
-			provideForwardingRestStorage(ctx, a.dynamicClusterClient, tenancyv1alpha1.ClusterWorkspaceInitializer(key)),
+			a.storageProvider(ctx, a.dynamicClusterClient, tenancyv1alpha1.ClusterWorkspaceInitializer(key)),
 		)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to create serving info: %w", err)

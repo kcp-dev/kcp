@@ -43,7 +43,7 @@ func CRDToAPIResourceSchema(crd *apiextensionsv1.CustomResourceDefinition, prefi
 
 	apiResourceSchema := &APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: prefix + "." + crd.Name,
+			Name: name,
 		},
 		Spec: APIResourceSchemaSpec{
 			Group: crd.Spec.Group,

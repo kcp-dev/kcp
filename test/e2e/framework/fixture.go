@@ -79,6 +79,7 @@ func TestServerArgs() []string {
 func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
 	return []string{
 		"--discovery-poll-interval=5s",
+		"-v=4",
 		"--token-auth-file", tokenAuthFile,
 	}
 }
