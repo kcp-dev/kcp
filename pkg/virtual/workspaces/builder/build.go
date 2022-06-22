@@ -60,7 +60,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 	var globalClusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 
 	return &fixedgvs.FixedGroupVersionsVirtualWorkspace{
-		Name: WorkspacesVirtualWorkspaceName,
+		Name: framework.VirtualWorkspaceName(WorkspacesVirtualWorkspaceName),
 		Ready: func() error {
 			if globalClusterWorkspaceCache == nil || !globalClusterWorkspaceCache.HasSynced() {
 				return errors.New("ClusterWorkspaceCache is not ready for access")

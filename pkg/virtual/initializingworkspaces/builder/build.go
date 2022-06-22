@@ -73,7 +73,7 @@ func BuildVirtualWorkspace(
 	readyCh := make(chan struct{})
 
 	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		Name: initializingworkspaces.VirtualWorkspaceName,
+		Name: framework.VirtualWorkspaceName(initializingworkspaces.VirtualWorkspaceName),
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 
 			completedContext = requestContext

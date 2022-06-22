@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -31,7 +32,7 @@ var _ framework.VirtualWorkspace = (*DynamicVirtualWorkspace)(nil)
 // DynamicVirtualWorkspace is an implementation of a framework.VirtualWorkspace which can dynamically serve resources,
 // based on API definitions (including an OpenAPI v3 schema), and a Rest storage provider.
 type DynamicVirtualWorkspace struct {
-	Name             string
+	Name             framework.VirtualWorkspaceName
 	RootPathResolver framework.RootPathResolverFunc
 	Authorizer       authorizer.AuthorizerFunc
 	Ready            framework.ReadyFunc
@@ -42,16 +43,18 @@ type DynamicVirtualWorkspace struct {
 	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error)
 }
 
-func (vw *DynamicVirtualWorkspace) GetName() string {
-	return vw.Name
+func (vw *DynamicVirtualWorkspace) Names() framework.VirtualWorkspaceNames {
+	return []framework.VirtualWorkspaceName{vw.Name}
 }
 
-func (vw *DynamicVirtualWorkspace) IsReady() error {
-	return vw.Ready()
+func (vw *DynamicVirtualWorkspace) HealthCheckers() []healthz.HealthChecker {
+	return []healthz.HealthChecker{vw.Ready.HealthCheck(vw.Name)}
 }
 
-func (vw *DynamicVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-	return vw.RootPathResolver(urlPath, context)
+func (vw *DynamicVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, name framework.VirtualWorkspaceName, completedContext context.Context) {
+	accepted, prefixToStrip, completedContext = vw.RootPathResolver(urlPath, context)
+	name = vw.Name
+	return
 }
 
 func (vw *DynamicVirtualWorkspace) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {

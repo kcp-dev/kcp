@@ -62,11 +62,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
+		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.WorkspacesVirtualWorkspaceName), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
 	}
 	return nil, virtualWorkspaces, nil
-}
-
-func (o *Workspaces) Name() string {
-	return "workspaces"
 }

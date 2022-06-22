@@ -60,11 +60,7 @@ func (o *Syncer) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
 	virtualWorkspaces := []framework.VirtualWorkspace{
-		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
+		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, string(builder.SyncerVirtualWorkspaceName)), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
 	}
 	return nil, virtualWorkspaces, nil
-}
-
-func (o *Syncer) Name() string {
-	return builder.SyncerVirtualWorkspaceName
 }

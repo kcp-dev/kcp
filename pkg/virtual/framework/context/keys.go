@@ -18,6 +18,8 @@ package context
 
 import (
 	"context"
+
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 )
 
 type virtualWorkspaceNameKeyType string
@@ -27,12 +29,12 @@ type virtualWorkspaceNameKeyType string
 const virtualWorkspaceNameKey virtualWorkspaceNameKeyType = "VirtualWorkspaceName"
 
 // WithVirtualWorkspaceName adds the VirtualWorkspace name to the context.
-func WithVirtualWorkspaceName(ctx context.Context, virtualWorkspaceName string) context.Context {
+func WithVirtualWorkspaceName(ctx context.Context, virtualWorkspaceName framework.VirtualWorkspaceName) context.Context {
 	return context.WithValue(ctx, virtualWorkspaceNameKey, virtualWorkspaceName)
 }
 
 // VirtualWorkspaceNameFrom retrieves the VirtualWorkspace name from the context, if any.
-func VirtualWorkspaceNameFrom(ctx context.Context) (string, bool) {
-	wcn, hasVirtualWorkspaceName := ctx.Value(virtualWorkspaceNameKey).(string)
+func VirtualWorkspaceNameFrom(ctx context.Context) (framework.VirtualWorkspaceName, bool) {
+	wcn, hasVirtualWorkspaceName := ctx.Value(virtualWorkspaceNameKey).(framework.VirtualWorkspaceName)
 	return wcn, hasVirtualWorkspaceName
 }

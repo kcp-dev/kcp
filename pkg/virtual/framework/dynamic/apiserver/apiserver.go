@@ -31,6 +31,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 )
@@ -97,8 +98,8 @@ func (c *DynamicAPIServerConfig) Complete() completedConfig {
 }
 
 // New returns a new instance of DynamicAPIServer from the given config.
-func (c completedConfig) New(virtualWorkspaceName string, delegationTarget genericapiserver.DelegationTarget) (*DynamicAPIServer, error) {
-	genericServer, err := c.GenericConfig.New(virtualWorkspaceName+"-virtual-workspace-apiserver", delegationTarget)
+func (c completedConfig) New(virtualWorkspaceName framework.VirtualWorkspaceName, delegationTarget genericapiserver.DelegationTarget) (*DynamicAPIServer, error) {
+	genericServer, err := c.GenericConfig.New(string(virtualWorkspaceName)+"-virtual-workspace-apiserver", delegationTarget)
 	if err != nil {
 		return nil, err
 	}
