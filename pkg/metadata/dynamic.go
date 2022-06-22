@@ -23,10 +23,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
 
 // NewDynamicMetadataClusterClientForConfig returns a dynamic cluster client that only
@@ -58,11 +58,6 @@ type metadataTransport struct {
 	http.RoundTripper
 }
 
-var requestInfoFactory = request.RequestInfoFactory{
-	APIPrefixes:          sets.NewString("api", "apis"),
-	GrouplessAPIPrefixes: sets.NewString("api"),
-}
-
 func (t *metadataTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	partialType, err := partialType(req)
 	if err != nil {
@@ -86,7 +81,7 @@ func partialType(req *http.Request) (string, error) {
 		baseReq.URL = &baseURL
 	}
 
-	info, err := requestInfoFactory.NewRequestInfo(&baseReq)
+	info, err := requestinfo.NewFactory().NewRequestInfo(&baseReq)
 	if err != nil {
 		return "", err
 	}

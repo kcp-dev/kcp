@@ -39,6 +39,7 @@ import (
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
 	"github.com/kcp-dev/kcp/pkg/proxy"
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
 
 func main() {
@@ -99,7 +100,7 @@ routed based on paths.`,
 			failedHandler := newUnauthorizedHandler()
 			handler = withOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
 
-			requestInfoFactory := newRequestInfoFactory()
+			requestInfoFactory := requestinfo.NewFactory()
 			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
 

@@ -18,33 +18,16 @@ package main
 
 import (
 	"net/http"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 )
-
-// newRequestInfoFactory creates a new RequestInfoFactory for filters to use
-func newRequestInfoFactory() *apirequest.RequestInfoFactory {
-	apiPrefixes := sets.NewString(strings.Trim(genericapiserver.APIGroupPrefix, "/"))
-	legacyAPIPrefixes := sets.String{}
-	apiPrefixes.Insert(strings.Trim(genericapiserver.DefaultLegacyAPIPrefix, "/"))
-	legacyAPIPrefixes.Insert(strings.Trim(genericapiserver.DefaultLegacyAPIPrefix, "/"))
-
-	return &apirequest.RequestInfoFactory{
-		APIPrefixes:          apiPrefixes,
-		GrouplessAPIPrefixes: legacyAPIPrefixes,
-	}
-}
 
 // withOptionalClientCert creates a handler that verifies a request's client
 // cert if one is presented but passes through to the next handler if one is
