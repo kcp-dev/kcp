@@ -30,20 +30,19 @@ import (
 type HandlerFactory func(rootAPIServerConfig genericapiserver.CompletedConfig) (http.Handler, error)
 
 type VirtualWorkspace struct {
-	framework.Namer
 	framework.RootPathResolver
 	authorizer.Authorizer
 	framework.ReadyChecker
 	HandlerFactory
 }
 
-func (v *VirtualWorkspace) Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
+func (v *VirtualWorkspace) Register(vwName string, rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
 	handler, err := v.HandlerFactory(rootAPIServerConfig)
 	if err != nil {
 		return nil, err
 	}
 	return genericapiserver.NewEmptyDelegateWithCustomHandler(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		if vwName, found := virtualcontext.VirtualWorkspaceNameFrom(r.Context()); found && vwName == v.GetName() {
+		if ctxName, found := virtualcontext.VirtualWorkspaceNameFrom(r.Context()); found && ctxName == vwName {
 			handler.ServeHTTP(rw, r)
 			return
 		}

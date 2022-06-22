@@ -116,7 +116,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
-	extraInformerStarts, virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(kubeClientConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
+	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(kubeClientConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
 	if err != nil {
 		return err
 	}
@@ -133,11 +133,11 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
 		return err
 	}
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, append(extraInformerStarts,
+	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
 		wildcardApiextensionsInformers.Start,
-	), virtualWorkspaces...)
+	}, virtualWorkspaces)
 	if err != nil {
 		return err
 	}

@@ -38,9 +38,6 @@ func Example() {
 	readyCh := make(chan struct{})
 
 	var _ = dynamic.DynamicVirtualWorkspace{
-
-		Name: "SomeDynamicVirtualWorkspace",
-
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			if someAPIDefinitionSetGetter == nil {
 				// If the APIDefinitionSetGetter is not initialized, don't accept the request

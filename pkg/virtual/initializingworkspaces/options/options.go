@@ -28,7 +28,6 @@ import (
 
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 )
@@ -59,21 +58,17 @@ func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	config *rest.Config,
 	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
+) (workspaces map[string]framework.VirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	virtualWorkspaces := builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, o.Name()), dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers, wildcardKcpInformers)
-	return nil, virtualWorkspaces, nil
-}
-
-func (o *InitializingWorkspaces) Name() string {
-	return initializingworkspaces.VirtualWorkspaceName
+	virtualWorkspaces := builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, initializingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers, wildcardKcpInformers)
+	return virtualWorkspaces, nil
 }

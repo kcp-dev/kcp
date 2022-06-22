@@ -49,7 +49,7 @@ func (s *Server) installVirtualWorkspaces(
 	preHandlerChainMux mux,
 ) error {
 	// create virtual workspaces
-	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
+	virtualWorkspaces, err := s.options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
 		s.kubeSharedInformerFactory,
@@ -59,16 +59,6 @@ func (s *Server) installVirtualWorkspaces(
 	if err != nil {
 		return err
 	}
-
-	s.AddPostStartHook("kcp-start-virtual-workspace-extra-informers", func(ctx genericapiserver.PostStartHookContext) error {
-		for _, start := range extraInformerStarts {
-			start(ctx.StopCh)
-		}
-
-		// TODO(sttts): wait for cache sync
-
-		return nil
-	})
 
 	// create apiserver, with its own delegation chain
 	scheme := runtime.NewScheme()
@@ -92,7 +82,7 @@ func (s *Server) installVirtualWorkspaces(
 		return err
 	}
 
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, extraInformerStarts, virtualWorkspaces...)
+	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, nil, virtualWorkspaces)
 	if err != nil {
 		return err
 	}

@@ -79,7 +79,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspaces []framework.VirtualWorkspace) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspaces map[string]framework.VirtualWorkspace) error {
 	var authorizers []authorizer.Authorizer
 
 	// group authorizer
@@ -96,7 +96,7 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspac
 		authorizers = append(authorizers, a)
 	}
 
-	authorizers = append(authorizers, authorization.NewVirtualWorkspaceAuthorizer(virtualWorkspaces...))
+	authorizers = append(authorizers, authorization.NewVirtualWorkspaceAuthorizer(virtualWorkspaces))
 
 	config.Authorization.Authorizer = union.New(authorizers...)
 	return nil

@@ -24,7 +24,7 @@ import (
 
 // Register builds and returns a DynamicAPIServer which will serve APIs whose serving informations are provided by an APISetRetriever.
 // The APISetRetriever is returned by the virtual workspace BootstrapAPISetManagement function.
-func (vw *DynamicVirtualWorkspace) Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
+func (vw *DynamicVirtualWorkspace) Register(vwName string, rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
 	apiSetRetriever, err := vw.BootstrapAPISetManagement(rootAPIServerConfig)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (vw *DynamicVirtualWorkspace) Register(rootAPIServerConfig genericapiserver
 	cfg.GenericConfig.PostStartHooks = map[string]genericapiserver.PostStartHookConfigEntry{}
 	config := cfg.Complete()
 
-	server, err := config.New(vw.Name, delegateAPIServer)
+	server, err := config.New(vwName, delegateAPIServer)
 	if err != nil {
 		return nil, err
 	}
