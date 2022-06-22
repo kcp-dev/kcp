@@ -37,6 +37,15 @@ func (r RootPathResolverFunc) ResolveRootPath(urlPath string, context context.Co
 var _ RootPathResolver = RootPathResolverFunc(nil)
 
 type RootPathResolver interface {
+	// ResolveRootPath returns whether the request should be accepted and served by a given VirtualWorkspace. If accepted,
+	// the prefixToStrip is the prefix that is in-front of the kube-like API surface (including `/clusters/<something>`). E.g. for
+	//
+	//   /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/workloadclusters
+	//
+	// the prefixToStrip is `/services/initializingworkspaces/<initializer/clusters/<something>`.
+	//
+	// Depending on virtual workspace type, the returned context holds e.g. the APIDomainKey, the logical cluster or
+	// other values like scope, if that is part of the URL path.
 	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
 }
 
