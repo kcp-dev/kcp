@@ -28,13 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
-	"k8s.io/client-go/dynamic"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
@@ -45,22 +42,16 @@ type mux interface {
 
 func (s *Server) installVirtualWorkspaces(
 	ctx context.Context,
-	cfg *rest.Config,
+	config *rest.Config,
 	server *genericapiserver.GenericAPIServer,
-	kubeClusterClient kubernetesclient.ClusterInterface,
-	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
 	auth genericapiserver.AuthenticationInfo,
 	externalAddress string,
 	preHandlerChainMux mux,
 ) error {
 	// create virtual workspaces
 	extraInformerStarts, virtualWorkspaces, err := s.options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
-		cfg,
+		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
-		kubeClusterClient,
-		dynamicClusterClient,
-		kcpClusterClient,
 		s.kubeSharedInformerFactory,
 		s.apiextensionsSharedInformerFactory,
 		s.kcpSharedInformerFactory,

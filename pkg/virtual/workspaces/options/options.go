@@ -21,9 +21,9 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -55,12 +55,20 @@ func (o *Workspaces) Validate(flagPrefix string) []error {
 
 func (o *Workspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
-	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	config *rest.Config,
 	wildcardKubeInformers informers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "workspaces-virtual-workspace")
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	virtualWorkspaces := []framework.VirtualWorkspace{
 		builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, o.Name()), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
 	}

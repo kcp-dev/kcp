@@ -55,14 +55,22 @@ func (o *InitializingWorkspaces) Validate(flagPrefix string) []error {
 }
 
 func (o *InitializingWorkspaces) NewVirtualWorkspaces(
-	cfg *rest.Config,
 	rootPathPrefix string,
-	dynamicClusterClient dynamic.ClusterInterface,
-	kubeClusterClient kubernetes.ClusterInterface,
+	config *rest.Config,
 	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
-	virtualWorkspaces := builder.BuildVirtualWorkspace(cfg, path.Join(rootPathPrefix, o.Name()), dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers, wildcardKcpInformers)
+	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	virtualWorkspaces := builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, o.Name()), dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers, wildcardKcpInformers)
 	return nil, virtualWorkspaces, nil
 }
 
