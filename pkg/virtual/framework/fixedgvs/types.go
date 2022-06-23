@@ -17,8 +17,6 @@ limitations under the License.
 package fixedgvs
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -56,28 +54,8 @@ type GroupVersionAPISet struct {
 // the VirtualWorkspace interface, which allows adding well-defined APIs
 // in a limited number of group/versions, implemented as Rest storages.
 type FixedGroupVersionsVirtualWorkspace struct {
-	Name                string
-	RootPathResolver    framework.RootPathResolverFunc
-	Authorizer          authorizer.AuthorizerFunc
-	Ready               framework.ReadyFunc
+	framework.RootPathResolver
+	authorizer.Authorizer
+	framework.ReadyChecker
 	GroupVersionAPISets []GroupVersionAPISet
-}
-
-func (vw *FixedGroupVersionsVirtualWorkspace) GetName() string {
-	return vw.Name
-}
-
-func (vw *FixedGroupVersionsVirtualWorkspace) IsReady() error {
-	return vw.Ready()
-}
-
-func (vw *FixedGroupVersionsVirtualWorkspace) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-	return vw.RootPathResolver(urlPath, context)
-}
-
-func (vw *FixedGroupVersionsVirtualWorkspace) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	if vw.Authorizer != nil {
-		return vw.Authorizer(ctx, a)
-	}
-	return authorizer.DecisionNoOpinion, "", nil
 }

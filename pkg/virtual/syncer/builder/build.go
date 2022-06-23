@@ -65,7 +65,7 @@ func BuildVirtualWorkspace(
 	readyCh := make(chan struct{})
 
 	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			select {
 			case <-readyCh:
 			default:
@@ -120,8 +120,8 @@ func BuildVirtualWorkspace(
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
-		},
-		Authorizer: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+		}),
+		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			workloadClusterKey := dynamiccontext.APIDomainKeyFrom(ctx)
 			negotiationWorkspaceName, workloadClusterName := clusters.SplitClusterAwareKey(string(workloadClusterKey))
 
@@ -139,15 +139,15 @@ func BuildVirtualWorkspace(
 				ResourceRequest: true,
 			}
 			return authz.Authorize(ctx, SARAttributes)
-		},
-		Ready: func() error {
+		}),
+		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-readyCh:
 				return nil
 			default:
 				return errors.New("syncer virtual workspace controllers are not started")
 			}
-		},
+		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
