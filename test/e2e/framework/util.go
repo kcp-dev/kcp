@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
 
@@ -302,4 +303,16 @@ func Eventually(t *testing.T, condition func() (bool, string), waitFor time.Dura
 		}
 		return ok
 	}, waitFor, tick, msgAndArgs...)
+}
+
+func UserConfig(username string, cfg *rest.Config) *rest.Config {
+	return ConfigWithToken(username+"-token", cfg)
+}
+
+func ConfigWithToken(token string, cfg *rest.Config) *rest.Config {
+	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.CertData = nil
+	cfgCopy.KeyData = nil
+	cfgCopy.BearerToken = token
+	return cfgCopy
 }

@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
@@ -81,11 +80,11 @@ func TestAuthorizer(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1"}, nil, []string{"member"})
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-2", "user-3"}, nil, []string{"access"})
 
-	user1KubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-1", cfg))
+	user1KubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", cfg))
 	require.NoError(t, err)
-	user2KubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-2", cfg))
+	user2KubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-2", cfg))
 	require.NoError(t, err)
-	user3KubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-3", cfg))
+	user3KubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-3", cfg))
 	require.NoError(t, err)
 
 	t.Logf("Priming the authorization cache")
@@ -130,7 +129,7 @@ func TestAuthorizer(t *testing.T) {
 			rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
 			rootKubeClusterClient, err := kubernetes.NewClusterForConfig(rootCfg)
 			require.NoError(t, err)
-			user1RootKubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-1", rootCfg))
+			user1RootKubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", rootCfg))
 			require.NoError(t, err)
 
 			_, err = rootKubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
@@ -205,14 +204,6 @@ func TestAuthorizer(t *testing.T) {
 			tcFunc(t)
 		})
 	}
-}
-
-func userConfig(username string, cfg *rest.Config) *rest.Config {
-	cfgCopy := rest.CopyConfig(cfg)
-	cfgCopy.CertData = nil
-	cfgCopy.KeyData = nil
-	cfgCopy.BearerToken = username + "-token"
-	return cfgCopy
 }
 
 func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.ClusterInterface, orgClusterName logicalcluster.Name, workspace string) {

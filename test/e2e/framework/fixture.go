@@ -716,11 +716,7 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	require.NotEmpty(t, token, "token is required")
 
 	// Compose a new downstream config that uses the token
-	downstreamConfig := rest.CopyConfig(config)
-	downstreamConfig.CertData = nil
-	downstreamConfig.KeyData = nil
-	downstreamConfig.BearerToken = string(token)
-
+	downstreamConfig := ConfigWithToken(string(token), rest.CopyConfig(config))
 	return &syncer.SyncerConfig{
 		UpstreamConfig:      upstreamConfig,
 		DownstreamConfig:    downstreamConfig,
