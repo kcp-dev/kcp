@@ -299,7 +299,6 @@ func TestAPIExportWithPermissionClaims(t *testing.T) {
 	require.NoError(t, err, "error creating dynamic cluster client for %q", apiExportVWCfg.Host)
 
 	grantedGVRs := []schema.GroupVersionResource{
-		{Version: "v1", Resource: "namespaces"},
 		{Version: "v1", Resource: "configmaps"},
 		{Version: "v1", Resource: "secrets"},
 		{Version: "v1", Resource: "serviceaccounts"},
@@ -425,9 +424,6 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClient
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 			PermissionClaims: []apisv1alpha1.PermissionClaim{
 				{
-					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "namespaces"},
-				},
-				{
 					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				},
 				{
@@ -485,9 +481,6 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWork
 				},
 			},
 			AcceptedPermissionClaims: []apisv1alpha1.PermissionClaim{
-				{
-					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "namespaces"},
-				},
 				{
 					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				},
