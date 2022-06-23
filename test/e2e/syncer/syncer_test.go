@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"embed"
+	"sort"
 	"testing"
 	"time"
 
@@ -149,13 +150,14 @@ func TestSyncerLifecycle(t *testing.T) {
 	if len(framework.TestConfig.PClusterKubeconfig()) > 0 {
 		t.Logf("Check for available replicas if downstream is capable of actually running the deployment")
 		expectedAvailableReplicas := int32(1)
+		var lastEvents time.Time
 		framework.Eventually(t, func() (bool, string) {
 			deployment, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			if expectedAvailableReplicas == deployment.Status.AvailableReplicas {
 				return true, ""
 			}
-			dumpPodEvents(downstreamKubeClient, downstreamNamespaceName, ctx, t)
+			lastEvents = dumpPodEvents(t, lastEvents, downstreamKubeClient, downstreamNamespaceName)
 			return false, toYaml(deployment)
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s didn't get available", downstreamNamespaceName, upstreamDeployment.Name)
 
@@ -331,14 +333,30 @@ func TestSyncerLifecycle(t *testing.T) {
 
 }
 
-func dumpPodEvents(downstreamKubeClient *kubernetesclientset.Clientset, downstreamNamespaceName string, ctx context.Context, t *testing.T) {
+func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kubernetesclientset.Clientset, downstreamNamespaceName string) time.Time {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
 	eventList, err := downstreamKubeClient.CoreV1().Events(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
+
+	sort.Slice(eventList.Items, func(i, j int) bool {
+		return eventList.Items[i].LastTimestamp.Time.Before(eventList.Items[j].LastTimestamp.Time)
+	})
+
+	last := startAfter
 	for _, event := range eventList.Items {
-		if event.InvolvedObject.Kind == "Pod" {
-			t.Logf("Event for POD %s/%s: %s", event.InvolvedObject.Namespace, event.InvolvedObject.Name, event.Message)
+		if event.InvolvedObject.Kind != "Pod" {
+			continue
+		}
+		if event.LastTimestamp.After(startAfter) {
+			t.Logf("Event for pod %s/%s: %s", event.InvolvedObject.Namespace, event.InvolvedObject.Name, event.Message)
+		}
+		if event.LastTimestamp.After(last) {
+			last = event.LastTimestamp.Time
 		}
 	}
+	return last
 }
 
 func toYaml(obj interface{}) string {

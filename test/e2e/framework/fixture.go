@@ -609,20 +609,17 @@ func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx cont
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
 	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
-	require.Eventually(t, func() bool {
+	Eventually(t, func() (bool, string) {
 		cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
-		if err != nil {
-			t.Errorf("Error getting cluster %q: %v", cfg.WorkloadClusterName, err)
-			return false
-		}
+		require.NoError(t, err)
 
 		// A reason is only supplied to indicate why a cluster is 'not ready'
 		wantReady := len(reason) == 0
 		if wantReady {
-			return conditions.IsTrue(cluster, conditionsapi.ReadyCondition)
+			return conditions.IsTrue(cluster, conditionsapi.ReadyCondition), toYaml(t, cluster)
 		} else {
 			conditionReason := conditions.GetReason(cluster, conditionsapi.ReadyCondition)
-			return conditions.IsFalse(cluster, conditionsapi.ReadyCondition) && reason == conditionReason
+			return conditions.IsFalse(cluster, conditionsapi.ReadyCondition) && reason == conditionReason, toYaml(t, cluster)
 		}
 
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
