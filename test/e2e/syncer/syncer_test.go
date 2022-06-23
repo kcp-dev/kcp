@@ -340,6 +340,18 @@ func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kub
 			last = event.LastTimestamp.Time
 		}
 	}
+
+	pods, err := downstreamKubeClient.CoreV1().Pods(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+
+	for _, pod := range pods.Items {
+		for _, s := range pod.Status.ContainerStatuses {
+			if s.State.Terminated != nil && s.State.Terminated.FinishedAt.After(startAfter) {
+				t.Logf("Pod %s/%s container %s terminated with exit code %d: %s", pod.Namespace, pod.Name, s.Name, s.State.Terminated.ExitCode, s.State.Terminated.Message)
+			}
+		}
+	}
+
 	return last
 }
 
