@@ -298,6 +298,13 @@ func WithName(name string) ClusterWorkspaceOption {
 }
 
 func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
+	ws := CreateNewWorkspaceFixture(t, server, orgClusterName, options...)
+	wsClusterName := orgClusterName.Join(ws.Name)
+	t.Logf("Created %s workspace %s", ws.Spec.Type, wsClusterName)
+	return wsClusterName
+}
+
+func CreateNewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, options ...ClusterWorkspaceOption) *tenancyv1alpha1.ClusterWorkspace {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -359,9 +366,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, toYaml(t, ws)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
-	wsClusterName := orgClusterName.Join(ws.Name)
-	t.Logf("Created %s workspace %s", ws.Spec.Type, wsClusterName)
-	return wsClusterName
+	return ws
 }
 
 // SyncerFixture configures a syncer fixture. Its `Start` method does the work of starting a syncer.

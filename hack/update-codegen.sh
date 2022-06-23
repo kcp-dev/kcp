@@ -47,21 +47,37 @@ ${CONTROLLER_GEN} \
     crd \
     rbac:roleName=manager-role \
     webhook \
-    paths="./test/e2e/reconciler/cluster/..." \
-    output:crd:artifacts:config=test/e2e/reconciler/cluster/
+    paths="./test/e2e/fixtures/wildwest/apis/..." \
+    output:crd:artifacts:config=test/e2e/fixtures/wildwest
 
-for CRD in ./config/crds/*.yaml; do
-    if [[ "${CRD}" == *.apis.kcp.dev.yaml ]]; then
-        continue
+${CONTROLLER_GEN} \
+    crd \
+    rbac:roleName=manager-role \
+    webhook \
+    paths="./pkg/reconciler/tenancy/initialization/apis/..." \
+    output:crd:artifacts:config=pkg/reconciler/tenancy/initialization
+
+${CONTROLLER_GEN} \
+    crd \
+    rbac:roleName=manager-role \
+    webhook \
+    paths="./pkg/reconciler/tenancy/initialization/apis/..." \
+    output:crd:artifacts:config=pkg/reconciler/tenancy/initialization
+
+function create_api_resource_schema() {
+    crd="${1}"
+    out="${2}"
+    if [[ "${crd}" == *.apis.kcp.dev.yaml ]]; then
+        return
     fi
 
-    NAME=$(grep -E "^  name: " "${CRD}" | sed 's/  name: //')
-    SCHEMA="config/root-phase0/apiresourceschema-${NAME}.yaml"
+    NAME=$(grep -E "^  name: " "${crd}" | sed 's/  name: //')
+    SCHEMA="${out}/apiresourceschema-${NAME}.yaml"
 
     echo -n "Verifying ${SCHEMA} ... "
 
     PREFIX=v$(date '+%y%m%d')-$(git rev-parse --short HEAD)
-    ./bin/kubectl-kcp crd snapshot -f "${CRD}" --prefix "${PREFIX}" > new.yaml
+    ./bin/kubectl-kcp crd snapshot -f "${crd}" --prefix "${PREFIX}" > new.yaml
     if [ -f "${SCHEMA}" ] && diff -q <(grep -E -v "^  name: " "${SCHEMA}") <(grep -E -v "^  name: " new.yaml); then
         echo "OK"
         rm -f new.yaml
@@ -70,6 +86,19 @@ for CRD in ./config/crds/*.yaml; do
         mv new.yaml "${SCHEMA}"
 
         SCHEMA_NAME=$(grep -E "^  name: " "${SCHEMA}" | sed 's/  name: [^.]*\.//')
-        sed -i '' -e "s/^  - [a-z0-9][^.]*\.$(echo "${SCHEMA_NAME}" | sed 's/\./\\./g')/  - ${PREFIX}.${NAME}/" config/root-phase0/apiexport-*.yaml
+        sed -i '' -e "s/^  - [a-z0-9][^.]*\.$(echo "${SCHEMA_NAME}" | sed 's/\./\\./g')/  - ${PREFIX}.${NAME}/" ${out}/apiexport-*.yaml
     fi
+}
+
+for CRD in ./config/crds/*.yaml; do
+    create_api_resource_schema "${CRD}" "config/root-phase0"
 done
+
+for CRD in ./test/e2e/fixtures/wildwest/wildwest.*.yaml; do
+    create_api_resource_schema "${CRD}" "test/e2e/fixtures/wildwest"
+done
+
+for CRD in ./pkg/reconciler/tenancy/initialization/initialization.*.yaml; do
+    create_api_resource_schema "${CRD}" "pkg/reconciler/tenancy/initialization"
+done
+

@@ -167,7 +167,7 @@ endif
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all
-	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
+	NO_GORUN=1 $(GO_TEST) -ldflags="$(LDFLAGS)" -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
 
 .PHONY: test-e2e-shared
 ifdef USE_GOTESTSUM
