@@ -17,13 +17,11 @@ limitations under the License.
 package rootapiserver
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/apiserver/pkg/warning"
@@ -35,13 +33,12 @@ import (
 )
 
 type InformerStart func(stopCh <-chan struct{})
-type InformerStarts []InformerStart
 
 type RootAPIExtraConfig struct {
 	// we phrase it like this so we can build the post-start-hook, but no one can take more indirect dependencies on informers
 	informerStart func(stopCh <-chan struct{})
 
-	VirtualWorkspaces []framework.VirtualWorkspace
+	VirtualWorkspaces map[string]framework.VirtualWorkspace
 }
 
 // Validate helps ensure that we build this config correctly, because there are lots of bits to remember for now
@@ -89,16 +86,9 @@ func (c *completedConfig) WithOpenAPIAggregationController(delegatedAPIServer *g
 
 func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget) (*RootAPIServer, error) {
 	delegateAPIServer := delegationTarget
-	vwNames := sets.NewString()
-	for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
-		name := virtualWorkspace.GetName()
-		if vwNames.Has(name) {
-			return nil, errors.New("Several virtual workspaces with the same name: " + name)
-		}
-		vwNames.Insert(name)
-
+	for name, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
 		var err error
-		delegateAPIServer, err = virtualWorkspace.Register(c.GenericConfig, delegateAPIServer)
+		delegateAPIServer, err = virtualWorkspace.Register(name, c.GenericConfig, delegateAPIServer)
 		if err != nil {
 			return nil, err
 		}
@@ -126,21 +116,22 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 }
 
 type asHealthCheck struct {
+	name string
 	framework.VirtualWorkspace
 }
 
 func (vw asHealthCheck) Name() string {
-	return vw.GetName()
+	return vw.name
 }
 
 func (vw asHealthCheck) Check(req *http.Request) error {
 	return vw.IsReady()
 }
 
-func asHealthChecks(workspaces []framework.VirtualWorkspace) []healthz.HealthChecker {
+func asHealthChecks(workspaces map[string]framework.VirtualWorkspace) []healthz.HealthChecker {
 	var healthCheckers []healthz.HealthChecker
-	for _, vw := range workspaces {
-		healthCheckers = append(healthCheckers, asHealthCheck{vw})
+	for name, vw := range workspaces {
+		healthCheckers = append(healthCheckers, asHealthCheck{name: name, VirtualWorkspace: vw})
 	}
 	return healthCheckers
 }
@@ -167,11 +158,11 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 					fmt.Sprintf("You are using an old kubectl-kcp plugin. Please update to a version matching the kcp server version %q.", componentbaseversion.Get().GitVersion))
 			}
 
-			for _, virtualWorkspace := range c.ExtraConfig.VirtualWorkspaces {
-				if accepted, prefixToStrip, completedContext := virtualWorkspace.ResolveRootPath(req.URL.Path, requestContext); accepted {
+			for name, vw := range c.ExtraConfig.VirtualWorkspaces {
+				if accepted, prefixToStrip, completedContext := vw.ResolveRootPath(req.URL.Path, requestContext); accepted {
 					req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
 					req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
-					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, virtualWorkspace.GetName()))
+					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, name))
 					break
 				}
 			}
@@ -180,7 +171,7 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 	}
 }
 
-func NewRootAPIConfig(recommendedConfig *genericapiserver.RecommendedConfig, informerStarts InformerStarts, virtualWorkspaces ...framework.VirtualWorkspace) (*RootAPIConfig, error) {
+func NewRootAPIConfig(recommendedConfig *genericapiserver.RecommendedConfig, informerStarts []InformerStart, virtualWorkspaces map[string]framework.VirtualWorkspace) (*RootAPIConfig, error) {
 	// TODO: genericConfig.ExternalAddress = ... allow a command line flag or it to be overridden by a top-level multiroot apiServer
 
 	// Loopback is not wired for now, since virtual workspaces are expected to delegate to

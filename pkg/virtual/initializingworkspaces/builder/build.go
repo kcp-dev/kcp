@@ -31,7 +31,6 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	crdlisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -59,15 +58,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 )
 
-var scheme *runtime.Scheme
-
-func init() {
-	scheme = runtime.NewScheme()
-	if err := tenancyv1alpha1.AddToScheme(scheme); err != nil {
-		panic(err)
-	}
-}
-
 func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	rootPathPrefix string,
@@ -75,7 +65,7 @@ func BuildVirtualWorkspace(
 	kubeClusterClient kubernetes.ClusterInterface,
 	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) []framework.VirtualWorkspace {
+) map[string]framework.VirtualWorkspace {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
@@ -83,7 +73,6 @@ func BuildVirtualWorkspace(
 	filterReadyCh := make(chan struct{})
 	filterName := initializingworkspaces.VirtualWorkspaceName + "-filtered"
 	filtered := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		Name: filterName,
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -138,7 +127,6 @@ func BuildVirtualWorkspace(
 	forwardReadyCh := make(chan struct{})
 	forwardName := initializingworkspaces.VirtualWorkspaceName + "-forwarded"
 	forwarding := &handler.VirtualWorkspace{
-		Namer: framework.Name(forwardName),
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -261,7 +249,10 @@ func BuildVirtualWorkspace(
 		}),
 	}
 
-	return []framework.VirtualWorkspace{filtered, forwarding}
+	return map[string]framework.VirtualWorkspace{
+		filterName:  filtered,
+		forwardName: forwarding,
+	}
 }
 
 func digestUrl(urlPath, rootPathPrefix string) (genericapirequest.Cluster, dynamiccontext.APIDomainKey, string, bool) {

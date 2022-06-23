@@ -32,7 +32,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs/apiserver"
 )
 
-func (vw *FixedGroupVersionsVirtualWorkspace) Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
+func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
 	var vwGroupManager discovery.GroupManager
 	var firstAPIServer *genericapiserver.GenericAPIServer
 	var openAPISpecs []*spec.Swagger

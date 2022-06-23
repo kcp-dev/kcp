@@ -63,18 +63,6 @@ type ReadyChecker interface {
 	IsReady() error
 }
 
-type Name string
-
-func (n Name) GetName() string {
-	return string(n)
-}
-
-var _ Namer = Name("")
-
-type Namer interface {
-	GetName() string
-}
-
 // VirtualWorkspace is the definition of a virtual workspace
 // that will be registered and made available, at a given prefix,
 // inside a Root API server as a delegated API Server.
@@ -86,8 +74,7 @@ type Namer interface {
 // in a limited number of group/versions, implemented as Rest storages.
 type VirtualWorkspace interface {
 	authorizer.Authorizer
-	Namer
 	RootPathResolver
 	ReadyChecker
-	Register(rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
+	Register(name string, rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package options
 
 import (
+	"fmt"
+
 	"github.com/spf13/pflag"
 
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -26,7 +28,6 @@ import (
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	synceroptions "github.com/kcp-dev/kcp/pkg/virtual/syncer/options"
 	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
@@ -72,34 +73,43 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKubeInformers kubeinformers.SharedInformerFactory,
 	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (extraInformers []rootapiserver.InformerStart, workspaces []framework.VirtualWorkspace, err error) {
-	inf, vws, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
+) (map[string]framework.VirtualWorkspace, error) {
+	workspaces, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	extraInformers = append(extraInformers, inf...)
-	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	extraInformers = append(extraInformers, inf...)
-	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	apiexport, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	extraInformers = append(extraInformers, inf...)
-	workspaces = append(workspaces, vws...)
 
-	inf, vws, err = o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardApiExtensionsInformers, wildcardKcpInformers)
+	initializingworkspaces, err := o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardApiExtensionsInformers, wildcardKcpInformers)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	extraInformers = append(extraInformers, inf...)
-	workspaces = append(workspaces, vws...)
 
-	return extraInformers, workspaces, nil
+	all, err := merge(workspaces, syncer, apiexport, initializingworkspaces)
+	if err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
+func merge(sets ...map[string]framework.VirtualWorkspace) (map[string]framework.VirtualWorkspace, error) {
+	workspaces := make(map[string]framework.VirtualWorkspace)
+	for _, set := range sets {
+		for name, w := range set {
+			if _, ok := workspaces[name]; ok {
+				return nil, fmt.Errorf("duplicate virtual workspace %q", name)
+			}
+			workspaces[name] = w
+		}
+	}
+	return workspaces, nil
 }

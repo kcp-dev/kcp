@@ -31,7 +31,6 @@ var _ framework.VirtualWorkspace = (*DynamicVirtualWorkspace)(nil)
 // DynamicVirtualWorkspace is an implementation of a framework.VirtualWorkspace which can dynamically serve resources,
 // based on API definitions (including an OpenAPI v3 schema), and a Rest storage provider.
 type DynamicVirtualWorkspace struct {
-	Name             string
 	RootPathResolver framework.RootPathResolverFunc
 	Authorizer       authorizer.AuthorizerFunc
 	Ready            framework.ReadyFunc
@@ -40,10 +39,6 @@ type DynamicVirtualWorkspace struct {
 	// Usually it would also set up some logic that will call the apiserver.CreateServingInfoFor() method
 	// to add an apidefinition.APIDefinition in the apidefinition.APIDefinitionSetGetter on some event.
 	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error)
-}
-
-func (vw *DynamicVirtualWorkspace) GetName() string {
-	return vw.Name
 }
 
 func (vw *DynamicVirtualWorkspace) IsReady() error {

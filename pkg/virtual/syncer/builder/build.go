@@ -65,7 +65,6 @@ func BuildVirtualWorkspace(
 	readyCh := make(chan struct{})
 
 	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		Name: SyncerVirtualWorkspaceName,
 		RootPathResolver: func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			select {
 			case <-readyCh:
