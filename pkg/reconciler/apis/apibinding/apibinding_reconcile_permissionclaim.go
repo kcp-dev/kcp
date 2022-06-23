@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -38,26 +38,49 @@ type permissionClaim struct {
 	claim apisv1alpha1.PermissionClaim
 	label string
 	key   string
+
+	lister informers.GenericInformer
+}
+
+func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim) (permissionClaim, schema.GroupVersionResource, error) {
+
+	// get informer for the object.
+	lister, gvr, err := c.getInformerForGroupResource(pc.Group, pc.Resource)
+	if err != nil {
+		return permissionClaim{}, gvr, err
+	}
+
+	key, label, err := permissionclaims.PermissionClaimToLabel(pc)
+	if err != nil {
+		return permissionClaim{}, gvr, err
+	}
+
+	return permissionClaim{
+		claim:  pc,
+		label:  label,
+		key:    key,
+		lister: lister,
+	}, gvr, nil
 }
 
 func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
-	// this will be responsible for making sure that the the observed state is equal to the accepted state. it should handle GC of claims from the given objects.
-
-	if len(apiBinding.Spec.AcceptedPermissionClaims) == 0 && len(apiBinding.Status.ObservedAcceptedPermissionClaims) == 0 {
-		return nil
-	}
-
 	lc := logicalcluster.From(apiBinding)
 
-	dc := c.discoveryClusterClient.WithCluster(lc)
-
-	// TODO: this is not scalable and we will need to figure out a better way.
-	// One option is an informer/cache
-	apiGroupResources, err := restmapper.GetAPIGroupResources(dc)
+	// Get all the bound resources in the locicalcluster
+	bindings, err := c.listAPIBindings(lc)
 	if err != nil {
 		return err
 	}
-	mapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	grsToBoundResource := map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource{}
+	for _, bindings := range bindings {
+		for _, resource := range bindings.Status.BoundResources {
+			grsToBoundResource[apisv1alpha1.GroupResource{Group: resource.Group, Resource: resource.Resource}] = resource
+		}
+	}
+
+	invalidClaims := []apisv1alpha1.PermissionClaim{}
+
+	klog.V(2).Infof("dealing with added claims: %#v compared to observed claims: %#v", apiBinding.Spec.AcceptedPermissionClaims, apiBinding.Status.ObservedAcceptedPermissionClaims)
 
 	// get the added permission claims if added, add are just requeue the object.
 	addedPermissionClaims := map[schema.GroupVersionResource][]permissionClaim{}
@@ -70,29 +93,20 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 		}
 		if !found {
-			gvr, err := mapper.ResourcesFor(schema.GroupVersionResource{Group: acceptedPC.Group, Resource: acceptedPC.Resource})
-
+			if acceptedPC.IdentityHash != "" && acceptedPC.IdentityHash != grsToBoundResource[acceptedPC.GroupResource].Schema.IdentityHash {
+				invalidClaims = append(invalidClaims, acceptedPC)
+			}
+			claim, gvr, err := c.createPermissionClaimHelper(acceptedPC)
 			if err != nil {
+				klog.Infof("\n\n\nhere: %#v\n\n\n", err)
 				return err
 			}
-			if len(gvr) == 0 {
-				return fmt.Errorf("unable to find the version for resource %v", acceptedPC.GroupResource)
-			}
-			key, label, err := permissionclaims.PermissionClaimToLabel(acceptedPC)
-			if err != nil {
-				return err
-			}
-
-			claims := addedPermissionClaims[gvr[0]]
+			claims := addedPermissionClaims[gvr]
 			if claims == nil {
 				claims = []permissionClaim{}
 			}
-			claims = append(claims, permissionClaim{
-				claim: acceptedPC,
-				label: label,
-				key:   key,
-			})
-			addedPermissionClaims[gvr[0]] = claims
+			claims = append(claims, claim)
+			addedPermissionClaims[gvr] = claims
 		}
 	}
 
@@ -106,31 +120,20 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 		}
 		if !found {
-			gvr, err := mapper.ResourcesFor(schema.GroupVersionResource{Group: observedPC.Group, Resource: observedPC.Resource})
+			claim, gvr, err := c.createPermissionClaimHelper(observedPC)
 			if err != nil {
 				return err
 			}
-			if len(gvr) == 0 {
-				return fmt.Errorf("unable to find the version for resource %v", observedPC.GroupResource)
-			}
-			key, label, err := permissionclaims.PermissionClaimToLabel(observedPC)
-			if err != nil {
-				return err
-			}
-			claims := removedPermissionClaims[gvr[0]]
+			claims := removedPermissionClaims[gvr]
 			if claims == nil {
 				claims = []permissionClaim{}
 			}
-			claims = append(claims, permissionClaim{
-				claim: observedPC,
-				label: label,
-				key:   key,
-			})
-			removedPermissionClaims[gvr[0]] = claims
+			claims = append(claims, claim)
+			removedPermissionClaims[gvr] = claims
 		}
 	}
 
-	klog.V(2).Infof("permission controller adding permission claims: %#v, removing: %#v", addedPermissionClaims, removedPermissionClaims)
+	klog.V(2).Infof("permission controller adding permission claims: %#v, removing: %#v and found invalid claims: %#v", addedPermissionClaims, removedPermissionClaims, invalidClaims)
 
 	for gvr, claims := range addedPermissionClaims {
 		objs, err := c.dynamicClusterClient.
@@ -196,5 +199,26 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 	}
 	// if here, lets assume that now everything is up to date
 	apiBinding.Status.ObservedAcceptedPermissionClaims = apiBinding.Spec.AcceptedPermissionClaims
+
+	// Handle invalid claims
+
+	if len(invalidClaims) > 0 {
+		// Make a condition
+		klog.V(2).Infof("Found invalid accepted claims: %v", invalidClaims)
+	}
 	return nil
+}
+
+func (c *controller) getInformerForGroupResource(group, resource string) (informers.GenericInformer, schema.GroupVersionResource, error) {
+	listers, _ := c.dynamicDiscoverySharedInformerFactory.Listers()
+
+	fmt.Printf("\n\n LISTERS: %v\n\n", listers)
+	for gvr := range listers {
+		if gvr.Group == group && gvr.Resource == resource {
+			informer := c.dynamicDiscoverySharedInformerFactory.InformerForResource(gvr)
+			// once we find one, return.
+			return informer, gvr, nil
+		}
+	}
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("unable to find informer for %s.%s", group, resource)
 }

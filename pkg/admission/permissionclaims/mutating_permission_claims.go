@@ -39,6 +39,12 @@ const (
 	PluginName       = "apis.kcp.dev/PermissionClaims"
 )
 
+func Register(plugins *admission.Plugins) {
+	plugins.Register(PluginName, func(configFile io.Reader) (admission.Interface, error) {
+		return NewMutatingPermissionClaims(), nil
+	})
+}
+
 type mutatingPermissionClaims struct {
 	*admission.Handler
 
@@ -48,8 +54,10 @@ type mutatingPermissionClaims struct {
 
 var _ admission.MutationInterface = &mutatingPermissionClaims{}
 
+// NewMutatingPermissionClaims will createa a mutating admission plugin that is responsible for labeling permission claims
+// For every creation request, we will determine the bindings in the workspace and if the object is claimed by an accepted
+// permission claim we will add the label.
 func NewMutatingPermissionClaims() admission.MutationInterface {
-
 	p := &mutatingPermissionClaims{}
 	p.Handler = admission.NewHandler(admission.Create)
 	p.SetReadyFunc(p.bindingReady)
@@ -67,6 +75,18 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		return err
 	}
 
+	grsToBoundResource := map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource{}
+
+	for _, b := range bindings {
+		binding, ok := b.(*apisv1alpha1.APIBinding)
+		if !ok {
+			return fmt.Errorf("expected type: %T got: %T", apisv1alpha1.APIBinding{}, binding)
+		}
+		for _, resource := range binding.Status.BoundResources {
+			grsToBoundResource[apisv1alpha1.GroupResource{Group: resource.Group, Resource: resource.Resource}] = resource
+		}
+	}
+
 	for _, b := range bindings {
 		binding, ok := b.(*apisv1alpha1.APIBinding)
 		if !ok {
@@ -74,6 +94,13 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		}
 		for _, pc := range binding.Status.ObservedAcceptedPermissionClaims {
 			if pc.Group == a.GetKind().Group && pc.Resource == a.GetResource().Resource {
+				// Check to see if the resource is a bound resource
+				boundResource, ok := grsToBoundResource[pc.GroupResource]
+				// If the resource is coming from a binding and the permission claim's idenditd hach does not match
+				// then ignore this resource.
+				if ok && pc.IdentityHash != boundResource.Schema.IdentityHash {
+					continue
+				}
 				key, label, err := permissionclaims.PermissionClaimToLabel(pc)
 				if err != nil {
 					return err
@@ -97,6 +124,7 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (m *mutatingPermissionClaims) SetKcpInformers(f kcpinformers.SharedInformerFactory) {
+	// TODO(shawn-hurley): we need to have a helper for this.
 	if _, found := f.Apis().V1alpha1().APIBindings().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
 		if err := f.Apis().V1alpha1().APIBindings().Informer().AddIndexers(cache.Indexers{
 			byWorkspaceIndex: func(obj interface{}) ([]string, error) {
@@ -119,10 +147,4 @@ func (m *mutatingPermissionClaims) SetKcpInformers(f kcpinformers.SharedInformer
 	}
 	m.apiBindingsIndexer = f.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
 	m.bindingReady = f.Apis().V1alpha1().APIBindings().Informer().HasSynced
-}
-
-func Register(plugins *admission.Plugins) {
-	plugins.Register(PluginName, func(configFile io.Reader) (admission.Interface, error) {
-		return NewMutatingPermissionClaims(), nil
-	})
 }
