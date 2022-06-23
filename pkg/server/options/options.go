@@ -115,6 +115,9 @@ func NewOptions() *Options {
 	o.GenericControlPlane.Admission.DisablePlugins = kcpadmission.DefaultOffAdmissionPlugins().List()
 	o.GenericControlPlane.Admission.RecommendedPluginOrder = kcpadmission.AllOrderedPlugins
 
+	// turn on the watch cache
+	o.GenericControlPlane.Etcd.EnableWatchCache = true
+
 	return o
 }
 
