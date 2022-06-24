@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
@@ -77,18 +78,56 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 		return reconcileStatusStop, nil, err
 	}
 	deletePlacementAnnotation := func() (reconcileStatus, *corev1.Namespace, error) {
-		needsPatch := false
+		var deletePlacementAnnotation bool
+		var deleteNegotationWorkspaceAnnotation bool
+
 		if _, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]; found {
-			delete(ns.Annotations, schedulingv1alpha1.PlacementAnnotationKey)
-			needsPatch = true
+			deletePlacementAnnotation = true
 		}
 		if _, found := ns.Annotations[schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey]; found {
-			delete(ns.Annotations, schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey)
-			needsPatch = true
+			deleteNegotationWorkspaceAnnotation = true
 		}
-		if needsPatch {
+		if deletePlacementAnnotation || deleteNegotationWorkspaceAnnotation {
 			klog.V(4).Infof("Removing placement from namespace %s|%s, no api bindings", ns.Name)
-			if _, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"annotations":{%q:null}}}`, schedulingv1alpha1.PlacementAnnotationKey)), metav1.PatchOptions{}); err != nil {
+
+			oldData, err := json.Marshal(&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: ns.Annotations,
+				},
+			})
+			if err != nil {
+				return reconcileStatusStop, nil, err
+			}
+
+			newAnnotations := map[string]string{}
+			for k, v := range ns.Annotations {
+				if k == schedulingv1alpha1.PlacementAnnotationKey && deletePlacementAnnotation {
+					continue
+				}
+
+				if k == schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey && deleteNegotationWorkspaceAnnotation {
+					continue
+				}
+
+				newAnnotations[k] = v
+			}
+
+			newData, err := json.Marshal(&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations:     newAnnotations,
+					UID:             ns.UID,
+					ResourceVersion: ns.ResourceVersion,
+				},
+			})
+			if err != nil {
+				return reconcileStatusStop, nil, err
+			}
+			patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+			if err != nil {
+				return reconcileStatusStop, nil, err
+			}
+
+			if _, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 				return reconcileStatusStop, nil, err
 			}
 		}

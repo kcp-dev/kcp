@@ -72,7 +72,7 @@ func TestPlacementReconciler(t *testing.T) {
 					},
 				},
 			},
-			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":null}}}`,
+			wantPatch:           `{"metadata":{"annotations":null,"resourceVersion":"1","uid":"uid"}}`,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"existing placement, with binding, no locations, no workspaces workload cluster": {
@@ -88,7 +88,7 @@ func TestPlacementReconciler(t *testing.T) {
 			apibindings: map[logicalcluster.Name][]*apisv1alpha1.APIBinding{logicalcluster.New("root:org:ws"): {
 				bound(validExport(binding("kubernetes", "root:org:negotiation-workspace"))),
 			}},
-			wantPatch:           `{"metadata":{"annotations":{"scheduling.kcp.dev/placement":null}}}`,
+			wantPatch:           `{"metadata":{"annotations":null,"resourceVersion":"1","uid":"uid"}}`,
 			wantRequeue:         time.Minute * 2,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
@@ -138,7 +138,7 @@ func TestPlacementReconciler(t *testing.T) {
 			}},
 			wantRequeue:         time.Minute * 2,
 			wantReconcileStatus: reconcileStatusContinue,
-			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{}"},"resourceVersion":"","uid":""}}`,
+			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{}"},"resourceVersion":"1","uid":"uid"}}`,
 		},
 		"no placement, with location, no workload cluster, not bound binding": {
 			namespace: &corev1.Namespace{
@@ -200,7 +200,7 @@ func TestPlacementReconciler(t *testing.T) {
 					cluster("us-east1-2", "uid-22"),
 				},
 			},
-			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{\"root:org:negotiation-workspace+us-east1+us-east1-3\":\"Pending\"}"},"resourceVersion":"","uid":""}}`,
+			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{\"root:org:negotiation-workspace+us-east1+us-east1-3\":\"Pending\"}"},"resourceVersion":"1","uid":"uid"}}`,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"happy case: no location": {
@@ -219,15 +219,14 @@ func TestPlacementReconciler(t *testing.T) {
 					withLabels(unschedulable(withConditions(cluster("us-east1-2", "uid-12"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"})), map[string]string{"region": "us-east1"}),
 				},
 			},
-			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{\"root:org:negotiation-workspace+default+us-east1-1\":\"Pending\"}"},"resourceVersion":"","uid":""}}`,
+			wantPatch:           `{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":"{\"root:org:negotiation-workspace+default+us-east1-1\":\"Pending\"}"},"resourceVersion":"1","uid":"uid"}}`,
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"rescheduling": {
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:            "test",
-					ClusterName:     "root:org:ws",
-					ResourceVersion: "42",
+					Name:        "test",
+					ClusterName: "root:org:ws",
 					Annotations: map[string]string{
 						"scheduling.kcp.dev/placement": `{
 "root:org:negotiation-workspace+us-east1+us-east1-1":"Pending",
@@ -277,7 +276,7 @@ func TestPlacementReconciler(t *testing.T) {
 					ready(withLabels(cluster("us-east7-2", "uid-72"), map[string]string{"region": "us-east7"})),
 				},
 			},
-			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"42","uid":""}}`,
+			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"1","uid":"uid"}}`,
 				`{"root:org:negotiation-workspace+us-east2+us-east2-1":"Removing",`+
 					`"root:org:negotiation-workspace+us-east2+us-east2-2":"Pending",`+
 					`"root:org:negotiation-workspace+us-east3+us-east3-1":"Bound",`+
@@ -292,7 +291,7 @@ func TestPlacementReconciler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "test",
 					ClusterName:     "root:org:ws",
-					ResourceVersion: "42",
+					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"scheduling.kcp.dev/placement": `{
 "root:org:negotiation-workspace+us-east7+us-east7-1":"Pending",
@@ -323,7 +322,7 @@ func TestPlacementReconciler(t *testing.T) {
 					ready(withLabels(cluster("us-east7-5", "uid-75"), map[string]string{"region": "us-east7", "foo": "bar"})), // revived because also in another location
 				},
 			},
-			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"42","uid":""}}`,
+			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"1","uid":"uid"}}`,
 				`{"root:org:negotiation-workspace+us+us-east7-5":"Bound",`+
 					`"root:org:negotiation-workspace+us-east7+us-east7-2":"Removing",`+
 					`"root:org:negotiation-workspace+us-east7+us-east7-3":"Removing"}`),
@@ -413,7 +412,7 @@ func TestPlacementReconciler(t *testing.T) {
 					ready(withLabels(cluster("us-east2-1", "uid-21"), map[string]string{"region": "us-east2"})),
 				},
 			},
-			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"","uid":""}}`,
+			wantPatch: fmt.Sprintf(`{"metadata":{"annotations":{"internal.scheduling.kcp.dev/negotiation-workspace":"root:org:negotiation-workspace","scheduling.kcp.dev/placement":%q},"resourceVersion":"1","uid":"uid"}}`,
 				`{"root:org:negotiation-workspace+us-east1+us-east1-1":"Pending"}`),
 			wantReconcileStatus: reconcileStatusContinue,
 		},
@@ -475,6 +474,11 @@ func TestPlacementReconciler(t *testing.T) {
 					requeuedAfter = duration
 				},
 			}
+
+			// Set UID and ResourceVersion to make sure the we're verifying the full expectations for the patches
+			// (preconditions)
+			tc.namespace.UID = "uid"
+			tc.namespace.ResourceVersion = "1"
 
 			status, _, err := r.reconcile(context.Background(), tc.namespace)
 			if tc.wantError {
