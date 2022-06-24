@@ -26,7 +26,7 @@ import (
 )
 
 func TestNamedFlagSetOrder(t *testing.T) {
-	fss := NewOptions().Flags()
+	fss := NewOptions(".kcp").Flags()
 	var names []string
 	for name, fs := range fss.FlagSets {
 		if !fs.HasFlags() {
@@ -41,7 +41,7 @@ func TestNamedFlagSetOrder(t *testing.T) {
 }
 
 func TestAllowedFlagList(t *testing.T) {
-	o := NewOptions()
+	o := NewOptions(".kcp")
 	fss := o.rawFlags()
 
 	missing := map[string][]*pflag.Flag{}
@@ -68,7 +68,7 @@ func TestAllowedFlagList(t *testing.T) {
 }
 
 func TestAllowedFlagListCleanup(t *testing.T) {
-	o := NewOptions()
+	o := NewOptions(".kcp")
 	fss := o.rawFlags()
 
 	allFlags := map[string]*pflag.Flag{}

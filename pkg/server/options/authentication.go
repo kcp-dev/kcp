@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -43,10 +44,10 @@ type AdminAuthentication struct {
 	TokenHashFilePath string
 }
 
-func NewAdminAuthentication() *AdminAuthentication {
+func NewAdminAuthentication(rootDir string) *AdminAuthentication {
 	return &AdminAuthentication{
-		KubeConfigPath:    "admin.kubeconfig",
-		TokenHashFilePath: ".admin-token-store",
+		KubeConfigPath:    filepath.Join(rootDir, "admin.kubeconfig"),
+		TokenHashFilePath: filepath.Join(rootDir, ".admin-token-store"),
 	}
 }
 

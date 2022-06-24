@@ -75,19 +75,19 @@ type CompletedOptions struct {
 }
 
 // NewOptions creates a new Options with default parameters.
-func NewOptions() *Options {
+func NewOptions(rootDir string) *Options {
 	o := &Options{
 		GenericControlPlane: ServerRunOptions{
 			*options.NewServerRunOptions(),
 		},
-		EmbeddedEtcd:        *NewEmbeddedEtcd(),
+		EmbeddedEtcd:        *NewEmbeddedEtcd(rootDir),
 		Controllers:         *NewControllers(),
 		Authorization:       *NewAuthorization(),
-		AdminAuthentication: *NewAdminAuthentication(),
+		AdminAuthentication: *NewAdminAuthentication(rootDir),
 		Virtual:             *NewVirtual(),
 
 		Extra: ExtraOptions{
-			RootDirectory:            ".kcp",
+			RootDirectory:            rootDir,
 			ProfilerAddress:          "",
 			ShardKubeconfigFile:      "",
 			EnableSharding:           false,
@@ -97,7 +97,7 @@ func NewOptions() *Options {
 	}
 
 	// override all the stuff
-	o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = "" // will be completed to be relative to root dir
+	o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = rootDir
 	o.GenericControlPlane.Authentication = kubeoptions.NewBuiltInAuthenticationOptions().
 		WithAnonymous().
 		WithBootstrapToken().
@@ -204,20 +204,30 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		return nil, err
 	}
 
+	var err error
 	if !filepath.IsAbs(o.EmbeddedEtcd.Directory) {
-		o.EmbeddedEtcd.Directory = filepath.Join(o.Extra.RootDirectory, o.EmbeddedEtcd.Directory)
+		o.EmbeddedEtcd.Directory, err = filepath.Abs(o.EmbeddedEtcd.Directory)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if !filepath.IsAbs(o.GenericControlPlane.SecureServing.ServerCert.CertDirectory) {
-		o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = filepath.Join(o.Extra.RootDirectory, o.GenericControlPlane.SecureServing.ServerCert.CertDirectory)
-	}
-	if len(o.GenericControlPlane.SecureServing.ServerCert.CertDirectory) == 0 {
-		o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = filepath.Join(o.Extra.RootDirectory, "certs")
+		o.GenericControlPlane.SecureServing.ServerCert.CertDirectory, err = filepath.Abs(o.GenericControlPlane.SecureServing.ServerCert.CertDirectory)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if !filepath.IsAbs(o.AdminAuthentication.TokenHashFilePath) {
-		o.AdminAuthentication.TokenHashFilePath = filepath.Join(o.Extra.RootDirectory, o.AdminAuthentication.TokenHashFilePath)
+		o.AdminAuthentication.TokenHashFilePath, err = filepath.Abs(o.AdminAuthentication.TokenHashFilePath)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if !filepath.IsAbs(o.AdminAuthentication.KubeConfigPath) {
-		o.AdminAuthentication.KubeConfigPath = filepath.Join(o.Extra.RootDirectory, o.AdminAuthentication.KubeConfigPath)
+		o.AdminAuthentication.KubeConfigPath, err = filepath.Abs(o.AdminAuthentication.KubeConfigPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if o.Extra.ExperimentalBindFreePort {
@@ -232,7 +242,10 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		return nil, err
 	}
 	if o.Controllers.SAController.ServiceAccountKeyFile != "" && !filepath.IsAbs(o.Controllers.SAController.ServiceAccountKeyFile) {
-		o.Controllers.SAController.ServiceAccountKeyFile = filepath.Join(o.Extra.RootDirectory, o.Controllers.SAController.ServiceAccountKeyFile)
+		o.Controllers.SAController.ServiceAccountKeyFile, err = filepath.Abs(o.Controllers.SAController.ServiceAccountKeyFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
 		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
