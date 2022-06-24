@@ -43,6 +43,7 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/proxy"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
+	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
 
@@ -132,7 +133,7 @@ routed based on paths.`,
 			handler = withOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
 
 			requestInfoFactory := requestinfo.NewFactory()
-
+			handler = server.WithInClusterServiceAccountRequestRewrite(handler)
 			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 			handler = genericfilters.WithHTTPLogging(handler)
 			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)

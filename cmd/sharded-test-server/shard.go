@@ -59,6 +59,8 @@ func startShard(ctx context.Context, n uint, args []string, servingCA *crypto.CA
 		"--requestheader-client-ca-file=.kcp/requestheader-ca.crt",
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
+		"--service-account-key-file=.kcp/service-account.crt",
+		"--service-account-private-key-file=.kcp/service-account.key",
 		fmt.Sprintf("--tls-cert-file=.kcp-%d/apiserver.crt", n),
 		fmt.Sprintf("--tls-private-key-file=.kcp-%d/apiserver.key", n),
 		fmt.Sprintf("--secure-port=%d", 6444+n),

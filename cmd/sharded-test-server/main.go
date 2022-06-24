@@ -94,6 +94,12 @@ func start(proxyFlags, shardFlags []string) error {
 		os.Exit(1)
 	}
 
+	// create service account signing and verification key
+	if _, err := crypto.MakeSelfSignedCA(".kcp/service-account.crt", ".kcp/service-account.key", ".kcp/service-account-serial.txt", "kcp-service-account-signing-ca", 365); err != nil {
+		fmt.Printf("failed to create service-account-signing-ca: %v\n", err)
+		os.Exit(1)
+	}
+
 	// find external IP to put into certs as valid IPs
 	hostIP, err := machineryutilnet.ResolveBindAddress(net.IPv4(0, 0, 0, 0))
 	if err != nil {

@@ -97,7 +97,6 @@ func (c *Authentication) AddFlags(fs *pflag.FlagSet) {
 			"all beginning with the given prefix. Dropping trumps over passing on.")
 }
 
-// Validate just completes the options pattern. Returns nil.
 func (c *Authentication) Validate() []error {
 	return nil
 }
