@@ -46,7 +46,6 @@ import (
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
@@ -94,14 +93,6 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		var clusterName logicalcluster.Name
 		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {
 			path = strings.TrimPrefix(path, "/clusters/")
-
-			// temporarily re-add the `root:` prefix and tell the use via warning headers
-			if !strings.HasPrefix(path, "*/") && !strings.HasPrefix(path, "root/") && !strings.HasPrefix(path, "root:") && !strings.HasPrefix(path, "system:") {
-				klog.Infof("%s => root:%s", path, path)
-				path = "root:" + path
-
-				warning.AddWarning(req.Context(), "", "the /clusters/<org>:<workspace> URL pattern is deprecated. Update your kubeconfig and use /clusters/root:<org>:<workspace> instead.")
-			}
 
 			i := strings.Index(path, "/")
 			if i == -1 {
