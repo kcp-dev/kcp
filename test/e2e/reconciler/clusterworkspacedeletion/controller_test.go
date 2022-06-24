@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -165,23 +166,14 @@ func TestWorkspaceDeletionController(t *testing.T) {
 		{
 			name: "nested worksapce cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				var orgWorkspace *tenancyv1alpha1.ClusterWorkspace
-				var err error
 
 				t.Logf("Should have finalizer in org workspace")
 				orgWorkspaceName := server.orgClusterName.Base()
 				require.Eventually(t, func() bool {
-					orgWorkspace, err = server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, orgWorkspaceName, metav1.GetOptions{})
-					if err != nil {
-						return false
-					}
-
-					if len(orgWorkspace.Finalizers) == 0 {
-						return false
-					}
-
-					return conditions.IsTrue(orgWorkspace, tenancyv1alpha1.WorkspaceScheduled)
-				}, wait.ForeverTestTimeout, 1*time.Second)
+					orgWorkspace, err := server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, orgWorkspaceName, metav1.GetOptions{})
+					require.NoError(t, err, "failed to get org workspace %s", orgWorkspaceName)
+					return len(orgWorkspace.Finalizers) > 0
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Create a workspace with in the org workspace")
 				workspace, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "org-ws-cleanup"}}, metav1.CreateOptions{})
@@ -189,16 +181,9 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Should have finalizer added in workspace")
 				require.Eventually(t, func() bool {
-					workspace, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-					if err != nil {
-						return false
-					}
-
-					if len(workspace.Finalizers) == 0 {
-						return false
-					}
-
-					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+					workspace, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+					require.NoError(t, err, "failed to get workspace %s", workspaceName)
+					return len(workspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 1*time.Second)
 
 				t.Logf("Create namespace in both the workspace and org workspace")
@@ -247,11 +232,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					if apierrors.IsNotFound(err) {
 						return true
 					}
-
-					if err != nil {
-						return false
-					}
-
+					require.NoError(t, err, "failed to list workspaces in org workspace")
 					return len(wslist.Items) == 0
 				}, wait.ForeverTestTimeout, 1*time.Second)
 
