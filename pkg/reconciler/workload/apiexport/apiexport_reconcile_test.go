@@ -84,15 +84,29 @@ func TestSchemaReconciler(t *testing.T) {
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"no negotiated API resources": {
-			export:              export(logicalcluster.New("root:org:ws"), "workloads"),
+			export:              export(logicalcluster.New("root:org:ws"), "kubernetes"),
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"dangling schema, but no negotiated API resources": {
-			export:              export(logicalcluster.New("root:org:ws"), "workloads", "rev-43.deployments.apps"),
+			export:              export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-43.deployments.apps"),
+			wantReconcileStatus: reconcileStatusStop,
+		},
+		"negotiated API resource, but some other export": {
+			export: export(logicalcluster.New("root:org:ws"), "something", "rev-10.services.core"),
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
+				logicalcluster.New("root:org:ws"): {
+					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				},
+			},
+			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
+				logicalcluster.New("root:org:ws"): {
+					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
+				},
+			},
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"full api resource": {
-			export: export(logicalcluster.New("root:org:ws"), "workloads", "Workloads"),
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "kubernetes"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					{
@@ -158,7 +172,7 @@ func TestSchemaReconciler(t *testing.T) {
 							{
 								APIVersion:         "apis.kcp.dev/v1alpha1",
 								Kind:               "APIExport",
-								Name:               "workloads",
+								Name:               "kubernetes",
 								Controller:         pointer.BoolPtr(true),
 								BlockOwnerDeletion: pointer.BoolPtr(true),
 							},
@@ -217,12 +231,12 @@ func TestSchemaReconciler(t *testing.T) {
 				}),
 			},
 			wantExportUpdates: map[string]ExportCheck{
-				"workloads": hasSchemas("rev-52.deployments.apps"),
+				"kubernetes": hasSchemas("rev-52.deployments.apps"),
 			},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"non-tripple schema name": {
-			export: export(logicalcluster.New("root:org:ws"), "workloads", "foo"),
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "foo"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
@@ -232,12 +246,12 @@ func TestSchemaReconciler(t *testing.T) {
 				"rev-15.services.core": someSchemaWeDontCareAboutInDetail,
 			},
 			wantExportUpdates: map[string]ExportCheck{
-				"workloads": hasSchemas("rev-15.services.core"),
+				"kubernetes": hasSchemas("rev-15.services.core"),
 			},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"dangling schema in export": {
-			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-43.deployments.apps"),
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-43.deployments.apps"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
@@ -245,20 +259,20 @@ func TestSchemaReconciler(t *testing.T) {
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-43", "apps", "v1", "Deployment"), "workloads"),
+					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-43", "apps", "v1", "Deployment"), "kubernetes"),
 				},
 			},
 			wantSchemaCreates: map[string]SchemaCheck{
 				"rev-15.services.core": someSchemaWeDontCareAboutInDetail,
 			},
 			wantExportUpdates: map[string]ExportCheck{
-				"workloads": hasSchemas("rev-15.services.core"),
+				"kubernetes": hasSchemas("rev-15.services.core"),
 			},
 			wantSchemaDeletes:   map[string]struct{}{"rev-43.deployments.apps": {}},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"up-to-date schema": {
-			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-10.services.core"),
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
@@ -266,13 +280,13 @@ func TestSchemaReconciler(t *testing.T) {
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "workloads"), // older RV
+					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
 				},
 			},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"outdated schema": {
-			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-10.services.core"),
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
@@ -281,7 +295,7 @@ func TestSchemaReconciler(t *testing.T) {
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
 					withDifferentOpenAPI(
-						withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "workloads"),
+						withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"),
 						`{"type":"object"}`,
 					),
 				},
@@ -290,13 +304,13 @@ func TestSchemaReconciler(t *testing.T) {
 				"rev-15.services.core": someSchemaWeDontCareAboutInDetail,
 			},
 			wantExportUpdates: map[string]ExportCheck{
-				"workloads": hasSchemas("rev-15.services.core"),
+				"kubernetes": hasSchemas("rev-15.services.core"),
 			},
 			wantSchemaDeletes:   map[string]struct{}{"rev-10.services.core": {}},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"unused schemas": {
-			export: export(logicalcluster.New("root:org:ws"), "workloads", "rev-10.services.core"),
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {
 					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
@@ -304,9 +318,9 @@ func TestSchemaReconciler(t *testing.T) {
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
 				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "workloads"),        // older RV
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-19", "apps", "v1", "Deployment"), "workloads"), // older RV
-					apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"),                                      // not owned by export
+					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"),        // older RV
+					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-19", "apps", "v1", "Deployment"), "kubernetes"), // older RV
+					apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"),                                       // not owned by export
 				},
 			},
 			wantSchemaDeletes:   map[string]struct{}{"rev-19.deployments.apps": {}},

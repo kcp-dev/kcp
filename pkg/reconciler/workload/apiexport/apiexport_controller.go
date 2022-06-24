@@ -140,13 +140,16 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 	}
 
 	clusterName := logicalcluster.From(resource)
-	exports, _ := c.apiExportsIndexer.ByIndex(byWorkspace, clusterName.String())
-	for _, obj := range exports {
-		export := obj.(*apisv1alpha1.APIExport)
-		key := clusters.ToClusterAwareKey(clusterName, export.Name)
-		klog.Infof("Mapping NegotiatedAPIResource %s|%s to APIExport %q", clusterName, resource.Name, key)
-		c.queue.Add(key)
+	key := clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
+	if _, err := c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
+		return // it's gone
+	} else if err != nil {
+		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
+		return
 	}
+
+	klog.Infof("Mapping NegotiatedAPIResource %s|%s to APIExport %q", clusterName, resource.Name, key)
+	c.queue.Add(key)
 }
 
 func (c *controller) enqueueAPIExport(obj interface{}) {
