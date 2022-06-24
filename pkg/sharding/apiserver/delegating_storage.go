@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -146,7 +148,7 @@ func (s *delegatingStorage) routedRequest(ctx context.Context, resourceVersion *
 		return nil, nil, fmt.Errorf("failed to create sharded request: %w", err)
 	}
 	request.OverwriteParam("resourceVersion", rv)
-	request.SetHeader("X-Kubernetes-Cluster", clusterName.String())
+	request.SetHeader(logicalcluster.ClusterHeader, clusterName.String())
 	return request, mutateOutputResourceVersion(identifier), nil
 }
 
