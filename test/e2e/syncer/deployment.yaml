@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: busybox
-          image: gcr.io/google-containers/busybox:latest
+          image: ghcr.io/distroless/busybox:latest
           command:
             - /bin/sh
             - -ec
