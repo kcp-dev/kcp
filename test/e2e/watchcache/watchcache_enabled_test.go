@@ -20,12 +20,16 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
-
-	"github.com/stretchr/testify/require"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -110,8 +114,67 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	apifixtures.BindToExport(ctx, t, wsExport1a, group, wsConsume1a, kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1a, group, wsConsume1a.String())
 
-	t.Log("Getting sheriffs.newyork.io 10 times from the watch cache")
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+
+	// test dynamic informer
+	dynamicInformerCounterLock := sync.Mutex{}
+	var dynamicInformerSeenAdd, dynamicInformerSeenUpdate, dynamicInformerExpectedUpdates int
+	inf := dynamicinformer.NewFilteredDynamicInformer(dynamicClusterClient.Cluster(wsConsume1a), sheriffsGVR, "default", 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
+	inf.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			t.Logf("dynamic informer, add, got %v", obj)
+			dynamicInformerCounterLock.Lock()
+			dynamicInformerSeenAdd++
+			dynamicInformerCounterLock.Unlock()
+		},
+		UpdateFunc: func(old, obj interface{}) {
+			t.Logf("dynamic informer, update, got %v", obj)
+			dynamicInformerCounterLock.Lock()
+			dynamicInformerSeenUpdate++
+			dynamicInformerCounterLock.Unlock()
+		},
+		DeleteFunc: func(obj interface{}) {
+			t.Logf("dynamic informer, delete, got %v", obj)
+		},
+	})
+	t.Log("starting dynamic informer for sheriffs.newyork.io")
+	go inf.Informer().Run(ctx.Done())
+	// end of dynamic inf
+
+	t.Log("Updating sheriffs.newyork.io 10 times")
+	dynamicInformerExpectedUpdates = 90
+	for i := 0; i < 90; i++ {
+		res, err := dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		require.NoError(t, err)
+
+		sheriff := res.Items[0]
+		sheriff.SetAnnotations(map[string]string{fmt.Sprintf("%v", i): "abcd"})
+
+		_, err = dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").Update(ctx, &sheriff, metav1.UpdateOptions{})
+		require.NoError(t, err)
+		time.Sleep(time.Second)
+	}
+
+	require.Eventually(t, func() bool {
+		dynamicInformerCounterLock.Lock()
+		defer dynamicInformerCounterLock.Unlock()
+		if dynamicInformerSeenAdd != 1 && dynamicInformerSeenUpdate != dynamicInformerExpectedUpdates {
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "dynamic informer for %v seen %v updates (expected %v) and %v additions (expected %v) ", sheriffsGVR, func() int {
+		dynamicInformerCounterLock.Lock()
+		defer dynamicInformerCounterLock.Unlock()
+		return dynamicInformerSeenUpdate
+	}(), dynamicInformerExpectedUpdates,
+		func() int {
+			dynamicInformerCounterLock.Lock()
+			defer dynamicInformerCounterLock.Unlock()
+			return dynamicInformerSeenAdd
+		}(), 1)
+
+	t.Log("Getting sheriffs.newyork.io 10 times from the watch cache")
+
 	for i := 0; i < 10; i++ {
 		res, err := dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
