@@ -103,6 +103,7 @@ func (c *Controller) ensureNamespaceScheduled(ctx context.Context, ns *corev1.Na
 	if len(expectedAnnotations) == 0 && len(expectedLabels) == 0 {
 		return ns, false, nil
 	}
+
 	patch := map[string]interface{}{}
 	if len(expectedAnnotations) > 0 {
 		if err := unstructured.SetNestedField(patch, expectedAnnotations, "metadata", "annotations"); err != nil {
@@ -120,7 +121,7 @@ func (c *Controller) ensureNamespaceScheduled(ctx context.Context, ns *corev1.Na
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to create patch for namespace %s|%s: %w", logicalcluster.From(ns), ns.Name, err)
 	}
-	klog.V(3).Infof("Patching to update workload cluster information on namespace %s|%s: %s",
+	klog.V(2).Infof("Patching to update workload cluster information on namespace %s|%s: %s",
 		logicalcluster.From(ns), ns.Name, string(patchBytes))
 	patchedNamespace, err := c.kubeClient.Cluster(logicalcluster.From(ns)).CoreV1().Namespaces().
 		Patch(ctx, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
@@ -143,17 +144,16 @@ func applyPlacement(placementKey string, state schedulingv1alpha1.PlacementState
 		// TODO(sttts): add UID lookup for the workload cluster here
 		if state, found := existingLabels[stateLabelKey]; !found || state != string(workloadv1alpha1.ResourceStateSync) {
 			klog.V(3).Infof("Setting %s label on namespace %s|%s to %s", stateLabelKey, logicalcluster.From(ns), ns.Name, workloadCluster)
+			expectedLabels[stateLabelKey] = string(workloadv1alpha1.ResourceStateSync)
 		}
-		expectedLabels[stateLabelKey] = string(workloadv1alpha1.ResourceStateSync)
 	case schedulingv1alpha1.PlacementStateBound:
 		if state, found := existingLabels[stateLabelKey]; !found {
 			klog.Warningf("Found no %s label on namespace %s|%s, but found a bound placement for %s", stateLabelKey, logicalcluster.From(ns), ns.Name, workloadCluster)
-
 		} else if state != string(workloadv1alpha1.ResourceStateSync) {
 			klog.Warningf("Found unexpected %s=%q label on namespace %s|%s, but found a bound placement for %s", stateLabelKey, state, logicalcluster.From(ns), ns.Name, workloadCluster)
+			klog.V(3).Infof("Setting %s=%q label on namespace %s|%s to %s", stateLabelKey, string(workloadv1alpha1.ResourceStateSync), logicalcluster.From(ns), ns.Name, workloadCluster)
+			expectedLabels[stateLabelKey] = string(workloadv1alpha1.ResourceStateSync)
 		}
-		klog.V(3).Infof("Setting %s=%q label on namespace %s|%s to %s", stateLabelKey, string(workloadv1alpha1.ResourceStateSync), logicalcluster.From(ns), ns.Name, workloadCluster)
-		expectedLabels[stateLabelKey] = string(workloadv1alpha1.ResourceStateSync)
 	case schedulingv1alpha1.PlacementStateRemoving:
 		if _, found := existingLabels[stateLabelKey]; !found {
 			klog.V(3).Infof("Label %s is gone from namespace %s|%s being removed from %s. Setting to Unbound and deleting %s", stateLabelKey, logicalcluster.From(ns), ns.Name, workloadCluster, deletionAnnotationKey)
