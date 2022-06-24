@@ -71,11 +71,17 @@ const (
 	workspaceAnnotation = "tenancy.kcp.dev/workspace"
 )
 
-type acceptHeaderContextKeyType int
+type (
+	acceptHeaderContextKeyType int
+	userAgentContextKeyType    int
+)
 
 const (
 	// clusterKey is the context key for the request namespace.
 	acceptHeaderContextKey acceptHeaderContextKeyType = iota
+
+	// userAgentContextKey is the context key for the request user-agent.
+	userAgentContextKey userAgentContextKeyType = iota
 )
 
 // WithAcceptHeader makes the Accept header available for code in the handler chain. It is needed for
@@ -86,6 +92,23 @@ func WithAcceptHeader(apiHandler http.Handler) http.Handler {
 		ctx := context.WithValue(req.Context(), acceptHeaderContextKey, req.Header.Get("Accept"))
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
 	})
+}
+
+func WithUserAgent(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := context.WithValue(req.Context(), userAgentContextKey, req.Header.Get("User-Agent"))
+		handler.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
+
+func UserAgentFrom(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if v := ctx.Value(userAgentContextKey); v != nil {
+		return v.(string)
+	}
+	return ""
 }
 
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {

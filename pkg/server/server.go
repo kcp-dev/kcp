@@ -233,6 +233,7 @@ func (s *Server) Run(ctx context.Context) error {
 		apiHandler = WithClusterScope(apiHandler)
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler, unsafeServiceAccountPreAuth)
 		apiHandler = WithAcceptHeader(apiHandler)
+		apiHandler = WithUserAgent(apiHandler)
 
 		return apiHandler
 	}

@@ -373,7 +373,7 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		} else if clusterName == logicalcluster.Wildcard {
 			// Priority 4: full data wildcard request
 			// TODO(sttts): get rid of this case for non-system CRDs
-			crd, err = c.getForFullDataWildcard(name)
+			crd, err = c.getForFullDataWildcard(ctx, name)
 		} else {
 			// Priority 5: normal CRD request
 			crd, err = c.get(clusterName, name)
@@ -452,7 +452,7 @@ func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 	}
 }
 
-func (c *apiBindingAwareCRDLister) getForFullDataWildcard(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) getForFullDataWildcard(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	objs, err := c.crdIndexer.ByIndex(byGroupResourceName, name) // bound CRDs have different names and are therefore ignored
 	if err != nil {
 		return nil, err
@@ -465,7 +465,8 @@ func (c *apiBindingAwareCRDLister) getForFullDataWildcard(name string) (*apiexte
 		if foundCRD == nil {
 			foundCRD = crd
 		} else if !equality.Semantic.DeepEqual(foundCRD.Spec, crd.Spec) {
-			return nil, apierrors.NewInternalError(fmt.Errorf("error resolving resource: cannot watch across logical clusters for a resource type with several distinct schemas"))
+			return nil, apierrors.NewInternalError(fmt.Errorf("error resolving resource for %q: cannot watch across logical clusters for a resource type with several distinct schemas: %s|%s and %s|%s",
+				UserAgentFrom(ctx), logicalcluster.From(foundCRD), foundCRD.Name, logicalcluster.From(crd), crd.Name))
 		}
 	}
 
