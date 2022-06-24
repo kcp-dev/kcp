@@ -62,6 +62,10 @@ type schemaReconciler struct {
 func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.APIExport) (reconcileStatus, error) {
 	clusterName := logicalcluster.From(export)
 
+	if export.Name != TemporaryComputeServiceExportName {
+		return reconcileStatusStop, nil
+	}
+
 	resources, err := r.listNegotiatedAPIResources(clusterName)
 	if err != nil {
 		return reconcileStatusStop, err
