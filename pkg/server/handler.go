@@ -125,7 +125,7 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 				req.URL.RawPath = req.URL.RawPath[slash:]
 			}
 		} else {
-			clusterName = logicalcluster.New(req.Header.Get("X-Kubernetes-Cluster"))
+			clusterName = logicalcluster.New(req.Header.Get(logicalcluster.ClusterHeader))
 		}
 
 		var cluster request.Cluster
@@ -242,7 +242,7 @@ func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 func WithInClusterServiceAccountRequestRewrite(handler http.Handler, unsafeServiceAccountPreAuth authenticator.Request) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// some headers we set to set logical clusters, those are not the requests from InCluster clients
-		clusterHeader := req.Header.Get("X-Kubernetes-Cluster")
+		clusterHeader := req.Header.Get(logicalcluster.ClusterHeader)
 		shardedHeader := req.Header.Get("X-Kubernetes-Sharded-Request")
 
 		if clusterHeader != "" || shardedHeader != "" {

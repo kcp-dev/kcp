@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +65,7 @@ func (s *shardedStorage) Watch(ctx context.Context, options *internalversion.Lis
 		}
 		request.OverwriteParam("limit", "500")
 		request.OverwriteParam("resourceVersion", strconv.FormatInt(state.ResourceVersions[i].ResourceVersion, 10))
-		request.SetHeader("X-Kubernetes-Cluster", "*")
+		request.SetHeader(logicalcluster.ClusterHeader, "*")
 		watcher, err := request.Watch(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error executing watch request: %w", err)
@@ -184,7 +186,7 @@ func (s *shardedStorage) List(ctx context.Context, options *internalversion.List
 		}
 		request.OverwriteParam("limit", strconv.FormatInt(options.Limit, 10))
 		request.OverwriteParam("continue", continueToken)
-		request.SetHeader("X-Kubernetes-Cluster", "*")
+		request.SetHeader(logicalcluster.ClusterHeader, "*")
 		result, err := request.Do(ctx).Get()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get data from shard %q: %w", shard, err)
