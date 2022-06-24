@@ -48,7 +48,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -92,6 +91,10 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 				Categories:         []string{"kcp"},
 				Verbs:              metav1.Verbs{"list", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash("", "tenancy.kcp.dev", "v1alpha1", "ClusterWorkspace"),
+			},
+			{
+				Kind: "ClusterWorkspace",
+				Name: "clusterworkspaces/status",
 			},
 		},
 	}}, apiResourceLists))
@@ -141,12 +144,6 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"alpha",
 	} {
 		clusterWorkspaceTypeNames[name] = name + suffix()
-	}
-	clusterWorkspaceInitializerNames := map[string]tenancyv1alpha1.ClusterWorkspaceInitializer{}
-	for _, name := range []string{
-		"alpha",
-	} {
-		clusterWorkspaceInitializerNames[name] = tenancyv1alpha1.ClusterWorkspaceInitializer(name + "-" + suffix())
 	}
 
 	clusterWorkspaceTypes := map[string]*tenancyv1alpha1.ClusterWorkspaceType{}
@@ -217,18 +214,18 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Create clients through the virtual workspace")
-	kcpClients := map[string]tenancyv1alpha1client.ClusterWorkspaceInterface{}
+	kcpClients := map[string]*kcpclient.Cluster{}
 	kubeClients := map[string]*kubernetes.Cluster{}
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		virtualWorkspaceConfig := rest.CopyConfig(sourceConfig)
+		virtualWorkspaceConfig := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-virtual")
 		virtualWorkspaceConfig.Host = clusterWorkspaceTypes[initializer].Status.VirtualWorkspaces[0].URL
 		virtualKcpClusterClient, err := kcpclient.NewClusterForConfig(userConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
 		virtualKubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
-		kcpClients[initializer] = virtualKcpClusterClient.Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces()
+		kcpClients[initializer] = virtualKcpClusterClient
 		kubeClients[initializer] = virtualKubeClusterClient
 	}
 
@@ -236,7 +233,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		_, err := kcpClients[initializer].List(ctx, metav1.ListOptions{})
+		_, err := kcpClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
 		}
@@ -307,7 +304,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 		var actual *tenancyv1alpha1.ClusterWorkspaceList
 		require.Eventually(t, func() bool {
-			actual, err = kcpClients[initializer].List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
+			actual, err = kcpClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
 			if err != nil && !errors.IsForbidden(err) {
 				require.NoError(t, err)
 			}
@@ -324,7 +321,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		watcher, err := kcpClients[initializer].Watch(ctx, metav1.ListOptions{
+		watcher, err := kcpClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().Watch(ctx, metav1.ListOptions{
 			ResourceVersion: workspaces.ResourceVersion,
 		})
 		require.NoError(t, err)
@@ -414,25 +411,49 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{}))
 	}
 
+	patchBytesFor := func(ws *tenancyv1alpha1.ClusterWorkspace, mutator func(*tenancyv1alpha1.ClusterWorkspace)) []byte {
+		previous := ws.DeepCopy()
+		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
+			Status: previous.Status,
+		})
+		require.NoError(t, err)
+
+		obj := ws.DeepCopy()
+		mutator(obj)
+		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
+			Status: obj.Status,
+		})
+		require.NoError(t, err)
+
+		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+		require.NoError(t, err)
+		return patchBytes
+	}
+
 	t.Log("Transitioning the new workspace out of initializing")
-	previous := ws.DeepCopy()
-	oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
-		Status: previous.Status,
-	})
-	require.NoError(t, err)
+	for _, initializer := range []string{
+		"alpha",
+	} {
+		client := kcpClients[initializer].Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces()
+		ws, err = client.Get(ctx, ws.Name, metav1.GetOptions{})
+		require.NoError(t, err)
 
-	obj := ws.DeepCopy()
-	obj.Status.Initializers = []tenancyv1alpha1.ClusterWorkspaceInitializer{}
-	obj.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
-	newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
-		Status: obj.Status,
-	})
-	require.NoError(t, err)
+		t.Log("Attempt to do something more than just removing our initializer, get denied")
+		patchBytes := patchBytesFor(ws, func(workspace *tenancyv1alpha1.ClusterWorkspace) {
+			workspace.Status.Initializers = []tenancyv1alpha1.ClusterWorkspaceInitializer{"wrong"}
+		})
+		_, err = client.Patch(ctx, ws.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		if !errors.IsInvalid(err) {
+			t.Fatalf("got %#v error from patch, expected invalid", err)
+		}
 
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	require.NoError(t, err)
-	ws, err = sourceKcpTenancyClient.ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-	require.NoError(t, err)
+		t.Log("Remove just our initializer")
+		patchBytes = patchBytesFor(ws, func(workspace *tenancyv1alpha1.ClusterWorkspace) {
+			workspace.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(clusterWorkspaceTypes[initializer]), workspace.Status.Initializers)
+		})
+		ws, err = client.Patch(ctx, ws.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		require.NoError(t, err)
+	}
 
 	for initializer, watcher := range watchers {
 		for {

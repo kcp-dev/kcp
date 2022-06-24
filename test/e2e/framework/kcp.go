@@ -388,7 +388,7 @@ func (c *kcpServer) defaultConfig() (*rest.Config, error) {
 func (c *kcpServer) DefaultConfig(t *testing.T) *rest.Config {
 	cfg, err := c.defaultConfig()
 	require.NoError(t, err)
-	return cfg
+	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
 }
 
 // RawConfig exposes a copy of the client config for this server.
