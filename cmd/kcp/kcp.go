@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -60,9 +61,19 @@ func main() {
 
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
 
-	serverOptions := options.NewOptions()
+	// manually extract root directory from flags first as it influence all other flags
+	rootDir := ".kcp"
+	for i, f := range os.Args {
+		if f == "--root-directory" {
+			if i < len(os.Args)-1 {
+				rootDir = os.Args[i+1]
+			} // else let normal flag processing fail
+		} else if strings.HasPrefix(f, "--root-directory=") {
+			rootDir = strings.TrimPrefix(f, "--root-directory=")
+		}
+	}
 
-	// Default to -v=2
+	serverOptions := options.NewOptions(rootDir)
 	serverOptions.GenericControlPlane.Logs.Config.Verbosity = config.VerbosityLevel(2)
 
 	startCmd := &cobra.Command{

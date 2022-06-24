@@ -127,7 +127,7 @@ func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir string) (*kc
 			"--embedded-etcd-client-port=" + etcdClientPort,
 			"--embedded-etcd-peer-port=" + etcdPeerPort,
 			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
-			"--kubeconfig-path=admin.kubeconfig",
+			"--kubeconfig-path=" + filepath.Join(dataDir, "admin.kubeconfig"),
 		},
 			cfg.Args...),
 		dataDir:     dataDir,
@@ -236,7 +236,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
-		serverOptions := options.NewOptions()
+		serverOptions := options.NewOptions(".kcp")
 		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
 		for _, fs := range serverOptions.Flags().FlagSets {
 			all.AddFlagSet(fs)
