@@ -185,7 +185,7 @@ test-e2e-shared: build-all
 	mkdir -p $(LOG_DIR)
 	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}"; \
 	TEST_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image) && test -n "$${TEST_IMAGE}"; \
-	NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" 2>&1 & PID=$$!; echo "PID $$PID"; \
+	NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$!; echo "PID $$PID"; \
 	trap 'kill -TERM $$PID' TERM INT EXIT; \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
 		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
@@ -206,7 +206,7 @@ test-e2e-sharded: build-all
 	mkdir -p $(LOG_DIR)
 	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}"; \
 	TEST_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image) && test -n "$${TEST_IMAGE}"; \
-	NO_GORUN=1 ./bin/sharded-test-server --v=2 2>&1 & PID=$$!; echo "PID $$PID"; \
+	NO_GORUN=1 ./bin/sharded-test-server --v=2 $(TEST_SERVER_ARGS) 2>&1 & PID=$$!; echo "PID $$PID"; \
 	trap 'kill -TERM $$PID' TERM INT EXIT; \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
 		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
