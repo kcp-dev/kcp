@@ -290,6 +290,13 @@ func WithType(path logicalcluster.Name, name tenancyv1alpha1.ClusterWorkspaceTyp
 	}
 }
 
+func WithName(name string) ClusterWorkspaceOption {
+	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
+		ws.Name = name
+		ws.GenerateName = ""
+	}
+}
+
 func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -336,8 +343,8 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 		defer cancelFn()
 
 		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
-		if apierrors.IsNotFound(err) {
-			return // ignore not found error
+		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
+			return // ignore not found and forbidden because this probably means the parent has been deleted
 		}
 		require.NoErrorf(t, err, "failed to delete workspace %s", ws.Name)
 	})
