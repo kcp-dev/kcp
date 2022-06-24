@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
@@ -77,18 +78,41 @@ func (r *placementReconciler) reconcile(ctx context.Context, ns *corev1.Namespac
 		return reconcileStatusStop, nil, err
 	}
 	deletePlacementAnnotation := func() (reconcileStatus, *corev1.Namespace, error) {
-		needsPatch := false
+		var deletePlacementAnnotation bool
+		var deleteNegotationWorkspaceAnnoation bool
+
 		if _, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]; found {
-			delete(ns.Annotations, schedulingv1alpha1.PlacementAnnotationKey)
-			needsPatch = true
+			deletePlacementAnnotation = true
 		}
 		if _, found := ns.Annotations[schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey]; found {
-			delete(ns.Annotations, schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey)
-			needsPatch = true
+			deleteNegotationWorkspaceAnnoation = true
 		}
-		if needsPatch {
+		if deletePlacementAnnotation || deleteNegotationWorkspaceAnnoation {
 			klog.V(4).Infof("Removing placement from namespace %s|%s, no api bindings", ns.Name)
-			if _, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"annotations":{%q:null}}}`, schedulingv1alpha1.PlacementAnnotationKey)), metav1.PatchOptions{}); err != nil {
+
+			nsCopy := ns.DeepCopy()
+
+			if deletePlacementAnnotation {
+				delete(nsCopy.Annotations, schedulingv1alpha1.PlacementAnnotationKey)
+			}
+			if deleteNegotationWorkspaceAnnoation {
+				delete(nsCopy.Annotations, schedulingv1alpha1.InternalNegotiationWorkspaceAnnotationKey)
+			}
+
+			oldData, err := json.Marshal(ns)
+			if err != nil {
+				return reconcileStatusStop, nil, err
+			}
+			newData, err := json.Marshal(nsCopy)
+			if err != nil {
+				return reconcileStatusStop, nil, err
+			}
+			patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+			if err != nil {
+				return reconcileStatusStop, nil, err
+			}
+
+			if _, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 				return reconcileStatusStop, nil, err
 			}
 		}
