@@ -52,6 +52,7 @@ import (
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdannotations"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
+	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 )
 
@@ -71,6 +72,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	crdnooverlappinggvr.PluginName,
+	reservedmetadata.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -102,6 +104,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	reservedcrdannotations.Register(plugins)
 	reservedcrdgroups.Register(plugins)
 	crdnooverlappinggvr.Register(plugins)
+	reservedmetadata.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.NewString(
