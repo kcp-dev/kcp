@@ -364,9 +364,12 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		// Not a system CRD, so check in priority order: identity, wildcard, "normal" single cluster
 
 		identity := IdentityFromContext(ctx)
-		if identity != "" {
+		if clusterName == logicalcluster.Wildcard && identity != "" {
 			// Priority 2: APIBinding CRD
-			crd, err = c.getForIdentity(name, identity)
+			crd, err = c.getForIdentityWildcard(name, identity)
+		} else if clusterName != logicalcluster.Wildcard && identity != "" {
+			// identities are only supported on the wildcard cluster
+			return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 		} else if clusterName == logicalcluster.Wildcard && partialMetadataRequest {
 			// Priority 3: partial metadata wildcard request
 			crd, err = c.getForWildcardPartialMetadata(name)
@@ -476,14 +479,14 @@ func (c *apiBindingAwareCRDLister) getForFullDataWildcard(name string) (*apiexte
 	return foundCRD, nil
 }
 
-// getForIdentity handles finding the right CRD for an incoming wildcard request with identity, such as
+// getForIdentityWildcard handles finding the right CRD for an incoming wildcard request with identity, such as
 // /clusters/*/apis/$group/$version/$resource:$identity.
-func (c *apiBindingAwareCRDLister) getForIdentity(name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	group, resource := crdNameToGroupResource(name)
 
-	indexKey := apibinding.IdentityGroupResourceKeyFunc(identity, group, resource)
+	indexKey := identityGroupResourceKeyFunc(identity, group, resource)
 
-	apiBindings, err := c.apiBindingIndexer.ByIndex(apibinding.IndexAPIBindingsByIdentityGroupResource, indexKey)
+	apiBindings, err := c.apiBindingIndexer.ByIndex(byIdentityGroupResource, indexKey)
 	if err != nil {
 		return nil, err
 	}
