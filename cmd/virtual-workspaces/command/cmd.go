@@ -17,6 +17,8 @@ limitations under the License.
 package command
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -41,12 +44,14 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
-func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
+func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 	opts := options.NewOptions()
 
 	// Default to -v=2
@@ -64,7 +69,7 @@ func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 			if err := opts.Validate(); err != nil {
 				return err
 			}
-			return Run(opts, stopCh)
+			return Run(ctx, opts)
 		},
 	}
 
@@ -74,25 +79,41 @@ func NewCommand(errout io.Writer, stopCh <-chan struct{}) *cobra.Command {
 }
 
 // Run takes the options, starts the API server and waits until stopCh is closed or initial listening fails.
-func Run(o *options.Options, stopCh <-chan struct{}) error {
+func Run(ctx context.Context, o *options.Options) error {
 	// parse kubeconfig
 	kubeConfig, err := readKubeConfig(o.KubeconfigFile)
 	if err != nil {
 		return err
 	}
-	kubeClientConfig, err := kubeConfig.ClientConfig()
+	nonIdentityConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
 		return err
 	}
-	u, err := url.Parse(kubeClientConfig.Host)
+	u, err := url.Parse(nonIdentityConfig.Host)
 	if err != nil {
 		return err
 	}
 	u.Path = ""
-	kubeClientConfig.Host = u.String()
+	nonIdentityConfig.Host = u.String()
+
+	// resolve identities for system APIBindings
+	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityConfig) // can only used for apis.kcp.dev
+	if err != nil {
+		return err
+	}
+	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(nonIdentityConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
+		if err := resolveIdentities(ctx); err != nil {
+			klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		return fmt.Errorf("failed to get or create identities: %w", err)
+	}
 
 	// create clients and informers
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(kubeClientConfig)
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(identityConfig)
 	if err != nil {
 		return err
 	}
@@ -100,7 +121,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
 
-	apiextensionsClusterClient, err := apiextensionclientset.NewClusterForConfig(kubeClientConfig)
+	apiextensionsClusterClient, err := apiextensionclientset.NewClusterForConfig(identityConfig)
 	if err != nil {
 		return err
 	}
@@ -108,7 +129,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardApiextensionsClient := apiextensionsClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardApiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(wildcardApiextensionsClient, 10*time.Minute)
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(kubeClientConfig)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig)
 	if err != nil {
 		return err
 	}
@@ -116,7 +137,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
-	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(kubeClientConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
+	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
 	if err != nil {
 		return err
 	}
@@ -156,7 +177,7 @@ func Run(o *options.Options, stopCh <-chan struct{}) error {
 
 	klog.Infof("Starting virtual workspace apiserver on %s (%s)", rootAPIServerConfig.GenericConfig.ExternalAddress, version.Get().String())
 
-	return preparedRootAPIServer.Run(stopCh)
+	return preparedRootAPIServer.Run(ctx.Done())
 }
 
 func readKubeConfig(kubeConfigFile string) (clientcmd.ClientConfig, error) {
