@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
@@ -31,10 +32,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 // NewSheriffsCRDWithSchemaDescription returns a minimal sheriffs CRD in the API group specified with the description
@@ -161,17 +164,21 @@ func CreateSheriff(
 
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 
-	_, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": group + "/v1",
-			"kind":       "Sheriff",
-			"metadata": map[string]interface{}{
-				"name": name,
+	// CRDs are asynchronously served because they are informer based.
+	framework.Eventually(t, func() (bool, string) {
+		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": group + "/v1",
+				"kind":       "Sheriff",
+				"metadata": map[string]interface{}{
+					"name": name,
+				},
 			},
-		},
-	}, metav1.CreateOptions{})
-
-	require.NoError(t, err, "failed to create sheriff %s|default/%s", clusterName, name)
+		}, metav1.CreateOptions{}); err != nil {
+			return false, fmt.Sprintf("failed to create Sheriff %s|%s: %v", clusterName, name, err.Error())
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating Sheriff %s|%s", clusterName, name)
 }
 
 func jsonOrDie(obj interface{}) []byte {
