@@ -29,7 +29,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -241,13 +240,11 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		} else if clusterName == logicalcluster.Wildcard && partialMetadataRequest {
 			// Priority 3: partial metadata wildcard request
 			crd, err = c.getForWildcardPartialMetadata(name)
-		} else if clusterName == logicalcluster.Wildcard {
-			// Priority 4: full data wildcard request
-			// TODO(sttts): get rid of this case for non-system CRDs
-			crd, err = c.getForFullDataWildcard(ctx, name)
-		} else {
-			// Priority 5: normal CRD request
+		} else if clusterName != logicalcluster.Wildcard {
+			// Priority 4: normal CRD request
 			crd, err = c.get(clusterName, name)
+		} else {
+			return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 		}
 	}
 
@@ -323,33 +320,9 @@ func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 	}
 }
 
-func (c *apiBindingAwareCRDLister) getForFullDataWildcard(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	objs, err := c.crdIndexer.ByIndex(byGroupResourceName, name) // bound CRDs have different names and are therefore ignored
-	if err != nil {
-		return nil, err
-	}
-
-	var foundCRD *apiextensionsv1.CustomResourceDefinition
-	for _, obj := range objs {
-		crd := obj.(*apiextensionsv1.CustomResourceDefinition)
-
-		if foundCRD == nil {
-			foundCRD = crd
-		} else if !equality.Semantic.DeepEqual(foundCRD.Spec, crd.Spec) {
-			return nil, apierrors.NewInternalError(fmt.Errorf("error resolving resource for %q: cannot watch across logical clusters for a resource type with several distinct schemas: %s|%s and %s|%s",
-				UserAgentFrom(ctx), logicalcluster.From(foundCRD), foundCRD.Name, logicalcluster.From(crd), crd.Name))
-		}
-	}
-
-	if foundCRD == nil {
-		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
-	}
-
-	return foundCRD, nil
-}
-
 // getForIdentityWildcard handles finding the right CRD for an incoming wildcard request with identity, such as
-// /clusters/*/apis/$group/$version/$resource:$identity.
+//
+//   /clusters/*/apis/$group/$version/$resource:$identity.
 func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	group, resource := crdNameToGroupResource(name)
 

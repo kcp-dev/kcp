@@ -190,18 +190,12 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	rootShardDynamicClients, err := dynamic.NewClusterForConfig(rootCfg)
 	require.NoError(t, err)
 
-	t.Logf("Trying to wildcard list")
+	t.Logf("Trying to wildcard list without identity. It should fail.")
 	_, err = rootShardDynamicClients.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "expected wildcard list to work because schemas are the same")
+	require.Error(t, err, "expected wildcard list to fail because CRD have no identity cross-workspace")
 
 	t.Logf("Install a different sheriffs CRD into workspace %q", wsNormalCRD2)
 	bootstrapCRD(t, wsNormalCRD2, crdClusterClient.Cluster(wsNormalCRD2).ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD2)
-
-	t.Logf("Trying to wildcard list and expecting it to fail now")
-	require.Eventually(t, func() bool {
-		_, err = rootShardDynamicClients.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
-		return err != nil
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected wildcard list to fail because schemas are different")
 
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1a, group, wsNormalCRD1a.String())
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1b, group, wsNormalCRD1b.String())
