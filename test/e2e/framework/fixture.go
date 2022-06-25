@@ -464,7 +464,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		t.Logf("Collecting imported resource info")
+		t.Logf("Collecting imported resource info: %s", artifactDir)
 		upstreamCfg := sf.UpstreamServer.DefaultConfig(t)
 
 		gather := func(client dynamic.Interface, gvr schema.GroupVersionResource) {
@@ -516,10 +516,10 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				}
 
 				for _, pod := range pods.Items {
-					t.Logf("Collecting downstream logs for pod %s/%s", syncerID, pod.Name)
-					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
-
 					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
+
+					t.Logf("Collecting downstream logs for pod %s/%s: %s", syncerID, pod.Name, artifactPath)
+					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
 
 					err = ioutil.WriteFile(artifactPath, logs, 0644)
 					if err != nil {
