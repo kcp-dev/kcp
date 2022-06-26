@@ -19,7 +19,6 @@ package builder
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -125,7 +124,8 @@ func BuildVirtualWorkspace(
 					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						return errors.New("informer not synced")
+						klog.Errorf("informer not synced")
+						return nil
 					}
 				}
 
@@ -186,7 +186,8 @@ func BuildVirtualWorkspace(
 					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						return errors.New("informer not synced")
+						klog.Errorf("informer not synced")
+						return nil
 					}
 				}
 
@@ -243,7 +244,8 @@ func BuildVirtualWorkspace(
 					"clusterworkspaces": wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						return errors.New("informer not synced")
+						klog.Errorf("informer not synced")
+						return nil
 					}
 				}
 
