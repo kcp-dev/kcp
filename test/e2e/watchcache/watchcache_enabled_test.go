@@ -20,10 +20,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/tools/cache"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,20 +27,101 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster"
+	"github.com/stretchr/testify/require"
+
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/informer"
+	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
+
+const resyncPeriod = 10 * time.Hour
+const byWorkspace = "byWorkspace"
+
+func testDDSIF(t *testing.T, cfg *rest.Config, sheriffsGVR schema.GroupVersionResource, expectedClusterName logicalcluster.Name) {
+	t.Logf("testing DDSIF for %v in cluster %v", sheriffsGVR.String(), expectedClusterName.String())
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
+	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
+
+	ddsif := informer.NewDynamicDiscoverySharedInformerFactory(
+		kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		kubeClusterClient.DiscoveryClient,
+		metadataClusterClient.Cluster(logicalcluster.Wildcard),
+		func(obj interface{}) bool { return true }, 60*time.Second,
+	)
+	if err := ddsif.AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace}); err != nil {
+		t.Fatal(err)
+	}
+
+	go kcpSharedInformerFactory.Start(context.Background().Done())
+	ddsif.Start(context.Background())
+
+	require.Eventually(t, func() bool {
+		listers, notSynced := ddsif.Listers()
+		for _, ns := range notSynced {
+			klog.Infof("db: ddsif not synced %v", ns.String())
+		}
+
+		for gvr, lister := range listers {
+			obj, err := lister.List(labels.Everything())
+			if err != nil {
+				klog.Errorf("db: failed to list items for %v due to %v", gvr.String(), err)
+			}
+			if gvr.String() == sheriffsGVR.String() {
+				for _, o := range obj {
+					u := o.(*unstructured.Unstructured)
+					if u.GetClusterName() == expectedClusterName.String() {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}, wait.ForeverTestTimeout*3, time.Millisecond*100, "ddsif hasn't found newyork.io resource")
+}
+
+func indexByWorkspace(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+
+	lcluster := logicalcluster.From(metaObj)
+	return []string{lcluster.String()}, nil
+}
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Parallel()
@@ -142,8 +219,8 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	// end of dynamic inf
 
 	t.Log("Updating sheriffs.newyork.io 10 times")
-	dynamicInformerExpectedUpdates = 90
-	for i := 0; i < 90; i++ {
+	dynamicInformerExpectedUpdates = 1
+	for i := 0; i < 1; i++ {
 		res, err := dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 
@@ -174,7 +251,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 
 	t.Log("Getting sheriffs.newyork.io 10 times from the watch cache")
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		res, err := dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one sheriff")
@@ -184,9 +261,11 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
-	if sheriffsCacheHit < 10 {
+	if sheriffsCacheHit < 1 {
 		t.Fatalf("expected to get sheriffs.newyork.io from the cache at least 10 times, got %v", sheriffsCacheHit)
 	}
+
+	testDDSIF(t, cfg, sheriffsGVR, wsConsume1a)
 }
 
 func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
