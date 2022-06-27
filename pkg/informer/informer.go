@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -216,11 +217,15 @@ func (d *DynamicDiscoverySharedInformerFactory) AddIndexers(indexers cache.Index
 
 func (d *DynamicDiscoverySharedInformerFactory) Start(ctx context.Context) {
 	// Immediately discover types and start informing.
-	// TODO: Feed any failure to discover types into /readyz, instead of
-	// panicking.
-	if err := d.discoverTypes(ctx); err != nil {
-		// TODO(sttts): don't klog.Fatal, but return an error
-		klog.Fatalf("Error discovering initial types: %v", err)
+	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+		if err := d.discoverTypes(ctx); err != nil {
+			klog.Errorf("Error discovering initial types: %v", err)
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		klog.Errorf("Error discovering initial types: %v", err)
+		return
 	}
 
 	// Poll for new types in the background.
