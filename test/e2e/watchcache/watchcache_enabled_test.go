@@ -152,7 +152,6 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 
 		_, err = dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").Update(ctx, &sheriff, metav1.UpdateOptions{})
 		require.NoError(t, err)
-		time.Sleep(time.Second)
 	}
 
 	require.Eventually(t, func() bool {
