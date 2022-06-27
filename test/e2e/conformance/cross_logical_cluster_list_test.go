@@ -41,10 +41,12 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	bootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -61,10 +63,6 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
-
-	rootCfg := framework.ShardConfig(t, kcpClients, "root", cfg)
-	rootShardKcpClients, err := kcpclientset.NewClusterForConfig(rootCfg)
-	require.NoError(t, err, "failed to construct kcp client for root shard")
 
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
 
@@ -93,14 +91,20 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		})
 	}
 
-	t.Logf("Listing ClusterWorkspace CRs across logical clusters")
-	workspaces, err := rootShardKcpClients.Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+	t.Logf("Listing ClusterWorkspace CRs across logical clusters with identity")
+	rootCfg := framework.ShardConfig(t, kcpClients, "root", cfg)
+	tenancyExport, err := kcpClients.Cluster(tenancyapi.RootCluster).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.dev", metav1.GetOptions{})
+	require.NoError(t, err, "error getting tenancy API export")
+	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootCfg)
+	require.NoError(t, err, "failed to construct kcp client for server")
+	client := dynamicClusterClient.Cluster(logicalcluster.Wildcard).Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource(fmt.Sprintf("clusterworkspaces:%s", tenancyExport.Status.IdentityHash)))
+	workspaces, err := client.List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing workspaces")
 
-	t.Logf("Expecting at least those ClusterWorkspaces we created above")
 	got := sets.NewString()
 	for _, ws := range workspaces.Items {
-		got.Insert(logicalcluster.From(&ws).Join(ws.Name).String())
+		got.Insert(logicalcluster.From(&ws).Join(ws.GetName()).String())
 	}
 	require.True(t, got.IsSuperset(expectedWorkspaces), "unexpected workspaces detected")
 }
@@ -221,16 +225,20 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	require.NoError(t, err, "expected wildcard list to work with metadata client even though schemas are different")
 
 	t.Log("Start dynamic metadata informers")
-	rootKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootCfg)
-	require.NoError(t, err, "failed to construct kcp client for server")
-	rootShardKcpInformer := kcpinformers.NewSharedInformerFactoryWithOptions(rootKcpClusterClient.Cluster(logicalcluster.Wildcard), 0)
+	identityRootCfg, resolve := bootstrap.NewConfigWithWildcardIdentities(rootCfg, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	require.Eventually(t, func() bool {
+		return resolve(ctx) == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	identityRootKcpClusterClient, err := kcpclientset.NewClusterForConfig(identityRootCfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server with identitis")
+	rootShardKcpInformer := kcpinformers.NewSharedInformerFactoryWithOptions(identityRootKcpClusterClient.Cluster(logicalcluster.Wildcard), 0)
 	rootShardKcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 	rootShardKcpInformer.Start(ctx.Done())
 	rootShardKcpInformer.WaitForCacheSync(ctx.Done())
-	require.NoError(t, err, "failed to construct discovery client for server")
+
 	informerFactory := informer.NewDynamicDiscoverySharedInformerFactory(
 		rootShardKcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		rootKcpClusterClient.DiscoveryClient,
+		identityRootKcpClusterClient.DiscoveryClient,
 		rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard),
 		func(obj interface{}) bool { return true },
 		time.Second*2,
