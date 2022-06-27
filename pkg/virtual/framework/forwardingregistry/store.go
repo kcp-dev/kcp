@@ -19,25 +19,23 @@ package forwardingregistry
 import (
 	"context"
 	"fmt"
-	goruntime "runtime"
+	"net/http"
 
 	"github.com/kcp-dev/logicalcluster"
-	"golang.org/x/sync/errgroup"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
+
+	dynamicextension "github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
 )
 
 // StoreFuncs holds proto-functions that can be mutated by successive actors to wrap behavior.
@@ -62,15 +60,18 @@ type StoreFuncs struct {
 	ResetFieldsStrategyFunc
 }
 
+type Strategy interface {
+	rest.RESTCreateStrategy
+	rest.RESTUpdateStrategy
+	rest.ResetFieldsStrategy
+}
+
 func DefaultDynamicDelegatedStoreFuncs(
 	factory FactoryFunc,
 	listFactory ListFactoryFunc,
 	destroyerFunc DestroyerFunc,
-	createStrategy rest.RESTCreateStrategy,
-	updateStrategy rest.RESTUpdateStrategy,
-	deleteStrategy rest.RESTDeleteStrategy,
+	strategy Strategy,
 	tableConvertor rest.TableConvertor,
-	resetFieldsStrategy rest.ResetFieldsStrategy,
 	resource schema.GroupVersionResource,
 	apiExportIdentityHash string,
 	categories []string,
@@ -79,7 +80,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 	patchConflictRetryBackoff wait.Backoff,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
-	client := clientGetter(dynamicClusterClient, createStrategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	client := clientGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
 	s := &StoreFuncs{}
 	s.FactoryFunc = factory
 	s.ListFactoryFunc = listFactory
@@ -93,118 +94,59 @@ func DefaultDynamicDelegatedStoreFuncs(
 		return delegate.Get(ctx, name, *options, subResources...)
 	}
 	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, _ rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
-		err := rest.BeforeCreate(createStrategy, ctx, obj)
-		if err != nil {
-			return nil, err
-		}
 		unstructuredObj, ok := obj.(*unstructured.Unstructured)
 		if !ok {
-			return nil, fmt.Errorf("not an Unstructured: %#v", obj)
+			return nil, fmt.Errorf("not an Unstructured: %T", obj)
 		}
+
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, err
 		}
+
 		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
 	}
 	s.GracefulDeleterFunc = func(ctx context.Context, name string, _ rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-		obj, err := s.Get(ctx, name, &metav1.GetOptions{})
-		if err != nil {
-			return nil, false, err
-		}
-		graceful, gracefulPending, err := rest.BeforeDelete(deleteStrategy, ctx, obj, options)
-		if err != nil {
-			return nil, false, err
-		}
-		accessor, err := meta.Accessor(obj)
-		if err != nil {
-			return nil, false, err
-		}
-		opts := options.DeepCopy()
-		if opts.Preconditions == nil {
-			opts.Preconditions = &metav1.Preconditions{}
-		}
-		if opts.Preconditions.UID == nil {
-			uid := accessor.GetUID()
-			opts.Preconditions.UID = &uid
-		}
-		if opts.Preconditions.ResourceVersion == nil {
-			rv := accessor.GetResourceVersion()
-			opts.Preconditions.ResourceVersion = &rv
-		}
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
 		}
-		err = delegate.Delete(ctx, name, *opts, subResources...)
+
+		deleter, err := withDeleter(delegate)
 		if err != nil {
 			return nil, false, err
 		}
-		return obj, !graceful && !gracefulPending, nil
+
+		res, status, err := deleter.DeleteWithResult(ctx, name, *options, subResources...)
+
+		deletedImmediately := true
+		if status == http.StatusAccepted {
+			deletedImmediately = false
+		}
+
+		return res, deletedImmediately, err
 	}
 	s.MayReturnFullObjectDeleterFunc = func() bool {
 		return true
 	}
 	s.CollectionDeleterFunc = func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
-		list, err := s.List(ctx, listOptions)
-		if err != nil {
-			return nil, err
-		}
-		count := meta.LenList(list)
-		if count == 0 {
-			// Nothing to delete, return now
-			return list, nil
-		}
-
-		workers := goruntime.GOMAXPROCS(0)
-		if workers > count {
-			workers = count
-		}
-
-		objects := make(chan runtime.Object, workers)
-		var deletedObjects []runtime.Object
-
-		group, gCtx := errgroup.WithContext(ctx)
-
-		group.Go(func() error {
-			defer close(objects)
-			return meta.EachListItem(list, func(object runtime.Object) error {
-				objects <- object
-				return nil
-			})
-		})
-
-		for i := 0; i < workers; i++ {
-			group.Go(func() error {
-				for obj := range objects {
-					accessor, err := meta.Accessor(obj)
-					if err != nil {
-						return err
-					}
-					deleted, _, err := s.Delete(gCtx, accessor.GetName(), deleteValidation, options.DeepCopy())
-					if err != nil && !apierrors.IsNotFound(err) {
-						return err
-					}
-					deletedObjects = append(deletedObjects, deleted)
-				}
-				return nil
-			})
-		}
-
-		err = group.Wait()
-		if err != nil {
-			if e := meta.SetList(list, deletedObjects); e != nil {
-				return nil, errors.NewAggregate([]error{err, e})
-			}
-			return list, err
-		}
-
-		err = meta.SetList(list, deletedObjects)
+		delegate, err := client(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		return list, nil
+		deleter, err := withDeleter(delegate)
+		if err != nil {
+			return nil, err
+		}
+
+		var v1ListOptions metav1.ListOptions
+		err = metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(listOptions, &v1ListOptions, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return deleter.DeleteCollectionWithResult(ctx, *options, v1ListOptions)
 	}
 	s.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 		var v1ListOptions metav1.ListOptions
@@ -230,18 +172,22 @@ func DefaultDynamicDelegatedStoreFuncs(
 			if err != nil {
 				return nil, err
 			}
+
 			obj, err := objInfo.UpdatedObject(ctx, oldObj)
 			if err != nil {
 				return nil, err
 			}
-			err = rest.BeforeUpdate(updateStrategy, ctx, obj, oldObj)
+
+			err = rest.BeforeUpdate(strategy, ctx, obj, oldObj)
 			if err != nil {
 				return nil, err
 			}
+
 			unstructuredObj, ok := obj.(*unstructured.Unstructured)
 			if !ok {
-				return nil, fmt.Errorf("not an Unstructured: %#v", obj)
+				return nil, fmt.Errorf("not an Unstructured: %T", obj)
 			}
+
 			return delegate.Update(ctx, unstructuredObj, *options, subResources...)
 		}
 
@@ -286,8 +232,15 @@ func DefaultDynamicDelegatedStoreFuncs(
 	s.CategoriesProviderFunc = func() []string {
 		return categories
 	}
-	s.ResetFieldsStrategyFunc = resetFieldsStrategy.GetResetFields
+	s.ResetFieldsStrategyFunc = strategy.GetResetFields
 	return s
+}
+
+func withDeleter(dynamicResourceInterface dynamic.ResourceInterface) (dynamicextension.ResourceInterface, error) {
+	if c, ok := dynamicResourceInterface.(dynamicextension.ResourceInterface); ok {
+		return c, nil
+	}
+	return nil, fmt.Errorf("dynamic client does not implement ResourceDeleterInterface")
 }
 
 func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
@@ -304,16 +257,15 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 				gvr.Resource += ":" + apiExportIdentityHash
 			}
 		}
-		client := dynamicClusterClient.Cluster(clusterName)
 
 		if namespaceScoped {
 			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-				return client.Resource(gvr).Namespace(namespace), nil
+				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
 			} else {
 				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
 			}
 		} else {
-			return client.Resource(gvr), nil
+			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
 		}
 	}
 }
