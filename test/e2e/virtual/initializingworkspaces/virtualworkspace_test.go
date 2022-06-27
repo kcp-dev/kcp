@@ -214,8 +214,8 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Create clients through the virtual workspace")
-	kcpClients := map[string]*kcpclient.Cluster{}
-	kubeClients := map[string]*kubernetes.Cluster{}
+	vwKcpClusterClients := map[string]*kcpclient.Cluster{}
+	vwKubeClusterClients := map[string]*kubernetes.Cluster{}
 	for _, initializer := range []string{
 		"alpha",
 	} {
@@ -225,15 +225,15 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.NoError(t, err)
 		virtualKubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
-		kcpClients[initializer] = virtualKcpClusterClient
-		kubeClients[initializer] = virtualKubeClusterClient
+		vwKcpClusterClients[initializer] = virtualKcpClusterClient
+		vwKubeClusterClients[initializer] = virtualKubeClusterClient
 	}
 
 	t.Log("Ensure that LIST calls through the virtual workspace fail authorization")
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		_, err := kcpClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+		_, err := vwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
 		}
@@ -304,7 +304,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 		var actual *tenancyv1alpha1.ClusterWorkspaceList
 		require.Eventually(t, func() bool {
-			actual, err = kcpClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
+			actual, err = vwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
 			if err != nil && !errors.IsForbidden(err) {
 				require.NoError(t, err)
 			}
@@ -321,7 +321,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		watcher, err := kcpClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().Watch(ctx, metav1.ListOptions{
+		watcher, err := vwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().Watch(ctx, metav1.ListOptions{
 			ResourceVersion: workspaces.ResourceVersion,
 		})
 		require.NoError(t, err)
@@ -369,7 +369,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		client := kubeClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1()
+		client := vwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1()
 
 		ns, err := client.Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "testing"}}, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
@@ -434,7 +434,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		client := kcpClients[initializer].Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces()
+		client := vwKcpClusterClients[initializer].Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces()
 		ws, err = client.Get(ctx, ws.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 
@@ -481,7 +481,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for _, initializer := range []string{
 		"alpha",
 	} {
-		client := kubeClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps("testing")
+		client := vwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps("testing")
 		_, err := client.List(ctx, metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)

@@ -134,7 +134,8 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 							wildcardsRbacInformers.Roles().Informer(),
 						} {
 							if !cache.WaitForNamedCacheSync("workspaceauthorizationcache", context.StopCh, informer.HasSynced) {
-								return errors.New("informer not synced")
+								klog.Errorf("informer not synced")
+								return nil
 							}
 						}
 						rootWorkspaceAuthorizationCache.Run(1*time.Second, context.StopCh)

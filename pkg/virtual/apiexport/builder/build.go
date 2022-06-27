@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
@@ -160,7 +161,8 @@ func BuildVirtualWorkspace(
 					"apiexports":         wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						return errors.New("informer not synced")
+						klog.Errorf("informer not synced")
+						return nil
 					}
 				}
 
