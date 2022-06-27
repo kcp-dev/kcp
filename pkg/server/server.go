@@ -19,9 +19,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"net/http"
 	_ "net/http/pprof"
+	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
@@ -391,7 +393,14 @@ func (s *Server) Run(ctx context.Context) error {
 					if err != nil {
 						klog.Errorf("db: failed to list items for %v due to %v", gvr.String(), err)
 					}
-					klog.Infof("db: got %v items for %v", len(obj), gvr.String())
+					if strings.Contains(gvr.String(), "newyork.io") {
+						klog.Infof("dbg: got %v items for %v", len(obj), gvr.String())
+					}
+
+					for _, o := range obj {
+						u := o.(*unstructured.Unstructured)
+						klog.Infof("dbg: %v is assigned to %v cluster", u.GetName(), u.GetClusterName())
+					}
 				}
 			}
 		}()
