@@ -185,6 +185,12 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		return kc.CurrentWorkspace(ctx, false)
 
 	default:
+		cluster := logicalcluster.New(name)
+		if strings.Contains(name, ":") && !cluster.HasPrefix(logicalcluster.New("system")) &&
+			!cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
+			return fmt.Errorf("invalid workspace name format: %s", name)
+		}
+
 		config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
 		if err != nil {
 			return err
@@ -192,6 +198,13 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 		if err != nil {
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+		}
+
+		if strings.Contains(name, ":") && logicalcluster.New(name).HasPrefix(tenancyv1alpha1.RootCluster) {
+			parentClusterName, workspaceName := logicalcluster.New(name).Split()
+			if _, err := kc.personalClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); err != nil {
+				return err
+			}
 		}
 
 		if strings.Contains(name, ":") || name == tenancyv1alpha1.RootCluster.String() {
