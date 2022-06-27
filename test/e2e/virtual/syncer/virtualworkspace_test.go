@@ -283,8 +283,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return token1 != "" && token2 != ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for default service account not created")
 
-				configUser1 := userConfigWithToken(token1, wildwestSyncerVWConfig)
-				configUser2 := userConfigWithToken(token2, wildwestSyncerVWConfig)
+				configUser1 := framework.ConfigWithToken(token1, wildwestSyncerVWConfig)
+				configUser2 := framework.ConfigWithToken(token2, wildwestSyncerVWConfig)
 
 				vwClusterClientUser1, err := wildwestclientset.NewClusterForConfig(configUser1)
 				require.NoError(t, err)
@@ -716,10 +716,4 @@ func sortAPIResourceList(list []*metav1.APIResourceList) []*metav1.APIResourceLi
 		sort.Sort(ByName(resource.APIResources))
 	}
 	return list
-}
-
-func userConfigWithToken(token string, cfg *rest.Config) *rest.Config {
-	cfgCopy := rest.CopyConfig(cfg)
-	cfgCopy.BearerToken = token
-	return cfgCopy
 }

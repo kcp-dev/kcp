@@ -14,31 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apiexport
-
-import (
-	"embed"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-//go:embed *.yaml
-var testFiles embed.FS
-
-func groupExists(list *metav1.APIGroupList, group string) bool {
-	for _, g := range list.Groups {
-		if g.Name == group {
-			return true
-		}
-	}
-	return false
-}
-
-func resourceExists(list *metav1.APIResourceList, resource string) bool {
-	for _, r := range list.APIResources {
-		if r.Name == resource {
-			return true
-		}
-	}
-	return false
-}
+// this is copied from https://github.com/openshift/library-go/tree/master/pkg/crypto. We cannot just
+// import it because library-go depends on Kubernetes libraries, which would lead to a cyclic dependency.
+package crypto

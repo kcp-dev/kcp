@@ -112,7 +112,7 @@ func TestAPIBinding(t *testing.T) {
 		sort.Strings(expectedURLs)
 
 		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
-		require.Eventually(t, func() bool {
+		framework.Eventually(t, func() (bool, string) {
 			e, err := kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Get(ctx, cowboysAPIExport.Name, metav1.GetOptions{})
 			if err != nil {
 				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderWorkspace, cowboysAPIExport.Name, err)
@@ -124,11 +124,10 @@ func TestAPIBinding(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(expectedURLs, actualURLs) {
-				t.Logf("Unexpected URLs. Diff: %s", cmp.Diff(expectedURLs, actualURLs))
-				return false
+				return false, fmt.Sprintf("Unexpected URLs. Diff: %s", cmp.Diff(expectedURLs, actualURLs))
 			}
 
-			return true
+			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExport %s|%s didn't get status.virtualWorkspaceURLs set correctly",
 			serviceProviderWorkspace, cowboysAPIExport.Name)
 	}
@@ -238,6 +237,14 @@ func TestAPIBinding(t *testing.T) {
 	t.Logf("Testing identity wildcards")
 
 	verifyWildcardList := func(consumerWorkspace logicalcluster.Name, expectedItems int) {
+		t.Logf("Get consumer %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
+		parent, _ := consumerWorkspace.Parent()
+		consumerWS, err := kcpClients.Cluster(parent).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, consumerWorkspace.Base(), metav1.GetOptions{})
+		require.NoError(t, err)
+		shardCfg := framework.ShardConfig(t, kcpClients, consumerWS.Status.Location.Current, cfg)
+		shardDynamicClients, err := dynamic.NewClusterForConfig(shardCfg)
+		require.NoError(t, err)
+
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
 		apiBinding, err := kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err, "error getting apibinding")
@@ -246,7 +253,7 @@ func TestAPIBinding(t *testing.T) {
 		gvrWithIdentity := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys:" + identity)
 
 		t.Logf("Doing a wildcard list for %v", gvrWithIdentity)
-		wildcardIdentityClient := dynamicClients.Cluster(logicalcluster.Wildcard).Resource(gvrWithIdentity)
+		wildcardIdentityClient := shardDynamicClients.Cluster(logicalcluster.Wildcard).Resource(gvrWithIdentity)
 		list, err := wildcardIdentityClient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing wildcard with identity")
 

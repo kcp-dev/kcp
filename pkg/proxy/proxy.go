@@ -17,37 +17,24 @@ limitations under the License.
 package proxy
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 
+	"k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/klog/v2"
 )
 
-// KCPProxy wraps the httputil.ReverseProxy and captures the backend name.
-type KCPProxy struct {
-	proxy   *httputil.ReverseProxy
-	backend string
-}
-
-// NewReverseProxy returns a new reverse proxy where backend is the backend URL to
-// connect to, clientCert is the proxy's client cert to use to connect to it,
-// clientKeyFile is the proxy's client private key file, and caFile is the CA
-// the proxy uses to verify the backend server's cert.
-func NewReverseProxy(backend, clientCert, clientKeyFile, caFile string) (*KCPProxy, error) {
-	target, err := url.Parse(backend)
-	if err != nil {
-		return nil, err
-	}
-
+func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read CA file %q: %w", caFile, err)
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -55,7 +42,7 @@ func NewReverseProxy(backend, clientCert, clientKeyFile, caFile string) (*KCPPro
 
 	cert, err := tls.LoadX509KeyPair(clientCert, clientKeyFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load client certificate %q or key %q: %w", clientCert, clientKeyFile, err)
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -63,23 +50,19 @@ func NewReverseProxy(backend, clientCert, clientKeyFile, caFile string) (*KCPPro
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
 	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = transport
 
-	return &KCPProxy{proxy: proxy, backend: backend}, nil
+	return transport, nil
 }
 
-// ProxyHandler extracts the CN as a user name and Organizations as groups from
-// the client cert and adds them as HTTP headers to backend request.
-func ProxyHandler(p *KCPProxy, UserHeader, GroupHeader string) func(wr http.ResponseWriter, req *http.Request) {
+// WithProxyAuthHeaders does client cert termination by extracting the user and groups and
+// passing them through access headers to the shard.
+func WithProxyAuthHeaders(delegate http.HandlerFunc, UserHeader, GroupHeader string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if u, ok := request.UserFrom(r.Context()); ok {
 			appendClientCertAuthHeaders(r.Header, u, UserHeader, GroupHeader)
 		}
-		if klog.V(6).Enabled() {
-			klog.Infof("%s %s (%s -> %s) ", r.Method, r.RequestURI, r.RemoteAddr, p.backend)
-		}
-		p.proxy.ServeHTTP(w, r)
+
+		delegate.ServeHTTP(w, r)
 	}
 }
 
@@ -89,4 +72,37 @@ func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, UserHea
 	for _, group := range user.GetGroups() {
 		header.Add(GroupHeader, group)
 	}
+}
+
+func newShardReverseProxy() *httputil.ReverseProxy {
+	director := func(req *http.Request) {
+		shardURL := ShardURLFrom(req.Context())
+		if shardURL == nil {
+			// should not happen if wiring is correct
+			runtime.HandleError(fmt.Errorf("no shard URL found in request context"))
+			req.URL.Scheme = "https"
+			req.URL.Host = "notfound"
+			return
+		}
+
+		req.URL.Scheme = shardURL.Scheme
+		req.URL.Host = shardURL.Host
+	}
+	return &httputil.ReverseProxy{Director: director}
+}
+
+type shardKey int
+
+const shardContextKey shardKey = iota
+
+func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
+	return context.WithValue(parent, shardContextKey, shardURL)
+}
+
+func ShardURLFrom(ctx context.Context) *url.URL {
+	shardURL, ok := ctx.Value(shardContextKey).(*url.URL)
+	if !ok {
+		return nil
+	}
+	return shardURL
 }

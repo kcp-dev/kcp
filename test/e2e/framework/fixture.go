@@ -275,12 +275,25 @@ func toYaml(t *testing.T, obj interface{}) string {
 
 type ClusterWorkspaceOption func(ws *tenancyv1alpha1.ClusterWorkspace)
 
+func WithShardConstraints(c tenancyv1alpha1.ShardConstraints) ClusterWorkspaceOption {
+	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
+		ws.Spec.Shard = &c
+	}
+}
+
 func WithType(path logicalcluster.Name, name tenancyv1alpha1.ClusterWorkspaceTypeName) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
 		ws.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
 			Name: name,
 			Path: path.String(),
 		}
+	}
+}
+
+func WithName(name string) ClusterWorkspaceOption {
+	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
+		ws.Name = name
+		ws.GenerateName = ""
 	}
 }
 
@@ -330,8 +343,8 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 		defer cancelFn()
 
 		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
-		if apierrors.IsNotFound(err) {
-			return // ignore not found error
+		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
+			return // ignore not found and forbidden because this probably means the parent has been deleted
 		}
 		require.NoErrorf(t, err, "failed to delete workspace %s", ws.Name)
 	})
@@ -610,20 +623,17 @@ func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx cont
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
 	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
-	require.Eventually(t, func() bool {
+	Eventually(t, func() (bool, string) {
 		cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
-		if err != nil {
-			t.Errorf("Error getting cluster %q: %v", cfg.WorkloadClusterName, err)
-			return false
-		}
+		require.NoError(t, err)
 
 		// A reason is only supplied to indicate why a cluster is 'not ready'
 		wantReady := len(reason) == 0
 		if wantReady {
-			return conditions.IsTrue(cluster, conditionsapi.ReadyCondition)
+			return conditions.IsTrue(cluster, conditionsapi.ReadyCondition), toYaml(t, cluster)
 		} else {
 			conditionReason := conditions.GetReason(cluster, conditionsapi.ReadyCondition)
-			return conditions.IsFalse(cluster, conditionsapi.ReadyCondition) && reason == conditionReason
+			return conditions.IsFalse(cluster, conditionsapi.ReadyCondition) && reason == conditionReason, toYaml(t, cluster)
 		}
 
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -706,9 +716,7 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	require.NotEmpty(t, token, "token is required")
 
 	// Compose a new downstream config that uses the token
-	downstreamConfig := rest.CopyConfig(config)
-	downstreamConfig.BearerToken = string(token)
-
+	downstreamConfig := ConfigWithToken(string(token), rest.CopyConfig(config))
 	return &syncer.SyncerConfig{
 		UpstreamConfig:      upstreamConfig,
 		DownstreamConfig:    downstreamConfig,
@@ -815,4 +823,18 @@ func Kubectl(t *testing.T, kubeconfigPath string, args ...string) []byte {
 	require.NoError(t, err)
 
 	return output
+}
+
+// ShardConfig returns a rest config that talk directly to the given shard.
+func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, shardName string, cfg *rest.Config) *rest.Config {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shardName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	shardCfg := rest.CopyConfig(cfg)
+	shardCfg.Host = shard.Spec.BaseURL
+
+	return shardCfg
 }

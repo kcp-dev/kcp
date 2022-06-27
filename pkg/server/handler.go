@@ -30,10 +30,12 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/kcp-dev/logicalcluster"
+	jwt2 "gopkg.in/square/go-jose.v2/jwt"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,12 +43,9 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kaudit "k8s.io/apiserver/pkg/audit"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
-	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/apiserver/pkg/warning"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
@@ -72,11 +71,17 @@ const (
 	workspaceAnnotation = "tenancy.kcp.dev/workspace"
 )
 
-type acceptHeaderContextKeyType int
+type (
+	acceptHeaderContextKeyType int
+	userAgentContextKeyType    int
+)
 
 const (
 	// clusterKey is the context key for the request namespace.
 	acceptHeaderContextKey acceptHeaderContextKeyType = iota
+
+	// userAgentContextKey is the context key for the request user-agent.
+	userAgentContextKey userAgentContextKeyType = iota
 )
 
 // WithAcceptHeader makes the Accept header available for code in the handler chain. It is needed for
@@ -89,19 +94,28 @@ func WithAcceptHeader(apiHandler http.Handler) http.Handler {
 	})
 }
 
+func WithUserAgent(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := context.WithValue(req.Context(), userAgentContextKey, req.Header.Get("User-Agent"))
+		handler.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
+
+func UserAgentFrom(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if v := ctx.Value(userAgentContextKey); v != nil {
+		return v.(string)
+	}
+	return ""
+}
+
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var clusterName logicalcluster.Name
 		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {
 			path = strings.TrimPrefix(path, "/clusters/")
-
-			// temporarily re-add the `root:` prefix and tell the use via warning headers
-			if !strings.HasPrefix(path, "*/") && !strings.HasPrefix(path, "root/") && !strings.HasPrefix(path, "root:") && !strings.HasPrefix(path, "system:") {
-				klog.Infof("%s => root:%s", path, path)
-				path = "root:" + path
-
-				warning.AddWarning(req.Context(), "", "the /clusters/<org>:<workspace> URL pattern is deprecated. Update your kubeconfig and use /clusters/root:<org>:<workspace> instead.")
-			}
 
 			i := strings.Index(path, "/")
 			if i == -1 {
@@ -239,7 +253,7 @@ func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 
 // WithInClusterServiceAccountRequestRewrite adds the /clusters/<clusterName> prefix to the request path if the request comes
 // from an InCluster service account requests (InCluster clients don't support prefixes).
-func WithInClusterServiceAccountRequestRewrite(handler http.Handler, unsafeServiceAccountPreAuth authenticator.Request) http.Handler {
+func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// some headers we set to set logical clusters, those are not the requests from InCluster clients
 		clusterHeader := req.Header.Get(logicalcluster.ClusterHeader)
@@ -255,21 +269,36 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler, unsafeServi
 			return
 		}
 
-		// attempt to authenticate service account JWT
-		clone := utilnet.CloneRequest(req)
-		resp, ok, err := unsafeServiceAccountPreAuth.AuthenticateRequest(clone)
-		if err != nil {
-			// ignore errors. This is best effort, and downstream authn and authz will make sure this is safe
+		prefix := "Bearer "
+		token := req.Header.Get("Authorization")
+		if !strings.HasPrefix(token, prefix) {
 			handler.ServeHTTP(w, req)
 			return
 		}
-		if ok && resp != nil {
-			if val, ok := resp.User.GetExtra()[authserviceaccount.ClusterNameKey]; ok && len(val) > 0 {
-				clusterName := val[0]
-				req.URL.Path = path.Join("/clusters", clusterName, req.URL.Path)
-				req.RequestURI = path.Join("/clusters", clusterName, req.RequestURI)
+		token = token[len(prefix):]
+
+		var claims map[string]interface{}
+		decoded, err := jwt2.ParseSigned(token)
+		if err != nil { // just ignore
+			handler.ServeHTTP(w, req)
+			return
+		}
+		if err = decoded.UnsafeClaimsWithoutVerification(&claims); err != nil {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		clusterName, ok, err := unstructured.NestedString(claims, "kubernetes.io", "clusterName") // bound
+		if err != nil || !ok {
+			clusterName, ok, err = unstructured.NestedString(claims, "kubernetes.io/serviceaccount/clusterName") // legacy
+			if err != nil || !ok {
+				handler.ServeHTTP(w, req)
+				return
 			}
 		}
+
+		req.URL.Path = path.Join("/clusters", clusterName, req.URL.Path)
+		req.RequestURI = path.Join("/clusters", clusterName, req.RequestURI)
 
 		handler.ServeHTTP(w, req)
 	})

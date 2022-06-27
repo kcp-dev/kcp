@@ -4,10 +4,12 @@ go 1.16
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
+	github.com/abiosoft/lineprefix v0.1.4
 	github.com/egymgmbh/go-prefix-writer v0.0.0-20180609083313-7326ea162eca
 	github.com/emicklei/go-restful v2.9.5+incompatible
 	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/evanphx/json-patch v5.6.0+incompatible
+	github.com/fatih/color v1.12.0
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.5
@@ -23,6 +25,7 @@ require (
 	go.uber.org/multierr v1.7.0
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
+	gopkg.in/square/go-jose.v2 v2.2.2
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5

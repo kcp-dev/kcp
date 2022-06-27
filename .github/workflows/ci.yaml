@@ -44,10 +44,7 @@ jobs:
           go install github.com/google/ko@latest
 
       - run: |-
-          LOG_DIR=/tmp/e2e/shared-server/artifacts \
-          ARTIFACT_DIR=/tmp/e2e \
-          COUNT=2 \
-          E2E_PARALLELISM=2 \
+          LOG_DIR=/tmp/e2e/shared-server/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 E2E_PARALLELISM=2 \
           make test-e2e-shared
 
       - uses: cytopia/upload-artifact-retry-action@v0.1.2
@@ -55,3 +52,30 @@ jobs:
         with:
           name: e2e-shared-server
           path: /tmp/e2e/**/artifacts/
+
+  e2e-sharded:
+    name: e2e-sharded
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: v1.17
+    - run: make build
+
+    # Install kind with a local registry
+    - uses: container-tools/kind-action@v1
+      name: Kubernetes KinD Cluster w/local registry
+
+    - run: |-
+        go install github.com/google/ko@latest
+
+    - run: |-
+        LOG_DIR=/tmp/e2e/sharded/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 E2E_PARALLELISM=2 \
+        make test-e2e-sharded
+
+    - uses: cytopia/upload-artifact-retry-action@v0.1.2
+      if: ${{ always() }}
+      with:
+        name: e2e-sharded
+        path: /tmp/e2e/**/artifacts/

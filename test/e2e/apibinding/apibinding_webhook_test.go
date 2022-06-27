@@ -18,6 +18,9 @@ package apibinding
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	gohttp "net/http"
 	"path/filepath"
 	"testing"
 	"time"
@@ -277,6 +280,12 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		dirPath := filepath.Dir(server.KubeconfigPath())
 		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
+		framework.Eventually(t, func() (bool, string) {
+			cl := gohttp.Client{Transport: &gohttp.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+			_, err := cl.Get(testWebhooks[cluster].GetURL())
+			return err == nil, fmt.Sprintf("%v", err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to connect to webhook")
+
 		sideEffect := admissionregistrationv1.SideEffectClassNone
 		url := testWebhooks[cluster].GetURL()
 		webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -313,13 +322,16 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		Spec: v1alpha1.CowboySpec{},
 	}
 
-	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
-	t.Logf("Creating cowboy resource in target logical cluster")
+	t.Logf("Ensure cowboys are served")
+	require.Eventually(t, func() bool {
+		_, err := cowbyClients.Cluster(targetWorkspace).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Creating cowboy resource in target logical cluster, eventually going through admission webhook")
 	require.Eventually(t, func() bool {
 		_, err = cowbyClients.Cluster(targetWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return false
-		}
+		require.NoError(t, err)
 		return testWebhooks[sourceWorkspace].Calls() >= 1
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 

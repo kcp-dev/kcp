@@ -35,7 +35,8 @@ type Options struct {
 	Proxy          proxyoptions.Options
 	Logs           *logs.Options
 
-	RootDirectory string
+	RootKubeconfig string
+	RootDirectory  string
 }
 
 func NewOptions() *Options {
@@ -45,7 +46,8 @@ func NewOptions() *Options {
 		Proxy:          *proxyoptions.NewOptions(),
 		Logs:           logs.NewOptions(),
 
-		RootDirectory: ".kcp",
+		RootKubeconfig: "",
+		RootDirectory:  ".kcp",
 	}
 
 	// Default to -v=2
@@ -66,6 +68,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.Logs.AddFlags(fs)
 
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
+	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard.")
 }
 
 func (o *Options) Complete() error {

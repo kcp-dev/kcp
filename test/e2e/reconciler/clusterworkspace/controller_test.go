@@ -19,7 +19,7 @@ package clusterworkspace
 import (
 	"context"
 	"fmt"
-	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,15 +61,8 @@ func TestWorkspaceController(t *testing.T) {
 				cws, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err, "did not see root workspace shard")
 
-				err = server.rootExpectShard(cws, func(current *tenancyv1alpha1.ClusterWorkspaceShard) error {
-					if u, err := url.Parse(cws.Spec.BaseURL); err != nil {
-						return err
-					} else if cfg := server.RunningServer.DefaultConfig(t); u.Scheme+"://"+u.Host != cfg.Host {
-						return fmt.Errorf("expected ClusterWorkspaceShard baseURL to equal %q, got %q", cfg.Host, u.Host)
-					}
-					return nil
-				})
-				require.NoError(t, err, "did not see the root workspace shard updated with the expected base URL")
+				require.True(t, strings.HasPrefix(cws.Spec.BaseURL, "https://"), "expected https:// root shard base URL, got=%q", cws.Spec.BaseURL)
+				require.True(t, strings.HasPrefix(cws.Spec.ExternalURL, "https://"), "expected https:// root shard external URL, got=%q", cws.Spec.ExternalURL)
 			},
 		},
 		{

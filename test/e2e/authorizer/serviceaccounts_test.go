@@ -151,13 +151,19 @@ func TestServiceAccounts(t *testing.T) {
 	}
 	for _, ttc := range testCases {
 		t.Run(ttc.name, func(t *testing.T) {
-			saRestConfig := server.DefaultConfig(t)
-			saRestConfig.BearerToken = ttc.token(t)
+			saRestConfig := framework.ConfigWithToken(ttc.token(t), server.DefaultConfig(t))
 			saKubeClusterClient, err := kubernetes.NewClusterForConfig(saRestConfig)
+			require.NoError(t, err)
+			saKubeClient, err := kubernetes.NewForConfig(saRestConfig)
 			require.NoError(t, err)
 
 			t.Run("Access workspace with the service account", func(t *testing.T) {
 				_, err := saKubeClusterClient.Cluster(clusterName).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
+				require.NoError(t, err)
+			})
+
+			t.Run("Access workspace with the service account, but without /clusters path like InCluster clients", func(t *testing.T) {
+				_, err := saKubeClient.CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 			})
 

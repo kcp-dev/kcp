@@ -18,6 +18,7 @@ package options
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/spf13/pflag"
 )
@@ -32,9 +33,9 @@ type EmbeddedEtcd struct {
 	ForceNewCluster bool
 }
 
-func NewEmbeddedEtcd() *EmbeddedEtcd {
+func NewEmbeddedEtcd(rootDir string) *EmbeddedEtcd {
 	return &EmbeddedEtcd{
-		Directory:  "etcd-server",
+		Directory:  filepath.Join(rootDir, "etcd-server"),
 		PeerPort:   "2380",
 		ClientPort: "2379",
 	}

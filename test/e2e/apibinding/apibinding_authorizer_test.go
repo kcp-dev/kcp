@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
 	"github.com/kcp-dev/kcp/config/helpers"
@@ -118,7 +117,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 		bindConsumerToProvider(consumer, serviceProvider)
 		t.Logf("Set up user 1 as admin for the consumer workspace %q", consumer)
 		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1"}, nil, []string{"admin"})
-		wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(userConfig("user-1", cfg))
+		wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(framework.UserConfig("user-1", cfg))
 		cowboyClient := wildwestClusterClient.Cluster(consumer).WildwestV1alpha1().Cowboys("default")
 		require.NoError(t, err)
 		testCRUDOperations(ctx, t, consumer, wildwestClusterClient)
@@ -140,7 +139,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			require.NoError(t, err)
 
 			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-2"}, nil, []string{"access"})
-			user2Client, err := wildwestclientset.NewClusterForConfig(userConfig("user-2", cfg))
+			user2Client, err := wildwestclientset.NewClusterForConfig(framework.UserConfig("user-2", cfg))
 			require.NoError(t, err)
 
 			t.Logf("Make sure user 2 can list cowboys in consumer workspace %q", consumer)
@@ -166,12 +165,6 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			require.NoError(t, err, "expected error updating status of cowboys")
 		}
 	}
-}
-
-func userConfig(username string, cfg *rest.Config) *rest.Config {
-	cfgCopy := rest.CopyConfig(cfg)
-	cfgCopy.BearerToken = username + "-token"
-	return cfgCopy
 }
 
 func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {

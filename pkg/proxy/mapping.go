@@ -20,10 +20,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 )
 
@@ -40,7 +43,7 @@ type PathMapping struct {
 	GroupHeader     string `json:"group_header,omitempty"`
 }
 
-func NewHandler(o *proxyoptions.Options) (http.Handler, error) {
+func NewHandler(o *proxyoptions.Options, index index.Index) (http.Handler, error) {
 	mappingData, err := ioutil.ReadFile(o.MappingFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read mapping file %q: %w", o.MappingFile, err)
@@ -52,12 +55,38 @@ func NewHandler(o *proxyoptions.Options) (http.Handler, error) {
 	}
 
 	mux := http.NewServeMux()
+
+	// TODO: implement proper readyz handler
+	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK")) // nolint: errcheck
+		w.WriteHeader(http.StatusOK)
+	}))
+
 	for _, m := range mapping {
 		klog.V(2).Infof("Adding mapping %v", m)
-		proxy, err := NewReverseProxy(m.Backend, m.ProxyClientCert, m.ProxyClientKey, m.BackendServerCA)
+
+		u, err := url.Parse(m.Backend)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create path mapping for path %q: failed to parse URL %q: %w", m.Path, m.Backend, err)
+		}
+
+		transport, err := newTransport(m.ProxyClientCert, m.ProxyClientKey, m.BackendServerCA)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create path mapping for path %q: %w", m.Path, err)
 		}
+
+		var handler http.HandlerFunc
+		if m.Path == "/clusters/" {
+			clusterProxy := newShardReverseProxy()
+			clusterProxy.Transport = transport
+			handler = shardHandler(index, clusterProxy)
+		} else {
+			// TODO: handle virtual workspace apiservers per shard
+			proxy := httputil.NewSingleHostReverseProxy(u)
+			proxy.Transport = transport
+			handler = proxy.ServeHTTP
+		}
+
 		userHeader := "X-Remote-User"
 		groupHeader := "X-Remote-Group"
 		if m.UserHeader != "" {
@@ -66,7 +95,10 @@ func NewHandler(o *proxyoptions.Options) (http.Handler, error) {
 		if m.GroupHeader != "" {
 			groupHeader = m.GroupHeader
 		}
-		mux.Handle(m.Path, http.HandlerFunc(ProxyHandler(proxy, userHeader, groupHeader)))
+
+		handler = WithProxyAuthHeaders(handler, userHeader, groupHeader)
+
+		mux.Handle(m.Path, handler)
 	}
 
 	return mux, nil

@@ -59,15 +59,21 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 	cfg := server.DefaultConfig(t)
 
+	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp client for server")
+
+	rootCfg := framework.ShardConfig(t, kcpClients, "root", cfg)
+	rootShardKcpClients, err := kcpclientset.NewClusterForConfig(rootCfg)
+	require.NoError(t, err, "failed to construct kcp client for root shard")
+
+	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
+
 	logicalClusters := []logicalcluster.Name{
-		framework.NewOrganizationFixture(t, server),
-		framework.NewOrganizationFixture(t, server),
+		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"})),
+		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"})),
 	}
 	expectedWorkspaces := sets.NewString()
 	for i, logicalCluster := range logicalClusters {
-		kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
-		require.NoError(t, err, "failed to construct kcp client for server")
-
 		wsName := fmt.Sprintf("ws-%d", i)
 
 		t.Logf("Creating ClusterWorkspace CRs in logical cluster %s", logicalCluster)
@@ -88,10 +94,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	}
 
 	t.Logf("Listing ClusterWorkspace CRs across logical clusters")
-	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
-	require.NoError(t, err, "failed to construct kcp client for server")
-	kcpClient := kcpClients.Cluster(logicalcluster.Wildcard)
-	workspaces, err := kcpClient.TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+	workspaces, err := rootShardKcpClients.Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing workspaces")
 
 	t.Logf("Expecting at least those ClusterWorkspaces we created above")
@@ -126,12 +129,14 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	org := framework.NewOrganizationFixture(t, server)
 
+	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
+
 	// These 2 workspaces will have the same sheriffs CRD schema as normal CRDs
-	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org)
-	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org)
+	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
+	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	// This workspace will have a different sherrifs CRD schema as a normal CRD - will conflict with 1a/1b.
-	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org)
+	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	// These 2 workspaces will export a sheriffs API with the same schema
 	wsExport1a := framework.NewWorkspaceFixture(t, server, org)
@@ -141,13 +146,13 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	wsExport2 := framework.NewWorkspaceFixture(t, server, org)
 
 	// This workspace will consume from wsExport1a
-	wsConsume1a := framework.NewWorkspaceFixture(t, server, org)
+	wsConsume1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	// This workspace will consume from wsExport1b
-	wsConsume1b := framework.NewWorkspaceFixture(t, server, org)
+	wsConsume1b := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	// This workspace will consume from wsExport2
-	wsConsume2 := framework.NewWorkspaceFixture(t, server, org)
+	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	// Make sure the informers aren't throttled because dynamic informers do lots of discovery which slows down tests
 	cfg := server.DefaultConfig(t)
@@ -159,6 +164,9 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
+
+	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp client for server")
 
 	group := uuid.New().String() + ".io"
 
@@ -173,8 +181,13 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Logf("Install another normal sheriffs CRD into workspace %q", wsNormalCRD1b)
 	bootstrapCRD(t, wsNormalCRD1b, crdClusterClient.Cluster(wsNormalCRD1b).ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
 
+	t.Logf("Create a root shard client that is able to do wildcard requests")
+	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
+	rootShardDynamicClients, err := dynamic.NewClusterForConfig(rootCfg)
+	require.NoError(t, err)
+
 	t.Logf("Trying to wildcard list")
-	_, err = dynamicClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
+	_, err = rootShardDynamicClients.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work because schemas are the same")
 
 	t.Logf("Install a different sheriffs CRD into workspace %q", wsNormalCRD2)
@@ -182,12 +195,9 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	t.Logf("Trying to wildcard list and expecting it to fail now")
 	require.Eventually(t, func() bool {
-		_, err = dynamicClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
+		_, err = rootShardDynamicClients.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 		return err != nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected wildcard list to fail because schemas are different")
-
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
-	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1a, group, wsNormalCRD1a.String())
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1b, group, wsNormalCRD1b.String())
@@ -205,21 +215,23 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume2, group, wsConsume2.String())
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
+	rootShardMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootCfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
-	_, err = metadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
+	_, err = rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work with metadata client even though schemas are different")
 
 	t.Log("Start dynamic metadata informers")
-	kcpInformer := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(logicalcluster.Wildcard), 0)
-	kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
-	kcpInformer.Start(ctx.Done())
-	kcpInformer.WaitForCacheSync(ctx.Done())
+	rootKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootCfg)
+	require.NoError(t, err, "failed to construct kcp client for server")
+	rootShardKcpInformer := kcpinformers.NewSharedInformerFactoryWithOptions(rootKcpClusterClient.Cluster(logicalcluster.Wildcard), 0)
+	rootShardKcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+	rootShardKcpInformer.Start(ctx.Done())
+	rootShardKcpInformer.WaitForCacheSync(ctx.Done())
 	require.NoError(t, err, "failed to construct discovery client for server")
 	informerFactory := informer.NewDynamicDiscoverySharedInformerFactory(
-		kcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		kcpClusterClient.DiscoveryClient,
-		metadataClusterClient.Cluster(logicalcluster.Wildcard),
+		rootShardKcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		rootKcpClusterClient.DiscoveryClient,
+		rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard),
 		func(obj interface{}) bool { return true },
 		time.Second*2,
 	)
@@ -258,6 +270,11 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	cfg := server.DefaultConfig(t)
 
+	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp client for server")
+
+	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
+
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
@@ -279,7 +296,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	configMapGVR := corev1.Resource("configmaps").WithVersion("v1")
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootCfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 	list, err := metadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(configMapGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work")

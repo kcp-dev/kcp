@@ -19,26 +19,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 
+	flag "github.com/spf13/pflag"
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	"github.com/kcp-dev/kcp/test/e2e/framework"
+	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 )
-
-func main() {
-	if err := start(); err != nil {
-		// nolint: errorlint
-		if err, ok := err.(*exec.ExitError); ok {
-			os.Exit(err.ExitCode())
-		}
-		fmt.Fprintf(os.Stderr, "error: %v\n", err) // nolint:errcheck
-		os.Exit(1)
-	}
-}
 
 // Start a kcp server with the configuration expected by the e2e
 // tests. Useful for developing with a persistent server.
@@ -55,27 +45,44 @@ func main() {
 //
 //   $ go test -v --use-default-kcp-server
 //
-func start() error {
+func main() {
+	flag.String("log-file-path", ".kcp/kcp.log", "Path to the log file")
+
+	// split flags into --shard-* and everything elese (generic). The former are
+	// passed to the respective components. Everything after "--" is considered a shard flag.
+	var shardFlags, genericFlags []string
+	for i, arg := range os.Args[1:] {
+		if arg == "--" {
+			shardFlags = append(shardFlags, os.Args[i+2:]...)
+			break
+		}
+		if strings.HasPrefix(arg, "--shard-") {
+			shardFlags = append(shardFlags, "-"+strings.TrimPrefix(arg, "--shard"))
+		} else {
+			genericFlags = append(genericFlags, arg)
+		}
+	}
+	flag.CommandLine.Parse(genericFlags) // nolint: errcheck
+
+	if err := start(shardFlags); err != nil {
+		// nolint: errorlint
+		if err, ok := err.(*exec.ExitError); ok {
+			os.Exit(err.ExitCode())
+		}
+		fmt.Fprintf(os.Stderr, "error: %v\n", err) // nolint:errcheck
+		os.Exit(1)
+	}
+}
+
+func start(shardFlags []string) error {
 	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer cancelFn()
 
-	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
-	commandLine = append(commandLine, os.Args[1:]...)
-	log.Printf("running: %v\n", strings.Join(commandLine, " "))
-
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Start()
+	logFilePath := flag.Lookup("log-file-path").Value.String()
+	errCh, err := shard.Start(ctx, "kcp", ".kcp", logFilePath, shardFlags)
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		cmd.Process.Kill() //nolint:errcheck
-	}()
-
-	return cmd.Wait()
+	return <-errCh
 }

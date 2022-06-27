@@ -64,7 +64,9 @@ func main() {
 		log.Panicln("failed to create configmap", err)
 	}
 
-	log.Printf("configmap %s created\n", configMapName)
+	log.Printf("configmap %s created. Going to sleep.\n", configMapName)
+
+	<-ctx.Done()
 }
 
 func DetectNamespace() (string, error) {

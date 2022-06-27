@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -50,8 +51,6 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org)
 	cfg := server.DefaultConfig(t)
-	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
-	require.NoError(t, err)
 
 	t.Log("Creating wildwest.dev CRD")
 	apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
@@ -79,7 +78,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
 	}
 
-	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, kubeClusterClient, "/wildwest.dev/cowboys/customresources")
+	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, server.DefaultConfig(t), "/wildwest.dev/cowboys/customresources")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -97,8 +96,6 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err)
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(cfg)
-	require.NoError(t, err)
-	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err)
 
 	org := framework.NewOrganizationFixture(t, server)
@@ -118,7 +115,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one sheriff")
 	}
 
-	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, kubeClusterClient, "/newyork.io/sheriffs")
+	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, server.DefaultConfig(t), "/newyork.io/sheriffs")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -163,7 +160,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 		}
 	}
 
-	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, kubeClusterClient, "/core/secrets")
+	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, server.DefaultConfig(t), "/core/secrets")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -172,9 +169,15 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	}
 }
 
-func collectCacheHitsFor(ctx context.Context, t *testing.T, kubeClusterClient *kubernetesclientset.Cluster, metricResourcePrefix string) (int, int) {
+func collectCacheHitsFor(ctx context.Context, t *testing.T, config *rest.Config, metricResourcePrefix string) (int, int) {
+	kcpClusterClient, err := kcpclientset.NewClusterForConfig(config)
+	require.NoError(t, err)
+	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", config)
+	rootShardKubeClusterClient, err := kubernetesclientset.NewForConfig(rootCfg)
+	require.NoError(t, err)
+
 	t.Logf("Reading %q metrics from the API server via %q endpoint for %q prefix", "apiserver_cache_list_total", "/metrics", metricResourcePrefix)
-	rsp := kubeClusterClient.RESTClient().Get().AbsPath("/metrics").Do(ctx)
+	rsp := rootShardKubeClusterClient.RESTClient().Get().AbsPath("/metrics").Do(ctx)
 	raw, err := rsp.Raw()
 	require.NoError(t, err)
 	scanner := bufio.NewScanner(strings.NewReader(string(raw)))

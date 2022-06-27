@@ -221,9 +221,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		virtualWorkspaceConfig := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-virtual")
 		virtualWorkspaceConfig.Host = clusterWorkspaceTypes[initializer].Status.VirtualWorkspaces[0].URL
-		virtualKcpClusterClient, err := kcpclient.NewClusterForConfig(userConfig("user-1", virtualWorkspaceConfig))
+		virtualKcpClusterClient, err := kcpclient.NewClusterForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
-		virtualKubeClusterClient, err := kubernetes.NewClusterForConfig(userConfig("user-1", virtualWorkspaceConfig))
+		virtualKubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
 		vwKcpClusterClients[initializer] = virtualKcpClusterClient
 		vwKubeClusterClients[initializer] = virtualKubeClusterClient
@@ -533,10 +533,4 @@ func workspaceLabelsUpToDate(t *testing.T, workspace tenancyv1alpha1.ClusterWork
 		}
 	}
 	return true
-}
-
-func userConfig(username string, cfg *rest.Config) *rest.Config {
-	cfgCopy := rest.CopyConfig(cfg)
-	cfgCopy.BearerToken = username + "-token"
-	return cfgCopy
 }
