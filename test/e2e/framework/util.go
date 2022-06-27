@@ -283,7 +283,10 @@ func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName l
 	}
 }
 
-func Eventually(t *testing.T, condition func() (bool, string), waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+// Eventually asserts that given condition will be met in waitFor time, periodically checking target function
+// each tick. In addition to require.Eventually, this function t.Logs the raason string value returned by the condition
+// function (eventually after 20% of the wait time) to aid in debugging.
+func Eventually(t *testing.T, condition func() (success bool, reason string), waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
 	t.Helper()
 
 	var last string
