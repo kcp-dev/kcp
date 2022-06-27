@@ -29,6 +29,8 @@ const (
 	ByLogicalCluster = "kcp-global-byLogicalCluster"
 	// ByLogicalClusterAndNamespace is the name for the index that indexes by an object's logical cluster and namespace.
 	ByLogicalClusterAndNamespace = "kcp-global-byLogicalClusterAndNamespace"
+	// IndexAPIExportByIdentity is the indexer name for by identity index for the API Export indexers.
+	IndexAPIExportByIdentity = "byIdentity"
 )
 
 // ClusterScoped returns cache.Indexers appropriate for cluster-scoped resources.

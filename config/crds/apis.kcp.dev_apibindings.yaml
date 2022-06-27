@@ -43,6 +43,10 @@ spec:
                   are granted to the bound workspace. Access is granted on a GroupResource
                   basis and can be filtered on objects by many different selectors.
                 items:
+                  description: PermissionClaim identifies an object by GR and identity
+                    hash. It's purpose is to determine the added permisions that a
+                    service provider may request and that a consumer may accept and
+                    alllow the service provider access to.
                   properties:
                     group:
                       description: group is the name of an API group. For core groups
@@ -103,10 +107,14 @@ spec:
               ObservedAcceptedPermissionClaims:
                 description: observedAcceptedPermissionClaims records the permissions
                   that the export provider is granted to the bound workspace. This
-                  is granted by binding implictily to a export that contains permissionClaims.
+                  is granted by binding implictily to an export that contains permissionClaims.
                   Access is granted on a GroupResource basis and can be filtered on
                   objects by many different selectors.
                 items:
+                  description: PermissionClaim identifies an object by GR and identity
+                    hash. It's purpose is to determine the added permisions that a
+                    service provider may request and that a consumer may accept and
+                    alllow the service provider access to.
                   properties:
                     group:
                       description: group is the name of an API group. For core groups

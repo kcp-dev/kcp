@@ -29,15 +29,16 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
-const (
-	// Copy because  of circle imports
-	indexAPIExportByIdentity = "byIdentity"
-)
+type exportAndClaimInfo struct {
+	identityHash string
+	claim        *apisv1alpha1.PermissionClaim
+}
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
 	if apiExport == nil || apiExport.Status.IdentityHash == "" {
@@ -63,44 +64,65 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	c.mutex.RUnlock()
 
 	// Get schemas and identities for base api export
+	// schemaIdentity will map the schema to the given API export that it comes from.
+	// and potentially a
 	apiResourceSchemas, schemaIdentity, err := c.getSchemasFromAPIExport(apiExport)
 	if err != nil {
 		return err
 	}
 
 	for _, pc := range apiExport.Spec.PermissionClaims {
-		if pc.IdentityHash != "" {
-			exports, err := c.apiExportIndexer.ByIndex(indexAPIExportByIdentity, pc.IdentityHash)
+		internal, schema := isPermissionClaimForInternalAPI(pc)
+		if internal {
+			shallow := *schema
+			shallow.ClusterName = logicalcluster.From(apiExport).String()
+			apiResourceSchemas = append(apiResourceSchemas, &shallow)
+			schemaIdentity[shallow.Name] = exportAndClaimInfo{}
+			continue
+		}
+		if !internal && pc.IdentityHash != "" {
+			exports, err := c.apiExportIndexer.ByIndex(indexers.IndexAPIExportByIdentity, pc.IdentityHash)
 			if err != nil {
 				return err
 			}
-			for _, export := range exports {
-				e, ok := export.(*apisv1alpha1.APIExport)
-				e = e.DeepCopy()
-				if !ok {
-					return fmt.Errorf("invalid type from apiExportIndexer got: %T, expected %T", export, apiExport)
-				}
-				schemas, schemaIDs, err := c.getSchemasFromAPIExport(e)
-				if err != nil {
-					return err
-				}
-				apiResourceSchemas = append(apiResourceSchemas, schemas...)
-				for k, v := range schemaIDs {
-					// Override the permission claims that should be used. for this schema identity
-					v.Spec.PermissionClaims = apiExport.Spec.PermissionClaims
-					schemaIdentity[k] = v
-				}
+			if len(exports) != 1 {
+				return fmt.Errorf("got %d api exports expected one", len(exports))
 			}
-		} else {
-			for _, schema := range internalapis.Schemas {
-				if pc.GroupResource.Group == schema.Spec.Group && pc.GroupResource.Resource == schema.Spec.Names.Plural {
-					shallow := *schema
-					shallow.ClusterName = logicalcluster.From(apiExport).String()
-					apiResourceSchemas = append(apiResourceSchemas, &shallow)
-					schemaIdentity[shallow.Name] = apiExport
-				}
+			export := exports[0]
+			// For the export that si found based on an the identity hash
+			// we need to add all the latest schemas that the export provides
+			// We all need to map the schema to the given APIExport that it comes from
+			// so that when creating the api definition for it, we can use the given
+			// api export to fully fill in and serve the API for the virtual workspace.
+			owningExport, ok := export.(*apisv1alpha1.APIExport)
+			if !ok {
+				return fmt.Errorf("invalid type from apiExportIndexer got: %T, expected %T", export, apiExport)
 			}
+			schemas, schemaIDs, err := c.getSchemasFromAPIExport(owningExport)
+			if err != nil {
+				return err
+			}
+			for _, schema := range schemas {
+				if schema.Spec.Group != pc.Group || schema.Spec.Names.Plural != pc.Resource {
+					continue
+				}
+				apiResourceSchemas = append(apiResourceSchemas, schema)
+			}
+			for k := range schemaIDs {
+				// Override the permission claims that should be used. for this schema identity
+				// Here we will set the identity for the schema for a permission claim.
+				exportAndClaim := schemaIdentity[k]
+				exportAndClaim.claim = &pc
+				exportAndClaim.identityHash = owningExport.Status.IdentityHash
+				schemaIdentity[k] = exportAndClaim
+			}
+			continue
 		}
+		// TODO: Add a openapi validation to catch this case, and it should never happen
+		klog.Warningf("Permission claim %v for APIEXport %s is not internal and does not have an identity hash",
+			pc,
+			fmt.Sprintf("%s|%s", logicalcluster.From(apiExport), apiExport.Name),
+		)
 	}
 
 	// reconcile APIs for APIResourceSchemas
@@ -130,7 +152,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 			}
 
-			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, schemaIdentity[apiResourceSchema.Name])
+			apiExportAndClaim := schemaIdentity[apiResourceSchema.Name]
+			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, apiExportAndClaim.identityHash, apiExportAndClaim.claim)
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
 				klog.Errorf("error creating api definition for schema: %v/%v err: %v", apiResourceSchema.Spec.Group, apiResourceSchema.Spec.Names, err)
@@ -179,9 +202,9 @@ func gvrString(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
 }
 
-func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIResourceSchema, map[string]*apisv1alpha1.APIExport, error) {
+func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIResourceSchema, map[string]exportAndClaimInfo, error) {
 	apiResourceSchemas := []*apisv1alpha1.APIResourceSchema{}
-	schemaIdentity := map[string]*apisv1alpha1.APIExport{}
+	schemaIdentity := map[string]exportAndClaimInfo{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		apiResourceSchema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -192,8 +215,20 @@ func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExpor
 			continue
 		}
 		apiResourceSchemas = append(apiResourceSchemas, apiResourceSchema)
-		schemaIdentity[schemaName] = apiExport
+		// We may need to change/mutate this API Export to get the permission claims.
+		schemaIdentity[schemaName] = exportAndClaimInfo{
+			identityHash: apiExport.Status.IdentityHash,
+		}
 	}
 
 	return apiResourceSchemas, schemaIdentity, nil
+}
+
+func isPermissionClaimForInternalAPI(claim apisv1alpha1.PermissionClaim) (bool, *apisv1alpha1.APIResourceSchema) {
+	for _, schema := range internalapis.Schemas {
+		if claim.GroupResource.Group == schema.Spec.Group && claim.GroupResource.Resource == schema.Spec.Names.Plural {
+			return true, schema
+		}
+	}
+	return false, nil
 }

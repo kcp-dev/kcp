@@ -49,6 +49,7 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 const (
@@ -56,8 +57,7 @@ const (
 
 	DefaultIdentitySecretNamespace = "kcp-system"
 
-	indexAPIExportBySecret   = "bySecret"
-	IndexAPIExportByIdentity = "byIdentity"
+	indexAPIExportBySecret = "bySecret"
 )
 
 // NewController returns a new controller for APIExports.
@@ -99,7 +99,7 @@ func NewController(
 
 	if err := apiExportInformer.Informer().AddIndexers(
 		cache.Indexers{
-			IndexAPIExportByIdentity: func(obj interface{}) ([]string, error) {
+			indexers.IndexAPIExportByIdentity: func(obj interface{}) ([]string, error) {
 				apiExport := obj.(*apisv1alpha1.APIExport)
 				return []string{apiExport.Status.IdentityHash}, nil
 			},

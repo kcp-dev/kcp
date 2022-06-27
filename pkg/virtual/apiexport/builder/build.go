@@ -24,6 +24,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -137,27 +138,31 @@ func BuildVirtualWorkspace(
 				kcpClusterClient,
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExport *apisv1alpha1.APIExport) (apidefinition.APIDefinition, error) {
-
-					if apiExport == nil {
-						return nil, fmt.Errorf("unable to get apiexport")
-					}
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, permissionClaim *apisv1alpha1.PermissionClaim) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
 					var wrapper forwardingregistry.StorageWrapper = nil
-					for _, claim := range apiExport.Spec.PermissionClaims {
-						if apiResourceSchema.Spec.Group == claim.Group && apiResourceSchema.Spec.Names.Plural == claim.Resource {
-							key, label, err := permissionclaims.PermissionClaimToLabel(claim)
-							if err != nil {
-								panic(fmt.Sprintf("unable to get permission claim label: %v", err))
-							}
-							wrapper = forwardingregistry.WithLabelSelector(map[string]string{key: label})
-							// Assume once we found the one matching there is not a second.
-							break
+					if permissionClaim != nil {
+						key, label, err := permissionclaims.ToLabelKeyAndValue(*permissionClaim)
+						if err != nil {
+							panic(fmt.Sprintf("unable to get permission claim label: %v", err))
 						}
+						wrapper = forwardingregistry.WithLabelSelector(func(_ context.Context) labels.Requirements {
+							selector := labels.SelectorFromSet(labels.Set{key: label})
+							reqs, selectable := selector.Requirements()
+							if selectable {
+								return reqs
+							} else {
+								klog.Warningf("unable to get label selector for permision claim %v",
+									permissionClaim,
+								)
+								reqs, _ = labels.Nothing().Requirements()
+							}
+							return reqs
+						})
 					}
 
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExport.Status.IdentityHash, wrapper)
+					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, identityHash, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()

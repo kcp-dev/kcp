@@ -26,9 +26,9 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-// PermissionClaimToLabel will create a safe key and value for labeling a resource to grant access
+// ToLabelKeyAndValue will create a safe key and value for labeling a resource to grant access
 // based on the permissionClaim.
-func PermissionClaimToLabel(permissionClaim apisv1alpha1.PermissionClaim) (string, string, error) {
+func ToLabelKeyAndValue(permissionClaim apisv1alpha1.PermissionClaim) (string, string, error) {
 	bytes, err := json.Marshal(permissionClaim)
 	if err != nil {
 		return "", "", err
