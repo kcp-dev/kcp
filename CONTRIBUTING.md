@@ -87,7 +87,6 @@ When you open a PR for a story task, please edit the epic description and add a 
 
 When the PR has been merged, please make sure the task is checked off in the epic.
 
-
 ## Tracking work
 
 ### Issue status and project board
@@ -155,3 +154,15 @@ If you find yourself working on something that is unplanned and/or untracked (i.
 All of the built-in types for `kcp` are `CustomResourceDefinitions`, and we generate YAML spec for them from our Go types using [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder).
 
 When adding a field that requires validation, custom annotations are used to translate this logic into the generated OpenAPI spec. [This doc](https://book.kubebuilder.io/reference/markers/crd-validation.html) gives an overview of possible validations. These annotations map directly to concepts in the [OpenAPI Spec](https://swagger.io/specification/#data-type-format) so, for instance, the `format` of strings is defined there, not in kubebuilder. Furthermore, Kubernetes has forked the OpenAPI project [here](https://github.com/kubernetes/kube-openapi/tree/master/pkg/validation) and extends more formats in the extensions-apiserver [here](https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/types_jsonschema.go#L27).
+
+## Continuous Integration
+
+kcp uses a combination of [GitHub Actions](https://help.github.com/en/actions/automating-your-workflow-with-github-actions) and
+and [prow](https://github.com/kubernetes/test-infra/tree/master/prow) to automate the build process.
+
+Here are the most important links:
+
+- [.github/workflows/ci.yaml](https://github.com/kcp-dev/kcp/blob/main/.github/workflows/ci.yaml) defines the Github Actions based jobs.
+- [openshift/release/ci-operator/config/kcp-dev/kcp](https://github.com/openshift/release/tree/master/ci-operator/config/kcp-dev/kcp) defines the prow based jobs.
+- [OpenShift CI docs](https://docs.ci.openshift.org/docs/) describes the OpenShift CI system that kcp is currently piggy backing on.
+- [Testgrid](https://k8s-testgrid.appspot.com/kcp-main#Summary) shows CI statistics.
