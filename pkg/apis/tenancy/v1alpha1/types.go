@@ -139,6 +139,10 @@ func (r ClusterWorkspaceTypeReference) String() string {
 	return fmt.Sprintf("%s:%s", r.Path, r.Name)
 }
 
+func (r ClusterWorkspaceTypeReference) Equal(other ClusterWorkspaceTypeReference) bool {
+	return r.Name == other.Name && r.Path == other.Path
+}
+
 // ClusterWorkspaceType specifies behaviour of workspaces of this type.
 //
 // +crd
@@ -169,10 +173,23 @@ type ClusterWorkspaceTypeSpec struct {
 	// for this initializer will be a colon-delimited string using the workspace in which
 	// the ClusterWorkspaceType is defined, and the type's name. For example, if a
 	// ClusterWorkspaceType `example` is created in the `root:org` workspace, the implicit
-	// initializer name is `root:org:example`.
+	// initializer name is `root:org:Example`.
 	//
 	// +optional
 	Initializer bool `json:"initializer,omitempty"`
+
+	// extend allows this ClusterWorkspaceType to add functionality from other types.
+	// When some ClusterWorkspaceType `root:org:Alpha` lists another type `root:org:Beta`
+	// in spec.extend.with, the following occurs:
+	// - new ClusterWorkspaces of type `root:org:Alpha` get the initializers from both
+	//   types added, if they are enabled
+	// - any ClusterWorkspaceType that allows `root:org:Beta` as an allowed child or parent
+	//   type will implicitly allow `root:org:Alpha` as well
+	//
+	// This field is immutable.
+	//
+	// +optional
+	Extend ClusterWorkspaceTypeExtension `json:"extend,omitempty"`
 
 	// additionalWorkspaceLabels are a set of labels that will be added to a
 	// ClusterWorkspace on creation.
@@ -210,15 +227,51 @@ type ClusterWorkspaceTypeSpec struct {
 	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedParentWorkspaceTypes,omitempty"`
 }
 
+// ClusterWorkspaceTypeExtension defines how other ClusterWorkspaceTypes are
+// composed together to add functionality to the owning ClusterWorkspaceType.
+type ClusterWorkspaceTypeExtension struct {
+	// with are ClusterWorkspaceTypes whose initializers are added to the list
+	// for the owning type, and for whom the owning type becomes an alias, as long
+	// as all of their required types are not mentioned in without.
+	//
+	// +optional
+	With []ClusterWorkspaceTypeReference `json:"with,omitempty"`
+
+	// without are ClusterWorkspaceTypes whose initializers are removed from the list
+	// computed for "with", and for whom the owning type does not become an alias. If
+	// a composite type in "with" has some part removed in "without", the composite type
+	// does not become an alias.
+	//
+	// +optional
+	Without []ClusterWorkspaceTypeReference `json:"without,omitempty"`
+}
+
 // These are valid conditions of ClusterWorkspaceType.
 const (
 	ClusterWorkspaceTypeVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
+	ErrorGeneratingURLsReason                                                      = "ErrorGeneratingURLs"
 
-	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
+	ClusterWorkspaceTypeExtensionsResolved conditionsv1alpha1.ConditionType = "ExtensionsResolved"
+	ErrorResolvingExtensionsReason                                          = "ErrorResolvingExtensions"
 )
 
 // ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.
 type ClusterWorkspaceTypeStatus struct {
+	// initializers are the list of initializing controller references which need
+	// to be added to new ClusterWorkspaces of this type, resolved from the specified
+	// type compositions.
+	//
+	// +optional
+	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+
+	// typeAliases are other ClusterWorkspaceTypes for which this type is an alias.
+	// For example, if this type is `root:org:Alpha` and the `.status.typeAliases`
+	// list contains `root:org:Beta`, any parent or child restriction which allows
+	// `root:org:Beta` will implicitly also allow `root:org:Alpha` as it is an alias.
+	//
+	// +optional
+	TypeAliases []ClusterWorkspaceTypeReference `json:"typeAliases,omitempty"`
+
 	// conditions is a list of conditions that apply to the APIExport.
 	//
 	// +optional

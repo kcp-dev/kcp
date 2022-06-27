@@ -47,8 +47,7 @@ func createAttr(cwt *tenancyv1alpha1.ClusterWorkspaceType) admission.Attributes 
 	)
 }
 
-// nolint:unused,deadcode
-func updateAttr(cwt, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
+func updateAttr(cwt, old *tenancyv1alpha1.ClusterWorkspaceType) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(cwt),
 		helpers.ToUnstructuredOrDie(old),
@@ -106,6 +105,39 @@ func TestValidate(t *testing.T) {
 			a: createAttr(&tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "a:b",
+				},
+			}),
+			clusterName: logicalcluster.New("foo:bar"),
+			wantErr:     true,
+		},
+		{
+			name: "deny changing type extensions",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+						With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{},
+						Without: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Path: "root:foo", Name: "Bar"},
+							{Path: "root:foo", Name: "Baz"},
+						},
+					},
+				},
+			}, &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+						With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Path: "root:foo", Name: "Foo"},
+						},
+						Without: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Path: "root:foo", Name: "Bar"},
+						},
+					},
 				},
 			}),
 			clusterName: logicalcluster.New("foo:bar"),
