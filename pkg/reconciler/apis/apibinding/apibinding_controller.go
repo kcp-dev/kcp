@@ -271,6 +271,7 @@ func (c *controller) enqueueAPIResourceSchema(obj interface{}) {
 		return
 	}
 
+	klog.V(2).Infof("Mapping APIResourceSchema %q", key)
 	apiExports, err := c.apiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
 	if err != nil {
 		runtime.HandleError(err)
