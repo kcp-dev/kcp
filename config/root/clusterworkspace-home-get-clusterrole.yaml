@@ -1,0 +1,9 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:kcp:home-clusterworkspace-get
+rules:
+- apiGroups: ["tenancy.kcp.dev"]
+  resources: ["clusterworkspaces/workspace"]
+  resourceNames: ["~"]
+  verbs: ["get"]

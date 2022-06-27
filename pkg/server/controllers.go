@@ -46,6 +46,9 @@ import (
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
+	confighome "github.com/kcp-dev/kcp/config/home"
+	confighomebucket "github.com/kcp-dev/kcp/config/homebucket"
+	confighomeroot "github.com/kcp-dev/kcp/config/homeroot"
 	configorganization "github.com/kcp-dev/kcp/config/organization"
 	configteam "github.com/kcp-dev/kcp/config/team"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
@@ -450,6 +453,75 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		go organizationController.Start(ctx, 2)
 		go teamController.Start(ctx, 2)
 		go universalController.Start(ctx, 2)
+
+		return nil
+	})
+	return nil
+}
+
+func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-home-workspaces")
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	homerootController, err := bootstrap.NewController(
+		dynamicClusterClient,
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Homeroot"},
+		confighomeroot.Bootstrap,
+	)
+	if err != nil {
+		return err
+	}
+
+	homebucketController, err := bootstrap.NewController(
+		dynamicClusterClient,
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Homebucket"},
+		confighomebucket.Bootstrap,
+	)
+	if err != nil {
+		return err
+	}
+
+	homeController, err := bootstrap.NewController(
+		dynamicClusterClient,
+		crdClusterClient,
+		kcpClusterClient,
+		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Home"},
+		confighome.Bootstrap,
+	)
+	if err != nil {
+		return err
+	}
+
+	s.AddPostStartHook("kcp-install-home-workspaces", func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook kcp-install-home-workspaces: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go homerootController.Start(ctx, 2)
+		go homebucketController.Start(ctx, 2)
+		go homeController.Start(ctx, 2)
 
 		return nil
 	})
