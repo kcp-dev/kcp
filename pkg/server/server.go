@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
@@ -376,6 +377,24 @@ func (s *Server) Run(ctx context.Context) error {
 
 		klog.Infof("Starting dynamic metadata informer")
 		ddsif.Start(goContext(ctx))
+
+		go func() {
+			for {
+				time.Sleep(1 * time.Second)
+				listers, notSynced := ddsif.Listers()
+				for _, ns := range notSynced {
+					klog.Infof("db: ddsif not synced %v", ns.String())
+				}
+
+				for gvr, lister := range listers {
+					obj, err := lister.List(labels.Everything())
+					if err != nil {
+						klog.Errorf("db: failed to list items for %v due to %v", gvr.String(), err)
+					}
+					klog.Infof("db: got %v items for %v", len(obj), gvr.String())
+				}
+			}
+		}()
 
 		// bootstrap root workspace with workspace shard
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
