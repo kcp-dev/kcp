@@ -67,27 +67,6 @@ func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) 
 	return ret, nil
 }
 
-const IndexAPIBindingsByIdentityGroupResource = "apiBindingsByIdentityGroupResource"
-
-func indexAPIBindingsByIdentityGroupResourceFunc(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
-	}
-
-	var ret []string
-
-	for _, r := range apiBinding.Status.BoundResources {
-		ret = append(ret, IdentityGroupResourceKeyFunc(r.Schema.IdentityHash, r.Group, r.Resource))
-	}
-
-	return ret, nil
-}
-
-func IdentityGroupResourceKeyFunc(identity, group, resource string) string {
-	return fmt.Sprintf("%s/%s/%s", identity, group, resource)
-}
-
 const indexByWorkspace = "apiBindingsByWorkspace"
 
 func indexByWorkspaceFunc(obj interface{}) ([]string, error) {

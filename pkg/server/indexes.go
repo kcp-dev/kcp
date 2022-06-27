@@ -23,11 +23,14 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 const (
-	byWorkspace         = "byWorkspace"
-	byGroupResourceName = "byGroupResourceName" // <plural>.<group>, core group uses "core"
+	byWorkspace             = "byWorkspace"
+	byGroupResourceName     = "byGroupResourceName" // <plural>.<group>, core group uses "core"
+	byIdentityGroupResource = "byIdentityGroupResource"
 )
 
 func indexByWorkspace(obj interface{}) ([]string, error) {
@@ -40,7 +43,7 @@ func indexByWorkspace(obj interface{}) ([]string, error) {
 	return []string{lcluster.String()}, nil
 }
 
-func indexByGroupResourceName(obj interface{}) ([]string, error) {
+func indexCRDByGroupResourceName(obj interface{}) ([]string, error) {
 	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a apiextensionsv1.CustomResourceDefinition, but is %T", obj)
@@ -51,4 +54,23 @@ func indexByGroupResourceName(obj interface{}) ([]string, error) {
 		group = "core"
 	}
 	return []string{fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, group)}, nil
+}
+
+func indexAPIBindingByIdentityGroupResource(obj interface{}) ([]string, error) {
+	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
+	}
+
+	var ret []string
+
+	for _, r := range apiBinding.Status.BoundResources {
+		ret = append(ret, identityGroupResourceKeyFunc(r.Schema.IdentityHash, r.Group, r.Resource))
+	}
+
+	return ret, nil
+}
+
+func identityGroupResourceKeyFunc(identity, group, resource string) string {
+	return fmt.Sprintf("%s/%s/%s", identity, group, resource)
 }

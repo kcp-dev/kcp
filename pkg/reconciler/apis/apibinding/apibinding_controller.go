@@ -120,8 +120,7 @@ func NewController(
 	})
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		indexAPIBindingsByWorkspaceExport:       indexAPIBindingsByWorkspaceExportFunc,
-		IndexAPIBindingsByIdentityGroupResource: indexAPIBindingsByIdentityGroupResourceFunc,
+		indexAPIBindingsByWorkspaceExport: indexAPIBindingsByWorkspaceExportFunc,
 	}); err != nil {
 		return nil, err
 	}
