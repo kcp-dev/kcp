@@ -54,7 +54,7 @@ type mutatingPermissionClaims struct {
 
 var _ admission.MutationInterface = &mutatingPermissionClaims{}
 
-// NewMutatingPermissionClaims will createa a mutating admission plugin that is responsible for labeling permission claims
+// NewMutatingPermissionClaims reates a mutating admission plugin that is responsible for labeling permission claims
 // For every creation request, we will determine the bindings in the workspace and if the object is claimed by an accepted
 // permission claim we will add the label.
 func NewMutatingPermissionClaims() admission.MutationInterface {
@@ -96,12 +96,12 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 			if pc.Group == a.GetKind().Group && pc.Resource == a.GetResource().Resource {
 				// Check to see if the resource is a bound resource
 				boundResource, ok := grsToBoundResource[pc.GroupResource]
-				// If the resource is coming from a binding and the permission claim's idenditd hach does not match
+				// If the resource is coming from a binding and the permission claim's idendity hash does not match
 				// then ignore this resource.
 				if ok && pc.IdentityHash != boundResource.Schema.IdentityHash {
 					continue
 				}
-				key, label, err := permissionclaims.PermissionClaimToLabel(pc)
+				key, label, err := permissionclaims.ToLabelKeyAndValue(pc)
 				if err != nil {
 					return err
 				}
