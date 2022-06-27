@@ -84,67 +84,49 @@ func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes,
 		return nil
 	}
 
-	if err := assertViolation(newMeta.GetAnnotations(), oldMeta.GetAnnotations(), annotationAllowList); err != nil {
-		return admission.NewForbidden(a, fmt.Errorf("modification of reserved annotation: %w", err))
+	if k, ok := hasPrivilegedModification(newMeta.GetAnnotations(), oldMeta.GetAnnotations(), annotationAllowList); ok {
+		return admission.NewForbidden(a, fmt.Errorf("modification of reserved annotation: %q", k))
 	}
 
-	if err := assertViolation(newMeta.GetLabels(), oldMeta.GetLabels(), labelAllowList); err != nil {
-		return admission.NewForbidden(a, fmt.Errorf("modification of reserved label: %w", err))
+	if k, ok := hasPrivilegedModification(newMeta.GetLabels(), oldMeta.GetLabels(), labelAllowList); ok {
+		return admission.NewForbidden(a, fmt.Errorf("modification of reserved label: %q", k))
 	}
 
 	return nil
 }
 
-// diff computes the difference between values of left and right.
-// It returns all keys from left and right, where:
-//
-// - left has a key not present in right
-// - right has a key not present in left
-// - the values differ between left and right for the same key
-func diff(left, right map[string]string) []string {
-	var (
-		result      = make([]string, 0, len(left)+len(right))
-		onlyOnRight = make(map[string]string, len(right))
-	)
-
-	for k, v := range right {
-		onlyOnRight[k] = v
+func hasPrivilegedModification(new, old map[string]string, allowList []string) (key string, modified bool) {
+	hasChanged := func(k, v1, v2 string, v2present bool) bool {
+		return (!v2present || v1 != v2) && isPrivileged(k, allowList)
 	}
 
-	for kLeft, vLeft := range left {
-		vRight, inRight := right[kLeft]
+	for k, v1 := range old {
+		v2, ok := new[k]
 
-		if inRight {
-			if vLeft != vRight {
-				result = append(result, kLeft)
-			}
-			delete(onlyOnRight, kLeft)
-		} else {
-			result = append(result, kLeft)
+		if hasChanged(k, v1, v2, ok) {
+			return k, true
 		}
 	}
 
-	for k := range onlyOnRight {
-		result = append(result, k)
+	for k, v1 := range new {
+		v2, ok := old[k]
+
+		if hasChanged(k, v1, v2, ok) {
+			return k, true
+		}
 	}
 
-	return result
+	return "", false
 }
 
-func assertViolation(new, old map[string]string, allowList []string) error {
-	for _, key := range diff(new, old) {
-		for i := range allowList {
-			if strings.HasSuffix(allowList[i], "*") && strings.HasPrefix(key, allowList[i][:len(allowList[i])-1]) {
-				return nil
-			} else if allowList[i] == key {
-				return nil
-			}
-		}
-
-		if strings.HasSuffix(key, "kcp.dev") {
-			return fmt.Errorf("%q", key)
+func isPrivileged(key string, allowList []string) bool {
+	for i := range allowList {
+		if strings.HasSuffix(allowList[i], "*") && strings.HasPrefix(key, allowList[i][:len(allowList[i])-1]) {
+			return false
+		} else if allowList[i] == key {
+			return false
 		}
 	}
 
-	return nil
+	return strings.HasSuffix(key, "kcp.dev")
 }

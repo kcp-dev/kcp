@@ -147,6 +147,31 @@ func TestAdmission(t *testing.T) {
 			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
 		},
 		{
+			testName: "added empty kcp.dev label",
+			attr: newAttr(
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+						Labels: map[string]string{
+							"foo":          "changed",
+							"some.kcp.dev": "",
+						},
+					},
+				},
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+				admission.Update,
+				&user.DefaultInfo{},
+			),
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+		},
+		{
 			testName: "deleted kcp.dev label",
 			attr: newAttr(
 				&v1.Pod{
@@ -163,6 +188,31 @@ func TestAdmission(t *testing.T) {
 						Labels: map[string]string{
 							"foo":          "bar",
 							"some.kcp.dev": "bar",
+						},
+					},
+				},
+				admission.Update,
+				&user.DefaultInfo{},
+			),
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+		},
+		{
+			testName: "deleted empty kcp.dev label",
+			attr: newAttr(
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+						Labels: map[string]string{
+							"foo": "changed",
+						},
+					},
+				},
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+						Labels: map[string]string{
+							"foo":          "bar",
+							"some.kcp.dev": "",
 						},
 					},
 				},
