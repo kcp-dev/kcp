@@ -1558,7 +1558,7 @@ func TestDeletePersonalWorkspaceForbiddenToUser(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: deletion in workspace \"root:orgName\" is not allowed")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"delete\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
@@ -1651,7 +1651,7 @@ func TestDeletePersonalWorkspaceForbiddenToOrgAdmin(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: deletion in workspace \"root:orgName\" is not allowed")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"delete\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
@@ -1741,7 +1741,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: deletion in workspace \"root:orgName\" is not allowed")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"delete\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")

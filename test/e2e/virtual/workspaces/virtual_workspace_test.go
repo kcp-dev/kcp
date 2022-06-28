@@ -255,6 +255,39 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				parentCluster := framework.NewWorkspaceFixture(t, server, server.orgClusterName)
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, parentCluster, "team-1", "team-2")
 
+				t.Logf("Give user1 the right to create a workspace in the parent")
+				_, err := server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "workspace-create",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:     []string{"create"},
+							Resources: []string{"clusterworkspaces/workspace"},
+							APIGroups: []string{"tenancy.kcp.dev"},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create ClusterRole 'workspace-create'")
+
+				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "user1-workspace-create",
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						APIGroup: "rbac.authorization.k8s.io",
+						Name:     "workspace-create",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: "user-1",
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create ClusterRoleBinding 'user1-workspace-create'")
+
 				t.Logf("Create custom ClusterWorkspaceType 'Custom'")
 				cwt, err := server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "custom"},
@@ -271,7 +304,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
-							Verbs:         []string{"use", "member"},
+							Verbs:         []string{"use"},
 							Resources:     []string{"clusterworkspacetypes"},
 							ResourceNames: []string{"custom"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
