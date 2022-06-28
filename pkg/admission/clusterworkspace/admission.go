@@ -27,11 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 // Validate ClusterWorkspace creation and updates for
@@ -88,14 +89,16 @@ func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ 
 	}
 
 	if a.GetOperation() == admission.Create {
-		userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
-		if err != nil {
-			return admission.NewForbidden(a, err)
+		if isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup); !isSystemMaster {
+			userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
+			if err != nil {
+				return admission.NewForbidden(a, err)
+			}
+			if cw.Annotations == nil {
+				cw.Annotations = map[string]string{}
+			}
+			cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = userInfo
 		}
-		if cw.Annotations == nil {
-			cw.Annotations = map[string]string{}
-		}
-		cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = userInfo
 	}
 
 	return updateUnstructured(u, cw)
@@ -151,15 +154,17 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 	}
 
 	if a.GetOperation() == admission.Create {
-		userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
-		if err != nil {
-			return admission.NewForbidden(a, err)
-		}
-		if cw.Annotations == nil {
-			cw.Annotations = map[string]string{}
-		}
-		if got := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; got != userInfo {
-			return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, userInfo))
+		if isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup); !isSystemMaster {
+			userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
+			if err != nil {
+				return admission.NewForbidden(a, err)
+			}
+			if cw.Annotations == nil {
+				cw.Annotations = map[string]string{}
+			}
+			if got := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; got != userInfo {
+				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, userInfo))
+			}
 		}
 	}
 
