@@ -50,6 +50,7 @@ func (a *GroupFilter) AuthenticateRequest(req *http.Request) (*authenticator.Res
 	if resp == nil || resp.User == nil {
 		return resp, ok, err
 	}
+	groupsToPassOn := sets.NewString(resp.User.GetGroups()...)
 
 	info := user.DefaultInfo{
 		Name:  resp.User.GetName(),
@@ -58,37 +59,34 @@ func (a *GroupFilter) AuthenticateRequest(req *http.Request) (*authenticator.Res
 	}
 	resp.User = &info
 
-	groupsToPassOn := sets.NewString(resp.User.GetGroups()...)
 	if len(a.PassOnGroups) > 0 || len(a.PassOnGroupPrefixes) > 0 {
-	nextGroup:
-		for _, g := range groupsToPassOn.UnsortedList() {
-			if !a.PassOnGroups.Has(g) {
-				for _, prefix := range a.PassOnGroupPrefixes {
-					if strings.HasPrefix(g, prefix) {
-						goto nextGroup
-					}
-				}
-				groupsToPassOn.Delete(g)
+		for g := range groupsToPassOn {
+			if a.PassOnGroups.Has(g) || hasPrefix(g, a.PassOnGroupPrefixes...) {
+				continue
 			}
+
+			groupsToPassOn.Delete(g)
 		}
 	}
 
-	for _, g := range groupsToPassOn.UnsortedList() {
-		if a.DropGroups.Has(g) {
+	for g := range groupsToPassOn {
+		if a.DropGroups.Has(g) || hasPrefix(g, a.DropGroupPrefixes...) {
 			groupsToPassOn.Delete(g)
-			continue
-		}
-		for _, prefix := range a.DropGroupPrefixes {
-			if strings.HasPrefix(g, prefix) {
-				groupsToPassOn.Delete(g)
-				break
-			}
 		}
 	}
 
 	info.Groups = groupsToPassOn.List()
 
 	return resp, ok, err
+}
+
+func hasPrefix(v string, prefixes ...string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(v, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // Authentication wraps ClientCertAuthenticationOptions so we don't pull in
