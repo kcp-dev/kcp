@@ -61,7 +61,6 @@ type StoreFuncs struct {
 
 type Strategy interface {
 	rest.RESTCreateStrategy
-	rest.RESTUpdateStrategy
 	rest.ResetFieldsStrategy
 }
 
@@ -184,11 +183,6 @@ func DefaultDynamicDelegatedStoreFuncs(
 			}
 
 			obj, err := objInfo.UpdatedObject(ctx, oldObj)
-			if err != nil {
-				return nil, err
-			}
-
-			err = rest.BeforeUpdate(strategy, ctx, obj, oldObj)
 			if err != nil {
 				return nil, err
 			}
