@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
@@ -36,6 +37,7 @@ import (
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/version"
+	"k8s.io/klog/v2"
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -44,6 +46,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/proxy"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/server"
+	bootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
 
@@ -95,23 +98,39 @@ routed based on paths.`,
 				return err
 			}
 
-			// start index
-			rootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.RootKubeconfig}, nil).ClientConfig()
+			// get root API identities
+			nonIdentityRootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.RootKubeconfig}, nil).ClientConfig()
 			if err != nil {
 				return fmt.Errorf("failed to load root kubeconfig: %w", err)
 			}
-			rootShardConfig, err := kcpclient.NewClusterForConfig(rootConfig)
+			nonIdentityRootKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityRootConfig)
 			if err != nil {
 				return fmt.Errorf("failed to create root client: %w", err)
 			}
-			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfig.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
+			rootShardConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+			if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
+				if err := resolveIdentities(ctx); err != nil {
+					klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
+					return false, nil
+				}
+				return true, nil
+			}); err != nil {
+				return fmt.Errorf("failed to get or create identities: %w", err)
+			}
+			rootKcpClusterClient, err := kcpclient.NewClusterForConfig(rootShardConfig)
+			if err != nil {
+				return fmt.Errorf("failed to create root client: %w", err)
+			}
+
+			// start index
+			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
 			indexController := index.NewController(
-				rootConfig.Host,
+				rootShardConfig.Host,
 				kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 				func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.ClusterInterface, error) {
-					shardConfig := restclient.CopyConfig(rootConfig)
+					shardConfig := restclient.CopyConfig(rootShardConfig)
 					shardConfig.Host = shard.Spec.BaseURL
-					shardClient, err := kcpclient.NewClusterForConfig(rootConfig)
+					shardClient, err := kcpclient.NewClusterForConfig(shardConfig)
 					if err != nil {
 						return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
 					}
