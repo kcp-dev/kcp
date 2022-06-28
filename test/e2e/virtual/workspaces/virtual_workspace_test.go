@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -52,11 +53,14 @@ type testDataType struct {
 	workspace1, workspace1Disambiguited, workspace2, workspace2Disambiguited *tenancyv1beta1.Workspace
 }
 
-var testData = testDataType{
-	workspace1:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1"}},
-	workspace1Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1--1"}},
-	workspace2:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2"}},
-	workspace2Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2--1"}},
+func newTestData() testDataType {
+	suffix := fmt.Sprintf("-%d", rand.Intn(1000000))
+	return testDataType{
+		workspace1:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1" + suffix}},
+		workspace1Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace1" + suffix + "--1"}},
+		workspace2:              &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2" + suffix}},
+		workspace2Disambiguited: &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "workspace2" + suffix + "--1"}},
+	}
 }
 
 // TODO: move this into a controller and remove this method
@@ -157,6 +161,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				testData := newTestData()
+
 				vwUser1Client := server.virtualUserKcpClients[0]
 				vwUser2Client := server.virtualUserKcpClients[1]
 
@@ -208,6 +214,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				testData := newTestData()
+
 				vwUser1Client := server.virtualUserKcpClients[0]
 
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1")
@@ -231,7 +239,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to get workspace1")
 
-				_, err := vwUser1Client.Cluster(server.orgClusterName.Join(workspace1.Name)).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				var err error
+				require.Eventually(t, func() bool {
+					_, err = vwUser1Client.Cluster(server.orgClusterName.Join(workspace1.Name)).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to list workspaces in the universal cluster")
 				require.NoError(t, err, "failed to list workspaces in the universal cluster")
 			},
 		},
@@ -248,6 +260,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				testData := newTestData()
+
 				vwUser1Client := server.virtualUserKcpClients[0]
 				vwUser2Client := server.virtualUserKcpClients[1]
 
@@ -337,7 +351,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
 					workspace1, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
-						ObjectMeta: metav1.ObjectMeta{Name: "workspace1"},
+						ObjectMeta: metav1.ObjectMeta{Name: testData.workspace1.Name},
 						Spec: tenancyv1beta1.WorkspaceSpec{
 							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 								Name: "Custom",
@@ -366,7 +380,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 				t.Logf("Try to create custom workspace as user2")
 				_, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "workspace2"},
+					ObjectMeta: metav1.ObjectMeta{Name: testData.workspace2.Name},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "Custom",
@@ -378,7 +392,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 				t.Logf("Try to create custom2 workspace as user1")
 				_, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "workspace2"},
+					ObjectMeta: metav1.ObjectMeta{Name: testData.workspace2.Name},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "Custom2",
@@ -398,6 +412,8 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				},
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				testData := newTestData()
+
 				org2ClusterName := framework.NewOrganizationFixture(t, server)
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1")
 				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, org2ClusterName, "team-1")
