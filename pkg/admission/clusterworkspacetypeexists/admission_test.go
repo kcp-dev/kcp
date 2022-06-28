@@ -501,6 +501,39 @@ func TestAdmit(t *testing.T) {
 			},
 		},
 		{
+			name: "error when trying to keep user information on create when system:masters",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+				},
+			},
+			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{"username":12,"uid":["invalid"]}`,
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}, &user.DefaultInfo{
+				Name:   "someone",
+				UID:    "id",
+				Groups: []string{"a", "b", "system:masters"},
+				Extra: map[string][]string{
+					"one": {"1", "01"},
+				},
+			}),
+			wantErr: true,
+		},
+		{
 			name: "override user information on create when not system:masters",
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{

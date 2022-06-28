@@ -126,8 +126,13 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 
 		if sets.NewString(currentUser.GetGroups()...).Has(user.SystemPrivilegedGroup) {
 			// Don't override the already existing owner annotation if set by a system:masters user
-			if _, exists := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; !exists {
+			if existingRawInfo, exists := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; !exists {
 				cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(rawInfo)
+			} else {
+				// try to unmarshall the old annotation to check it is correctly parseable
+				if err := json.Unmarshal([]byte(existingRawInfo), &authenticationv1.UserInfo{}); err != nil {
+					return fmt.Errorf("Invalid existing owner annotation: %w", err)
+				}
 			}
 		} else {
 			cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(rawInfo)
