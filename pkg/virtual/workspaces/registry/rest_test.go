@@ -1176,6 +1176,9 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 				tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: clusterWorkspace.Name,
+						Annotations: map[string]string{
+							"tenancy.kcp.dev/owner": `{"username":"test-user","uid":"test-uid","groups":["test-group"]}`,
+						},
 					},
 				},
 			))

@@ -18,10 +18,12 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternal "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -515,6 +517,27 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	if !isWorkspace {
 		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
+
+	// ensure the currentUser's UID is recorded in annotations
+	info := &authenticationv1.UserInfo{
+		Username: userInfo.GetName(),
+		UID:      userInfo.GetUID(),
+		Groups:   userInfo.GetGroups(),
+	}
+	extra := map[string]authenticationv1.ExtraValue{}
+	for k, v := range userInfo.GetExtra() {
+		extra[k] = v
+	}
+	info.Extra = extra
+	rawInfo, err := json.Marshal(info)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal user info: %w", err)
+	}
+
+	if workspace.Annotations == nil {
+		workspace.Annotations = map[string]string{}
+	}
+	workspace.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(rawInfo)
 
 	// check whether the user is allowed to use the cluster workspace type
 	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
