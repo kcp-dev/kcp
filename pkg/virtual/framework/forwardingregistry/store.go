@@ -117,14 +117,28 @@ func DefaultDynamicDelegatedStoreFuncs(
 			return nil, false, err
 		}
 
-		res, status, err := deleter.DeleteWithResult(ctx, name, *options, subResources...)
+		obj, status, err := deleter.DeleteWithResult(ctx, name, *options, subResources...)
+		if err != nil {
+			return nil, false, err
+		}
 
 		deletedImmediately := true
 		if status == http.StatusAccepted {
 			deletedImmediately = false
 		}
 
-		return res, deletedImmediately, err
+		if obj.GetObjectKind().GroupVersionKind() == metav1.Unversioned.WithKind("Status") {
+			// The DELETE request made to the downstream API server can either return the full object,
+			// or a Status object, depending on some options and immediate deletion.
+			// In the later case, the default encoder does not have the Status kind GVK registered,
+			// and fails to serialize it to the response, when it's provided as an unstructured,
+			// so we do the conversion upfront.
+			status := &metav1.Status{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), status)
+			return status, deletedImmediately, err
+		}
+
+		return obj, deletedImmediately, nil
 	}
 	s.MayReturnFullObjectDeleterFunc = func() bool {
 		return true
