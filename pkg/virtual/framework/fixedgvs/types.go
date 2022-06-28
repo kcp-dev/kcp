@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	restStorage "k8s.io/apiserver/pkg/registry/rest"
+	reststorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
 
@@ -29,7 +29,7 @@ import (
 
 // RestStorageBuilder is a function that builds a REST Storage based on the config of the
 // dedicated delegated APIServer is will be created on.
-type RestStorageBuilder func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (restStorage.Storage, error)
+type RestStorageBuilder func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (reststorage.Storage, error)
 
 // GroupVersionAPISet describes the set of APIs that should be added in a given group/version.
 // This allows specifying the logic that should build related REST storages,
