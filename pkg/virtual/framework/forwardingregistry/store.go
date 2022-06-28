@@ -49,7 +49,6 @@ type StoreFuncs struct {
 	GetterFunc
 	CreaterFunc
 	GracefulDeleterFunc
-	MayReturnFullObjectDeleterFunc
 	CollectionDeleterFunc
 	ListerFunc
 	UpdaterFunc
@@ -139,9 +138,6 @@ func DefaultDynamicDelegatedStoreFuncs(
 		}
 
 		return obj, deletedImmediately, nil
-	}
-	s.MayReturnFullObjectDeleterFunc = func() bool {
-		return true
 	}
 	s.CollectionDeleterFunc = func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
 		delegate, err := client(ctx)

@@ -79,14 +79,6 @@ func (f GracefulDeleterFunc) Delete(ctx context.Context, name string, deleteVali
 
 var _ rest.GracefulDeleter = GracefulDeleterFunc(nil)
 
-type MayReturnFullObjectDeleterFunc func() bool
-
-func (f MayReturnFullObjectDeleterFunc) DeleteReturnsDeletedObject() bool {
-	return f()
-}
-
-var _ rest.MayReturnFullObjectDeleter = MayReturnFullObjectDeleterFunc(nil)
-
 type CollectionDeleterFunc func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error)
 
 func (f CollectionDeleterFunc) DeleteCollection(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
