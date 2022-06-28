@@ -454,6 +454,98 @@ func TestAdmit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "keep user information on create when system:masters",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+				},
+			},
+			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}, &user.DefaultInfo{
+				Name:   "someone",
+				UID:    "id",
+				Groups: []string{"a", "b", "system:masters"},
+				Extra: map[string][]string{
+					"one": {"1", "01"},
+				},
+			}),
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			},
+		},
+		{
+			name: "override user information on create when not system:masters",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						ClusterName: "root:org",
+					},
+				},
+			},
+			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			}, &user.DefaultInfo{
+				Name:   "someone",
+				UID:    "id",
+				Groups: []string{"a", "b"},
+				Extra: map[string][]string{
+					"one": {"1", "01"},
+				},
+			}),
+			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
+					},
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "Foo",
+						Path: "root:org",
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

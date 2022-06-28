@@ -30,7 +30,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
@@ -101,15 +103,15 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	}
 
 	if a.GetOperation() == admission.Create {
-		// ensure the user's UID is recorded in annotations
-		user := a.GetUserInfo()
+		// ensure the currentUser's UID is recorded in annotations
+		currentUser := a.GetUserInfo()
 		info := &authenticationv1.UserInfo{
-			Username: user.GetName(),
-			UID:      user.GetUID(),
-			Groups:   user.GetGroups(),
+			Username: currentUser.GetName(),
+			UID:      currentUser.GetUID(),
+			Groups:   currentUser.GetGroups(),
 		}
 		extra := map[string]authenticationv1.ExtraValue{}
-		for k, v := range user.GetExtra() {
+		for k, v := range currentUser.GetExtra() {
 			extra[k] = v
 		}
 		info.Extra = extra
@@ -121,7 +123,15 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		if cw.Annotations == nil {
 			cw.Annotations = map[string]string{}
 		}
-		cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(rawInfo)
+
+		if sets.NewString(currentUser.GetGroups()...).Has(user.SystemPrivilegedGroup) {
+			// Don't override the already existing owner annotation if set by a system:masters user
+			if _, exists := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; !exists {
+				cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(rawInfo)
+			}
+		} else {
+			cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(rawInfo)
+		}
 
 		// if the user has not provided any type, use the default from the parent workspace
 		empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
