@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/yaml"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -38,4 +39,14 @@ func Bootstrap(ctx context.Context, kcpClient kcpclientset.Interface, rootDiscov
 		return err
 	}
 	return confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, fs)
+}
+
+// Unmarshal YAML-decodes the give embedded file name into the target.
+func Unmarshal(fileName string, o interface{}) error {
+	bs, err := fs.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+
+	return yaml.Unmarshal(bs, o)
 }

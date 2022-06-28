@@ -53,7 +53,6 @@ func (s *Server) installVirtualWorkspaces(
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
 		s.kubeSharedInformerFactory,
-		s.apiextensionsSharedInformerFactory,
 		s.kcpSharedInformerFactory,
 	)
 	if err != nil {

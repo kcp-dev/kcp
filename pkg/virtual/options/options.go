@@ -21,7 +21,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 
@@ -71,7 +70,6 @@ func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
 	rootPathPrefix string,
 	wildcardKubeInformers kubeinformers.SharedInformerFactory,
-	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (map[string]framework.VirtualWorkspace, error) {
 	workspaces, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
@@ -89,7 +87,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	initializingworkspaces, err := o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardApiExtensionsInformers, wildcardKcpInformers)
+	initializingworkspaces, err := o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}

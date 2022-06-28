@@ -27,8 +27,6 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/spf13/cobra"
 
-	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -121,14 +119,6 @@ func Run(ctx context.Context, o *options.Options) error {
 	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
 
-	apiextensionsClusterClient, err := apiextensionclientset.NewClusterForConfig(identityConfig)
-	if err != nil {
-		return err
-	}
-
-	wildcardApiextensionsClient := apiextensionsClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardApiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(wildcardApiextensionsClient, 10*time.Minute)
-
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig)
 	if err != nil {
 		return err
@@ -137,7 +127,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
-	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardApiextensionsInformers, wildcardKcpInformers)
+	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
 		return err
 	}
@@ -157,7 +147,6 @@ func Run(ctx context.Context, o *options.Options) error {
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
-		wildcardApiextensionsInformers.Start,
 	}, virtualWorkspaces)
 	if err != nil {
 		return err
