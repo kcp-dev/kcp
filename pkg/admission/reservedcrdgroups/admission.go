@@ -20,11 +20,17 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
+	"github.com/kcp-dev/kcp/pkg/apis/scheduling"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
 )
 
 const (
@@ -70,7 +76,13 @@ func (o *reservedCRDGroups) Validate(ctx context.Context, a admission.Attributes
 		return nil
 	}
 
-	if strings.HasSuffix(crd.Spec.Group, "kcp.dev") {
+	if sets.NewString(
+		apiresource.GroupName,
+		apis.GroupName,
+		scheduling.GroupName,
+		tenancy.GroupName,
+		workload.GroupName,
+	).Has(crd.Spec.Group) {
 		return admission.NewForbidden(a, fmt.Errorf("%s is a reserved group", crd.Spec.Group))
 	}
 	return nil

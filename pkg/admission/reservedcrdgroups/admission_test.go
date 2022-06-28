@@ -97,7 +97,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "foo.kcp.dev",
+					Group: "tenancy.kcp.dev",
 				},
 			}),
 			clusterName: "system:system-crds",
@@ -109,7 +109,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "foo.kcp.dev",
+					Group: "tenancy.kcp.dev",
 				},
 			}),
 			wantErr:     true,
@@ -143,7 +143,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "foo.kcp.dev",
+					Group: "tenancy.kcp.dev",
 				},
 			},
 				&apiextensions.CustomResourceDefinition{
@@ -163,7 +163,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "foo.kcp.dev",
+					Group: "tenancy.kcp.dev",
 				},
 			},
 				&apiextensions.CustomResourceDefinition{
@@ -193,6 +193,26 @@ func TestValidate(t *testing.T) {
 					},
 					Spec: apiextensions.CustomResourceDefinitionSpec{
 						Group: "foo.dev",
+					},
+				}),
+			clusterName: "root:org:ws",
+		},
+		{
+			name: "passes update child of reserved group outside of system crd logical cluster",
+			attr: updateAttr(&apiextensions.CustomResourceDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: apiextensions.CustomResourceDefinitionSpec{
+					Group: "initialization.tenancy.kcp.dev",
+				},
+			},
+				&apiextensions.CustomResourceDefinition{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+					},
+					Spec: apiextensions.CustomResourceDefinitionSpec{
+						Group: "initialization.tenancy.kcp.dev",
 					},
 				}),
 			clusterName: "root:org:ws",
