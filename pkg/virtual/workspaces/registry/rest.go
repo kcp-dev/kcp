@@ -47,6 +47,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -234,7 +235,7 @@ func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcl
 	authz, err := s.delegatedAuthz(parent, s.kubeClusterClient)
 	if err != nil {
 		klog.Errorf("failed to get delegated authorizer for logical cluster %s", user.GetName(), parent)
-		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf("%q workspace access not permitted", parent))
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf(authorization.WorkspaceAcccessNotPermittedReason))
 	}
 	typeUseAttr := authorizer.AttributesRecord{
 		User:            user,
@@ -248,10 +249,10 @@ func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcl
 	}
 	if decision, reason, err := authz.Authorize(ctx, typeUseAttr); err != nil {
 		klog.Errorf("failed to authorize user %q to %q clusterworkspaces/content name %q in %s", user.GetName(), verb, orgName, parent)
-		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf("%q workspace access not permitted", parent))
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf(authorization.WorkspaceAcccessNotPermittedReason))
 	} else if decision != authorizer.DecisionAllow {
 		klog.Errorf("user %q lacks (%s) clusterworkspaces/content %q permission for %q in %s: %s", user.GetName(), decisions[decision], verb, orgName, parent, reason)
-		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf("%q workspace access not permitted", parent))
+		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), orgName, fmt.Errorf(authorization.WorkspaceAcccessNotPermittedReason))
 	}
 
 	return nil

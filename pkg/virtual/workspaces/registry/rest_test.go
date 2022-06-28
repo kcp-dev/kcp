@@ -461,7 +461,7 @@ func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: \"root\" workspace access not permitted")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: workspace access not permitted")
 			assert.Nil(t, response, "response should be nil")
 		},
 	}
@@ -965,7 +965,7 @@ func TestCreatePersonalWorkspaceForbiddenToNonOrgMember(t *testing.T) {
 				},
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: \"root\" workspace access not permitted")
+			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: workspace access not permitted")
 			require.Nil(t, response)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
