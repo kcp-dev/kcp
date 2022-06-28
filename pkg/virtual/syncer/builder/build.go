@@ -19,10 +19,12 @@ package builder
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -156,10 +158,15 @@ func BuildVirtualWorkspace(
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
 				func(workloadClusterName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
-					ctx, cancelFn := context.WithCancel(context.Background())
-					storageWrapper := forwardingregistry.WithLabelSelector(map[string]string{
+					requirements, selectable := labels.SelectorFromSet(map[string]string{
 						workloadv1alpha1.InternalClusterResourceStateLabelPrefix + workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
-					})
+					}).Requirements()
+					if !selectable {
+						return nil, fmt.Errorf("unable to create a selector from the provided labels")
+					}
+					storageWrapper := forwardingregistry.WithStaticLabelSelector(requirements)
+
+					ctx, cancelFn := context.WithCancel(context.Background())
 					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {

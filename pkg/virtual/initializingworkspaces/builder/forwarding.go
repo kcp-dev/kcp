@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -40,7 +41,17 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) apiserver.RestProviderFunc {
+func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
+	labelSelector := map[string]string{
+		tenancyv1alpha1.ClusterWorkspacePhaseLabel: string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
+	}
+	key, value := initialization.InitializerToLabel(initializer)
+	labelSelector[key] = value
+	requirements, selectable := labels.SelectorFromSet(labelSelector).Requirements()
+	if !selectable {
+		return nil, fmt.Errorf("unable to create a selector from the provided labels")
+	}
+
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -59,12 +70,6 @@ func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.Clus
 			nil, // no scale here
 		)
 
-		labelSelector := map[string]string{
-			tenancyv1alpha1.ClusterWorkspacePhaseLabel: string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
-		}
-		key, value := initialization.InitializerToLabel(initializer)
-		labelSelector[key] = value
-
 		storage, _ := registry.NewStorage(
 			ctx,
 			resource,
@@ -77,7 +82,7 @@ func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.Clus
 			nil,
 			clusterClient,
 			nil,
-			registry.WithLabelSelector(labelSelector),
+			registry.WithStaticLabelSelector(requirements),
 		)
 
 		// only expose LIST+WATCH
@@ -104,10 +109,10 @@ func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.Clus
 			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
 			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
 		}, nil // no subresources
-	}
+	}, nil
 }
 
-func provideDelegatingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) apiserver.RestProviderFunc {
+func provideDelegatingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -193,7 +198,7 @@ func provideDelegatingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
 			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
 		}, subresourceStorages
-	}
+	}, nil
 }
 
 // withUpdateValidation adds further validation to ensure that a user of this virtual workspace can only

@@ -29,23 +29,21 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-func WithLabelSelector(labelSelector map[string]string) StorageWrapper {
-	return func(resource schema.GroupResource, storage *StoreFuncs) *StoreFuncs {
-		requirements, selectable := labels.SelectorFromSet(labels.Set(labelSelector)).Requirements()
-		if !selectable {
-			// we can't return an error here since this ends up inside of the k8s apiserver code where
-			// no errors are expected, so the best we can do is panic - this is likely ok since there's
-			// no real way that the syncer virtual workspace would ever create an unselectable selector
-			panic(fmt.Sprintf("creating a new store with an unselectable set: %v", labelSelector))
-		}
+func WithStaticLabelSelector(labelSelector labels.Requirements) StorageWrapper {
+	return WithLabelSelector(func(ctx context.Context) labels.Requirements {
+		return labelSelector
+	})
+}
 
+func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requirements) StorageWrapper {
+	return func(resource schema.GroupResource, storage *StoreFuncs) *StoreFuncs {
 		delegateLister := storage.ListerFunc
 		storage.ListerFunc = func(ctx context.Context, options *internalversion.ListOptions) (runtime.Object, error) {
 			selector := options.LabelSelector
 			if selector == nil {
 				selector = labels.Everything()
 			}
-			options.LabelSelector = selector.Add(requirements...)
+			options.LabelSelector = selector.Add(labelSelectorFrom(ctx)...)
 			return delegateLister.List(ctx, options)
 		}
 
@@ -60,7 +58,7 @@ func WithLabelSelector(labelSelector map[string]string) StorageWrapper {
 			if !ok {
 				return nil, fmt.Errorf("expected a metav1.Object, got %T", obj)
 			}
-			if !labels.Everything().Add(requirements...).Matches(labels.Set(metaObj.GetLabels())) {
+			if !labels.Everything().Add(labelSelectorFrom(ctx)...).Matches(labels.Set(metaObj.GetLabels())) {
 				return nil, errors.NewNotFound(resource, name)
 			}
 
@@ -73,7 +71,7 @@ func WithLabelSelector(labelSelector map[string]string) StorageWrapper {
 			if selector == nil {
 				selector = labels.Everything()
 			}
-			options.LabelSelector = selector.Add(requirements...)
+			options.LabelSelector = selector.Add(labelSelectorFrom(ctx)...)
 			return delegateWatcher.Watch(ctx, options)
 		}
 
