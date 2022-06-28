@@ -40,112 +40,10 @@
 				},
 				"cwd": "${workspaceFolder:kcp}",
 				"args": [
-					"start"
-				]
-			},
-			{
-				"name": "Launch all-in-one kcp in push mode",
-				"type": "go",
-				"request": "launch",
-				"mode": "debug",
-				"program": "${workspaceFolder:kcp}/cmd/kcp",
-				"env": {
-					"GOMOD": "${workspaceFolder:kcp}/go.mod"
-				},
-				"cwd": "${workspaceFolder:kcp}",
-				"args": [
 					"start",
-					"--pull-mode=false",
-					"--push-mode=true",
-					"--resources-to-sync",
-					"deployments.apps"
+					"--token-auth-file",
+					"${workspaceFolder:kcp}/test/e2e/framework/auth-tokens.csv",
 				]
-			},
-			{
-				"name": "Launch Kubectl apply pod",
-				"type": "go",
-				"request": "launch",
-				"mode": "debug",
-				"program": "${workspaceFolder:kubernetes}/cmd/kubectl",
-				"env": {
-					"GOMOD": "${workspaceFolder:kubernetes}/go.mod"
-				},
-				"cwd": "${workspaceFolder:kcp}",
-				"args": [
-					"--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
-					"--cluster=admin",
-					"apply",
-					"-f",
-					"contrib/examples/pod.yaml",
-					"-n",
-					"test-admin"
-				]
-			},
-			{
-				"name": "Launch Kubectl explain pod",
-				"type": "go",
-				"request": "launch",
-				"mode": "debug",
-				"program": "${workspaceFolder:kubernetes}/cmd/kubectl",
-				"env": {
-					"GOMOD": "${workspaceFolder:kubernetes}/go.mod"
-				},
-				"cwd": "${workspaceFolder:kcp}",
-				"args": [
-					"--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
-					"--cluster=admin",
-					"explain",
-					"pods"
-				]
-			},
-			{
-				"name": "Launch crd-puller on default cluster",
-				"type": "go",
-				"request": "launch",
-				"mode": "debug",
-				"program": "${workspaceFolder:kcp}/cmd/crd-puller",
-				"env": {
-					"GOMOD": "${workspaceFolder:kcp}/go.mod"
-				},
-				"cwd": "${workspaceFolder:kcp}",
-				"args": [
-					"--kubeconfig=${env:HOME}/.kube/config",
-					"pods",
-					"clusters"
-				]
-			},
-			{
-				"name": "Launch cluster controller - push mode",
-				"type": "go",
-				"request": "launch",
-				"mode": "debug",
-				"program": "${workspaceFolder:kcp}/cmd/cluster-controller",
-				"env": {
-					"GOMOD": "${workspaceFolder:kcp}/go.mod",
-				},
-				"cwd": "${workspaceFolder:kcp}",
-				"args": [
-					"--push-mode=true",
-					"--pull-mode=false",
-					"--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig"
-				],
-			},
-			{
-				"name": "Launch cluster controller",
-				"type": "go",
-				"request": "launch",
-				"mode": "debug",
-				"program": "${workspaceFolder:kcp}/cmd/cluster-controller",
-				"env": {
-					"GOMOD": "${workspaceFolder:kcp}/go.mod",
-				},
-				"cwd": "${workspaceFolder:kcp}",
-				"args": [
-					"--kubeconfig=${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
-					"--syncer-image=${env:SYNCER_IMAGE}"
-				],
-				"envFile": "${workspaceFolder:kcp}/.kcp/syncer.env",
-				"preLaunchTask": "ko syncer to local kind"
 			},
 			{
 				"name": "Launch syncer",
@@ -174,23 +72,6 @@
 					"ingresses.networking.k8s.io",
 					"--resources",
 					"services",
-				],
-			},
-			{
-				"name": "Launch Deployment Splitter",
-				"type": "go",
-				"request": "launch",
-				"mode": "debug",
-				"program": "${workspaceFolder:kcp}/cmd/deployment-splitter",
-				"env": {
-					"GOMOD": "${workspaceFolder:kcp}/go.mod",
-				},
-				"cwd": "${workspaceFolder:kcp}",
-				"args": [
-					"-kubeconfig",
-					"${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
-					"-context",
-					"admin"
 				],
 			},
 			{
@@ -230,5 +111,5 @@
 				],
 			}
 		]
-	}
+	},
 }
