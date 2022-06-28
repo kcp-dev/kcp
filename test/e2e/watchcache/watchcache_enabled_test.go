@@ -24,18 +24,27 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/informer"
+	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -44,7 +53,6 @@ import (
 )
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
-	t.Skip() // until we resolve the issue with DDSIF (not syncing after restart)
 	t.Parallel()
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -52,6 +60,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org)
 	cfg := server.DefaultConfig(t)
+	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
 	apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
@@ -59,7 +68,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	crdClient := apiExtensionsClients.Cluster(cluster).ApiextensionsV1().CustomResourceDefinitions()
 
 	t.Log("Creating wildwest.dev.cowboys CR")
-	wildwest.Create(t, crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
+	wildwest.Create(t, crdClient, cowBoysGR)
 	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err)
 	_, err = wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
@@ -71,6 +80,17 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
+	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", cowBoysGR, cluster)
+	assertWatchCacheIsPrimed(t, func() error {
+		res, err := wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		if err != nil {
+			return err
+		}
+		if len(res.Items) == 0 {
+			return fmt.Errorf("cache hasn't been primed for %v yet", cowBoysGR)
+		}
+		return nil
+	})
 
 	t.Log("Getting wildwest.dev.cowboys 10 times from the watch cache")
 	for i := 0; i < 10; i++ {
@@ -86,10 +106,11 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	if cowboysCacheHit < 10 {
 		t.Fatalf("expected to get cowboys.wildwest.dev CRD from the cache at least 10 times, got %v", cowboysCacheHit)
 	}
+
+	testDynamicDiscoverySharedInformerFactory(ctx, t, cfg, schema.GroupVersionResource{Group: cowBoysGR.Group, Resource: cowBoysGR.Resource, Version: "v1alpha1"}, "efficientluke", cluster)
 }
 
 func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
-	t.Skip() // until we resolve the issue with DDSIF (not syncing after restart)
 	t.Parallel()
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -109,8 +130,19 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	apifixtures.BindToExport(ctx, t, wsExport1a, group, wsConsume1a, kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1a, group, wsConsume1a.String())
 
-	t.Log("Getting sheriffs.newyork.io 10 times from the watch cache")
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", sheriffsGVR, wsConsume1a)
+	assertWatchCacheIsPrimed(t, func() error {
+		res, err := dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		if err != nil {
+			return err
+		}
+		if len(res.Items) == 0 {
+			return fmt.Errorf("cache hasn't been primed for %v yet", sheriffsGVR)
+		}
+		return nil
+	})
+	t.Log("Getting sheriffs.newyork.io 10 times from the watch cache")
 	for i := 0; i < 10; i++ {
 		res, err := dynamicClusterClient.Cluster(wsConsume1a).Resource(sheriffsGVR).Namespace("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
@@ -124,10 +156,11 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	if sheriffsCacheHit < 10 {
 		t.Fatalf("expected to get sheriffs.newyork.io from the cache at least 10 times, got %v", sheriffsCacheHit)
 	}
+
+	testDynamicDiscoverySharedInformerFactory(ctx, t, cfg, sheriffsGVR, strings.Replace(wsConsume1a.String(), ":", "-", -1), wsConsume1a)
 }
 
 func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
-	t.Skip() // until we resolve the issue with DDSIF (not syncing after restart)
 	t.Parallel()
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -135,6 +168,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	cfg := server.DefaultConfig(t)
 	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err)
+	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org)
@@ -143,6 +177,17 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	t.Logf("Creating a secret in the default namespace for %q cluster", cluster)
 	_, err = kubeClient.CoreV1().Secrets("default").Create(ctx, &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})
 	require.NoError(t, err)
+	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", secretsGR, cluster)
+	assertWatchCacheIsPrimed(t, func() error {
+		res, err := kubeClient.CoreV1().Secrets("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		if err != nil {
+			return err
+		}
+		if len(res.Items) == 0 {
+			return fmt.Errorf("cache hasn't been primed for %v yet", secretsGR)
+		}
+		return nil
+	})
 
 	// since secrets might be common resources to LIST, try to get them an odd number of times
 	t.Logf("Getting core.secret 115 times from the watch cache for %q cluster", cluster)
@@ -170,9 +215,10 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	if secretsCacheHit < 115 {
 		t.Fatalf("expected to get core.secrets from the cache at least 115 times, got %v", secretsCacheHit)
 	}
+
+	testDynamicDiscoverySharedInformerFactory(ctx, t, cfg, schema.GroupVersionResource{Group: secretsGR.Group, Resource: secretsGR.Resource, Version: "v1"}, "topsecret", cluster)
 }
 
-// nolint:deadcode,unused
 func collectCacheHitsFor(ctx context.Context, t *testing.T, config *rest.Config, metricResourcePrefix string) (int, int) {
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(config)
 	require.NoError(t, err)
@@ -201,4 +247,82 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, config *rest.Config,
 		}
 	}
 	return totalCacheHits, prefixCacheHit
+}
+
+const resyncPeriod = 10 * time.Hour
+const byWorkspace = "byWorkspace"
+
+func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, restCfg *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
+	// since wildcard request are only allowed against a shard
+	// create a cfg that points to the root shard and use it to create ddsif
+	kcpClusterClient, err := kcpclientset.NewClusterForConfig(restCfg)
+	require.NoError(t, err)
+	cfg := framework.ShardConfig(t, kcpClusterClient, "root", restCfg)
+	cfg.QPS = 100
+	cfg.Burst = 200
+	kcpClusterClient, err = kcpclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err)
+	kcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
+	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err)
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
+	require.NoError(t, err)
+	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
+	ddsif := informer.NewDynamicDiscoverySharedInformerFactory(
+		kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		kubeClusterClient.DiscoveryClient,
+		metadataClusterClient.Cluster(logicalcluster.Wildcard),
+		func(obj interface{}) bool { return true }, 5*time.Second,
+	)
+	err = ddsif.AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})
+	require.NoError(t, err)
+
+	t.Log("Starting KCP Shared Informer Factory")
+	kcpSharedInformerFactory.Start(ctx.Done())
+	t.Log("Waiting for KCP Shared Informer Factory to sync caches")
+	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+	t.Log("Starting DynamicDiscoverySharedInformerFactory")
+	ddsif.StartPolling(context.Background())
+
+	t.Logf("Checking if DynamicDiscoverySharedInformerFactory has %v with name %v in cluster %v", expectedGVR.String(), expectedResName, expectedClusterName)
+	framework.Eventually(t, func() (success bool, reason string) {
+		listers, notSynced := ddsif.Listers()
+		for _, ns := range notSynced {
+			t.Logf("DynamicDiscoverySharedInformerFactory hasn't synced %v yet", ns.String())
+		}
+
+		for gvr, lister := range listers {
+			obj, err := lister.List(labels.Everything())
+			require.NoError(t, err)
+			if gvr.String() != expectedGVR.String() {
+				continue
+			}
+			for _, o := range obj {
+				u := o.(*unstructured.Unstructured)
+				if u.GetName() == expectedResName && u.GetClusterName() == expectedClusterName.String() {
+					return true, ""
+				}
+			}
+		}
+		return false, fmt.Sprintf("haven't found %v with name %v in %v cluster", expectedGVR, expectedResName, expectedClusterName)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "DynamicDiscoverySharedInformerFactory hasn't observed %v with name %v in %v cluster", expectedGVR, expectedResName, expectedClusterName)
+}
+
+func indexByWorkspace(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+
+	lcluster := logicalcluster.From(metaObj)
+	return []string{lcluster.String()}, nil
+}
+
+func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
+	framework.Eventually(t, func() (success bool, reason string) {
+		if err := fn(); err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*200, "the watch cache hasn't been primed in the allotted time")
 }
