@@ -52,7 +52,7 @@ type ResourceInterface interface {
 
 type ResourceDeleterInterface interface {
 	DeleteWithResult(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) (*unstructured.Unstructured, int, error)
-	DeleteCollectionWithResult(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) (*unstructured.Unstructured, error)
+	DeleteCollectionWithResult(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error)
 }
 
 func NewClusterForConfig(c *rest.Config) (*Cluster, error) {
@@ -165,7 +165,7 @@ func (c *dynamicResourceClient) DeleteWithResult(ctx context.Context, name strin
 	return obj.(*unstructured.Unstructured), statusCode, nil
 }
 
-func (c *dynamicResourceClient) DeleteCollectionWithResult(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) (*unstructured.Unstructured, error) {
+func (c *dynamicResourceClient) DeleteCollectionWithResult(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	deleteOptionsByte, err := runtime.Encode(deleteOptionsCodec.LegacyCodec(schema.GroupVersion{Version: "v1"}), &options)
 	if err != nil {
 		return nil, err
@@ -193,7 +193,7 @@ func (c *dynamicResourceClient) DeleteCollectionWithResult(ctx context.Context, 
 		return nil, err
 	}
 
-	return obj.(*unstructured.Unstructured), nil
+	return obj.(*unstructured.UnstructuredList), nil
 }
 
 func (c *dynamicResourceClient) makeURLSegments(name string) []string {
