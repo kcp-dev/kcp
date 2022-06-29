@@ -384,7 +384,7 @@ type apiSetRetriever struct {
 	dynamicClusterClient dynamic.ClusterInterface
 	crdLister            crdlisters.CustomResourceDefinitionLister
 	exposeSubresources   bool
-	storageProvider      func(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) apiserver.RestProviderFunc
+	storageProvider      func(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error)
 }
 
 func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
@@ -394,6 +394,11 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 			"clusterworkspaces.tenancy.kcp.dev",
 		),
 	)
+	if err != nil {
+		return nil, false, err
+	}
+
+	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, tenancyv1alpha1.ClusterWorkspaceInitializer(key))
 	if err != nil {
 		return nil, false, err
 	}
@@ -419,7 +424,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 			a.config,
 			apiResourceSchema,
 			version.Name,
-			a.storageProvider(ctx, a.dynamicClusterClient, tenancyv1alpha1.ClusterWorkspaceInitializer(key)),
+			restProvider,
 		)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to create serving info: %w", err)
