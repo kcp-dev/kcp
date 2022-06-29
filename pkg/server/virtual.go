@@ -133,6 +133,7 @@ func (s *Server) installVirtualWorkspacesRedirect(ctx context.Context, preHandle
 	preHandlerChainMux.Handle(from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := *externalBaseURL // shallow copy
 		u.Path = path.Join(u.Path, r.URL.Path)
+		u.RawQuery = r.URL.RawQuery
 
 		klog.Infof("Got virtual workspace request to %s, redirecting to %s", r.URL.Path, u.String())
 
