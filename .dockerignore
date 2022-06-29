@@ -1,3 +1,5 @@
-# Ignore server only used for e2e testing
+# Ignore servers only used for e2e testing
 cmd/test-server
+cmd/sharded-test-server
+
 bin/
