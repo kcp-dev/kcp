@@ -341,7 +341,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 					continue
 				}
 				if !sets.NewString([]string(ai.Verbs)...).HasAll("list", "watch") {
-					klog.V(4).InfoS("resource is not list+watchable", "logical-cluster", logicalClusterName, "group", gv.Group, "version", gv.Version, "resource", ai.Name, "verbs", ai.Verbs)
+					// klog.V(2).InfoS("resource is not list+watchable", "logical-cluster", logicalClusterName, "group", gv.Group, "version", gv.Version, "resource", ai.Name, "verbs", ai.Verbs)
 					continue
 				}
 
@@ -396,11 +396,11 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 
 		stop, ok := d.informerStops[gvr]
 		if ok {
-			klog.V(4).Infof("Closing stop channel for dynamic informer for %q", gvr)
+			klog.V(2).Infof("Closing stop channel for dynamic informer for %q", gvr)
 			close(stop)
 		}
 
-		klog.V(4).Infof("Removing dynamic informer from maps for %q", gvr)
+		klog.V(2).Infof("Removing dynamic informer from maps for %q", gvr)
 		delete(d.informers, gvr)
 		delete(d.informerStops, gvr)
 		delete(d.startedInformers, gvr)
@@ -409,18 +409,24 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 	return nil
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) Start(stop <-chan struct{}) {
+func (d *DynamicDiscoverySharedInformerFactory) Start(_ <-chan struct{}) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	klog.Infof("ANDY ddsif start")
+
 	for gvr, informer := range d.informers {
 		if !d.startedInformers[gvr] {
+			klog.Infof("ANDY ddsif start - starting gvr %q", gvr)
+			// Set up a stop channel for this specific informer
+			stop := make(chan struct{})
 			go informer.Informer().Run(stop)
 
-			// Note: we can't store the stop channel in d.informerStops because it's read only and the owner of the
-			// stop channel is responsible for closing it.
-
+			// And store it
+			d.informerStops[gvr] = stop
 			d.startedInformers[gvr] = true
+		} else {
+			klog.Infof("ANDY ddsif start - NOT starting gvr %q because it's already started", gvr)
 		}
 	}
 }

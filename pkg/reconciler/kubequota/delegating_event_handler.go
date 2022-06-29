@@ -47,21 +47,21 @@ func (d *delegatingEventHandler) registerEventHandler(
 		informer.AddEventHandler(
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					h := d.getEventHandler(resource, obj)
+					h := d.getEventHandler(resource, clusterNameForObj(obj))
 					if h == nil {
 						return
 					}
 					h.OnAdd(obj)
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					h := d.getEventHandler(resource, oldObj)
+					h := d.getEventHandler(resource, clusterNameForObj(oldObj))
 					if h == nil {
 						return
 					}
 					h.OnUpdate(oldObj, newObj)
 				},
 				DeleteFunc: func(obj interface{}) {
-					h := d.getEventHandler(resource, obj)
+					h := d.getEventHandler(resource, clusterNameForObj(obj))
 					if h == nil {
 						return
 					}
@@ -72,10 +72,23 @@ func (d *delegatingEventHandler) registerEventHandler(
 	}
 
 	groupResourceHandlers[clusterName] = h
+
+	// Similar to what a running shared informer does when an event handler is added, send synthetic add events
+	// for everything currently in the cache.
+	go func() {
+		h := d.getEventHandler(resource, clusterName)
+		if h == nil {
+			return
+		}
+		list := informer.GetStore().List()
+		for i := range list {
+			obj := list[i]
+			h.OnAdd(obj)
+		}
+	}()
 }
 
-func (d *delegatingEventHandler) getEventHandler(resource schema.GroupResource, obj interface{}) cache.ResourceEventHandler {
-	clusterName := clusterNameForObj(obj)
+func (d *delegatingEventHandler) getEventHandler(resource schema.GroupResource, clusterName logicalcluster.Name) cache.ResourceEventHandler {
 	if clusterName.Empty() {
 		return nil
 	}
