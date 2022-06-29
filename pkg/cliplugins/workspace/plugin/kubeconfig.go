@@ -355,19 +355,26 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		return err
 	}
 
+	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", workspaceName, ws.Spec.Type)
 	if preExisting {
 		if ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
 			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", workspaceName, structuredWorkspaceType.String(), ws.Spec.Type.String())
 		}
 		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
-			fmt.Fprintf(kc.Out, "Workspace %q (type %s) already exists. Waiting for being ready.\n", workspaceName, ws.Spec.Type) // nolint: errcheck
+			if _, err := fmt.Fprintf(kc.Out, "%s already exists. Waiting for it to be ready...\n", workspaceReference); err != nil {
+				return err
+			}
 		} else {
-			fmt.Fprintf(kc.Out, "Workspace %q (type %s) already exists.\n", workspaceName, ws.Spec.Type)
+			if _, err := fmt.Fprintf(kc.Out, "%s already exists.\n", workspaceReference); err != nil {
+				return err
+			}
 		}
 	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
-		fmt.Fprintf(kc.Out, "Workspace %q (type %s) created. Waiting for being ready.\n", workspaceName, ws.Spec.Type) // nolint: errcheck
+		if _, err := fmt.Fprintf(kc.Out, "%s created. Waiting for it to be ready...\n", workspaceReference); err != nil {
+			return err
+		}
 	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		return fmt.Errorf("workspace %q (type %s) created but not ready", workspaceName, ws.Spec.Type)
+		return fmt.Errorf("%s created but is not ready to use", workspaceReference)
 	}
 
 	// STOP THE BLEEDING: the virtual workspace is still informer based (not good). We have to wait until it shows up.
@@ -397,6 +404,9 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		}); err != nil {
 			return err
 		}
+	}
+	if _, err := fmt.Fprintf(kc.Out, "%s is ready to use.\n", workspaceReference); err != nil {
+		return err
 	}
 
 	if useAfterCreation {
