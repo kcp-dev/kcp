@@ -62,7 +62,7 @@ spec:
                   type to be nested."
                 items:
                   description: ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
-                  pattern: ^[A-Z][a-zA-Z0-9]+$
+                  pattern: ^[a-zA-Z][a-zA-Z0-9]+$
                   type: string
                 type: array
               allowedParentWorkspaceTypes:
@@ -73,7 +73,7 @@ spec:
                   this one."
                 items:
                   description: ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
-                  pattern: ^[A-Z][a-zA-Z0-9]+$
+                  pattern: ^[a-zA-Z][a-zA-Z0-9]+$
                   type: string
                 minItems: 1
                 type: array
@@ -82,7 +82,7 @@ spec:
                   that will be used by default if another, nested ClusterWorkspace
                   is created in a workspace of this type. When this field is unset,
                   the user must specify a type when creating nested workspaces.
-                pattern: ^[A-Z][a-zA-Z0-9]+$
+                pattern: ^[a-zA-Z][a-zA-Z0-9]+$
                 type: string
               initializer:
                 description: "initializer determines if this ClusterWorkspaceType

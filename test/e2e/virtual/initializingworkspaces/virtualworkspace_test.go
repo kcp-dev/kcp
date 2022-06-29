@@ -130,7 +130,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Log("Create workspace types that add initializers")
 	// ClusterWorkspaceTypes and the initializer names will have to be globally unique, so we add some suffix here
 	// to ensure that parallel test runs do not impact our ability to verify this behavior. ClusterWorkspaceType names
-	// are pretty locked down, using this regex: '^[A-Z][a-zA-Z0-9]+$' - so we just add some simple lowercase suffix.
+	// are pretty locked down, using this regex: '^[a-zA-Z][a-zA-Z0-9]+$' - so we just add some simple lowercase suffix.
 	const characters = "abcdefghijklmnopqrstuvwxyz"
 	suffix := func() string {
 		b := make([]byte, 10)
