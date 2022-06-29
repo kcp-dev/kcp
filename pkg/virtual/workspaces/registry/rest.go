@@ -223,11 +223,11 @@ func withoutGroupsWhenPersonal(user user.Info, usePersonalScope bool) user.Info 
 	return user
 }
 
-func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcluster.Name, user user.Info, verb string) error {
+func (s *REST) deprecatedAuthorizeOrgForUser(ctx context.Context, orgClusterName logicalcluster.Name, user user.Info, verb string) error {
 	// Root org access is implicit for every user. For non-root orgs, we need to check for
 	// verb=access permissions against the clusterworkspaces/content of the ClusterWorkspace of
 	// the org in the root.
-	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(user.GetGroups()...).Has("system:masters") {
+	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
 		return nil
 	}
 
@@ -265,12 +265,18 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 		return nil
 	}
 
+	// Maintain compatibility with the old permission model until we completel remove
+	// the ability to have personal workspaces in top-level organizations
 	if parent, _ := orgClusterName.Split(); parent == tenancyv1alpha1.RootCluster {
-		if verb == "get" {
-			return s.authorizeOrgForUser(ctx, orgClusterName, user, "access")
-		}
-		if verb == "create" {
-			return s.authorizeOrgForUser(ctx, orgClusterName, user, "member")
+		switch verb {
+		case "get", "watch", "list":
+			return s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, user, "access")
+		case "create":
+			return s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, user, "member")
+		case "delete":
+			if err := s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, user, "access"); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -280,7 +286,7 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 		klog.Errorf("failed to get delegated authorizer for logical cluster %s", user, orgClusterName)
 		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), resourceName, fmt.Errorf("%q workspace %q in workspace %q is not allowed", verb, resourceName, orgClusterName))
 	}
-	deleteWorkspaceAttr := authorizer.AttributesRecord{
+	workspaceAttr := authorizer.AttributesRecord{
 		User:            user,
 		Verb:            verb,
 		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
@@ -290,7 +296,7 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 		Name:            resourceName,
 		ResourceRequest: true,
 	}
-	if decision, reason, err := authz.Authorize(ctx, deleteWorkspaceAttr); err != nil {
+	if decision, reason, err := authz.Authorize(ctx, workspaceAttr); err != nil {
 		klog.Errorf("failed to authorize user %q to %q clusterworkspaces/workspace name %q in %s", user.GetName(), verb, resourceName, orgClusterName)
 		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("%q workspace %q in workspace %q is not allowed", verb, resourceName, orgClusterName))
 	} else if decision != authorizer.DecisionAllow {
@@ -316,7 +322,7 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
 	}
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
-	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "get", ""); err != nil {
+	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "list", ""); err != nil {
 		return nil, err
 	}
 
@@ -365,7 +371,7 @@ func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (wa
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
-	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "get", ""); err != nil {
+	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "watch", ""); err != nil {
 		return nil, err
 	}
 	clusterWorkspaces := s.getFilteredClusterWorkspaces(orgClusterName)
@@ -406,9 +412,6 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
-	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "get", ""); err != nil {
-		return nil, err
-	}
 
 	usePersonalScope := shouldUsePersonalScope(ctx.Value(WorkspacesScopeKey).(string), orgClusterName)
 
@@ -418,6 +421,10 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 			return nil, err
 		}
 		name = internalName
+	}
+
+	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "get", name); err != nil {
+		return nil, err
 	}
 
 	clusterWorkspaces := s.getFilteredClusterWorkspaces(orgClusterName)
@@ -698,9 +705,6 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
-	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "get", ""); err != nil {
-		return nil, false, err
-	}
 
 	internalName := name
 	scope := ctx.Value(WorkspacesScopeKey).(string)

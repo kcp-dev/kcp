@@ -404,6 +404,198 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			},
 		},
 		{
+			name: "create a sub-workspace and verify that only users with right permissions can access workspaces inside it",
+			clientInfos: []clientInfo{
+				{
+					Token: "user-1-token",
+					Scope: "personal",
+				},
+				{
+					Token: "user-2-token",
+					Scope: "personal",
+				},
+			},
+			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				testData := newTestData()
+
+				vwUser1Client := server.virtualUserKcpClients[0]
+				vwUser2Client := server.virtualUserKcpClients[1]
+
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, "team-1", "team-2")
+				parentCluster := framework.NewWorkspaceFixture(t, server, server.orgClusterName)
+				createOrgMemberRoleForGroup(t, ctx, server.kubeClusterClient, parentCluster, "team-1", "team-2")
+
+				t.Logf("Give user1 access to the universal type in the parent workspace")
+				_, err := server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "universal-type-access",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"use"},
+							Resources:     []string{"clusterworkspacetypes"},
+							ResourceNames: []string{"universal"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create universal ClusterRole 'universal-type-access'")
+
+				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "user1-universal-type-access",
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						APIGroup: "rbac.authorization.k8s.io",
+						Name:     "universal-type-access",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: "user-1",
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create universal ClusterRoleBinding 'user1-universal-type-access'")
+
+				t.Logf("Give user1 the right to create a workspace in the parent and list workspaces")
+				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "workspace-create-list",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:     []string{"create", "list"},
+							Resources: []string{"clusterworkspaces/workspace"},
+							APIGroups: []string{"tenancy.kcp.dev"},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create ClusterRole 'workspace-create-list'")
+
+				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "user1-workspace-create-list",
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						APIGroup: "rbac.authorization.k8s.io",
+						Name:     "workspace-create-list",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: "user-1",
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create ClusterRoleBinding 'user1-workspace-create-list'")
+
+				t.Logf("Give user2 the right to get workspace workspace-1")
+				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "workspace-get-workspace1",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"get"},
+							Resources:     []string{"clusterworkspaces/workspace"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+							ResourceNames: []string{testData.workspace1.Name},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create ClusterRole 'workspace-get-workspace1'")
+
+				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "user2-workspace-get-workspace1",
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						APIGroup: "rbac.authorization.k8s.io",
+						Name:     "workspace-get-workspace1",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: "user-2",
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create ClusterRoleBinding 'user2-workspace-get-workspace1'")
+
+				t.Logf("Create Workspace workspace1 in the virtual workspace as user1")
+				var workspace1 *tenancyv1beta1.Workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					workspace1, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+						ObjectMeta: metav1.ObjectMeta{Name: testData.workspace1.Name},
+						Spec: tenancyv1beta1.WorkspaceSpec{
+							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								Name: "Universal",
+								Path: "root",
+							},
+						},
+					}, metav1.CreateOptions{})
+					if err != nil {
+						t.Logf("error creating workspace: %v", err)
+					}
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1 as user1")
+
+				t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
+				_, err = server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+				require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
+				server.Artifact(t, func() (runtime.Object, error) {
+					return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+				})
+
+				// Check that user1 can only list workspaces inside the parent workspace
+				var listedWorkspaces *tenancyv1beta1.WorkspaceList
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					var err error
+					listedWorkspaces, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+					if err != nil {
+						t.Logf("error listing workspaces: %v", err)
+					}
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to list workspaces inside the parent as user1")
+				require.NotNil(t, listedWorkspaces, "user1 should have a non-nil result when listing in the parent workspace")
+				require.Len(t, listedWorkspaces.Items, 1, "user1 should get workspace1 when listing in the parent workspace")
+				require.Equal(t, listedWorkspaces.Items[0].Name, testData.workspace1.Name, "user1 should get workspace1 when listing in the parent workspace")
+
+				_, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+				require.NoError(t, err, "user1 should be allowed to get a workspace inside the parent workspace since get permissions for the workspace owner are added by the virtual workspace")
+
+				_, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Watch(ctx, metav1.ListOptions{})
+				require.Error(t, err, "user1 should not be allowed to watch workspaces inside the parent workspace")
+
+				// Check that user2 can only get the `workspace1` workspace inside the parent workspace
+				require.Eventually(t, func() bool {
+					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
+					_, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+					if err != nil {
+						t.Logf("error getting workspace: %v", err)
+					}
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to get workspace 'workspace1' inside the parent as user2")
+				require.Nil(t, err, "user2 should be allowed to get workspace 'workspace1' inside the parent workspace")
+
+				listedWorkspaces, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				require.Error(t, err, "user2 should not be allowed to list workspaces inside the parent workspace")
+
+				_, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
+				require.NoError(t, err, "user2 should be allowed to get any workspace inside the parent workspace")
+
+				err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Delete(ctx, testData.workspace1.Name, metav1.DeleteOptions{})
+				require.NoError(t, err, "user1 should be allowed to delete a workspace he created inside the parent workspace since delete permissions for the workspace owner are added by the virtual workspace")
+			},
+		},
+		{
 			name: "create a workspace in personal virtual workspace for an organization and don't see it in another organization",
 			clientInfos: []clientInfo{
 				{
