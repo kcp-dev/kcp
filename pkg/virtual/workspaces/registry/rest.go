@@ -261,7 +261,7 @@ func (s *REST) authorizeOrgForUser(ctx context.Context, orgClusterName logicalcl
 func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalcluster.Name, user user.Info, verb string, resourceName string) error {
 	// Root org access is implicit for every user. For non-root orgs, we need to check for
 	// verb permissions against the clusterworkspaces/workspace sub-resource.
-	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(user.GetGroups()...).Has("system:masters") {
+	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
 		return nil
 	}
 
