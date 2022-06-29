@@ -112,7 +112,9 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreex
 	authorizers = append(authorizers,
 		authorization.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister,
 			authorization.NewWorkspaceContentAuthorizer(informer, workspaceLister,
-				apiBindingAuth,
+				authorization.NewSystemCRDAuthorizer(
+					apiBindingAuth,
+				),
 			),
 		),
 	)
