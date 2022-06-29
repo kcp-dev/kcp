@@ -283,11 +283,14 @@ func (kc *KubeConfig) currentWorkspace(ctx context.Context, host string, workspa
 
 	parentClusterName, workspaceName := clusterName.Split()
 	workspacePrettyName := workspaceName
-	if !parentClusterName.Empty() && clusterName.HasPrefix(tenancyv1alpha1.RootCluster) {
-		// we are in a workspace below root, but not root itself
-		ws, err := getWorkspaceFromInternalName(ctx, workspaceName, kc.clusterClient.Cluster(parentClusterName))
-		if err == nil {
-			workspacePrettyName = ws.Name
+	if !parentClusterName.Empty() {
+		if grandParentClusterName, _ := parentClusterName.Split(); grandParentClusterName == tenancyv1alpha1.RootCluster {
+			// We are in a child workspace of a top-level organization workspace.
+			// That's the typical case where personal workspace have been created.
+			ws, err := getWorkspaceFromInternalName(ctx, workspaceName, kc.personalClient.Cluster(parentClusterName))
+			if err == nil {
+				workspacePrettyName = ws.Name
+			}
 		}
 	}
 
