@@ -122,7 +122,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.True(t, apierrors.IsForbidden(err))
 
 	// Create clusterRoleBindings for content access.
-	t.Logf("create the cluster role and bindings to give access to the virtual worksapce for user-1")
+	t.Logf("create the cluster role and bindings to give access to the virtual workspace for user-1")
 	cr, crb := createClusterRoleAndBindings("user-1-vw", "user-1", "User", []string{"list", "get"})
 	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
@@ -149,7 +149,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list cowboys from virtual workspace")
 
 	// Test that users are able to update status of cowboys status
-	t.Logf("create the cluster role and bindings to give access to the virtual worksapce for user-2")
+	t.Logf("create the cluster role and bindings to give access to the virtual workspace for user-2")
 	cr, crb = createClusterRoleAndBindings("user-2-vw", "user-2", "User", []string{"update", "list"})
 	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
@@ -176,6 +176,57 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-2 to list cowboys from virtual workspace")
 
+	// Create clusterRoleBindings for content write access.
+	t.Logf("create the cluster role and bindings to give write access to the virtual workspace for user-1")
+	cr, crb = createClusterRoleAndBindings("user-1-vw-write", "user-1", "User", []string{"create", "update", "delete", "deletecollection"})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	// Test that user-1 is able to create, update, and delete cowboys
+	t.Logf("create a cowboy with user-1 via APIExport virtual workspace server")
+	cowboy := newCowboy("default", "cowboy-via-vw")
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("update a cowboy with user-1 via APIExport virtual workspace server")
+	cowboy.Spec.Intent = "1"
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Update(ctx, cowboy, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	t.Logf("make sure the updated cowboy has its generation incremented")
+	require.Equal(t, cowboy.Generation, int64(2))
+
+	t.Logf("update a cowboy status with user-1 via APIExport virtual workspace server")
+	cowboy.Spec.Intent = "2"
+	cowboy.Status.Result = "test"
+	_, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").UpdateStatus(ctx, cowboy, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("make sure the cowboy status update hasn't incremented the generation nor updated the spec")
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "cowboy-via-vw", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, cowboy.Generation, int64(2))
+	require.Equal(t, cowboy.Spec.Intent, "1")
+	require.Equal(t, cowboy.Status.Result, "test")
+
+	t.Logf("delete a cowboy with user-1 via APIExport virtual workspace server")
+	err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Delete(ctx, "cowboy-via-vw", metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	t.Logf("make sure the cowboy deleted with user-1 via APIExport virtual workspace server is gone")
+	cowboys, err := wwUser1VC.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cowboys.Items))
+
+	t.Logf("delete all cowboys with user-1 via APIExport virtual workspace server")
+	err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+	require.NoError(t, err)
+
+	t.Logf("make sure all cowboys have been deleted")
+	cowboys, err = wwUser1VC.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(cowboys.Items))
 }
 
 func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClients *clientset.Cluster, kubeClusterClient *kubernetes.Cluster, serviceProviderWorkspace logicalcluster.Name, t *testing.T) {
@@ -247,14 +298,18 @@ func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspac
 
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumer1Workspace)
 	cowboyName := fmt.Sprintf("cowboy-%s", consumer1Workspace.Base())
-	cowboy := &wildwestv1alpha1.Cowboy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cowboyName,
-			Namespace: "default",
-		},
-	}
+	cowboy := newCowboy("default", cowboyName)
 	_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
+}
+
+func newCowboy(namespace, name string) *wildwestv1alpha1.Cowboy {
+	return &wildwestv1alpha1.Cowboy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
 }
 
 func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {

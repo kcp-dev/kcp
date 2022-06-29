@@ -63,7 +63,7 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 
 	delegate := DefaultDynamicDelegatedStoreFuncs(
 		factory, listFactory, destroyer,
-		strategy, strategy, strategy, tableConvertor, strategy,
+		strategy, tableConvertor,
 		resource, apiExportIdentityHash, categories,
 		dynamicClusterClient, []string{}, *patchConflictRetryBackoff, ctx.Done(),
 	)
@@ -72,7 +72,7 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 	statusStrategy := customresource.NewStatusStrategy(strategy)
 	statusDelegate := DefaultDynamicDelegatedStoreFuncs(
 		factory, listFactory, destroyer,
-		strategy, statusStrategy, strategy, tableConvertor, statusStrategy,
+		statusStrategy, tableConvertor,
 		resource, apiExportIdentityHash, categories,
 		dynamicClusterClient, []string{"status"}, *patchConflictRetryBackoff, ctx.Done(),
 	)

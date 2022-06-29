@@ -60,7 +60,7 @@ func (mcg *mockedClusterClient) Cluster(cluster logicalcluster.Name) dynamic.Int
 	return mcg.client
 }
 
-var noxusGVR schema.GroupVersionResource = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
+var noxusGVR = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
 
 func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage rest.Storage) {
 	gvr := noxusGVR
@@ -133,7 +133,7 @@ func createResource(namespace, name string) *unstructured.Unstructured {
 			"spec": map[string]interface{}{
 				"replicas":         int64(7),
 				"string":           "string",
-				"float64":          float64(3.1415926),
+				"float64":          3.1415926,
 				"bool":             true,
 				"stringList":       []interface{}{"foo", "bar"},
 				"mixedList":        []interface{}{"foo", int64(42)},
@@ -341,6 +341,7 @@ func updateReactor(fakeClient *fake.FakeDynamicClient) kubernetestesting.Reactio
 		return true, actionResource, nil
 	}
 }
+
 func TestUpdate(t *testing.T) {
 	resource := createResource("default", "foo")
 	resource.SetGeneration(1)
@@ -360,28 +361,15 @@ func TestUpdate(t *testing.T) {
 	newReplicas++
 	_ = unstructured.SetNestedField(updated.UnstructuredContent(), newReplicas, "spec", "replicas")
 
-	updatedWithStatusChanged := updated.DeepCopy()
-	if err := unstructured.SetNestedField(updatedWithStatusChanged.UnstructuredContent(), int64(10), "status", "availableReplicas"); err != nil {
-		require.NoError(t, err)
-	}
-
 	updater := storage.(rest.Updater)
-	_, _, err = updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	_, _, err = updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
 	_ = fakeClient.Tracker().Add(resource)
-	result, _, err := updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updatedWithStatusChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
-	resultResource := result.(*unstructured.Unstructured)
+	result, _, err := updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.NoError(t, err)
-	updatedGeneration, _, err := unstructured.NestedInt64(resultResource.UnstructuredContent(), "metadata", "generation")
-	require.NoError(t, err)
-	require.Equalf(t, int64(2), updatedGeneration, "Generation should be incremented when updating the Spec")
 
-	// We just checked that the generation has been increased. Now reset the generation to the initial value:
-	// this will allow testing the deep equality of the objects, apart from the generation number.
-	_ = unstructured.SetNestedField(resultResource.UnstructuredContent(), int64(1), "metadata", "generation")
-
-	// Now we can check that the status has in fact not been updated
+	// Now we can check that the object has been updated
 	require.True(t, apiequality.Semantic.DeepEqual(updated, result), "expected:\n%V\nactual:\n%V", updated, result)
 
 	fakeClient.ClearActions()
@@ -398,7 +386,6 @@ func TestUpdate(t *testing.T) {
 		}
 	}
 	require.Equalf(t, 1, updates, "Should not have retried calling client.Update in case of conflict: it's an Update call.")
-
 }
 
 func TestStatusUpdate(t *testing.T) {
@@ -416,23 +403,15 @@ func TestStatusUpdate(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	statusUpdatedWithSpecChanged := statusUpdated.DeepCopy()
-	newReplicas, _, err := unstructured.NestedInt64(statusUpdated.UnstructuredContent(), "spec", "replicas")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	newReplicas++
-	_ = unstructured.SetNestedField(statusUpdatedWithSpecChanged.UnstructuredContent(), newReplicas, "spec", "replicas")
-
 	updater := statusStorage.(rest.Updater)
-	result, _, err := updater.Update(ctx, statusUpdated.GetName(), rest.DefaultUpdatedObjectInfo(statusUpdatedWithSpecChanged), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
+	result, _, err := updater.Update(ctx, statusUpdated.GetName(), rest.DefaultUpdatedObjectInfo(statusUpdated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	resultResource := result.(*unstructured.Unstructured)
 	require.NoError(t, err)
 	updatedGeneration, _, err := unstructured.NestedInt64(resultResource.UnstructuredContent(), "metadata", "generation")
 	require.NoError(t, err)
 	require.Equalf(t, int64(1), updatedGeneration, "Generation should not be incremented when updating the Status")
 
-	// We check that the spec has in fact not been updated
+	// We check that the status has been updated
 	require.True(t, apiequality.Semantic.DeepEqual(statusUpdated, result), "expected:\n%V\nactual:\n%V", statusUpdated, result)
 }
 
@@ -492,13 +471,6 @@ func TestPatch(t *testing.T) {
 	expected := expectedObj.(*unstructured.Unstructured)
 	result := resultObj.(*unstructured.Unstructured)
 
-	resultGeneration, _, err := unstructured.NestedInt64(result.UnstructuredContent(), "metadata", "generation")
-	require.NoError(t, err)
-	require.Equalf(t, int64(2), resultGeneration, "Generation should be incremented when patching the Spec")
-
-	// We just checked that the generation has been increased. Now reset the generation to the initial value:
-	// this will allow testing the deep equality of the objects, apart from the generation number.
-	result.SetGeneration(1)
 	require.True(t, apiequality.Semantic.DeepEqual(expected, result), "expected:\n%V\nactual:\n%V", expected, result)
 
 	getCallCounts = 0

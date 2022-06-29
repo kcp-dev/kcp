@@ -19,10 +19,10 @@ package forwardingregistry
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/kcp-dev/logicalcluster"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,6 +34,8 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
+
+	dynamicextension "github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
 )
 
 // StoreFuncs holds proto-functions that can be mutated by successive actors to wrap behavior.
@@ -57,15 +59,17 @@ type StoreFuncs struct {
 	ResetFieldsStrategyFunc
 }
 
+type Strategy interface {
+	rest.RESTCreateStrategy
+	rest.ResetFieldsStrategy
+}
+
 func DefaultDynamicDelegatedStoreFuncs(
 	factory FactoryFunc,
 	listFactory ListFactoryFunc,
 	destroyerFunc DestroyerFunc,
-	createStrategy rest.RESTCreateStrategy,
-	updateStrategy rest.RESTUpdateStrategy,
-	deleteStrategy rest.RESTDeleteStrategy,
+	strategy Strategy,
 	tableConvertor rest.TableConvertor,
-	resetFieldsStrategy rest.ResetFieldsStrategy,
 	resource schema.GroupVersionResource,
 	apiExportIdentityHash string,
 	categories []string,
@@ -74,7 +78,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 	patchConflictRetryBackoff wait.Backoff,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
-	client := clientGetter(dynamicClusterClient, createStrategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	client := clientGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
 	s := &StoreFuncs{}
 	s.FactoryFunc = factory
 	s.ListFactoryFunc = listFactory
@@ -87,9 +91,72 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Get(ctx, name, *options, subResources...)
 	}
-	s.CreaterFunc = nil           // not currently supported
-	s.GracefulDeleterFunc = nil   // not currently supported
-	s.CollectionDeleterFunc = nil // not currently supported
+	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, _ rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+		unstructuredObj, ok := obj.(*unstructured.Unstructured)
+		if !ok {
+			return nil, fmt.Errorf("not an Unstructured: %T", obj)
+		}
+
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
+	}
+	s.GracefulDeleterFunc = func(ctx context.Context, name string, _ rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+
+		deleter, err := withDeleter(delegate)
+		if err != nil {
+			return nil, false, err
+		}
+
+		obj, status, err := deleter.DeleteWithResult(ctx, name, *options, subResources...)
+		if err != nil {
+			return nil, false, err
+		}
+
+		deletedImmediately := true
+		if status == http.StatusAccepted {
+			deletedImmediately = false
+		}
+
+		if obj.GetObjectKind().GroupVersionKind() == metav1.Unversioned.WithKind("Status") {
+			// The DELETE request made to the downstream API server can either return the full object,
+			// or a Status object, depending on some options and immediate deletion.
+			// In the later case, the default encoder does not have the Status kind GVK registered,
+			// and fails to serialize it to the response, when it's provided as an unstructured,
+			// so we do the conversion upfront.
+			status := &metav1.Status{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), status)
+			return status, deletedImmediately, err
+		}
+
+		return obj, deletedImmediately, nil
+	}
+	s.CollectionDeleterFunc = func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		deleter, err := withDeleter(delegate)
+		if err != nil {
+			return nil, err
+		}
+
+		var v1ListOptions metav1.ListOptions
+		err = metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(listOptions, &v1ListOptions, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return deleter.DeleteCollectionWithResult(ctx, *options, v1ListOptions)
+	}
 	s.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 		var v1ListOptions metav1.ListOptions
 		if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
@@ -103,7 +170,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.List(ctx, v1ListOptions)
 	}
-	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, _ rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
@@ -122,15 +189,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 			unstructuredObj, ok := obj.(*unstructured.Unstructured)
 			if !ok {
-				return nil, fmt.Errorf("not an Unstructured: %#v", obj)
-			}
-
-			updateStrategy.PrepareForUpdate(ctx, obj, oldObj)
-			if errs := updateStrategy.ValidateUpdate(ctx, obj, oldObj); len(errs) > 0 {
-				return nil, kerrors.NewInvalid(unstructuredObj.GroupVersionKind().GroupKind(), unstructuredObj.GetName(), errs)
-			}
-			if err := updateValidation(ctx, obj.DeepCopyObject(), oldObj.DeepCopyObject()); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("not an Unstructured: %T", obj)
 			}
 
 			return delegate.Update(ctx, unstructuredObj, *options, subResources...)
@@ -177,8 +236,15 @@ func DefaultDynamicDelegatedStoreFuncs(
 	s.CategoriesProviderFunc = func() []string {
 		return categories
 	}
-	s.ResetFieldsStrategyFunc = resetFieldsStrategy.GetResetFields
+	s.ResetFieldsStrategyFunc = strategy.GetResetFields
 	return s
+}
+
+func withDeleter(dynamicResourceInterface dynamic.ResourceInterface) (dynamicextension.ResourceInterface, error) {
+	if c, ok := dynamicResourceInterface.(dynamicextension.ResourceInterface); ok {
+		return c, nil
+	}
+	return nil, fmt.Errorf("dynamic client does not implement ResourceDeleterInterface")
 }
 
 func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
@@ -195,16 +261,15 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 				gvr.Resource += ":" + apiExportIdentityHash
 			}
 		}
-		client := dynamicClusterClient.Cluster(clusterName)
 
 		if namespaceScoped {
 			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-				return client.Resource(gvr).Namespace(namespace), nil
+				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
 			} else {
 				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
 			}
 		} else {
-			return client.Resource(gvr), nil
+			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
 		}
 	}
 }
