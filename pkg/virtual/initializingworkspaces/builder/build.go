@@ -81,9 +81,9 @@ func BuildVirtualWorkspace(
 		return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"
 	}
 
-	filterReadyCh := make(chan struct{})
-	filterName := initializingworkspaces.VirtualWorkspaceName + "-filtering"
-	filtering := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+	wildcardWorkspacesReadyCh := make(chan struct{})
+	wildcardWorkspacesName := initializingworkspaces.VirtualWorkspaceName + "-wildcard-workspaces"
+	wildcardWorkspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -102,10 +102,10 @@ func BuildVirtualWorkspace(
 		Authorizer: newAuthorizer(kubeClusterClient),
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
-			case <-filterReadyCh:
+			case <-wildcardWorkspacesReadyCh:
 				return nil
 			default:
-				return fmt.Errorf("%s virtual workspace controllers are not started", filterName)
+				return fmt.Errorf("%s virtual workspace controllers are not started", wildcardWorkspacesName)
 			}
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
@@ -117,8 +117,8 @@ func BuildVirtualWorkspace(
 				storageProvider:      provideFilteringRestStorage,
 			}
 
-			if err := mainConfig.AddPostStartHook(filterName, func(hookContext genericapiserver.PostStartHookContext) error {
-				defer close(filterReadyCh)
+			if err := mainConfig.AddPostStartHook(wildcardWorkspacesName, func(hookContext genericapiserver.PostStartHookContext) error {
+				defer close(wildcardWorkspacesReadyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
@@ -138,9 +138,9 @@ func BuildVirtualWorkspace(
 		},
 	}
 
-	delegateReadyCh := make(chan struct{})
-	delegateName := initializingworkspaces.VirtualWorkspaceName + "-delegating"
-	delegating := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+	workspacesReadyCh := make(chan struct{})
+	workspacesName := initializingworkspaces.VirtualWorkspaceName + "-workspaces"
+	workspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -164,10 +164,10 @@ func BuildVirtualWorkspace(
 		Authorizer: newAuthorizer(kubeClusterClient),
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
-			case <-delegateReadyCh:
+			case <-workspacesReadyCh:
 				return nil
 			default:
-				return fmt.Errorf("%s virtual workspace controllers are not started", delegateName)
+				return fmt.Errorf("%s virtual workspace controllers are not started", workspacesName)
 			}
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
@@ -179,8 +179,8 @@ func BuildVirtualWorkspace(
 				storageProvider:      provideDelegatingRestStorage,
 			}
 
-			if err := mainConfig.AddPostStartHook(delegateName, func(hookContext genericapiserver.PostStartHookContext) error {
-				defer close(delegateReadyCh)
+			if err := mainConfig.AddPostStartHook(workspacesName, func(hookContext genericapiserver.PostStartHookContext) error {
+				defer close(workspacesReadyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
@@ -200,9 +200,9 @@ func BuildVirtualWorkspace(
 		},
 	}
 
-	forwardReadyCh := make(chan struct{})
-	forwardName := initializingworkspaces.VirtualWorkspaceName + "-forwarded"
-	forwarding := &handler.VirtualWorkspace{
+	workspaceContentReadyCh := make(chan struct{})
+	workspaceContentName := initializingworkspaces.VirtualWorkspaceName + "-workspace-content"
+	workspaceContent := &handler.VirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -230,15 +230,15 @@ func BuildVirtualWorkspace(
 		Authorizer: newAuthorizer(kubeClusterClient),
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
-			case <-forwardReadyCh:
+			case <-workspaceContentReadyCh:
 				return nil
 			default:
-				return fmt.Errorf("%s virtual workspace controllers are not started", forwardName)
+				return fmt.Errorf("%s virtual workspace controllers are not started", workspaceContentName)
 			}
 		}),
 		HandlerFactory: handler.HandlerFactory(func(rootAPIServerConfig genericapiserver.CompletedConfig) (http.Handler, error) {
-			if err := rootAPIServerConfig.AddPostStartHook(forwardName, func(hookContext genericapiserver.PostStartHookContext) error {
-				defer close(forwardReadyCh)
+			if err := rootAPIServerConfig.AddPostStartHook(workspaceContentName, func(hookContext genericapiserver.PostStartHookContext) error {
+				defer close(workspaceContentReadyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"clusterworkspaces": wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
@@ -332,9 +332,9 @@ func BuildVirtualWorkspace(
 	}
 
 	return map[string]framework.VirtualWorkspace{
-		filterName:   filtering,
-		delegateName: delegating,
-		forwardName:  forwarding,
+		wildcardWorkspacesName: wildcardWorkspaces,
+		workspacesName:         workspaces,
+		workspaceContentName:   workspaceContent,
 	}
 }
 
