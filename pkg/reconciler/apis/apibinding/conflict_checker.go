@@ -30,6 +30,7 @@ import (
 
 type conflictChecker struct {
 	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 
@@ -52,13 +53,33 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 		if apiBinding.Name == apiBindingToExclude.Name {
 			continue
 		}
+
+		apiExportClusterName, err := getAPIExportClusterName(apiBinding)
+		if err != nil {
+			return err
+		}
+
+		apiExport, err := ncc.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
+		if err != nil {
+			return err
+		}
+
 		boundSchemaUIDs := sets.NewString()
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			boundSchemaUIDs.Insert(boundResource.Schema.UID)
 		}
 
-		for _, resource := range apiBinding.Status.BoundResources {
-			crd, err := ncc.getCRD(ShadowWorkspaceName, resource.Schema.UID)
+		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+			schema, err := ncc.getAPIResourceSchema(apiExportClusterName, schemaName)
+			if err != nil {
+				return err
+			}
+
+			if !boundSchemaUIDs.Has(string(schema.UID)) {
+				continue
+			}
+
+			crd, err := ncc.getCRD(ShadowWorkspaceName, string(schema.UID))
 			if err != nil {
 				return err
 			}

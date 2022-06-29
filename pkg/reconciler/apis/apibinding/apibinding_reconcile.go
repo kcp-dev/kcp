@@ -197,6 +197,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		// Check for conflicts
 		checker := &conflictChecker{
 			listAPIBindings:      c.listAPIBindings,
+			getAPIExport:         c.getAPIExport,
 			getAPIResourceSchema: c.getAPIResourceSchema,
 			getCRD:               c.getCRD,
 			crdIndexer:           c.crdIndexer,
