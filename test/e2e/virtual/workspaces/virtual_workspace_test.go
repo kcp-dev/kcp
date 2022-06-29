@@ -744,7 +744,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		t.Cleanup(cancelFunc)
 		go func() {
-			err = virtualcommand.Run(opts, ctx.Done())
+			err = virtualcommand.Run(ctx, opts)
 			require.NoError(t, err)
 		}()
 

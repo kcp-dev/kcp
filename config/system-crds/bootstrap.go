@@ -25,19 +25,13 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
-	"github.com/kcp-dev/kcp/pkg/apis/scheduling"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
-	"github.com/kcp-dev/kcp/pkg/apis/workload"
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 //go:embed *.yaml
@@ -53,28 +47,9 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 	// logical cluster.
 	// TODO(sttts): get rid of this and enforce/support schema evolution while allowing wildcard informers to work
 	crds := []metav1.GroupResource{
-		{Group: tenancy.GroupName, Resource: "clusterworkspaces"},
-		{Group: tenancy.GroupName, Resource: "clusterworkspacetypes"},
-		{Group: tenancy.GroupName, Resource: "clusterworkspaceshards"},
-		{Group: tenancy.GroupName, Resource: "workspaces"},
-		{Group: apiresource.GroupName, Resource: "apiresourceimports"},
-		{Group: apiresource.GroupName, Resource: "negotiatedapiresources"},
-		{Group: workload.GroupName, Resource: "workloadclusters"},
 		{Group: apis.GroupName, Resource: "apiexports"},
 		{Group: apis.GroupName, Resource: "apibindings"},
 		{Group: apis.GroupName, Resource: "apiresourceschemas"},
-	}
-
-	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
-		crds = append(crds,
-			metav1.GroupResource{Group: scheduling.GroupName, Resource: "locations"},
-		)
-	}
-
-	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.PlacementAPI) {
-		crds = append(crds,
-			metav1.GroupResource{Group: scheduling.GroupName, Resource: "placements"},
-		)
 	}
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {

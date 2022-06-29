@@ -1,0 +1,8 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: scheduling.kcp.dev
+spec:
+  latestResourceSchemas:
+  - v220628-546034da.placements.scheduling.kcp.dev
+  - v220628-546034da.locations.scheduling.kcp.dev

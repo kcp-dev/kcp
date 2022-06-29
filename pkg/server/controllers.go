@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -402,6 +403,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 	if err != nil {
 		return err
@@ -578,7 +580,15 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	}
 
 	if err := server.AddPostStartHook("kcp-install-apibinding-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		if err := s.waitForSync(hookContext.StopCh); err != nil {
+		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
+		// and the controllers must run as soon as these two informers are up in order to bootstrap
+		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
+		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			crdsSynced := s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
+			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			return crdsSynced && exportsSynced && bindingsSynced, nil
+		}); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -599,7 +609,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 
 	if err := server.AddPostStartHook("kcp-install-apibinding-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
+			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-deletion-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
@@ -640,8 +650,18 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	}
 
 	if err := server.AddPostStartHook("kcp-install-apiexport-controller", func(hookContext genericapiserver.PostStartHookContext) error {
-		if err := s.waitForSync(hookContext.StopCh); err != nil {
+		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
+		// and the controllers must run as soon as these two informers are up in order to bootstrap
+		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
+		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			crdsSynced := s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
+			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			return crdsSynced && exportsSynced && bindingsSynced, nil
+		}); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-apiexport-controller: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
 		go c.Start(goContext(hookContext), 2)

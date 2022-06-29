@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package universal
+package rootphase0
 
 import (
 	"context"
@@ -22,9 +22,10 @@ import (
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/yaml"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 //go:embed *.yaml
@@ -33,10 +34,19 @@ var fs embed.FS
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, kcpClient kcpclient.Interface) error {
-	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev"); err != nil {
+func Bootstrap(ctx context.Context, kcpClient kcpclientset.Interface, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface) error {
+	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.tenancy.kcp.dev", "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev"); err != nil {
+		return err
+	}
+	return confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, fs)
+}
+
+// Unmarshal YAML-decodes the give embedded file name into the target.
+func Unmarshal(fileName string, o interface{}) error {
+	bs, err := fs.ReadFile(fileName)
+	if err != nil {
 		return err
 	}
 
-	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, fs)
+	return yaml.Unmarshal(bs, o)
 }

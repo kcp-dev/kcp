@@ -29,8 +29,6 @@ import (
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	crdlisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -42,8 +40,9 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 
-	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
+	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -64,9 +63,8 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
-	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) map[string]framework.VirtualWorkspace {
+) (map[string]framework.VirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
@@ -81,9 +79,24 @@ func BuildVirtualWorkspace(
 		return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"
 	}
 
-	filterReadyCh := make(chan struct{})
-	filterName := initializingworkspaces.VirtualWorkspaceName + "-filtering"
-	filtering := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+	clusterWorkspaceResource := apisv1alpha1.APIResourceSchema{}
+	if err := rootphase0.Unmarshal("apiresourceschema-clusterworkspaces.tenancy.kcp.dev.yaml", &clusterWorkspaceResource); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal clusterworkspace resource: %w", err)
+	}
+	bs, err := json.Marshal(&apiextensionsv1.JSONSchemaProps{
+		Type:                   "object",
+		XPreserveUnknownFields: pointer.BoolPtr(true),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for i := range clusterWorkspaceResource.Spec.Versions {
+		v := &clusterWorkspaceResource.Spec.Versions[i]
+		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
+	}
+
+	wildcardWorkspacesName := initializingworkspaces.VirtualWorkspaceName + "-wildcard-workspaces"
+	wildcardWorkspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -101,46 +114,21 @@ func BuildVirtualWorkspace(
 		}),
 		Authorizer: newAuthorizer(kubeClusterClient),
 		ReadyChecker: framework.ReadyFunc(func() error {
-			select {
-			case <-filterReadyCh:
-				return nil
-			default:
-				return fmt.Errorf("%s virtual workspace controllers are not started", filterName)
-			}
+			return nil
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			retriever := &apiSetRetriever{
+			return &apiSetRetriever{
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   false,
-				crdLister:            wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+				resource:             &clusterWorkspaceResource,
 				storageProvider:      provideFilteringRestStorage,
-			}
-
-			if err := mainConfig.AddPostStartHook(filterName, func(hookContext genericapiserver.PostStartHookContext) error {
-				defer close(filterReadyCh)
-
-				for name, informer := range map[string]cache.SharedIndexInformer{
-					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
-				} {
-					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						klog.Errorf("informer not synced")
-						return nil
-					}
-				}
-
-				return nil
-			}); err != nil {
-				return nil, err
-			}
-
-			return retriever, nil
+			}, nil
 		},
 	}
 
-	delegateReadyCh := make(chan struct{})
-	delegateName := initializingworkspaces.VirtualWorkspaceName + "-delegating"
-	delegating := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+	workspacesName := initializingworkspaces.VirtualWorkspaceName + "-workspaces"
+	workspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -163,46 +151,22 @@ func BuildVirtualWorkspace(
 		}),
 		Authorizer: newAuthorizer(kubeClusterClient),
 		ReadyChecker: framework.ReadyFunc(func() error {
-			select {
-			case <-delegateReadyCh:
-				return nil
-			default:
-				return fmt.Errorf("%s virtual workspace controllers are not started", delegateName)
-			}
+			return nil
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			retriever := &apiSetRetriever{
+			return &apiSetRetriever{
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   true,
-				crdLister:            wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+				resource:             &clusterWorkspaceResource,
 				storageProvider:      provideDelegatingRestStorage,
-			}
-
-			if err := mainConfig.AddPostStartHook(delegateName, func(hookContext genericapiserver.PostStartHookContext) error {
-				defer close(delegateReadyCh)
-
-				for name, informer := range map[string]cache.SharedIndexInformer{
-					"customresourcedefinitions": wildcardApiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
-				} {
-					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						klog.Errorf("informer not synced")
-						return nil
-					}
-				}
-
-				return nil
-			}); err != nil {
-				return nil, err
-			}
-
-			return retriever, nil
+			}, nil
 		},
 	}
 
-	forwardReadyCh := make(chan struct{})
-	forwardName := initializingworkspaces.VirtualWorkspaceName + "-forwarded"
-	forwarding := &handler.VirtualWorkspace{
+	workspaceContentReadyCh := make(chan struct{})
+	workspaceContentName := initializingworkspaces.VirtualWorkspaceName + "-workspace-content"
+	workspaceContent := &handler.VirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -230,15 +194,15 @@ func BuildVirtualWorkspace(
 		Authorizer: newAuthorizer(kubeClusterClient),
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
-			case <-forwardReadyCh:
+			case <-workspaceContentReadyCh:
 				return nil
 			default:
-				return fmt.Errorf("%s virtual workspace controllers are not started", forwardName)
+				return fmt.Errorf("%s virtual workspace controllers are not started", workspaceContentName)
 			}
 		}),
 		HandlerFactory: handler.HandlerFactory(func(rootAPIServerConfig genericapiserver.CompletedConfig) (http.Handler, error) {
-			if err := rootAPIServerConfig.AddPostStartHook(forwardName, func(hookContext genericapiserver.PostStartHookContext) error {
-				defer close(forwardReadyCh)
+			if err := rootAPIServerConfig.AddPostStartHook(workspaceContentName, func(hookContext genericapiserver.PostStartHookContext) error {
+				defer close(workspaceContentReadyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"clusterworkspaces": wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
@@ -332,10 +296,10 @@ func BuildVirtualWorkspace(
 	}
 
 	return map[string]framework.VirtualWorkspace{
-		filterName:   filtering,
-		delegateName: delegating,
-		forwardName:  forwarding,
-	}
+		wildcardWorkspacesName: wildcardWorkspaces,
+		workspacesName:         workspaces,
+		workspaceContentName:   workspaceContent,
+	}, nil
 }
 
 func digestUrl(urlPath, rootPathPrefix string) (genericapirequest.Cluster, dynamiccontext.APIDomainKey, string, bool) {
@@ -382,54 +346,33 @@ func digestUrl(urlPath, rootPathPrefix string) (genericapirequest.Cluster, dynam
 type apiSetRetriever struct {
 	config               genericapiserver.CompletedConfig
 	dynamicClusterClient dynamic.ClusterInterface
-	crdLister            crdlisters.CustomResourceDefinitionLister
+	resource             *apisv1alpha1.APIResourceSchema
 	exposeSubresources   bool
 	storageProvider      func(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error)
 }
 
 func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
-	crd, err := a.crdLister.Get(
-		clusters.ToClusterAwareKey(
-			logicalcluster.New(reservedcrdgroups.SystemCRDLogicalClusterName),
-			"clusterworkspaces.tenancy.kcp.dev",
-		),
-	)
-	if err != nil {
-		return nil, false, err
-	}
-
 	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, tenancyv1alpha1.ClusterWorkspaceInitializer(key))
 	if err != nil {
 		return nil, false, err
 	}
 
-	apiResourceSchema, err := apisv1alpha1.CRDToAPIResourceSchema(crd, "fake") // the name of this object is not important to us here
+	apiDefinition, err := apiserver.CreateServingInfoFor(
+		a.config,
+		a.resource,
+		tenancyv1alpha1.SchemeGroupVersion.Version,
+		restProvider,
+	)
 	if err != nil {
-		return nil, false, err
-	}
-	if !a.exposeSubresources {
-		for _, version := range apiResourceSchema.Spec.Versions {
-			version.Subresources = apiextensionsv1.CustomResourceSubresources{}
-		}
+		return nil, false, fmt.Errorf("failed to create serving info: %w", err)
 	}
 
-	apis = make(apidefinition.APIDefinitionSet, len(apiResourceSchema.Spec.Versions))
-	for _, version := range apiResourceSchema.Spec.Versions {
-		gvr := schema.GroupVersionResource{
-			Group:    apiResourceSchema.Spec.Group,
-			Version:  version.Name,
-			Resource: apiResourceSchema.Spec.Names.Plural,
-		}
-		apiDefinition, err := apiserver.CreateServingInfoFor(
-			a.config,
-			apiResourceSchema,
-			version.Name,
-			restProvider,
-		)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to create serving info: %w", err)
-		}
-		apis[gvr] = apiDefinition
+	apis = apidefinition.APIDefinitionSet{
+		schema.GroupVersionResource{
+			Group:    tenancyv1alpha1.SchemeGroupVersion.Group,
+			Version:  tenancyv1alpha1.SchemeGroupVersion.Version,
+			Resource: "clusterworkspaces",
+		}: apiDefinition,
 	}
 
 	return apis, len(apis) > 0, nil

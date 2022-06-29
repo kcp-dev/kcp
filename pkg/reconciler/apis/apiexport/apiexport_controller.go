@@ -54,7 +54,7 @@ import (
 const (
 	controllerName = "kcp-apiexport"
 
-	defaultIdentitySecretNamespace = "kcp-system"
+	DefaultIdentitySecretNamespace = "kcp-system"
 
 	indexAPIExportBySecret   = "bySecret"
 	IndexAPIExportByIdentity = "byIdentity"
@@ -85,7 +85,7 @@ func NewController(
 			return err
 		},
 		secretLister:    secretInformer.Lister(),
-		secretNamespace: defaultIdentitySecretNamespace,
+		secretNamespace: DefaultIdentitySecretNamespace,
 		createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 			return err

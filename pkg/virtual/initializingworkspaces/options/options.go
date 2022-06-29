@@ -21,7 +21,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -56,7 +55,6 @@ func (o *InitializingWorkspaces) Validate(flagPrefix string) []error {
 func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardApiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (workspaces map[string]framework.VirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
@@ -69,6 +67,5 @@ func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	virtualWorkspaces := builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, initializingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, wildcardApiExtensionsInformers, wildcardKcpInformers)
-	return virtualWorkspaces, nil
+	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, initializingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, wildcardKcpInformers)
 }

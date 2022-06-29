@@ -17,6 +17,12 @@ limitations under the License.
 package clusterworkspace
 
 import (
+	"fmt"
+
+	"github.com/kcp-dev/logicalcluster"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -24,6 +30,8 @@ import (
 const (
 	byCurrentShard = "byCurrentShard"
 	unschedulable  = "unschedulable"
+	byPhase        = "byPhase"
+	byWorkspace    = controllerName + "byWorkspace" // will go away with scoping
 )
 
 func indexByCurrentShard(obj interface{}) ([]string, error) {
@@ -37,4 +45,23 @@ func indexUnschedulable(obj interface{}) ([]string, error) {
 		return []string{"true"}, nil
 	}
 	return []string{}, nil
+}
+
+func indexByPhase(obj interface{}) ([]string, error) {
+	workspace, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a tenancyv1alpha1.ClusterWorkspace, but is %T", obj)
+	}
+
+	return []string{string(workspace.Status.Phase)}, nil
+}
+
+func indexByWorkspace(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+
+	lcluster := logicalcluster.From(metaObj)
+	return []string{lcluster.String()}, nil
 }

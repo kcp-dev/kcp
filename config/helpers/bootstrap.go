@@ -26,6 +26,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,6 +41,10 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
+
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 // TransformFileFunc transforms a resource file before being applied to the cluster.
@@ -203,5 +209,43 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 
 	klog.Infof("Bootstrapped %s %s", gvk.Kind, logName(upserted))
 
+	return nil
+}
+
+func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportNames ...string) error {
+	for _, exportName := range exportNames {
+		binding := &apisv1alpha1.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: exportName,
+			},
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.ExportReference{
+					Workspace: &apisv1alpha1.WorkspaceExportReference{
+						Path:       tenancyv1alpha1.RootCluster.String(),
+						ExportName: exportName,
+					},
+				},
+			},
+		}
+
+		created, err := kcpClient.ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+		if err == nil {
+			klog.V(2).Infof("Created API binding %s|%s", logicalcluster.From(created), created.Name)
+			continue
+		}
+		if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+
+		existing, err := kcpClient.ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		klog.V(2).Infof("Updating API binding %s", exportName)
+		existing.Spec = binding.Spec
+		if _, err := kcpClient.ApisV1alpha1().APIBindings().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("could not update API binding %s|%s: %w", logicalcluster.From(existing), existing.Name, err)
+		}
+	}
 	return nil
 }

@@ -37,154 +37,21 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 )
 
 // SystemCRDLogicalCluster is the logical cluster we install system CRDs into for now. These are needed
 // to start wildcard informers until a "real" workspace gets them installed.
 var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
-
-type systemCRDProvider struct {
-	commonCRDs    sets.String
-	rootCRDs      sets.String
-	orgCRDs       sets.String
-	universalCRDs sets.String
-
-	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
-	getCRD              func(key string) (*apiextensionsv1.CustomResourceDefinition, error)
-}
-
-// NewSystemCRDProvider returns CRDs for certain cluster workspace types and the root workspace.
-// TODO(sttts): This must be replaced by some non-hardcoded mechanism in the (near) future, probably by
-//              using APIBindings. For now, this is our way to enforce to have no schema drift of these CRDs
-//              as that would break wildcard informers.
-func newSystemCRDProvider(
-	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error),
-	getCRD func(key string) (*apiextensionsv1.CustomResourceDefinition, error),
-) *systemCRDProvider {
-	p := &systemCRDProvider{
-		commonCRDs: sets.NewString(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaces.tenancy.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspacetypes.tenancy.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "clusterworkspaceshards.tenancy.kcp.dev"),
-
-			// the following is installed to get discovery and OpenAPI right. But it is actually
-			// served by a native rest storage, projecting the clusterworkspaces.
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "workspaces.tenancy.kcp.dev"),
-		),
-		rootCRDs: sets.NewString(),
-		orgCRDs:  sets.NewString(),
-		universalCRDs: sets.NewString(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiresourceimports.apiresource.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "negotiatedapiresources.apiresource.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "workloadclusters.workload.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiexports.apis.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apibindings.apis.kcp.dev"),
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "apiresourceschemas.apis.kcp.dev"),
-		),
-		getClusterWorkspace: getClusterWorkspace,
-		getCRD:              getCRD,
-	}
-
-	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
-		p.rootCRDs.Insert(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
-		)
-		p.orgCRDs.Insert(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
-		)
-
-		// the following is installed to get discovery and OpenAPI right. But it is actually
-		// served by a native rest storage, projecting the locations into this workspace.
-		p.universalCRDs.Insert(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "locations.scheduling.kcp.dev"),
-		)
-	}
-
-	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.PlacementAPI) {
-		p.rootCRDs.Insert(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
-		)
-		p.orgCRDs.Insert(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
-		)
-
-		// the following is installed to get discovery and OpenAPI right. But it is actually
-		// served by a native rest storage, projecting the locations into this workspace.
-		p.universalCRDs.Insert(
-			clusters.ToClusterAwareKey(SystemCRDLogicalCluster, "placements.scheduling.kcp.dev"),
-		)
-	}
-
-	return p
-}
-
-func (p *systemCRDProvider) List(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-	keys := p.Keys(clusterName).List()
-	ret := make([]*apiextensionsv1.CustomResourceDefinition, 0, len(keys))
-	for _, key := range keys {
-		crd, err := p.getCRD(key)
-		if err != nil {
-			klog.Errorf("Failed to get CRD %s for %s: %v", key, clusterName, err)
-			// we shouldn't see this because getCRD is backed by a quorum-read client on cache-miss
-			return nil, fmt.Errorf("error getting system CRD %q: %w", key, err)
-		}
-
-		ret = append(ret, crd)
-	}
-
-	return ret, nil
-}
-
-func (p *systemCRDProvider) Keys(clusterName logicalcluster.Name) sets.String {
-	switch {
-	case clusterName == tenancyv1alpha1.RootCluster:
-		return p.rootCRDs.Union(p.commonCRDs)
-	case clusterName.HasPrefix(tenancyv1alpha1.RootCluster):
-		parent, ws := clusterName.Split()
-
-		workspaceKey := clusters.ToClusterAwareKey(parent, ws)
-		clusterWorkspace, err := p.getClusterWorkspace(workspaceKey)
-		if err != nil {
-			// If a request for a system CRD comes in for a nonexistent workspace (either never existed, or was created
-			// and then deleted, return no keys, which will result in a 404 being returned.
-
-			if !apierrors.IsNotFound(err) {
-				// Log any other errors (unexpected)
-				klog.ErrorS(
-					err,
-					"Unable to determine system CRD keys: error getting clusterworkspace",
-					"clusterName", clusterName.String(),
-					"workspaceKey", workspaceKey,
-				)
-			}
-
-			return sets.NewString()
-		}
-
-		switch clusterWorkspace.Spec.Type.Name {
-		case "Universal":
-			return p.universalCRDs.Union(p.commonCRDs)
-		case "Organization", "Team":
-			// TODO(sttts): this cannot be hardcoded. There might be other org-like types
-			return p.orgCRDs.Union(p.commonCRDs)
-		}
-	}
-
-	return sets.NewString()
-}
 
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
@@ -195,7 +62,6 @@ type apiBindingAwareCRDLister struct {
 	apiBindingLister     apislisters.APIBindingLister
 	apiBindingIndexer    cache.Indexer
 	apiExportIndexer     cache.Indexer
-	systemCRDProvider    *systemCRDProvider
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
@@ -216,15 +82,17 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
-	kcpSystemCRDs, err := c.systemCRDProvider.List(clusterName)
+	var ret []*apiextensionsv1.CustomResourceDefinition
+
+	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
+	systemCRDObjs, err := c.crdIndexer.ByIndex(byWorkspace, SystemCRDLogicalCluster.String())
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
-
-	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
-	var ret = kcpSystemCRDs
-	for i := range kcpSystemCRDs {
-		seen.Insert(crdName(kcpSystemCRDs[i]))
+	for i := range systemCRDObjs {
+		crd := systemCRDObjs[i].(*apiextensionsv1.CustomResourceDefinition)
+		ret = append(ret, crd)
+		seen.Insert(crdName(crd))
 	}
 
 	objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
@@ -547,14 +415,7 @@ func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.Name,
 		return c.crdLister.Get(systemCRDKeyName)
 	}
 
-	systemCRDKeys := c.systemCRDProvider.Keys(clusterName)
-
-	systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
-	if !systemCRDKeys.Has(systemCRDKeyName) {
-		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
-	}
-
-	return c.crdLister.Get(systemCRDKeyName)
+	return c.crdLister.Get(clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name))
 }
 
 func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {

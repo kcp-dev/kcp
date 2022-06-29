@@ -1,0 +1,7 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: shards.tenancy.kcp.dev
+spec:
+  latestResourceSchemas:
+  - v220628-546034da.clusterworkspaceshards.tenancy.kcp.dev
