@@ -106,7 +106,7 @@ func NewOptions(rootDir string) *Options {
 		WithRequestHeader().
 		WithServiceAccounts().
 		WithTokenFile()
-	//WithWebHook()
+	// WithWebHook()
 	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 

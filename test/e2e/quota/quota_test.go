@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -378,8 +379,8 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 			return ok && used.Equal(resource.MustParse("0"))
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 2 used, ws %d quota is %#v", wsIndex, quota)
 
-		apifixtures.EventuallyCreateSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-1", wsIndex))
-		apifixtures.EventuallyCreateSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-2", wsIndex))
+		apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-1", wsIndex))
+		apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-2", wsIndex))
 
 		t.Logf("Waiting for ws %d quota to show 2 used", wsIndex)
 		require.Eventually(t, func() bool {
@@ -392,7 +393,11 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 			return used.Equal(resource.MustParse("2"))
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 2 used, ws %d quota is %#v", wsIndex, quota)
 
-		apifixtures.CreateSheriffAndExpectError(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-3", wsIndex))
+		sheriff := apifixtures.NewSheriff(group, fmt.Sprintf("ws%d-3", wsIndex))
+		sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+		_, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "exceeded quota")
 	}
 }
 
