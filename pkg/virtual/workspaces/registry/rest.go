@@ -277,7 +277,14 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 			if err := s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, user, "access"); err != nil {
 				return err
 			}
+			// Let's fall through here:
+			// if access to the current org workspace is granted (old permission model),
+			// we still need to check the `delete` permission for the workspace we want to delete
+		default:
+			klog.Errorf("Verb %q not supported in the case of a workspace living in a top-level organization", verb)
+			return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), resourceName, fmt.Errorf("%q workspace %q in workspace %q is not allowed", verb, resourceName, orgClusterName))
 		}
+
 	}
 
 	// check for <verb> permission on the ClusterWorkspace workspace subresource for the <resourceName>
