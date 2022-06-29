@@ -18,7 +18,6 @@ package authorization
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
@@ -69,10 +68,9 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
 
-	workspaceAccessNotPermittedReason := fmt.Sprintf("%q workspace access not permitted", cluster.Name)
 	if !cluster.Name.HasPrefix(tenancyv1alpha1.RootCluster) {
 		// nobody other than system:masters (excluded from authz) has access to workspaces not based in root
-		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	subjectClusters := map[logicalcluster.Name]bool{}
@@ -91,21 +89,21 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
 			return a.delegate.Authorize(ctx, attr)
 		}
-		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	// get org in the root
 	requestTopLevelOrgName, ok := topLevelOrg(cluster.Name)
 	if !ok {
-		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
 	// check the org workspace exists in the root workspace
 	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)); err != nil {
 		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, workspaceAccessNotPermittedReason, nil
+			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
 		}
-		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, err
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
 
 	switch {
@@ -121,7 +119,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			}
 		}
 
-		return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 
 	case isUser:
 		var (
@@ -159,7 +157,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		}
 	}
 
-	return authorizer.DecisionNoOpinion, workspaceAccessNotPermittedReason, nil
+	return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 }
 
 func topLevelOrg(clusterName logicalcluster.Name) (string, bool) {
