@@ -112,25 +112,21 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 		nil,
 	)
 
-	getEventHandlers := func() []GVREventHandler {
-		return d.handlers.Load().([]GVREventHandler)
-	}
-
 	inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: d.filterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				for _, h := range getEventHandlers() {
+				for _, h := range d.handlers.Load().([]GVREventHandler) {
 					h.OnAdd(gvr, obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				for _, h := range getEventHandlers() {
+				for _, h := range d.handlers.Load().([]GVREventHandler) {
 					h.OnUpdate(gvr, oldObj, newObj)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				for _, h := range getEventHandlers() {
+				for _, h := range d.handlers.Load().([]GVREventHandler) {
 					h.OnDelete(gvr, obj)
 				}
 			},
