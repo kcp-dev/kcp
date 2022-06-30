@@ -243,7 +243,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 		func(obj interface{}) bool { return true },
 		time.Second*2,
 	)
-	informerFactory.Start(ctx)
+	informerFactory.StartPolling(ctx)
 
 	t.Logf("Wait for the sheriff to show up in the informer")
 	// key := "default/" + clusters.ToClusterAwareKey(wsNormalCRD1a, "john-hicks-adams")
