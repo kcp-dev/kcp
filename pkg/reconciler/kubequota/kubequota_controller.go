@@ -315,7 +315,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName)
 	resourceQuotaControllerDiscoveryClient := resourceQuotaControllerClient.Discovery()
 
-	discoveryFunc := resourceQuotaControllerDiscoveryClient.ServerPreferredNamespacedResources
+	discoveryFunc := resourceQuotaControllerDiscoveryClient.ServerPreferredResources
 
 	scopedInformerFactory := &scopedGenericSharedInformerFactory{
 		delegate:               c.informerFactoryForQuota,

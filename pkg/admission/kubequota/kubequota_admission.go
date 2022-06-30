@@ -265,6 +265,8 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 
 	delegate.SetQuotaConfiguration(k.quotaConfiguration)
 
+	delegate.SetClusterName(clusterName)
+
 	if err := delegate.ValidateInitialization(); err != nil {
 		return nil, err
 	}
