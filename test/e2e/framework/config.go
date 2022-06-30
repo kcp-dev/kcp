@@ -23,11 +23,12 @@ import (
 )
 
 type testConfig struct {
-	syncerImage         string
-	kcpTestImage        string
-	pclusterKubeconfig  string
-	kcpKubeconfig       string
-	useDefaultKCPServer bool
+	syncerImage                   string
+	kcpTestImage                  string
+	pclusterKubeconfig            string
+	kcpKubeconfig, rootKubeconfig string
+	rootShardAdminContext         string
+	useDefaultKCPServer           bool
 }
 
 var TestConfig *testConfig
@@ -57,6 +58,18 @@ func (c *testConfig) KCPKubeconfig() string {
 	}
 }
 
+func (c *testConfig) RootKubeconfig() string {
+	if c.useDefaultKCPServer && len(c.rootKubeconfig) > 0 {
+		panic(errors.New("Only one of --use-default-kcp-server and --root-kubeconfig should be set."))
+	}
+
+	return c.rootKubeconfig
+}
+
+func (c *testConfig) RootShardAdminContext() string {
+	return c.rootShardAdminContext
+}
+
 func init() {
 	TestConfig = &testConfig{}
 	registerFlags(TestConfig)
@@ -65,6 +78,8 @@ func init() {
 
 func registerFlags(c *testConfig) {
 	flag.StringVar(&c.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
+	flag.StringVar(&c.rootKubeconfig, "root-kubeconfig", "", "Path to the kubeconfig for a root kcp shard. If not set, the kcp-kubeconfig is used.")
+	flag.StringVar(&c.rootShardAdminContext, "root-shard-admin-context", "base", "The context in the root-kubeconfig for a system:masters shard admin.")
 	flag.StringVar(&c.pclusterKubeconfig, "pcluster-kubeconfig", "", "Path to the kubeconfig for a kubernetes cluster to sync to. Requires --syncer-image.")
 	flag.StringVar(&c.syncerImage, "syncer-image", "", "The syncer image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.StringVar(&c.kcpTestImage, "kcp-test-image", "", "The test image to use with the pcluster. Requires --pcluster-kubeconfig")

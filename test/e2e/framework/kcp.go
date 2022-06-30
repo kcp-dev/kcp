@@ -561,9 +561,24 @@ func newPersistentKCPServer(name, kubeconfigPath string) (RunningServer, error) 
 // and creates a server fixture for the logical cluster that results.
 func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Name) RunningServer {
 	logicalClusterName := NewWorkspaceFixture(t, server, org)
-	rawConfig, err := server.RawConfig()
-	require.NoError(t, err, "failed to read config for server")
-	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, logicalClusterName)
+
+	var rawConfig clientcmdapi.Config
+	var contextName string
+
+	if rootKubeconfig := TestConfig.RootKubeconfig(); len(rootKubeconfig) > 0 {
+		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: rootKubeconfig}, nil)
+		var err error
+		rawConfig, err = configLoader.RawConfig()
+		require.NoError(t, err)
+		contextName = TestConfig.RootShardAdminContext()
+	} else {
+		var err error
+		rawConfig, err = server.RawConfig()
+		require.NoError(t, err, "failed to read config for server")
+		contextName = "system:admin"
+	}
+
+	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, contextName, logicalClusterName)
 	fakeServer := &unmanagedKCPServer{
 		name:           logicalClusterName.String(),
 		cfg:            logicalConfig,

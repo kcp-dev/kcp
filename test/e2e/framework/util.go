@@ -261,9 +261,7 @@ type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 type WorkloadClusterOption func(cluster *workloadv1alpha1.WorkloadCluster)
 
 // LogicalClusterRawConfig returns the raw cluster config of the given config.
-func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Name) clientcmdapi.Config {
-	contextName := "system:admin"
-
+func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, contextName string, logicalClusterName logicalcluster.Name) clientcmdapi.Config {
 	var configCluster = *rawConfig.Clusters[contextName] // shallow copy
 	configCluster.Server += logicalClusterName.Path()
 
