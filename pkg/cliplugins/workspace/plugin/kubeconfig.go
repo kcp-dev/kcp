@@ -27,7 +27,8 @@ import (
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
-
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
@@ -305,6 +306,22 @@ func (kc *KubeConfig) currentWorkspace(ctx context.Context, host string, workspa
 	return err
 }
 
+func structureWorkspaceType(workspaceType, currentClusterName string) tenancyv1alpha1.ClusterWorkspaceTypeReference {
+	separatorIndex := strings.LastIndex(workspaceType, ":")
+	switch separatorIndex {
+	case -1:
+		return tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Name: tenancyv1alpha1.ClusterWorkspaceTypeName(cases.Title(language.Und, cases.NoLower).String(workspaceType)),
+			Path: currentClusterName,
+		}
+	default:
+		return tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Name: tenancyv1alpha1.ClusterWorkspaceTypeName(cases.Title(language.Und, cases.NoLower).String(workspaceType[separatorIndex+1:])),
+			Path: workspaceType[:separatorIndex],
+		}
+	}
+}
+
 // CreateWorkspace creates a workspace owned by the the current user
 // (kubeconfig user possibly overridden by CLI options).
 func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string, workspaceType string, ignoreExisting, useAfterCreation bool, readyWaitTimeout time.Duration) error {
@@ -319,19 +336,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 
 	var structuredWorkspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
 	if workspaceType != "" {
-		separatorIndex := strings.LastIndex(workspaceType, ":")
-		switch separatorIndex {
-		case -1:
-			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType),
-				Path: currentClusterName.String(),
-			}
-		default:
-			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType[separatorIndex+1:]),
-				Path: workspaceType[:separatorIndex],
-			}
-		}
+		structuredWorkspaceType = structureWorkspaceType(workspaceType, currentClusterName.String())
 	}
 
 	preExisting := false

@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -229,6 +230,53 @@ func TestCreate(t *testing.T) {
 			} else if got != nil && !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("unexpected config, diff (expected, got): %s", cmp.Diff(tt.expected, got))
 			}
+		})
+	}
+}
+
+func TestStructureWorkspaceType(t *testing.T) {
+	tests := []struct {
+		workspaceTypeName, currentClusterName string
+		expected                              tenancyv1alpha1.ClusterWorkspaceTypeReference
+	}{
+		{
+			workspaceTypeName:  "Foo",
+			currentClusterName: "root",
+			expected: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: "Foo",
+				Path: "root",
+			},
+		},
+		{
+			workspaceTypeName:  "foo",
+			currentClusterName: "root",
+			expected: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: "Foo",
+				Path: "root",
+			},
+		},
+		{
+			workspaceTypeName:  "root:bar:Foo",
+			currentClusterName: "root",
+			expected: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: "Foo",
+				Path: "root:bar",
+			},
+		},
+		{
+			workspaceTypeName:  "root:bar:foo",
+			currentClusterName: "root",
+			expected: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: "Foo",
+				Path: "root:bar",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("when workspace type name is %s and the current cluster name %s", tt.workspaceTypeName, tt.currentClusterName), func(t *testing.T) {
+			clusterWorkspaceTypeReference := structureWorkspaceType(tt.workspaceTypeName, tt.currentClusterName)
+
+			assert.Equal(t, tt.expected, clusterWorkspaceTypeReference)
 		})
 	}
 }
