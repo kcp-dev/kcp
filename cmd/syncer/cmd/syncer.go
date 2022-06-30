@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
 	synceroptions "github.com/kcp-dev/kcp/cmd/syncer/options"
@@ -62,6 +63,12 @@ func NewSyncerCommand() *cobra.Command {
 	}
 
 	options.AddFlags(syncerCommand.Flags())
+
+	if v := version.Get().String(); len(v) == 0 {
+		syncerCommand.Version = "<unknown>"
+	} else {
+		syncerCommand.Version = v
+	}
 
 	return syncerCommand
 }
