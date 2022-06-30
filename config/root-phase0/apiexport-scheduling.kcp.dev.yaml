@@ -7,4 +7,6 @@ spec:
   latestResourceSchemas:
   - v220706-3993e86b.locations.scheduling.kcp.dev
   - v220706-3993e86b.placements.scheduling.kcp.dev
+  maximalPermissionPolicy:
+    local: {}
 status: {}

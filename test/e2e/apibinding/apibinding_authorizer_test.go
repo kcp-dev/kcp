@@ -38,7 +38,6 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -83,11 +82,11 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 			test: func(t *testing.T) {
 				t.Parallel()
 
-				t.Logf("Creating a WorkloadCluster as user-1")
+				t.Logf("Creating a ClusterWorkspaceType as user-1")
 				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.DefaultConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err = userKcpClusterClient.Cluster(orgClusterName).WorkloadV1alpha1().WorkloadClusters().Create(ctx, &workloadv1alpha1.WorkloadCluster{
+					_, err = userKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
 						},
@@ -99,12 +98,12 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Logf("Trying to change the status as user-1 and that should fail")
-				patch := []byte(`{"status":{"syncedResources":["pods"]}}`)
-				wc, err := userKcpClusterClient.Cluster(orgClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				patch := []byte(`{"status":{"Initializers":["foo"]}}`)
+				wc, err := userKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, wc))
 
 				t.Logf("Double check to change status as admin, which should work")
-				_, err = kcpClusterClient.Cluster(orgClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				_, err = kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch status as admin")
 			},
 		},

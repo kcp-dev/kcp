@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:kcp:apiexport:scheduling:maximal-permission-policy
+rules:
+- apiGroups: ["scheduling.kcp.dev"]
+  verbs: ["*"]
+  resources:
+  - locations
+  - placements
+- apiGroups: ["apiresource.kcp.dev"]
+  verbs: ["get","list","watch"]
+  resources:
+  - locations/status
+  - placements/status
