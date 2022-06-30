@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -61,6 +62,7 @@ type RunningServer interface {
 	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
 	DefaultConfig(t *testing.T) *rest.Config
+	ClusterConfig(r *rest.Config) *rest.Config
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
@@ -395,6 +397,10 @@ func (c *kcpServer) DefaultConfig(t *testing.T) *rest.Config {
 	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
 }
 
+func (c *kcpServer) ClusterConfig(r *rest.Config) *rest.Config {
+	return kcpclienthelper.NewClusterConfig(r)
+}
+
 // RawConfig exposes a copy of the client config for this server.
 func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 	c.lock.Lock()
@@ -620,6 +626,10 @@ func (s *unmanagedKCPServer) DefaultConfig(t *testing.T) *rest.Config {
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 	return defaultConfig
+}
+
+func (s *unmanagedKCPServer) ClusterConfig(r *rest.Config) *rest.Config {
+	return kcpclienthelper.NewClusterConfig(r)
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {

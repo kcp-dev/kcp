@@ -25,6 +25,7 @@ import (
 	"os"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster"
 
 	corev1 "k8s.io/api/core/v1"
@@ -672,14 +673,14 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 }
 
 func (s *Server) installAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-apiexport-controller")
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-apiexport-controller"))
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
