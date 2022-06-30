@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -55,12 +56,16 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	clusterWorkspaceShardLister := clusterWorkspaceShardInformer.Lister()
+	clusterWorkspaceTypeLister := clusterWorkspaceTypeInformer.Lister()
 	c := &controller{
 		queue:                      queue,
 		kcpClusterClient:           kcpClusterClient,
-		clusterWorkspaceTypeLister: clusterWorkspaceTypeInformer.Lister(),
+		clusterWorkspaceTypeLister: clusterWorkspaceTypeLister,
 		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 			return clusterWorkspaceShardLister.List(labels.Everything())
+		},
+		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+			return clusterWorkspaceTypeLister.Get(keyFor(reference))
 		},
 	}
 
@@ -93,13 +98,18 @@ func NewController(
 	return c, nil
 }
 
+func keyFor(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) string {
+	return clusters.ToClusterAwareKey(logicalcluster.New(reference.Path), tenancyv1alpha1.ObjectName(reference.Name))
+}
+
 // controller reconciles APIExports. It ensures an export's identity secret exists and is valid.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient           kcpclient.ClusterInterface
-	clusterWorkspaceTypeLister tenancyv1alpha1lister.ClusterWorkspaceTypeLister
-	listClusterWorkspaceShards func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	kcpClusterClient            kcpclient.ClusterInterface
+	clusterWorkspaceTypeLister  tenancyv1alpha1lister.ClusterWorkspaceTypeLister
+	listClusterWorkspaceShards  func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	resolveClusterWorkspaceType func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 }
 
 // enqueueClusterWorkspaceType enqueues a ClusterWorkspaceType.

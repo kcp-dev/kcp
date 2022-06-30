@@ -45,6 +45,7 @@ import (
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -310,6 +311,26 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create custom ClusterWorkspaceType 'Custom'")
+				server.Artifact(t, func() (runtime.Object, error) {
+					return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "custom", metav1.GetOptions{})
+				})
+				t.Logf("Wait for type Custom to be usable")
+				cwtName := cwt.Name
+				framework.Eventually(t, func() (bool, string) {
+					cwt, err := server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+					require.NoError(t, err, "Error fetching ClusterWorkspaceType %q|%q", parentCluster.String(), cwtName)
+					done := conditions.IsTrue(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
+					var reason string
+					if !done {
+						condition := conditions.Get(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
+						if condition != nil {
+							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: %s: %s", parentCluster.String(), cwtName, condition.Reason, condition.Message)
+						} else {
+							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: no condition present", parentCluster.String(), cwtName)
+						}
+					}
+					return done, reason
+				}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for type extensions to be resolved on ClusterWorkspaceType")
 
 				t.Logf("Give user1 access to the custom type")
 				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{

@@ -23,6 +23,7 @@ import (
 	"io"
 	"regexp"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,6 +82,26 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 	}
 	if cwt.Name == "organization" && clusterName != tenancyv1alpha1.RootCluster {
 		return errors.New("organization type can only be created in root workspace")
+	}
+
+	if a.GetOperation() != admission.Update {
+		return nil
+	}
+
+	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspacetypes") {
+		return nil
+	}
+	oldU, ok := a.GetOldObject().(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("unexpected type %T", a.GetOldObject())
+	}
+	old := &tenancyv1alpha1.ClusterWorkspaceType{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldU.Object, old); err != nil {
+		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
+	}
+
+	if !equality.Semantic.DeepEqual(cwt.Spec.Extend, old.Spec.Extend) {
+		return admission.NewForbidden(a, errors.New("spec.extend is immutable"))
 	}
 
 	return nil

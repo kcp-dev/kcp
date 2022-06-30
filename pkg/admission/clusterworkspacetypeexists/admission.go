@@ -39,6 +39,7 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -180,9 +181,9 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return admission.NewForbidden(a, resolutionError)
 	}
 
-	// add initializer from type to workspace
-	if cwt.Spec.Initializer {
-		cw.Status.Initializers = initialization.EnsureInitializerPresent(initialization.InitializerForType(cwt), cw.Status.Initializers)
+	// add initializers from type to workspace
+	for _, initializer := range cwt.Status.Initializers {
+		cw.Status.Initializers = initialization.EnsureInitializerPresent(initializer, cw.Status.Initializers)
 	}
 
 	return updateUnstructured(u, cw)
@@ -198,16 +199,16 @@ func (o *clusterWorkspaceTypeExists) resolveValidType(parentClusterName logicalc
 		return nil, err
 	}
 	parentRef := tenancyv1alpha1.ReferenceFor(parentCwt)
-	if !setContainsType(parentCwt.Spec.AllowedChildWorkspaceTypes, parentRef, ref) {
+	if !setContainsAnyType(parentCwt.Spec.AllowedChildWorkspaceTypes, parentRef, cwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("parent cluster workspace %q (of type %s) does not allow for child workspaces of type %s", parentClusterName, parentRef.String(), ref.String())
 	}
-	if !setContainsType(cwt.Spec.AllowedParentWorkspaceTypes, ref, parentRef) {
+	if !setContainsAnyType(cwt.Spec.AllowedParentWorkspaceTypes, ref, parentCwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("cluster workspace %q (of type %s) does not allow for parent workspaces of type %s", workspaceName, ref.String(), parentRef.String())
 	}
 	return cwt, nil
 }
 
-func setContainsType(set []tenancyv1alpha1.ClusterWorkspaceTypeName, owner, query tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
+func setContainsAnyType(set []tenancyv1alpha1.ClusterWorkspaceTypeName, owner tenancyv1alpha1.ClusterWorkspaceTypeReference, queries []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
 	// either the set allows any workspace
 	for _, allowed := range set {
 		if allowed == tenancyv1alpha1.AnyWorkspaceType {
@@ -216,8 +217,10 @@ func setContainsType(set []tenancyv1alpha1.ClusterWorkspaceTypeName, owner, quer
 	}
 	// or, it contains the name of the reference and matches on the cluster path
 	for _, allowed := range set {
-		if allowed == query.Name && owner.Path == query.Path {
-			return true
+		for _, query := range queries {
+			if allowed == query.Name && owner.Path == query.Path {
+				return true
+			}
 		}
 	}
 	return false
@@ -229,14 +232,23 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 		// the clusterWorkspace exists in the root logical cluster, and therefore there is no
 		// higher clusterWorkspaceType to check for allowed sub-types; the mere presence of the
 		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
+		rootRef := tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Name: tenancyv1alpha1.RootWorkspaceType,
+			Path: tenancyv1alpha1.RootCluster.String(),
+		}
 		return &tenancyv1alpha1.ClusterWorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        tenancyv1alpha1.ObjectName(tenancyv1alpha1.RootWorkspaceType),
-				ClusterName: tenancyv1alpha1.RootCluster.String(),
+				Name:        tenancyv1alpha1.ObjectName(rootRef.Name),
+				ClusterName: rootRef.Path,
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 				AllowedChildWorkspaceTypes:  []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
 				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
+			},
+			Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+				TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					rootRef,
+				},
 			},
 		}, nil
 	}
@@ -246,7 +258,7 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 	}
 	parentCwt, resolutionError := o.resolveType(parentCluster.Spec.Type)
 	if resolutionError != nil {
-		return nil, fmt.Errorf("could not resolve type %s of parent cluster workspace %q: %w", parentCluster.Spec.Type.String(), parentClusterName.String(), err)
+		return nil, fmt.Errorf("could not resolve type %s of parent cluster workspace %q: %w", parentCluster.Spec.Type.String(), parentClusterName.String(), resolutionError)
 	}
 	return parentCwt, nil
 }
@@ -256,7 +268,13 @@ func (o *clusterWorkspaceTypeExists) resolveType(ref tenancyv1alpha1.ClusterWork
 	if apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("spec.type %s does not exist", ref.String())
 	}
-	return cwt, err
+	if err != nil {
+		return nil, err
+	}
+	if !conditions.IsTrue(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved) {
+		return nil, fmt.Errorf("ClusterWorkspaceType %s has not had its type extensions resolved yet", tenancyv1alpha1.ReferenceFor(cwt))
+	}
+	return cwt, nil
 }
 
 // Validate ensures that

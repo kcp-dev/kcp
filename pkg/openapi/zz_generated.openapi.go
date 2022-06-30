@@ -86,6 +86,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceSpec":                     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceStatus":                   schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceType":                     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeExtension(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeList":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
@@ -2821,6 +2822,49 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref common.ReferenceC
 	}
 }
 
+func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeExtension(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterWorkspaceTypeExtension defines how other ClusterWorkspaceTypes are composed together to add functionality to the owning ClusterWorkspaceType.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"with": {
+						SchemaProps: spec.SchemaProps{
+							Description: "with are ClusterWorkspaceTypes whose initializers are added to the list for the owning type, and for whom the owning type becomes an alias, as long as all of their required types are not mentioned in without.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+									},
+								},
+							},
+						},
+					},
+					"without": {
+						SchemaProps: spec.SchemaProps{
+							Description: "without are ClusterWorkspaceTypes whose initializers are removed from the list computed for \"with\", and for whom the owning type does not become an alias. If a composite type in \"with\" has some part removed in \"without\", the composite type does not become an alias.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"},
+	}
+}
+
 func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2908,9 +2952,16 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 				Properties: map[string]spec.Schema{
 					"initializer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "initializer determines if this ClusterWorkspaceType has an associated initializing controller. These controllers are used to add functionality to a ClusterWorkspace; all controllers must finish their work before the ClusterWorkspace becomes ready for use.\n\nOne initializing controller is supported per ClusterWorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the ClusterWorkspaceType is defined, and the type's name. For example, if a ClusterWorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:example`.",
+							Description: "initializer determines if this ClusterWorkspaceType has an associated initializing controller. These controllers are used to add functionality to a ClusterWorkspace; all controllers must finish their work before the ClusterWorkspace becomes ready for use.\n\nOne initializing controller is supported per ClusterWorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the ClusterWorkspaceType is defined, and the type's name. For example, if a ClusterWorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:Example`.",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"extend": {
+						SchemaProps: spec.SchemaProps{
+							Description: "extend allows this ClusterWorkspaceType to add functionality from other types. When some ClusterWorkspaceType `root:org:Alpha` lists another type `root:org:Beta` in spec.extend.with, the following occurs: - new ClusterWorkspaces of type `root:org:Alpha` get the initializers from both\n  types added, if they are enabled\n- any ClusterWorkspaceType that allows `root:org:Beta` as an allowed child or parent\n  type will implicitly allow `root:org:Alpha` as well\n\nThis field is immutable.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension"),
 						},
 					},
 					"additionalWorkspaceLabels": {
@@ -2969,6 +3020,8 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension"},
 	}
 }
 
@@ -2979,6 +3032,35 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.Refe
 				Description: "ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"initializers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "initializers are the list of initializing controller references which need to be added to new ClusterWorkspaces of this type, resolved from the specified type compositions.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"typeAliases": {
+						SchemaProps: spec.SchemaProps{
+							Description: "typeAliases are other ClusterWorkspaceTypes for which this type is an alias. For example, if this type is `root:org:Alpha` and the `.status.typeAliases` list contains `root:org:Beta`, any parent or child restriction which allows `root:org:Beta` will implicitly also allow `root:org:Alpha` as it is an alias.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "conditions is a list of conditions that apply to the APIExport.",
@@ -3011,7 +3093,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 

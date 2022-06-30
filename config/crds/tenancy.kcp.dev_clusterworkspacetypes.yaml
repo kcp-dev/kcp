@@ -84,6 +84,64 @@ spec:
                   the user must specify a type when creating nested workspaces.
                 pattern: ^[A-Z][a-zA-Z0-9]+$
                 type: string
+              extend:
+                description: "extend allows this ClusterWorkspaceType to add functionality
+                  from other types. When some ClusterWorkspaceType `root:org:Alpha`
+                  lists another type `root:org:Beta` in spec.extend.with, the following
+                  occurs: - new ClusterWorkspaces of type `root:org:Alpha` get the
+                  initializers from both   types added, if they are enabled - any
+                  ClusterWorkspaceType that allows `root:org:Beta` as an allowed child
+                  or parent   type will implicitly allow `root:org:Alpha` as well
+                  \n This field is immutable."
+                properties:
+                  with:
+                    description: with are ClusterWorkspaceTypes whose initializers
+                      are added to the list for the owning type, and for whom the
+                      owning type becomes an alias, as long as all of their required
+                      types are not mentioned in without.
+                    items:
+                      description: ClusterWorkspaceTypeReference is a globally unique,
+                        fully qualified reference to a cluster workspace type.
+                      properties:
+                        name:
+                          description: name is the name of the ClusterWorkspaceType
+                          pattern: ^[A-Z][a-zA-Z0-9]+$
+                          type: string
+                        path:
+                          description: path is an absolute reference to the workspace
+                            that owns this type, e.g. root:org:ws.
+                          pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      - path
+                      type: object
+                    type: array
+                  without:
+                    description: without are ClusterWorkspaceTypes whose initializers
+                      are removed from the list computed for "with", and for whom
+                      the owning type does not become an alias. If a composite type
+                      in "with" has some part removed in "without", the composite
+                      type does not become an alias.
+                    items:
+                      description: ClusterWorkspaceTypeReference is a globally unique,
+                        fully qualified reference to a cluster workspace type.
+                      properties:
+                        name:
+                          description: name is the name of the ClusterWorkspaceType
+                          pattern: ^[A-Z][a-zA-Z0-9]+$
+                          type: string
+                        path:
+                          description: path is an absolute reference to the workspace
+                            that owns this type, e.g. root:org:ws.
+                          pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      - path
+                      type: object
+                    type: array
+                type: object
               initializer:
                 description: "initializer determines if this ClusterWorkspaceType
                   has an associated initializing controller. These controllers are
@@ -94,7 +152,7 @@ spec:
                   using the workspace in which the ClusterWorkspaceType is defined,
                   and the type's name. For example, if a ClusterWorkspaceType `example`
                   is created in the `root:org` workspace, the implicit initializer
-                  name is `root:org:example`."
+                  name is `root:org:Example`."
                 type: boolean
             type: object
           status:
@@ -145,6 +203,41 @@ spec:
                   - lastTransitionTime
                   - status
                   - type
+                  type: object
+                type: array
+              initializers:
+                description: initializers are the list of initializing controller
+                  references which need to be added to new ClusterWorkspaces of this
+                  type, resolved from the specified type compositions.
+                items:
+                  description: ClusterWorkspaceInitializer is a unique string corresponding
+                    to a cluster workspace initialization controller for the given
+                    type of workspaces.
+                  pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[A-Z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                  type: string
+                type: array
+              typeAliases:
+                description: typeAliases are other ClusterWorkspaceTypes for which
+                  this type is an alias. For example, if this type is `root:org:Alpha`
+                  and the `.status.typeAliases` list contains `root:org:Beta`, any
+                  parent or child restriction which allows `root:org:Beta` will implicitly
+                  also allow `root:org:Alpha` as it is an alias.
+                items:
+                  description: ClusterWorkspaceTypeReference is a globally unique,
+                    fully qualified reference to a cluster workspace type.
+                  properties:
+                    name:
+                      description: name is the name of the ClusterWorkspaceType
+                      pattern: ^[A-Z][a-zA-Z0-9]+$
+                      type: string
+                    path:
+                      description: path is an absolute reference to the workspace
+                        that owns this type, e.g. root:org:ws.
+                      pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  - path
                   type: object
                 type: array
               virtualWorkspaces:
