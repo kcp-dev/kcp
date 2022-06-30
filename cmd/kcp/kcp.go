@@ -32,6 +32,7 @@ import (
 	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/term"
+	"k8s.io/component-base/version"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/server"
@@ -156,6 +157,12 @@ func main() {
 	})
 
 	help.FitTerminal(cmd.OutOrStdout())
+
+	if v := version.Get().String(); len(v) == 0 {
+		cmd.Version = "<unknown>"
+	} else {
+		cmd.Version = v
+	}
 
 	os.Exit(cli.Run(cmd))
 }
