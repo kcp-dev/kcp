@@ -253,7 +253,7 @@ func TestAdmission(t *testing.T) {
 				},
 				nil,
 				admission.Create,
-				&user.DefaultInfo{Groups: []string{"system:masters"}},
+				&user.DefaultInfo{Groups: []string{user.SystemPrivilegedGroup}},
 			),
 		},
 		{
@@ -329,7 +329,7 @@ func TestAdmission(t *testing.T) {
 				},
 				admission.Update,
 				&user.DefaultInfo{
-					Groups: []string{"system:masters"},
+					Groups: []string{user.SystemPrivilegedGroup},
 				},
 			),
 		},
@@ -600,7 +600,7 @@ func TestAdmission(t *testing.T) {
 				},
 				admission.Update,
 				&user.DefaultInfo{
-					Groups: []string{"system:masters"},
+					Groups: []string{user.SystemPrivilegedGroup},
 				},
 			),
 		},
