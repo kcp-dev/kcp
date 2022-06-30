@@ -155,7 +155,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().withDeletionTimestamp(time.Now()).APIBinding,
 				newAPIBinding().withFinalizer(apibindingdeletion.APIBindingFinalizer).APIBinding,
 				&user.DefaultInfo{
-					Groups: []string{"system:masters"},
+					Groups: []string{user.SystemPrivilegedGroup},
 				},
 			),
 		},

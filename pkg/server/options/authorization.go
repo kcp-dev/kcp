@@ -19,6 +19,7 @@ package options
 import (
 	"github.com/spf13/pflag"
 
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/authorization/path"
@@ -44,7 +45,7 @@ func NewAuthorization() *Authorization {
 		// This allows the kubelet to always get health and readiness without causing an authorization check.
 		// This field can be cleared by callers if they don't want this behavior.
 		AlwaysAllowPaths:  []string{"/healthz", "/readyz", "/livez"},
-		AlwaysAllowGroups: []string{"system:masters"},
+		AlwaysAllowGroups: []string{user.SystemPrivilegedGroup},
 	}
 }
 

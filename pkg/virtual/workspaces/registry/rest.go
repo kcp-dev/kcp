@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/authentication/user"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -211,7 +210,7 @@ func (s *REST) getInternalNameFromPrettyName(user kuser.Info, orgClusterName log
 	return "", kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), prettyName)
 }
 
-func withoutGroupsWhenPersonal(user user.Info, usePersonalScope bool) user.Info {
+func withoutGroupsWhenPersonal(user kuser.Info, usePersonalScope bool) kuser.Info {
 	if usePersonalScope {
 		return &kuser.DefaultInfo{
 			Name:   user.GetName(),
@@ -223,7 +222,7 @@ func withoutGroupsWhenPersonal(user user.Info, usePersonalScope bool) user.Info 
 	return user
 }
 
-func (s *REST) deprecatedAuthorizeOrgForUser(ctx context.Context, orgClusterName logicalcluster.Name, user user.Info, verb string) error {
+func (s *REST) deprecatedAuthorizeOrgForUser(ctx context.Context, orgClusterName logicalcluster.Name, user kuser.Info, verb string) error {
 	// Root org access is implicit for every user. For non-root orgs, we need to check for
 	// verb=access permissions against the clusterworkspaces/content of the ClusterWorkspace of
 	// the org in the root.
@@ -258,7 +257,7 @@ func (s *REST) deprecatedAuthorizeOrgForUser(ctx context.Context, orgClusterName
 	return nil
 }
 
-func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalcluster.Name, user user.Info, verb string, resourceName string) error {
+func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalcluster.Name, user kuser.Info, verb string, resourceName string) error {
 	// Root org access is implicit for every user. For non-root orgs, we need to check for
 	// verb permissions against the clusterworkspaces/workspace sub-resource.
 	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {

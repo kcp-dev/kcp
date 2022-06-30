@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 // Validate creation and updates for
@@ -81,7 +82,7 @@ func (f *FinalizerPlugin) Validate(ctx context.Context, a admission.Attributes, 
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
 
-		isSystem := sets.NewString(a.GetUserInfo().GetGroups()...).Has("system:masters")
+		isSystem := sets.NewString(a.GetUserInfo().GetGroups()...).Has(user.SystemPrivilegedGroup)
 		isDeleting := !u.GetDeletionTimestamp().IsZero()
 		isRemoving := finalizerExists(old.GetFinalizers(), f.FinalizerName) && !finalizerExists(u.GetFinalizers(), f.FinalizerName)
 		exists := finalizerExists(u.GetFinalizers(), f.FinalizerName)
