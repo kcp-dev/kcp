@@ -986,9 +986,145 @@ func TestCreateWorkspace(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
 					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
 						"universal": rbacGroups("test-group"),
+					},
+				},
+			}),
+		},
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			newWorkspace := tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+			}
+			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
+			require.NoError(t, err)
+			require.NotNil(t, response)
+			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
+			workspace := response.(*tenancyv1beta1.Workspace)
+			assert.Equal(t, "foo", workspace.Name)
+			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
+			require.NoError(t, err)
+			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
+			assert.ElementsMatch(t, crbs.Items, append(testData.clusterRoleBindings,
+				rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "owner-workspace-foo-test-user",
+						Labels: map[string]string{
+							PrettyNameLabel:   "foo",
+							InternalNameLabel: "foo",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						APIGroup: "rbac.authorization.k8s.io",
+						Kind:     "ClusterRole",
+						Name:     "owner-workspace-foo-test-user",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: "test-user",
+						},
+					},
+				},
+			))
+			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
+			require.NoError(t, err)
+			crs := crList.(*rbacv1.ClusterRoleList)
+			assert.ElementsMatch(t, crs.Items, append(testData.clusterRoles,
+				rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "owner-workspace-foo-test-user",
+						Labels: map[string]string{
+							InternalNameLabel: "foo",
+						},
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"get", "delete"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"clusterworkspaces/workspace"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+						{
+							Verbs:         []string{"admin", "access"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"clusterworkspaces/content"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+					},
+				},
+			))
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestCreateWorkspaceFailNoPermissionForType(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:    user,
+			scope:   PersonalScope,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+						"orgName": rbacGroups("test-group"),
+					},
+				},
+			}),
+		},
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			newWorkspace := tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+			}
+			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
+			require.EqualError(t, err, `workspaces.tenancy.kcp.dev "foo" is forbidden: use of the cluster workspace type "root:Universal" in workspace "root:orgName" is not allowed`)
+			require.Nil(t, response)
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestCreateWorkspaceCustomLocalType(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:    user,
+			scope:   PersonalScope,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
+						"custom": rbacGroups("test-group"),
 					},
 				},
 			}),
@@ -1007,6 +1143,12 @@ func TestCreateWorkspace(t *testing.T) {
 			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
+				},
+				Spec: tenancyv1beta1.WorkspaceSpec{
+					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("custom"),
+						Path: "root:orgName",
+					},
 				},
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
@@ -1089,11 +1231,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
-						"universal": rbacGroups("test-group"),
-					},
-				},
+				subjects: map[string]map[string][]rbacv1.Subject{},
 			}),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
@@ -1102,6 +1240,9 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 					},
 					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
 						"orgName": rbacGroups("test-group"),
+					},
+					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
+						"universal": rbacGroups("test-group"),
 					},
 				},
 			}),
@@ -1177,6 +1318,12 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: clusterWorkspace.Name,
 					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Universal"),
+							Path: "root",
+						},
+					},
 				},
 			))
 
@@ -1249,11 +1396,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
-						"universal": rbacGroups("test-group"),
-					},
-				},
+				subjects: map[string]map[string][]rbacv1.Subject{},
 			}),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
@@ -1262,6 +1405,9 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 					},
 					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
 						"orgName": rbacGroups("test-group"),
+					},
+					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
+						"universal": rbacGroups("test-group"),
 					},
 				},
 			}),
@@ -1354,11 +1500,7 @@ func TestCreateWorkspaceWithClusterWorkspaceCreationError(t *testing.T) {
 			orgName:                logicalcluster.New("root:orgName"),
 			workspaceCreationError: errors.NewBadRequest("something bad happened"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
-						"universal": rbacGroups("test-group"),
-					},
-				},
+				subjects: map[string]map[string][]rbacv1.Subject{},
 			}),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
@@ -1367,6 +1509,9 @@ func TestCreateWorkspaceWithClusterWorkspaceCreationError(t *testing.T) {
 					},
 					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
 						"orgName": rbacGroups("test-group"),
+					},
+					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
+						"universal": rbacGroups("test-group"),
 					},
 				},
 			}),

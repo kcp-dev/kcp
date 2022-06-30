@@ -578,16 +578,19 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
 
+	if workspace.Spec.Type.Name == "" && workspace.Spec.Type.Path == "" {
+		workspace.Spec.Type.Name = "Universal"
+		workspace.Spec.Type.Path = "root"
+	}
+
 	// check whether the user is allowed to use the cluster workspace type
-	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
+	authz, err := s.delegatedAuthz(logicalcluster.New(workspace.Spec.Type.Path), s.kubeClusterClient)
 	if err != nil {
 		klog.Errorf("failed to get delegated authorizer for logical cluster %s", userInfo.GetName(), orgClusterName)
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
 	}
+
 	typeName := tenancyv1alpha1.ObjectName(workspace.Spec.Type.Name)
-	if len(typeName) == 0 {
-		typeName = "universal"
-	}
 	typeUseAttr := authorizer.AttributesRecord{
 		User:            userInfo,
 		Verb:            "use",
