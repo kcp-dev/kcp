@@ -23,6 +23,7 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	clientgoinformers "k8s.io/client-go/informers"
@@ -136,7 +137,14 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 		&rbac.ClusterRoleGetter{Lister: clusterKubeInformer.ClusterRoles().Lister()},
 		&rbac.ClusterRoleBindingLister{Lister: clusterKubeInformer.ClusterRoleBindings().Lister()},
 	)
-	dec, reason, err := clusterAuthorizer.Authorize(ctx, attr)
+	prefixedAttr := deepCopyAttributes(attr)
+	userInfo := prefixedAttr.User.(*user.DefaultInfo)
+	userInfo.Name = apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix + userInfo.Name
+	userInfo.Groups = make([]string, 0, len(attr.GetUser().GetGroups()))
+	for _, g := range attr.GetUser().GetGroups() {
+		userInfo.Groups = append(userInfo.Groups, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+g)
+	}
+	dec, reason, err := clusterAuthorizer.Authorize(ctx, prefixedAttr)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, reason, err
 	}

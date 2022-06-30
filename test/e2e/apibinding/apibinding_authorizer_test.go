@@ -27,20 +27,121 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
+
+func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
+	t.Parallel()
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(server.DefaultConfig(t))
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
+	kcpClusterClient, err := clientset.NewClusterForConfig(server.DefaultConfig(t))
+	require.NoError(t, err, "failed to construct kcp cluster client for user-1")
+
+	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", server.DefaultConfig(t))
+	rootKcpClusterClient, err := clientset.NewClusterForConfig(rootCfg)
+	require.NoError(t, err)
+
+	t.Logf("Creating workspace")
+	orgClusterName := framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{
+		Name: "root",
+	}))
+
+	t.Logf("Giving user-1 admin access")
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1"}, nil, []string{"admin", "access"})
+
+	type Test struct {
+		name string
+		test func(t *testing.T)
+	}
+
+	for _, test := range []Test{
+		{
+			name: "APIBinding resources",
+			test: func(t *testing.T) {
+				t.Parallel()
+
+				t.Logf("Creating a WorkloadCluster as user-1")
+				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.DefaultConfig(t)))
+				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
+				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+					_, err = userKcpClusterClient.Cluster(orgClusterName).WorkloadV1alpha1().WorkloadClusters().Create(ctx, &workloadv1alpha1.WorkloadCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test",
+						},
+					}, metav1.CreateOptions{})
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				t.Logf("Trying to change the status as user-1 and that should fail")
+				patch := []byte(`{"status":{"syncedResources":["pods"]}}`)
+				wc, err := userKcpClusterClient.Cluster(orgClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, wc))
+
+				t.Logf("Double check to change status as admin, which should work")
+				_, err = kcpClusterClient.Cluster(orgClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				require.NoError(t, err, "failed to patch status as admin")
+			},
+		},
+		{
+			name: "System CRDs",
+			test: func(t *testing.T) {
+				t.Parallel()
+
+				t.Logf("Creating a APIExport as user-1")
+				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.DefaultConfig(t)))
+				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
+				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+					_, err := userKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test",
+						},
+					}, metav1.CreateOptions{})
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				t.Logf("Trying to change the status as user-1 and that should fail")
+				patch := []byte(`{"status":{"identityHash":"4711"}}`)
+				export, err := userKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, export))
+
+				t.Logf("Double check to change status as system:master, which should work") // system CRDs even need system:master, hence we need the root shard client
+				_, err = rootKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				require.NoError(t, err, "failed to patch status as admin")
+			},
+		},
+	} {
+		t.Run(test.name, test.test)
+	}
+}
 
 func TestAPIBindingAuthorizer(t *testing.T) {
 	t.Parallel()
@@ -215,10 +316,10 @@ func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, 
 		},
 	}
 	if serviceProviderWorkspace == rbacServiceProvider {
-		cowboysAPIExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.APIExportPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
+		cowboysAPIExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
 		//install RBAC that allows 	create/list/get/update/watch on cowboys for system:authenticated
 		t.Logf("Install RBAC for API Export in serviceProvider1")
-		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "system:authenticated", "Group", []string{rbacv1.VerbAll})
+		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "apis.kcp.dev:binding:system:authenticated", "Group", []string{rbacv1.VerbAll})
 		_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
 		require.NoError(t, err)
 		_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
@@ -254,4 +355,10 @@ func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace lo
 	_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
 
+}
+
+func toYAML(t *testing.T, binding interface{}) string {
+	bs, err := yaml.Marshal(binding)
+	require.NoError(t, err)
+	return string(bs)
 }

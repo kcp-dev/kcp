@@ -51,7 +51,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingStatus":                            schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExport":                                   schema_pkg_apis_apis_v1alpha1_APIExport(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportList":                               schema_pkg_apis_apis_v1alpha1_APIExportList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportPolicy":                             schema_pkg_apis_apis_v1alpha1_APIExportPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportSpec":                               schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportStatus":                             schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchema":                           schema_pkg_apis_apis_v1alpha1_APIResourceSchema(ref),
@@ -63,6 +62,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference":                             schema_pkg_apis_apis_v1alpha1_ExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity":                                    schema_pkg_apis_apis_v1alpha1_Identity(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace":                            schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference":                    schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":                schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
@@ -1337,26 +1337,6 @@ func schema_pkg_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) c
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "APIExportPolicy is a wrapper type around the multiple options that would be allowed.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"local": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"},
-	}
-}
-
 func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1392,15 +1372,15 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 					},
 					"maximalPermissionPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "maximalPermissionPolicy will allow for a service provider to set a upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportPolicy"),
+							Description: "maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.\n\nThe policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of an user in a workspace that binds to this APIExport via an APIBinding is additional checked against these rules, with the user name and the groups prefixed with `apis.kcp.dev:binding:`.\n\nFor example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to this APIExport in another workspace root:org:ws. Then a request in that workspace against a resource of this APIExport is authorized as every other request in that workspace, but in addition the RBAC policy here in the APIExport workspace has to grant access to the user `apis.kcp.dev:binding:adam` with the groups `apis.kcp.dev:binding:system:authenticated` and `apis.kcp.dev:binding:a-team`.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportPolicy", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy"},
 	}
 }
 
@@ -1848,6 +1828,27 @@ func schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCall
 				Type:        []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MaximalPermissionPolicy is a wrapper type around the multiple options that would be allowed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"local": {
+						SchemaProps: spec.SchemaProps{
+							Description: "local is policy that is defined in same namespace as API Export.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"},
 	}
 }
 
