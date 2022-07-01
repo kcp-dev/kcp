@@ -61,9 +61,22 @@ spec:
                   within a workspace of the given type. The name `*` allows any child
                   type to be nested."
                 items:
-                  description: ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
-                  pattern: ^[A-Z][a-zA-Z0-9]+$
-                  type: string
+                  description: ClusterWorkspaceTypeReference is a globally unique,
+                    fully qualified reference to a cluster workspace type.
+                  properties:
+                    name:
+                      description: name is the name of the ClusterWorkspaceType
+                      pattern: ^[A-Z][a-zA-Z0-9]+$
+                      type: string
+                    path:
+                      description: path is an absolute reference to the workspace
+                        that owns this type, e.g. root:org:ws.
+                      pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  - path
+                  type: object
                 type: array
               allowedParentWorkspaceTypes:
                 description: "allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes
@@ -72,9 +85,22 @@ spec:
                   type nested inside it. The name `*` allows any parent type to nest
                   this one."
                 items:
-                  description: ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
-                  pattern: ^[A-Z][a-zA-Z0-9]+$
-                  type: string
+                  description: ClusterWorkspaceTypeReference is a globally unique,
+                    fully qualified reference to a cluster workspace type.
+                  properties:
+                    name:
+                      description: name is the name of the ClusterWorkspaceType
+                      pattern: ^[A-Z][a-zA-Z0-9]+$
+                      type: string
+                    path:
+                      description: path is an absolute reference to the workspace
+                        that owns this type, e.g. root:org:ws.
+                      pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  - path
+                  type: object
                 minItems: 1
                 type: array
               defaultChildWorkspaceType:
@@ -82,8 +108,20 @@ spec:
                   that will be used by default if another, nested ClusterWorkspace
                   is created in a workspace of this type. When this field is unset,
                   the user must specify a type when creating nested workspaces.
-                pattern: ^[A-Z][a-zA-Z0-9]+$
-                type: string
+                properties:
+                  name:
+                    description: name is the name of the ClusterWorkspaceType
+                    pattern: ^[A-Z][a-zA-Z0-9]+$
+                    type: string
+                  path:
+                    description: path is an absolute reference to the workspace that
+                      owns this type, e.g. root:org:ws.
+                    pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                - path
+                type: object
               extend:
                 description: "extend allows this ClusterWorkspaceType to add functionality
                   from other types. When some ClusterWorkspaceType `root:org:Alpha`

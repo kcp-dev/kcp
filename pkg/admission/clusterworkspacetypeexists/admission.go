@@ -138,10 +138,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			if parentCwt == nil {
 				return admission.NewForbidden(a, errors.New("spec.type must be set in the root workspace"))
 			}
-			cw.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: parentCwt.Spec.DefaultChildWorkspaceType,
-				Path: logicalcluster.From(parentCwt).String(),
-			}
+			cw.Spec.Type = parentCwt.Spec.DefaultChildWorkspaceType
 		}
 		cwt, resolutionError := o.resolveType(cw.Spec.Type)
 		if resolutionError != nil {
@@ -199,26 +196,26 @@ func (o *clusterWorkspaceTypeExists) resolveValidType(parentClusterName logicalc
 		return nil, err
 	}
 	parentRef := tenancyv1alpha1.ReferenceFor(parentCwt)
-	if !setContainsAnyType(parentCwt.Spec.AllowedChildWorkspaceTypes, parentRef, cwt.Status.TypeAliases) {
+	if !setContainsAnyType(parentCwt.Spec.AllowedChildWorkspaceTypes, cwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("parent cluster workspace %q (of type %s) does not allow for child workspaces of type %s", parentClusterName, parentRef.String(), ref.String())
 	}
-	if !setContainsAnyType(cwt.Spec.AllowedParentWorkspaceTypes, ref, parentCwt.Status.TypeAliases) {
+	if !setContainsAnyType(cwt.Spec.AllowedParentWorkspaceTypes, parentCwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("cluster workspace %q (of type %s) does not allow for parent workspaces of type %s", workspaceName, ref.String(), parentRef.String())
 	}
 	return cwt, nil
 }
 
-func setContainsAnyType(set []tenancyv1alpha1.ClusterWorkspaceTypeName, owner tenancyv1alpha1.ClusterWorkspaceTypeReference, queries []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
+func setContainsAnyType(set, queries []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
 	// either the set allows any workspace
 	for _, allowed := range set {
-		if allowed == tenancyv1alpha1.AnyWorkspaceType {
+		if allowed.Equal(tenancyv1alpha1.AnyWorkspaceTypeReference) {
 			return true
 		}
 	}
 	// or, it contains the name of the reference and matches on the cluster path
 	for _, allowed := range set {
 		for _, query := range queries {
-			if allowed == query.Name && owner.Path == query.Path {
+			if allowed.Equal(query) {
 				return true
 			}
 		}
@@ -232,18 +229,15 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 		// the clusterWorkspace exists in the root logical cluster, and therefore there is no
 		// higher clusterWorkspaceType to check for allowed sub-types; the mere presence of the
 		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
-		rootRef := tenancyv1alpha1.ClusterWorkspaceTypeReference{
-			Name: tenancyv1alpha1.RootWorkspaceType,
-			Path: tenancyv1alpha1.RootCluster.String(),
-		}
+		rootRef := tenancyv1alpha1.RootWorkspaceTypeReference
 		return &tenancyv1alpha1.ClusterWorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        tenancyv1alpha1.ObjectName(rootRef.Name),
 				ClusterName: rootRef.Path,
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-				AllowedChildWorkspaceTypes:  []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
-				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
+				AllowedChildWorkspaceTypes:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{tenancyv1alpha1.AnyWorkspaceTypeReference},
+				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{tenancyv1alpha1.AnyWorkspaceTypeReference},
 			},
 			Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 				TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{

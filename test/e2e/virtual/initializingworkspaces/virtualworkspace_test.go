@@ -170,7 +170,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 				Initializer:                 true,
-				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
+				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{tenancyv1alpha1.AnyWorkspaceTypeReference},
 				Extend:                      clusterWorkspaceTypeExtensions[name],
 			},
 		}, metav1.CreateOptions{})

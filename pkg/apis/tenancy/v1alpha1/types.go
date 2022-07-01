@@ -203,7 +203,7 @@ type ClusterWorkspaceTypeSpec struct {
 	// creating nested workspaces.
 	//
 	// +optional
-	DefaultChildWorkspaceType ClusterWorkspaceTypeName `json:"defaultChildWorkspaceType,omitempty"`
+	DefaultChildWorkspaceType ClusterWorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
 
 	// allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes that can be
 	// created in a workspace of this type.
@@ -213,7 +213,7 @@ type ClusterWorkspaceTypeSpec struct {
 	// be nested.
 	//
 	// +optional
-	AllowedChildWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedChildWorkspaceTypes,omitempty"`
+	AllowedChildWorkspaceTypes []ClusterWorkspaceTypeReference `json:"allowedChildWorkspaceTypes,omitempty"`
 
 	// allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type
 	// can be created in.
@@ -224,7 +224,7 @@ type ClusterWorkspaceTypeSpec struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MinItems=1
-	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedParentWorkspaceTypes,omitempty"`
+	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeReference `json:"allowedParentWorkspaceTypes,omitempty"`
 }
 
 // ClusterWorkspaceTypeExtension defines how other ClusterWorkspaceTypes are
@@ -253,6 +253,9 @@ const (
 
 	ClusterWorkspaceTypeExtensionsResolved conditionsv1alpha1.ConditionType = "ExtensionsResolved"
 	ErrorResolvingExtensionsReason                                          = "ErrorResolvingExtensions"
+
+	ClusterWorkspaceTypeRelationshipsValid conditionsv1alpha1.ConditionType = "RelationshipsValid"
+	ErrorValidatingRelationshipsReason                                      = "ErrorValidatingRelationships"
 )
 
 // ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.
@@ -545,4 +548,16 @@ const (
 	AnyWorkspaceType = ClusterWorkspaceTypeName("Any")
 	// RootWorkspaceType is a reference to the root logical cluster, which has no cluster workspace type
 	RootWorkspaceType = ClusterWorkspaceTypeName("Root")
+)
+
+var (
+	// AnyWorkspaceTypeReference is used in allowed child and parent type lists to denote that any type is permissible.
+	AnyWorkspaceTypeReference = ClusterWorkspaceTypeReference{
+		Name: AnyWorkspaceType,
+	}
+	// RootWorkspaceTypeReference is a reference to the root logical cluster, which has no cluster workspace type
+	RootWorkspaceTypeReference = ClusterWorkspaceTypeReference{
+		Name: RootWorkspaceType,
+		Path: RootCluster.String(),
+	}
 )

@@ -150,14 +150,18 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					DefaultChildWorkspaceType: "some",
+					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "some", Path: "root",
+					},
 				},
 			}, &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					DefaultChildWorkspaceType: "other",
+					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "other", Path: "root",
+					},
 				},
 			}),
 			clusterName: logicalcluster.New("foo:bar"),
@@ -170,8 +174,8 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
-						"foo", "bar",
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
 					},
 				},
 			}, &tenancyv1alpha1.ClusterWorkspaceType{
@@ -179,8 +183,8 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
-						"chess", "checkers",
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
 					},
 				},
 			}),
@@ -194,8 +198,8 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
-						"foo", "bar",
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
 					},
 				},
 			}, &tenancyv1alpha1.ClusterWorkspaceType{
@@ -203,8 +207,8 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
-						"chess", "checkers",
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
 					},
 				},
 			}),

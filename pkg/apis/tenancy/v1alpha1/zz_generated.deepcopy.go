@@ -378,14 +378,15 @@ func (in *ClusterWorkspaceTypeSpec) DeepCopyInto(out *ClusterWorkspaceTypeSpec) 
 			(*out)[key] = val
 		}
 	}
+	out.DefaultChildWorkspaceType = in.DefaultChildWorkspaceType
 	if in.AllowedChildWorkspaceTypes != nil {
 		in, out := &in.AllowedChildWorkspaceTypes, &out.AllowedChildWorkspaceTypes
-		*out = make([]ClusterWorkspaceTypeName, len(*in))
+		*out = make([]ClusterWorkspaceTypeReference, len(*in))
 		copy(*out, *in)
 	}
 	if in.AllowedParentWorkspaceTypes != nil {
 		in, out := &in.AllowedParentWorkspaceTypes, &out.AllowedParentWorkspaceTypes
-		*out = make([]ClusterWorkspaceTypeName, len(*in))
+		*out = make([]ClusterWorkspaceTypeReference, len(*in))
 		copy(*out, *in)
 	}
 	return

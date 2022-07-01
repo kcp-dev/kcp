@@ -65,6 +65,10 @@ func TestReconcile(t *testing.T) {
 							Status: "True",
 						},
 						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
 							Type:   "VirtualWorkspaceURLsReady",
 							Status: "True",
 						},
@@ -95,6 +99,10 @@ func TestReconcile(t *testing.T) {
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
 							Status: "True",
 						},
 						{
@@ -142,6 +150,10 @@ func TestReconcile(t *testing.T) {
 							Status: "True",
 						},
 						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
 							Type:   "VirtualWorkspaceURLsReady",
 							Status: "True",
 						},
@@ -175,6 +187,10 @@ func TestReconcile(t *testing.T) {
 							Status: "True",
 						},
 						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
 							Type:   "VirtualWorkspaceURLsReady",
 							Status: "True",
 						},
@@ -199,6 +215,10 @@ func TestReconcile(t *testing.T) {
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
 							Status: "True",
 						},
 						{
@@ -230,6 +250,10 @@ func TestReconcile(t *testing.T) {
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
 							Status: "True",
 						},
 						{
@@ -269,6 +293,10 @@ func TestReconcile(t *testing.T) {
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
 							Status: "True",
 						},
 						{
@@ -340,6 +368,10 @@ func TestReconcile(t *testing.T) {
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
 							Status: "True",
 						},
 						{
@@ -424,6 +456,10 @@ func TestReconcile(t *testing.T) {
 							Status: "True",
 						},
 						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
 							Type:   "VirtualWorkspaceURLsReady",
 							Status: "True",
 						},
@@ -471,6 +507,13 @@ func TestReconcile(t *testing.T) {
 							Message:  `clusterworkspacetype.tenancy.kcp.dev "First" not found`,
 						},
 						{
+							Type:     "RelationshipsValid",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "type extensions have not yet been resolved",
+						},
+						{
 							Type:   "VirtualWorkspaceURLsReady",
 							Status: "True",
 						},
@@ -516,6 +559,13 @@ func TestReconcile(t *testing.T) {
 							Severity: "Error",
 							Reason:   "ErrorResolvingExtensions",
 							Message:  `cannot use a self-reference during type extension`,
+						},
+						{
+							Type:     "RelationshipsValid",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "type extensions have not yet been resolved",
 						},
 						{
 							Type:   "VirtualWorkspaceURLsReady",
@@ -578,6 +628,13 @@ func TestReconcile(t *testing.T) {
 							Severity: "Error",
 							Reason:   "ErrorResolvingExtensions",
 							Message:  `type extension creates a cycle: [root:org:team:ws:SomeType, root:org:team:ws:OtherType, root:org:team:ws:SomeType]`,
+						},
+						{
+							Type:     "RelationshipsValid",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "type extensions have not yet been resolved",
 						},
 						{
 							Type:   "VirtualWorkspaceURLsReady",
@@ -666,6 +723,10 @@ func TestReconcile(t *testing.T) {
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
 							Status: "True",
 						},
 						{
@@ -760,6 +821,10 @@ func TestReconcile(t *testing.T) {
 							Status: "True",
 						},
 						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
 							Type:   "VirtualWorkspaceURLsReady",
 							Status: "True",
 						},
@@ -832,6 +897,10 @@ func TestReconcile(t *testing.T) {
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
 							Status: "True",
 						},
 						{
@@ -913,6 +982,533 @@ func TestReconcile(t *testing.T) {
 							Message:  `type extension creates cycles: [root:org:team:ws:SomeType, root:org:team:ws:DifferentType, root:org:team:ws:SomeType], [root:org:team:ws:SomeType, root:org:team:ws:OtherType, root:org:team:ws:SomeType]`,
 						},
 						{
+							Type:     "RelationshipsValid",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "type extensions have not yet been resolved",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "not including default type in allowed children is an error",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{Name: "OtherType", Path: "root:org:team:ws"},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{Name: "OtherType", Path: "root:org:team:ws"},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:     "RelationshipsValid",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "default child type root:org:team:ws:OtherType is not allowed as a child",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "child type does not allow us as a parent",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:     "RelationshipsValid",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "child root:org:team:ws:OtherType does not allow root:org:team:ws:SomeType as a parent",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "child type allows anything as a parent",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							tenancyv1alpha1.AnyWorkspaceTypeReference,
+						},
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "child type explicitly allows us as a parent",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "SomeType", Path: "root:org:team:ws"},
+						},
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "child type implicitly allows us as a parent through an alias",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
+					},
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
+					},
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+						{Name: "SomeType", Path: "root:org:team:ws"},
+					},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "parent type does not allow us as a child",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:     "RelationshipsValid",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "parent root:org:team:ws:OtherType does not allow root:org:team:ws:SomeType as a child",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "parent type allows anything as a child",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							tenancyv1alpha1.AnyWorkspaceTypeReference,
+						},
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "parent type explicitly allows us as a child",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "SomeType", Path: "root:org:team:ws"},
+						},
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
+							Type:   "VirtualWorkspaceURLsReady",
+							Status: "True",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "parent type implicitly allows us as a child through an alias",
+			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
+					},
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+			},
+			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "OtherType",
+						ClusterName: "root:org:team:ws",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
+					},
+				},
+			},
+			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "someType",
+					ClusterName: "root:org:team:ws",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
+					},
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						{Name: "OtherType", Path: "root:org:team:ws"},
+						{Name: "SomeType", Path: "root:org:team:ws"},
+					},
+					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "ExtensionsResolved",
+							Status: "True",
+						},
+						{
+							Type:   "RelationshipsValid",
+							Status: "True",
+						},
+						{
 							Type:   "VirtualWorkspaceURLsReady",
 							Status: "True",
 						},
@@ -940,6 +1536,7 @@ func TestReconcile(t *testing.T) {
 				},
 			}
 			c.reconcile(context.TODO(), testCase.cwt)
+			c.reconcile(context.TODO(), testCase.cwt) // relationships require resolved extensions
 			if diff := cmp.Diff(testCase.cwt, testCase.expected, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
 				t.Errorf("incorrect ClusterWorkspaceType after reconciliation: %v", diff)
 			}
