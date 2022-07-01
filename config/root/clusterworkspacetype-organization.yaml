@@ -4,9 +4,14 @@ metadata:
   name: organization
 spec:
   initializer: true
-  defaultChildWorkspaceType: Universal
+  defaultChildWorkspaceType:
+    name: Universal
+    path: root
   allowedChildWorkspaceTypes:
-  - Team
-  - Universal
+  - name: Team
+    path: root
+  - name: Universal
+    path: root
   allowedParentWorkspaceTypes:
-  - Root
+  - name: Root
+    path: root

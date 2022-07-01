@@ -688,7 +688,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						AllowAnyChildWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -780,7 +780,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						AllowAnyParentWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -852,7 +852,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						AllowAnyParentWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -905,7 +905,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						AllowAnyChildWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -965,7 +965,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						AllowAnyParentWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -1122,7 +1122,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						AllowAnyParentWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -1174,7 +1174,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						AllowAnyChildWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -1412,8 +1412,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializer:                 true,
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						Initializer:                  true,
+						AllowAnyParentWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -1503,8 +1503,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializer:                 true,
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Any"}},
+						Initializer:                  true,
+						AllowAnyParentWorkspaceTypes: true,
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{

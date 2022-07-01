@@ -2987,9 +2987,16 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
 						},
 					},
+					"allowAnyChildWorkspaceTypes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "allowAnyChildWorkspaceTypes permits all ClusterWorkspaceTypes to be created in a workspace of this type.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"allowedChildWorkspaceTypes": {
 						SchemaProps: spec.SchemaProps{
-							Description: "allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes that can be created in a workspace of this type.\n\nBy default, no type is allowed. This means no other workspace can be nested within a workspace of the given type. The name `*` allows any child type to be nested.",
+							Description: "allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes that can be created in a workspace of this type.\n\nBy default, no type is allowed. This means no other workspace can be nested within a workspace of the given type. Use allowAnyChildWorkspaceTypes to be permissive with child types.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3001,9 +3008,16 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 							},
 						},
 					},
+					"allowAnyParentWorkspaceTypes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "allowAnyParentWorkspaceTypes permits this type to be created in workspaces of all other ClusterWorkspaceTypes.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"allowedParentWorkspaceTypes": {
 						SchemaProps: spec.SchemaProps{
-							Description: "allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type can be created in.\n\nBy default, no type is allowed. This means no other workspace can have a workspace of the given type nested inside it. The name `*` allows any parent type to nest this one.",
+							Description: "allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type can be created in.\n\nBy default, no type is allowed. This means no other workspace can have a workspace of the given type nested inside it. Use allowAnyParentWorkspaceTypes to be permissive with parent types.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

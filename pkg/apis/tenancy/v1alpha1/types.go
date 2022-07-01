@@ -204,23 +204,34 @@ type ClusterWorkspaceTypeSpec struct {
 	//
 	// +optional
 	DefaultChildWorkspaceType ClusterWorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
+	// allowAnyChildWorkspaceTypes permits all ClusterWorkspaceTypes to be
+	// created in a workspace of this type.
+	//
+	// +optional
+	AllowAnyChildWorkspaceTypes bool `json:"allowAnyChildWorkspaceTypes,omitempty"`
 
 	// allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes that can be
 	// created in a workspace of this type.
 	//
 	// By default, no type is allowed. This means no other workspace can be nested
-	// within a workspace of the given type. The name `*` allows any child type to
-	// be nested.
+	// within a workspace of the given type. Use allowAnyChildWorkspaceTypes to be
+	// permissive with child types.
 	//
 	// +optional
 	AllowedChildWorkspaceTypes []ClusterWorkspaceTypeReference `json:"allowedChildWorkspaceTypes,omitempty"`
+
+	// allowAnyParentWorkspaceTypes permits this type to be created in workspaces
+	// of all other ClusterWorkspaceTypes.
+	//
+	// +optional
+	AllowAnyParentWorkspaceTypes bool `json:"allowAnyParentWorkspaceTypes,omitempty"`
 
 	// allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type
 	// can be created in.
 	//
 	// By default, no type is allowed. This means no other workspace can have a
-	// workspace of the given type nested inside it. The name `*` allows any parent
-	// type to nest this one.
+	// workspace of the given type nested inside it. Use allowAnyParentWorkspaceTypes
+	// to be permissive with parent types.
 	//
 	// +optional
 	// +kubebuilder:validation:MinItems=1
@@ -544,17 +555,11 @@ const (
 )
 
 const (
-	// AnyWorkspaceType is used in allowed child and parent type lists to denote that any type is permissible.
-	AnyWorkspaceType = ClusterWorkspaceTypeName("Any")
 	// RootWorkspaceType is a reference to the root logical cluster, which has no cluster workspace type
 	RootWorkspaceType = ClusterWorkspaceTypeName("Root")
 )
 
 var (
-	// AnyWorkspaceTypeReference is used in allowed child and parent type lists to denote that any type is permissible.
-	AnyWorkspaceTypeReference = ClusterWorkspaceTypeReference{
-		Name: AnyWorkspaceType,
-	}
 	// RootWorkspaceTypeReference is a reference to the root logical cluster, which has no cluster workspace type
 	RootWorkspaceTypeReference = ClusterWorkspaceTypeReference{
 		Name: RootWorkspaceType,

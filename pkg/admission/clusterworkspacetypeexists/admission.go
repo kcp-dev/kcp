@@ -197,23 +197,16 @@ func (o *clusterWorkspaceTypeExists) resolveValidType(parentClusterName logicalc
 		return nil, err
 	}
 	parentRef := tenancyv1alpha1.ReferenceFor(parentCwt)
-	if !setContainsAnyType(parentCwt.Spec.AllowedChildWorkspaceTypes, cwt.Status.TypeAliases) {
+	if !parentCwt.Spec.AllowAnyChildWorkspaceTypes && !setContainsAnyType(parentCwt.Spec.AllowedChildWorkspaceTypes, cwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("parent cluster workspace %q (of type %s) does not allow for child workspaces of type %s", parentClusterName, parentRef.String(), ref.String())
 	}
-	if !setContainsAnyType(cwt.Spec.AllowedParentWorkspaceTypes, parentCwt.Status.TypeAliases) {
+	if !cwt.Spec.AllowAnyParentWorkspaceTypes && !setContainsAnyType(cwt.Spec.AllowedParentWorkspaceTypes, parentCwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("cluster workspace %q (of type %s) does not allow for parent workspaces of type %s", workspaceName, ref.String(), parentRef.String())
 	}
 	return cwt, nil
 }
 
 func setContainsAnyType(set, queries []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
-	// either the set allows any workspace
-	for _, allowed := range set {
-		if allowed.Equal(tenancyv1alpha1.AnyWorkspaceTypeReference) {
-			return true
-		}
-	}
-	// or, it contains the name of the reference and matches on the cluster path
 	for _, allowed := range set {
 		for _, query := range queries {
 			if allowed.Equal(query) {
@@ -237,8 +230,8 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 				ClusterName: rootRef.Path,
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-				AllowedChildWorkspaceTypes:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{tenancyv1alpha1.AnyWorkspaceTypeReference},
-				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{tenancyv1alpha1.AnyWorkspaceTypeReference},
+				AllowAnyChildWorkspaceTypes:  true,
+				AllowAnyParentWorkspaceTypes: true,
 			},
 			Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 				TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{

@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220701-0e18b2a7.clusterworkspacetypes.tenancy.kcp.dev
+  name: v220701-d1a091f0.clusterworkspacetypes.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -50,13 +50,21 @@ spec:
               description: additionalWorkspaceLabels are a set of labels that will
                 be added to a ClusterWorkspace on creation.
               type: object
+            allowAnyChildWorkspaceTypes:
+              description: allowAnyChildWorkspaceTypes permits all ClusterWorkspaceTypes
+                to be created in a workspace of this type.
+              type: boolean
+            allowAnyParentWorkspaceTypes:
+              description: allowAnyParentWorkspaceTypes permits this type to be created
+                in workspaces of all other ClusterWorkspaceTypes.
+              type: boolean
             allowedChildWorkspaceTypes:
               default: []
               description: "allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes
                 that can be created in a workspace of this type. \n By default, no
                 type is allowed. This means no other workspace can be nested within
-                a workspace of the given type. The name `*` allows any child type
-                to be nested."
+                a workspace of the given type. Use allowAnyChildWorkspaceTypes to
+                be permissive with child types."
               items:
                 description: ClusterWorkspaceTypeReference is a globally unique, fully
                   qualified reference to a cluster workspace type.
@@ -79,8 +87,8 @@ spec:
               description: "allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes
                 that this type can be created in. \n By default, no type is allowed.
                 This means no other workspace can have a workspace of the given type
-                nested inside it. The name `*` allows any parent type to nest this
-                one."
+                nested inside it. Use allowAnyParentWorkspaceTypes to be permissive
+                with parent types."
               items:
                 description: ClusterWorkspaceTypeReference is a globally unique, fully
                   qualified reference to a cluster workspace type.

@@ -1213,9 +1213,7 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							tenancyv1alpha1.AnyWorkspaceTypeReference,
-						},
+						AllowAnyParentWorkspaceTypes: true,
 					},
 				},
 			},
@@ -1467,9 +1465,7 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							tenancyv1alpha1.AnyWorkspaceTypeReference,
-						},
+						AllowAnyChildWorkspaceTypes: true,
 					},
 				},
 			},

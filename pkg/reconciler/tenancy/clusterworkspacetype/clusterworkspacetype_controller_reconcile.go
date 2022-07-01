@@ -440,6 +440,7 @@ func (c *controller) resolveTypeRelationships(cwt *tenancyv1alpha1.ClusterWorksp
 
 	if (cwt.Spec.DefaultChildWorkspaceType.Name != "" && cwt.Spec.DefaultChildWorkspaceType.Path != "") &&
 		!newReferenceSet(cwt.Spec.AllowedChildWorkspaceTypes...).Has(cwt.Spec.DefaultChildWorkspaceType) {
+		!cwt.Spec.AllowAnyChildWorkspaceTypes &&
 		return fmt.Errorf("default child type %s is not allowed as a child", cwt.Spec.DefaultChildWorkspaceType.String())
 	}
 
@@ -447,7 +448,6 @@ func (c *controller) resolveTypeRelationships(cwt *tenancyv1alpha1.ClusterWorksp
 
 	// these are the types which, if they are present in some other type's list, allow us
 	ourTypes := newReferenceSet(cwt.Status.TypeAliases...)
-	ourTypes.Insert(tenancyv1alpha1.AnyWorkspaceTypeReference)
 
 	for _, child := range cwt.Spec.AllowedChildWorkspaceTypes {
 		childType, err := c.resolveClusterWorkspaceType(child)
@@ -455,7 +455,7 @@ func (c *controller) resolveTypeRelationships(cwt *tenancyv1alpha1.ClusterWorksp
 			return fmt.Errorf("could not resolve child type %s: %w", child, err)
 		}
 		allowedParents := newReferenceSet(childType.Spec.AllowedParentWorkspaceTypes...)
-		if !allowedParents.HasAny(ourTypes.List()...) {
+		if !childType.Spec.AllowAnyParentWorkspaceTypes && !allowedParents.HasAny(ourTypes.List()...) {
 			return fmt.Errorf("child %s does not allow %s as a parent", child, ref)
 		}
 	}
@@ -466,7 +466,7 @@ func (c *controller) resolveTypeRelationships(cwt *tenancyv1alpha1.ClusterWorksp
 			return fmt.Errorf("could not resolve parent type %s: %w", parent, err)
 		}
 		allowedChildren := newReferenceSet(parentType.Spec.AllowedChildWorkspaceTypes...)
-		if !allowedChildren.HasAny(ourTypes.List()...) {
+		if !parentType.Spec.AllowAnyChildWorkspaceTypes && !allowedChildren.HasAny(ourTypes.List()...) {
 			return fmt.Errorf("parent %s does not allow %s as a child", parent, ref)
 		}
 	}
