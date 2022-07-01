@@ -87,7 +87,7 @@ func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.Cluster
 		)
 	}
 
-	//conditions.SetSummary(cwt)
+	conditions.SetSummary(cwt)
 }
 
 func (c *controller) updateVirtualWorkspaceURLs(cwt *tenancyv1alpha1.ClusterWorkspaceType) error {

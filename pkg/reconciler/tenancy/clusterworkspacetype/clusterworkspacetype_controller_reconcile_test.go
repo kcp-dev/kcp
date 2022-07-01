@@ -61,6 +61,10 @@ func TestReconcile(t *testing.T) {
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -97,6 +101,13 @@ func TestReconcile(t *testing.T) {
 						{Path: "root:org:team:ws", Name: "SomeType"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorGeneratingURLs",
+							Message:  "error listing ClusterWorkspaceShards: oops",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -146,6 +157,10 @@ func TestReconcile(t *testing.T) {
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -183,6 +198,10 @@ func TestReconcile(t *testing.T) {
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -213,6 +232,10 @@ func TestReconcile(t *testing.T) {
 						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -248,6 +271,10 @@ func TestReconcile(t *testing.T) {
 						{Path: "root:org:team:ws", Name: "SomeType"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -291,6 +318,10 @@ func TestReconcile(t *testing.T) {
 						"root:org:team:ws:SomeType",
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -366,6 +397,10 @@ func TestReconcile(t *testing.T) {
 						{Name: "SomeType", Path: "root:org:team:ws"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -452,6 +487,10 @@ func TestReconcile(t *testing.T) {
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -499,6 +538,13 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorResolvingExtensions",
+							Message:  `clusterworkspacetype.tenancy.kcp.dev "First" not found`,
+						},
 						{
 							Type:     "ExtensionsResolved",
 							Status:   "False",
@@ -553,6 +599,13 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorResolvingExtensions",
+							Message:  `cannot use a self-reference during type extension`,
+						},
 						{
 							Type:     "ExtensionsResolved",
 							Status:   "False",
@@ -622,6 +675,13 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorResolvingExtensions",
+							Message:  `type extension creates a cycle: [root:org:team:ws:SomeType, root:org:team:ws:OtherType, root:org:team:ws:SomeType]`,
+						},
 						{
 							Type:     "ExtensionsResolved",
 							Status:   "False",
@@ -722,6 +782,10 @@ func TestReconcile(t *testing.T) {
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -817,6 +881,10 @@ func TestReconcile(t *testing.T) {
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -895,6 +963,10 @@ func TestReconcile(t *testing.T) {
 						{Name: "SomeType", Path: "root:org:team:ws"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -975,6 +1047,13 @@ func TestReconcile(t *testing.T) {
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorResolvingExtensions",
+							Message:  `type extension creates cycles: [root:org:team:ws:SomeType, root:org:team:ws:DifferentType, root:org:team:ws:SomeType], [root:org:team:ws:SomeType, root:org:team:ws:OtherType, root:org:team:ws:SomeType]`,
+						},
+						{
 							Type:     "ExtensionsResolved",
 							Status:   "False",
 							Severity: "Error",
@@ -1027,6 +1106,13 @@ func TestReconcile(t *testing.T) {
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
 					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "default child type root:org:team:ws:OtherType is not allowed as a child",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -1081,6 +1167,13 @@ func TestReconcile(t *testing.T) {
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
 					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "child root:org:team:ws:OtherType does not allow root:org:team:ws:SomeType as a parent",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -1141,6 +1234,10 @@ func TestReconcile(t *testing.T) {
 					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -1197,6 +1294,10 @@ func TestReconcile(t *testing.T) {
 					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -1221,7 +1322,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
-						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
@@ -1250,7 +1351,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
-						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
@@ -1260,11 +1361,15 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						{Name: "OtherType", Path: "root:org:team:ws"},
 						{Name: "SomeType", Path: "root:org:team:ws"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -1316,6 +1421,13 @@ func TestReconcile(t *testing.T) {
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
 					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:     "Ready",
+							Status:   "False",
+							Severity: "Error",
+							Reason:   "ErrorValidatingRelationships",
+							Message:  "parent root:org:team:ws:OtherType does not allow root:org:team:ws:SomeType as a child",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
@@ -1376,6 +1488,10 @@ func TestReconcile(t *testing.T) {
 					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -1432,6 +1548,10 @@ func TestReconcile(t *testing.T) {
 					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "SomeType", Path: "root:org:team:ws"}},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
+							Type:   "Ready",
+							Status: "True",
+						},
+						{
 							Type:   "ExtensionsResolved",
 							Status: "True",
 						},
@@ -1456,7 +1576,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
-						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
@@ -1485,7 +1605,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 					Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
-						With:    []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
@@ -1495,11 +1615,15 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					TypeAliases:  []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						{Name: "OtherType", Path: "root:org:team:ws"},
 						{Name: "SomeType", Path: "root:org:team:ws"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
 						{
 							Type:   "ExtensionsResolved",
 							Status: "True",

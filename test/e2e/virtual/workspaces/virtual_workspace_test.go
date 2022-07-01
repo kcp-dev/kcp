@@ -316,21 +316,9 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				})
 				t.Logf("Wait for type Custom to be usable")
 				cwtName := cwt.Name
-				framework.Eventually(t, func() (bool, string) {
-					cwt, err := server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-					require.NoError(t, err, "Error fetching ClusterWorkspaceType %q|%q", parentCluster.String(), cwtName)
-					done := conditions.IsTrue(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-					var reason string
-					if !done {
-						condition := conditions.Get(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-						if condition != nil {
-							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: %s: %s", parentCluster.String(), cwtName, condition.Reason, condition.Message)
-						} else {
-							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: no condition present", parentCluster.String(), cwtName)
-						}
-					}
-					return done, reason
-				}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for type extensions to be resolved on ClusterWorkspaceType")
+				framework.EventuallyReady(t, func() (conditions.Getter, error) {
+					return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", parentCluster.String(), cwtName)
 
 				t.Logf("Give user1 access to the custom type")
 				_, err = server.kubeClusterClient.Cluster(parentCluster).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{

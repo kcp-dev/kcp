@@ -18,7 +18,6 @@ package workspace
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -109,21 +108,9 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Foo to be usable")
 				cwtName := cwt.Name
-				framework.Eventually(t, func() (bool, string) {
-					cwt, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-					require.NoError(t, err, "Error fetching ClusterWorkspaceType %q|%q", universal.String(), cwtName)
-					done := conditions.IsTrue(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-					var reason string
-					if !done {
-						condition := conditions.Get(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-						if condition != nil {
-							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: %s: %s", universal.String(), cwtName, condition.Reason, condition.Message)
-						} else {
-							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: no condition present", universal.String(), cwtName)
-						}
-					}
-					return done, reason
-				}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for type extensions to be resolved on ClusterWorkspaceType")
+				framework.EventuallyReady(t, func() (conditions.Getter, error) {
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
 
 				t.Logf("Create workspace with explicit type Foo again")
 				require.Eventually(t, func() bool {
@@ -173,21 +160,9 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Foo to be usable")
 				cwtName := cwt.Name
-				framework.Eventually(t, func() (bool, string) {
-					cwt, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-					require.NoError(t, err, "Error fetching ClusterWorkspaceType %q|%q", universal.String(), cwtName)
-					done := conditions.IsTrue(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-					var reason string
-					if !done {
-						condition := conditions.Get(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-						if condition != nil {
-							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: %s: %s", universal.String(), cwtName, condition.Reason, condition.Message)
-						} else {
-							reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: no condition present", universal.String(), cwtName)
-						}
-					}
-					return done, reason
-				}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for type extensions to be resolved on ClusterWorkspaceType")
+				framework.EventuallyReady(t, func() (conditions.Getter, error) {
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
 
 				t.Logf("Create workspace with explicit type Foo")
 				var workspace *tenancyv1alpha1.ClusterWorkspace

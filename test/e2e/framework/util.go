@@ -36,11 +36,14 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
 
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 )
@@ -306,6 +309,26 @@ func Eventually(t *testing.T, condition func() (success bool, reason string), wa
 		}
 		return ok
 	}, waitFor, tick, msgAndArgs...)
+}
+
+// EventuallyReady asserts that the object returned by getter() eventually has a ready condition
+func EventuallyReady(t *testing.T, getter func() (conditions.Getter, error), msgAndArgs ...interface{}) {
+	t.Helper()
+	Eventually(t, func() (bool, string) {
+		obj, err := getter()
+		require.NoError(t, err, "Error fetching object")
+		done := conditions.IsTrue(obj, conditionsv1alpha1.ReadyCondition)
+		var reason string
+		if !done {
+			condition := conditions.Get(obj, conditionsv1alpha1.ReadyCondition)
+			if condition != nil {
+				reason = fmt.Sprintf("Not done waiting for object to be ready: %s: %s", condition.Reason, condition.Message)
+			} else {
+				reason = "Not done waiting for object to be ready: no condition present"
+			}
+		}
+		return done, reason
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, msgAndArgs...)
 }
 
 func UserConfig(username string, cfg *rest.Config) *rest.Config {

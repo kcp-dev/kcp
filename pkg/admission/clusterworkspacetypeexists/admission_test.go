@@ -103,7 +103,7 @@ func TestAdmit(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -221,7 +221,7 @@ func TestAdmit(t *testing.T) {
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -392,7 +392,7 @@ func TestAdmit(t *testing.T) {
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -463,7 +463,7 @@ func TestAdmit(t *testing.T) {
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -477,7 +477,7 @@ func TestAdmit(t *testing.T) {
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -516,7 +516,7 @@ func TestAdmit(t *testing.T) {
 					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -624,7 +624,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -644,7 +644,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -696,7 +696,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -716,7 +716,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -768,7 +768,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -788,7 +788,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -840,7 +840,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -861,7 +861,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -914,7 +914,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -934,7 +934,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -973,7 +973,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1041,7 +1041,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1058,7 +1058,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1110,7 +1110,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1130,7 +1130,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1182,7 +1182,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1202,7 +1202,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1271,7 +1271,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1288,7 +1288,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1341,7 +1341,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1400,7 +1400,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1421,7 +1421,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1491,7 +1491,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},
@@ -1512,7 +1512,7 @@ func TestValidate(t *testing.T) {
 						},
 						Conditions: []conditionsv1alpha1.Condition{
 							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
+								Type:   conditionsv1alpha1.ReadyCondition,
 								Status: corev1.ConditionTrue,
 							},
 						},

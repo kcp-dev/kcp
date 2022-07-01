@@ -39,6 +39,7 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -265,8 +266,8 @@ func (o *clusterWorkspaceTypeExists) resolveType(ref tenancyv1alpha1.ClusterWork
 	if err != nil {
 		return nil, err
 	}
-	if !conditions.IsTrue(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved) {
-		return nil, fmt.Errorf("ClusterWorkspaceType %s has not had its type extensions resolved yet", tenancyv1alpha1.ReferenceFor(cwt))
+	if !conditions.IsTrue(cwt, conditionsv1alpha1.ReadyCondition) {
+		return nil, fmt.Errorf("ClusterWorkspaceType %s is not ready", tenancyv1alpha1.ReferenceFor(cwt))
 	}
 	return cwt, nil
 }
