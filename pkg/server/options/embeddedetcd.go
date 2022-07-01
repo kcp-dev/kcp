@@ -32,6 +32,7 @@ type EmbeddedEtcd struct {
 	ClientPort        string
 	ListenMetricsURLs []string
 	WalSizeBytes      int64
+	QuotaBackendBytes int64
 	ForceNewCluster   bool
 }
 
@@ -49,6 +50,7 @@ func (e *EmbeddedEtcd) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&e.ClientPort, "embedded-etcd-client-port", e.ClientPort, "Port for embedded etcd client")
 	fs.StringSliceVar(&e.ListenMetricsURLs, "embedded-etcd-listen-metrics-urls", e.ListenMetricsURLs, "The list of protocol://host:port where embedded etcd server listens for Prometheus scrapes")
 	fs.Int64Var(&e.WalSizeBytes, "embedded-etcd-wal-size-bytes", e.WalSizeBytes, "Size of embedded etcd WAL")
+	fs.Int64Var(&e.QuotaBackendBytes, "embedded-etcd-quota-backend-bytes", e.WalSizeBytes, "Alarm threshold for embedded etcd backend bytes")
 	fs.BoolVar(&e.ForceNewCluster, "embedded-etcd-force-new-cluster", e.ForceNewCluster, "Starts a new cluster from existing data restored from a different system")
 }
 

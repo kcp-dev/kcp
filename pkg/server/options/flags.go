@@ -153,6 +153,7 @@ var (
 		"embedded-etcd-peer-port",           // Port for embedded etcd peer
 		"embedded-etcd-listen-metrics-urls", // The list of protocol://host:port where embedded etcd server listens for Prometheus scrapes
 		"embedded-etcd-wal-size-bytes",      // Size of embedded etcd WAL
+		"embedded-etcd-quota-backend-bytes", // Alarm threshold for embedded etcd backend bytes
 		"embedded-etcd-force-new-cluster",   // Starts a new cluster from existing data restored from a different system
 
 		// KCP Controllers flags
