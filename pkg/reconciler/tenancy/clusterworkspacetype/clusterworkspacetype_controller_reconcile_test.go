@@ -1083,7 +1083,7 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{Name: "OtherType", Path: "root:org:team:ws"},
+					DefaultChildWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceTypeReference{Name: "OtherType", Path: "root:org:team:ws"},
 				},
 			},
 			cwts: []*tenancyv1alpha1.ClusterWorkspaceType{
@@ -1100,7 +1100,7 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{Name: "OtherType", Path: "root:org:team:ws"},
+					DefaultChildWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceTypeReference{Name: "OtherType", Path: "root:org:team:ws"},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},

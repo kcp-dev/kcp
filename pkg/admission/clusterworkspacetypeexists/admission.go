@@ -136,10 +136,10 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			if resolutionError != nil {
 				return admission.NewForbidden(a, resolutionError)
 			}
-			if parentCwt == nil {
-				return admission.NewForbidden(a, errors.New("spec.type must be set in the root workspace"))
+			if parentCwt == nil || parentCwt.Spec.DefaultChildWorkspaceType == nil {
+				return admission.NewForbidden(a, errors.New("spec.type must be set"))
 			}
-			cw.Spec.Type = parentCwt.Spec.DefaultChildWorkspaceType
+			cw.Spec.Type = *parentCwt.Spec.DefaultChildWorkspaceType
 		}
 		cwt, resolutionError := o.resolveType(cw.Spec.Type)
 		if resolutionError != nil {

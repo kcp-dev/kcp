@@ -150,7 +150,7 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					DefaultChildWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "some", Path: "root",
 					},
 				},
@@ -159,7 +159,7 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					DefaultChildWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "other", Path: "root",
 					},
 				},

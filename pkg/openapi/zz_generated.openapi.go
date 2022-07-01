@@ -2983,7 +2983,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 					"defaultChildWorkspaceType": {
 						SchemaProps: spec.SchemaProps{
 							Description: "defaultChildWorkspaceType is the ClusterWorkspaceType that will be used by default if another, nested ClusterWorkspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
 						},
 					},

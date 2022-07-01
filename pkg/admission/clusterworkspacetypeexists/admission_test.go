@@ -455,7 +455,7 @@ func TestAdmit(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						DefaultChildWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						DefaultChildWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "Foo",
 							Path: "root:org",
 						},

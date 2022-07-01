@@ -203,7 +203,8 @@ type ClusterWorkspaceTypeSpec struct {
 	// creating nested workspaces.
 	//
 	// +optional
-	DefaultChildWorkspaceType ClusterWorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
+	DefaultChildWorkspaceType *ClusterWorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
+
 	// allowAnyChildWorkspaceTypes permits all ClusterWorkspaceTypes to be
 	// created in a workspace of this type.
 	//

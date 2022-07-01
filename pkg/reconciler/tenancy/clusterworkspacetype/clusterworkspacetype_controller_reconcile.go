@@ -438,9 +438,9 @@ func (c *controller) resolveTypeRelationships(cwt *tenancyv1alpha1.ClusterWorksp
 		return fmt.Errorf("type extensions have not yet been resolved")
 	}
 
-	if (cwt.Spec.DefaultChildWorkspaceType.Name != "" && cwt.Spec.DefaultChildWorkspaceType.Path != "") &&
-		!newReferenceSet(cwt.Spec.AllowedChildWorkspaceTypes...).Has(cwt.Spec.DefaultChildWorkspaceType) {
+	if cwt.Spec.DefaultChildWorkspaceType != nil &&
 		!cwt.Spec.AllowAnyChildWorkspaceTypes &&
+		!newReferenceSet(cwt.Spec.AllowedChildWorkspaceTypes...).Has(*cwt.Spec.DefaultChildWorkspaceType) {
 		return fmt.Errorf("default child type %s is not allowed as a child", cwt.Spec.DefaultChildWorkspaceType.String())
 	}
 
