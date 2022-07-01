@@ -91,7 +91,7 @@ func BuildVirtualWorkspace(rootPathPrefix string, wildcardsClusterWorkspaces wor
 			return
 		}),
 		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-			klog.Error("the authorizer for the 'workdspaces' virtual workspace is not implemented !")
+			klog.Error("the authorizer for the 'workspaces' virtual workspace is not implemented !")
 			return authorizer.DecisionAllow, "", nil
 		}),
 		GroupVersionAPISets: []fixedgvs.GroupVersionAPISet{
