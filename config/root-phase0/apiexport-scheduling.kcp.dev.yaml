@@ -1,8 +1,11 @@
 apiVersion: apis.kcp.dev/v1alpha1
 kind: APIExport
 metadata:
+  creationTimestamp: null
   name: scheduling.kcp.dev
 spec:
+  identity: null
   latestResourceSchemas:
-  - v220628-546034da.placements.scheduling.kcp.dev
   - v220628-546034da.locations.scheduling.kcp.dev
+  - v220628-546034da.placements.scheduling.kcp.dev
+status: {}
