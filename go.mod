@@ -5,11 +5,13 @@ go 1.16
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/abiosoft/lineprefix v0.1.4
+	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/egymgmbh/go-prefix-writer v0.0.0-20180609083313-7326ea162eca
 	github.com/emicklei/go-restful v2.9.5+incompatible
 	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fatih/color v1.12.0
+	github.com/go-logr/logr v1.2.3
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.5
@@ -17,6 +19,7 @@ require (
 	github.com/kcp-dev/logicalcluster v1.1.0
 	github.com/muesli/reflow v0.1.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
