@@ -351,7 +351,7 @@ type APIExportSpec struct {
 	// created.
 	//
 	// +optional
-	Identity *Identity `json:"identity"`
+	Identity *Identity `json:"identity,omitempty"`
 
 	// TODO: before beta we should re-evaluate this field name
 
@@ -368,7 +368,7 @@ type Identity struct {
 	// secretRef is a reference to a secret that contains the API identity in the 'key' file.
 	//
 	// +optional
-	SecretRef *corev1.SecretReference `json:"secretRef"`
+	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 }
 
 // APIExportPolicy is a wrapper type around the multiple options that would be allowed.
@@ -514,7 +514,7 @@ type APIResourceVersion struct {
 	// subresources specify what subresources this version of the defined custom resource have.
 	//
 	// +optional
-	Subresources apiextensionsv1.CustomResourceSubresources `json:"subresources"`
+	Subresources apiextensionsv1.CustomResourceSubresources `json:"subresources,omitempty"`
 	// additionalPrinterColumns specifies additional columns returned in Table output.
 	// See https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables for details.
 	// If no columns are specified, a single column displaying the age of the custom resource is used.

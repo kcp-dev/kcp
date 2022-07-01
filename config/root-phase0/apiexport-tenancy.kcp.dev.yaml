@@ -4,7 +4,6 @@ metadata:
   creationTimestamp: null
   name: tenancy.kcp.dev
 spec:
-  identity: null
   latestResourceSchemas:
   - v220628-546034da.clusterworkspaces.tenancy.kcp.dev
   - v220628-546034da.workspaces.tenancy.kcp.dev

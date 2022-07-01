@@ -4,7 +4,6 @@ metadata:
   creationTimestamp: null
   name: workload.kcp.dev
 spec:
-  identity: null
   latestResourceSchemas:
   - v220628-546034da.workloadclusters.workload.kcp.dev
 status: {}

@@ -486,7 +486,7 @@ type ClusterWorkspaceShardSpec struct {
 	// +kubebuilder:validation:Format=uri
 	// +kubebuilder:validation:MinLength=1
 	// +optional
-	BaseURL string `json:"baseURL"`
+	BaseURL string `json:"baseURL,omitempty"`
 
 	// ExternalURL is the externally visible address presented to users in Workspace URLs.
 	// Changing this will break all existing workspaces on that shard, i.e. existing

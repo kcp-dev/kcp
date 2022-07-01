@@ -2612,7 +2612,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref common.Refer
 					"baseURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "baseURL is the address of the KCP shard for direct connections, e.g. by some front-proxy doing the fan-out to the shards.\n\nThis will be defaulted to the shard's external address if not specified. Note that this is only sensible in single-shards setups.",
-							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
