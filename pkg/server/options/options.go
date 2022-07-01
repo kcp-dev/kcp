@@ -61,7 +61,7 @@ type ExtraOptions struct {
 
 type completedOptions struct {
 	GenericControlPlane options.CompletedServerRunOptions
-	EmbeddedEtcd        EmbeddedEtcd
+	EmbeddedEtcd        CompletedEmbeddedEtcd
 	Controllers         Controllers
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication
@@ -270,7 +270,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		completedOptions: &completedOptions{
 			// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
 			GenericControlPlane: completedGenericControlPlane,
-			EmbeddedEtcd:        o.EmbeddedEtcd,
+			EmbeddedEtcd:        o.EmbeddedEtcd.Complete(),
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
 			AdminAuthentication: o.AdminAuthentication,

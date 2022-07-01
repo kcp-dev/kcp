@@ -55,7 +55,7 @@ type ClientInfo struct {
 	TrustedCAFile string
 }
 
-func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBytes int64, forceNewCluster bool) (ClientInfo, error) {
+func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes int64, forceNewCluster bool) (ClientInfo, error) {
 	klog.Info("Creating embedded etcd server")
 	if walSizeBytes != 0 {
 		wal.SegmentSizeBytes = walSizeBytes
@@ -93,6 +93,10 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBy
 	cfg.ClientTLSInfo.TrustedCAFile = filepath.Join(cfg.Dir, "secrets", "ca", "cert.pem")
 	cfg.ClientTLSInfo.ClientCertAuth = true
 	cfg.ForceNewCluster = forceNewCluster
+
+	if len(listenMetricsURLs) > 0 {
+		cfg.ListenMetricsUrls = listenMetricsURLs
+	}
 
 	if enableUnsafeEtcdDisableFsyncHack, _ := strconv.ParseBool(os.Getenv("UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC")); enableUnsafeEtcdDisableFsyncHack {
 		cfg.UnsafeNoFsync = true
