@@ -467,6 +467,7 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		apiResourceSchema, err := c.getAPIResourceSchema(apiExportClusterName, schemaName)
 		if err != nil {
+			klog.Errorf("Error getting APIResourceSchema %s|%s for APIBinding %s|%s: %v", apiExportClusterName, schemaName, apiBindingClusterName, apiBinding.Name, err)
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.APIExportValid,
@@ -475,8 +476,9 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 				"An internal error occurred with the APIExport",
 			)
 			if apierrors.IsNotFound(err) {
-				// Return nil here so we don't retry. If/when there is an informer event for the correct APIExport, this
-				// APIBinding will automatically be requeued.
+				// Return nil here so we don't retry. If/when there is an informer event for
+				// the correct APIExport and/or APIResourcesSchema, this APIBinding will
+				// automatically be requeued.
 				return nil
 			}
 

@@ -25,6 +25,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
@@ -114,9 +115,9 @@ func NewController(
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
 	})
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
@@ -161,15 +162,15 @@ func NewController(
 	}
 
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
 	})
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
 	})
 
 	if err := c.apiExportsIndexer.AddIndexers(cache.Indexers{
@@ -209,34 +210,33 @@ type controller struct {
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
-func (c *controller) enqueueAPIBinding(obj interface{}) {
+func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.V(2).Infof("Queueing APIBinding %q", key)
+	klog.V(2).Infof("Queueing APIBinding %q%s", key, logSuffix)
 	c.queue.Add(key)
 }
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
-func (c *controller) enqueueAPIExport(obj interface{}) {
+func (c *controller) enqueueAPIExport(obj interface{}, logSuffix string) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.V(2).Infof("Mapping APIExport %q", key)
 	bindingsForExport, err := c.apiBindingsIndexer.ByIndex(indexAPIBindingsByWorkspaceExport, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, apiBinding := range bindingsForExport {
-		c.enqueueAPIBinding(apiBinding)
+	for _, obj := range bindingsForExport {
+		c.enqueueAPIBinding(obj, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
 	}
 }
 
@@ -249,6 +249,7 @@ func (c *controller) enqueueCRD(obj interface{}) {
 	}
 
 	if crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey] == "" || crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey] == "" {
+		klog.V(4).Infof("Skipping CRD %s|%s because does not belong to an APIResourceSchema", logicalcluster.From(crd), crd.Name)
 		return
 	}
 
@@ -259,26 +260,29 @@ func (c *controller) enqueueCRD(obj interface{}) {
 		return
 	}
 
-	c.enqueueAPIResourceSchema(apiResourceSchema)
+	// this log here is kind of redundant normally. But we are seeing missing CRD update events
+	// and hence stale APIBindings. So this might help to undersand what's going on.
+	klog.V(4).Infof("Queueing APIResourceSchema %s|%s because of CRD %s|%s (Established=%v)", clusterName, apiResourceSchema.Name, logicalcluster.From(crd), crd.Name, apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established))
+
+	c.enqueueAPIResourceSchema(apiResourceSchema, fmt.Sprintf(" because of %s.%s CRD %s|%s", crd.Spec.Names.Plural, crd.Spec.Group, logicalcluster.From(crd), crd.Name))
 }
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
-func (c *controller) enqueueAPIResourceSchema(obj interface{}) {
+func (c *controller) enqueueAPIResourceSchema(obj interface{}, logSuffix string) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.V(2).Infof("Mapping APIResourceSchema %q", key)
 	apiExports, err := c.apiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, apiExport := range apiExports {
-		c.enqueueAPIExport(apiExport)
+	for _, obj := range apiExports {
+		c.enqueueAPIExport(obj, fmt.Sprintf(" because of APIResourceSchema %s%s", key, logSuffix))
 	}
 }
 
