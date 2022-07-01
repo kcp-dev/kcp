@@ -100,8 +100,8 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
 	}
 
-	if !equality.Semantic.DeepEqual(cwt.Spec.Extend, old.Spec.Extend) {
-		return admission.NewForbidden(a, errors.New("spec.extend is immutable"))
+	if !equality.Semantic.DeepEqual(cwt.Spec, old.Spec) {
+		return admission.NewForbidden(a, errors.New("spec is immutable"))
 	}
 
 	return nil

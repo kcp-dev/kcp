@@ -143,6 +143,74 @@ func TestValidate(t *testing.T) {
 			clusterName: logicalcluster.New("foo:bar"),
 			wantErr:     true,
 		},
+		{
+			name: "deny changing default type",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					DefaultChildWorkspaceType: "some",
+				},
+			}, &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					DefaultChildWorkspaceType: "other",
+				},
+			}),
+			clusterName: logicalcluster.New("foo:bar"),
+			wantErr:     true,
+		},
+		{
+			name: "deny changing child types",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
+						"foo", "bar",
+					},
+				},
+			}, &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
+						"chess", "checkers",
+					},
+				},
+			}),
+			clusterName: logicalcluster.New("foo:bar"),
+			wantErr:     true,
+		},
+		{
+			name: "deny changing parent types",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
+						"foo", "bar",
+					},
+				},
+			}, &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{
+						"chess", "checkers",
+					},
+				},
+			}),
+			clusterName: logicalcluster.New("foo:bar"),
+			wantErr:     true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
