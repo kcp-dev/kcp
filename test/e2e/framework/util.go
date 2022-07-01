@@ -36,6 +36,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -43,6 +44,8 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	initializationscheme "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization/client/clientset/versioned/scheme"
+	wildwestscheme "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
 )
 
 //go:embed *.csv
@@ -81,8 +84,8 @@ func WriteTokenAuthFile(t *testing.T) string {
 
 // Persistent mapping of test name to base temp dir used to ensure
 // artifact paths have a common root across servers for a given test.
-var baseTempDirs map[string]string = map[string]string{}
-var baseTempDirsLock sync.Mutex = sync.Mutex{}
+var baseTempDirs = map[string]string{}
+var baseTempDirsLock = sync.Mutex{}
 
 // ensureBaseTempDir returns the name of a base temp dir for the
 // current test, creating it if needed.
@@ -174,10 +177,19 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		err = os.MkdirAll(dir, 0755)
 		require.NoError(t, err, "could not create dir")
 
-		gvks, _, err := kubescheme.Scheme.ObjectKinds(data)
-		if err != nil {
-			gvks, _, err = kcpscheme.Scheme.ObjectKinds(data)
+		var gvks []schema.GroupVersionKind
+		for _, scheme := range []*runtime.Scheme{
+			kubescheme.Scheme,
+			kcpscheme.Scheme,
+			wildwestscheme.Scheme,
+			initializationscheme.Scheme,
+		} {
+			gvks, _, err = scheme.ObjectKinds(data)
+			if err == nil {
+				break
+			}
 		}
+
 		require.NoError(t, err, "error finding gvk for artifact")
 		require.NotEmpty(t, gvks, "found no gvk for artifact: %T", data)
 		gvk := gvks[0]

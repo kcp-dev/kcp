@@ -202,7 +202,7 @@ func provideDelegatingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 }
 
 // withUpdateValidation adds further validation to ensure that a user of this virtual workspace can only
-// remove their own initializer from the list
+// remove their own initializer from the list, or update conditions, or both
 func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) registry.StorageWrapper {
 	return func(resource schema.GroupResource, storage *registry.StoreFuncs) *registry.StoreFuncs {
 		delegateUpdater := storage.UpdaterFunc
@@ -226,12 +226,14 @@ func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitialize
 						fmt.Sprintf("only removing the %q initializer is supported", initializer),
 					)},
 				)
-				if len(previous)-len(current) != 1 {
-					return invalidUpdateErr
-				}
-				for _, item := range current {
-					if item == string(initializer) {
+				if len(previous) != len(current) { // if the user is trying to change initializers, only allow them to remove their own
+					if len(previous)-len(current) != 1 {
 						return invalidUpdateErr
+					}
+					for _, item := range current {
+						if item == string(initializer) {
+							return invalidUpdateErr
+						}
 					}
 				}
 				return updateValidation(ctx, obj, old)
