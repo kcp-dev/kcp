@@ -71,8 +71,15 @@ LDFLAGS := \
 all: build
 .PHONY: all
 
+pre-build-checks:
+ifeq ($(and $(KUBE_MAJOR_VERSION),$(KUBE_MINOR_VERSION)),)
+	$(info Kubernetes version not set. Ensure jq is installed.)
+	exit 1
+endif
+.PHONY: pre-build-checks
+
 build: WHAT ?= ./cmd/...
-build: ## Build the project
+build: pre-build-checks ## Build the project
 	go build -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
