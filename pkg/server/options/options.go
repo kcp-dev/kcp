@@ -115,8 +115,8 @@ func NewOptions(rootDir string) *Options {
 	o.GenericControlPlane.Admission.DisablePlugins = kcpadmission.DefaultOffAdmissionPlugins().List()
 	o.GenericControlPlane.Admission.RecommendedPluginOrder = kcpadmission.AllOrderedPlugins
 
-	// turn off the watch cache temporarily until we resolve the issue with DDSIF (not syncing after restart)
-	o.GenericControlPlane.Etcd.EnableWatchCache = false
+	// turn on the watch cache
+	o.GenericControlPlane.Etcd.EnableWatchCache = true
 
 	return o
 }
