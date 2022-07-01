@@ -259,7 +259,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 			t.Logf("failed to get workspace %s: %v", org.Name, err)
 			return false, ""
 		}
-		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, toYaml(t, ws)
+		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, toYaml(t, ws.Status.Conditions)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
 	clusterName := tenancyv1alpha1.RootCluster.Join(org.Name)
