@@ -556,14 +556,31 @@ const (
 )
 
 const (
-	// RootWorkspaceType is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceType = ClusterWorkspaceTypeName("Root")
+	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no cluster workspace type
+	RootWorkspaceTypeName = ClusterWorkspaceTypeName("Root")
 )
 
 var (
 	// RootWorkspaceTypeReference is a reference to the root logical cluster, which has no cluster workspace type
 	RootWorkspaceTypeReference = ClusterWorkspaceTypeReference{
-		Name: RootWorkspaceType,
+		Name: RootWorkspaceTypeName,
 		Path: RootCluster.String(),
+	}
+
+	// RootWorkspaceType is the implicit type of the root logical cluster.
+	RootWorkspaceType = &ClusterWorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        ObjectName(RootWorkspaceTypeReference.Name),
+			ClusterName: RootWorkspaceTypeReference.Path,
+		},
+		Spec: ClusterWorkspaceTypeSpec{
+			AllowAnyChildWorkspaceTypes:  true,
+			AllowAnyParentWorkspaceTypes: true,
+		},
+		Status: ClusterWorkspaceTypeStatus{
+			TypeAliases: []ClusterWorkspaceTypeReference{
+				RootWorkspaceTypeReference,
+			},
+		},
 	}
 )

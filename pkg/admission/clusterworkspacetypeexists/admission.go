@@ -27,7 +27,6 @@ import (
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -223,22 +222,7 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 		// the clusterWorkspace exists in the root logical cluster, and therefore there is no
 		// higher clusterWorkspaceType to check for allowed sub-types; the mere presence of the
 		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
-		rootRef := tenancyv1alpha1.RootWorkspaceTypeReference
-		return &tenancyv1alpha1.ClusterWorkspaceType{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        tenancyv1alpha1.ObjectName(rootRef.Name),
-				ClusterName: rootRef.Path,
-			},
-			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-				AllowAnyChildWorkspaceTypes:  true,
-				AllowAnyParentWorkspaceTypes: true,
-			},
-			Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-				TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					rootRef,
-				},
-			},
-		}, nil
+		return tenancyv1alpha1.RootWorkspaceType, nil
 	}
 	parentCluster, err := o.workspaceLister.Get(clusters.ToClusterAwareKey(grandparent, parentClusterName.Base()))
 	if err != nil {

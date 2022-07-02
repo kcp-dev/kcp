@@ -461,9 +461,15 @@ func (c *controller) resolveTypeRelationships(cwt *tenancyv1alpha1.ClusterWorksp
 	}
 
 	for _, parent := range cwt.Spec.AllowedParentWorkspaceTypes {
-		parentType, err := c.resolveClusterWorkspaceType(parent)
-		if err != nil {
-			return fmt.Errorf("could not resolve parent type %s: %w", parent, err)
+		var parentType *tenancyv1alpha1.ClusterWorkspaceType
+		if parent.Equal(tenancyv1alpha1.RootWorkspaceTypeReference) {
+			parentType = tenancyv1alpha1.RootWorkspaceType
+		} else {
+			var err error
+			parentType, err = c.resolveClusterWorkspaceType(parent)
+			if err != nil {
+				return fmt.Errorf("could not resolve parent type %s: %w", parent, err)
+			}
 		}
 		allowedChildren := newReferenceSet(parentType.Spec.AllowedChildWorkspaceTypes...)
 		if !parentType.Spec.AllowAnyChildWorkspaceTypes && !allowedChildren.HasAny(ourTypes.List()...) {
