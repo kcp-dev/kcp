@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -143,7 +144,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 	}
 
 	var boundResources []apisv1alpha1.BoundAPIResource
-	needToWaitForRequeue := false
+	var needToWaitForRequeueWhenEstablished []string
 
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		schema, err := c.getAPIResourceSchema(apiExportClusterName, schemaName)
@@ -315,11 +316,11 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 			c.deletedCRDTracker.Remove(crd.Name)
 
-			needToWaitForRequeue = true
+			needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
 		} else {
 			// Existing CRD flow
 			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) || apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
-				needToWaitForRequeue = true
+				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
 			}
 		}
 
@@ -356,14 +357,17 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 	apiBinding.Status.BoundAPIExport = &apiBinding.Spec.Reference
 	apiBinding.Status.BoundResources = boundResources
 
-	if needToWaitForRequeue {
+	if len(needToWaitForRequeueWhenEstablished) > 0 {
+		sort.Strings(needToWaitForRequeueWhenEstablished)
+
 		conditions.MarkFalse(
 			apiBinding,
 			apisv1alpha1.BindingUpToDate,
 			apisv1alpha1.WaitingForEstablishedReason,
 			conditionsv1alpha1.ConditionSeverityInfo,
-			"Waiting for API(s) to be established",
+			"Waiting for API(s) to be established: %s", strings.Join(needToWaitForRequeueWhenEstablished, ", "),
 		)
+
 		// Only change InitialBindingCompleted if it's false
 		if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 			conditions.MarkFalse(
@@ -371,7 +375,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 				apisv1alpha1.InitialBindingCompleted,
 				apisv1alpha1.WaitingForEstablishedReason,
 				conditionsv1alpha1.ConditionSeverityInfo,
-				"Waiting for API(s) to be established",
+				"Waiting for API(s) to be established: %s", strings.Join(needToWaitForRequeueWhenEstablished, ", "),
 			)
 		}
 	} else {
