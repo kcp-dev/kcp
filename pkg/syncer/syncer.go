@@ -92,8 +92,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// TODO(david): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
 	// TODO(david): block until it hits the 10 minute overall test timeout.
 	klog.Infof("Attempting to retrieve the Syncer virtual workspace URL from WorkloadCluster %s|%s", cfg.KCPClusterName, cfg.WorkloadClusterName)
+	var workloadCluster *workloadv1alpha1.WorkloadCluster
 	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
-		workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
+		var err error
+		workloadCluster, err = kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -181,10 +183,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	// Check whether we're in the Advanced Scheduling feature-gated mode.
-	workloadCluster, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
 	advancedSchedulingEnabled := false
 	if workloadCluster.GetAnnotations()[advancedSchedulingFeatureAnnotation] == "true" {
 		klog.Infof("Advanced Scheduling feature is enabled for workloadCluster %s", cfg.WorkloadClusterName)
