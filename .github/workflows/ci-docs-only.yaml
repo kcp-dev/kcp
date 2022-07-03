@@ -13,6 +13,19 @@ on:
       - ".github/ISSUE_TEMPLATE/*"
 
 jobs:
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
+  e2e-multiple-runs:
+    name: e2e-multiple-runs
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
+
   e2e-shared-server:
     name: e2e-shared-server
     runs-on: ubuntu-latest

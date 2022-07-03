@@ -26,6 +26,39 @@ env:
   UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC: true
 
 jobs:
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: v1.17
+      - run: make build
+      - run: ARTIFACT_DIR=/tmp/e2e E2E_PARALLELISM=2 make test-e2e
+      - uses: cytopia/upload-artifact-retry-action@v0.1.2
+        if: ${{ always() }}
+        with:
+          name: e2e
+          path: /tmp/e2e/**/artifacts/
+
+  e2e-multiple-runs:
+    name: e2e-multiple-runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: v1.17
+      - run: make build
+      - run: ARTIFACT_DIR=/tmp/e2e COUNT=5 E2E_PARALLELISM=2 make test-e2e
+      - uses: cytopia/upload-artifact-retry-action@v0.1.2
+        if: ${{ always() }}
+        with:
+          name: e2e-multiiple-runs
+          path: /tmp/e2e/**/artifacts/
+
   e2e-shared-server:
     name: e2e-shared-server
     runs-on: ubuntu-latest
