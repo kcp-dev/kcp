@@ -185,10 +185,15 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test that user-1 is able to create, update, and delete cowboys
-	t.Logf("create a cowboy with user-1 via APIExport virtual workspace server")
-	cowboy := newCowboy("default", "cowboy-via-vw")
-	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy, metav1.CreateOptions{})
-	require.NoError(t, err)
+	var cowboy *wildwestv1alpha1.Cowboy
+	require.Eventually(t, func() bool {
+		t.Logf("create a cowboy with user-1 via APIExport virtual workspace server")
+		cowboy = newCowboy("default", "cowboy-via-vw")
+		var err error
+		cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy, metav1.CreateOptions{})
+		require.NoError(t, err)
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to create a cowboy via virtual workspace")
 
 	t.Logf("update a cowboy with user-1 via APIExport virtual workspace server")
 	cowboy.Spec.Intent = "1"
