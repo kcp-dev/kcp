@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -321,6 +322,11 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		} else {
 			// Existing CRD flow
 			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) || apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
+				bs, err := yaml.Marshal(existingCRD)
+				if err != nil {
+					return err
+				}
+				klog.Infof("CRD %s|%s is not established - waiting for it to be established:\n%s", ShadowWorkspaceName, crd.Name, string(bs))
 				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
 			}
 		}
