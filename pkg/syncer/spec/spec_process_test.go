@@ -472,6 +472,7 @@ func TestSyncerProcess(t *testing.T) {
 		upstreamURL               string
 		upstreamLogicalCluster    string
 		syncTargetName            string
+		syncTargetUID             types.UID
 		advancedSchedulingEnabled bool
 
 		expectError         bool
@@ -971,6 +972,11 @@ func TestSyncerProcess(t *testing.T) {
 			defer cancel()
 
 			kcpLogicalCluster := logicalcluster.New(tc.upstreamLogicalCluster)
+			syncTargetUID := tc.syncTargetUID
+			if tc.syncTargetUID == "" {
+				syncTargetUID = types.UID("syncTargetUID")
+			}
+
 			var allFromResources []runtime.Object
 			allFromResources = append(allFromResources, tc.fromNamespace)
 			if tc.fromResources != nil {
@@ -1002,7 +1008,7 @@ func TestSyncerProcess(t *testing.T) {
 			}
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.syncTargetName, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers)
+			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.syncTargetName, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, syncTargetUID)
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())

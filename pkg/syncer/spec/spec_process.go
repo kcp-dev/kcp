@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -28,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -114,14 +114,37 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	// to downstream
-	downstreamNamespace, err := shared.PhysicalClusterNamespaceName(shared.NamespaceLocator{
-		LogicalCluster: clusterName,
-		Namespace:      upstreamNamespace,
-	})
+	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
+	jsonNSLocator, err := json.Marshal(desiredNSLocator)
 	if err != nil {
-		klog.Errorf("Error hashing namespace %s|%s: %v", clusterName, upstreamNamespace, err)
-		return nil // ignore error, shouldn't happen
+		return err
+	}
+
+	namespaceGvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	downstreamNamespaces, err := c.downstreamInformers.ForResource(namespaceGvr).Informer().GetIndexer().ByIndex(byNamespaceLocatorIndexName, string(jsonNSLocator))
+	if err != nil {
+		return err
+	}
+	var downstreamNamespace string
+
+	if len(downstreamNamespaces) == 1 {
+		namespace := downstreamNamespaces[0].(*unstructured.Unstructured)
+		klog.V(4).Infof("Found downstream namespace %s for upstream namespace %s", namespace.GetName(), upstreamNamespace)
+		downstreamNamespace = namespace.GetName()
+	} else if len(downstreamNamespaces) > 1 {
+		// This should never happen unless there's some namespace collision.
+		var namespacesCollisions []string
+		for _, namespace := range downstreamNamespaces {
+			namespacesCollisions = append(namespacesCollisions, namespace.(*unstructured.Unstructured).GetName())
+		}
+		return fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), clusterName, upstreamNamespace)
+	} else {
+		klog.V(4).Infof("No downstream namespaces found for %s", key)
+		downstreamNamespace, err = shared.PhysicalClusterNamespaceName(desiredNSLocator)
+		if err != nil {
+			klog.Errorf("Error hashing namespace %s|%s: %v", clusterName, upstreamNamespace, err)
+			return nil
+		}
 	}
 
 	// get the upstream object
@@ -162,11 +185,9 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
-	l := shared.NamespaceLocator{
-		LogicalCluster: logicalcluster.From(upstreamObj),
-		Namespace:      upstreamObj.GetNamespace(),
-	}
-	b, err := json.Marshal(l)
+	upstreamLogicalCluster := logicalcluster.From(upstreamObj)
+	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
+	b, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return err
 	}
@@ -181,17 +202,26 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		})
 	}
 
-	// TODO(sttts): check that namespace exists in lister before using the client
-	if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
-		// An already exists error is ok - it means something else beat us to creating the namespace.
-		if !k8serrors.IsAlreadyExists(err) {
-			// Any other error is not good, though.
-			// TODO bubble this up as a condition somewhere.
-			klog.Errorf("Error while creating namespace %q: %v", downstreamNamespace, err)
+	// Check if the namespace already exists, if not create it.
+	namespace, err := c.downstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}).Lister().Get(newNamespace.GetName())
+	if err != nil && apierrors.IsNotFound(err) {
+		if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
 			return err
 		}
-	} else {
-		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", downstreamNamespace, l.LogicalCluster, l.Namespace)
+		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", newNamespace.GetName(), desiredNSLocator.Workspace, desiredNSLocator.Namespace)
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	// The namespace exists, so check if it has the correct namespace locator.
+	unstrNamespace := namespace.(*unstructured.Unstructured)
+	if nsLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations()); err != nil {
+		return fmt.Errorf("(possible namespace collision) namespace %s already exists, but found an error when trying to decode the annotation: %w", newNamespace.GetName(), err)
+	} else if !exists {
+		return fmt.Errorf("(namespace collision) namespace %s has no namespace locator", unstrNamespace.GetName())
+	} else if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
+		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
 	}
 
 	return nil

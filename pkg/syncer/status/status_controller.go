@@ -49,13 +49,14 @@ type Controller struct {
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
 	downstreamNamespaceLister              cache.GenericLister
 
-	syncTargetName               string
-	syncTargetLogicalClusterName logicalcluster.Name
-	advancedSchedulingEnabled    bool
+	syncTargetName            string
+	syncTargetClusterName     logicalcluster.Name
+	syncTargetUID             types.UID
+	advancedSchedulingEnabled bool
 }
 
-func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterName logicalcluster.Name, syncTargetName string, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
+func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName logicalcluster.Name, syncTargetName string, advancedSchedulingEnabled bool,
+	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
@@ -66,9 +67,10 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalCluste
 		downstreamInformers:       downstreamInformers,
 		downstreamNamespaceLister: downstreamInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Lister(),
 
-		syncTargetName:               syncTargetName,
-		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
-		advancedSchedulingEnabled:    advancedSchedulingEnabled,
+		syncTargetName:            syncTargetName,
+		syncTargetClusterName:     syncTargetClusterName,
+		syncTargetUID:             syncTargetUID,
+		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
 	for _, gvr := range gvrs {
@@ -90,7 +92,7 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalCluste
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "clusterName", syncTargetLogicalClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
+		klog.InfoS("Set up informer", "clusterName", syncTargetClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
 	}
 
 	return c, nil

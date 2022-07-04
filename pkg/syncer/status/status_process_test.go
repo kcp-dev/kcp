@@ -512,6 +512,11 @@ func TestSyncerProcess(t *testing.T) {
 			defer cancel()
 
 			kcpLogicalCluster := logicalcluster.New(tc.upstreamLogicalCluster)
+			syncTargetUID := tc.syncTargetUID
+			if tc.syncTargetUID == "" {
+				syncTargetUID = types.UID("syncTargetUID")
+			}
+
 			var allFromResources []runtime.Object
 			allFromResources = append(allFromResources, tc.fromNamespace)
 			if tc.fromResource != nil {
@@ -538,7 +543,7 @@ func TestSyncerProcess(t *testing.T) {
 				{Group: "", Version: "v1", Resource: "namespaces"},
 				tc.gvr,
 			}
-			controller, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.syncTargetName, tc.advancedSchedulingEnabled, toClusterClient, fromClient, toInformers, fromInformers)
+			controller, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.syncTargetName, tc.advancedSchedulingEnabled, toClusterClient, fromClient, toInformers, fromInformers, syncTargetUID)
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())
