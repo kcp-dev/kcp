@@ -81,12 +81,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		klog.Errorf("Namespace %q expected to be metav1.Object, got %T", nsKey, nsObj)
 		return nil
 	}
-	namespaceLocator, err := shared.LocatorFromAnnotations(nsMeta.GetAnnotations())
+	namespaceLocator, exists, err := shared.LocatorFromAnnotations(nsMeta.GetAnnotations())
 	if err != nil {
 		klog.Errorf(" namespace %q: error decoding annotation: %v", nsKey, err)
 		return nil
 	}
-	if namespaceLocator == nil {
+	if !exists || namespaceLocator == nil {
 		// Only sync resources for the configured logical cluster to ensure
 		// that syncers for multiple logical clusters can coexist.
 		return nil

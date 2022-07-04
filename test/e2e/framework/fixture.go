@@ -567,12 +567,12 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				t.Errorf("failed to list namespaces: %v", err)
 			}
 			for _, ns := range namespaces.Items {
-				locator, err := shared.LocatorFromAnnotations(ns.Annotations)
+				locator, exists, err := shared.LocatorFromAnnotations(ns.Annotations)
 				if err != nil {
 					t.Errorf("failed to retrieve locator from ns %q: %v", ns.Name, err)
 					continue
 				}
-				if locator == nil {
+				if !exists || locator == nil {
 					// Not a kcp-synced namespace
 					continue
 				}

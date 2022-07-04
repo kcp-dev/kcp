@@ -80,6 +80,7 @@ func TestClusterController(t *testing.T) {
 
 				nsLocator := shared.NewNamespaceLocator(syncerFixture.SyncerConfig.KCPClusterName, logicalcluster.From(workloadCluster), workloadCluster.GetUID(), workloadCluster.GetName(), cowboy.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
+				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)
 
 				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)
 				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)

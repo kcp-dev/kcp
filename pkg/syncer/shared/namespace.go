@@ -58,16 +58,16 @@ func NewNamespaceLocator(workspace, workloadClusterWorkspace logicalcluster.Name
 	}
 }
 
-func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, error) {
-	annotation := annotations[NamespaceLocatorAnnotation]
-	if len(annotation) == 0 {
-		return nil, nil
+func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, bool, error) {
+	annotation, ok := annotations[NamespaceLocatorAnnotation]
+	if !ok {
+		return nil, false, nil
 	}
 	var locator NamespaceLocator
 	if err := json.Unmarshal([]byte(annotation), &locator); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return &locator, nil
+	return &locator, true, nil
 }
 
 // PhysicalClusterNamespaceName encodes the NamespaceLocator into a new
