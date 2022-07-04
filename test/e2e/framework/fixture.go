@@ -367,11 +367,13 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 
 // SyncerFixture configures a syncer fixture. Its `Start` method does the work of starting a syncer.
 type SyncerFixture struct {
-	ResourcesToSync      sets.String
-	UpstreamServer       RunningServer
-	WorkspaceClusterName logicalcluster.Name
-	SyncTargetName       string
-	InstallCRDs          func(config *rest.Config, isLogicalCluster bool)
+	ResourcesToSync              sets.String
+	UpstreamServer               RunningServer
+	WorkspaceClusterName         logicalcluster.Name
+	SyncTargetLogicalClusterName logicalcluster.Name
+	SyncTargetName               string
+	SyncTargetUID                types.UID
+	InstallCRDs                  func(config *rest.Config, isLogicalCluster bool)
 }
 
 // SetDefaults ensures a valid configuration even if not all values are explicitly provided.
@@ -380,6 +382,12 @@ func (sf *SyncerFixture) setDefaults() {
 	if len(sf.SyncTargetName) == 0 {
 		// This only needs to vary when more than one syncer need to be tested in a workspace
 		sf.SyncTargetName = "pcluster-01"
+	}
+	if len(sf.SyncTargetUID) == 0 {
+		sf.SyncTargetUID = types.UID("syncTargetUID")
+	}
+	if sf.SyncTargetLogicalClusterName.Empty() {
+		sf.SyncTargetLogicalClusterName = logicalcluster.New("org:ws:workload")
 	}
 	if sf.ResourcesToSync == nil {
 		// resources-to-sync is additive to the core set of resources so not providing any
