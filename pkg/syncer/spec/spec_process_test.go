@@ -482,7 +482,7 @@ func TestSyncerProcess(t *testing.T) {
 		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is created downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"internal.workload.kcp.dev/cluster": "us-west1",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
@@ -656,19 +656,6 @@ func TestSyncerProcess(t *testing.T) {
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
 				deleteDeploymentAction(
 					"theDeployment",
 					"kcp-2r7hmup1y2r1",
@@ -678,7 +665,7 @@ func TestSyncerProcess(t *testing.T) {
 		"SpecSyncer deletion: object does not exists downstream, upstream finalizer should be removed": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"internal.workload.kcp.dev/cluster": "us-west1",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
@@ -722,19 +709,6 @@ func TestSyncerProcess(t *testing.T) {
 					)),
 			},
 			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
 				deleteDeploymentAction(
 					"theDeployment",
 					"kcp-2r7hmup1y2r1",
@@ -749,7 +723,8 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
+					"internal.workload.kcp.dev/cluster":        "us-west1",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
 				},
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
@@ -780,19 +755,6 @@ func TestSyncerProcess(t *testing.T) {
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
-					"",
-					changeUnstructured(
-						toUnstructured(t, namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-							map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							},
-							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
-							})),
-						removeNilOrEmptyFields,
-					),
-				),
 				patchDeploymentAction(
 					"theDeployment",
 					"kcp-2r7hmup1y2r1",
@@ -827,7 +789,7 @@ func TestSyncerProcess(t *testing.T) {
 		"SpecSyncer with AdvancedScheduling, sync deployment to downstream and apply SpecDiff": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"internal.workload.kcp.dev/cluster": "us-west1",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
