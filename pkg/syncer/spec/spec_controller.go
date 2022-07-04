@@ -44,8 +44,8 @@ import (
 
 const (
 	controllerName                   = "kcp-workload-syncer-spec"
-	byNamespaceLocatorIndexName      = "syncer-spec-ByNamespaceLocator-index"
-	byWorkspaceAndNamespaceIndexName = "syncer-spec-WorkspaceNamespace-index" // will go away with scoping
+	byNamespaceLocatorIndexName      = "syncer-spec-ByNamespaceLocator"
+	byWorkspaceAndNamespaceIndexName = "syncer-spec-WorkspaceNamespace" // will go away with scoping
 )
 
 type Controller struct {

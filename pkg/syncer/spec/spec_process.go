@@ -216,11 +216,14 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 
 	// The namespace exists, so check if it has the correct namespace locator.
 	unstrNamespace := namespace.(*unstructured.Unstructured)
-	if nsLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations()); err != nil {
+	nsLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations())
+	if err != nil {
 		return fmt.Errorf("(possible namespace collision) namespace %s already exists, but found an error when trying to decode the annotation: %w", newNamespace.GetName(), err)
-	} else if !exists {
+	}
+	if !exists {
 		return fmt.Errorf("(namespace collision) namespace %s has no namespace locator", unstrNamespace.GetName())
-	} else if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
+	}
+	if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
 		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
 	}
 
