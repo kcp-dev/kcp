@@ -95,7 +95,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	nonIdentityConfig.Host = u.String()
 
 	// resolve identities for system APIBindings
-	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityConfig) // can only used for apis.kcp.dev
+	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityConfig) // can only used for wildcard requests of apis.kcp.dev
 	if err != nil {
 		return err
 	}
