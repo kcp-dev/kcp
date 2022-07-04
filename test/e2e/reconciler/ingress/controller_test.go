@@ -62,11 +62,11 @@ func TestIngressController(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface)
+		work func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture)
 	}{
 		{
 			name: "ingress lifecycle",
-			work: func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface) {
+			work: func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture) {
 				// We create a root ingress. Ingress is excluded (through a hack) in namespace controller to be labeled.
 				// The ingress-controller will take over the labelling of the leaves. After that the normal syncer will
 				// sync the leaves into the physical cluster.
@@ -359,7 +359,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err, "failed to start ingress controller")
 
 			t.Log("Starting test...")
-			testCase.work(ctx, t, sourceKubeClient.NetworkingV1(), syncerFixture.DownstreamKubeClient.NetworkingV1())
+			testCase.work(ctx, t, sourceKubeClient.NetworkingV1(), syncerFixture.DownstreamKubeClient.NetworkingV1(), syncerFixture)
 		})
 	}
 }

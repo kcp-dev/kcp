@@ -62,11 +62,11 @@ func TestClusterController(t *testing.T) {
 	}
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t *testing.T, servers map[string]runningServer)
+		work func(ctx context.Context, t *testing.T, servers map[string]runningServer, syncerFixture *framework.StartedSyncerFixture)
 	}{
 		{
 			name: "create an object, expect spec and status to sync to sink, then delete",
-			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer) {
+			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer, syncerFixture *framework.StartedSyncerFixture) {
 				t.Logf("Creating cowboy timothy")
 				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
@@ -93,7 +93,6 @@ func TestClusterController(t *testing.T) {
 				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)
 
 				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)
-				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)
 				require.Eventually(t, func() bool {
 					if _, err = servers[sinkClusterName].coreClient.Namespaces().Get(ctx, targetNamespace, metav1.GetOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
@@ -212,7 +211,7 @@ func TestClusterController(t *testing.T) {
 			}
 
 			t.Log("Starting test...")
-			testCase.work(ctx, t, runningServers)
+			testCase.work(ctx, t, runningServers, syncerFixture)
 		})
 	}
 }
