@@ -320,7 +320,15 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
 		} else {
 			// Existing CRD flow
-			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) || apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
+			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) {
+				bs, err := json.Marshal(existingCRD.Status.Conditions)
+				if err != nil {
+					return err
+				}
+				klog.V(4).Infof("CRD %s|%s is not established: %s", ShadowWorkspaceName, crd.Name, string(bs))
+				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
+			} else if apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
+				klog.V(4).Infof("CRD %s|%s is terminating", ShadowWorkspaceName)
 				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
 			}
 		}
