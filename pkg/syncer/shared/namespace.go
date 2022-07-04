@@ -20,8 +20,11 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
+	"github.com/martinlindhe/base36"
+
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -67,13 +70,18 @@ func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, e
 	return &locator, nil
 }
 
-// PhysicalClusterNamespaceName encodes the NamespaceLocator to a new
+// PhysicalClusterNamespaceName encodes the NamespaceLocator into a new
 // namespace name for use on a physical cluster. The encoding is repeatable.
 func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 	b, err := json.Marshal(l)
 	if err != nil {
 		return "", err
 	}
-	hash := sha256.Sum224(b)
-	return fmt.Sprintf("kcp%x", hash), nil
+	// hash the marshalled locator
+	hash := sha256.Sum224(b[:])
+	// convert the hash to base36 (alphanumeric) to decrease collision probabilities
+	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
+	// use 12 chars of the base36hash, should be enough to avoid collisions and
+	// keep the namespaces short enough.
+	return fmt.Sprintf("kcp-%s", base36hash[:12]), nil
 }
