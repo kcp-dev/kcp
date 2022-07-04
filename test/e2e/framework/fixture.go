@@ -577,7 +577,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 			for _, ns := range namespaces.Items {
 				locator, exists, err := shared.LocatorFromAnnotations(ns.Annotations)
 				if err != nil {
-					t.Errorf("failed to retrieve locator from ns %q: %v", ns.Name, err)
+					t.Logf("failed to retrieve locator from ns %q: %v", ns.Name, err)
 					continue
 				}
 				if !exists || locator == nil {
@@ -590,7 +590,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				}
 				err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
 				if err != nil {
-					t.Errorf("failed to delete Namespace %q: %v", ns.Name, err)
+					t.Logf("failed to delete Namespace %q: %v", ns.Name, err)
 				}
 			}
 		})
