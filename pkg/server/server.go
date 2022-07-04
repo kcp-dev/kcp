@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
+	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -131,7 +133,15 @@ func (s *Server) Run(ctx context.Context) error {
 		es := &etcd.Server{
 			Dir: s.options.EmbeddedEtcd.Directory,
 		}
-		embeddedClientInfo, err := es.Run(ctx, s.options.EmbeddedEtcd.PeerPort, s.options.EmbeddedEtcd.ClientPort, s.options.EmbeddedEtcd.WalSizeBytes, s.options.EmbeddedEtcd.ForceNewCluster)
+		var listenMetricsURLs []url.URL
+		if len(s.options.EmbeddedEtcd.ListenMetricsURLs) > 0 {
+			var err error
+			listenMetricsURLs, err = etcdtypes.NewURLs(s.options.EmbeddedEtcd.ListenMetricsURLs)
+			if err != nil {
+				return err
+			}
+		}
+		embeddedClientInfo, err := es.Run(ctx, s.options.EmbeddedEtcd.PeerPort, s.options.EmbeddedEtcd.ClientPort, listenMetricsURLs, s.options.EmbeddedEtcd.WalSizeBytes, s.options.EmbeddedEtcd.ForceNewCluster)
 		if err != nil {
 			return err
 		}
