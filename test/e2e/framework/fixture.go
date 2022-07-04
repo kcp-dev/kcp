@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -575,7 +576,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 					// Not a kcp-synced namespace
 					continue
 				}
-				if locator.LogicalCluster != syncerConfig.KCPClusterName {
+				if locator.Workspace.String() != syncerConfig.KCPClusterName.String() {
 					// Not a namespace synced by this syncer
 					continue
 				}

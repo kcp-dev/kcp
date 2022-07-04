@@ -312,6 +312,7 @@ func TestSyncerProcess(t *testing.T) {
 		upstreamURL               string
 		upstreamLogicalCluster    string
 		syncTargetName            string
+		syncTargetUID             types.UID
 		advancedSchedulingEnabled bool
 
 		expectError         bool
@@ -325,7 +326,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -365,7 +366,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -394,7 +395,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -433,7 +434,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -468,7 +469,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr:          schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: nil,

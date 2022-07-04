@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -141,7 +142,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterN
 				}
 				klog.V(4).InfoS("found", "NamespaceLocator", nsLocator)
 				m := &metav1.ObjectMeta{
-					ClusterName: nsLocator.LogicalCluster.String(),
+					ClusterName: nsLocator.Workspace.String(),
 					Namespace:   nsLocator.Namespace,
 					Name:        name,
 				}

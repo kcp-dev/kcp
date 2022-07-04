@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -31,8 +32,27 @@ const (
 // NamespaceLocator stores a logical cluster and namespace and is used
 // as the source for the mapped namespace name in a physical cluster.
 type NamespaceLocator struct {
-	LogicalCluster logicalcluster.Name `json:"logical-cluster"`
-	Namespace      string              `json:"namespace"`
+	SyncTarget SyncTargetLocator   `json:"syncTarget"`
+	Workspace  logicalcluster.Name `json:"workspace,omitempty"`
+	Namespace  string              `json:"namespace"`
+}
+
+type SyncTargetLocator struct {
+	Path logicalcluster.Name `json:"path"`
+	Name string              `json:"name"`
+	UID  types.UID           `json:"uid"`
+}
+
+func NewNamespaceLocator(workspace, workloadClusterWorkspace logicalcluster.Name, workloadClusterUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
+	return NamespaceLocator{
+		SyncTarget: SyncTargetLocator{
+			Path: syncTargetWorkspace,
+			Name: workloadLogicalClusterName,
+			UID:  syncTargetUID,
+		},
+		Workspace: workspace,
+		Namespace: upstreamNamespace,
+	}
 }
 
 func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, error) {

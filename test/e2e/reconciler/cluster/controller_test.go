@@ -78,7 +78,7 @@ func TestClusterController(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cowboy")
 
-				nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(cowboy), Namespace: cowboy.Namespace}
+				nsLocator := shared.NewNamespaceLocator(syncerFixture.SyncerConfig.KCPClusterName, logicalcluster.From(workloadCluster), workloadCluster.GetUID(), workloadCluster.GetName(), cowboy.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
 
 				t.Logf("Expecting namespace %s to show up in sink", targetNamespace)

@@ -517,7 +517,7 @@ func TestSyncerProcess(t *testing.T) {
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
@@ -570,7 +570,7 @@ func TestSyncerProcess(t *testing.T) {
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
@@ -630,7 +630,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "root:org:ws", map[string]string{
 					"internal.workload.kcp.dev/cluster": "us-west1",
@@ -685,7 +685,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
 			},
 			fromResources: []runtime.Object{
@@ -751,7 +751,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
 				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
 					"internal.workload.kcp.dev/cluster": "us-west1",
@@ -863,7 +863,7 @@ func TestSyncerProcess(t *testing.T) {
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"logical-cluster":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
@@ -897,6 +897,71 @@ func TestSyncerProcess(t *testing.T) {
 					),
 				),
 			},
+		},
+		"SpecSyncer namespace conflict: try to sync to an already existing namespace with a different namespace-locator, expect error": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"internal.workload.kcp.dev/cluster": "us-west1",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
+				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
+			},
+			toResources: []runtime.Object{
+				namespace("kcp-v7unkiqxyp7g", "", map[string]string{
+					"internal.workload.kcp.dev/cluster":        "us-west1",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
+				}, map[string]string{
+					"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
+				}),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			syncTargetName:                      "us-west1",
+			expectError:                         true,
+			expectActionsOnFrom:                 []clienttesting.Action{},
+			expectActionsOnTo:                   []clienttesting.Action{},
+		},
+		"SpecSyncer namespace conflict: try to sync to an already existing namespace without a namespace-locator, expect error": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.internal.workload.kcp.dev/us-west1": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
+				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
+			},
+			toResources: []runtime.Object{
+				namespace("kcp-v7unkiqxyp7g", "", map[string]string{
+					"internal.workload.kcp.dev/cluster":        "us-west1",
+					"state.internal.workload.kcp.dev/us-west1": "Sync",
+				}, map[string]string{},
+				),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			syncTargetName:                      "us-west1",
+			expectError:                         true,
+			expectActionsOnFrom:                 []clienttesting.Action{},
+			expectActionsOnTo:                   []clienttesting.Action{},
 		},
 	}
 

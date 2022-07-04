@@ -31,6 +31,7 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
@@ -79,7 +80,8 @@ func TestIngressController(t *testing.T) {
 				rootIngress, err = sourceClient.Ingresses(testNamespace).Create(ctx, rootIngress, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ingress")
 
-				nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(rootIngress), Namespace: rootIngress.Namespace}
+				rootIngressLogicalCluster := logicalcluster.From(rootIngress)
+				nsLocator := shared.NewNamespaceLocator(rootIngressLogicalCluster, syncerFixture.SyncerConfig.KCPClusterName, types.UID("workloadClusterUID"), syncerFixture.SyncerConfig.WorkloadClusterName, rootIngress.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator) // nolint: staticcheck
 				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 

@@ -92,7 +92,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return nil
 	}
 	upstreamNamespace := namespaceLocator.Namespace
-	upstreamLogicalCluster := namespaceLocator.LogicalCluster
+	upstreamWorkspace := namespaceLocator.Workspace
 
 	// get the downstream object
 	obj, exists, err := c.downstreamInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(key)
@@ -101,7 +101,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if !exists {
 		klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.syncTargetName, upstreamLogicalCluster, name)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.syncTargetName, upstreamWorkspace, name)
 	}
 
 	// update upstream status
@@ -109,7 +109,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	if !ok {
 		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
-	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, upstreamLogicalCluster, u)
+	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, upstreamWorkspace, u)
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
@@ -118,7 +118,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	upstreamObj.SetResourceVersion("")
 	upstreamObj.SetNamespace(upstreamNamespace)
 
-	// Run name transformations on upstreamObj
+	// Run name transformations on upstreamObja
 	transformName(upstreamObj)
 
 	name := upstreamObj.GetName()
