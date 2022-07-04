@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
@@ -77,6 +78,15 @@ func TestClusterController(t *testing.T) {
 					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cowboy")
+
+				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
+				require.NoError(t, err)
+
+				workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx,
+					syncerFixture.SyncerConfig.WorkloadClusterName,
+					metav1.GetOptions{},
+				)
+				require.NoError(t, err)
 
 				nsLocator := shared.NewNamespaceLocator(syncerFixture.SyncerConfig.KCPClusterName, logicalcluster.From(workloadCluster), workloadCluster.GetUID(), workloadCluster.GetName(), cowboy.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
