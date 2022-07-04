@@ -118,7 +118,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	upstreamObj.SetResourceVersion("")
 	upstreamObj.SetNamespace(upstreamNamespace)
 
-	// Run name transformations on upstreamObja
+	// Run name transformations on upstreamObj
 	transformName(upstreamObj)
 
 	name := upstreamObj.GetName()
