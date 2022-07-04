@@ -32,6 +32,8 @@ import (
 )
 
 func main() {
+	flag.String("log-dir-path", "", "Path to the log files. If empty, log files are stored in the dot directories.")
+
 	// split flags into --proxy-*, --shard-* and everything elese (generic). The former are
 	// passed to the respective components. Everything after "--" is considered a shard flag.
 	var proxyFlags, shardFlags, genericFlags []string

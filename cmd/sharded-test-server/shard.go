@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"path/filepath"
 
@@ -66,9 +67,18 @@ func startShard(ctx context.Context, n uint, args []string, servingCA *crypto.CA
 		fmt.Sprintf("--secure-port=%d", 6444+n),
 	)
 
+	logDir := flag.Lookup("log-dir-path").Value.String()
+	if err != nil {
+		return nil, err
+	}
+	logFilePath := filepath.Join(fmt.Sprintf(".kcp-%d", n), "kcp.log")
+	if logDir != "" {
+		logFilePath = filepath.Join(logDir, fmt.Sprintf("kcp-%d.log", n))
+	}
+
 	return shard.Start(ctx,
 		fmt.Sprintf("kcp-%d", n),  // name
 		fmt.Sprintf(".kcp-%d", n), // runtime directory, etcd data etc.
-		filepath.Join(fmt.Sprintf(".kcp-%d", n), "kcp.log"),
+		logFilePath,
 		args)
 }

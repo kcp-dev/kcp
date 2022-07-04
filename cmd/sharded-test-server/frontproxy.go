@@ -18,11 +18,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -107,7 +109,16 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
-	logFile, err := os.OpenFile(".kcp-front-proxy/proxy.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	logDir := flag.Lookup("log-dir-path").Value.String()
+	if err != nil {
+		return err
+	}
+	logFilePath := ".kcp-front-proxy/proxy.log"
+	if logDir != "" {
+		logFilePath = filepath.Join(logDir, "kcp-front-proxy.log")
+	}
+
+	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
