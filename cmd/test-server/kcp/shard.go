@@ -57,7 +57,9 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) // nolint: errcheck
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
-
+	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
+		return nil, err
+	}
 	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		return nil, err

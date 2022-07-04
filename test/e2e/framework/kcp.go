@@ -236,7 +236,11 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
-		serverOptions := options.NewOptions(".kcp")
+		rootDir := ".kcp"
+		if c.dataDir != "" {
+			rootDir = c.dataDir
+		}
+		serverOptions := options.NewOptions(rootDir)
 		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
 		for _, fs := range serverOptions.Flags().FlagSets {
 			all.AddFlagSet(fs)
