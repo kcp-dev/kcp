@@ -153,7 +153,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// The identities are not known before we can get them from the APIExports via the loopback client, hence we postpone
 	// this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
 	// The informers here are not  used before the informers are actually started (i.e. no race).
-	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig) // can only used for apis.kcp.dev
+	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
 	if err != nil {
 		return err
 	}

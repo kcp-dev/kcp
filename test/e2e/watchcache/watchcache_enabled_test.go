@@ -40,11 +40,14 @@ import (
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -252,35 +255,44 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, config *rest.Config,
 const resyncPeriod = 10 * time.Hour
 const byWorkspace = "byWorkspace"
 
-func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, restCfg *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
+func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, config *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
+	nonIdentityKcpClusterClient, err := kcpclientset.NewClusterForConfig(config) // can only used for wildcard requests of apis.kcp.dev
+	require.NoError(t, err)
+
 	// since wildcard request are only allowed against a shard
 	// create a cfg that points to the root shard and use it to create ddsif
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(restCfg)
+	rootConfig := framework.ShardConfig(t, nonIdentityKcpClusterClient, "root", config)
+	rootConfig.QPS = 100
+	rootConfig.Burst = 200
+
+	// resolve identities for system APIBindings
+	identityRootConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(rootConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	require.Eventually(t, func() bool {
+		if err := resolveIdentities(ctx); err != nil {
+			klog.Errorf("failed to resolve identities, keeping trying: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	rootKcpClusterClient, err := kcpclientset.NewClusterForConfig(identityRootConfig)
 	require.NoError(t, err)
-	cfg := framework.ShardConfig(t, kcpClusterClient, "root", restCfg)
-	cfg.QPS = 100
-	cfg.Burst = 200
-	kcpClusterClient, err = kcpclientset.NewClusterForConfig(cfg)
+	rootKcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(rootKcpClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod)
+	rootMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootConfig) // no identites necessary for partial metadata
 	require.NoError(t, err)
-	kcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
-	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
-	require.NoError(t, err)
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
-	require.NoError(t, err)
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 	ddsif := informer.NewDynamicDiscoverySharedInformerFactory(
-		kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		kubeClusterClient.DiscoveryClient,
-		metadataClusterClient.Cluster(logicalcluster.Wildcard),
+		rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		rootKcpClusterClient.DiscoveryClient,
+		rootMetadataClusterClient.Cluster(logicalcluster.Wildcard),
 		func(obj interface{}) bool { return true }, 5*time.Second,
 	)
 	err = ddsif.AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})
 	require.NoError(t, err)
 
 	t.Log("Starting KCP Shared Informer Factory")
-	kcpSharedInformerFactory.Start(ctx.Done())
+	rootKcpSharedInformerFactory.Start(ctx.Done())
 	t.Log("Waiting for KCP Shared Informer Factory to sync caches")
-	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+	rootKcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 	t.Log("Starting DynamicDiscoverySharedInformerFactory")
 	ddsif.StartPolling(context.Background())
 
