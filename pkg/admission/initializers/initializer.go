@@ -18,6 +18,9 @@ package initializers
 
 import (
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/admission/initializer"
+	quota "k8s.io/apiserver/pkg/quota/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -41,6 +44,26 @@ type kcpInformersInitializer struct {
 func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsKcpInformers); ok {
 		wants.SetKcpInformers(i.kcpInformers)
+	}
+}
+
+// NewKubeInformersInitializer returns an admission plugin initializer that injects
+// kube shared informer factories into admission plugins.
+func NewKubeInformersInitializer(
+	kubeInformers informers.SharedInformerFactory,
+) *kubeInformersInitializer {
+	return &kubeInformersInitializer{
+		kubeInformers: kubeInformers,
+	}
+}
+
+type kubeInformersInitializer struct {
+	kubeInformers informers.SharedInformerFactory
+}
+
+func (i *kubeInformersInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(initializer.WantsExternalKubeInformerFactory); ok {
+		wants.SetExternalKubeInformerFactory(i.kubeInformers)
 	}
 }
 
@@ -101,5 +124,41 @@ type externalAddressInitializer struct {
 func (i *externalAddressInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsExternalAddressProvider); ok {
 		wants.SetExternalAddressProvider(i.externalAddressProvider)
+	}
+}
+
+// NewKubeQuotaConfigurationInitializer returns an admission plugin initializer that injects quota.Configuration
+// into admission plugins.
+func NewKubeQuotaConfigurationInitializer(quotaConfiguration quota.Configuration) *kubeQuotaConfigurationInitializer {
+	return &kubeQuotaConfigurationInitializer{
+		quotaConfiguration: quotaConfiguration,
+	}
+}
+
+type kubeQuotaConfigurationInitializer struct {
+	quotaConfiguration quota.Configuration
+}
+
+func (i *kubeQuotaConfigurationInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(initializer.WantsQuotaConfiguration); ok {
+		wants.SetQuotaConfiguration(i.quotaConfiguration)
+	}
+}
+
+// NewServerShutdownInitializer returns an admission plugin initializer that injects the server's shutdown channel
+// into admission plugins.
+func NewServerShutdownInitializer(ch <-chan struct{}) *serverShutdownChannelInitializer {
+	return &serverShutdownChannelInitializer{
+		ch: ch,
+	}
+}
+
+type serverShutdownChannelInitializer struct {
+	ch <-chan struct{}
+}
+
+func (i *serverShutdownChannelInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsServerShutdownChannel); ok {
+		wants.SetServerShutdownChannel(i.ch)
 	}
 }

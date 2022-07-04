@@ -166,19 +166,24 @@ func CreateSheriff(
 
 	// CRDs are asynchronously served because they are informer based.
 	framework.Eventually(t, func() (bool, string) {
-		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": group + "/v1",
-				"kind":       "Sheriff",
-				"metadata": map[string]interface{}{
-					"name": name,
-				},
-			},
-		}, metav1.CreateOptions{}); err != nil {
+		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, NewSheriff(group, name), metav1.CreateOptions{}); err != nil {
 			return false, fmt.Sprintf("failed to create Sheriff %s|%s: %v", clusterName, name, err.Error())
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating Sheriff %s|%s", clusterName, name)
+}
+
+// NewSheriff returns a new *unstructured.Unstructured for a Sheriff with the given group and name.
+func NewSheriff(group, name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": group + "/v1",
+			"kind":       "Sheriff",
+			"metadata": map[string]interface{}{
+				"name": name,
+			},
+		},
+	}
 }
 
 func jsonOrDie(obj interface{}) []byte {

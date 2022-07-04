@@ -335,10 +335,6 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 					// foo/status, pods/exec, namespace/finalize, etc.
 					continue
 				}
-				if !ai.Namespaced {
-					// Ignore cluster-scoped things.
-					continue
-				}
 				if !sets.NewString([]string(ai.Verbs)...).HasAll("list", "watch") {
 					klog.V(4).InfoS("resource is not list+watchable", "logical-cluster", logicalClusterName, "group", gv.Group, "version", gv.Version, "resource", ai.Name, "verbs", ai.Verbs)
 					continue
@@ -441,11 +437,6 @@ func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(lates
 	}
 
 	for gvr := range d.informers {
-		// HACK(ncdc): these are needed by our kubeQuota controller - don't delete them
-		if gvr == crdGVR || gvr == apibindingsGVR {
-			continue
-		}
-
 		if _, found := latest[gvr]; !found {
 			toRemove = append(toRemove, gvr)
 		}
