@@ -44,6 +44,7 @@ import (
 
 const (
 	controllerName                   = "kcp-workload-syncer-spec"
+	byNamespaceLocatorIndexName      = "syncer-spec-ByNamespaceLocator-index"
 	byWorkspaceAndNamespaceIndexName = "syncer-spec-WorkspaceNamespace-index" // will go away with scoping
 )
 
@@ -85,6 +86,11 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName log
 		Resource: "namespaces",
 	}
 	namespaceLister := downstreamInformers.ForResource(namespaceGVR).Lister()
+
+	err := downstreamInformers.ForResource(namespaceGVR).Informer().AddIndexers(cache.Indexers{byNamespaceLocatorIndexName: indexByNamespaceLocator})
+	if err != nil {
+		return nil, err
+	}
 
 	for _, gvr := range gvrs {
 		gvr := gvr // because used in closure
@@ -262,4 +268,17 @@ func indexByWorkspaceAndNamespace(obj interface{}) ([]string, error) {
 
 func workspaceAndNamespaceIndexKey(logicalcluster logicalcluster.Name, namespace string) string {
 	return logicalcluster.String() + "/" + namespace
+}
+
+// indexByNamespaceLocator is a cache.IndexFunc that indexes namespaces by the namespaceLocator annotation.
+func indexByNamespaceLocator(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	locator, ok := metaObj.GetAnnotations()[shared.NamespaceLocatorAnnotation]
+	if !ok {
+		return []string{}, nil
+	}
+	return []string{locator}, nil
 }
