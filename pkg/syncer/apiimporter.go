@@ -201,6 +201,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
+			klog.Infof("Updating APIResourceImport %s|%s for WorkloadCluster %s", i.logicalClusterName, apiResourceImport.Name)
 			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Update(ctx, apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
@@ -274,6 +275,8 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			if value, found := pulledCrd.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; found {
 				apiResourceImport.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
 			}
+
+			klog.Infof("Creating APIResourceImport %s|%s", i.logicalClusterName, apiResourceImportName)
 			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Create(ctx, apiResourceImport, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
@@ -299,6 +302,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 		}
 		if len(objs) == 1 {
 			apiResourceImportToRemove := objs[0].(*apiresourcev1alpha1.APIResourceImport)
+			klog.Infof("Deleting APIResourceImport %s|%s", i.logicalClusterName, apiResourceImportToRemove.Name)
 			err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Delete(ctx, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Errorf("error deleting APIResourceImport %s: %v", apiResourceImportToRemove.Name, err)
