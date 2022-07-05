@@ -16,6 +16,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.5
 	github.com/kcp-dev/apimachinery v0.0.0-20220708220956-c302aeddfde7
+	github.com/kcp-dev/code-generator v0.0.0-20220706140735-88c5278ce5ea
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster v1.1.1-0.20220705215104-8e46328c24a5
 	github.com/martinlindhe/base36 v1.1.1
@@ -39,12 +40,12 @@ require (
 	k8s.io/client-go v0.23.5
 	k8s.io/code-generator v0.23.5
 	k8s.io/component-base v0.23.5
-	k8s.io/klog/v2 v2.30.0
+	k8s.io/klog/v2 v2.60.1
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 	k8s.io/kubernetes v1.23.5
-	k8s.io/utils v0.0.0-20211116205334-6203023598ed
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1
-	sigs.k8s.io/yaml v1.2.0
+	sigs.k8s.io/yaml v1.3.0
 )
 
 replace (

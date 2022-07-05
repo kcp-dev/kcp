@@ -23,6 +23,19 @@ export GOPATH=$(go env GOPATH)
 
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/code-generator)}
+CLUSTER_CODEGEN_PKG=${CLUSTER_CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m github.com/kcp-dev/code-generator)}
+
+go run "${CLUSTER_CODEGEN_PKG}"/main.go "informer,lister" \
+  --clientset-api-path github.com/kcp-dev/kcp/pkg/client/clientset/versioned \
+  --input-dir pkg/apis \
+  --output-dir pkg/clusterclient \
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  --group-versions workload:v1alpha1  \
+  --group-versions apiresource:v1alpha1 \
+  --group-versions tenancy:v1alpha1 \
+  --group-versions tenancy:v1beta1 \
+  --group-versions apis:v1alpha1 \
+  --group-versions scheduling:v1alpha1
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
