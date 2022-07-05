@@ -18,6 +18,7 @@ package apiexport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -25,6 +26,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -33,10 +36,13 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
@@ -45,6 +51,8 @@ const (
 	controllerName = "kcp-workload-apiexport-create"
 
 	byWorkspace = controllerName + "-byWorkspace" // will go away with scoping
+
+	DefaultLocationName = "default"
 )
 
 // NewController returns a new controller instance.
@@ -53,6 +61,7 @@ func NewController(
 	workloadClusterInformer workloadinformers.WorkloadClusterInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiBindingInformer apisinformers.APIBindingInformer,
+	locationInformer schedulinginformers.LocationInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -70,6 +79,8 @@ func NewController(
 
 		workloadClusterLister:  workloadClusterInformer.Lister(),
 		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
+
+		locationLister: locationInformer.Lister(),
 	}
 
 	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
@@ -108,6 +119,19 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
+	locationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			switch t := obj.(type) {
+			case *schedulingv1alpha1.Location:
+				return t.Name == DefaultLocationName
+			}
+			return false
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
+		},
+	})
+
 	return c, nil
 }
 
@@ -127,6 +151,8 @@ type controller struct {
 
 	apiBindingLister  apislisters.APIBindingLister
 	apiBindingIndexer cache.Indexer
+
+	locationLister schedulinglisters.LocationLister
 }
 
 // enqueue adds the logical cluster to the queue.
@@ -220,6 +246,36 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 	}
 
+	if value, found := export.Annotations[apisv1alpha1.AnnotationSkipDefaultObjectCreation]; found && value == "true" {
+		return nil
+	}
+
+	// check that location exists, and create it if not
+	_, err = c.locationLister.Get(clusters.ToClusterAwareKey(clusterName, DefaultLocationName))
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	} else if apierrors.IsNotFound(err) {
+		klog.Infof("Creating location %s|%s", clusterName, DefaultLocationName)
+		location := &schedulingv1alpha1.Location{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: DefaultLocationName,
+			},
+			Spec: schedulingv1alpha1.LocationSpec{
+				Resource: schedulingv1alpha1.GroupVersionResource{
+					Group:    "workload.kcp.dev",
+					Version:  "v1alpha1",
+					Resource: "workloadclusters",
+				},
+				InstanceSelector: &metav1.LabelSelector{},
+			},
+		}
+		_, err = c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Create(ctx, location, metav1.CreateOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			klog.Errorf("Failed to create location %s|%s: %v", clusterName, DefaultLocationName, err)
+			return err
+		}
+	}
+
 	// check that binding exists, and create it if not
 	bindings, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
@@ -257,5 +313,25 @@ func (c *controller) process(ctx context.Context, key string) error {
 	klog.V(2).Infof("Creating APIBinding %s|%s", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName)
 	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		klog.Errorf("Failed to create apibinding %s|%s: %v", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName, err)
+		return err
+	}
+
+	// patch the apiexport, so we do not create the location/apibinding again even if it is deleted.
+	exportPatch := map[string]interface{}{}
+	expectedAnnotations := map[string]interface{}{
+		apisv1alpha1.AnnotationSkipDefaultObjectCreation: "true",
+	}
+	if err := unstructured.SetNestedField(exportPatch, expectedAnnotations, "metadata", "annotations"); err != nil {
+		return err
+	}
+	patchData, err := json.Marshal(exportPatch)
+	if err != nil {
+		return err
+	}
+
+	klog.V(2).Infof("Patching apiexport %s|%s with patch %s", clusterName, export.Name, string(patchData))
+	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Patch(ctx, export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
 }

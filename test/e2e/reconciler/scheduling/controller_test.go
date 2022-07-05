@@ -200,6 +200,16 @@ func TestScheduling(t *testing.T) {
 		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+	t.Logf("Wait for placement to be ready")
+	framework.Eventually(t, func() (bool, string) {
+		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, "default", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to get placement: %v", err)
+		}
+
+		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %s", toYaml(binding))
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
 		_, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
@@ -224,6 +234,16 @@ func TestScheduling(t *testing.T) {
 		}
 
 		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Wait for placement to be ready")
+	framework.Eventually(t, func() (bool, string) {
+		placement, err := kcpClusterClient.Cluster(secondUserClusterName).SchedulingV1alpha1().Placements().Get(ctx, "default", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to get placement: %v", err)
+		}
+
+		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %s", toYaml(binding))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -310,7 +330,8 @@ func TestScheduling(t *testing.T) {
 		ns, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 		require.NoError(t, err)
 
-		return ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey] != "", fmt.Sprintf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, toYaml(ns))
+		_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
+		return found, fmt.Sprintf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, toYaml(ns))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
 

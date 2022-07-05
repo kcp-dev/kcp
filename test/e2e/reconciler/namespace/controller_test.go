@@ -47,9 +47,8 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
+	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -60,7 +59,7 @@ func TestNamespaceScheduler(t *testing.T) {
 		framework.RunningServer
 		clusterName    logicalcluster.Name
 		client         kubernetes.Interface
-		orgKcpClient   versioned.Interface
+		orgKcpClient   clientset.Interface
 		kcpClient      clientset.Interface
 		expect         registerNamespaceExpectation
 		orgClusterName logicalcluster.Name
@@ -83,7 +82,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
 				})
-				err = server.expect(namespace, unscheduledMatcher(placement.NamespaceReasonUnschedulable))
+				err = server.expect(namespace, unscheduledMatcher(workloadnamespace.NamespaceReasonUnschedulable))
 				require.NoError(t, err, "did not see namespace marked unschedulable")
 
 				t.Log("Deploy a syncer")
@@ -137,29 +136,8 @@ func TestNamespaceScheduler(t *testing.T) {
 				})
 				require.NoError(t, err, "failed to update cluster1")
 
-				err = server.expect(namespace, unscheduledMatcher(placement.NamespaceReasonUnschedulable))
+				err = server.expect(namespace, unscheduledMatcher(workloadnamespace.NamespaceReasonUnschedulable))
 				require.NoError(t, err, "did not see namespace marked unschededuled")
-
-				t.Log("Disable the scheduling for the namespace and expect it to be marked unscheduled")
-				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					ns.Labels["experimental.workload.kcp.dev/scheduling-disabled"] = "true"
-					_, err = server.client.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
-					return err
-				})
-				require.NoError(t, err, "failed to update namespace")
-
-				require.Eventually(t, func() bool {
-					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
-					if err != nil {
-						klog.Error(err)
-						return false
-					}
-					return unscheduledMatcher(placement.NamespaceReasonSchedulingDisabled)(ns) == nil
-				}, wait.ForeverTestTimeout, time.Second)
 			},
 		},
 		{
@@ -304,7 +282,7 @@ type namespaceExpectation func(*corev1.Namespace) error
 
 func unscheduledMatcher(reason string) namespaceExpectation {
 	return func(object *corev1.Namespace) error {
-		if condition := conditions.Get(&placement.NamespaceConditionsAdapter{Namespace: object}, placement.NamespaceScheduled); condition != nil {
+		if condition := conditions.Get(&workloadnamespace.NamespaceConditionsAdapter{Namespace: object}, workloadnamespace.NamespaceScheduled); condition != nil {
 			if condition.Status == corev1.ConditionTrue {
 				return fmt.Errorf("expected an unscheduled namespace, got: %#v", object.Status.Conditions)
 			}

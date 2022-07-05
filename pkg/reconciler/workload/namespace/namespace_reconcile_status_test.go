@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package placement
+package namespace
 
 import (
 	"testing"
@@ -37,34 +37,21 @@ func TestSetScheduledCondition(t *testing.T) {
 		scheduled   bool
 		reason      conditionsapi.ConditionType
 	}{
-		"disabled label true": {
-			labels: map[string]string{
-				workloadv1alpha1.SchedulingDisabledLabel: "true",
-			},
-			annotations: map[string]string{
-				schedulingv1alpha1.PlacementAnnotationKey: `{"foo":"Pending"}`,
-			},
-			reason: NamespaceReasonSchedulingDisabled,
-		},
-		"disabled label empty": {
-			labels: map[string]string{
-				workloadv1alpha1.SchedulingDisabledLabel: "",
-			},
-		},
-		"disabled label false": {
-			labels: map[string]string{
-				workloadv1alpha1.SchedulingDisabledLabel: "false",
-			},
-		},
 		"scheduled": {
 			annotations: map[string]string{
-				schedulingv1alpha1.PlacementAnnotationKey: `{"foo":"Pending"}`,
+				schedulingv1alpha1.PlacementAnnotationKey: "",
+			},
+			labels: map[string]string{
+				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
 			},
 			scheduled: true,
 		},
 		"unschedulable": {
+			reason: NamespaceReasonUnschedulable,
+		},
+		"no clusters": {
 			annotations: map[string]string{
-				schedulingv1alpha1.PlacementAnnotationKey: `{}`,
+				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			reason: NamespaceReasonUnschedulable,
 		},

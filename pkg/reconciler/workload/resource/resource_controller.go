@@ -78,9 +78,11 @@ func NewController(
 			UpdateFunc: func(old, obj interface{}) {
 				oldNS := old.(*corev1.Namespace)
 				newNS := obj.(*corev1.Namespace)
-				if !reflect.DeepEqual(scheduleStateLabels(oldNS.Labels), scheduleStateLabels(newNS.Labels)) {
+				if !reflect.DeepEqual(scheduleStateLabels(oldNS.Labels), scheduleStateLabels(newNS.Labels)) ||
+					!reflect.DeepEqual(scheduleStateAnnotations(oldNS.Annotations), scheduleStateAnnotations(newNS.Annotations)) {
 					c.enqueueNamespace(obj)
 				}
+
 			},
 			DeleteFunc: nil, // Nothing to do.
 		},
@@ -99,6 +101,16 @@ func scheduleStateLabels(ls map[string]string) map[string]string {
 	ret := make(map[string]string, len(ls))
 	for k, v := range ls {
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
+func scheduleStateAnnotations(ls map[string]string) map[string]string {
+	ret := make(map[string]string, len(ls))
+	for k, v := range ls {
+		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
 			ret[k] = v
 		}
 	}

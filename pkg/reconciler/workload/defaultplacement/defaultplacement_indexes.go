@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package placement
+package defaultplacement
 
 import (
 	"fmt"
@@ -22,8 +22,6 @@ import (
 	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 )
 
 func indexByWorkspace(obj interface{}) ([]string, error) {
@@ -34,17 +32,4 @@ func indexByWorkspace(obj interface{}) ([]string, error) {
 
 	lcluster := logicalcluster.From(metaObj)
 	return []string{lcluster.String()}, nil
-}
-
-func indexByLocationWorkspace(obj interface{}) ([]string, error) {
-	placement, ok := obj.(*schedulingv1alpha1.Placement)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
-	}
-
-	if len(placement.Spec.LocationWorkspace) == 0 {
-		return []string{logicalcluster.From(placement).String()}, nil
-	}
-
-	return []string{placement.Spec.LocationWorkspace}, nil
 }

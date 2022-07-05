@@ -517,14 +517,8 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if s.options.Controllers.EnableAll || enabled.Has("namespace-scheduler") {
-		if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
 	if s.options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
-		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig, s.dynamicDiscoverySharedInformerFactory); err != nil {
 			return err
 		}
 	}
@@ -543,6 +537,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
 		if s.options.Controllers.EnableAll || enabled.Has("scheduling") {
+			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig, server); err != nil {
+				return err
+			}
 			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig, server); err != nil {
 				return err
 			}
@@ -553,6 +550,9 @@ func (s *Server) Run(ctx context.Context) error {
 				return err
 			}
 			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, server); err != nil {
+				return err
+			}
+			if err := s.installDefaultPlacementController(ctx, controllerConfig, server); err != nil {
 				return err
 			}
 		}

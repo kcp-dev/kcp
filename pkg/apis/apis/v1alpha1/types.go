@@ -193,6 +193,10 @@ const (
 	// for the request. This data is synthetic; it is not stored in etcd and instead is only applied when retrieving
 	// CRs for the CRD.
 	AnnotationAPIIdentityKey = "apis.kcp.dev/identity"
+
+	// AnnotationDefaultCreated is the annotation key for an apiexport or apibinding indicating the other default resources
+	// has been created already. If the created default resource is deleted, it will not be recreated.
+	AnnotationSkipDefaultObjectCreation = "apis.kcp.dev/skip-default-object-creation"
 )
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..
