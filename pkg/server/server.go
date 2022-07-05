@@ -246,7 +246,18 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithWildcardIdentity(apiHandler)
-		apiHandler = genericapiserver.DefaultBuildHandlerChain(apiHandler, c)
+
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, c)
+
+		// TODO(david): Add options to drive the various Home workspace parameters.
+		// For now default values are:
+		//   - Creation delay (returned in the retry-afterof the http responses): 2 seconds
+		//   - Home root workspace: root:users
+		//   - Home bucket levels: 2
+		//   - home bucket name size: 2
+		apiHandler = WithHomeWorkspaces(apiHandler, c.Authorization.Authorizer, kubeClusterClient, kcpClusterClient, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory, 2, logicalcluster.New("root:users"), 2, 2)
+
+		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, c)
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
