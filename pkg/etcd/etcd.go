@@ -55,7 +55,7 @@ type ClientInfo struct {
 	TrustedCAFile string
 }
 
-func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes int64, forceNewCluster bool) (ClientInfo, error) {
+func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes, quotaBackendBytes int64, forceNewCluster bool) (ClientInfo, error) {
 	klog.Info("Creating embedded etcd server")
 	if walSizeBytes != 0 {
 		wal.SegmentSizeBytes = walSizeBytes
@@ -100,6 +100,10 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMet
 
 	if enableUnsafeEtcdDisableFsyncHack, _ := strconv.ParseBool(os.Getenv("UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC")); enableUnsafeEtcdDisableFsyncHack {
 		cfg.UnsafeNoFsync = true
+	}
+
+	if quotaBackendBytes > 0 {
+		cfg.QuotaBackendBytes = quotaBackendBytes
 	}
 
 	e, err := embed.StartEtcd(cfg)
