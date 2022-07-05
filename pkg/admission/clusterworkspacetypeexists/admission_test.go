@@ -349,7 +349,6 @@ func TestAdmit(t *testing.T) {
 						"creationTimestamp": nil,
 					},
 					"spec": map[string]interface{}{
-						"baseURL":     "",
 						"externalURL": "",
 					},
 					"status": map[string]interface{}{},

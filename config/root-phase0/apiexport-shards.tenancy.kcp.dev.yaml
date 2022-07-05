@@ -4,7 +4,6 @@ metadata:
   creationTimestamp: null
   name: shards.tenancy.kcp.dev
 spec:
-  identity: null
   latestResourceSchemas:
   - v220628-546034da.clusterworkspaceshards.tenancy.kcp.dev
 status: {}

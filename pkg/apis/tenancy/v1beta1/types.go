@@ -48,7 +48,7 @@ type Workspace struct {
 	Spec WorkspaceSpec `json:"spec"`
 
 	// +optional
-	Status WorkspaceStatus `json:"status"`
+	Status WorkspaceStatus `json:"status,omitempty"`
 }
 
 // WorkspaceSpec holds the desired state of the ClusterWorkspace.
