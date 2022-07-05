@@ -174,8 +174,10 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
+						},
 					},
 				},
 			}, &tenancyv1alpha1.ClusterWorkspaceType{
@@ -183,8 +185,10 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
+						},
 					},
 				},
 			}),
@@ -198,8 +202,10 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
+						},
 					},
 				},
 			}, &tenancyv1alpha1.ClusterWorkspaceType{
@@ -207,8 +213,10 @@ func TestValidate(t *testing.T) {
 					Name: "root:thing",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
+						},
 					},
 				},
 			}),

@@ -205,27 +205,25 @@ type ClusterWorkspaceTypeSpec struct {
 	// +optional
 	DefaultChildWorkspaceType *ClusterWorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
 
-	// allowAnyChildWorkspaceTypes permits all ClusterWorkspaceTypes to be
-	// created in a workspace of this type.
-	//
-	// +optional
-	AllowAnyChildWorkspaceTypes bool `json:"allowAnyChildWorkspaceTypes,omitempty"`
-
-	// allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes that can be
-	// created in a workspace of this type.
+	// allowedChildren is a set of ClusterWorkspaceTypes that can be created in a
+	// workspace of this type.
 	//
 	// By default, no type is allowed. This means no other workspace can be nested
-	// within a workspace of the given type. Use allowAnyChildWorkspaceTypes to be
+	// within a workspace of the given type. Use allowedChildren.any=true to be
 	// permissive with child types.
 	//
 	// +optional
-	AllowedChildWorkspaceTypes []ClusterWorkspaceTypeReference `json:"allowedChildWorkspaceTypes,omitempty"`
+	AllowedChildren *ClusterWorkspaceTypeSelector `json:"allowedChildren,omitempty"`
 
-	// allowAnyParentWorkspaceTypes permits this type to be created in workspaces
-	// of all other ClusterWorkspaceTypes.
+	// allowedParents is a set of ClusterWorkspaceTypes that this type can be
+	// created in.
+	//
+	// By default, no type is allowed. This means no other workspace can have a
+	// workspace of the given type nested inside it. Use allowedParents.any=true
+	// to be permissive with child types.
 	//
 	// +optional
-	AllowAnyParentWorkspaceTypes bool `json:"allowAnyParentWorkspaceTypes,omitempty"`
+	AllowedParents *ClusterWorkspaceTypeSelector `json:"allowedParents,omitempty"`
 
 	// allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type
 	// can be created in.
@@ -237,6 +235,19 @@ type ClusterWorkspaceTypeSpec struct {
 	// +optional
 	// +kubebuilder:validation:MinItems=1
 	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeReference `json:"allowedParentWorkspaceTypes,omitempty"`
+}
+
+// ClusterWorkspaceTypeSelector describes a set of types.
+type ClusterWorkspaceTypeSelector struct {
+	// any matches all types if set.
+	//
+	// +optional
+	Any bool `json:"any,omitempty"`
+
+	// types is a list of ClusterWorkspaceTypes that match.
+	//
+	// By default, no type matches. Use any to be permissive with matching types.
+	Types []ClusterWorkspaceTypeReference `json:"types,omitempty"`
 }
 
 // ClusterWorkspaceTypeExtension defines how other ClusterWorkspaceTypes are
@@ -574,8 +585,8 @@ var (
 			ClusterName: RootWorkspaceTypeReference.Path,
 		},
 		Spec: ClusterWorkspaceTypeSpec{
-			AllowAnyChildWorkspaceTypes:  true,
-			AllowAnyParentWorkspaceTypes: true,
+			AllowedChildren: &ClusterWorkspaceTypeSelector{Any: true},
+			AllowedParents:  &ClusterWorkspaceTypeSelector{Any: true},
 		},
 		Status: ClusterWorkspaceTypeStatus{
 			TypeAliases: []ClusterWorkspaceTypeReference{

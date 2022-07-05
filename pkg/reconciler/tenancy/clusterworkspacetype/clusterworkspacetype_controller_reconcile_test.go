@@ -1140,8 +1140,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1159,8 +1161,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -1201,8 +1205,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1213,7 +1219,7 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowAnyParentWorkspaceTypes: true,
+						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
 					},
 				},
 			},
@@ -1223,8 +1229,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -1259,8 +1267,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1271,8 +1281,10 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Name: "SomeType", Path: "root:org:team:ws"},
+						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								{Name: "SomeType", Path: "root:org:team:ws"},
+							},
 						},
 					},
 				},
@@ -1283,8 +1295,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -1324,8 +1338,10 @@ func TestReconcile(t *testing.T) {
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1336,8 +1352,10 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Name: "OtherType", Path: "root:org:team:ws"},
+						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								{Name: "OtherType", Path: "root:org:team:ws"},
+							},
 						},
 					},
 				},
@@ -1353,8 +1371,10 @@ func TestReconcile(t *testing.T) {
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
-					AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -1392,8 +1412,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1411,8 +1433,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -1453,8 +1477,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1465,7 +1491,7 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowAnyChildWorkspaceTypes: true,
+						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
 					},
 				},
 			},
@@ -1475,8 +1501,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -1511,8 +1539,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1523,8 +1553,10 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Name: "SomeType", Path: "root:org:team:ws"},
+						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								{Name: "SomeType", Path: "root:org:team:ws"},
+							},
 						},
 					},
 				},
@@ -1535,8 +1567,10 @@ func TestReconcile(t *testing.T) {
 					ClusterName: "root:org:team:ws",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -1576,8 +1610,10 @@ func TestReconcile(t *testing.T) {
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 			},
@@ -1588,8 +1624,10 @@ func TestReconcile(t *testing.T) {
 						ClusterName: "root:org:team:ws",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Name: "OtherType", Path: "root:org:team:ws"},
+						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								{Name: "OtherType", Path: "root:org:team:ws"},
+							},
 						},
 					},
 				},
@@ -1605,8 +1643,10 @@ func TestReconcile(t *testing.T) {
 							{Name: "OtherType", Path: "root:org:team:ws"},
 						},
 					},
-					AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						{Name: "OtherType", Path: "root:org:team:ws"},
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "OtherType", Path: "root:org:team:ws"},
+						},
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{

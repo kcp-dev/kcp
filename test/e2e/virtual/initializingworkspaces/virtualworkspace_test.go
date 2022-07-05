@@ -168,9 +168,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				Name: clusterWorkspaceTypeNames[name],
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-				Initializer:                  true,
-				AllowAnyParentWorkspaceTypes: true,
-				Extend:                       clusterWorkspaceTypeExtensions[name],
+				Initializer:    true,
+				AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
+				Extend:         clusterWorkspaceTypeExtensions[name],
 			},
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)

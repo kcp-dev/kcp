@@ -439,43 +439,51 @@ func (c *controller) resolveTypeRelationships(cwt *tenancyv1alpha1.ClusterWorksp
 	}
 
 	if cwt.Spec.DefaultChildWorkspaceType != nil &&
-		!cwt.Spec.AllowAnyChildWorkspaceTypes &&
-		!newReferenceSet(cwt.Spec.AllowedChildWorkspaceTypes...).Has(*cwt.Spec.DefaultChildWorkspaceType) {
+		(!selectorMatchesAnyType(cwt.Spec.AllowedChildren, *cwt.Spec.DefaultChildWorkspaceType)) {
 		return fmt.Errorf("default child type %s is not allowed as a child", cwt.Spec.DefaultChildWorkspaceType.String())
 	}
 
 	ref := tenancyv1alpha1.ReferenceFor(cwt)
 
-	// these are the types which, if they are present in some other type's list, allow us
-	ourTypes := newReferenceSet(cwt.Status.TypeAliases...)
-
-	for _, child := range cwt.Spec.AllowedChildWorkspaceTypes {
-		childType, err := c.resolveClusterWorkspaceType(child)
-		if err != nil {
-			return fmt.Errorf("could not resolve child type %s: %w", child, err)
-		}
-		allowedParents := newReferenceSet(childType.Spec.AllowedParentWorkspaceTypes...)
-		if !childType.Spec.AllowAnyParentWorkspaceTypes && !allowedParents.HasAny(ourTypes.List()...) {
-			return fmt.Errorf("child %s does not allow %s as a parent", child, ref)
+	if cwt.Spec.AllowedChildren != nil {
+		for _, child := range cwt.Spec.AllowedChildren.Types {
+			childType, err := c.resolveClusterWorkspaceType(child)
+			if err != nil {
+				return fmt.Errorf("could not resolve child type %s: %w", child, err)
+			}
+			if !selectorMatchesAnyType(childType.Spec.AllowedParents, cwt.Status.TypeAliases...) {
+				return fmt.Errorf("child %s does not allow %s as a parent", child, ref)
+			}
 		}
 	}
 
-	for _, parent := range cwt.Spec.AllowedParentWorkspaceTypes {
-		var parentType *tenancyv1alpha1.ClusterWorkspaceType
-		if parent.Equal(tenancyv1alpha1.RootWorkspaceTypeReference) {
-			parentType = tenancyv1alpha1.RootWorkspaceType
-		} else {
-			var err error
-			parentType, err = c.resolveClusterWorkspaceType(parent)
-			if err != nil {
-				return fmt.Errorf("could not resolve parent type %s: %w", parent, err)
+	if cwt.Spec.AllowedParents != nil {
+		for _, parent := range cwt.Spec.AllowedParents.Types {
+			var parentType *tenancyv1alpha1.ClusterWorkspaceType
+			if parent.Equal(tenancyv1alpha1.RootWorkspaceTypeReference) {
+				parentType = tenancyv1alpha1.RootWorkspaceType
+			} else {
+				var err error
+				parentType, err = c.resolveClusterWorkspaceType(parent)
+				if err != nil {
+					return fmt.Errorf("could not resolve parent type %s: %w", parent, err)
+				}
 			}
-		}
-		allowedChildren := newReferenceSet(parentType.Spec.AllowedChildWorkspaceTypes...)
-		if !parentType.Spec.AllowAnyChildWorkspaceTypes && !allowedChildren.HasAny(ourTypes.List()...) {
-			return fmt.Errorf("parent %s does not allow %s as a child", parent, ref)
+			if !selectorMatchesAnyType(parentType.Spec.AllowedChildren, cwt.Status.TypeAliases...) {
+				return fmt.Errorf("parent %s does not allow %s as a child", parent, ref)
+			}
 		}
 	}
 
 	return nil
+}
+
+func selectorMatchesAnyType(selector *tenancyv1alpha1.ClusterWorkspaceTypeSelector, queries ...tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
+	if selector == nil {
+		return false
+	}
+	if selector.Any {
+		return true
+	}
+	return newReferenceSet(selector.Types...).HasAny(queries...)
 }

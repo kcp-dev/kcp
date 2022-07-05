@@ -99,7 +99,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				cwt, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowAnyParentWorkspaceTypes: true,
+						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
@@ -150,8 +150,8 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				cwt, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializer:                  true,
-						AllowAnyParentWorkspaceTypes: true,
+						Initializer:    true,
+						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")

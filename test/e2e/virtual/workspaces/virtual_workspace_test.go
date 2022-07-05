@@ -307,7 +307,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				cwt, err := server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "custom"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowAnyParentWorkspaceTypes: true,
+						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create custom ClusterWorkspaceType 'Custom'")

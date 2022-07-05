@@ -7,11 +7,13 @@ spec:
   defaultChildWorkspaceType:
     name: Universal
     path: root
-  allowedChildWorkspaceTypes:
-  - name: Team
-    path: root
-  - name: Universal
-    path: root
-  allowedParentWorkspaceTypes:
-  - name: Root
-    path: root
+  allowedChildren:
+    types:
+    - name: Team
+      path: root
+    - name: Universal
+      path: root
+  allowedParents:
+    types:
+    - name: Root
+      path: root

@@ -196,17 +196,23 @@ func (o *clusterWorkspaceTypeExists) resolveValidType(parentClusterName logicalc
 		return nil, err
 	}
 	parentRef := tenancyv1alpha1.ReferenceFor(parentCwt)
-	if !parentCwt.Spec.AllowAnyChildWorkspaceTypes && !setContainsAnyType(parentCwt.Spec.AllowedChildWorkspaceTypes, cwt.Status.TypeAliases) {
+	if !selectorMatchesAnyType(parentCwt.Spec.AllowedChildren, cwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("parent cluster workspace %q (of type %s) does not allow for child workspaces of type %s", parentClusterName, parentRef.String(), ref.String())
 	}
-	if !cwt.Spec.AllowAnyParentWorkspaceTypes && !setContainsAnyType(cwt.Spec.AllowedParentWorkspaceTypes, parentCwt.Status.TypeAliases) {
+	if !selectorMatchesAnyType(cwt.Spec.AllowedParents, parentCwt.Status.TypeAliases) {
 		return nil, fmt.Errorf("cluster workspace %q (of type %s) does not allow for parent workspaces of type %s", workspaceName, ref.String(), parentRef.String())
 	}
 	return cwt, nil
 }
 
-func setContainsAnyType(set, queries []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
-	for _, allowed := range set {
+func selectorMatchesAnyType(selector *tenancyv1alpha1.ClusterWorkspaceTypeSelector, queries []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
+	if selector == nil {
+		return false
+	}
+	if selector.Any {
+		return true
+	}
+	for _, allowed := range selector.Types {
 		for _, query := range queries {
 			if allowed.Equal(query) {
 				return true
