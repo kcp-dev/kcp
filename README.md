@@ -153,10 +153,16 @@ However, `kcp` is not an acronym.
 
 First of all, be sure to have [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) and [Go](https://golang.org/doc/install) (1.17+) installed.
 
-After cloning the repository, you can start kcp on your machine using this command:
+After cloning the repository, you can build `kcp` and our `kubectl kcp` plugins using this command:
 
 ```
-go run ./cmd/kcp start
+make install
+```
+
+Ensure that your `${PATH}` contains the output directory of `go install`, and start `kcp` on your machine with:
+
+```
+kcp start
 ```
 
 This will build and run your kcp server, and generate a kubeconfig in `.kcp/admin.kubeconfig` you can use to connect to it:
