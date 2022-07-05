@@ -137,7 +137,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		}
 	}
 
-	klog.V(2).Infof("Updating APIs for APIExport %s|%s: new=%v, preserved=%v, removed=%v", logicalcluster.From(apiExport), apiExport.Name, newGVRs, preservedGVR, removedGVRs)
+	klog.V(2).Infof("Updating APIs for APIExport %s|%s and APIDomainKey %s: new=%v, preserved=%v, removed=%v", logicalcluster.From(apiExport), apiExport.Name, apiDomainKey, newGVRs, preservedGVR, removedGVRs)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
