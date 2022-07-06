@@ -7,5 +7,5 @@ spec:
   latestResourceSchemas:
   - v220628-546034da.clusterworkspaces.tenancy.kcp.dev
   - v220628-546034da.workspaces.tenancy.kcp.dev
-  - v220630-e7687e50.clusterworkspacetypes.tenancy.kcp.dev
+  - v220702-de66f19c.clusterworkspacetypes.tenancy.kcp.dev
 status: {}

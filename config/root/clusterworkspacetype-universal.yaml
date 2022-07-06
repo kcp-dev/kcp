@@ -6,8 +6,10 @@ spec:
   initializer: true
   additionalWorkspaceLabels:
     workloads.kcp.dev/schedulable: "true"
-  defaultChildWorkspaceType: Universal
-  allowedChildWorkspaceTypes:
-  - Any
-  allowedParentWorkspaceTypes:
-  - Any
+  defaultChildWorkspaceType:
+    name: Universal
+    path: root
+  allowedChildren:
+    any: true
+  allowedParents:
+    any: true

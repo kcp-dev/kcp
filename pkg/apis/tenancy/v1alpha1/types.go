@@ -203,28 +203,51 @@ type ClusterWorkspaceTypeSpec struct {
 	// creating nested workspaces.
 	//
 	// +optional
-	DefaultChildWorkspaceType ClusterWorkspaceTypeName `json:"defaultChildWorkspaceType,omitempty"`
+	DefaultChildWorkspaceType *ClusterWorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
 
-	// allowedChildWorkspaceTypes is a list of ClusterWorkspaceTypes that can be
-	// created in a workspace of this type.
+	// allowedChildren is a set of ClusterWorkspaceTypes that can be created in a
+	// workspace of this type.
 	//
 	// By default, no type is allowed. This means no other workspace can be nested
-	// within a workspace of the given type. The name `*` allows any child type to
-	// be nested.
+	// within a workspace of the given type. Use allowedChildren.any=true to be
+	// permissive with child types.
 	//
 	// +optional
-	AllowedChildWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedChildWorkspaceTypes,omitempty"`
+	AllowedChildren *ClusterWorkspaceTypeSelector `json:"allowedChildren,omitempty"`
+
+	// allowedParents is a set of ClusterWorkspaceTypes that this type can be
+	// created in.
+	//
+	// By default, no type is allowed. This means no other workspace can have a
+	// workspace of the given type nested inside it. Use allowedParents.any=true
+	// to be permissive with child types.
+	//
+	// +optional
+	AllowedParents *ClusterWorkspaceTypeSelector `json:"allowedParents,omitempty"`
 
 	// allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type
 	// can be created in.
 	//
 	// By default, no type is allowed. This means no other workspace can have a
-	// workspace of the given type nested inside it. The name `*` allows any parent
-	// type to nest this one.
+	// workspace of the given type nested inside it. Use allowAnyParentWorkspaceTypes
+	// to be permissive with parent types.
 	//
 	// +optional
 	// +kubebuilder:validation:MinItems=1
-	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeName `json:"allowedParentWorkspaceTypes,omitempty"`
+	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeReference `json:"allowedParentWorkspaceTypes,omitempty"`
+}
+
+// ClusterWorkspaceTypeSelector describes a set of types.
+type ClusterWorkspaceTypeSelector struct {
+	// any matches all types if set.
+	//
+	// +optional
+	Any bool `json:"any,omitempty"`
+
+	// types is a list of ClusterWorkspaceTypes that match.
+	//
+	// By default, no type matches. Use any to be permissive with matching types.
+	Types []ClusterWorkspaceTypeReference `json:"types,omitempty"`
 }
 
 // ClusterWorkspaceTypeExtension defines how other ClusterWorkspaceTypes are
@@ -253,6 +276,9 @@ const (
 
 	ClusterWorkspaceTypeExtensionsResolved conditionsv1alpha1.ConditionType = "ExtensionsResolved"
 	ErrorResolvingExtensionsReason                                          = "ErrorResolvingExtensions"
+
+	ClusterWorkspaceTypeRelationshipsValid conditionsv1alpha1.ConditionType = "RelationshipsValid"
+	ErrorValidatingRelationshipsReason                                      = "ErrorValidatingRelationships"
 )
 
 // ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.
@@ -541,8 +567,31 @@ const (
 )
 
 const (
-	// AnyWorkspaceType is used in allowed child and parent type lists to denote that any type is permissible.
-	AnyWorkspaceType = ClusterWorkspaceTypeName("Any")
-	// RootWorkspaceType is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceType = ClusterWorkspaceTypeName("Root")
+	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no cluster workspace type
+	RootWorkspaceTypeName = ClusterWorkspaceTypeName("Root")
+)
+
+var (
+	// RootWorkspaceTypeReference is a reference to the root logical cluster, which has no cluster workspace type
+	RootWorkspaceTypeReference = ClusterWorkspaceTypeReference{
+		Name: RootWorkspaceTypeName,
+		Path: RootCluster.String(),
+	}
+
+	// RootWorkspaceType is the implicit type of the root logical cluster.
+	RootWorkspaceType = &ClusterWorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        ObjectName(RootWorkspaceTypeReference.Name),
+			ClusterName: RootWorkspaceTypeReference.Path,
+		},
+		Spec: ClusterWorkspaceTypeSpec{
+			AllowedChildren: &ClusterWorkspaceTypeSelector{Any: true},
+			AllowedParents:  &ClusterWorkspaceTypeSelector{Any: true},
+		},
+		Status: ClusterWorkspaceTypeStatus{
+			TypeAliases: []ClusterWorkspaceTypeReference{
+				RootWorkspaceTypeReference,
+			},
+		},
+	}
 )

@@ -143,6 +143,86 @@ func TestValidate(t *testing.T) {
 			clusterName: logicalcluster.New("foo:bar"),
 			wantErr:     true,
 		},
+		{
+			name: "deny changing default type",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					DefaultChildWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "some", Path: "root",
+					},
+				},
+			}, &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					DefaultChildWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "other", Path: "root",
+					},
+				},
+			}),
+			clusterName: logicalcluster.New("foo:bar"),
+			wantErr:     true,
+		},
+		{
+			name: "deny changing child types",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
+						},
+					},
+				},
+			}, &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
+						},
+					},
+				},
+			}),
+			clusterName: logicalcluster.New("foo:bar"),
+			wantErr:     true,
+		},
+		{
+			name: "deny changing parent types",
+			a: updateAttr(&tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "foo", Path: "root"}, {Name: "bar", Path: "root"},
+						},
+					},
+				},
+			}, &tenancyv1alpha1.ClusterWorkspaceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "root:thing",
+				},
+				Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							{Name: "chess", Path: "root"}, {Name: "checkers", Path: "root"},
+						},
+					},
+				},
+			}),
+			clusterName: logicalcluster.New("foo:bar"),
+			wantErr:     true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

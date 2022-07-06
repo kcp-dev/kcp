@@ -19,7 +19,6 @@ package initializingworkspaces
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/rand"
 	"sort"
 	"testing"
@@ -169,9 +168,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				Name: clusterWorkspaceTypeNames[name],
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-				Initializer:                 true,
-				AllowedParentWorkspaceTypes: []tenancyv1alpha1.ClusterWorkspaceTypeName{tenancyv1alpha1.AnyWorkspaceType},
-				Extend:                      clusterWorkspaceTypeExtensions[name],
+				Initializer:    true,
+				AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
+				Extend:         clusterWorkspaceTypeExtensions[name],
 			},
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
@@ -188,21 +187,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		cwtName := clusterWorkspaceTypes[name].Name
-		framework.Eventually(t, func() (bool, string) {
-			cwt, err := sourceKcpTenancyClient.ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-			require.NoError(t, err, "Error fetching ClusterWorkspaceType %q|%q", clusterName.String(), cwtName)
-			done := conditions.IsTrue(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-			var reason string
-			if !done {
-				condition := conditions.Get(cwt, tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved)
-				if condition != nil {
-					reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: %s: %s", clusterName.String(), cwtName, condition.Reason, condition.Message)
-				} else {
-					reason = fmt.Sprintf("Not done waiting for ClusterWorkspaceType %q|%q type extensions to be resolved: no condition present", clusterName.String(), cwtName)
-				}
-			}
-			return done, reason
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for type extensions to be resolved on ClusterWorkspaceType")
+		framework.EventuallyReady(t, func() (conditions.Getter, error) {
+			return sourceKcpTenancyClient.ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+		}, "could not wait for readiness on ClusterWorkspaceType %s|%s", clusterName.String(), cwtName)
 	}
 
 	t.Log("Create workspaces that using the new types, which will get stuck in initializing")
