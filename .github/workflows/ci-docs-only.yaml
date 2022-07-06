@@ -18,3 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: 'echo "No build required"'
+  e2e-sharded:
+    name: e2e-sharded
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required"'
