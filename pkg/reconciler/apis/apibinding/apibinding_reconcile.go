@@ -143,7 +143,6 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		return nil
 	}
 
-	var boundResources []apisv1alpha1.BoundAPIResource
 	var needToWaitForRequeueWhenEstablished []string
 
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
@@ -318,6 +317,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			c.deletedCRDTracker.Remove(crd.Name)
 
 			needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
+			continue
 		} else {
 			// Existing CRD flow
 			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) {
@@ -327,9 +327,11 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 				}
 				klog.V(4).Infof("CRD %s|%s is not established: %s", ShadowWorkspaceName, crd.Name, string(bs))
 				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
+				continue
 			} else if apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
 				klog.V(4).Infof("CRD %s|%s is terminating", ShadowWorkspaceName)
 				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
+				continue
 			}
 		}
 
@@ -349,7 +351,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		sortedStorageVersions := storageVersions.List()
 		sort.Strings(sortedStorageVersions)
 
-		boundResources = append(boundResources, apisv1alpha1.BoundAPIResource{
+		newBoundResource := apisv1alpha1.BoundAPIResource{
 			Group:    schema.Spec.Group,
 			Resource: schema.Spec.Names.Plural,
 			Schema: apisv1alpha1.BoundAPIResourceSchema{
@@ -358,13 +360,23 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 				IdentityHash: apiExport.Status.IdentityHash,
 			},
 			StorageVersions: sortedStorageVersions,
-		})
+		}
+		found := false
+		for i, r := range apiBinding.Status.BoundResources {
+			if r.Group == schema.Spec.Group && r.Resource == schema.Spec.Names.Plural {
+				apiBinding.Status.BoundResources[i] = newBoundResource
+				found = true
+				break
+			}
+		}
+		if !found {
+			apiBinding.Status.BoundResources = append(apiBinding.Status.BoundResources, newBoundResource)
+		}
 	}
 
 	conditions.MarkTrue(apiBinding, apisv1alpha1.APIExportValid)
 
 	apiBinding.Status.BoundAPIExport = &apiBinding.Spec.Reference
-	apiBinding.Status.BoundResources = boundResources
 
 	if len(needToWaitForRequeueWhenEstablished) > 0 {
 		sort.Strings(needToWaitForRequeueWhenEstablished)
@@ -455,6 +467,7 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		apiResourceSchema, err := c.getAPIResourceSchema(apiExportClusterName, schemaName)
 		if err != nil {
+			klog.Errorf("Error getting APIResourceSchema %s|%s for APIBinding %s|%s: %v", apiExportClusterName, schemaName, apiBindingClusterName, apiBinding.Name, err)
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.APIExportValid,
@@ -463,8 +476,9 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 				"An internal error occurred with the APIExport",
 			)
 			if apierrors.IsNotFound(err) {
-				// Return nil here so we don't retry. If/when there is an informer event for the correct APIExport, this
-				// APIBinding will automatically be requeued.
+				// Return nil here so we don't retry. If/when there is an informer event for
+				// the correct APIExport and/or APIResourcesSchema, this APIBinding will
+				// automatically be requeued.
 				return nil
 			}
 

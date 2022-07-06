@@ -366,6 +366,12 @@ func (s *Server) Run(ctx context.Context) error {
 		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.rootKubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
+		select {
+		case <-ctx.StopCh:
+			return nil // context closed, avoid reporting success below
+		default:
+		}
+
 		klog.Infof("Finished start kube informers")
 
 		if err := systemcrds.Bootstrap(
@@ -428,6 +434,12 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+		select {
+		case <-ctx.StopCh:
+			return nil // context closed, avoid reporting success below
+		default:
+		}
 
 		klog.Infof("Finished starting (remaining) kcp informers")
 

@@ -201,7 +201,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			klog.Infof("Updating APIResourceImport %s|%s for WorkloadCluster %s", i.logicalClusterName, apiResourceImport.Name)
+			klog.Infof("Updating APIResourceImport %s|%s for WorkloadCluster %s", i.logicalClusterName, apiResourceImport.Name, i.location)
 			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Update(ctx, apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue

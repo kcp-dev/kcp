@@ -272,18 +272,7 @@ func TestReconcileBinding(t *testing.T) {
 			wantWaitingForEstablished: true,
 			wantAPIExportValid:        true,
 			wantBoundAPIExport:        true,
-			wantBoundResources: []apisv1alpha1.BoundAPIResource{
-				{
-					Group:    "kcp.dev",
-					Resource: "widgets",
-					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name:         "today.widgets.kcp.dev",
-						UID:          "todaywidgetsuid",
-						IdentityHash: "hash1",
-					},
-					StorageVersions: []string{},
-				},
-			},
+			wantBoundResources:        nil, // not yet established
 		},
 		"create CRD - other bindings - no conflicts": {
 			apiBinding: binding.Build(),
@@ -295,18 +284,7 @@ func TestReconcileBinding(t *testing.T) {
 			wantWaitingForEstablished: true,
 			wantAPIExportValid:        true,
 			wantBoundAPIExport:        true,
-			wantBoundResources: []apisv1alpha1.BoundAPIResource{
-				{
-					Group:    "kcp.dev",
-					Resource: "widgets",
-					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name:         "today.widgets.kcp.dev",
-						UID:          "todaywidgetsuid",
-						IdentityHash: "hash1",
-					},
-					StorageVersions: []string{},
-				},
-			},
+			wantBoundResources:        nil, // not yet established
 		},
 		"create CRD - other bindings - conflicts": {
 			apiBinding: binding.Build(),
@@ -325,26 +303,15 @@ func TestReconcileBinding(t *testing.T) {
 			wantNamingConflict: true,
 		},
 		"CRD already exists but isn't established yet": {
-			apiBinding:         binding.Build(),
-			getCRDError:        nil,
-			crdExists:          true,
-			crdEstablished:     false,
-			crdStorageVerions:  []string{"v0", "v1"},
-			wantAPIExportValid: true,
-			wantReady:          false,
-			wantBoundAPIExport: true,
-			wantBoundResources: []apisv1alpha1.BoundAPIResource{
-				{
-					Group:    "kcp.dev",
-					Resource: "widgets",
-					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name:         "today.widgets.kcp.dev",
-						UID:          "todaywidgetsuid",
-						IdentityHash: "hash1",
-					},
-					StorageVersions: []string{"v0", "v1"},
-				},
-			},
+			apiBinding:                binding.Build(),
+			getCRDError:               nil,
+			crdExists:                 true,
+			crdEstablished:            false,
+			crdStorageVerions:         []string{"v0", "v1"},
+			wantAPIExportValid:        true,
+			wantReady:                 false,
+			wantBoundAPIExport:        true,
+			wantBoundResources:        nil, // not established yet
 			wantWaitingForEstablished: true,
 		},
 		"CRD already exists and is established": {

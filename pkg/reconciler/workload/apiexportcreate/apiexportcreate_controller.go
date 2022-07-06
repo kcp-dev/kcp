@@ -162,12 +162,12 @@ func (c *controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	name, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
+	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	klog.Infof("Enqueueing logical cluster %q because of %T %s", clusterName, obj, name)
 	c.queue.Add(clusterName.String())
