@@ -373,6 +373,7 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 		subresources = []string{"status"}
 	}
 
+	klog.V(2).Infof("Patching APIExport %s|%s: %s", clusterName, name, string(patchBytes))
 	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	if err != nil {
 		return fmt.Errorf("failed to patch APIExport %s|%s: %w", clusterName, name, err)
