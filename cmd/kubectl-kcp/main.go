@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
 	crdcmd "github.com/kcp-dev/kcp/pkg/cliplugins/crd/cmd"
@@ -59,6 +60,12 @@ func main() {
 	fs := goflags.NewFlagSet("klog", goflags.PanicOnError)
 	klog.InitFlags(fs)
 	root.PersistentFlags().AddGoFlagSet(fs)
+
+	if v := version.Get().String(); len(v) == 0 {
+		root.Version = "<unknown>"
+	} else {
+		root.Version = v
+	}
 
 	workspaceCmd, err := workspacecmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	if err != nil {
