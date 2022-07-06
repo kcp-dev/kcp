@@ -162,7 +162,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 					updates[location.Name] = location.DeepCopy()
 					return location, nil
 				},
-				enqueueAfter: func(clusterName logicalcluster.Name, domain *schedulingv1alpha1.Location, duration time.Duration) {
+				enqueueAfter: func(domain *schedulingv1alpha1.Location, duration time.Duration) {
 					requeuedAfter = duration
 				},
 			}

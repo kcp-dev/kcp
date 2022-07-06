@@ -69,7 +69,6 @@ func NewController(
 
 	c := &controller{
 		queue:            queue,
-		enqueueAfter:     func(binding *apisv1alpha1.APIBinding, duration time.Duration) { queue.AddAfter(binding, duration) },
 		crdClusterClient: crdClusterClient,
 		kcpClusterClient: kcpClusterClient,
 
@@ -186,8 +185,7 @@ func NewController(
 // referenced from APIBindings. It also watches CRDs, APIResourceSchemas, and APIExports to ensure whenever
 // objects related to an APIBinding are updated, the APIBinding is reconciled.
 type controller struct {
-	queue        workqueue.RateLimitingInterface
-	enqueueAfter func(*apisv1alpha1.APIBinding, time.Duration)
+	queue workqueue.RateLimitingInterface
 
 	crdClusterClient apiextensionclientset.ClusterInterface
 	kcpClusterClient kcpclient.ClusterInterface

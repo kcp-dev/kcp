@@ -60,8 +60,8 @@ func NewController(
 
 	c := &controller{
 		queue: queue,
-		enqueueAfter: func(clusterName logicalcluster.Name, location *schedulingv1alpha1.Location, duration time.Duration) {
-			key := clusters.ToClusterAwareKey(clusterName, location.Name)
+		enqueueAfter: func(location *schedulingv1alpha1.Location, duration time.Duration) {
+			key := clusters.ToClusterAwareKey(logicalcluster.From(location), location.Name)
 			queue.AddAfter(key, duration)
 		},
 		kcpClusterClient:       kcpClusterClient,
@@ -120,7 +120,7 @@ func NewController(
 // controller
 type controller struct {
 	queue        workqueue.RateLimitingInterface
-	enqueueAfter func(logicalcluster.Name, *schedulingv1alpha1.Location, time.Duration)
+	enqueueAfter func(*schedulingv1alpha1.Location, time.Duration)
 
 	kcpClusterClient kcpclient.ClusterInterface
 
