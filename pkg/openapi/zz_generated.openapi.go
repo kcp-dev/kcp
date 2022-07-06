@@ -3034,20 +3034,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"),
 						},
 					},
-					"allowedParentWorkspaceTypes": {
-						SchemaProps: spec.SchemaProps{
-							Description: "allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type can be created in.\n\nBy default, no type is allowed. This means no other workspace can have a workspace of the given type nested inside it. Use allowAnyParentWorkspaceTypes to be permissive with parent types.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
-									},
-								},
-							},
-						},
-					},
 				},
 			},
 		},
