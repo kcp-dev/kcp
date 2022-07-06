@@ -11,3 +11,25 @@
         - root
         - system
         - any
+
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/allowedChildren/oneOf
+  value:
+  - required: ["any"]
+  - required: ["types"]
+
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/allowedParents/oneOf
+  value:
+  - required: ["any"]
+  - required: ["types"]
+
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/allowedChildren/default
+  value:
+    any: true
+
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/allowedParents/default
+  value:
+    any: true
