@@ -434,13 +434,15 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Starting dynamic metadata informer")
 		s.dynamicDiscoverySharedInformerFactory.StartPolling(goContext(ctx))
 
+		klog.Infof("Synced all informers. Ready to start controllers")
+		close(s.syncedCh)
+
+		klog.Infof("Starting bootstrapping root workspace phase 1")
 		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
 		if err := configroot.Bootstrap(goContext(ctx),
 			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 			"root",
-
-			// TODO(sttts): move away from loopback, use external advertise address, an external CA and an access header enabled client servingCert for authentication
 			clientcmdapi.Config{
 				Clusters: map[string]*clientcmdapi.Cluster{
 					// cross-cluster is the virtual cluster running by default
@@ -457,9 +459,7 @@ func (s *Server) Run(ctx context.Context) error {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-
-		klog.Infof("Bootstrapped resources and synced all informers. Ready to start controllers")
-		close(s.syncedCh)
+		klog.Infof("Finished bootstrapping root workspace phase 1")
 
 		return nil
 	})
