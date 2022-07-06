@@ -60,9 +60,19 @@ func NewController(
 		deleter:               deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
 	}
 
-	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+	workspaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			switch obj := obj.(type) {
+			case *tenancyv1alpha1.ClusterWorkspace:
+				return !obj.DeletionTimestamp.IsZero()
+			default:
+				return false
+			}
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { c.enqueue(obj) },
+			UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+		},
 	})
 
 	return c

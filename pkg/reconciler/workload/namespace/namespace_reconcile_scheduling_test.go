@@ -269,7 +269,7 @@ func TestScheduling(t *testing.T) {
 				getLocation:         getLoaction,
 				listWorkloadCluster: listWorkloadCluster,
 				patchNamespace:      patchNamespaceFunc(&patched, ns),
-				enqueueAfter:        func(logicalcluster.Name, *corev1.Namespace, time.Duration) {},
+				enqueueAfter:        func(*corev1.Namespace, time.Duration) {},
 			}
 
 			_, updated, err := reconciler.reconcile(context.TODO(), ns)
@@ -455,7 +455,7 @@ func TestMultiplePlacements(t *testing.T) {
 				getLocation:         getLoaction,
 				listWorkloadCluster: listWorkloadCluster,
 				patchNamespace:      patchNamespaceFunc(&patched, ns),
-				enqueueAfter:        func(logicalcluster.Name, *corev1.Namespace, time.Duration) {},
+				enqueueAfter:        func(*corev1.Namespace, time.Duration) {},
 			}
 
 			_, updated, err := reconciler.reconcile(context.TODO(), ns)

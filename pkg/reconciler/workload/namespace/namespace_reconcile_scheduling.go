@@ -49,7 +49,7 @@ type placementSchedulingReconciler struct {
 
 	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 
-	enqueueAfter func(logicalcluster.Name, *corev1.Namespace, time.Duration)
+	enqueueAfter func(*corev1.Namespace, time.Duration)
 }
 
 type locationClusters struct {
@@ -216,7 +216,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	//6. Requeue at last to check if removing cluster should be removed later.
 	if minEnqueueDuration <= removingGracePeriod {
 		klog.V(2).Infof("enqueue ns %s|%s after %s", clusterName, ns.Name, minEnqueueDuration)
-		r.enqueueAfter(clusterName, ns, minEnqueueDuration)
+		r.enqueueAfter(ns, minEnqueueDuration)
 	}
 
 	return reconcileStatusContinue, ns, nil

@@ -46,7 +46,7 @@ type reconciler interface {
 type statusReconciler struct {
 	listWorkloadClusters func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error)
 	updateLocation       func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
-	enqueueAfter         func(logicalcluster.Name, *schedulingv1alpha1.Location, time.Duration)
+	enqueueAfter         func(*schedulingv1alpha1.Location, time.Duration)
 }
 
 func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1alpha1.Location) (reconcileStatus, error) {

@@ -67,8 +67,8 @@ func NewController(
 
 	c := &controller{
 		queue: queue,
-		enqueueAfter: func(clusterName logicalcluster.Name, ns *corev1.Namespace, duration time.Duration) {
-			key := clusters.ToClusterAwareKey(clusterName, ns.Name)
+		enqueueAfter: func(ns *corev1.Namespace, duration time.Duration) {
+			key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 			queue.AddAfter(key, duration)
 		},
 
@@ -157,7 +157,7 @@ func NewController(
 // controller
 type controller struct {
 	queue        workqueue.RateLimitingInterface
-	enqueueAfter func(logicalcluster.Name, *corev1.Namespace, time.Duration)
+	enqueueAfter func(*corev1.Namespace, time.Duration)
 
 	kubeClusterClient kubernetesclient.ClusterInterface
 	kcpClusterClient  kcpclient.ClusterInterface

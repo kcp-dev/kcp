@@ -66,8 +66,11 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
-		queue:        queue,
-		enqueueAfter: func(binding *apisv1alpha1.APIExport, duration time.Duration) { queue.AddAfter(binding, duration) },
+		queue: queue,
+		enqueueAfter: func(binding *apisv1alpha1.APIExport, duration time.Duration) {
+			key := clusters.ToClusterAwareKey(logicalcluster.From(binding), binding.Name)
+			queue.AddAfter(key, duration)
+		},
 
 		kcpClusterClient: kcpClusterClient,
 
