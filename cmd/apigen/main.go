@@ -46,7 +46,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
-	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 )
 
 const (
@@ -82,15 +81,28 @@ func getLogger() logr.Logger {
 
 const name = "apigen"
 
+var (
+	scheme = runtime.NewScheme()
+	codecs = serializer.NewCodecFactory(scheme)
+)
+
 func main() {
 	logger := getLogger()
 	logger = logger.WithName(name)
+
+	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
+		logger.Error(err, "Could not initialize scheme")
+		os.Exit(1)
+	}
+
 	fs := pflag.NewFlagSet(name, pflag.ContinueOnError)
 	opts := bindOptions(fs)
+
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		logger.Error(err, "Could not parse options.")
 		os.Exit(1)
 	}
+
 	if err := opts.Validate(); err != nil {
 		logger.Error(err, "Invalid options.")
 		os.Exit(1)
@@ -234,7 +246,7 @@ func readAPIResourceSchema(path string, gr metav1.GroupResource) (*apisv1alpha1.
 
 	expectedGvk := &schema.GroupVersionKind{Group: apis.GroupName, Version: "v1alpha1", Kind: "APIResourceSchema"}
 
-	obj, gvk, err := kcpscheme.Codecs.UniversalDeserializer().Decode(raw, expectedGvk, &apisv1alpha1.APIResourceSchema{})
+	obj, gvk, err := codecs.UniversalDeserializer().Decode(raw, expectedGvk, &apisv1alpha1.APIResourceSchema{})
 	if err != nil {
 		return nil, fmt.Errorf("could not decode raw APIResourceSchema %s: %w", gr.String(), err)
 	}
@@ -324,10 +336,6 @@ func generateExports(allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResour
 
 func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.APIExport, schemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) error {
 	logger.Info(fmt.Sprintf("Writing %d manifests to %s", len(exports)+len(schemas), outputDir))
-	scheme := runtime.NewScheme()
-	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
-		return err
-	}
 
 	codecs := serializer.NewCodecFactory(scheme)
 	info, ok := runtime.SerializerInfoForMediaType(codecs.SupportedMediaTypes(), runtime.ContentTypeYAML)
