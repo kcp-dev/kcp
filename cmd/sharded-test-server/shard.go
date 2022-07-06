@@ -41,7 +41,7 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
-	klog.Infof("Creating extra serving certs in .kcp with hostnames %v to be used by e2e webhooks", n, hostnames)
+	klog.Infof("Creating extra serving certs in .kcp with hostnames %v to be used by e2e webhooks", hostnames)
 	cert, err = servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
