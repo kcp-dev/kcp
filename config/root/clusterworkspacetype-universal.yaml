@@ -4,8 +4,7 @@ metadata:
   name: universal
 spec:
   initializer: true
-  additionalWorkspaceLabels:
-    workloads.kcp.dev/schedulable: "true"
-  defaultChildWorkspaceType:
-    name: Universal
-    path: root
+  defaultChildren:
+    types:
+    - name: Universal
+      path: root
