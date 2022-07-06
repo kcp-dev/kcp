@@ -9,7 +9,3 @@ spec:
   defaultChildWorkspaceType:
     name: Universal
     path: root
-  allowedChildren:
-    any: true
-  allowedParents:
-    any: true

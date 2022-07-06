@@ -7,8 +7,6 @@ spec:
   defaultChildWorkspaceType:
     name: Universal
     path: root
-  allowedChildren:
-    any: true
   allowedParents:
     types:
     - name: Organization
