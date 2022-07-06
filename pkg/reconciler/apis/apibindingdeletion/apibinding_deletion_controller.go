@@ -80,9 +80,19 @@ func NewController(
 		apiBindingsLister: apiBindingInformer.Lister(),
 	}
 
-	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+	apiBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			switch obj := obj.(type) {
+			case *apisv1alpha1.APIBinding:
+				return !obj.DeletionTimestamp.IsZero()
+			default:
+				return false
+			}
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { c.enqueue(obj) },
+			UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+		},
 	})
 
 	return c
