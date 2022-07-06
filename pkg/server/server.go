@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -467,7 +468,10 @@ func (s *Server) Run(ctx context.Context) error {
 					"shard": {Cluster: "shard"},
 				},
 				CurrentContext: "shard",
-			}); err != nil {
+			},
+			[]string{user.AllAuthenticated},
+			[]string{user.AllAuthenticated},
+		); err != nil {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
@@ -527,6 +531,10 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkspaceDeletionController(ctx, controllerConfig); err != nil {
 			return err
 		}
+	}
+
+	if err := s.installHomeWorkspaces(ctx, controllerConfig); err != nil {
+		return err
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("resource-scheduler") {

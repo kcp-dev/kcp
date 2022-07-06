@@ -35,14 +35,38 @@ var fs embed.FS
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, shardName string, kubeconfig clientcmdapi.Config) error {
+func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, shardName string, kubeconfig clientcmdapi.Config, homeWorkspaceGetterGroups []string, homeWorkspaceCreatorGroups []string) error {
 	kubeconfigRaw, err := clientcmd.Write(kubeconfig)
 	if err != nil {
 		return err
 	}
 
+	homeWorkspaceCreatorGroupReplacement := ""
+	for _, group := range homeWorkspaceCreatorGroups {
+		homeWorkspaceCreatorGroupReplacement += `
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: ` + group
+	}
+	if homeWorkspaceCreatorGroupReplacement == "" {
+		homeWorkspaceCreatorGroupReplacement = "[]"
+	}
+
+	homeWorkspaceGetterGroupReplacement := ""
+	for _, group := range homeWorkspaceGetterGroups {
+		homeWorkspaceGetterGroupReplacement += `
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: ` + group
+	}
+	if homeWorkspaceCreatorGroupReplacement == "" {
+		homeWorkspaceCreatorGroupReplacement = "[]"
+	}
+
 	return confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, fs, confighelpers.ReplaceOption(
 		"SHARD_NAME", shardName,
 		"SHARD_KUBECONFIG", base64.StdEncoding.EncodeToString(kubeconfigRaw),
+		"HOME_GETTER_GROUPS", homeWorkspaceGetterGroupReplacement,
+		"HOME_CREATOR_GROUPS", homeWorkspaceCreatorGroupReplacement,
 	))
 }
