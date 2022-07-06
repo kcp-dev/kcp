@@ -86,7 +86,7 @@ customresourcedefinition.apiextensions.k8s.io/negotiatedapiresources.apiresource
 customresourcedefinition.apiextensions.k8s.io/workloadclusters.workload.kcp.dev created
 ☸️ $ head -n 15 ../contrib/demo/clusters/kind/us-west1.yaml
 apiVersion: workload.kcp.dev/v1alpha1
-kind: WorkloadCluster
+kind: SyncTarget
 metadata:
   name: us-west1
 spec:
@@ -104,7 +104,7 @@ spec:
 workloadcluster.workload.kcp.dev/us-west1 created
 ☸️ $ head -n 15 ../contrib/demo/clusters/kind/us-east1.yaml
 apiVersion: workload.kcp.dev/v1alpha1
-kind: WorkloadCluster
+kind: SyncTarget
 metadata:
   name: us-east1
 spec:
@@ -144,7 +144,7 @@ selfsubjectaccessreviews                   authorization.k8s.io/v1              
 selfsubjectrulesreviews                    authorization.k8s.io/v1                 false        SelfSubjectRulesReview
 subjectaccessreviews                       authorization.k8s.io/v1                 false        SubjectAccessReview
 certificatesigningrequests    csr          certificates.k8s.io/v1                  false        CertificateSigningRequest
-clusters                                   workload.kcp.dev/v1alpha1               false        WorkloadCluster
+clusters                                   workload.kcp.dev/v1alpha1               false        SyncTarget
 leases                                     coordination.k8s.io/v1                  true         Lease
 domainnames                                discountdomainnames.biz/v1alpha1        false        DomainName
 events                        ev           events.k8s.io/v1                        true         Event

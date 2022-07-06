@@ -261,7 +261,7 @@ func GetFreePort(t *testing.T) (string, error) {
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
-type WorkloadClusterOption func(cluster *workloadv1alpha1.WorkloadCluster)
+type SyncTargetOption func(cluster *workloadv1alpha1.SyncTarget)
 
 // LogicalClusterRawConfig returns the raw cluster config of the given config.
 func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Name) clientcmdapi.Config {

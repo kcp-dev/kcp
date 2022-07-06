@@ -282,7 +282,7 @@ func TestIngressController(t *testing.T) {
 					klog.Error(err)
 					return false
 				}
-				return ns.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+syncerFixture.SyncerConfig.WorkloadClusterName] != ""
+				return ns.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+syncerFixture.SyncerConfig.SyncTargetName] != ""
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Creating service in source cluster")
@@ -314,7 +314,7 @@ func TestIngressController(t *testing.T) {
 					klog.Error(err)
 					return false
 				}
-				return ns.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+syncerFixture.SyncerConfig.WorkloadClusterName] != ""
+				return ns.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+syncerFixture.SyncerConfig.SyncTargetName] != ""
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Starting ingress-controller...")

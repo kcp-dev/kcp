@@ -29,15 +29,15 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-// LocationWorkloadClusters returns a list of workload clusters that match the given location definition.
-func LocationWorkloadClusters(workloadClusters []*workloadv1alpha1.WorkloadCluster, location *schedulingv1alpha1.Location) (ret []*workloadv1alpha1.WorkloadCluster, err error) {
+// LocationSyncTargets returns a list of sync targets that match the given location definition.
+func LocationSyncTargets(syncTargets []*workloadv1alpha1.SyncTarget, location *schedulingv1alpha1.Location) (ret []*workloadv1alpha1.SyncTarget, err error) {
 	sel, err := metav1.LabelSelectorAsSelector(location.Spec.InstanceSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse label selector %v in location %s: %w", location.Spec.InstanceSelector, location.Name, err)
 	}
 
 	// find location clusters
-	for _, wc := range workloadClusters {
+	for _, wc := range syncTargets {
 		if sel.Matches(labels.Set(wc.Labels)) {
 			ret = append(ret, wc)
 		}
@@ -46,10 +46,10 @@ func LocationWorkloadClusters(workloadClusters []*workloadv1alpha1.WorkloadClust
 	return ret, nil
 }
 
-// FilterReady returns the ready workload clusters.
-func FilterReady(workloadClusters []*workloadv1alpha1.WorkloadCluster) []*workloadv1alpha1.WorkloadCluster {
-	ready := make([]*workloadv1alpha1.WorkloadCluster, 0, len(workloadClusters))
-	for _, wc := range workloadClusters {
+// FilterReady returns the ready sync targets.
+func FilterReady(syncTargets []*workloadv1alpha1.SyncTarget) []*workloadv1alpha1.SyncTarget {
+	ready := make([]*workloadv1alpha1.SyncTarget, 0, len(syncTargets))
+	for _, wc := range syncTargets {
 		if conditions.IsTrue(wc, conditionsapi.ReadyCondition) && !wc.Spec.Unschedulable {
 			ready = append(ready, wc)
 		}
@@ -57,11 +57,11 @@ func FilterReady(workloadClusters []*workloadv1alpha1.WorkloadCluster) []*worklo
 	return ready
 }
 
-// FilterNonEvicting filters out the evicting workload clusters.
-func FilterNonEvicting(workloadClusters []*workloadv1alpha1.WorkloadCluster) []*workloadv1alpha1.WorkloadCluster {
-	ret := make([]*workloadv1alpha1.WorkloadCluster, 0, len(workloadClusters))
+// FilterNonEvicting filters out the evicting sync targets.
+func FilterNonEvicting(syncTargets []*workloadv1alpha1.SyncTarget) []*workloadv1alpha1.SyncTarget {
+	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(syncTargets))
 	now := time.Now()
-	for _, wc := range workloadClusters {
+	for _, wc := range syncTargets {
 		if wc.Spec.EvictAfter == nil || now.Before(wc.Spec.EvictAfter.Time) {
 			ret = append(ret, wc)
 		}

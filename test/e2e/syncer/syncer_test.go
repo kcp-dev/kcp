@@ -60,8 +60,8 @@ func TestSyncerLifecycle(t *testing.T) {
 	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
-	// its workload cluster to go ready. This implicitly validates the syncer
-	// heartbeating and the heartbeat controller setting the workload cluster ready in
+	// its sync target to go ready. This implicitly validates the syncer
+	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.SyncerFixture{
 		UpstreamServer:       upstreamServer,
@@ -116,7 +116,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	require.NoError(t, err, "failed to unmarshal deployment")
 
 	// This test created a new workspace that initially lacked support for deployments, but once the
-	// workload cluster went ready (checked by the syncer fixture's Start method) the api importer
+	// sync target went ready (checked by the syncer fixture's Start method) the api importer
 	// will have enabled deployments in the logical cluster.
 	upstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create deployment")
@@ -131,7 +131,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			t.Errorf("saw an error waiting for upstream deployment %s/%s to get the syncer finalizer: %v", upstreamNamespace.Name, upstreamDeployment.Name, err)
 		}
 		for _, finalizer := range deployment.Finalizers {
-			if finalizer == "workload.kcp.dev/syncer-"+syncerFixture.SyncerConfig.WorkloadClusterName {
+			if finalizer == "workload.kcp.dev/syncer-"+syncerFixture.SyncerConfig.SyncTargetName {
 				return true
 			}
 		}
@@ -255,7 +255,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	if annotations == nil {
 		annotations = make(map[string]string, 0)
 	}
-	annotations["finalizers.workload.kcp.dev/"+syncerFixture.SyncerConfig.WorkloadClusterName] = "external-controller-finalizer"
+	annotations["finalizers.workload.kcp.dev/"+syncerFixture.SyncerConfig.SyncTargetName] = "external-controller-finalizer"
 	upstreamDeployment.SetAnnotations(annotations)
 	_, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Update(ctx, upstreamDeployment, metav1.UpdateOptions{})
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			return false, ""
 		}
 		require.NoError(t, err)
-		if val, ok := deployment.GetAnnotations()["deletion.internal.workload.kcp.dev/"+syncerFixture.SyncerConfig.WorkloadClusterName]; ok && val != "" {
+		if val, ok := deployment.GetAnnotations()["deletion.internal.workload.kcp.dev/"+syncerFixture.SyncerConfig.SyncTargetName]; ok && val != "" {
 			return true, ""
 		}
 		return false, toYaml(deployment)
@@ -307,7 +307,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	if annotations == nil {
 		annotations = make(map[string]string, 0)
 	}
-	annotations["finalizers.workload.kcp.dev/"+syncerFixture.SyncerConfig.WorkloadClusterName] = ""
+	annotations["finalizers.workload.kcp.dev/"+syncerFixture.SyncerConfig.SyncTargetName] = ""
 	upstreamDeployment.SetAnnotations(annotations)
 	_, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Update(ctx, upstreamDeployment, metav1.UpdateOptions{})
 	require.NoError(t, err)
@@ -414,7 +414,7 @@ func toYaml(obj interface{}) string {
 func TestSyncWorkload(t *testing.T) {
 	t.Parallel()
 
-	workloadClusterName := "test-wlc"
+	syncTargetName := "test-wlc"
 	upstreamServer := framework.SharedKcpServer(t)
 
 	t.Log("Creating an organization")
@@ -431,7 +431,7 @@ func TestSyncWorkload(t *testing.T) {
 	subCommand := []string{
 		"workload",
 		"sync",
-		workloadClusterName,
+		syncTargetName,
 		"--syncer-image",
 		"ghcr.io/kcp-dev/kcp/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:41ca72b",
 	}
@@ -465,21 +465,21 @@ func TestCordonUncordonDrain(t *testing.T) {
 	kcpClient := clients.Cluster(wsClusterName)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
-	// its workload cluster to go ready. This implicitly validates the syncer
-	// heartbeating and the heartbeat controller setting the workload cluster ready in
+	// its sync target to go ready. This implicitly validates the syncer
+	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.SyncerFixture{
 		UpstreamServer:       upstreamServer,
 		WorkspaceClusterName: wsClusterName,
 	}.Start(t)
-	workloadClusterName := syncerFixture.SyncerConfig.WorkloadClusterName
+	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
 	t.Log("Check initial workload")
-	cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
-	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	cluster, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 
@@ -487,13 +487,13 @@ func TestCordonUncordonDrain(t *testing.T) {
 	subCommandCordon := []string{
 		"workload",
 		"cordon",
-		workloadClusterName,
+		syncTargetName,
 	}
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
 
 	t.Log("Check workload after cordon")
-	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
-	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 
@@ -503,13 +503,13 @@ func TestCordonUncordonDrain(t *testing.T) {
 	subCommandUncordon := []string{
 		"workload",
 		"uncordon",
-		workloadClusterName,
+		syncTargetName,
 	}
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
-	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 
@@ -519,13 +519,13 @@ func TestCordonUncordonDrain(t *testing.T) {
 	subCommandDrain := []string{
 		"workload",
 		"drain",
-		workloadClusterName,
+		syncTargetName,
 	}
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
 
 	t.Log("Check workload after drain started")
-	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
-	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.NotNil(t, cluster.Spec.EvictAfter)
 
@@ -535,14 +535,14 @@ func TestCordonUncordonDrain(t *testing.T) {
 	subCommandUncordon = []string{
 		"workload",
 		"uncordon",
-		workloadClusterName,
+		syncTargetName,
 	}
 
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
-	require.NoError(t, err, "failed to get workload cluster", workloadClusterName)
+	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
 

@@ -90,12 +90,12 @@ func TestNamespaceScheduler(t *testing.T) {
 				//
 				// TODO(marun) Extract the heartbeater out of the syncer for reuse in a test fixture. The namespace
 				// controller just needs ready clusters which can be accomplished without a syncer by having the
-				// heartbeater update the workload cluster so the heartbeat controller can set the cluster ready.
+				// heartbeater update the sync target so the heartbeat controller can set the cluster ready.
 				syncerFixture := framework.SyncerFixture{
 					UpstreamServer:       server,
 					WorkspaceClusterName: server.clusterName,
 				}.Start(t)
-				workloadClusterName := syncerFixture.SyncerConfig.WorkloadClusterName
+				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Log("Wait for \"kubernetes\" apiexport")
 				require.Eventually(t, func() bool {
@@ -120,18 +120,18 @@ func TestNamespaceScheduler(t *testing.T) {
 						klog.Error(err)
 						return false
 					}
-					return scheduledMatcher(workloadClusterName)(ns) == nil
+					return scheduledMatcher(syncTargetName)(ns) == nil
 				}, wait.ForeverTestTimeout, time.Second)
 
 				t.Log("Cordon the cluster and expect the namespace to end up unschedulable")
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					cluster, err := server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, workloadClusterName, metav1.GetOptions{})
+					cluster, err := server.kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					anHourAgo := metav1.NewTime(time.Now().Add(-1 * time.Hour))
 					cluster.Spec.EvictAfter = &anHourAgo
-					_, err = server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Update(ctx, cluster, metav1.UpdateOptions{})
+					_, err = server.kcpClient.WorkloadV1alpha1().SyncTargets().Update(ctx, cluster, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err, "failed to update cluster1")
@@ -152,19 +152,19 @@ func TestNamespaceScheduler(t *testing.T) {
 				kubeClusterClient, err := kubernetes.NewClusterForConfig(server.DefaultConfig(t))
 				require.NoError(t, err, "failed to construct kubernetes client for server")
 
-				t.Log("Create a ready WorkloadCluster, and keep it artificially ready") // we don't want the syncer to do anything with CRDs, hence we fake the syncer
-				cluster := &workloadv1alpha1.WorkloadCluster{
+				t.Log("Create a ready SyncTarget, and keep it artificially ready") // we don't want the syncer to do anything with CRDs, hence we fake the syncer
+				cluster := &workloadv1alpha1.SyncTarget{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster7"},
-					Spec:       workloadv1alpha1.WorkloadClusterSpec{},
+					Spec:       workloadv1alpha1.SyncTargetSpec{},
 				}
-				cluster, err = server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx, cluster, metav1.CreateOptions{})
+				cluster, err = server.kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx, cluster, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cluster")
 
 				go wait.UntilWithContext(ctx, func(ctx context.Context) {
 					patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
-					_, err := server.kcpClient.WorkloadV1alpha1().WorkloadClusters().Patch(ctx, cluster.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+					_, err := server.kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, cluster.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 					if err != nil {
-						// we can survive several of these errors. If 6 in a row fail and the workload cluster is marked
+						// we can survive several of these errors. If 6 in a row fail and the sync target is marked
 						// non-ready, we likely have other problems than these failures here.
 						klog.Errorf("failed to set status.lastSyncerHeartbeatTime: %v", err)
 						return

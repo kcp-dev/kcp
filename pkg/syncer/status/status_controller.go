@@ -48,12 +48,12 @@ type Controller struct {
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
 	downstreamNamespaceLister              cache.GenericLister
 
-	workloadClusterName               string
-	workloadClusterLogicalClusterName logicalcluster.Name
-	advancedSchedulingEnabled         bool
+	syncTargetName               string
+	syncTargetLogicalClusterName logicalcluster.Name
+	advancedSchedulingEnabled    bool
 }
 
-func NewStatusSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClusterName logicalcluster.Name, workloadClusterName string, advancedSchedulingEnabled bool,
+func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterName logicalcluster.Name, syncTargetName string, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
 
 	c := &Controller{
@@ -65,9 +65,9 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalC
 		downstreamInformers:       downstreamInformers,
 		downstreamNamespaceLister: downstreamInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Lister(),
 
-		workloadClusterName:               workloadClusterName,
-		workloadClusterLogicalClusterName: workloadClusterLogicalClusterName,
-		advancedSchedulingEnabled:         advancedSchedulingEnabled,
+		syncTargetName:               syncTargetName,
+		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
+		advancedSchedulingEnabled:    advancedSchedulingEnabled,
 	}
 
 	for _, gvr := range gvrs {
@@ -89,7 +89,7 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalC
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
+		klog.InfoS("Set up informer", "clusterName", syncTargetLogicalClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
 	}
 
 	return c, nil

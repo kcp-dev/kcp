@@ -83,7 +83,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 			Resource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 			Description: "Big region at the east coast of the US",
 			AvailableSelectorLabels: []schedulingv1alpha1.AvailableSelectorLabel{
@@ -97,11 +97,11 @@ func TestLocationStatusReconciler(t *testing.T) {
 	usEast1WithoutLabelString.Annotations = nil
 
 	tests := map[string]struct {
-		location         *schedulingv1alpha1.Location
-		workloadClusters map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster
+		location    *schedulingv1alpha1.Location
+		syncTargets map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget
 
-		listWorkloadClusterError error
-		updateLocationError      error
+		listSyncTargetError error
+		updateLocationError error
 
 		wantLocation        LocationCheck
 		wantUpdates         map[string]LocationCheck
@@ -109,12 +109,12 @@ func TestLocationStatusReconciler(t *testing.T) {
 		wantRequeue         time.Duration
 		wantError           bool
 	}{
-		"no WorkloadClusters": {
+		"no SyncTargets": {
 			location:            usEast1,
 			wantLocation:        and(availableInstances(0), instances(0), labelString("continent=north-america country=usa")),
 			wantReconcileStatus: reconcileStatusContinue,
 		},
-		"no WorkloadClusters, different label string": {
+		"no SyncTargets, different label string": {
 			location:     usEast1WithoutLabelString,
 			wantLocation: and(availableInstances(0), instances(0), labelString("continent=north-america country=usa")),
 			wantUpdates: map[string]LocationCheck{
@@ -122,9 +122,9 @@ func TestLocationStatusReconciler(t *testing.T) {
 			},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
-		"with workload clusters, across two regions": {
+		"with sync targets, across two regions": {
 			location: usEast1,
-			workloadClusters: map[logicalcluster.Name][]*workloadv1alpha1.WorkloadCluster{
+			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
 				logicalcluster.New("root:org:negotiation-workspace"): {
 					withLabels(cluster("us-east1-1"), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "False"}), map[string]string{"region": "us-east1"}),
@@ -149,11 +149,11 @@ func TestLocationStatusReconciler(t *testing.T) {
 			var requeuedAfter time.Duration
 			updates := map[string]*schedulingv1alpha1.Location{}
 			r := &statusReconciler{
-				listWorkloadClusters: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
-					if tc.listWorkloadClusterError != nil {
-						return nil, tc.listWorkloadClusterError
+				listSyncTargets: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+					if tc.listSyncTargetError != nil {
+						return nil, tc.listSyncTargetError
 					}
-					return tc.workloadClusters[clusterName], nil
+					return tc.syncTargets[clusterName], nil
 				},
 				updateLocation: func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
 					if tc.updateLocationError != nil {
@@ -191,29 +191,29 @@ func TestLocationStatusReconciler(t *testing.T) {
 	}
 }
 
-func cluster(name string) *workloadv1alpha1.WorkloadCluster {
-	ret := &workloadv1alpha1.WorkloadCluster{
+func cluster(name string) *workloadv1alpha1.SyncTarget {
+	ret := &workloadv1alpha1.SyncTarget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec:   workloadv1alpha1.WorkloadClusterSpec{},
-		Status: workloadv1alpha1.WorkloadClusterStatus{},
+		Spec:   workloadv1alpha1.SyncTargetSpec{},
+		Status: workloadv1alpha1.SyncTargetStatus{},
 	}
 
 	return ret
 }
 
-func withLabels(cluster *workloadv1alpha1.WorkloadCluster, labels map[string]string) *workloadv1alpha1.WorkloadCluster {
+func withLabels(cluster *workloadv1alpha1.SyncTarget, labels map[string]string) *workloadv1alpha1.SyncTarget {
 	cluster.Labels = labels
 	return cluster
 }
 
-func withConditions(cluster *workloadv1alpha1.WorkloadCluster, conditions ...conditionsv1alpha1.Condition) *workloadv1alpha1.WorkloadCluster {
+func withConditions(cluster *workloadv1alpha1.SyncTarget, conditions ...conditionsv1alpha1.Condition) *workloadv1alpha1.SyncTarget {
 	cluster.Status.Conditions = conditions
 	return cluster
 }
 
-func unschedulable(cluster *workloadv1alpha1.WorkloadCluster) *workloadv1alpha1.WorkloadCluster {
+func unschedulable(cluster *workloadv1alpha1.SyncTarget) *workloadv1alpha1.SyncTarget {
 	cluster.Spec.Unschedulable = true
 	return cluster
 }

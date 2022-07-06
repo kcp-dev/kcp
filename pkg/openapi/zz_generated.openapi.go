@@ -99,11 +99,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceStatus":                           schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTarget":                              schema_pkg_apis_workload_v1alpha1_SyncTarget(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetList":                          schema_pkg_apis_workload_v1alpha1_SyncTargetList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetSpec":                          schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetStatus":                        schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace":                        schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadCluster":                         schema_pkg_apis_workload_v1alpha1_WorkloadCluster(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterList":                     schema_pkg_apis_workload_v1alpha1_WorkloadClusterList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterSpec":                     schema_pkg_apis_workload_v1alpha1_WorkloadClusterSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterStatus":                   schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                             schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                         schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                          schema_pkg_apis_meta_v1_APIResource(ref),
@@ -3415,32 +3415,11 @@ func schema_conditions_apis_conditions_v1alpha1_Condition(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_workload_v1alpha1_SyncTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"url": {
-						SchemaProps: spec.SchemaProps{
-							Description: "URL is the URL of the syncer virtual workspace.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"url"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_workload_v1alpha1_WorkloadCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WorkloadCluster describes a member cluster capable of running workloads.",
+				Description: "SyncTarget describes a member cluster capable of running workloads.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3467,29 +3446,29 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadCluster(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterStatus"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterSpec", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetSpec", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_WorkloadClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_workload_v1alpha1_SyncTargetList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WorkloadClusterList is a list of WorkloadCluster resources",
+				Description: "SyncTargetList is a list of SyncTarget resources",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3519,7 +3498,7 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterList(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadCluster"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTarget"),
 									},
 								},
 							},
@@ -3530,15 +3509,15 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterList(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.WorkloadCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_WorkloadClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WorkloadClusterSpec holds the desired state of the WorkloadCluster (from the client).",
+				Description: "SyncTargetSpec holds the desired state of the SyncTarget (from the client).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"unschedulable": {
@@ -3563,11 +3542,11 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterSpec(ref common.ReferenceC
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WorkloadClusterStatus communicates the observed state of the WorkloadCluster (from the controller).",
+				Description: "SyncTargetStatus communicates the observed state of the SyncTarget (from the controller).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"allocatable": {
@@ -3602,7 +3581,7 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref common.Referenc
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Current processing state of the WorkloadCluster.",
+							Description: "Current processing state of the SyncTarget.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3653,6 +3632,27 @@ func schema_pkg_apis_workload_v1alpha1_WorkloadClusterStatus(ref common.Referenc
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the URL of the syncer virtual workspace.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
 	}
 }
 

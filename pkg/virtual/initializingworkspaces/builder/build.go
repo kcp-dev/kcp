@@ -309,7 +309,7 @@ func digestUrl(urlPath, rootPathPrefix string) (genericapirequest.Cluster, dynam
 	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 	// Incoming requests to this virtual workspace will look like:
-	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/workloadclusters
+	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/synctargets
 	//                                  └───────────┐
 	// Where the withoutRootPathPrefix starts here: ┘
 	parts := strings.SplitN(withoutRootPathPrefix, "/", 2)
@@ -324,7 +324,7 @@ func digestUrl(urlPath, rootPathPrefix string) (genericapirequest.Cluster, dynam
 
 	realPath := "/" + parts[1]
 
-	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/workloadclusters
+	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/synctargets
 	//                  ┌─────────────────────────────┘
 	// We are now here: ┘
 	// Now, we parse out the logical cluster.

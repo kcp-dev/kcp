@@ -55,12 +55,12 @@ type Controller struct {
 	downstreamClient                       dynamic.Interface
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
 
-	workloadClusterName               string
-	workloadClusterLogicalClusterName logicalcluster.Name
-	advancedSchedulingEnabled         bool
+	syncTargetName               string
+	syncTargetLogicalClusterName logicalcluster.Name
+	advancedSchedulingEnabled    bool
 }
 
-func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClusterName logicalcluster.Name, workloadClusterName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterName logicalcluster.Name, syncTargetName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
 
 	c := Controller{
@@ -71,9 +71,9 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 		upstreamInformers:   upstreamInformers,
 		downstreamInformers: downstreamInformers,
 
-		workloadClusterName:               workloadClusterName,
-		workloadClusterLogicalClusterName: workloadClusterLogicalClusterName,
-		advancedSchedulingEnabled:         advancedSchedulingEnabled,
+		syncTargetName:               syncTargetName,
+		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
+		advancedSchedulingEnabled:    advancedSchedulingEnabled,
 	}
 
 	namespaceGVR := schema.GroupVersionResource{
@@ -102,7 +102,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.V(2).InfoS("Set up upstream informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
+		klog.V(2).InfoS("Set up upstream informer", "clusterName", syncTargetLogicalClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
 
 		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			DeleteFunc: func(obj interface{}) {
@@ -117,7 +117,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 				}
 				klog.V(3).InfoS("processing  delete event", "key", key, "gvr", gvr, "namespace", namespace, "name", name)
 
-				//Use namespace lister
+				// Use namespace lister
 				nsObj, err := namespaceLister.Get(namespace)
 				if err != nil {
 					utilruntime.HandleError(err)
@@ -148,7 +148,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, workloadClusterLogicalClu
 				c.AddToQueue(gvr, m)
 			},
 		})
-		klog.V(2).InfoS("Set up downstream informer", "clusterName", workloadClusterLogicalClusterName, "pcluster", workloadClusterName, "gvr", gvr.String())
+		klog.V(2).InfoS("Set up downstream informer", "clusterName", syncTargetLogicalClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
 	}
 
 	secretMutator := specmutators.NewSecretMutator()

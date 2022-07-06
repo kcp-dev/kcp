@@ -54,7 +54,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
 	locationInformer schedulinginformers.LocationInformer,
-	workloadClusterInformer workloadinformers.WorkloadClusterInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -64,14 +64,14 @@ func NewController(
 			key := clusters.ToClusterAwareKey(logicalcluster.From(location), location.Name)
 			queue.AddAfter(key, duration)
 		},
-		kcpClusterClient:       kcpClusterClient,
-		locationLister:         locationInformer.Lister(),
-		locationIndexer:        locationInformer.Informer().GetIndexer(),
-		workloadClusterLister:  workloadClusterInformer.Lister(),
-		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
+		kcpClusterClient:  kcpClusterClient,
+		locationLister:    locationInformer.Lister(),
+		locationIndexer:   locationInformer.Informer().GetIndexer(),
+		syncTargetLister:  syncTargetInformer.Lister(),
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 	}
 
-	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
+	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
 		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
@@ -89,14 +89,14 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueLocation(obj) },
 	})
 
-	workloadClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { c.enqueueWorkloadCluster(obj) },
+	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj) },
 		UpdateFunc: func(old, obj interface{}) {
-			oldCluster, ok := old.(*workloadv1alpha1.WorkloadCluster)
+			oldCluster, ok := old.(*workloadv1alpha1.SyncTarget)
 			if !ok {
 				return
 			}
-			objCluster, ok := obj.(*workloadv1alpha1.WorkloadCluster)
+			objCluster, ok := obj.(*workloadv1alpha1.SyncTarget)
 			if !ok {
 				return
 			}
@@ -108,10 +108,10 @@ func NewController(
 			oldCluster.Status.LastSyncerHeartbeatTime = objCluster.Status.LastSyncerHeartbeatTime
 
 			if !equality.Semantic.DeepEqual(oldCluster, objCluster) {
-				c.enqueueWorkloadCluster(obj)
+				c.enqueueSyncTarget(obj)
 			}
 		},
-		DeleteFunc: func(obj interface{}) { c.enqueueWorkloadCluster(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueSyncTarget(obj) },
 	})
 
 	return c, nil
@@ -124,10 +124,10 @@ type controller struct {
 
 	kcpClusterClient kcpclient.ClusterInterface
 
-	locationLister         schedulinglisters.LocationLister
-	locationIndexer        cache.Indexer
-	workloadClusterLister  workloadlisters.WorkloadClusterLister
-	workloadClusterIndexer cache.Indexer
+	locationLister    schedulinglisters.LocationLister
+	locationIndexer   cache.Indexer
+	syncTargetLister  workloadlisters.SyncTargetLister
+	syncTargetIndexer cache.Indexer
 }
 
 func (c *controller) enqueueLocation(obj interface{}) {
@@ -141,8 +141,8 @@ func (c *controller) enqueueLocation(obj interface{}) {
 	c.queue.Add(key)
 }
 
-// enqueueWorkloadCluster maps a WorkloadCluster to LocationDomain for enqueuing.
-func (c *controller) enqueueWorkloadCluster(obj interface{}) {
+// enqueueSyncTarget maps a SyncTarget to LocationDomain for enqueuing.
+func (c *controller) enqueueSyncTarget(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)

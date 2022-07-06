@@ -33,7 +33,7 @@ const (
 )
 
 // PlacementAnnotation is the type marshalled into the PlacementAnnotationKey annotation on
-// namespaces. The keys are strings identifying a workload cluster the namespace is placed
+// namespaces. The keys are strings identifying a sync target the namespace is placed
 // on.
 type PlacementAnnotation map[string]PlacementState
 
@@ -41,13 +41,13 @@ type PlacementAnnotation map[string]PlacementState
 type PlacementState string
 
 const (
-	// PlacementStatePending means that the namespace is being adopted by the workload cluster.
+	// PlacementStatePending means that the namespace is being adopted by the sync target.
 	PlacementStatePending PlacementState = "Pending"
-	// PlacementStateBound means that the namespace is adopted by the workload cluster.
+	// PlacementStateBound means that the namespace is adopted by the sync target.
 	PlacementStateBound PlacementState = "Bound"
-	// PlacementStateRemoving means that the namespace is being removed by the workload cluster.
+	// PlacementStateRemoving means that the namespace is being removed by the sync target.
 	PlacementStateRemoving PlacementState = "Removing"
-	// PlacementStateUnbound means that the namespace is removed and hence unbound from the workload cluster.
+	// PlacementStateUnbound means that the namespace is removed and hence unbound from the sync target.
 	PlacementStateUnbound PlacementState = "Unbound"
 )
 
@@ -129,7 +129,7 @@ type GroupVersionResource struct {
 	// resource is the name of the resource.
 	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
 	// +kubebuilder:validation:MinLength:1
-	// +kubebuilder:validation:Enum="workloadclusters"
+	// +kubebuilder:validation:Enum="synctargets"
 	// +required
 	// +kubebuilder:Required
 	Resource string `json:"resource"`

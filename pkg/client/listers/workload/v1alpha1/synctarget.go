@@ -26,44 +26,44 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-// WorkloadClusterLister helps list WorkloadClusters.
+// SyncTargetLister helps list SyncTargets.
 // All objects returned here must be treated as read-only.
-type WorkloadClusterLister interface {
-	// List lists all WorkloadClusters in the indexer.
+type SyncTargetLister interface {
+	// List lists all SyncTargets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.WorkloadCluster, err error)
-	// Get retrieves the WorkloadCluster from the index for a given name.
+	List(selector labels.Selector) (ret []*v1alpha1.SyncTarget, err error)
+	// Get retrieves the SyncTarget from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.WorkloadCluster, error)
-	WorkloadClusterListerExpansion
+	Get(name string) (*v1alpha1.SyncTarget, error)
+	SyncTargetListerExpansion
 }
 
-// workloadClusterLister implements the WorkloadClusterLister interface.
-type workloadClusterLister struct {
+// syncTargetLister implements the SyncTargetLister interface.
+type syncTargetLister struct {
 	indexer cache.Indexer
 }
 
-// NewWorkloadClusterLister returns a new WorkloadClusterLister.
-func NewWorkloadClusterLister(indexer cache.Indexer) WorkloadClusterLister {
-	return &workloadClusterLister{indexer: indexer}
+// NewSyncTargetLister returns a new SyncTargetLister.
+func NewSyncTargetLister(indexer cache.Indexer) SyncTargetLister {
+	return &syncTargetLister{indexer: indexer}
 }
 
-// List lists all WorkloadClusters in the indexer.
-func (s *workloadClusterLister) List(selector labels.Selector) (ret []*v1alpha1.WorkloadCluster, err error) {
+// List lists all SyncTargets in the indexer.
+func (s *syncTargetLister) List(selector labels.Selector) (ret []*v1alpha1.SyncTarget, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.WorkloadCluster))
+		ret = append(ret, m.(*v1alpha1.SyncTarget))
 	})
 	return ret, err
 }
 
-// Get retrieves the WorkloadCluster from the index for a given name.
-func (s *workloadClusterLister) Get(name string) (*v1alpha1.WorkloadCluster, error) {
+// Get retrieves the SyncTarget from the index for a given name.
+func (s *syncTargetLister) Get(name string) (*v1alpha1.SyncTarget, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("workloadcluster"), name)
+		return nil, errors.NewNotFound(v1alpha1.Resource("synctarget"), name)
 	}
-	return obj.(*v1alpha1.WorkloadCluster), nil
+	return obj.(*v1alpha1.SyncTarget), nil
 }

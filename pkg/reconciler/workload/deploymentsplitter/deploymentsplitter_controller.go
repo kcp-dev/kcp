@@ -57,7 +57,7 @@ func NewController(cfg *rest.Config) *Controller {
 	c := &Controller{
 		queue:         queue,
 		client:        client,
-		clusterLister: csif.Workload().V1alpha1().WorkloadClusters().Lister(),
+		clusterLister: csif.Workload().V1alpha1().SyncTargets().Lister(),
 		kubeClient:    kubeClient,
 		stopCh:        stopCh,
 	}
@@ -81,7 +81,7 @@ func NewController(cfg *rest.Config) *Controller {
 type Controller struct {
 	queue         workqueue.RateLimitingInterface
 	client        *appsv1client.AppsV1Client
-	clusterLister workloadlisters.WorkloadClusterLister
+	clusterLister workloadlisters.SyncTargetLister
 	kubeClient    kubernetes.Interface
 	stopCh        chan struct{}
 	indexer       cache.Indexer

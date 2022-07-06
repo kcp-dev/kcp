@@ -471,7 +471,7 @@ func TestSyncerProcess(t *testing.T) {
 
 		upstreamURL               string
 		upstreamLogicalCluster    string
-		workloadClusterName       string
+		syncTargetName            string
 		advancedSchedulingEnabled bool
 
 		expectError         bool
@@ -498,7 +498,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
+			syncTargetName:                      "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{
 				updateDeploymentAction("test",
@@ -558,7 +558,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
+			syncTargetName:                      "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
@@ -609,7 +609,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
+			syncTargetName:                      "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
@@ -651,7 +651,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
+			syncTargetName:                      "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
@@ -704,7 +704,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
+			syncTargetName:                      "us-west1",
 			expectActionsOnFrom: []clienttesting.Action{
 				getDeploymentAction("theDeployment", "test"),
 				updateDeploymentAction("test",
@@ -775,7 +775,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
+			syncTargetName:                      "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
@@ -843,7 +843,7 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
-			workloadClusterName:                 "us-west1",
+			syncTargetName:                      "us-west1",
 			advancedSchedulingEnabled:           true,
 
 			expectActionsOnFrom: []clienttesting.Action{
@@ -920,10 +920,10 @@ func TestSyncerProcess(t *testing.T) {
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 
 			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.workloadClusterName + "=" + string(workloadv1alpha1.ResourceStateSync)
+				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 
 			setupServersideApplyPatchReactor(toClient)
@@ -937,7 +937,7 @@ func TestSyncerProcess(t *testing.T) {
 			}
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.workloadClusterName, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers)
+			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.syncTargetName, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers)
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())

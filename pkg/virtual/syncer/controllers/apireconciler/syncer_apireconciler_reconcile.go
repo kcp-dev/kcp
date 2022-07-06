@@ -34,7 +34,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
-func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey, workloadClusterName string) error {
+func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey, syncTargetName string) error {
 	if apiExport == nil || apiExport.Status.IdentityHash == "" {
 		// new APIExport that is not ready yet, or export got deleted
 
@@ -113,7 +113,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 			}
 
-			apiDefinition, err := c.createAPIDefinition(workloadClusterName, apiResourceSchema, version.Name, schemaIdentity[apiResourceSchema.Name])
+			apiDefinition, err := c.createAPIDefinition(syncTargetName, apiResourceSchema, version.Name, schemaIdentity[apiResourceSchema.Name])
 			if err != nil {
 				klog.Errorf("failed to create API definition for %s: %v", gvr, err)
 				continue

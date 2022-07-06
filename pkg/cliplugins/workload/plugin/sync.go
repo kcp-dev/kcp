@@ -76,13 +76,13 @@ const (
 
 // Sync prepares a kcp workspace for use with a syncer and outputs the
 // configuration required to deploy a syncer to the pcluster to stdout.
-func (c *Config) Sync(ctx context.Context, workloadClusterName, kcpNamespaceName, image string, resourcesToSync []string, replicas int) error {
+func (c *Config) Sync(ctx context.Context, syncTargetName, kcpNamespaceName, image string, resourcesToSync []string, replicas int) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	token, err := enableSyncerForWorkspace(ctx, config, workloadClusterName, kcpNamespaceName)
+	token, err := enableSyncerForWorkspace(ctx, config, syncTargetName, kcpNamespaceName)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (c *Config) Sync(ctx context.Context, workloadClusterName, kcpNamespaceName
 		Token:           token,
 		KCPNamespace:    kcpNamespaceName,
 		LogicalCluster:  currentClusterName.String(),
-		WorkloadCluster: workloadClusterName,
+		SyncTarget:      syncTargetName,
 		Image:           image,
 		Replicas:        replicas,
 		ResourcesToSync: resourcesToSync,
@@ -121,43 +121,43 @@ func (c *Config) Sync(ctx context.Context, workloadClusterName, kcpNamespaceName
 }
 
 // GetSyncerID returns the resource identifier of a syncer for the given logical
-// cluster and workload cluster. The ID is unique for unique pairs of inputs to ensure
+// cluster and sync target. The ID is unique for unique pairs of inputs to ensure
 // a pcluster can be configured with multiple syncers for a given kcp instance.
-func GetSyncerID(logicalClusterName string, workloadClusterName string) string {
-	syncerHash := sha256.Sum224([]byte(logicalClusterName + workloadClusterName))
+func GetSyncerID(logicalClusterName string, syncTargetName string) string {
+	syncerHash := sha256.Sum224([]byte(logicalClusterName + syncTargetName))
 	return fmt.Sprintf("%s%x", SyncerIDPrefix, syncerHash)
 }
 
-// enableSyncerForWorkspace creates a workload cluster with the given name and creates a service
+// enableSyncerForWorkspace creates a sync target with the given name and creates a service
 // account for the syncer in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the syncer will use to connect to kcp.
-func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workloadClusterName, namespace string) (string, error) {
+func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (string, error) {
 	kcpClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx,
-		workloadClusterName,
+	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+		syncTargetName,
 		metav1.GetOptions{},
 	)
 	if err != nil && !errors.IsNotFound(err) {
-		return "", fmt.Errorf("failed to get workloadcluster %s: %w", workloadClusterName, err)
+		return "", fmt.Errorf("failed to get synctarget %s: %w", syncTargetName, err)
 	}
 	if errors.IsNotFound(err) {
-		// Create the workload cluster that will serve as a point of coordination between
+		// Create the sync target that will serve as a point of coordination between
 		// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
 		// to the syncer).
-		workloadCluster, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Create(ctx,
-			&workloadv1alpha1.WorkloadCluster{
+		syncTarget, err = kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx,
+			&workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: workloadClusterName,
+					Name: syncTargetName,
 				},
 			},
 			metav1.CreateOptions{},
 		)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return "", fmt.Errorf("failed to create workloadcluster %s: %w", workloadClusterName, err)
+			return "", fmt.Errorf("failed to create synctarget %s: %w", syncTargetName, err)
 		}
 	}
 
@@ -166,16 +166,16 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	workloadClusterOwnerReferences := []metav1.OwnerReference{{
+	syncTargetOwnerReferences := []metav1.OwnerReference{{
 		APIVersion: workloadv1alpha1.SchemeGroupVersion.String(),
-		Kind:       "WorkloadCluster",
-		Name:       workloadCluster.Name,
-		UID:        workloadCluster.UID,
+		Kind:       "SyncTarget",
+		Name:       syncTarget.Name,
+		UID:        syncTarget.UID,
 	}}
 
 	// Create a service account for the syncer with the necessary permissions. It will
-	// be owned by the workload cluster to ensure cleanup.
-	authResourceName := SyncerAuthResourcePrefix + workloadClusterName
+	// be owned by the sync target to ensure cleanup.
+	authResourceName := SyncerAuthResourcePrefix + syncTargetName
 	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(ctx, authResourceName, metav1.GetOptions{})
 
 	switch {
@@ -183,10 +183,10 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            authResourceName,
-				OwnerReferences: workloadClusterOwnerReferences,
+				OwnerReferences: syncTargetOwnerReferences,
 			},
 		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
-			return "", fmt.Errorf("failed to create ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+			return "", fmt.Errorf("failed to create ServiceAccount %s|%s/%s: %w", syncTargetName, namespace, authResourceName, err)
 		}
 	case err == nil:
 		oldData, err := json.Marshal(corev1.ServiceAccount{
@@ -195,52 +195,52 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to marshal old data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal old data for ServiceAccount %s|%s/%s: %w", syncTargetName, namespace, authResourceName, err)
 		}
 
 		newData, err := json.Marshal(corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             sa.UID,
 				ResourceVersion: sa.ResourceVersion,
-				OwnerReferences: mergeOwnerReference(sa.ObjectMeta.OwnerReferences, workloadClusterOwnerReferences),
+				OwnerReferences: mergeOwnerReference(sa.ObjectMeta.OwnerReferences, syncTargetOwnerReferences),
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to marshal new data for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal new data for ServiceAccount %s|%s/%s: %w", syncTargetName, namespace, authResourceName, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return "", fmt.Errorf("failed to create patch for ServiceAccount %s|%s/%s: %w", workloadClusterName, namespace, authResourceName, err)
+			return "", fmt.Errorf("failed to create patch for ServiceAccount %s|%s/%s: %w", syncTargetName, namespace, authResourceName, err)
 		}
 
 		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Patch(ctx, sa.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-			return "", fmt.Errorf("failed to patch ServiceAccount %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
+			return "", fmt.Errorf("failed to patch ServiceAccount %s|%s/%s: %w", syncTargetName, authResourceName, namespace, err)
 		}
 	default:
-		return "", fmt.Errorf("failed to get the ServiceAccount %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
+		return "", fmt.Errorf("failed to get the ServiceAccount %s|%s/%s: %w", syncTargetName, authResourceName, namespace, err)
 	}
 
 	// Create a cluster role that provides the syncer the minimal permissions
-	// required by KCP to manage the workload cluster, and by the syncer virtual
+	// required by KCP to manage the sync target, and by the syncer virtual
 	// workspace to sync.
 	rules := []rbacv1.PolicyRule{
 		{
 			Verbs:         []string{"sync"},
 			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
-			ResourceNames: []string{workloadClusterName},
-			Resources:     []string{"workloadclusters"},
+			ResourceNames: []string{syncTargetName},
+			Resources:     []string{"synctargets"},
 		},
 		{
 			Verbs:     []string{"get", "list", "watch"},
 			APIGroups: []string{workloadv1alpha1.SchemeGroupVersion.Group},
-			Resources: []string{"workloadclusters"},
+			Resources: []string{"synctargets"},
 		},
 		{
 			Verbs:         []string{"update", "patch"},
 			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
-			ResourceNames: []string{workloadClusterName},
-			Resources:     []string{"workloadclusters/status"},
+			ResourceNames: []string{syncTargetName},
+			Resources:     []string{"synctargets/status"},
 		},
 		{
 			Verbs:     []string{"get", "create", "update", "delete", "list", "watch"},
@@ -257,7 +257,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 		if _, err = kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            authResourceName,
-				OwnerReferences: workloadClusterOwnerReferences,
+				OwnerReferences: syncTargetOwnerReferences,
 			},
 			Rules: rules,
 		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
@@ -271,28 +271,28 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 			Rules: cr.Rules,
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to marshal old data for ClusterRole %s|%s: %w", workloadClusterName, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal old data for ClusterRole %s|%s: %w", syncTargetName, authResourceName, err)
 		}
 
 		newData, err := json.Marshal(rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             cr.UID,
 				ResourceVersion: cr.ResourceVersion,
-				OwnerReferences: mergeOwnerReference(cr.OwnerReferences, workloadClusterOwnerReferences),
+				OwnerReferences: mergeOwnerReference(cr.OwnerReferences, syncTargetOwnerReferences),
 			},
 			Rules: rules,
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to marshal new data for ClusterRole %s|%s: %w", workloadClusterName, authResourceName, err)
+			return "", fmt.Errorf("failed to marshal new data for ClusterRole %s|%s: %w", syncTargetName, authResourceName, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return "", fmt.Errorf("failed to create patch for ClusterRole %s|%s: %w", workloadClusterName, authResourceName, err)
+			return "", fmt.Errorf("failed to create patch for ClusterRole %s|%s: %w", syncTargetName, authResourceName, err)
 		}
 
 		if _, err = kubeClient.RbacV1().ClusterRoles().Patch(ctx, cr.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-			return "", fmt.Errorf("failed to patch ClusterRole %s|%s/%s: %w", workloadClusterName, authResourceName, namespace, err)
+			return "", fmt.Errorf("failed to patch ClusterRole %s|%s/%s: %w", syncTargetName, authResourceName, namespace, err)
 		}
 	default:
 		return "", err
@@ -325,7 +325,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, workload
 	if _, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            authResourceName,
-			OwnerReferences: workloadClusterOwnerReferences,
+			OwnerReferences: syncTargetOwnerReferences,
 		},
 		Subjects: subjects,
 		RoleRef:  roleRef,
@@ -401,9 +401,9 @@ type templateInput struct {
 	KCPNamespace string
 	// LogicalCluster is the qualified kcp logical cluster name the syncer will sync from
 	LogicalCluster string
-	// WorkloadCluster is the name of the workload cluster the syncer will use to
+	// SyncTarget is the name of the sync target the syncer will use to
 	// communicate its status and read configuration from
-	WorkloadCluster string
+	SyncTarget string
 	// ResourcesToSync is the set of qualified resource names (eg. ["services",
 	// "deployments.apps.k8s.io") that the syncer will synchronize between the kcp
 	// workspace and the pcluster.
@@ -456,7 +456,7 @@ type templateArgs struct {
 // cluster role and role binding would be owned by the namespace to ensure cleanup on deletion
 // of the namespace.
 func renderSyncerResources(input templateInput) ([]byte, error) {
-	syncerID := GetSyncerID(input.LogicalCluster, input.WorkloadCluster)
+	syncerID := GetSyncerID(input.LogicalCluster, input.SyncTarget)
 
 	tmplArgs := templateArgs{
 		templateInput:           input,

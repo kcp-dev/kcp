@@ -44,14 +44,14 @@ type reconciler interface {
 
 // statusReconciler reconciles Location objects' status.
 type statusReconciler struct {
-	listWorkloadClusters func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error)
-	updateLocation       func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
-	enqueueAfter         func(*schedulingv1alpha1.Location, time.Duration)
+	listSyncTargets func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
+	updateLocation  func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
+	enqueueAfter    func(*schedulingv1alpha1.Location, time.Duration)
 }
 
 func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1alpha1.Location) (reconcileStatus, error) {
 	clusterName := logicalcluster.From(location)
-	workloadClusters, err := r.listWorkloadClusters(clusterName)
+	syncTargets, err := r.listSyncTargets(clusterName)
 	if err != nil {
 		return reconcileStatusStop, err
 	}
@@ -82,7 +82,7 @@ func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1
 	}
 
 	// update status
-	locationClusters, err := LocationWorkloadClusters(workloadClusters, location)
+	locationClusters, err := LocationSyncTargets(syncTargets, location)
 	if err != nil {
 		return reconcileStatusStop, err
 	}
@@ -100,9 +100,9 @@ func uint32Ptr(i uint32) *uint32 {
 func (c *controller) reconcile(ctx context.Context, location *schedulingv1alpha1.Location) error {
 	reconcilers := []reconciler{
 		&statusReconciler{
-			listWorkloadClusters: c.listWorkloadCluster,
-			updateLocation:       c.updateLocation,
-			enqueueAfter:         c.enqueueAfter,
+			listSyncTargets: c.listSyncTarget,
+			updateLocation:  c.updateLocation,
+			enqueueAfter:    c.enqueueAfter,
 		},
 	}
 
@@ -121,14 +121,14 @@ func (c *controller) reconcile(ctx context.Context, location *schedulingv1alpha1
 	return utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listWorkloadCluster(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
-	items, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
+func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+	items, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*workloadv1alpha1.WorkloadCluster, 0, len(items))
+	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(items))
 	for _, item := range items {
-		ret = append(ret, item.(*workloadv1alpha1.WorkloadCluster))
+		ret = append(ret, item.(*workloadv1alpha1.SyncTarget))
 	}
 	return ret, nil
 }

@@ -28,21 +28,21 @@ func TestNewSyncerYAML(t *testing.T) {
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
   labels:
     workload.kcp.io/logical-cluster: root_default_foo
-    workload.kcp.io/workload-cluster: workload-cluster-name
+    workload.kcp.io/sync-target: sync-target-name
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kcp-syncer
-  namespace:  kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
 rules:
 - apiGroups:
   - ""
@@ -71,21 +71,21 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
 subjects:
 - kind: ServiceAccount
   name: kcp-syncer
-  namespace:  kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: kcp-syncer-config
-  namespace:  kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
 stringData:
   kubeconfig: |
     apiVersion: v1
@@ -111,18 +111,18 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kcp-syncer
-  namespace:  kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+      app: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
   template:
     metadata:
       labels:
-        app: kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d
+        app: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
     spec:
       containers:
       - name: kcp-syncer
@@ -130,7 +130,7 @@ spec:
         - /ko-app/syncer
         args:
         - --from-kubeconfig=/kcp/kubeconfig
-        - --workload-cluster-name=workload-cluster-name
+        - --sync-target-name=sync-target-name
         - --from-cluster=root:default:foo
         - --resources=resource1
         - --resources=resource2
@@ -154,7 +154,7 @@ spec:
 		CAData:          "ca-data",
 		KCPNamespace:    "kcp-namespace",
 		LogicalCluster:  "root:default:foo",
-		WorkloadCluster: "workload-cluster-name",
+		SyncTarget:      "sync-target-name",
 		Image:           "image",
 		Replicas:        1,
 		ResourcesToSync: []string{"resource1", "resource2"},

@@ -43,7 +43,7 @@ func TestScheduling(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		workloadClusters  []*workloadv1alpha1.WorkloadCluster
+		syncTargets       []*workloadv1alpha1.SyncTarget
 		listWorkloadError error
 		location          *schedulingv1alpha1.Location
 		getLocationError  error
@@ -91,7 +91,7 @@ func TestScheduling(t *testing.T) {
 			},
 		},
 		{
-			name: "workloadclusters not found",
+			name: "synctargets not found",
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -103,14 +103,14 @@ func TestScheduling(t *testing.T) {
 			},
 		},
 		{
-			name: "schedule a workloadcluster",
+			name: "schedule a synctarget",
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			placement: testPlacement,
 			location:  testLocation,
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("test-cluster", nil, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("test-cluster", nil, corev1.ConditionTrue),
 			},
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
@@ -121,7 +121,7 @@ func TestScheduling(t *testing.T) {
 			},
 		},
 		{
-			name: "no update when workloadclusters is scheduled",
+			name: "no update when synctargets is scheduled",
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -130,8 +130,8 @@ func TestScheduling(t *testing.T) {
 			},
 			placement: testPlacement,
 			location:  testLocation,
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("test-cluster", nil, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("test-cluster", nil, corev1.ConditionTrue),
 			},
 			wantPatch: false,
 			expectedAnnotations: map[string]string{
@@ -142,7 +142,7 @@ func TestScheduling(t *testing.T) {
 			},
 		},
 		{
-			name: "workloadclusters becomes not ready",
+			name: "synctargets becomes not ready",
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -151,8 +151,8 @@ func TestScheduling(t *testing.T) {
 			},
 			placement: testPlacement,
 			location:  testLocation,
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("test-cluster", nil, corev1.ConditionFalse),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("test-cluster", nil, corev1.ConditionFalse),
 			},
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
@@ -164,7 +164,7 @@ func TestScheduling(t *testing.T) {
 			},
 		},
 		{
-			name: "select a new workloadclusters",
+			name: "select a new synctarget",
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -173,9 +173,9 @@ func TestScheduling(t *testing.T) {
 			},
 			placement: testPlacement,
 			location:  testLocation,
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("test-cluster", nil, corev1.ConditionFalse),
-				newWorkloadCluster("test-cluster-2", nil, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("test-cluster", nil, corev1.ConditionFalse),
+				newSyncTarget("test-cluster-2", nil, corev1.ConditionTrue),
 			},
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
@@ -198,9 +198,9 @@ func TestScheduling(t *testing.T) {
 			},
 			placement: testPlacement,
 			location:  testLocation,
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("test-cluster", nil, corev1.ConditionTrue),
-				newWorkloadCluster("test-cluster-1", nil, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("test-cluster", nil, corev1.ConditionTrue),
+				newSyncTarget("test-cluster-1", nil, corev1.ConditionTrue),
 			},
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
@@ -256,20 +256,20 @@ func TestScheduling(t *testing.T) {
 				return testCase.location, nil
 			}
 
-			listWorkloadCluster := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
-				if len(testCase.workloadClusters) == 0 {
-					return []*workloadv1alpha1.WorkloadCluster{}, testCase.listWorkloadError
+			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+				if len(testCase.syncTargets) == 0 {
+					return []*workloadv1alpha1.SyncTarget{}, testCase.listWorkloadError
 				}
-				return testCase.workloadClusters, testCase.listWorkloadError
+				return testCase.syncTargets, testCase.listWorkloadError
 			}
 
 			var patched bool
 			reconciler := &placementSchedulingReconciler{
-				listPlacement:       listPlacement,
-				getLocation:         getLoaction,
-				listWorkloadCluster: listWorkloadCluster,
-				patchNamespace:      patchNamespaceFunc(&patched, ns),
-				enqueueAfter:        func(*corev1.Namespace, time.Duration) {},
+				listPlacement:  listPlacement,
+				getLocation:    getLoaction,
+				listSyncTarget: listSyncTarget,
+				patchNamespace: patchNamespaceFunc(&patched, ns),
+				enqueueAfter:   func(*corev1.Namespace, time.Duration) {},
 			}
 
 			_, updated, err := reconciler.reconcile(context.TODO(), ns)
@@ -287,9 +287,9 @@ func TestMultiplePlacements(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		workloadClusters []*workloadv1alpha1.WorkloadCluster
-		locations        []*schedulingv1alpha1.Location
-		placements       []*schedulingv1alpha1.Placement
+		syncTargets []*workloadv1alpha1.SyncTarget
+		locations   []*schedulingv1alpha1.Location
+		placements  []*schedulingv1alpha1.Placement
 
 		labels      map[string]string
 		annotations map[string]string
@@ -300,9 +300,9 @@ func TestMultiplePlacements(t *testing.T) {
 	}{
 		{
 			name: "schedule to two location",
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
-				newWorkloadCluster("c2", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
+				newSyncTarget("c2", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
 			},
 			locations: []*schedulingv1alpha1.Location{
 				newLocation("loc1", map[string]string{"loc": "loc1"}),
@@ -326,8 +326,8 @@ func TestMultiplePlacements(t *testing.T) {
 		},
 		{
 			name: "placement select the same location",
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
 			},
 			locations: []*schedulingv1alpha1.Location{
 				newLocation("loc1", map[string]string{"loc": "loc1"}),
@@ -349,11 +349,11 @@ func TestMultiplePlacements(t *testing.T) {
 		},
 		{
 			name: "cluster are scheduled already",
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
-				newWorkloadCluster("c2", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
-				newWorkloadCluster("c3", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
-				newWorkloadCluster("c4", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
+				newSyncTarget("c2", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
+				newSyncTarget("c3", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
+				newSyncTarget("c4", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
 			},
 			locations: []*schedulingv1alpha1.Location{
 				newLocation("loc1", map[string]string{"loc": "loc1"}),
@@ -381,11 +381,11 @@ func TestMultiplePlacements(t *testing.T) {
 		},
 		{
 			name: "cluster are rescheduled when removing",
-			workloadClusters: []*workloadv1alpha1.WorkloadCluster{
-				newWorkloadCluster("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
-				newWorkloadCluster("c2", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
-				newWorkloadCluster("c3", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
-				newWorkloadCluster("c4", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("c1", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
+				newSyncTarget("c2", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
+				newSyncTarget("c3", map[string]string{"loc": "loc1"}, corev1.ConditionTrue),
+				newSyncTarget("c4", map[string]string{"loc": "loc2"}, corev1.ConditionTrue),
 			},
 			locations: []*schedulingv1alpha1.Location{
 				newLocation("loc1", map[string]string{"loc": "loc1"}),
@@ -445,17 +445,17 @@ func TestMultiplePlacements(t *testing.T) {
 				)
 			}
 
-			listWorkloadCluster := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
-				return testCase.workloadClusters, nil
+			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+				return testCase.syncTargets, nil
 			}
 
 			var patched bool
 			reconciler := &placementSchedulingReconciler{
-				listPlacement:       listPlacement,
-				getLocation:         getLoaction,
-				listWorkloadCluster: listWorkloadCluster,
-				patchNamespace:      patchNamespaceFunc(&patched, ns),
-				enqueueAfter:        func(*corev1.Namespace, time.Duration) {},
+				listPlacement:  listPlacement,
+				getLocation:    getLoaction,
+				listSyncTarget: listSyncTarget,
+				patchNamespace: patchNamespaceFunc(&patched, ns),
+				enqueueAfter:   func(*corev1.Namespace, time.Duration) {},
 			}
 
 			_, updated, err := reconciler.reconcile(context.TODO(), ns)
@@ -467,13 +467,13 @@ func TestMultiplePlacements(t *testing.T) {
 	}
 }
 
-func newWorkloadCluster(name string, labels map[string]string, status corev1.ConditionStatus) *workloadv1alpha1.WorkloadCluster {
-	return &workloadv1alpha1.WorkloadCluster{
+func newSyncTarget(name string, labels map[string]string, status corev1.ConditionStatus) *workloadv1alpha1.SyncTarget {
+	return &workloadv1alpha1.SyncTarget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: labels,
 		},
-		Status: workloadv1alpha1.WorkloadClusterStatus{
+		Status: workloadv1alpha1.SyncTargetStatus{
 			Conditions: []conditionsapi.Condition{
 				{
 					Type:   conditionsapi.ReadyCondition,

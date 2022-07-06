@@ -18,6 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-// WorkloadClusterListerExpansion allows custom methods to be added to
-// WorkloadClusterLister.
-type WorkloadClusterListerExpansion interface{}
+// SyncTargetListerExpansion allows custom methods to be added to
+// SyncTargetLister.
+type SyncTargetListerExpansion interface{}

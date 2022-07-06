@@ -27,7 +27,7 @@ import (
 
 func NewController(
 	kcpClusterClient *kcpclient.Cluster,
-	clusterInformer workloadinformer.WorkloadClusterInformer,
+	clusterInformer workloadinformer.SyncTargetInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	heartbeatThreshold time.Duration,
 ) (*basecontroller.ClusterReconciler, error) {

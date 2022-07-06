@@ -30,7 +30,7 @@ func DefaultOptions() *Options {
 }
 
 func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
-	fs.DurationVar(&o.HeartbeatThreshold, "workload-cluster-heartbeat-threshold", o.HeartbeatThreshold, "Amount of time to wait for a successful heartbeat before marking the cluster as not ready")
+	fs.DurationVar(&o.HeartbeatThreshold, "sync-target-heartbeat-threshold", o.HeartbeatThreshold, "Amount of time to wait for a successful heartbeat before marking the cluster as not ready")
 	return o
 }
 
@@ -40,7 +40,7 @@ type Options struct {
 
 func (o *Options) Validate() error {
 	if o.HeartbeatThreshold <= 0 {
-		return fmt.Errorf("--workload-cluster-heartbeat-threshold must be >0 (%s)", o.HeartbeatThreshold)
+		return fmt.Errorf("--sync-target-heartbeat-threshold must be >0 (%s)", o.HeartbeatThreshold)
 	}
 	return nil
 }

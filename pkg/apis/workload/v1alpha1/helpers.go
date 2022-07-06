@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GetResourceState returns the state of the resource for the given workload cluster, and
+// GetResourceState returns the state of the resource for the given sync target, and
 // whether the state value is a valid state. A missing label is considered invalid.
 func GetResourceState(obj metav1.Object, cluster string) (state ResourceState, valid bool) {
 	value, found := obj.GetLabels()[InternalClusterResourceStateLabelPrefix+cluster]

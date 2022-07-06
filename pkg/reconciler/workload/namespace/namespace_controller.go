@@ -64,7 +64,7 @@ func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	locationInformer schedulinginformers.LocationInformer,
-	workloadClusterInformer workloadinformers.WorkloadClusterInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -85,8 +85,8 @@ func NewController(
 		locationLister:  locationInformer.Lister(),
 		locationIndexer: locationInformer.Informer().GetIndexer(),
 
-		workloadClusterLister:  workloadClusterInformer.Lister(),
-		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
+		syncTargetLister:  syncTargetInformer.Lister(),
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 
 		placmentLister:   placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
@@ -98,7 +98,7 @@ func NewController(
 		return nil, err
 	}
 
-	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
+	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
 		byWorkspace: indexByWorksapce,
 	}); err != nil {
 		return nil, err
@@ -151,11 +151,11 @@ func NewController(
 		},
 	)
 
-	workloadClusterInformer.Informer().AddEventHandler(
+	syncTargetInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: c.enqueueWorkloadCluster,
+			AddFunc: c.enqueueSyncTarget,
 			UpdateFunc: func(old, obj interface{}) {
-				oldCluster := old.(*workloadv1alpha1.WorkloadCluster)
+				oldCluster := old.(*workloadv1alpha1.SyncTarget)
 				oldClusterCopy := *oldCluster
 
 				// ignore fields that scheduler does not care
@@ -164,7 +164,7 @@ func NewController(
 				oldClusterCopy.Status.VirtualWorkspaces = nil
 				oldClusterCopy.Status.Capacity = nil
 
-				newCluster := obj.(*workloadv1alpha1.WorkloadCluster)
+				newCluster := obj.(*workloadv1alpha1.SyncTarget)
 				newClusterCopy := *newCluster
 				newClusterCopy.ResourceVersion = "0"
 				newClusterCopy.Status.LastSyncerHeartbeatTime = nil
@@ -173,10 +173,10 @@ func NewController(
 
 				// compare ignoring heart-beat
 				if !reflect.DeepEqual(oldClusterCopy, newClusterCopy) {
-					c.enqueueWorkloadCluster(obj)
+					c.enqueueSyncTarget(obj)
 				}
 			},
-			DeleteFunc: c.enqueueWorkloadCluster,
+			DeleteFunc: c.enqueueSyncTarget,
 		},
 	)
 
@@ -203,8 +203,8 @@ type controller struct {
 	locationLister  schedulinglisters.LocationLister
 	locationIndexer cache.Indexer
 
-	workloadClusterLister  workloadlisters.WorkloadClusterLister
-	workloadClusterIndexer cache.Indexer
+	syncTargetLister  workloadlisters.SyncTargetLister
+	syncTargetIndexer cache.Indexer
 
 	placmentLister   schedulinglisters.PlacementLister
 	placementIndexer cache.Indexer
@@ -264,7 +264,7 @@ func (c *controller) enqueuePlacement(obj interface{}, logSuffix string) {
 	}
 }
 
-func (c *controller) enqueueWorkloadCluster(obj interface{}) {
+func (c *controller) enqueueSyncTarget(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -279,7 +279,7 @@ func (c *controller) enqueueWorkloadCluster(obj interface{}) {
 	}
 
 	for _, obj := range placements {
-		c.enqueuePlacement(obj, fmt.Sprintf(" because of WorkloadCluster %s", key))
+		c.enqueuePlacement(obj, fmt.Sprintf(" because of SyncTarget %s", key))
 	}
 }
 

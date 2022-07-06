@@ -40,7 +40,7 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 	klog.Infof("reconciling deployment %q", deployment.Name)
 
 	//nolint:staticcheck
-	if deployment.Labels == nil || shared.DeprecatedGetAssignedWorkloadCluster(deployment.Labels) == "" {
+	if deployment.Labels == nil || shared.DeprecatedGetAssignedSyncTarget(deployment.Labels) == "" {
 		// This is a root deployment; get its leafs.
 		sel, err := labels.Parse(fmt.Sprintf("%s=%s", ownedByLabel, deployment.Name))
 		if err != nil {

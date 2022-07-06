@@ -97,7 +97,7 @@ pe "kubectl get secrets"
 c "Now let's deploy an app. First we need a target workload cluster."
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
 apiVersion: workload.kcp.dev/v1alpha1
-kind: WorkloadCluster
+kind: SyncTarget
 metadata:
   name: kind-us-east1
 spec:

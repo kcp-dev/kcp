@@ -91,8 +91,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1beta1().Workspaces().Informer()}, nil
 
 		// Group=workload.kcp.dev, Version=v1alpha1
-	case workloadv1alpha1.SchemeGroupVersion.WithResource("workloadclusters"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().WorkloadClusters().Informer()}, nil
+	case workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().SyncTargets().Informer()}, nil
 
 	}
 

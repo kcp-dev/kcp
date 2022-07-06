@@ -58,7 +58,7 @@ const (
 // NewController returns a new controller instance.
 func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
-	workloadClusterInformer workloadinformers.WorkloadClusterInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	locationInformer schedulinginformers.LocationInformer,
@@ -80,13 +80,13 @@ func NewController(
 		apiBindingLister:  apiBindingInformer.Lister(),
 		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		workloadClusterLister:  workloadClusterInformer.Lister(),
-		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
+		syncTargetLister:  syncTargetInformer.Lister(),
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 
 		locationLister: locationInformer.Lister(),
 	}
 
-	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
+	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
 		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
-	workloadClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
@@ -138,7 +138,7 @@ func NewController(
 	return c, nil
 }
 
-// controller reconciles watches WorkloadClusters and creates a APIExport and self-binding
+// controller reconciles watches SyncTargets and creates a APIExport and self-binding
 // as soon as there is one in a workspace.
 type controller struct {
 	queue        workqueue.RateLimitingInterface
@@ -146,8 +146,8 @@ type controller struct {
 
 	kcpClusterClient kcpclient.ClusterInterface
 
-	workloadClusterLister  workloadlisters.WorkloadClusterLister
-	workloadClusterIndexer cache.Indexer
+	syncTargetLister  workloadlisters.SyncTargetLister
+	syncTargetIndexer cache.Indexer
 
 	apiExportsLister  apislisters.APIExportLister
 	apiExportsIndexer cache.Indexer
@@ -220,12 +220,12 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 func (c *controller) process(ctx context.Context, key string) error {
 	clusterName := logicalcluster.New(key)
 
-	workloadClusters, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
+	syncTargets, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		klog.Errorf("Failed to list clusters for workspace %q: %v", clusterName.String(), err)
 		return err
 	}
-	if len(workloadClusters) == 0 {
+	if len(syncTargets) == 0 {
 		klog.V(3).Infof("No clusters found for workspace %q. Not creating APIExport and APIBinding", clusterName.String())
 		return nil
 	}
@@ -267,7 +267,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 				Resource: schedulingv1alpha1.GroupVersionResource{
 					Group:    "workload.kcp.dev",
 					Version:  "v1alpha1",
-					Resource: "workloadclusters",
+					Resource: "synctargets",
 				},
 				InstanceSelector: &metav1.LabelSelector{},
 			},

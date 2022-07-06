@@ -22,11 +22,11 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-// DeprecatedGetAssignedWorkloadCluster returns one assigned workload cluster in Sync state. It will
+// DeprecatedGetAssignedSyncTarget returns one assigned sync target in Sync state. It will
 // likely lead to broken behaviour when there is one of those labels on a resource.
 //
 // Deprecated: use GetResourceState per cluster instead.
-func DeprecatedGetAssignedWorkloadCluster(labels map[string]string) string {
+func DeprecatedGetAssignedSyncTarget(labels map[string]string) string {
 	for k, v := range labels {
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateSync) {
 			return strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix)

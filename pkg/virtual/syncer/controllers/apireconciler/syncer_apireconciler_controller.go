@@ -48,11 +48,11 @@ const (
 	byWorkspace    = ControllerName + "-byWorkspace" // will go away with scoping
 )
 
-type CreateAPIDefinitionFunc func(workloadClusterName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
 
 func NewAPIReconciler(
 	kcpClusterClient kcpclient.ClusterInterface,
-	workloadClusterInformer tenancyv1alpha1.WorkloadClusterInformer,
+	syncTargetInformer tenancyv1alpha1.SyncTargetInformer,
 	apiResourceSchemaInformer apisinformer.APIResourceSchemaInformer,
 	apiExportInformer apisinformer.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
@@ -62,8 +62,8 @@ func NewAPIReconciler(
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
 
-		workloadClusterLister:  workloadClusterInformer.Lister(),
-		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
+		syncTargetLister:  syncTargetInformer.Lister(),
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 
 		apiResourceSchemaLister:  apiResourceSchemaInformer.Lister(),
 		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
@@ -78,7 +78,7 @@ func NewAPIReconciler(
 		apiSets: map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
 	}
 
-	if err := workloadClusterInformer.Informer().AddIndexers(cache.Indexers{
+	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
 		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
@@ -96,12 +96,12 @@ func NewAPIReconciler(
 		return nil, err
 	}
 
-	workloadClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueWorkloadCluster(obj)
+			c.enqueueSyncTarget(obj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueWorkloadCluster(obj)
+			c.enqueueSyncTarget(obj)
 		},
 	})
 
@@ -139,13 +139,13 @@ func NewAPIReconciler(
 	return c, nil
 }
 
-// APIReconciler is a controller watching APIExports, APIResourceSchemas and WorkloadClusters, and updates the
+// APIReconciler is a controller watching APIExports, APIResourceSchemas and SyncTargets, and updates the
 // API definitions driving the virtual workspace.
 type APIReconciler struct {
 	kcpClusterClient kcpclient.ClusterInterface
 
-	workloadClusterLister  tenancylistersv1alpha1.WorkloadClusterLister
-	workloadClusterIndexer cache.Indexer
+	syncTargetLister  tenancylistersv1alpha1.SyncTargetLister
+	syncTargetIndexer cache.Indexer
 
 	apiResourceSchemaLister  apislisters.APIResourceSchemaLister
 	apiResourceSchemaIndexer cache.Indexer
@@ -161,7 +161,7 @@ type APIReconciler struct {
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
 }
 
-func (c *APIReconciler) enqueueWorkloadCluster(obj interface{}) {
+func (c *APIReconciler) enqueueSyncTarget(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -176,13 +176,13 @@ func (c *APIReconciler) enqueueWorkloadCluster(obj interface{}) {
 	}
 
 	if len(exports) == 0 {
-		klog.V(2).Infof("No kubernetes APIExport found for WorkloadCluster %s|%s", clusterName, name)
+		klog.V(2).Infof("No kubernetes APIExport found for SyncTarget %s|%s", clusterName, name)
 		return
 	}
 
 	for _, obj := range exports {
 		export := obj.(*apisv1alpha1.APIExport)
-		klog.V(2).Infof("Queueing APIExport %s|%s for WorkloadCluster %s", clusterName, export.Name, name)
+		klog.V(2).Infof("Queueing APIExport %s|%s for SyncTarget %s", clusterName, export.Name, name)
 		c.enqueueAPIExport(obj)
 	}
 }
@@ -279,15 +279,15 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		return nil // nothing we can do here
 	}
 
-	cs, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
+	cs, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
-		klog.Errorf("Failed to get WorkloadClusters in %q: %v", clusterName, err)
+		klog.Errorf("Failed to get SyncTargets in %q: %v", clusterName, err)
 		return nil // nothing we can do here
 	}
 
 	var errs []error
 	for _, obj := range cs {
-		cluster := obj.(*workloadv1alpha1.WorkloadCluster)
+		cluster := obj.(*workloadv1alpha1.SyncTarget)
 		apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(clusterName, cluster.Name))
 		if err := c.reconcile(ctx, apiExport, apiDomainKey, cluster.Name); err != nil {
 			errs = append(errs, err)

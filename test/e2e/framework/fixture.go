@@ -369,16 +369,16 @@ type SyncerFixture struct {
 	ResourcesToSync      sets.String
 	UpstreamServer       RunningServer
 	WorkspaceClusterName logicalcluster.Name
-	WorkloadClusterName  string
+	SyncTargetName       string
 	InstallCRDs          func(config *rest.Config, isLogicalCluster bool)
 }
 
 // SetDefaults ensures a valid configuration even if not all values are explicitly provided.
 func (sf *SyncerFixture) setDefaults() {
 	// Default configuration to avoid tests having to be exaustive
-	if len(sf.WorkloadClusterName) == 0 {
+	if len(sf.SyncTargetName) == 0 {
 		// This only needs to vary when more than one syncer need to be tested in a workspace
-		sf.WorkloadClusterName = "pcluster-01"
+		sf.SyncTargetName = "pcluster-01"
 	}
 	if sf.ResourcesToSync == nil {
 		// resources-to-sync is additive to the core set of resources so not providing any
@@ -414,7 +414,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	pluginArgs := []string{
 		"workload",
 		"sync",
-		sf.WorkloadClusterName,
+		sf.SyncTargetName,
 		"--syncer-image", syncerImage,
 	}
 	for _, resource := range sf.ResourcesToSync.List() {
@@ -458,7 +458,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Extract the configuration for an in-process syncer from the resources that were
 	// applied to the downstream server. This maximizes the parity between the
 	// configuration of a deployed and in-process syncer.
-	syncerNamespace := workloadcliplugin.GetSyncerID(sf.WorkspaceClusterName.String(), sf.WorkloadClusterName)
+	syncerNamespace := workloadcliplugin.GetSyncerID(sf.WorkspaceClusterName.String(), sf.SyncTargetName)
 	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerNamespace)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -546,7 +546,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				return
 			}
 
-			t.Logf("Deleting syncer resources for logical cluster %q, workload cluster %q", syncerConfig.KCPClusterName, syncerConfig.WorkloadClusterName)
+			t.Logf("Deleting syncer resources for logical cluster %q, sync target %q", syncerConfig.KCPClusterName, syncerConfig.SyncTargetName)
 			err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
 			if err != nil {
 				t.Errorf("failed to delete Namespace %q: %v", syncerID, err)
@@ -560,7 +560,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				t.Errorf("failed to delete ClusterRole %q: %v", syncerID, err)
 			}
 
-			t.Logf("Deleting synced resources for logical cluster %q, workload cluster %q", syncerConfig.KCPClusterName, syncerConfig.WorkloadClusterName)
+			t.Logf("Deleting synced resources for logical cluster %q, sync target %q", syncerConfig.KCPClusterName, syncerConfig.SyncTargetName)
 			namespaces, err := downstreamKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				t.Errorf("failed to list namespaces: %v", err)
@@ -597,7 +597,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		DownstreamKubeClient: downstreamKubeClient,
 	}
 
-	// The workload cluster becoming ready indicates the syncer is healthy and has
+	// The sync target becoming ready indicates the syncer is healthy and has
 	// successfully sent a heartbeat to kcp.
 	startedSyncer.WaitForClusterReadyReason(t, ctx, "")
 
@@ -619,12 +619,12 @@ type StartedSyncerFixture struct {
 func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Context, reason string) {
 	cfg := sf.SyncerConfig
 
-	t.Logf("Waiting for cluster %q condition %q to have reason %q", cfg.WorkloadClusterName, conditionsapi.ReadyCondition, reason)
+	t.Logf("Waiting for cluster %q condition %q to have reason %q", cfg.SyncTargetName, conditionsapi.ReadyCondition, reason)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
 	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
 	Eventually(t, func() (bool, string) {
-		cluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx, cfg.WorkloadClusterName, metav1.GetOptions{})
+		cluster, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		// A reason is only supplied to indicate why a cluster is 'not ready'
@@ -638,9 +638,9 @@ func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx cont
 
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 	if len(reason) == 0 {
-		t.Logf("Cluster %q is %s", cfg.WorkloadClusterName, conditionsapi.ReadyCondition)
+		t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 	} else {
-		t.Logf("Cluster %q condition %s has reason %q", conditionsapi.ReadyCondition, cfg.WorkloadClusterName, reason)
+		t.Logf("Cluster %q condition %s has reason %q", conditionsapi.ReadyCondition, cfg.SyncTargetName, reason)
 	}
 }
 
@@ -684,11 +684,11 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	argMap, err := syncerArgsToMap(containers[0].Args)
 	require.NoError(t, err)
 
-	require.NotEmpty(t, argMap["--workload-cluster-name"], "--workload-cluster-name is required")
-	workloadClusterName := argMap["--workload-cluster-name"][0]
-	require.NotEmpty(t, workloadClusterName, "a value for --workload-cluster-name is required")
+	require.NotEmpty(t, argMap["--sync-target-name"], "--sync-target-name is required")
+	syncTargetName := argMap["--sync-target-name"][0]
+	require.NotEmpty(t, syncTargetName, "a value for --sync-target-name is required")
 
-	require.NotEmpty(t, argMap["--from-cluster"], "--workload-cluster-name is required")
+	require.NotEmpty(t, argMap["--from-cluster"], "--sync-target-name is required")
 	fromCluster := argMap["--from-cluster"][0]
 	require.NotEmpty(t, fromCluster, "a value for --from-cluster is required")
 	kcpClusterName := logicalcluster.New(fromCluster)
@@ -718,11 +718,11 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	// Compose a new downstream config that uses the token
 	downstreamConfig := ConfigWithToken(string(token), rest.CopyConfig(config))
 	return &syncer.SyncerConfig{
-		UpstreamConfig:      upstreamConfig,
-		DownstreamConfig:    downstreamConfig,
-		ResourcesToSync:     sets.NewString(resourcesToSync...),
-		KCPClusterName:      kcpClusterName,
-		WorkloadClusterName: workloadClusterName,
+		UpstreamConfig:   upstreamConfig,
+		DownstreamConfig: downstreamConfig,
+		ResourcesToSync:  sets.NewString(resourcesToSync...),
+		KCPClusterName:   kcpClusterName,
+		SyncTargetName:   syncTargetName,
 	}
 }
 

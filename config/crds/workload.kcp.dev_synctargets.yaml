@@ -6,16 +6,16 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: workloadclusters.workload.kcp.dev
+  name: synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
     categories:
     - kcp
-    kind: WorkloadCluster
-    listKind: WorkloadClusterList
-    plural: workloadclusters
-    singular: workloadcluster
+    kind: SyncTarget
+    listKind: SyncTargetList
+    plural: synctargets
+    singular: synctarget
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -34,8 +34,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: WorkloadCluster describes a member cluster capable of running
-          workloads.
+        description: SyncTarget describes a member cluster capable of running workloads.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -88,7 +87,7 @@ spec:
                 description: Capacity represents the total resources of the cluster.
                 type: object
               conditions:
-                description: Current processing state of the WorkloadCluster.
+                description: Current processing state of the SyncTarget.
                 items:
                   description: Condition defines an observation of a object operational
                     state.

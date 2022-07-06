@@ -18,7 +18,7 @@ package internalapis
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
-	common "k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	_ "k8s.io/kubernetes/pkg/apis/core/install"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
@@ -26,7 +26,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-// Schemas contains a list of internal APIs that should be exposed for the syncer of any WorkloadCluster.
+// Schemas contains a list of internal APIs that should be exposed for the syncer of any SyncTarget.
 var Schemas []*apisv1alpha1.APIResourceSchema
 
 func init() {

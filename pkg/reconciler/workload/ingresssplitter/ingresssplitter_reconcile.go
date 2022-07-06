@@ -48,7 +48,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 	klog.InfoS("reconciling Ingress", "ClusterName", ingressClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	//nolint:staticcheck
-	if shared.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
+	if shared.DeprecatedGetAssignedSyncTarget(ingress.Labels) == "" {
 		// we have a root ingress here
 		if err := c.reconcileLeaves(ctx, ingress); err != nil {
 			return err
@@ -93,7 +93,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 		klog.InfoS("Creating leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
 		if _, err := c.client.Cluster(ingressClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-			//TODO(jmprusi): Surface as user-facing condition.
+			// TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to create leaf: %w", err)
 		}
 	}
@@ -104,7 +104,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 		klog.InfoS("Deleting leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
 		if err := c.client.Cluster(ingressClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-			//TODO(jmprusi): Surface as user-facing condition.
+			// TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to delete leaf: %w", err)
 		}
 	}
@@ -135,7 +135,7 @@ func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress 
 
 	// TODO(jmprusi): A leaf without rootIngress? use OwnerRefs to avoid this.
 	if !exists {
-		//TODO(jmprusi): Add user-facing condition to leaf.
+		// TODO(jmprusi): Add user-facing condition to leaf.
 		klog.Warningf("root ingress not found %s", ingressRootKey)
 		return nil
 	}
@@ -163,7 +163,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 		found := false
 		for _, desiredLeaf := range desiredLeaves {
 			//nolint:staticcheck
-			if desiredLeaf.Name != currentLeaf.Name || shared.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) != shared.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
+			if desiredLeaf.Name != currentLeaf.Name || shared.DeprecatedGetAssignedSyncTarget(desiredLeaf.Labels) != shared.DeprecatedGetAssignedSyncTarget(currentLeaf.Labels) {
 				continue
 			}
 			found = true
@@ -178,7 +178,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 			updated := currentLeaf.DeepCopy()
 			updated.Spec = desiredLeaf.Spec
 			if _, err := c.client.Cluster(logicalcluster.From(currentLeaf)).NetworkingV1().Ingresses(currentLeaf.Namespace).Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
-				//TODO(jmprusi): Update root Ingress condition to reflect the error.
+				// TODO(jmprusi): Update root Ingress condition to reflect the error.
 				return nil, nil, err
 			}
 			break
@@ -192,7 +192,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 		found := false
 		for _, currentLeaf := range currentLeaves {
 			//nolint:staticcheck
-			if desiredLeaf.Name == currentLeaf.Name && shared.DeprecatedGetAssignedWorkloadCluster(desiredLeaf.Labels) == shared.DeprecatedGetAssignedWorkloadCluster(currentLeaf.Labels) {
+			if desiredLeaf.Name == currentLeaf.Name && shared.DeprecatedGetAssignedSyncTarget(desiredLeaf.Labels) == shared.DeprecatedGetAssignedSyncTarget(currentLeaf.Labels) {
 				found = true
 				break
 			}
@@ -218,8 +218,8 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 	var clusterDests []string
 	for _, service := range services {
 		//nolint:staticcheck
-		if shared.DeprecatedGetAssignedWorkloadCluster(service.Labels) != "" {
-			clusterDests = append(clusterDests, shared.DeprecatedGetAssignedWorkloadCluster(service.Labels))
+		if shared.DeprecatedGetAssignedSyncTarget(service.Labels) != "" {
+			clusterDests = append(clusterDests, shared.DeprecatedGetAssignedSyncTarget(service.Labels))
 		} else {
 			klog.Infof("Skipping service %q because it is not assigned to any cluster", service.Name)
 		}

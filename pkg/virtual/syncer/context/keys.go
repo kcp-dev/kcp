@@ -21,24 +21,24 @@ import (
 	"errors"
 )
 
-// workloadClusterNameContextKeyType is the type of the key for the request context value
-// that will carry the name of the WorkloadCluster resources with be synced with.
-type workloadClusterNameContextKeyType string
+// syncTargetNameContextKeyType is the type of the key for the request context value
+// that will carry the name of the SyncTarget resources with be synced with.
+type syncTargetNameContextKeyType string
 
 // apiDomainKeyContextKey is the key for the request context value
-// that will carry the name of the WorkloadCluster resources with be synced with.
-const workloadClusterNameContextKey workloadClusterNameContextKeyType = "SyncerVirtualWorkspaceWorkloadClusterKey"
+// that will carry the name of the SyncTarget resources with be synced with.
+const syncTargetNameContextKey syncTargetNameContextKeyType = "SyncerVirtualWorkspaceSyncTargetKey"
 
-// WithWorkloadClusterName adds a WorkloadCluster name to the context.
-func WithWorkloadClusterName(ctx context.Context, workloadClusterName string) context.Context {
-	return context.WithValue(ctx, workloadClusterNameContextKey, workloadClusterName)
+// WithSyncTargetName adds a SyncTarget name to the context.
+func WithSyncTargetName(ctx context.Context, syncTargetName string) context.Context {
+	return context.WithValue(ctx, syncTargetNameContextKey, syncTargetName)
 }
 
-// WorkloadClusterNameFrom retrieves the WorkloadCluster name key from the context, if any.
-func WorkloadClusterNameFrom(ctx context.Context) (string, error) {
-	wcn, hasWorkloadClusterName := ctx.Value(workloadClusterNameContextKey).(string)
-	if !hasWorkloadClusterName {
-		return "", errors.New("context must contain a valid non-empty WorkloadCluster name")
+// SyncTargetNameFrom retrieves the SyncTarget name key from the context, if any.
+func SyncTargetNameFrom(ctx context.Context) (string, error) {
+	wcn, hasSyncTargetName := ctx.Value(syncTargetNameContextKey).(string)
+	if !hasSyncTargetName {
+		return "", errors.New("context must contain a valid non-empty SyncTarget name")
 	}
 	return wcn, nil
 }

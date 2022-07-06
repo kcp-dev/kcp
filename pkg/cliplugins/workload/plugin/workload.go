@@ -29,14 +29,14 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
-// Cordon the workload cluster and mark it as unschedulable
-func (c *Config) Cordon(ctx context.Context, workloadClusterName string) error {
+// Cordon the sync target and mark it as unschedulable
+func (c *Config) Cordon(ctx context.Context, syncTargetName string) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	err = modifyCordon(ctx, config, workloadClusterName, true)
+	err = modifyCordon(ctx, config, syncTargetName, true)
 	if err != nil {
 		return err
 	}
@@ -44,14 +44,14 @@ func (c *Config) Cordon(ctx context.Context, workloadClusterName string) error {
 	return nil
 }
 
-// Uncordon the workload cluster and mark it as schedulable
-func (c *Config) Uncordon(ctx context.Context, workloadClusterName string) error {
+// Uncordon the sync target and mark it as schedulable
+func (c *Config) Uncordon(ctx context.Context, syncTargetName string) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	err = modifyCordon(ctx, config, workloadClusterName, false)
+	err = modifyCordon(ctx, config, syncTargetName, false)
 	if err != nil {
 		return err
 	}
@@ -59,27 +59,27 @@ func (c *Config) Uncordon(ctx context.Context, workloadClusterName string) error
 	return nil
 }
 
-// change the workload cluster cordon value
-func modifyCordon(ctx context.Context, config *rest.Config, workloadClusterName string, cordon bool) error {
+// change the sync target cordon value
+func modifyCordon(ctx context.Context, config *rest.Config, syncTargetName string, cordon bool) error {
 	kcpClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx,
-		workloadClusterName,
+	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+		syncTargetName,
 		metav1.GetOptions{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get WorkloadCluster %s: %w", workloadClusterName, err)
+		return fmt.Errorf("failed to get SyncTarget %s: %w", syncTargetName, err)
 	}
 
 	// See if there is nothing to do
-	if cordon && workloadCluster.Spec.Unschedulable {
-		fmt.Println(workloadClusterName, "already cordoned")
+	if cordon && syncTarget.Spec.Unschedulable {
+		fmt.Println(syncTargetName, "already cordoned")
 		return nil
-	} else if !cordon && !workloadCluster.Spec.Unschedulable {
-		fmt.Println(workloadClusterName, "already uncordoned")
+	} else if !cordon && !syncTarget.Spec.Unschedulable {
+		fmt.Println(syncTargetName, "already uncordoned")
 		return nil
 	}
 
@@ -89,31 +89,31 @@ func modifyCordon(ctx context.Context, config *rest.Config, workloadClusterName 
 
 	} else {
 		evict := ``
-		if workloadCluster.Spec.EvictAfter != nil {
+		if syncTarget.Spec.EvictAfter != nil {
 			evict = `,{"op":"remove","path":"/spec/evictAfter"}`
 		}
 
 		patchBytes = []byte(`[{"op":"replace","path":"/spec/unschedulable","value":false}` + evict + `]`)
 	}
 
-	//fmt.Printf("patchBytes %s", patchBytes)
+	// fmt.Printf("patchBytes %s", patchBytes)
 
-	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Patch(ctx, workloadClusterName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to update WorkloadCluster %s: %w", workloadClusterName, err)
+		return fmt.Errorf("failed to update SyncTarget %s: %w", syncTargetName, err)
 	}
 
 	if cordon {
-		fmt.Println(workloadClusterName, "cordoned")
+		fmt.Println(syncTargetName, "cordoned")
 	} else {
-		fmt.Println(workloadClusterName, "uncordoned")
+		fmt.Println(syncTargetName, "uncordoned")
 	}
 
 	return nil
 }
 
-// Start draining the workload cluster and mark it as unschedulable
-func (c *Config) Drain(ctx context.Context, workloadClusterName string) error {
+// Start draining the sync target and mark it as unschedulable
+func (c *Config) Drain(ctx context.Context, syncTargetName string) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
 		return err
@@ -124,30 +124,30 @@ func (c *Config) Drain(ctx context.Context, workloadClusterName string) error {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx,
-		workloadClusterName,
+	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+		syncTargetName,
 		metav1.GetOptions{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get workloadcluster %s: %w", workloadClusterName, err)
+		return fmt.Errorf("failed to get synctarget %s: %w", syncTargetName, err)
 	}
 
 	// See if there is nothing to do
-	if workloadCluster.Spec.EvictAfter != nil && workloadCluster.Spec.Unschedulable {
-		fmt.Println(workloadClusterName, "already draining")
+	if syncTarget.Spec.EvictAfter != nil && syncTarget.Spec.Unschedulable {
+		fmt.Println(syncTargetName, "already draining")
 		return nil
 	}
 
 	nowTime := time.Now().UTC()
 	var patchBytes = []byte(`[{"op":"replace","path":"/spec/unschedulable","value":true},{"op":"replace","path":"/spec/evictAfter","value":"` + nowTime.Format(time.RFC3339) + `"}]`)
 
-	_, err = kcpClient.WorkloadV1alpha1().WorkloadClusters().Patch(ctx, workloadClusterName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 
 	if err != nil {
-		return fmt.Errorf("failed to update WorkloadCluster %s: %w", workloadClusterName, err)
+		return fmt.Errorf("failed to update SyncTarget %s: %w", syncTargetName, err)
 	}
 
-	fmt.Println(workloadClusterName, "draining")
+	fmt.Println(syncTargetName, "draining")
 
 	return nil
 

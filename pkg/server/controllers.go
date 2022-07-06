@@ -565,8 +565,8 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	return nil
 }
 
-func (s *Server) installWorkloadClusterHeartbeatController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workloadcluster-heartbeat-controller")
+func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-synctarget-heartbeat-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
@@ -574,9 +574,9 @@ func (s *Server) installWorkloadClusterHeartbeatController(ctx context.Context, 
 
 	c, err := heartbeat.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		s.options.Controllers.WorkloadClusterHeartbeat.HeartbeatThreshold,
+		s.options.Controllers.SyncTargetHeartbeat.HeartbeatThreshold,
 	)
 	if err != nil {
 		return err
@@ -732,7 +732,7 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 	c, err := schedulinglocationstatus.NewController(
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 	)
 	if err != nil {
 		return err
@@ -806,7 +806,7 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 		kcpClusterClient,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
 	if err != nil {
@@ -915,7 +915,7 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 
 	c, err := workloadsapiexportcreate.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
@@ -951,7 +951,7 @@ func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, conf
 
 	c := virtualworkspaceurlscontroller.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().WorkloadClusters(),
+		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {

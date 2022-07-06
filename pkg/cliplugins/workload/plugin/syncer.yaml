@@ -5,7 +5,7 @@ metadata:
   name: {{.Namespace}}
   labels:
     workload.kcp.io/logical-cluster: {{.LabelSafeLogicalCluster}}
-    workload.kcp.io/workload-cluster: {{.WorkloadCluster}}
+    workload.kcp.io/sync-target: {{.SyncTarget}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -107,7 +107,7 @@ spec:
         - /ko-app/syncer
         args:
         - --from-kubeconfig=/kcp/{{.SecretConfigKey}}
-        - --workload-cluster-name={{.WorkloadCluster}}
+        - --sync-target-name={{.SyncTarget}}
         - --from-cluster={{.LogicalCluster}}
 {{- range $resourceToSync := .ResourcesToSync}}
         - --resources={{$resourceToSync}}
