@@ -4,8 +4,10 @@ metadata:
   name: home
 spec:
   initializer: true
-  defaultChildWorkspaceType: Universal
-  allowedChildWorkspaceTypes:
-  - Any
-  allowedParentWorkspaceTypes:
-  - Homebucket
+  defaultChildWorkspaceType:
+    path: root
+    name: Universal
+  allowedParents:
+    types:
+    - path: root
+      name: Homebucket
