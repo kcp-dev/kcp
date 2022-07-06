@@ -1,5 +1,5 @@
 apiVersion: workload.kcp.dev/v1alpha1
-kind: WorkloadCluster
+kind: SyncTarget
 metadata:
   name: us-east1
 spec:

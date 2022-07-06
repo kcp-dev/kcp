@@ -24,8 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// WorkloadClusters returns a WorkloadClusterInformer.
-	WorkloadClusters() WorkloadClusterInformer
+	// SyncTargets returns a SyncTargetInformer.
+	SyncTargets() SyncTargetInformer
 }
 
 type version struct {
@@ -39,7 +39,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// WorkloadClusters returns a WorkloadClusterInformer.
-func (v *version) WorkloadClusters() WorkloadClusterInformer {
-	return &workloadClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// SyncTargets returns a SyncTargetInformer.
+func (v *version) SyncTargets() SyncTargetInformer {
+	return &syncTargetInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

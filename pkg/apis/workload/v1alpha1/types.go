@@ -20,48 +20,48 @@ type ResourceState string
 
 const (
 	// ResourceStatePending is the initial state of a resource after placement onto
-	// workload cluster. Either some workload controller or some external coordination
+	// a sync target. Either some workload controller or some external coordination
 	// controller will set this to "Sync" when the resource is ready to be synced.
 	ResourceStatePending ResourceState = ""
-	// ResourceStateSync is the state of a resource when it is synced to the workload cluster.
+	// ResourceStateSync is the state of a resource when it is synced to the sync target.
 	// This includes the deletion process until the resource is deleted downstream and the
-	// syncer removes the state.internal.workload.kcp.dev/<workload-cluster-name> label.
+	// syncer removes the state.internal.workload.kcp.dev/<sync-target-name> label.
 	ResourceStateSync ResourceState = "Sync"
 )
 
 const (
 	// InternalClusterDeletionTimestampAnnotationPrefix is the prefix of the annotation
 	//
-	//   deletion.internal.workload.kcp.dev/<workload-cluster-name>
+	//   deletion.internal.workload.kcp.dev/<sync-target-name>
 	//
-	// on upstream resources storing the timestamp when the workload cluster resource
+	// on upstream resources storing the timestamp when the sync target resource
 	// state was changed to "Delete". The syncer will see this timestamp as the deletion
 	// timestamp of the object.
 	//
 	// The format is RFC3339.
 	//
-	// TODO(sttts): use workload-cluster-uid instead of workload-cluster-name
+	// TODO(sttts): use sync-target-uid instead of sync-target-name
 	InternalClusterDeletionTimestampAnnotationPrefix = "deletion.internal.workload.kcp.dev/"
 
 	// ClusterFinalizerAnnotationPrefix is the prefix of the annotation
 	//
-	//   finalizers.workload.kcp.dev/<workload-cluster-name>
+	//   finalizers.workload.kcp.dev/<sync-target-name>
 	//
 	// on upstream resources storing a comma-separated list of finalizer names that are set on
-	// the workload cluster resource in the view of the syncer. This blocks the deletion of the
-	// resource on that workload cluster. External (custom) controllers can set this annotation
+	// the sync target resource in the view of the syncer. This blocks the deletion of the
+	// resource on that sync target. External (custom) controllers can set this annotation
 	// create back-pressure on the resource.
 	//
-	// TODO(sttts): use workload-cluster-uid instead of workload-cluster-name
+	// TODO(sttts): use sync-target-uid instead of sync-target-name
 	ClusterFinalizerAnnotationPrefix = "finalizers.workload.kcp.dev/"
 
 	// InternalClusterResourceStateLabelPrefix is the prefix of the label
 	//
-	//   state.internal.workload.kcp.dev/<workload-cluster-name>
+	//   state.internal.workload.kcp.dev/<sync-target-name>
 	//
-	// on upstream resources storing the state of the workload cluster syncer state machine.
+	// on upstream resources storing the state of the sync target syncer state machine.
 	// The workload controllers will set this label and the syncer will react and drive the
-	// life-cycle of the synced objects on the workload cluster.
+	// life-cycle of the synced objects on the sync target.
 	//
 	// The format is a string, namely:
 	// - "": the object is assigned, but the syncer will ignore the object. A coordination
@@ -69,34 +69,34 @@ const (
 	//       start the sync process.
 	// - "Sync": the object is assigned and the syncer will start the sync process.
 	//
-	// While being in "Sync" state, a deletion timestamp in deletion.internal.workload.kcp.dev/<workload-cluster-name>
+	// While being in "Sync" state, a deletion timestamp in deletion.internal.workload.kcp.dev/<sync-target-name>
 	// will signal the start of the deletion process of the object. During the deletion process
 	// the object will stay in "Sync" state. The syncer will block deletion while
-	// finalizers.workload.kcp.dev/<workload-cluster-name> exists and is non-empty, and it
-	// will eventually remove state.internal.workload.kcp.dev/<workload-cluster-name> after
+	// finalizers.workload.kcp.dev/<sync-target-name> exists and is non-empty, and it
+	// will eventually remove state.internal.workload.kcp.dev/<sync-target-name> after
 	// the object has been deleted downstream.
 	//
-	// The workload controllers will consider the object deleted from the workload cluster when
+	// The workload controllers will consider the object deleted from the sync target when
 	// the label is removed. They then set the placement state to "Unbound".
 	InternalClusterResourceStateLabelPrefix = "state.internal.workload.kcp.dev/"
 
 	// InternalClusterStatusAnnotationPrefix is the prefix of the annotation
 	//
-	//   experimental.status.workload.kcp.dev/<workload-cluster-name>
+	//   experimental.status.workload.kcp.dev/<sync-target-name>
 	//
-	// on upstream resources storing the status of the downstream resource per workload cluster.
+	// on upstream resources storing the status of the downstream resource per sync target.
 	// Note that this is experimental and will disappear in the future without prior notice. It
-	// is used temporarily in the case that a resource is scheduled to multiple workload clusters.
+	// is used temporarily in the case that a resource is scheduled to multiple sync targets.
 	//
 	// The format is JSON.
 	InternalClusterStatusAnnotationPrefix = "experimental.status.workload.kcp.dev/"
 
 	// ClusterSpecDiffAnnotationPrefix is the prefix of the annotation
 	//
-	//   experimental.spec-diff.workload.kcp.dev/<workload-cluster-name>
+	//   experimental.spec-diff.workload.kcp.dev/<sync-target-name>
 	//
 	// on upstream resources storing the desired spec diffs to be applied to the resource when syncing
-	// down to the <workload-cluster-name>. This feature requires the "Advanced Scheduling" feature gate
+	// down to the <sync-target-name>. This feature requires the "Advanced Scheduling" feature gate
 	// to be enabled.
 	//
 	// The patch will be applied to the resource Spec field of the resource, so the JSON root path is the
@@ -106,6 +106,6 @@ const (
 	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workload.kcp.dev/"
 
 	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
-	// instead of state.internal.workload.kcp.dev/<workload-cluster-name> which is used upstream.
+	// instead of state.internal.workload.kcp.dev/<sync-target-name> which is used upstream.
 	InternalDownstreamClusterLabel = "internal.workload.kcp.dev/cluster"
 )

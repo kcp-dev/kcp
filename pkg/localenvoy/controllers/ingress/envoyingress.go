@@ -37,7 +37,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 	klog.InfoS("reconciling Ingress", "ClusterName", logicalcluster.From(ingress), "Namespace", ingress.Namespace, "Name", ingress.Name)
 
 	//nolint:staticcheck
-	if shared.DeprecatedGetAssignedWorkloadCluster(ingress.Labels) == "" {
+	if shared.DeprecatedGetAssignedSyncTarget(ingress.Labels) == "" {
 		// Root
 		if len(ingress.Status.LoadBalancer.Ingress) > 0 && ingress.Status.LoadBalancer.Ingress[0].Hostname != "" {
 			// Already set - never changes - do nothing

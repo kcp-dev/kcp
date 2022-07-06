@@ -30,20 +30,20 @@ import (
 
 var (
 	syncExample = `
-	# Ensure a syncer is running on the specified workload cluster.
-	%[1]s workload sync <workload-cluster-name> --syncer-image <kcp-syncer-image>
+	# Ensure a syncer is running on the specified sync target.
+	%[1]s workload sync <sync-target-name> --syncer-image <kcp-syncer-image>
 `
 	cordonExample = `
-	# Mark a workload cluster as unschedulable.
-	%[1]s workload cordon <workload-cluster-name>
+	# Mark a sync target as unschedulable.
+	%[1]s workload cordon <sync-target-name>
 `
 	uncordonExample = `
-	# Mark a workload cluster as schedulable.
-	%[1]s workload uncordon <workload-cluster-name>
+	# Mark a sync target as schedulable.
+	%[1]s workload uncordon <sync-target-name>
 `
 	drainExample = `
-	# Start draining a workload cluster in preparation for maintenance.
-	%[1]s workload drain <workload-cluster-name>
+	# Start draining a sync target in preparation for maintenance.
+	%[1]s workload drain <sync-target-name>
 `
 )
 
@@ -54,7 +54,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Aliases:          []string{"workloads"},
 		Use:              "workload",
-		Short:            "Manages KCP workload clusters",
+		Short:            "Manages KCP sync targets",
 		SilenceUsage:     true,
 		TraverseChildren: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,8 +75,8 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	var replicas int = 1
 	kcpNamespaceName := "default"
 	enableSyncerCmd := &cobra.Command{
-		Use:          "sync <workload-cluster-name> --syncer-image <kcp-syncer-image> [--resources=<resource1>,<resource2>..]",
-		Short:        "Deploy a syncer for the given workload cluster",
+		Use:          "sync <sync-target-name> --syncer-image <kcp-syncer-image> [--resources=<resource1>,<resource2>..]",
+		Short:        "Deploy a syncer for the given sync target",
 		Example:      fmt.Sprintf(syncExample, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -108,14 +108,14 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 				return errors.New("only 0 and 1 are allowed as --replicas values")
 			}
 
-			workloadClusterName := args[0]
-			if len(workloadClusterName)+len(plugin.SyncerAuthResourcePrefix) > plugin.MaxSyncerAuthResourceName {
-				return fmt.Errorf("the maximum length of the workload-cluster-name is %d", plugin.MaxSyncerAuthResourceName)
+			syncTargetName := args[0]
+			if len(syncTargetName)+len(plugin.SyncerAuthResourcePrefix) > plugin.MaxSyncerAuthResourceName {
+				return fmt.Errorf("the maximum length of the sync-target-name is %d", plugin.MaxSyncerAuthResourceName)
 			}
 
 			resourcesToSync := sets.NewString(userResourcesToSync...).Union(requiredResourcesToSync).List()
 
-			return kubeconfig.Sync(c.Context(), workloadClusterName, kcpNamespaceName, syncerImage, resourcesToSync, replicas)
+			return kubeconfig.Sync(c.Context(), syncTargetName, kcpNamespaceName, syncerImage, resourcesToSync, replicas)
 		},
 	}
 	enableSyncerCmd.Flags().StringSliceVar(&userResourcesToSync, "resources", userResourcesToSync, "Resources to synchronize with kcp.")
@@ -127,8 +127,8 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 	// cordon
 	cordonCmd := &cobra.Command{
-		Use:          "cordon <workload-cluster-name>",
-		Short:        "Mark workload cluster as unschedulable",
+		Use:          "cordon <sync-target-name>",
+		Short:        "Mark sync target as unschedulable",
 		Example:      fmt.Sprintf(cordonExample, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -144,9 +144,9 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 				return cmd.Help()
 			}
 
-			workloadClusterName := args[0]
+			syncTargetName := args[0]
 
-			return kubeconfig.Cordon(c.Context(), workloadClusterName)
+			return kubeconfig.Cordon(c.Context(), syncTargetName)
 		},
 	}
 
@@ -154,8 +154,8 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 	// uncordon
 	uncordonCmd := &cobra.Command{
-		Use:          "uncordon <workload-cluster-name>",
-		Short:        "Mark workload cluster as schedulable",
+		Use:          "uncordon <sync-target-name>",
+		Short:        "Mark sync target as schedulable",
 		Example:      fmt.Sprintf(uncordonExample, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -171,9 +171,9 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 				return cmd.Help()
 			}
 
-			workloadClusterName := args[0]
+			syncTargetName := args[0]
 
-			return kubeconfig.Uncordon(c.Context(), workloadClusterName)
+			return kubeconfig.Uncordon(c.Context(), syncTargetName)
 		},
 	}
 
@@ -181,8 +181,8 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 	// drain
 	drainCmd := &cobra.Command{
-		Use:          "drain <workload-cluster-name>",
-		Short:        "Start draining workload cluster in preparation for maintenance",
+		Use:          "drain <sync-target-name>",
+		Short:        "Start draining sync target in preparation for maintenance",
 		Example:      fmt.Sprintf(drainExample, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -198,9 +198,9 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 				return cmd.Help()
 			}
 
-			workloadClusterName := args[0]
+			syncTargetName := args[0]
 
-			return kubeconfig.Drain(c.Context(), workloadClusterName)
+			return kubeconfig.Drain(c.Context(), syncTargetName)
 		},
 	}
 

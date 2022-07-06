@@ -101,7 +101,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if !exists {
 		klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.workloadClusterName, upstreamLogicalCluster, name)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.syncTargetName, upstreamLogicalCluster, name)
 	}
 
 	// update upstream status
@@ -126,7 +126,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	if err != nil {
 		return err
 	} else if !statusExists {
-		klog.Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from workloadClusterName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
+		klog.Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
 		return nil
 	}
 
@@ -138,7 +138,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 
 	labels := upstreamObj.GetLabels()
 	delete(labels, workloadv1alpha1.InternalDownstreamClusterLabel)
-	labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+c.workloadClusterName] = string(workloadv1alpha1.ResourceStateSync)
+	labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+c.syncTargetName] = string(workloadv1alpha1.ResourceStateSync)
 	upstreamObj.SetLabels(labels)
 
 	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.
@@ -156,19 +156,19 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		if newUpstreamAnnotations == nil {
 			newUpstreamAnnotations = make(map[string]string)
 		}
-		newUpstreamAnnotations[workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.workloadClusterName] = string(statusAnnotationValue)
+		newUpstreamAnnotations[workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.syncTargetName] = string(statusAnnotationValue)
 		newUpstream.SetAnnotations(newUpstreamAnnotations)
 
 		if reflect.DeepEqual(existing, newUpstream) {
-			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from workloadClusterName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
+			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
 			return nil
 		}
 
 		if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from workloadClusterName namespace %s: %v", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from syncTargetName namespace %s: %v", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
 			return err
 		}
-		klog.Infof("Updated status of resource %s|%s/%s from workloadClusterName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
+		klog.Infof("Updated status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
 		return nil
 	}
 

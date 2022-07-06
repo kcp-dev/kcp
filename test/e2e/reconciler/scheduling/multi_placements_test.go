@@ -66,13 +66,13 @@ func TestMultiPlacement(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	firstWorkloadClusterName := fmt.Sprintf("workloadcluster-%d", +rand.Intn(1000000))
-	t.Logf("Creating a WorkloadCluster and syncer in %s", locationClusterName)
+	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	firstSyncerFixture := framework.SyncerFixture{
 		ResourcesToSync:      sets.NewString("services"),
 		UpstreamServer:       source,
 		WorkspaceClusterName: locationClusterName,
-		WorkloadClusterName:  firstWorkloadClusterName,
+		SyncTargetName:       firstSyncTargetName,
 		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
 			if !isLogicalCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -88,13 +88,13 @@ func TestMultiPlacement(t *testing.T) {
 		},
 	}.Start(t)
 
-	secondWorkloadClusterName := fmt.Sprintf("workloadcluster-%d", +rand.Intn(1000000))
-	t.Logf("Creating a WorkloadCluster and syncer in %s", locationClusterName)
+	secondSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	secondSyncerFixture := framework.SyncerFixture{
 		ResourcesToSync:      sets.NewString("services"),
 		UpstreamServer:       source,
 		WorkspaceClusterName: locationClusterName,
-		WorkloadClusterName:  secondWorkloadClusterName,
+		SyncTargetName:       secondSyncTargetName,
 		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
 			if !isLogicalCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -110,12 +110,12 @@ func TestMultiPlacement(t *testing.T) {
 		},
 	}.Start(t)
 
-	t.Log("Label workloadcluster")
+	t.Log("Label synctarget")
 	patchData1 := `{"metadata":{"labels":{"loc":"loc1"}}}`
-	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, firstWorkloadClusterName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, firstSyncTargetName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
 	require.NoError(t, err)
 	patchData2 := `{"metadata":{"labels":{"loc":"loc2"}}}`
-	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, secondWorkloadClusterName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, secondSyncTargetName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Log("Create locations")
@@ -128,7 +128,7 @@ func TestMultiPlacement(t *testing.T) {
 			Resource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 			InstanceSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"loc": "loc1"},
@@ -147,7 +147,7 @@ func TestMultiPlacement(t *testing.T) {
 			Resource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 			InstanceSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"loc": "loc2"},
@@ -196,7 +196,7 @@ func TestMultiPlacement(t *testing.T) {
 			LocationResource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 			LocationWorkspace: locationClusterName.String(),
 		},
@@ -216,7 +216,7 @@ func TestMultiPlacement(t *testing.T) {
 			LocationResource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 			LocationWorkspace: locationClusterName.String(),
 		},
@@ -257,7 +257,7 @@ func TestMultiPlacement(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"test.workload.kcp.dev": firstWorkloadClusterName,
+				"test.workload.kcp.dev": firstSyncTargetName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -278,12 +278,12 @@ func TestMultiPlacement(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		if svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstWorkloadClusterName] != string(workloadv1alpha1.ResourceStateSync) {
-			return false, fmt.Sprintf("%s is not added to ns annotation", firstWorkloadClusterName)
+		if svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstSyncTargetName] != string(workloadv1alpha1.ResourceStateSync) {
+			return false, fmt.Sprintf("%s is not added to ns annotation", firstSyncTargetName)
 		}
 
-		if svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+secondWorkloadClusterName] != string(workloadv1alpha1.ResourceStateSync) {
-			return false, fmt.Sprintf("%s is not added to ns annotation", secondWorkloadClusterName)
+		if svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+secondSyncTargetName] != string(workloadv1alpha1.ResourceStateSync) {
+			return false, fmt.Sprintf("%s is not added to ns annotation", secondSyncTargetName)
 		}
 
 		return true, ""
@@ -292,7 +292,7 @@ func TestMultiPlacement(t *testing.T) {
 	t.Logf("Wait for the service to be sync to the downstream cluster")
 	framework.Eventually(t, func() (bool, string) {
 		downstreamServices, err := firstSyncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstWorkloadClusterName,
+			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
 		})
 
 		if err != nil {
@@ -307,7 +307,7 @@ func TestMultiPlacement(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		downstreamServices, err := secondSyncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstWorkloadClusterName,
+			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
 		})
 
 		if err != nil {

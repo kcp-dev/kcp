@@ -70,13 +70,13 @@ func TestScheduling(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	workloadClusterName := fmt.Sprintf("workloadcluster-%d", +rand.Intn(1000000))
-	t.Logf("Creating a WorkloadCluster and syncer in %s", negotiationClusterName)
+	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	t.Logf("Creating a SyncTarget and syncer in %s", negotiationClusterName)
 	syncerFixture := framework.SyncerFixture{
 		ResourcesToSync:      sets.NewString("services"),
 		UpstreamServer:       source,
 		WorkspaceClusterName: negotiationClusterName,
-		WorkloadClusterName:  workloadClusterName,
+		SyncTargetName:       syncTargetName,
 		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
 			if !isLogicalCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -159,7 +159,7 @@ func TestScheduling(t *testing.T) {
 			Resource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 		},
 	}
@@ -263,7 +263,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"state.internal.workload.kcp.dev/" + workloadClusterName: "Sync",
+				"state.internal.workload.kcp.dev/" + syncTargetName: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -282,7 +282,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "second",
 			Labels: map[string]string{
-				"state.internal.workload.kcp.dev/" + workloadClusterName: "Sync",
+				"state.internal.workload.kcp.dev/" + syncTargetName: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -300,7 +300,7 @@ func TestScheduling(t *testing.T) {
 	var downstreamServices *corev1.ServiceList
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "internal.workload.kcp.dev/cluster=" + workloadClusterName,
+			LabelSelector: "internal.workload.kcp.dev/cluster=" + syncTargetName,
 		})
 		if errors.IsNotFound(err) {
 			return false

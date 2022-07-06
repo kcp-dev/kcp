@@ -42,9 +42,9 @@ import (
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
-var clusterKind = reflect.TypeOf(workloadv1alpha1.WorkloadCluster{}).Name()
+var clusterKind = reflect.TypeOf(workloadv1alpha1.SyncTarget{}).Name()
 
-func clusterAsOwnerReference(obj *workloadv1alpha1.WorkloadCluster, controller bool) metav1.OwnerReference {
+func clusterAsOwnerReference(obj *workloadv1alpha1.SyncTarget, controller bool) metav1.OwnerReference {
 	return metav1.OwnerReference{
 		APIVersion: workloadv1alpha1.SchemeGroupVersion.String(),
 		Kind:       clusterKind,
@@ -71,7 +71,7 @@ func NewAPIImporter(
 
 	kcpClient := kcpClusterClient.Cluster(logicalClusterName)
 	kcpInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
-	clusterIndexer := kcpInformerFactory.Workload().V1alpha1().WorkloadClusters().Informer().GetIndexer()
+	clusterIndexer := kcpInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer()
 	importIndexer := kcpInformerFactory.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
 
 	indexers := map[string]cache.IndexFunc{
@@ -201,7 +201,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				klog.Errorf("Error setting schema: %v", err)
 				continue
 			}
-			klog.Infof("Updating APIResourceImport %s|%s for WorkloadCluster %s", i.logicalClusterName, apiResourceImport.Name, i.location)
+			klog.Infof("Updating APIResourceImport %s|%s for SyncTarget %s", i.logicalClusterName, apiResourceImport.Name, i.location)
 			if _, err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Update(ctx, apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("error updating APIResourceImport %s: %v", apiResourceImport.Name, err)
 				continue
@@ -233,7 +233,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				klog.Errorf("error creating APIResourceImport %s: the cluster object should exist in the index for location %s in logical cluster %s", apiResourceImportName, i.location, i.logicalClusterName)
 				continue
 			}
-			cluster, isCluster := clusterObj.(*workloadv1alpha1.WorkloadCluster)
+			cluster, isCluster := clusterObj.(*workloadv1alpha1.SyncTarget)
 			if !isCluster {
 				klog.Errorf("error creating APIResourceImport %s: the object retrieved from the cluster index for location %s in logical cluster %s should be a cluster object, but is of type: %T", apiResourceImportName, i.location, i.logicalClusterName, clusterObj)
 				continue

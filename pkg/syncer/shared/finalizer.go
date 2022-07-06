@@ -36,7 +36,7 @@ const (
 	SyncerFinalizerNamePrefix = "workload.kcp.dev/syncer-"
 )
 
-func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.ClusterInterface, upstreamNamespace, workloadClusterName string, logicalClusterName logicalcluster.Name, resourceName string) error {
+func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetName string, logicalClusterName logicalcluster.Name, resourceName string) error {
 	upstreamObj, err := upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamNamespace).Get(ctx, resourceName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
@@ -46,7 +46,7 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	}
 
 	// TODO(jmprusi): This check will need to be against "GetDeletionTimestamp()" when using the syncer virtual  workspace.
-	if upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+workloadClusterName] == "" {
+	if upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetName] == "" {
 		// Do nothing: the object should not be deleted anymore for this location on the KCP side
 		return nil
 	}
@@ -55,7 +55,7 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	currentFinalizers := upstreamObj.GetFinalizers()
 	desiredFinalizers := []string{}
 	for _, finalizer := range currentFinalizers {
-		if finalizer != SyncerFinalizerNamePrefix+workloadClusterName {
+		if finalizer != SyncerFinalizerNamePrefix+syncTargetName {
 			desiredFinalizers = append(desiredFinalizers, finalizer)
 		}
 	}
@@ -66,14 +66,14 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	//  - Begin -
 	// Clean up the status annotation and the locationDeletionAnnotation.
 	annotations := upstreamObj.GetAnnotations()
-	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+workloadClusterName)
-	delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+workloadClusterName)
-	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+workloadClusterName)
+	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+syncTargetName)
+	delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetName)
+	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+syncTargetName)
 	upstreamObj.SetAnnotations(annotations)
 
 	// remove the cluster label.
 	upstreamLabels := upstreamObj.GetLabels()
-	delete(upstreamLabels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+workloadClusterName)
+	delete(upstreamLabels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+syncTargetName)
 	upstreamObj.SetLabels(upstreamLabels)
 	// - End of block to be removed once the virtual workspace syncer is integrated -
 

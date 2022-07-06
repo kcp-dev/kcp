@@ -516,7 +516,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installWorkloadClusterHeartbeatController(ctx, controllerConfig); err != nil {
+		if err := s.installSyncTargetHeartbeatController(ctx, controllerConfig); err != nil {
 			return err
 		}
 		if err := s.installVirtualWorkspaceURLsController(ctx, controllerConfig, server); err != nil {

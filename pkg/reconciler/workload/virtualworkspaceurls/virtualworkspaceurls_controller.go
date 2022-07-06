@@ -42,25 +42,25 @@ import (
 	v1alpha12 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-const controllerName = "kcp-workloadcluster-controller"
+const controllerName = "kcp-synctarget-controller"
 
 func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
-	workloadClusterInformer v1alpha1.WorkloadClusterInformer,
+	syncTargetInformer v1alpha1.SyncTargetInformer,
 	workspaceShardInformer workspaceinformer.ClusterWorkspaceShardInformer,
 ) *Controller {
 
 	c := &Controller{
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		kcpClusterClient:       kcpClusterClient,
-		workloadClusterIndexer: workloadClusterInformer.Informer().GetIndexer(),
-		workspaceShardLister:   workspaceShardInformer.Lister(),
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		kcpClusterClient:     kcpClusterClient,
+		syncTargetIndexer:    syncTargetInformer.Informer().GetIndexer(),
+		workspaceShardLister: workspaceShardInformer.Lister(),
 	}
 
-	// Watch for events related to WorkloadClusters
-	workloadClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueWorkloadCluster(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkloadCluster(obj) },
+	// Watch for events related to SyncTargets
+	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueSyncTarget(obj) },
 		DeleteFunc: func(obj interface{}) {},
 	})
 
@@ -78,11 +78,11 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclient.ClusterInterface
 
-	workspaceShardLister   v1alpha12.ClusterWorkspaceShardLister
-	workloadClusterIndexer cache.Indexer
+	workspaceShardLister v1alpha12.ClusterWorkspaceShardLister
+	syncTargetIndexer    cache.Indexer
 }
 
-func (c *Controller) enqueueWorkloadCluster(obj interface{}) {
+func (c *Controller) enqueueSyncTarget(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -91,10 +91,10 @@ func (c *Controller) enqueueWorkloadCluster(obj interface{}) {
 	c.queue.Add(key)
 }
 
-// On workspaceShard changes, enqueue all the workloadClusters.
+// On workspaceShard changes, enqueue all the syncTargets.
 func (c *Controller) enqueueWorkspaceShard(obj interface{}) {
-	for _, workloadCluster := range c.workloadClusterIndexer.List() {
-		key, err := cache.MetaNamespaceKeyFunc(workloadCluster)
+	for _, syncTarget := range c.syncTargetIndexer.List() {
+		key, err := cache.MetaNamespaceKeyFunc(syncTarget)
 		if err != nil {
 			runtime.HandleError(err)
 			return
@@ -146,56 +146,56 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	obj, exists, err := c.workloadClusterIndexer.GetByKey(key)
+	obj, exists, err := c.syncTargetIndexer.GetByKey(key)
 	if err != nil {
-		klog.Errorf("Failed to get workloadCluster with key %q because: %v", key, err)
+		klog.Errorf("Failed to get syncTarget with key %q because: %v", key, err)
 		return nil
 	}
 
 	if !exists {
-		klog.Infof("workloadCluster with key %q was deleted", key)
+		klog.Infof("syncTarget with key %q was deleted", key)
 		return nil
 	}
 
-	klog.Infof("Processing workloadCluster %q", key)
+	klog.Infof("Processing syncTarget %q", key)
 	workspacesShards, err := c.workspaceShardLister.List(labels.Everything())
 	if err != nil {
 		return err
 	}
 
-	currentWorkloadCluster := obj.(*workloadv1alpha1.WorkloadCluster)
-	newWorkloadCluster, err := c.reconcile(currentWorkloadCluster, workspacesShards)
+	currentSyncTarget := obj.(*workloadv1alpha1.SyncTarget)
+	newSyncTarget, err := c.reconcile(currentSyncTarget, workspacesShards)
 	if err != nil {
-		klog.Errorf("Failed to reconcile workloadCluster %q because: %v", key, err)
+		klog.Errorf("Failed to reconcile syncTarget %q because: %v", key, err)
 		return err
 	}
 
-	if reflect.DeepEqual(currentWorkloadCluster, newWorkloadCluster) {
+	if reflect.DeepEqual(currentSyncTarget, newSyncTarget) {
 		return nil
 	}
 
-	currentWorkloadClusterJSON, err := json.Marshal(currentWorkloadCluster)
+	currentSyncTargetJSON, err := json.Marshal(currentSyncTarget)
 	if err != nil {
-		klog.Errorf("Failed to marshal workloadCluster %q because: %v", key, err)
+		klog.Errorf("Failed to marshal syncTarget %q because: %v", key, err)
 		return err
 	}
-	newWorkloadClusterJSON, err := json.Marshal(newWorkloadCluster)
+	newSyncTargetJSON, err := json.Marshal(newSyncTarget)
 	if err != nil {
-		klog.Errorf("Failed to marshal workloadCluster %q because: %v", key, err)
+		klog.Errorf("Failed to marshal syncTarget %q because: %v", key, err)
 		return err
 	}
 
-	patchBytes, err := jsonpatch.CreateMergePatch(currentWorkloadClusterJSON, newWorkloadClusterJSON)
+	patchBytes, err := jsonpatch.CreateMergePatch(currentSyncTargetJSON, newSyncTargetJSON)
 	if err != nil {
-		klog.Errorf("Failed to create merge patch for workloadCluster %q because: %v", key, err)
+		klog.Errorf("Failed to create merge patch for syncTarget %q because: %v", key, err)
 		return err
 	}
 
-	if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(currentWorkloadCluster)).WorkloadV1alpha1().WorkloadClusters().Patch(ctx, currentWorkloadCluster.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
-		klog.Errorf("failed to patch workload cluster status: %v", err)
+	if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(currentSyncTarget)).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+		klog.Errorf("failed to patch sync target status: %v", err)
 		return err
 	}
-	klog.V(2).InfoS("updated workload cluster status", "WorkloadCluster", newWorkloadCluster.Name, "LogicalCluster", logicalcluster.From(newWorkloadCluster))
+	klog.V(2).InfoS("updated sync target status", "SyncTarget", newSyncTarget.Name, "LogicalCluster", logicalcluster.From(newSyncTarget))
 
 	return nil
 }

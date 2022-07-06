@@ -25,7 +25,7 @@ c "Let's register our kind cluster us-east1 with kcp, as unschedulable"
 pe "kubectl apply -f ${KCP_DIR}/config/crds/workload.kcp.dev_workloadclusters.yaml"
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
 apiVersion: workload.kcp.dev/v1alpha1
-kind: WorkloadCluster
+kind: SyncTarget
 metadata:
   name: kind-us-east1
 spec:

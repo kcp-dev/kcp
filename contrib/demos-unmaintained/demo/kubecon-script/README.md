@@ -28,7 +28,7 @@ This effectively includes a kubeconfig to locate and authenticate with the clust
 
 ```yaml
 apiVersion: workload.kcp.dev/v1alpha1
-kind: WorkloadCluster
+kind: SyncTarget
 metadata:
   name: my-cluster
 spec:

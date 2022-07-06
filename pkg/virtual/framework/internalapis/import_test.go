@@ -21,7 +21,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -66,12 +66,12 @@ func TestImportInternalAPIs(t *testing.T) {
 		},
 		{
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:   "workloadclusters",
-				Singular: "workloadcluster",
-				Kind:     "WorkloadCluster",
+				Plural:   "synctargets",
+				Singular: "synctarget",
+				Kind:     "SyncTarget",
 			},
 			GroupVersion: schema.GroupVersion{Group: "workload.kcp.dev", Version: "v1alpha1"},
-			Instance:     &workloadv1alpha1.WorkloadCluster{},
+			Instance:     &workloadv1alpha1.SyncTarget{},
 			ResourceSope: apiextensionsv1.ClusterScoped,
 			HasStatus:    true,
 		},
@@ -90,6 +90,6 @@ func TestImportInternalAPIs(t *testing.T) {
 		require.NoError(t, err)
 		actualContent, err := yaml.Marshal(schema)
 		require.NoError(t, err)
-		assert.Equal(t, string(expectedContent), string(actualContent), "got:\n%s", string(actualContent))
+		require.Empty(t, cmp.Diff(expectedContent, actualContent))
 	}
 }

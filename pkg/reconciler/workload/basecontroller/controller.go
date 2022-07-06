@@ -54,12 +54,12 @@ func GetLocationInLogicalClusterIndexKey(location string, clusterName logicalclu
 // ClusterReconcileImpl defines the methods that ClusterReconciler
 // will call in response to changes to Cluster resources.
 type ClusterReconcileImpl interface {
-	Reconcile(ctx context.Context, cluster *workloadv1alpha1.WorkloadCluster) error
-	Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.WorkloadCluster)
+	Reconcile(ctx context.Context, cluster *workloadv1alpha1.SyncTarget) error
+	Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.SyncTarget)
 }
 
 type ClusterQueue interface {
-	EnqueueAfter(*workloadv1alpha1.WorkloadCluster, time.Duration)
+	EnqueueAfter(*workloadv1alpha1.SyncTarget, time.Duration)
 }
 
 // NewClusterReconciler returns a new controller which reconciles
@@ -69,7 +69,7 @@ func NewClusterReconciler(
 	name string,
 	reconciler ClusterReconcileImpl,
 	kcpClusterClient *kcpclient.Cluster,
-	clusterInformer workloadinformer.WorkloadClusterInformer,
+	clusterInformer workloadinformer.SyncTargetInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 ) (*ClusterReconciler, ClusterQueue, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
@@ -125,7 +125,7 @@ type queueAdapter struct {
 	}
 }
 
-func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.WorkloadCluster, dur time.Duration) {
+func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.SyncTarget, dur time.Duration) {
 	key, err := cache.MetaNamespaceKeyFunc(cl)
 	if err != nil {
 		runtime.HandleError(err)
@@ -227,7 +227,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 		klog.Errorf("%s: Object with key %q was deleted", c.name, key)
 		return nil
 	}
-	current := obj.(*workloadv1alpha1.WorkloadCluster).DeepCopy()
+	current := obj.(*workloadv1alpha1.SyncTarget).DeepCopy()
 	previous := current.DeepCopy()
 
 	if err := c.reconciler.Reconcile(ctx, current); err != nil {
@@ -236,7 +236,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.kcpClusterClient.Cluster(logicalcluster.From(current)).WorkloadV1alpha1().WorkloadClusters().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClusterClient.Cluster(logicalcluster.From(current)).WorkloadV1alpha1().SyncTargets().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 
@@ -244,14 +244,14 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 }
 
 func (c *ClusterReconciler) deletedCluster(obj interface{}) {
-	castObj, ok := obj.(*workloadv1alpha1.WorkloadCluster)
+	castObj, ok := obj.(*workloadv1alpha1.SyncTarget)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			klog.Errorf("%s: Couldn't get object from tombstone %#v", c.name, obj)
 			return
 		}
-		castObj, ok = tombstone.Obj.(*workloadv1alpha1.WorkloadCluster)
+		castObj, ok = tombstone.Obj.(*workloadv1alpha1.SyncTarget)
 		if !ok {
 			klog.Errorf("%s: Tombstone contained object that is not expected %#v", c.name, obj)
 			return

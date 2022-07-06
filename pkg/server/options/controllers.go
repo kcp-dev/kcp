@@ -34,15 +34,15 @@ import (
 )
 
 type Controllers struct {
-	EnableAll                bool
-	IndividuallyEnabled      []string
-	ApiResource              ApiResourceController
-	WorkloadClusterHeartbeat WorkloadClusterHeartbeatController
-	SAController             kcmoptions.SAControllerOptions
+	EnableAll           bool
+	IndividuallyEnabled []string
+	ApiResource         ApiResourceController
+	SyncTargetHeartbeat SyncTargetHeartbeatController
+	SAController        kcmoptions.SAControllerOptions
 }
 
 type ApiResourceController = apiresource.Options
-type WorkloadClusterHeartbeatController = heartbeat.Options
+type SyncTargetHeartbeatController = heartbeat.Options
 
 var kcmDefaults *kcmoptions.KubeControllerManagerOptions
 
@@ -59,9 +59,9 @@ func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		ApiResource:              *apiresource.DefaultOptions(),
-		WorkloadClusterHeartbeat: *heartbeat.DefaultOptions(),
-		SAController:             *kcmDefaults.SAController,
+		ApiResource:         *apiresource.DefaultOptions(),
+		SyncTargetHeartbeat: *heartbeat.DefaultOptions(),
+		SAController:        *kcmDefaults.SAController,
 	}
 }
 
@@ -72,7 +72,7 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
 	apiresource.BindOptions(&c.ApiResource, fs)
-	heartbeat.BindOptions(&c.WorkloadClusterHeartbeat, fs)
+	heartbeat.BindOptions(&c.SyncTargetHeartbeat, fs)
 
 	c.SAController.AddFlags(fs)
 }
@@ -109,7 +109,7 @@ func (c *Controllers) Validate() []error {
 	if err := c.ApiResource.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := c.WorkloadClusterHeartbeat.Validate(); err != nil {
+	if err := c.SyncTargetHeartbeat.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if saErrs := c.SAController.Validate(); saErrs != nil {

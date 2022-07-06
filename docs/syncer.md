@@ -25,7 +25,7 @@ Current workspace is "root:default:my-workspace".
 $ kubectl kcp workload sync <mycluster> --syncer-image <image name> > syncer.yaml
 ```
 
-1. Create a kind cluster to back the workload cluster
+1. Create a kind cluster to back the sync target
 
 ```sh
 $ kind create cluster
@@ -84,6 +84,6 @@ NAME     READY   UP-TO-DATE   AVAILABLE   AGE
 kcp-syncer   1/1     1            1           13m
 ```
 
-1. Wait for the kcp workload cluster to go ready.
+1. Wait for the kcp sync target to go ready.
 
 TODO(marun)

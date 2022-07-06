@@ -31,8 +31,8 @@ import (
 	syncerbuilder "github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
 )
 
-func (c *Controller) reconcile(workloadCluster *workloadv1alpha1.WorkloadCluster, workspaceShards []*v1alpha1.ClusterWorkspaceShard) (*workloadv1alpha1.WorkloadCluster, error) {
-	workloadClusterCopy := workloadCluster.DeepCopy()
+func (c *Controller) reconcile(syncTarget *workloadv1alpha1.SyncTarget, workspaceShards []*v1alpha1.ClusterWorkspaceShard) (*workloadv1alpha1.SyncTarget, error) {
+	syncTargetCopy := syncTarget.DeepCopy()
 
 	desiredURLs := sets.NewString()
 	for _, workspaceShard := range workspaceShards {
@@ -46,20 +46,20 @@ func (c *Controller) reconcile(workloadCluster *workloadv1alpha1.WorkloadCluster
 				syncerVirtualWorkspaceURL.Path,
 				virtualworkspacesoptions.DefaultRootPathPrefix,
 				syncerbuilder.SyncerVirtualWorkspaceName,
-				logicalcluster.From(workloadClusterCopy).String(),
-				workloadClusterCopy.Name,
+				logicalcluster.From(syncTargetCopy).String(),
+				syncTargetCopy.Name,
 			)
 			desiredURLs.Insert(syncerVirtualWorkspaceURL.String())
 		}
 	}
 
-	workloadClusterCopy.Status.VirtualWorkspaces = nil
+	syncTargetCopy.Status.VirtualWorkspaces = nil
 	for _, url := range desiredURLs.List() {
-		workloadClusterCopy.Status.VirtualWorkspaces = append(
-			workloadClusterCopy.Status.VirtualWorkspaces,
+		syncTargetCopy.Status.VirtualWorkspaces = append(
+			syncTargetCopy.Status.VirtualWorkspaces,
 			workloadv1alpha1.VirtualWorkspace{
 				URL: url,
 			})
 	}
-	return workloadClusterCopy, nil
+	return syncTargetCopy, nil
 }

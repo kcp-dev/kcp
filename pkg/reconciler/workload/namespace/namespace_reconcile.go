@@ -47,11 +47,11 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 			patchNamespace: c.patchNamespace,
 		},
 		&placementSchedulingReconciler{
-			listWorkloadCluster: c.listWorkloadCluster,
-			listPlacement:       c.listPlacement,
-			getLocation:         c.getLocation,
-			enqueueAfter:        c.enqueueAfter,
-			patchNamespace:      c.patchNamespace,
+			listSyncTarget: c.listSyncTarget,
+			listPlacement:  c.listPlacement,
+			getLocation:    c.getLocation,
+			enqueueAfter:   c.enqueueAfter,
+			patchNamespace: c.patchNamespace,
 		},
 		&statusConditionReconciler{
 			patchNamespace: c.patchNamespace,
@@ -75,14 +75,14 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	return utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listWorkloadCluster(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error) {
-	items, err := c.workloadClusterIndexer.ByIndex(byWorkspace, clusterName.String())
+func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+	items, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*workloadv1alpha1.WorkloadCluster, 0, len(items))
+	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(items))
 	for _, item := range items {
-		ret = append(ret, item.(*workloadv1alpha1.WorkloadCluster))
+		ret = append(ret, item.(*workloadv1alpha1.SyncTarget))
 	}
 	return ret, nil
 }

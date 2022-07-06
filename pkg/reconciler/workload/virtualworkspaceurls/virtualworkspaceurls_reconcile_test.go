@@ -29,12 +29,12 @@ import (
 
 func TestReconciler(t *testing.T) {
 	tests := map[string]struct {
-		workspaceShards         []*workspaceapi.ClusterWorkspaceShard
-		workloadCluster         *workloadv1alpha1.WorkloadCluster
-		expectedWorkloadCluster *workloadv1alpha1.WorkloadCluster
-		expectError             bool
+		workspaceShards    []*workspaceapi.ClusterWorkspaceShard
+		syncTarget         *workloadv1alpha1.SyncTarget
+		expectedSyncTarget *workloadv1alpha1.SyncTarget
+		expectError        bool
 	}{
-		"WorkloadCluster with empty VirtualWorkspaces and one workspaceShards": {
+		"SyncTarget with empty VirtualWorkspaces and one workspaceShards": {
 			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -46,29 +46,29 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			workloadCluster: &workloadv1alpha1.WorkloadCluster{
+			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{},
 				},
 			},
-			expectedWorkloadCluster: &workloadv1alpha1.WorkloadCluster{
+			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
 							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
@@ -78,7 +78,7 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"WorkloadCluster and multiple ClusterWorkspaceShards": {
+		"SyncTarget and multiple ClusterWorkspaceShards": {
 			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -108,29 +108,29 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			workloadCluster: &workloadv1alpha1.WorkloadCluster{
+			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{},
 				},
 			},
-			expectedWorkloadCluster: &workloadv1alpha1.WorkloadCluster{
+			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
 							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
@@ -146,7 +146,7 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"WorkloadCluster with multiple ClusterWorkspaceShards with duplicated ExternalURLs results in a deduplicated list of URLs on the WorkloadCluster": {
+		"SyncTarget with multiple ClusterWorkspaceShards with duplicated ExternalURLs results in a deduplicated list of URLs on the SyncTarget": {
 			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -176,29 +176,29 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			workloadCluster: &workloadv1alpha1.WorkloadCluster{
+			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{},
 				},
 			},
-			expectedWorkloadCluster: &workloadv1alpha1.WorkloadCluster{
+			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
 							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
@@ -212,35 +212,35 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"WorkloadCluster but no ClusterWorkspaceShards": {
+		"SyncTarget but no ClusterWorkspaceShards": {
 			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{},
-			workloadCluster: &workloadv1alpha1.WorkloadCluster{
+			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{},
 				},
 			},
-			expectedWorkloadCluster: &workloadv1alpha1.WorkloadCluster{
+			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{},
+				Status: workloadv1alpha1.SyncTargetStatus{},
 			},
 			expectError: false,
 		},
-		"WorkloadCluster from three to one ClusterWorkspaceShards": {
+		"SyncTarget from three to one ClusterWorkspaceShards": {
 			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -252,16 +252,16 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			workloadCluster: &workloadv1alpha1.WorkloadCluster{
+			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
 							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
@@ -275,16 +275,16 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedWorkloadCluster: &workloadv1alpha1.WorkloadCluster{
+			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-cluster",
 					ClusterName: "demo:root:yourworkspace",
 				},
-				Spec: workloadv1alpha1.WorkloadClusterSpec{
+				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
 							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
@@ -298,15 +298,15 @@ func TestReconciler(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c := Controller{}
-			returnedWorkloadCluster, err := c.reconcile(tc.workloadCluster, tc.workspaceShards)
+			returnedSyncTarget, err := c.reconcile(tc.syncTarget, tc.workspaceShards)
 			if err != nil && tc.expectError != true {
 				t.Errorf("unexpected error: %v", err)
 			}
-			sort.Slice(tc.expectedWorkloadCluster.Status.VirtualWorkspaces, func(i, j int) bool {
-				return tc.expectedWorkloadCluster.Status.VirtualWorkspaces[i].URL < tc.expectedWorkloadCluster.Status.VirtualWorkspaces[j].URL
+			sort.Slice(tc.expectedSyncTarget.Status.VirtualWorkspaces, func(i, j int) bool {
+				return tc.expectedSyncTarget.Status.VirtualWorkspaces[i].URL < tc.expectedSyncTarget.Status.VirtualWorkspaces[j].URL
 			})
-			if !reflect.DeepEqual(returnedWorkloadCluster, tc.expectedWorkloadCluster) {
-				t.Errorf("expected: %v, got: %v", tc.expectedWorkloadCluster, returnedWorkloadCluster)
+			if !reflect.DeepEqual(returnedSyncTarget, tc.expectedSyncTarget) {
+				t.Errorf("expected: %v, got: %v", tc.expectedSyncTarget, returnedSyncTarget)
 			}
 		})
 	}

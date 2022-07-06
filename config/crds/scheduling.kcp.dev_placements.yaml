@@ -59,7 +59,7 @@ spec:
                   resource:
                     description: resource is the name of the resource.
                     enum:
-                    - workloadclusters
+                    - synctargets
                     pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                     type: string
                   version:

@@ -60,7 +60,7 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.FromClusterName, "from-cluster", options.FromClusterName, "Name of the -from logical cluster.")
 	fs.StringVar(&options.ToKubeconfig, "to-kubeconfig", options.ToKubeconfig, "Kubeconfig file for -to cluster. If not set, the InCluster configuration will be used.")
 	fs.StringVar(&options.ToContext, "to-context", options.ToContext, "Context to use in the Kubeconfig file for -to cluster, instead of the current context.")
-	fs.StringVar(&options.PclusterID, "workload-cluster-name", options.PclusterID,
+	fs.StringVar(&options.PclusterID, "sync-target-name", options.PclusterID,
 		fmt.Sprintf("ID of the -to cluster. Resources with this ID set in the '%s' label will be synced.", workloadv1alpha1.InternalClusterResourceStateLabelPrefix+"<ClusterID>"))
 	fs.StringArrayVarP(&options.SyncedResourceTypes, "resources", "r", options.SyncedResourceTypes, "Resources to be synchronized in kcp.")
 	fs.DurationVar(&options.APIImportPollInterval, "api-import-poll-interval", options.APIImportPollInterval, "Polling interval for API import.")

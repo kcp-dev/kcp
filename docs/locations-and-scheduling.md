@@ -5,7 +5,7 @@ Kubernetes clusters are attached to a kcp installation to execute workload objec
 workspaces by syncing these workload objects down to those clusters and the objects' status
 back up. This gives the illusion of native compute in KCP.
 
-We call it *Compute as a Service* because the registered `WorkloadClusters` live in workspaces that
+We call it *Compute as a Service* because the registered `SyncTargets` live in workspaces that
 are (normally) invisible to the users, and the teams operating compute can be different from
 the compute consumers.
 
@@ -16,28 +16,28 @@ The APIs used for Compute as a Service are:
 
 ## Main Concepts
 
-- `WorkloadCluster` in `workload.kcp.dev/v1alpha1` – representations of Kubernetes clusters that are attached to a kcp installation to
-  execute workload objects from the users' workspaces. On the workload clusters, there is one syncer
-  process for each `WorkloadCluster` object. 
+- `SyncTarget` in `workload.kcp.dev/v1alpha1` – representations of Kubernetes clusters that are attached to a kcp installation to
+  execute workload objects from the users' workspaces. On a Kubernetes cluster, there is one syncer
+  process for each `SyncTarget` object. 
 
-  Workload clusters are invisible to users, and (medium term) at most identified via a UID.
+  Sync targets are invisible to users, and (medium term) at most identified via a UID.
 
-- `Location` in `scheduling.kcp.dev/v1alpha1` – represents a collection of `WorkloadCluster` objects selected via instance labels, and
+- `Location` in `scheduling.kcp.dev/v1alpha1` – represents a collection of `SyncTarget` objects selected via instance labels, and
   exposes labels (potentially different from the instance labels) to the users to describe, identify and select locations to be used
-  for placement of user namespaces onto workload clusters.
+  for placement of user namespaces onto sync targets.
 
   Locations are visible to users, but owned by the compute service team, i.e. read-only to the users and only projected
   into their workspaces for visibility. A placement decision references a location by name.
 
 - *Compute Service Workspace* (previously *Negotiation Workspace*) – the workspace owned by the compute service team to hold
-  the `APIExport` (named `kubernetes` today) with the synced resources, and `WorkloadCluster` and `Location` objects.
+  the `APIExport` (named `kubernetes` today) with the synced resources, and `SyncTarget` and `Location` objects.
 
   The user binds to the `APIExport` called `kubernetes` using an `APIBinding`. From this moment on, the users' workspaces
   are subject to placement.
 
-- *Placement* – the process of selecting a `Location` matching the scheduling constraints and a `WorkloadCluster` in that location
+- *Placement* – the process of selecting a `Location` matching the scheduling constraints and a `SyncTarget` in that location
   for a user namespace. A placement decision is not necessarily permanent and can be changed over time. The placement onto a location
-  is sticky, while the placement onto a workload cluster is not. I.e. when evicted from a workload cluster, another workload cluster
+  is sticky, while the placement onto a sync target is not. I.e. when evicted from a sync target, another sync target
   in the same location is selected.
 
 Note: binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
@@ -67,13 +67,13 @@ There are two state machines involved in TMC.
 The placement state is one of
 - `Pending` – the placement controller waits for the namespace controller to adopt the namespace 
   by setting setting the state to `Bound`.
-- `Bound` – the namespace is bound to a workload cluster and with that to a syncer.
+- `Bound` – the namespace is bound to a sync target and with that to a syncer.
 - `Removing` – the placement controller can set the state to `Removing` in order to ask the namespace controller to
-  start the process of removing the namespace from the workload cluster.
-- `Unbound` – the namespace has been removed and with that released by the workload cluster and with that from a syncer.
+  start the process of removing the namespace from the sync target.
+- `Unbound` – the namespace has been removed and with that released by the sync target and with that from a syncer.
   This state is set by the namespace controller. The placement controller will notice, and remove the entry in the placement annotation.
 
-The location strings are of the form `<locationClusterName>+<locationName>+<workloadClusterIdentifier>`.
+The location strings are of the form `<locationClusterName>+<locationName>+<syncTargetIdentifier>`.
 
 Example:
 
@@ -85,7 +85,7 @@ kind: Namespace
     scheduling.kcp.dev/placement: {"root:compute+us-east1-gcp+a7fcajg8a-a9sf-a738":"Bound"}
 ```
 
-Note: multiple workload clusters can be bound at the same time.
+Note: multiple sync targets can be bound at the same time.
 
 The placement state machine is (to be) protected against mutation by the user via admission. The user interface
 to influence the placement decisions is (will be) the `Placement` object.
@@ -105,7 +105,7 @@ Note: in the future, the label on the resources is first set to empty string `""
 able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
 `finalizers.workload.kcp.dev/<cluster-id>` annotation such that the coordination controller gets full control over 
 the downstream life-cycle of the objects per location (imagine an ingress that blocks downstream removal until the new replicas
-have been launched on another workload cluster). Finally, the coordination controller will replace the empty string with `Sync`
+have been launched on another sync target). Finally, the coordination controller will replace the empty string with `Sync`
 such that the state machine continues.
 
 With the state label set to `Sync`, the syncer will start seeing the resources in the namespace

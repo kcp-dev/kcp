@@ -16,15 +16,15 @@ limitations under the License.
 
 // Package syncer and its sub-packages provide the Syncer Virtual Workspace.
 //
-// It exposes an APIserver URL for each WorkloadCluster hosting a syncer agent,
-// with REST endpoints for APIs that have been imported from this WorkloadCluster and published.
+// It exposes an APIserver URL for each SyncTarget hosting a syncer agent,
+// with REST endpoints for APIs that have been imported from this SyncTarget and published.
 //
 // It combines and integrates:
 //
 // - a controller (APIReconciler) that watches for available APIResourceImports and updates the list of installed APIs
-// for the corresponding WorkloadCluster (in the ./controllers package)
+// for the corresponding SyncTarget (in the ./controllers package)
 //
-// - a DynamicVirtualWorkspace instantiation that exposes and serve installed APIs on the right workload-cluster-dedicated path
+// - a DynamicVirtualWorkspace instantiation that exposes and serve installed APIs on the right sync-target-dedicated path
 // through CRD-like handlers (in the ../framework/dynamic package)
 //
 // - a REST storage implementation, named ForwardingREST, that can dynamically serve resources by delegating to

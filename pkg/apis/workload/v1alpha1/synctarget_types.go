@@ -24,7 +24,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
-// WorkloadCluster describes a member cluster capable of running workloads.
+// SyncTarget describes a member cluster capable of running workloads.
 //
 // +crd
 // +genclient
@@ -35,25 +35,25 @@ import (
 // +kubebuilder:printcolumn:name="Location",type="string",JSONPath=`.metadata.name`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`,priority=2
 // +kubebuilder:printcolumn:name="Synced API resources",type="string",JSONPath=`.status.syncedResources`,priority=3
-type WorkloadCluster struct {
+type SyncTarget struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state.
 	// +optional
-	Spec WorkloadClusterSpec `json:"spec,omitempty"`
+	Spec SyncTargetSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state.
 	// +optional
-	Status WorkloadClusterStatus `json:"status,omitempty"`
+	Status SyncTargetStatus `json:"status,omitempty"`
 }
 
-var _ conditions.Getter = &WorkloadCluster{}
-var _ conditions.Setter = &WorkloadCluster{}
+var _ conditions.Getter = &SyncTarget{}
+var _ conditions.Setter = &SyncTarget{}
 
-// WorkloadClusterSpec holds the desired state of the WorkloadCluster (from the client).
-type WorkloadClusterSpec struct {
+// SyncTargetSpec holds the desired state of the SyncTarget (from the client).
+type SyncTargetSpec struct {
 	// Unschedulable controls cluster schedulability of new workloads. By
 	// default, cluster is schedulable.
 	// +optional
@@ -67,8 +67,8 @@ type WorkloadClusterSpec struct {
 	EvictAfter *metav1.Time `json:"evictAfter,omitempty"`
 }
 
-// WorkloadClusterStatus communicates the observed state of the WorkloadCluster (from the controller).
-type WorkloadClusterStatus struct {
+// SyncTargetStatus communicates the observed state of the SyncTarget (from the controller).
+type SyncTargetStatus struct {
 
 	// Allocatable represents the resources that are available for scheduling.
 	// +optional
@@ -78,7 +78,7 @@ type WorkloadClusterStatus struct {
 	// +optional
 	Capacity *corev1.ResourceList `json:"capacity,omitempty"`
 
-	// Current processing state of the WorkloadCluster.
+	// Current processing state of the SyncTarget.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
@@ -103,38 +103,38 @@ type VirtualWorkspace struct {
 	URL string `json:"url"`
 }
 
-// WorkloadClusterList is a list of WorkloadCluster resources
+// SyncTargetList is a list of SyncTarget resources
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type WorkloadClusterList struct {
+type SyncTargetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []WorkloadCluster `json:"items"`
+	Items []SyncTarget `json:"items"`
 }
 
-// Conditions and ConditionReasons for the kcp WorkloadCluster object.
+// Conditions and ConditionReasons for the kcp SyncTarget object.
 const (
-	// SyncerReady means the syncer is ready to transfer resources between KCP and the WorkloadCluster.
+	// SyncerReady means the syncer is ready to transfer resources between KCP and the SyncTarget.
 	SyncerReady conditionsv1alpha1.ConditionType = "SyncerReady"
 
-	// APIImporterReady means the APIImport component is ready to import APIs from the WorkloadCluster.
+	// APIImporterReady means the APIImport component is ready to import APIs from the SyncTarget.
 	APIImporterReady conditionsv1alpha1.ConditionType = "APIImporterReady"
 
-	// HeartbeatHealthy means the HeartbeatManager has seen a heartbeat for the WorkloadCluster within the expected interval.
+	// HeartbeatHealthy means the HeartbeatManager has seen a heartbeat for the SyncTarget within the expected interval.
 	HeartbeatHealthy conditionsv1alpha1.ConditionType = "HeartbeatHealthy"
 
-	// WorkloadClusterUnknownReason documents a WorkloadCluster which readiness is unknown.
-	WorkloadClusterUnknownReason = "WorkloadClusterStatusUnknown"
+	// SyncTargetUnknownReason documents a SyncTarget which readiness is unknown.
+	SyncTargetUnknownReason = "SyncTargetStatusUnknown"
 
-	// WorkloadClusterReadyReason documents a WorkloadCluster that is ready.
-	WorkloadClusterReadyReason = "WorkloadClusterReady"
+	// SyncTargetReadyReason documents a SyncTarget that is ready.
+	SyncTargetReadyReason = "SyncTargetReady"
 
-	// WorkloadClusterNotReadyReason documents a WorkloadCluster is not ready, when the "readyz" check returns false.
-	WorkloadClusterNotReadyReason = "WorkloadClusterNotReady"
+	// SyncTargetNotReadyReason documents a SyncTarget is not ready, when the "readyz" check returns false.
+	SyncTargetNotReadyReason = "SyncTargetNotReady"
 
-	// WorkloadClusterUnreachableReason documents the WorkloadCluster state when the Syncer is unable to reach the WorkloadCluster "readyz" API endpoint
-	WorkloadClusterUnreachableReason = "WorkloadClusterUnreachable"
+	// SyncTargetUnreachableReason documents the SyncTarget state when the Syncer is unable to reach the SyncTarget "readyz" API endpoint
+	SyncTargetUnreachableReason = "SyncTargetUnreachable"
 
 	// ErrorStartingSyncerReason indicates that the Syncer failed to start.
 	ErrorStartingSyncerReason = "ErrorStartingSyncer"
@@ -155,10 +155,10 @@ const (
 	ErrorHeartbeatMissedReason = "ErrorHeartbeat"
 )
 
-func (in *WorkloadCluster) SetConditions(conditions conditionsv1alpha1.Conditions) {
+func (in *SyncTarget) SetConditions(conditions conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = conditions
 }
 
-func (in *WorkloadCluster) GetConditions() conditionsv1alpha1.Conditions {
+func (in *SyncTarget) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
 }

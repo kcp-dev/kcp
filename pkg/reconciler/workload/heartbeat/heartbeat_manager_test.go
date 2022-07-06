@@ -49,7 +49,7 @@ func TestManager(t *testing.T) {
 	}} {
 		t.Run(c.desc, func(t *testing.T) {
 			var enqueued time.Duration
-			enqueueFunc := func(_ *workloadv1alpha1.WorkloadCluster, dur time.Duration) {
+			enqueueFunc := func(_ *workloadv1alpha1.SyncTarget, dur time.Duration) {
 				enqueued = dur
 			}
 			mgr := clusterManager{
@@ -58,8 +58,8 @@ func TestManager(t *testing.T) {
 			}
 			ctx := context.Background()
 			heartbeat := metav1.NewTime(c.lastHeartbeatTime)
-			cl := &workloadv1alpha1.WorkloadCluster{
-				Status: workloadv1alpha1.WorkloadClusterStatus{
+			cl := &workloadv1alpha1.SyncTarget{
+				Status: workloadv1alpha1.SyncTargetStatus{
 					Conditions: []conditionsv1alpha1.Condition{{
 						Type:   workloadv1alpha1.HeartbeatHealthy,
 						Status: corev1.ConditionTrue,

@@ -31,7 +31,7 @@ import (
 
 type WorkloadV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	WorkloadClustersGetter
+	SyncTargetsGetter
 }
 
 // WorkloadV1alpha1Client is used to interact with features provided by the workload.kcp.dev group.
@@ -40,8 +40,8 @@ type WorkloadV1alpha1Client struct {
 	cluster    logicalcluster.Name
 }
 
-func (c *WorkloadV1alpha1Client) WorkloadClusters() WorkloadClusterInterface {
-	return newWorkloadClusters(c)
+func (c *WorkloadV1alpha1Client) SyncTargets() SyncTargetInterface {
+	return newSyncTargets(c)
 }
 
 // NewForConfig creates a new WorkloadV1alpha1Client for the given config.

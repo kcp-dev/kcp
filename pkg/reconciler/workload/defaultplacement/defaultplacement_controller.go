@@ -219,7 +219,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			LocationResource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 			LocationWorkspace: workloadBinding.Spec.Reference.Workspace.Path,
 		},

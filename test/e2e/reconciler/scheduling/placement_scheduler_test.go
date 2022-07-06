@@ -65,13 +65,13 @@ func TestPlacementUpdate(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	firstWorkloadClusterName := fmt.Sprintf("workloadcluster-%d", +rand.Intn(1000000))
-	t.Logf("Creating a WorkloadCluster and syncer in %s", locationClusterName)
+	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	syncerFixture := framework.SyncerFixture{
 		ResourcesToSync:      sets.NewString("services"),
 		UpstreamServer:       source,
 		WorkspaceClusterName: locationClusterName,
-		WorkloadClusterName:  firstWorkloadClusterName,
+		SyncTargetName:       firstSyncTargetName,
 		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
 			if !isLogicalCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -144,7 +144,7 @@ func TestPlacementUpdate(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"test.workload.kcp.dev": firstWorkloadClusterName,
+				"test.workload.kcp.dev": firstSyncTargetName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -165,14 +165,14 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		return svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstWorkloadClusterName] == string(workloadv1alpha1.ResourceStateSync), ""
+		return svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for the service to be sync to the downstream cluster")
 	var downstreamServices *corev1.ServiceList
 	framework.Eventually(t, func() (bool, string) {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstWorkloadClusterName,
+			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
 		})
 
 		if err != nil {
@@ -217,7 +217,7 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get ns: %v", err)
 		}
 
-		if len(ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstWorkloadClusterName]) == 0 {
+		if len(ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetName]) == 0 {
 			return false, fmt.Sprintf("resource should be removed but got %s", toYaml(ns))
 		}
 		return true, ""
@@ -229,7 +229,7 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstWorkloadClusterName]) == 0 {
+		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetName]) == 0 {
 			return false, fmt.Sprintf("resource should be removed but got %s", toYaml(svc))
 		}
 		return true, ""
@@ -238,7 +238,7 @@ func TestPlacementUpdate(t *testing.T) {
 	t.Logf("Wait for the service to be removed in the downstream cluster")
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstWorkloadClusterName,
+			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
 		})
 		if errors.IsNotFound(err) {
 			return false
@@ -292,7 +292,7 @@ func TestPlacementUpdate(t *testing.T) {
 			LocationResource: schedulingv1alpha1.GroupVersionResource{
 				Group:    "workload.kcp.dev",
 				Version:  "v1alpha1",
-				Resource: "workloadclusters",
+				Resource: "synctargets",
 			},
 			LocationWorkspace: locationClusterName.String(),
 		},
@@ -317,16 +317,16 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstWorkloadClusterName]) != 0 {
+		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetName]) != 0 {
 			return false, fmt.Sprintf("resource should not be removed but got %s", toYaml(svc))
 		}
-		return svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstWorkloadClusterName] == string(workloadv1alpha1.ResourceStateSync), ""
+		return svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for the service to be sync to the downstream cluster")
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstWorkloadClusterName,
+			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
 		})
 		if errors.IsNotFound(err) {
 			return false

@@ -41,11 +41,11 @@ import (
 const removingGracePeriod = 5 * time.Second
 
 // placementSchedulingReconciler schedules a workload for this ns. It checks the current placement annotation on the ns,
-// and find all valid workloadclusters.
+// and find all valid synctargets.
 type placementSchedulingReconciler struct {
-	listWorkloadCluster func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.WorkloadCluster, error)
-	listPlacement       func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
-	getLocation         func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error)
+	listSyncTarget func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
+	listPlacement  func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
+	getLocation    func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error)
 
 	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 
@@ -53,13 +53,13 @@ type placementSchedulingReconciler struct {
 }
 
 type locationClusters struct {
-	candidates       map[string]*workloadv1alpha1.WorkloadCluster
-	scheduledCluster *workloadv1alpha1.WorkloadCluster
+	candidates       map[string]*workloadv1alpha1.SyncTarget
+	scheduledCluster *workloadv1alpha1.SyncTarget
 }
 
-func newLocationClusters(clusters []*workloadv1alpha1.WorkloadCluster) *locationClusters {
+func newLocationClusters(clusters []*workloadv1alpha1.SyncTarget) *locationClusters {
 	l := &locationClusters{
-		candidates: map[string]*workloadv1alpha1.WorkloadCluster{},
+		candidates: map[string]*workloadv1alpha1.SyncTarget{},
 	}
 
 	for _, cluster := range clusters {
@@ -73,15 +73,15 @@ func (l *locationClusters) scheduled() bool {
 	return l.scheduledCluster != nil
 }
 
-func (l *locationClusters) exclude(workloadClusterName string) {
-	delete(l.candidates, workloadClusterName)
+func (l *locationClusters) exclude(syncTargetName string) {
+	delete(l.candidates, syncTargetName)
 }
 
-// potentiallySchedule sets a workloadCluster as a scheduled cluster for this location if
-// this workloadCluster is a valid candidate and this location is not scheduled yet, and
+// potentiallySchedule sets a syncTarget as a scheduled cluster for this location if
+// this syncTarget is a valid candidate and this location is not scheduled yet, and
 // return true.
-func (l *locationClusters) potentiallySchedule(workloadClusterName string) bool {
-	cluster, found := l.candidates[workloadClusterName]
+func (l *locationClusters) potentiallySchedule(syncTargetName string) bool {
+	cluster, found := l.candidates[syncTargetName]
 	if !found {
 		return false
 	}
@@ -94,12 +94,12 @@ func (l *locationClusters) potentiallySchedule(workloadClusterName string) bool 
 	return true
 }
 
-func (l *locationClusters) schedule() *workloadv1alpha1.WorkloadCluster {
+func (l *locationClusters) schedule() *workloadv1alpha1.SyncTarget {
 	if len(l.candidates) == 0 {
 		return nil
 	}
 
-	var candidates []*workloadv1alpha1.WorkloadCluster
+	var candidates []*workloadv1alpha1.SyncTarget
 	for _, cluster := range l.candidates {
 		candidates = append(candidates, cluster)
 	}
@@ -123,11 +123,11 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		validPlacements = filterValidPlacements(ns, placements)
 	}
 
-	// 1. pick all workload cluster in all bound placements
+	// 1. pick all sync targets in all bound placements
 	validLocationClusters := map[schedulingv1alpha1.LocationReference]*locationClusters{}
 	var errs []error
 	for _, placement := range validPlacements {
-		clusters, err := r.getAllValidWorkloadClustersForPlacement(clusterName, placement, ns)
+		clusters, err := r.getAllValidSyncTargetsForPlacement(clusterName, placement, ns)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -142,7 +142,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		return reconcileStatusStop, ns, utilerrors.NewAggregate(errs)
 	}
 
-	// 2. find the scheduled workload cluster to the ns, including synced, removing
+	// 2. find the scheduled sync target to the ns, including synced, removing
 	synced, removing := syncedRemovingCluster(ns)
 
 	// 3. if the synced cluster is in the valid clusters, stop scheduling
@@ -152,8 +152,8 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	for _, cluster := range synced {
 		clusterScheduledByLocation := false
 		for _, locationClusters := range validLocationClusters {
-			//this is non deterministic when the same workload clusters are selected in multiple locations.
-			// TODO(qiujian16): consider if we need to save the location/workloadcluster mappings in the ns.
+			// this is non deterministic when the same sync targets are selected in multiple locations.
+			// TODO(qiujian16): consider if we need to save the location/synctarget mappings in the ns.
 			if locationClusters.potentiallySchedule(cluster) {
 				clusterScheduledByLocation = true
 			}
@@ -192,7 +192,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 
 	// 5. randomly select a cluster if there is no cluster syncing currently.
 	// TODO(qiujian16): we currently schedule each in each location independently. It cannot guarantee 1 cluster is schedule per location
-	// when the same workloadclusters are in multiple locations, we need to rethink whether we need a better algorithm or we need location
+	// when the same synctargets are in multiple locations, we need to rethink whether we need a better algorithm or we need location
 	// to be exclusive.
 	for _, locationClusters := range validLocationClusters {
 		if locationClusters.scheduled() {
@@ -213,7 +213,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		return reconcileStatusContinue, ns, err
 	}
 
-	//6. Requeue at last to check if removing cluster should be removed later.
+	// 6. Requeue at last to check if removing cluster should be removed later.
 	if minEnqueueDuration <= removingGracePeriod {
 		klog.V(2).Infof("enqueue ns %s|%s after %s", clusterName, ns.Name, minEnqueueDuration)
 		r.enqueueAfter(ns, minEnqueueDuration)
@@ -222,7 +222,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	return reconcileStatusContinue, ns, nil
 }
 
-func (r *placementSchedulingReconciler) getAllValidWorkloadClustersForPlacement(clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement, ns *corev1.Namespace) ([]*workloadv1alpha1.WorkloadCluster, error) {
+func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement, ns *corev1.Namespace) ([]*workloadv1alpha1.SyncTarget, error) {
 	if placement.Status.Phase == schedulingv1alpha1.PlacementPending || placement.Status.SelectedLocation == nil {
 		return nil, nil
 	}
@@ -238,19 +238,19 @@ func (r *placementSchedulingReconciler) getAllValidWorkloadClustersForPlacement(
 		return nil, err
 	}
 
-	// find all workloadclusters in the location workspace
-	workloadClusters, err := r.listWorkloadCluster(locationWorkspace)
+	// find all synctargets in the location workspace
+	syncTargets, err := r.listSyncTarget(locationWorkspace)
 	if err != nil {
 		return nil, err
 	}
 
-	// filter the workload clusters by location
-	locationClusters, err := locationreconciler.LocationWorkloadClusters(workloadClusters, location)
+	// filter the sync targets by location
+	locationClusters, err := locationreconciler.LocationSyncTargets(syncTargets, location)
 	if err != nil {
 		return nil, err
 	}
 
-	// find all the valid workload clusters.
+	// find all the valid sync targets.
 	validClusters := locationreconciler.FilterNonEvicting(locationreconciler.FilterReady(locationClusters))
 
 	return validClusters, nil
@@ -272,7 +272,7 @@ func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx contex
 	if err != nil {
 		return ns, err
 	}
-	klog.V(3).Infof("Patching to update workload cluster information on namespace %s|%s: %s",
+	klog.V(3).Infof("Patching to update sync target information on namespace %s|%s: %s",
 		clusterName, ns.Name, string(patchBytes))
 	updated, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
@@ -290,17 +290,17 @@ func syncedRemovingCluster(ns *corev1.Namespace) ([]string, map[string]time.Time
 			continue
 		}
 
-		workloadCluster := strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix)
+		syncTarget := strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix)
 
-		deletionAnnotationKey := workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + workloadCluster
+		deletionAnnotationKey := workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + syncTarget
 
 		if value, ok := ns.Annotations[deletionAnnotationKey]; ok {
 			removingTime, _ := time.Parse(time.RFC3339, value)
-			removing[workloadCluster] = removingTime
+			removing[syncTarget] = removingTime
 			continue
 		}
 
-		synced = append(synced, workloadCluster)
+		synced = append(synced, syncTarget)
 	}
 
 	return synced, removing

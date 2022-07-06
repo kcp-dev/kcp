@@ -158,7 +158,7 @@ func setScheduledCondition(ns *corev1.Namespace) *corev1.Namespace {
 	if len(synced) == 0 {
 		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonUnschedulable,
 			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
-			"No available workload clusters")
+			"No available sync targets")
 		return updatedNs
 	}
 

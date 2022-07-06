@@ -33,60 +33,60 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 )
 
-// WorkloadClusterInformer provides access to a shared informer and lister for
-// WorkloadClusters.
-type WorkloadClusterInformer interface {
+// SyncTargetInformer provides access to a shared informer and lister for
+// SyncTargets.
+type SyncTargetInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.WorkloadClusterLister
+	Lister() v1alpha1.SyncTargetLister
 }
 
-type workloadClusterInformer struct {
+type syncTargetInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewWorkloadClusterInformer constructs a new informer for WorkloadCluster type.
+// NewSyncTargetInformer constructs a new informer for SyncTarget type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewWorkloadClusterInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredWorkloadClusterInformer(client, resyncPeriod, indexers, nil)
+func NewSyncTargetInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredSyncTargetInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredWorkloadClusterInformer constructs a new informer for WorkloadCluster type.
+// NewFilteredSyncTargetInformer constructs a new informer for SyncTarget type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredWorkloadClusterInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewFilteredWorkloadClusterInformerWithOptions(client, tweakListOptions, cache.WithResyncPeriod(resyncPeriod), cache.WithIndexers(indexers))
+func NewFilteredSyncTargetInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return NewFilteredSyncTargetInformerWithOptions(client, tweakListOptions, cache.WithResyncPeriod(resyncPeriod), cache.WithIndexers(indexers))
 }
 
-func NewFilteredWorkloadClusterInformerWithOptions(client versioned.Interface, tweakListOptions internalinterfaces.TweakListOptionsFunc, opts ...cache.SharedInformerOption) cache.SharedIndexInformer {
+func NewFilteredSyncTargetInformerWithOptions(client versioned.Interface, tweakListOptions internalinterfaces.TweakListOptionsFunc, opts ...cache.SharedInformerOption) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformerWithOptions(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WorkloadV1alpha1().WorkloadClusters().List(context.TODO(), options)
+				return client.WorkloadV1alpha1().SyncTargets().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WorkloadV1alpha1().WorkloadClusters().Watch(context.TODO(), options)
+				return client.WorkloadV1alpha1().SyncTargets().Watch(context.TODO(), options)
 			},
 		},
-		&workloadv1alpha1.WorkloadCluster{},
+		&workloadv1alpha1.SyncTarget{},
 		opts...,
 	)
 }
 
-func (f *workloadClusterInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+func (f *syncTargetInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	indexers := cache.Indexers{}
 	for k, v := range f.factory.ExtraClusterScopedIndexers() {
 		indexers[k] = v
 	}
 
-	return NewFilteredWorkloadClusterInformerWithOptions(client,
+	return NewFilteredSyncTargetInformerWithOptions(client,
 		f.tweakListOptions,
 		cache.WithResyncPeriod(resyncPeriod),
 		cache.WithIndexers(indexers),
@@ -94,10 +94,10 @@ func (f *workloadClusterInformer) defaultInformer(client versioned.Interface, re
 	)
 }
 
-func (f *workloadClusterInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&workloadv1alpha1.WorkloadCluster{}, f.defaultInformer)
+func (f *syncTargetInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&workloadv1alpha1.SyncTarget{}, f.defaultInformer)
 }
 
-func (f *workloadClusterInformer) Lister() v1alpha1.WorkloadClusterLister {
-	return v1alpha1.NewWorkloadClusterLister(f.Informer().GetIndexer())
+func (f *syncTargetInformer) Lister() v1alpha1.SyncTargetLister {
+	return v1alpha1.NewSyncTargetLister(f.Informer().GetIndexer())
 }

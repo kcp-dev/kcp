@@ -29,8 +29,8 @@ type FakeWorkloadV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeWorkloadV1alpha1) WorkloadClusters() v1alpha1.WorkloadClusterInterface {
-	return &FakeWorkloadClusters{c}
+func (c *FakeWorkloadV1alpha1) SyncTargets() v1alpha1.SyncTargetInterface {
+	return &FakeSyncTargets{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -56,7 +56,7 @@
 				},
 				"cwd": "${workspaceFolder:kcp}",
 				"args": [
-					"--workload-cluster-name",
+					"--sync-target-name",
 					"us-west1",
 					"--from-kubeconfig",
 					"${workspaceFolder:kcp}/.kcp/admin.kubeconfig",

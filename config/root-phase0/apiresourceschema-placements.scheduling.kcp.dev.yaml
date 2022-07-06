@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220628-546034da.placements.scheduling.kcp.dev
+  name: v220706-3993e86b.placements.scheduling.kcp.dev
 spec:
   group: scheduling.kcp.dev
   names:
@@ -54,7 +54,7 @@ spec:
                 resource:
                   description: resource is the name of the resource.
                   enum:
-                  - workloadclusters
+                  - synctargets
                   pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                   type: string
                 version:

@@ -162,7 +162,7 @@ var (
 		"run-controllers",                        // Run the controllers in-process
 		"run-virtual-workspaces",                 // Run the virtual workspaces apiservers in-process
 		"unsupported-run-individual-controllers", // Run individual controllers in-process. The controller names can change at any time.
-		"workload-cluster-heartbeat-threshold",   // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
+		"sync-target-heartbeat-threshold",        // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
 
 		// generic flags
 		"cors-allowed-origins",                 // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.

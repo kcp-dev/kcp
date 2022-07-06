@@ -52,7 +52,7 @@ import (
 const SyncerVirtualWorkspaceName string = "syncer"
 
 // BuildVirtualWorkspace builds a SyncerVirtualWorkspace by instanciating a DynamicVirtualWorkspace which, combined with a
-// ForwardingREST REST storage implementation, serves a WorkloadClusterAPI list maintained by the APIReconciler controller.
+// ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	kubeClusterClient kubernetes.ClusterInterface,
@@ -82,7 +82,7 @@ func BuildVirtualWorkspace(
 			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 			// Incoming requests to this virtual workspace will look like:
-			//  /services/syncer/root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
+			//  /services/syncer/root:org:ws/<sync-target-name>/clusters/*/api/v1/configmaps
 			//                  └───────────────────────────┐
 			// Where the withoutRootPathPrefix starts here: ┘
 			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
@@ -97,7 +97,7 @@ func BuildVirtualWorkspace(
 				realPath += parts[2]
 			}
 
-			//  /services/syncer/root:org:ws/<workload-cluster-name>/clusters/*/api/v1/configmaps
+			//  /services/syncer/root:org:ws/<sync-target-name>/clusters/*/api/v1/configmaps
 			//                  ┌───────────────────────────────────┘
 			// We are now here: ┘
 			// Now, we parse out the logical cluster.
@@ -118,15 +118,15 @@ func BuildVirtualWorkspace(
 			}
 
 			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			completedContext = syncercontext.WithWorkloadClusterName(completedContext, workloadCusterName)
+			completedContext = syncercontext.WithSyncTargetName(completedContext, workloadCusterName)
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
 		}),
 		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-			workloadClusterKey := dynamiccontext.APIDomainKeyFrom(ctx)
-			negotiationWorkspaceName, workloadClusterName := clusters.SplitClusterAwareKey(string(workloadClusterKey))
+			syncTargetKey := dynamiccontext.APIDomainKeyFrom(ctx)
+			negotiationWorkspaceName, syncTargetName := clusters.SplitClusterAwareKey(string(syncTargetKey))
 
 			authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, kubeClusterClient)
 			if err != nil {
@@ -135,10 +135,10 @@ func BuildVirtualWorkspace(
 			SARAttributes := authorizer.AttributesRecord{
 				User:            a.GetUser(),
 				Verb:            "sync",
-				Name:            workloadClusterName,
+				Name:            syncTargetName,
 				APIGroup:        workloadv1alpha1.SchemeGroupVersion.Group,
 				APIVersion:      workloadv1alpha1.SchemeGroupVersion.Version,
-				Resource:        "workloadclusters",
+				Resource:        "synctargets",
 				ResourceRequest: true,
 			}
 			return authz.Authorize(ctx, SARAttributes)
@@ -154,12 +154,12 @@ func BuildVirtualWorkspace(
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
-				wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters(),
+				wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(workloadClusterName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+				func(syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 					requirements, selectable := labels.SelectorFromSet(map[string]string{
-						workloadv1alpha1.InternalClusterResourceStateLabelPrefix + workloadClusterName: string(workloadv1alpha1.ResourceStateSync),
+						workloadv1alpha1.InternalClusterResourceStateLabelPrefix + syncTargetName: string(workloadv1alpha1.ResourceStateSync),
 					}).Requirements()
 					if !selectable {
 						return nil, fmt.Errorf("unable to create a selector from the provided labels")
@@ -187,7 +187,7 @@ func BuildVirtualWorkspace(
 				defer close(readyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
-					"workloadclusters":   wildcardKcpInformers.Workload().V1alpha1().WorkloadClusters().Informer(),
+					"synctargets":        wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
 					"apiresourceschemas": wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 					"apiexports":         wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
 				} {
