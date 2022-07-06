@@ -224,17 +224,6 @@ type ClusterWorkspaceTypeSpec struct {
 	//
 	// +optional
 	AllowedParents *ClusterWorkspaceTypeSelector `json:"allowedParents,omitempty"`
-
-	// allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type
-	// can be created in.
-	//
-	// By default, no type is allowed. This means no other workspace can have a
-	// workspace of the given type nested inside it. Use allowAnyParentWorkspaceTypes
-	// to be permissive with parent types.
-	//
-	// +optional
-	// +kubebuilder:validation:MinItems=1
-	AllowedParentWorkspaceTypes []ClusterWorkspaceTypeReference `json:"allowedParentWorkspaceTypes,omitempty"`
 }
 
 // ClusterWorkspaceTypeSelector describes a set of types.
