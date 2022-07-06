@@ -21,12 +21,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -36,8 +39,6 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -50,10 +51,16 @@ const (
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
-			return &clusterWorkspaceTypeExists{
+			plugin := &clusterWorkspaceTypeExists{
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
-			}, nil
+			}
+			plugin.transitiveTypeResolver = transitiveTypeResolver{
+				getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+					return plugin.typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+				},
+			}
+			return plugin, nil
 		})
 }
 
@@ -63,9 +70,10 @@ func Register(plugins *admission.Plugins) {
 //   transitions to the Initializing state.
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
-	typeLister        tenancyv1alpha1lister.ClusterWorkspaceTypeLister
-	workspaceLister   tenancyv1alpha1lister.ClusterWorkspaceLister
-	kubeClusterClient *kubernetes.Cluster
+	typeLister             tenancyv1alpha1lister.ClusterWorkspaceTypeLister
+	workspaceLister        tenancyv1alpha1lister.ClusterWorkspaceLister
+	kubeClusterClient      *kubernetes.Cluster
+	transitiveTypeResolver transitiveTypeResolver
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
@@ -107,18 +115,22 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			if err != nil {
 				return apierrors.NewInternalError(err)
 			}
-			parentCwt, resolutionError := o.resolveParentType(clusterName)
-			if resolutionError != nil {
-				return admission.NewForbidden(a, resolutionError)
+			parentTypeRef, err := o.resolveParentType(clusterName)
+			if err != nil {
+				return admission.NewForbidden(a, err)
+			}
+			parentCwt, err := o.resolveTypeRef(parentTypeRef)
+			if err != nil {
+				return admission.NewForbidden(a, err)
 			}
 			if parentCwt == nil || parentCwt.Spec.DefaultChildWorkspaceType == nil {
 				return admission.NewForbidden(a, errors.New("spec.type must be set"))
 			}
 			cw.Spec.Type = *parentCwt.Spec.DefaultChildWorkspaceType
 		}
-		cwt, resolutionError := o.resolveType(cw.Spec.Type)
-		if resolutionError != nil {
-			return admission.NewForbidden(a, resolutionError)
+		cwt, err := o.resolveTypeRef(cw.Spec.Type)
+		if err != nil {
+			return admission.NewForbidden(a, err)
 		}
 		addAdditionalWorkspaceLabels(cwt, cw)
 
@@ -149,86 +161,55 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		return nil
 	}
 
-	cwt, resolutionError := o.resolveType(cw.Spec.Type)
-	if resolutionError != nil {
-		return admission.NewForbidden(a, resolutionError)
+	// add initializers from type and aliases to workspace
+	cwt, err := o.resolveTypeRef(cw.Spec.Type)
+	if err != nil {
+		return admission.NewForbidden(a, err)
 	}
-
-	// add initializers from type to workspace
-	for _, initializer := range cwt.Status.Initializers {
-		cw.Status.Initializers = initialization.EnsureInitializerPresent(initializer, cw.Status.Initializers)
+	cwtAliases, err := o.transitiveTypeResolver.Resolve(cwt)
+	if err != nil {
+		return admission.NewForbidden(a, err)
+	}
+	for _, alias := range cwtAliases {
+		if alias.Spec.Initializer {
+			cw.Status.Initializers = initialization.EnsureInitializerPresent(initialization.InitializerForType(alias), cw.Status.Initializers)
+		}
 	}
 
 	return updateUnstructured(u, cw)
 }
 
-func (o *clusterWorkspaceTypeExists) resolveValidType(parentClusterName logicalcluster.Name, workspaceName string, ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-	cwt, err := o.resolveType(ref)
-	if err != nil {
-		return nil, err
-	}
-	parentCwt, err := o.resolveParentType(parentClusterName)
-	if err != nil {
-		return nil, err
-	}
-	parentRef := tenancyv1alpha1.ReferenceFor(parentCwt)
-	if !selectorMatchesAnyType(parentCwt.Spec.AllowedChildren, cwt.Status.TypeAliases) {
-		return nil, fmt.Errorf("parent cluster workspace %q (of type %s) does not allow for child workspaces of type %s", parentClusterName, parentRef.String(), ref.String())
-	}
-	if !selectorMatchesAnyType(cwt.Spec.AllowedParents, parentCwt.Status.TypeAliases) {
-		return nil, fmt.Errorf("cluster workspace %q (of type %s) does not allow for parent workspaces of type %s", workspaceName, ref.String(), parentRef.String())
+func (o *clusterWorkspaceTypeExists) resolveTypeRef(ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	var cwt *tenancyv1alpha1.ClusterWorkspaceType
+	if ref.Name == "Root" && ref.Path == "root" {
+		cwt = tenancyv1alpha1.RootWorkspaceType
+	} else {
+		var err error
+		cwt, err = o.typeLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(ref.Path), tenancyv1alpha1.ObjectName(ref.Name)))
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("workspace type %s does not exist", ref.String())
+			}
+			return nil, apierrors.NewInternalError(err)
+		}
 	}
 	return cwt, nil
 }
 
-func selectorMatchesAnyType(selector *tenancyv1alpha1.ClusterWorkspaceTypeSelector, queries []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
-	if selector == nil {
-		return false
-	}
-	if selector.Any {
-		return true
-	}
-	for _, allowed := range selector.Types {
-		for _, query := range queries {
-			if allowed.Equal(query) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logicalcluster.Name) (tenancyv1alpha1.ClusterWorkspaceTypeReference, error) {
 	grandparent, parentHasParent := parentClusterName.Parent()
 	if !parentHasParent {
 		// the clusterWorkspace exists in the root logical cluster, and therefore there is no
 		// higher clusterWorkspaceType to check for allowed sub-types; the mere presence of the
 		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
-		return tenancyv1alpha1.RootWorkspaceType, nil
+		return tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Root"}, nil
 	}
 	parentCluster, err := o.workspaceLister.Get(clusters.ToClusterAwareKey(grandparent, parentClusterName.Base()))
 	if err != nil {
-		return nil, fmt.Errorf("could not resolve parent cluster workspace %q: %w", parentClusterName.String(), err)
+		return tenancyv1alpha1.ClusterWorkspaceTypeReference{}, fmt.Errorf("could not resolve parent cluster workspace %q: %w", parentClusterName.String(), err)
 	}
-	parentCwt, resolutionError := o.resolveType(parentCluster.Spec.Type)
-	if resolutionError != nil {
-		return nil, fmt.Errorf("could not resolve type %s of parent cluster workspace %q: %w", parentCluster.Spec.Type.String(), parentClusterName.String(), resolutionError)
-	}
-	return parentCwt, nil
-}
 
-func (o *clusterWorkspaceTypeExists) resolveType(ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-	cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(ref.Path), tenancyv1alpha1.ObjectName(ref.Name)))
-	if apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("spec.type %s does not exist", ref.String())
-	}
-	if err != nil {
-		return nil, err
-	}
-	if !conditions.IsTrue(cwt, conditionsv1alpha1.ReadyCondition) {
-		return nil, fmt.Errorf("ClusterWorkspaceType %s is not ready", tenancyv1alpha1.ReferenceFor(cwt))
-	}
-	return cwt, nil
+	return parentCluster.Spec.Type, nil
 }
 
 // Validate ensures that
@@ -287,49 +268,75 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 	//              but we cannot add initializers in status on create. A controller doing that wouldn't fix
 	//		        the race either. So, ¯\_(ツ)_/¯. Chance is low. Object can be deleted, or a condition could should
 	//              show it failing.
-	var cwt *tenancyv1alpha1.ClusterWorkspaceType
+	var cwtAliases []*tenancyv1alpha1.ClusterWorkspaceType
 	if (a.GetOperation() == admission.Update && transitioningToInitializing) || a.GetOperation() == admission.Create {
-		clusterName, err := genericapirequest.ClusterNameFrom(ctx)
+		cwt, err := o.resolveTypeRef(cw.Spec.Type)
 		if err != nil {
-			return apierrors.NewInternalError(err)
+			return admission.NewForbidden(a, err)
 		}
-
-		var resolutionError error
-		cwt, resolutionError = o.resolveValidType(clusterName, cw.Name, cw.Spec.Type)
-		if resolutionError != nil {
-			return admission.NewForbidden(a, resolutionError)
+		cwtAliases, err = o.transitiveTypeResolver.Resolve(cwt)
+		if err != nil {
+			return admission.NewForbidden(a, err)
 		}
 	}
 
-	// add initializer from type to workspace
-	if a.GetOperation() == admission.Update && transitioningToInitializing && cwt.Spec.Initializer {
+	// check initializer from type exist
+	if a.GetOperation() == admission.Update && transitioningToInitializing {
 		// this is a transition to initializing. Check that all initializers are there
 		// (no other admission plugin removed any).
-		if initializer := initialization.InitializerForType(cwt); !initialization.InitializerPresent(initializer, cw.Status.Initializers) {
-			return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
+		for _, alias := range cwtAliases {
+			if alias.Spec.Initializer {
+				if initializer := initialization.InitializerForType(alias); !initialization.InitializerPresent(initializer, cw.Status.Initializers) {
+					return admission.NewForbidden(a, fmt.Errorf("spec.initializers %q does not exist", initializer))
+				}
+			}
 		}
 	}
 
 	// verify that the type can be used by the given user
 	if a.GetOperation() == admission.Create {
-		authz, err := o.createAuthorizer(logicalcluster.From(cwt), o.kubeClusterClient)
-		if err != nil {
-			return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q", cw.Spec.Type))
+		for _, alias := range cwtAliases {
+			authz, err := o.createAuthorizer(logicalcluster.From(alias), o.kubeClusterClient)
+			if err != nil {
+				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q", cw.Spec.Type))
+			}
+
+			useAttr := authorizer.AttributesRecord{
+				User:            a.GetUserInfo(),
+				Verb:            "use",
+				APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+				APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+				Resource:        "clusterworkspacetypes",
+				Name:            alias.Name,
+				ResourceRequest: true,
+			}
+			if decision, _, err := authz.Authorize(ctx, useAttr); err != nil {
+				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %s:%s: %w", logicalcluster.From(alias), alias.Name, err))
+			} else if decision != authorizer.DecisionAllow {
+				return admission.NewForbidden(a, fmt.Errorf("unable to use cluster workspace type %s:%s: missing verb='use' permission on clusterworkspacetype", logicalcluster.From(alias), alias.Name))
+			}
 		}
 
-		useAttr := authorizer.AttributesRecord{
-			User:            a.GetUserInfo(),
-			Verb:            "use",
-			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-			Resource:        "clusterworkspacetypes",
-			Name:            cwt.Name,
-			ResourceRequest: true,
+		// validate whether the workspace type is allowed in its parent, and the workspace type allows that parent
+		clusterName := genericapirequest.ClusterFrom(ctx)
+		parentTypeRef, err := o.resolveParentType(clusterName.Name)
+		if err != nil {
+			return admission.NewForbidden(a, err)
 		}
-		if decision, _, err := authz.Authorize(ctx, useAttr); err != nil {
-			return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type: %w", err))
-		} else if decision != authorizer.DecisionAllow {
-			return admission.NewForbidden(a, fmt.Errorf("unable to use cluster workspace type %q: missing verb='use' permission on clusterworkspacetype", cw.Spec.Type))
+		parentCwt, err := o.resolveTypeRef(parentTypeRef)
+		if err != nil {
+			return admission.NewForbidden(a, err)
+		}
+		parentAliases, err := o.transitiveTypeResolver.Resolve(parentCwt)
+		if err != nil {
+			return admission.NewForbidden(a, err)
+		}
+
+		if err := validateAllowedParents(parentAliases, cwtAliases, parentTypeRef.String(), cw.Spec.Type.String()); err != nil {
+			return admission.NewForbidden(a, err)
+		}
+		if err := validateAllowedChildren(parentAliases, cwtAliases, parentTypeRef.String(), cw.Spec.Type.String()); err != nil {
+			return admission.NewForbidden(a, err)
 		}
 	}
 
@@ -388,4 +395,145 @@ func addAdditionalWorkspaceLabels(
 			cw.Labels[key] = value
 		}
 	}
+}
+
+type transitiveTypeResolver struct {
+	getter func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+}
+
+func (r *transitiveTypeResolver) Resolve(t *tenancyv1alpha1.ClusterWorkspaceType) ([]*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	ret, err := r.resolve(t, map[string]bool{}, map[string]bool{}, []string{})
+	if err != nil {
+		return nil, err
+	}
+	return append(ret, t), nil
+}
+
+func (r *transitiveTypeResolver) resolve(cwt *tenancyv1alpha1.ClusterWorkspaceType, seen, pathSeen map[string]bool, path []string) ([]*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	qualifiedName := logicalcluster.From(cwt).Join(cwt.Name).String()
+	seen[qualifiedName] = true
+	pathSeen[qualifiedName] = true
+	defer func() { pathSeen[qualifiedName] = false }()
+	path = append(path, qualifiedName)
+
+	var ret []*tenancyv1alpha1.ClusterWorkspaceType
+	for _, baseTypeRef := range cwt.Spec.Extend.With {
+		qualifiedName := logicalcluster.New(baseTypeRef.Path).Join(tenancyv1alpha1.ObjectName(baseTypeRef.Name)).String()
+		if pathSeen[qualifiedName] {
+			// seen in this path already. That's a cycle.
+			for i, t := range path {
+				if t == qualifiedName {
+					return nil, fmt.Errorf("circular dependency detected in workspace type %s: %s", qualifiedName, strings.Join(path[i:], " -> "))
+				}
+			}
+			// should never happen
+			return nil, fmt.Errorf("circular reference detected in workspace type %s", qualifiedName)
+		}
+
+		if seen[qualifiedName] {
+			continue // already seen trunk
+		}
+
+		baseType, err := r.getter(logicalcluster.New(baseTypeRef.Path), tenancyv1alpha1.ObjectName(baseTypeRef.Name))
+		if err != nil {
+			return nil, fmt.Errorf("unable to find inherited workspace type %s", qualifiedName)
+		}
+		ret = append(ret, baseType)
+
+		parents, err := r.resolve(baseType, seen, pathSeen, path)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, parents...)
+	}
+
+	return ret, nil
+}
+
+func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.ClusterWorkspaceType, parentType, childType string) error {
+	var errs []error
+	for _, childAlias := range childAliases {
+		if childAlias.Spec.LimitAllowedParents == nil || len(childAlias.Spec.LimitAllowedParents.Types) == 0 {
+			continue
+		}
+
+		qualifiedChild := logicalcluster.From(childAlias).Join(string(tenancyv1alpha1.TypeName(childAlias.Name))).String()
+
+		if !allOfTheFormerExistInTheLater(parentAliases, childAlias.Spec.LimitAllowedParents.Types) {
+			allowedSet := sets.NewString()
+			for _, allowedParent := range childAlias.Spec.LimitAllowedParents.Types {
+				allowedSet.Insert(logicalcluster.New(allowedParent.Path).Join(string(allowedParent.Name)).String())
+			}
+
+			implementedSet := sets.NewString()
+			for _, parentAlias := range parentAliases {
+				implementedSet.Insert(logicalcluster.From(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name))).String())
+			}
+
+			extending := ""
+			if qualifiedChild != childType {
+				extending = fmt.Sprintf(" extends %s, which", qualifiedChild)
+			}
+
+			errs = append(errs, fmt.Errorf("workspace type %s%s only allows %v parent workspaces, but parent type %s only implements %v",
+				childType, extending, allowedSet.List(), parentType, implementedSet.List()),
+			)
+		}
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
+func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.ClusterWorkspaceType, parentType, childType string) error {
+	var errs []error
+	for _, parentAlias := range parentAliases {
+		if parentAlias.Spec.LimitAllowedChildren == nil || len(parentAlias.Spec.LimitAllowedChildren.Types) == 0 {
+			continue
+		}
+		if parentAlias.Spec.LimitAllowedChildren.None {
+			return fmt.Errorf("workspace type %s cannot have any children", parentType)
+		}
+
+		qualifiedParent := logicalcluster.From(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name))).String()
+
+		if !allOfTheFormerExistInTheLater(childAliases, parentAlias.Spec.LimitAllowedChildren.Types) {
+			allowedSet := sets.NewString()
+			for _, allowedChild := range parentAlias.Spec.LimitAllowedChildren.Types {
+				allowedSet.Insert(logicalcluster.New(allowedChild.Path).Join(string(allowedChild.Name)).String())
+			}
+
+			implementedSet := sets.NewString()
+			for _, childAlias := range childAliases {
+				implementedSet.Insert(logicalcluster.From(childAlias).Join(string(tenancyv1alpha1.TypeName(childAlias.Name))).String())
+			}
+
+			extending := ""
+			if qualifiedParent != parentType {
+				extending = fmt.Sprintf(" extends %s, which", qualifiedParent)
+			}
+
+			errs = append(errs, fmt.Errorf("workspace type %s%s only allows %v child workspaces, but child type %s only implements %v",
+				parentType, extending, allowedSet.List(), childType, implementedSet.List()),
+			)
+		}
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
+func allOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.ClusterWorkspaceType, allowedTypes []tenancyv1alpha1.ClusterWorkspaceTypeReference) bool {
+	allowedAliasSet := sets.NewString()
+	for _, allowed := range allowedTypes {
+		qualified := logicalcluster.New(allowed.Path).Join(tenancyv1alpha1.ObjectName(allowed.Name)).String()
+		allowedAliasSet.Insert(qualified)
+	}
+
+	for _, obj := range objectAliases {
+		qualifiedObj := logicalcluster.From(obj).Join(obj.Name).String()
+		if allowedAliasSet.Has(qualifiedObj) {
+			return true
+		}
+	}
+
+	return false
 }

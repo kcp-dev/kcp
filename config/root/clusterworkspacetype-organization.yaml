@@ -7,13 +7,13 @@ spec:
   defaultChildWorkspaceType:
     name: Universal
     path: root
-  allowedChildren:
+  limitAllowedChildren:
     types:
     - name: Team
       path: root
     - name: Universal
       path: root
-  allowedParents:
+  limitAllowedParents:
     types:
     - name: Root
       path: root
