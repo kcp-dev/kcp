@@ -4,8 +4,12 @@ metadata:
   name: homeroot
 spec:
   initializer: true
-  allowedChildWorkspaceTypes:
-  - Homebucket
-  allowedParentWorkspaceTypes:
-  - Root
+  allowedChildren:
+    types:
+      - path: root
+        name: Homebucket
+  allowedParents:
+    types:
+    - path: root
+      name: Root
   
