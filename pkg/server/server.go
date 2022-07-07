@@ -255,7 +255,7 @@ func (s *Server) Run(ctx context.Context) error {
 		//   - Home root workspace: root:users
 		//   - Home bucket levels: 2
 		//   - home bucket name size: 2
-		apiHandler = WithHomeWorkspaces(apiHandler, c.Authorization.Authorizer, kubeClusterClient, kcpClusterClient, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory, 2, logicalcluster.New("root:users"), 2, 2)
+		apiHandler = WithHomeWorkspaces(apiHandler, c.Authorization.Authorizer, kubeClusterClient, kcpClusterClient, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory, genericConfig.ExternalAddress, 2, logicalcluster.New("root:users"), 2, 2)
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, c)
 

@@ -1673,7 +1673,8 @@ func TestServeHTTP(t *testing.T) {
 					homePrefix:           logicalcluster.New("root:users"),
 					creationDelaySeconds: creationDelaySeconds,
 
-					authz: testCase.authz,
+					externalHost: "example.com",
+					authz:        testCase.authz,
 					localInformers: localInformersAccess{
 						getClusterWorkspace: testCase.getLocalClusterWorkspace,
 						synced:              func() bool { return testCase.synced },

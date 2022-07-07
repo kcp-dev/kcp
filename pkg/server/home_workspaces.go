@@ -83,9 +83,10 @@ func init() {
 // - bucketSize is the number of chars comprising each bucket.
 //
 // Bucket workspace names are calculated based on the user name hash.
-func WithHomeWorkspaces(apiHandler http.Handler, a authorizer.Authorizer, kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, kubeSharedInformerFactory coreexternalversions.SharedInformerFactory, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory, creationDelaySeconds int, homePrefix logicalcluster.Name, bucketLevels, bucketSize int) http.Handler {
+func WithHomeWorkspaces(apiHandler http.Handler, a authorizer.Authorizer, kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, kubeSharedInformerFactory coreexternalversions.SharedInformerFactory, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory, externalHost string, creationDelaySeconds int, homePrefix logicalcluster.Name, bucketLevels, bucketSize int) http.Handler {
 	return homeWorkspaceHandlerBuilder{
 		apiHandler:           apiHandler,
+		externalHost:         externalHost,
 		authz:                a,
 		creationDelaySeconds: creationDelaySeconds,
 		homePrefix:           homePrefix,
@@ -178,6 +179,7 @@ func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.Sh
 type homeWorkspaceHandlerBuilder struct {
 	apiHandler http.Handler
 
+	externalHost             string
 	homePrefix               logicalcluster.Name
 	bucketLevels, bucketSize int
 	creationDelaySeconds     int
@@ -297,8 +299,13 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 
+		// TODO: The way we build this URL here is not fully compatible with sharding long-term:
+		// - short term (what is done now): use genericConfig.ExternalAddress
+		// - medium term: shards will know their name eventually, and with that we can lookup the external URL of the shard
+		// - long-term: create home workspace already on `~` access in order to make scheduling happen and then we know the real external URL.
+		homeWorkspaceURL := &url.URL{Scheme: "https", Host: h.externalHost, Path: homeLogicalClusterName.Path()}
+
 		parent, name := homeLogicalClusterName.Split()
-		homeWorkspaceURL := &url.URL{Scheme: "https", Host: req.Host, Path: homeLogicalClusterName.Path()}
 		homeWorkspace := &tenancyv1beta1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
