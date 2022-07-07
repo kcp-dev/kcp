@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/group"
 	"k8s.io/apiserver/pkg/authentication/request/bearertoken"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -116,7 +117,7 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup, bootstrap.SystemKcpClusterWorkspaceAccessGroup},
 	}
 
-	newAuthenticator := bearertoken.New(authenticator.WrapAudienceAgnosticToken(config.Authentication.APIAudiences, authenticator.TokenFunc(func(ctx context.Context, requestToken string) (*authenticator.Response, bool, error) {
+	newAuthenticator := group.NewAuthenticatedGroupAdder(bearertoken.New(authenticator.WrapAudienceAgnosticToken(config.Authentication.APIAudiences, authenticator.TokenFunc(func(ctx context.Context, requestToken string) (*authenticator.Response, bool, error) {
 		requestTokenHash := sha256.Sum256([]byte(requestToken))
 		if bytes.Equal(requestTokenHash[:], shardAdminTokenHash) {
 			return &authenticator.Response{User: shardAdminUser}, true, nil
@@ -127,7 +128,7 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		}
 
 		return nil, false, nil
-	})))
+	}))))
 
 	config.Authentication.Authenticator = authenticatorunion.New(newAuthenticator, config.Authentication.Authenticator)
 
