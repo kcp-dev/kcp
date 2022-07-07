@@ -55,7 +55,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(server.DefaultConfig(t))
+	kubeClusterClient, err := kubernetes.NewForConfig(server.DefaultConfig(t))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	kcpClusterClient, err := clientset.NewClusterForConfig(server.DefaultConfig(t))
@@ -166,7 +166,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kubeClusterClient, err := kubernetes.NewForConfig(kcpclienthelper.NewClusterConfig(cfg))
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	serviceProviderWorkspaces := []logicalcluster.Name{rbacServiceProviderWorkspace, serviceProvider2Workspace}

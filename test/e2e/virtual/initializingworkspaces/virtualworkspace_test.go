@@ -27,7 +27,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
 
@@ -116,7 +115,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sourceConfig)
 	require.NoError(t, err)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(kcpclienthelper.NewClusterConfig(sourceConfig))
+	kubeClusterClient, err := kubernetes.NewForConfig(sourceConfig)
 	require.NoError(t, err)
 
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, clusterName, []string{"user-1"}, nil, []string{"access"})

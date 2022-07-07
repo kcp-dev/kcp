@@ -62,7 +62,6 @@ type RunningServer interface {
 	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
 	DefaultConfig(t *testing.T) *rest.Config
-	ClusterConfig(r *rest.Config) *rest.Config
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
@@ -394,11 +393,8 @@ func (c *kcpServer) defaultConfig() (*rest.Config, error) {
 func (c *kcpServer) DefaultConfig(t *testing.T) *rest.Config {
 	cfg, err := c.defaultConfig()
 	require.NoError(t, err)
-	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
-}
-
-func (c *kcpServer) ClusterConfig(r *rest.Config) *rest.Config {
-	return kcpclienthelper.NewClusterConfig(r)
+	wrappedConfig := kcpclienthelper.NewClusterConfig(cfg)
+	return rest.AddUserAgent(rest.CopyConfig(wrappedConfig), t.Name())
 }
 
 // RawConfig exposes a copy of the client config for this server.
