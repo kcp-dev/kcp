@@ -91,14 +91,14 @@ func TestSyncerLifecycle(t *testing.T) {
 	kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	require.NoError(t, err)
 
-	workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx,
-		syncerFixture.SyncerConfig.WorkloadClusterName,
+	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+		syncerFixture.SyncerConfig.SyncTargetName,
 		metav1.GetOptions{},
 	)
 	require.NoError(t, err)
 
-	desiredNSLocator := shared.NewNamespaceLocator(wsClusterName, logicalcluster.From(workloadCluster),
-		workloadCluster.GetUID(), workloadCluster.Name, upstreamNamespace.Name)
+	desiredNSLocator := shared.NewNamespaceLocator(wsClusterName, logicalcluster.From(syncTarget),
+		syncTarget.GetUID(), syncTarget.Name, upstreamNamespace.Name)
 	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(desiredNSLocator)
 	require.NoError(t, err)
 

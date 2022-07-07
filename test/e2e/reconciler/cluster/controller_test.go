@@ -82,13 +82,13 @@ func TestClusterController(t *testing.T) {
 				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 				require.NoError(t, err)
 
-				workloadCluster, err := kcpClient.WorkloadV1alpha1().WorkloadClusters().Get(ctx,
-					syncerFixture.SyncerConfig.WorkloadClusterName,
+				syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+					syncerFixture.SyncerConfig.SyncTargetName,
 					metav1.GetOptions{},
 				)
 				require.NoError(t, err)
 
-				nsLocator := shared.NewNamespaceLocator(syncerFixture.SyncerConfig.KCPClusterName, logicalcluster.From(workloadCluster), workloadCluster.GetUID(), workloadCluster.GetName(), cowboy.Namespace)
+				nsLocator := shared.NewNamespaceLocator(syncerFixture.SyncerConfig.KCPClusterName, logicalcluster.From(syncTarget), syncTarget.GetUID(), syncTarget.GetName(), cowboy.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
 				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)
 

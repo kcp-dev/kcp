@@ -46,7 +46,7 @@ type SyncTargetLocator struct {
 	UID  types.UID           `json:"uid"`
 }
 
-func NewNamespaceLocator(workspace, workloadClusterWorkspace logicalcluster.Name, workloadClusterUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
+func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
 			Path: syncTargetWorkspace,
