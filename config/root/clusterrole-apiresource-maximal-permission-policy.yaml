@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:kcp:apiexport:apiresource:maximal-permission-policy
+rules:
+- apiGroups: ["apiresource.kcp.dev"]
+  verbs: ["*"]
+  resources:
+  - apiresourceimports
+  - negotiatedapiresources
+- apiGroups: ["apiresource.kcp.dev"]
+  verbs: ["get","list","watch"]
+  resources:
+  - apiresourceimports/status
+  - negotiatedapiresources/status

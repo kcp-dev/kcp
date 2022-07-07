@@ -78,17 +78,28 @@ spec:
                 type: array
                 x-kubernetes-list-type: set
               maximalPermissionPolicy:
-                description: maximalPermissionPolicy will allow for a service provider
-                  to set a upper bound on what is allowed for a consumer of this API.
-                  If the policy is not set, no upper bound is applied, i.e the consuming
-                  users can do whatever the user workspace allows the user to do.
+                description: "maximalPermissionPolicy will allow for a service provider
+                  to set an upper bound on what is allowed for a consumer of this
+                  API. If the policy is not set, no upper bound is applied, i.e the
+                  consuming users can do whatever the user workspace allows the user
+                  to do. \n The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings.
+                  A request of an user in a workspace that binds to this APIExport
+                  via an APIBinding is additional checked against these rules, with
+                  the user name and the groups prefixed with `apis.kcp.dev:binding:`.
+                  \n For example: assume a user `adam` with groups `system:authenticated`
+                  and `a-team` binds to this APIExport in another workspace root:org:ws.
+                  Then a request in that workspace against a resource of this APIExport
+                  is authorized as every other request in that workspace, but in addition
+                  the RBAC policy here in the APIExport workspace has to grant access
+                  to the user `apis.kcp.dev:binding:adam` with the groups `apis.kcp.dev:binding:system:authenticated`
+                  and `apis.kcp.dev:binding:a-team`."
                 oneOf:
                 - required:
                   - local
                 properties:
                   local:
-                    description: LocalAPIExportPolicy will tell the APIBinding authorizer
-                      to check policy in the local namespace of the API Export
+                    description: local is policy that is defined in same namespace
+                      as API Export.
                     type: object
                 type: object
             type: object

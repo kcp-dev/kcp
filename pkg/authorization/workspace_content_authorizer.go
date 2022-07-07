@@ -95,7 +95,9 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	// For root, only service accounts declared in root have access.
 	if cluster.Name == tenancyv1alpha1.RootCluster {
 		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
-			return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), bootstrap.SystemKcpClusterWorkspaceAccessGroup)))
+			withGroups := deepCopyAttributes(attr)
+			withGroups.User.(*user.DefaultInfo).Groups = append(attr.GetUser().GetGroups(), bootstrap.SystemKcpClusterWorkspaceAccessGroup)
+			return a.delegate.Authorize(ctx, withGroups)
 		}
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
@@ -182,15 +184,18 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
-	return a.delegate.Authorize(ctx, attributesWithReplacedGroups(attr, append(attr.GetUser().GetGroups(), extraGroups.List()...)))
+	withGroups := deepCopyAttributes(attr)
+	withGroups.User.(*user.DefaultInfo).Groups = append(attr.GetUser().GetGroups(), extraGroups.List()...)
+
+	return a.delegate.Authorize(ctx, withGroups)
 }
 
-func attributesWithReplacedGroups(attr authorizer.Attributes, groups []string) authorizer.Attributes {
+func deepCopyAttributes(attr authorizer.Attributes) authorizer.AttributesRecord {
 	return authorizer.AttributesRecord{
 		User: &user.DefaultInfo{
 			Name:   attr.GetUser().GetName(),
 			UID:    attr.GetUser().GetUID(),
-			Groups: groups,
+			Groups: attr.GetUser().GetGroups(),
 			Extra:  attr.GetUser().GetExtra(),
 		},
 		Verb:            attr.GetVerb(),

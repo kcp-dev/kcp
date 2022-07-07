@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -40,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/component-base/version"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
@@ -120,13 +120,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	ver := version.Get()
-	timestamp, err := time.Parse(time.RFC3339, ver.BuildDate)
+	gitHEAD, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
 	if err != nil {
-		logger.Error(err, "Could not parse build date in version.")
+		logger.Error(err, "Could not get git revision")
 		os.Exit(1)
 	}
-	prefix := fmt.Sprintf("v%s-%s", timestamp.Format("060102"), ver.GitCommit)
+
+	prefix := fmt.Sprintf("v%s-%s", time.Now().Format("060102"), strings.TrimSpace(string(gitHEAD)))
 
 	currentApiResourceSchemas, err := convertToSchemas(prefix, crds)
 	if err != nil {
@@ -135,7 +135,11 @@ func main() {
 	}
 
 	apiResourceSchemas := resolveLatestAPIResourceSchemas(logger, previousApiResourceSchemas, currentApiResourceSchemas)
-	apiExports := generateExports(apiResourceSchemas)
+	apiExports, err := generateExports(opts.outputDir, apiResourceSchemas)
+	if err != nil {
+		logger.Error(err, "Could not generate APIExports.")
+		os.Exit(1)
+	}
 
 	if err := writeObjects(logger, opts.outputDir, apiExports, apiResourceSchemas); err != nil {
 		logger.Error(err, "Could not write manifests.")
@@ -307,31 +311,44 @@ func compareSchemas() cmp.Option {
 	}))
 }
 
-func generateExports(allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) []*apisv1alpha1.APIExport {
-	byGroup := map[string][]string{}
+func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
+	byExport := map[string][]string{}
 	for gr, apiResourceSchema := range allSchemas {
 		if gr.Group == tenancy.GroupName && gr.Resource == "clusterworkspaceshards" {
 			// we export shards by themselves, not with the rest of the tenancy group
-			byGroup["shards."+tenancy.GroupName] = []string{apiResourceSchema.Name}
+			byExport["shards."+tenancy.GroupName] = []string{apiResourceSchema.Name}
 		} else {
-			byGroup[gr.Group] = append(byGroup[gr.Group], apiResourceSchema.Name)
+			byExport[gr.Group] = append(byExport[gr.Group], apiResourceSchema.Name)
 		}
 	}
 
 	var exports []*apisv1alpha1.APIExport
-	for group, schemas := range byGroup {
+	for exportName, schemas := range byExport {
 		sort.Strings(schemas)
-		exports = append(exports, &apisv1alpha1.APIExport{
+
+		export := apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: group,
+				Name: exportName,
 			},
-			Spec: apisv1alpha1.APIExportSpec{
-				LatestResourceSchemas: schemas,
-			},
-		})
+		}
+
+		inputFilePath := filepath.Join(outputDir, fmt.Sprintf("%s%s.yaml", apiExportNamePrefix, exportName))
+		if _, err := os.Stat(inputFilePath); err == nil {
+			raw, err := os.ReadFile(inputFilePath)
+			if err != nil {
+				return nil, err
+			}
+			if err := yaml.Unmarshal(raw, &export); err != nil {
+				return nil, fmt.Errorf("could not unmarshal APIExport manifest %s: %w", inputFilePath, err)
+			}
+		}
+
+		export.Spec.LatestResourceSchemas = schemas
+
+		exports = append(exports, &export)
 	}
 
-	return exports
+	return exports, nil
 }
 
 func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.APIExport, schemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) error {

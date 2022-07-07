@@ -318,6 +318,12 @@ func (in *APIExport) SetConditions(conditions conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = conditions
 }
 
+const (
+	// MaximalPermissionPolicyRBACUserGroupPrefix is the prefix for the user and group names
+	// when verifying the APIExport.spec.maximalPermissionPolicy.
+	MaximalPermissionPolicyRBACUserGroupPrefix = "apis.kcp.dev:binding:"
+)
+
 // APIExportSpec defines the desired state of APIExport.
 type APIExportSpec struct {
 	// latestResourceSchemas records the latest APIResourceSchemas that are exposed
@@ -355,11 +361,23 @@ type APIExportSpec struct {
 
 	// TODO: before beta we should re-evaluate this field name
 
-	// maximalPermissionPolicy will allow for a service provider to set a upper bound on what is allowed
+	// maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed
 	// for a consumer of this API. If the policy is not set, no upper bound is applied,
 	// i.e the consuming users can do whatever the user workspace allows the user to do.
+	//
+	// The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of an user in
+	// a workspace that binds to this APIExport via an APIBinding is additional checked against
+	// these rules, with the user name and the groups prefixed with `apis.kcp.dev:binding:`.
+	//
+	// For example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to
+	// this APIExport in another workspace root:org:ws. Then a request in that workspace
+	// against a resource of this APIExport is authorized as every other request in that workspace,
+	// but in addition the RBAC policy here in the APIExport workspace has to grant access to the
+	// user `apis.kcp.dev:binding:adam` with the groups `apis.kcp.dev:binding:system:authenticated`
+	// and `apis.kcp.dev:binding:a-team`.
+	//
 	// +optional
-	MaximalPermissionPolicy *APIExportPolicy `json:"maximalPermissionPolicy,omitempty"`
+	MaximalPermissionPolicy *MaximalPermissionPolicy `json:"maximalPermissionPolicy,omitempty"`
 }
 
 // Identity defines the identity of an APIExport, i.e. determines the etcd prefix
@@ -371,10 +389,9 @@ type Identity struct {
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 }
 
-// APIExportPolicy is a wrapper type around the multiple options that would be allowed.
-type APIExportPolicy struct {
+// MaximalPermissionPolicy is a wrapper type around the multiple options that would be allowed.
+type MaximalPermissionPolicy struct {
 	// local is policy that is defined in same namespace as API Export.
-
 	// +optional
 	Local *LocalAPIExportPolicy `json:"local,omitempty"`
 }
