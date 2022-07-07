@@ -17,6 +17,7 @@ limitations under the License.
 package softimpersonation
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,19 +25,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 func TestSoftImpersonation(t *testing.T) {
 	testCases := []struct {
-		name                string
-		userInfo            user.Info
-		expectedCreationErr string
+		name                 string
+		currentUserGroups    []string
+		userToImpersonate    user.Info
+		expectedCreationErr  string
+		expectedRetrievalErr string
 	}{
 		{
-			name: "valid user",
-			userInfo: &user.DefaultInfo{
+			name:              "valid user",
+			currentUserGroups: []string{"system:masters"},
+			userToImpersonate: &user.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -47,8 +52,9 @@ func TestSoftImpersonation(t *testing.T) {
 			},
 		},
 		{
-			name: "valid with nil groups",
-			userInfo: &user.DefaultInfo{
+			name:              "valid with nil groups",
+			currentUserGroups: []string{"system:masters"},
+			userToImpersonate: &user.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: nil,
@@ -59,8 +65,9 @@ func TestSoftImpersonation(t *testing.T) {
 			},
 		},
 		{
-			name: "valid with nil extra",
-			userInfo: &user.DefaultInfo{
+			name:              "valid with nil extra",
+			currentUserGroups: []string{"system:masters"},
+			userToImpersonate: &user.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -68,8 +75,9 @@ func TestSoftImpersonation(t *testing.T) {
 			},
 		},
 		{
-			name: "valid with nil extra values",
-			userInfo: &user.DefaultInfo{
+			name:              "valid with nil extra values",
+			currentUserGroups: []string{"system:masters"},
+			userToImpersonate: &user.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -80,21 +88,53 @@ func TestSoftImpersonation(t *testing.T) {
 		},
 		{
 			name:                "nil user",
-			userInfo:            nil,
+			currentUserGroups:   []string{"system:masters"},
+			userToImpersonate:   nil,
 			expectedCreationErr: "no user info",
+		},
+		{
+			name:              "fail if current user is not system:masters",
+			currentUserGroups: []string{"other-group"},
+			userToImpersonate: &user.DefaultInfo{
+				Name:   "user name",
+				UID:    "user uid",
+				Groups: []string{"group1", "group2"},
+				Extra: map[string][]string{
+					"extra1": {"val11", "val12"},
+					"extra2": {"val21", "val22"},
+				},
+			},
+			expectedRetrievalErr: "soft impersonation not allowed",
+		},
+		{
+			name:              "fail if no current user",
+			currentUserGroups: nil,
+			userToImpersonate: &user.DefaultInfo{
+				Name:   "user name",
+				UID:    "user uid",
+				Groups: []string{"group1", "group2"},
+				Extra: map[string][]string{
+					"extra1": {"val11", "val12"},
+					"extra2": {"val21", "val22"},
+				},
+			},
+			expectedRetrievalErr: "permission to do soft impersonation could not be checked",
 		},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			var impersonatedUser user.Info
-			var err error
+			var retrievalError error
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				impersonatedUser, err = UserInfoFromRequestHeader(r)
+				if testCase.currentUserGroups != nil {
+					r = r.WithContext(request.WithUser(context.TODO(), &user.DefaultInfo{Name: "aName", Groups: testCase.currentUserGroups}))
+				}
+				impersonatedUser, retrievalError = UserInfoFromRequestHeader(r)
 			}))
 			defer server.Close()
 			restConfig, err := clientcmd.BuildConfigFromFlags(server.URL, "")
 			require.NoError(t, err)
-			restConfig, err = WithSoftImpersonatedConfig(restConfig, testCase.userInfo)
+			restConfig, err = WithSoftImpersonatedConfig(restConfig, testCase.userToImpersonate)
 			if testCase.expectedCreationErr != "" {
 				require.EqualError(t, err, testCase.expectedCreationErr)
 				return
@@ -105,8 +145,13 @@ func TestSoftImpersonation(t *testing.T) {
 			require.NoError(t, err)
 			_, _ = client.ServerGroups()
 
-			require.Equal(t, testCase.userInfo, impersonatedUser)
-			require.Nil(t, err)
+			if testCase.expectedRetrievalErr == "" {
+				require.Equal(t, testCase.userToImpersonate, impersonatedUser)
+				require.Nil(t, retrievalError)
+			} else {
+				require.Nil(t, impersonatedUser)
+				require.EqualError(t, retrievalError, testCase.expectedRetrievalErr)
+			}
 		})
 	}
 }

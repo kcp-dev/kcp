@@ -23,7 +23,9 @@ import (
 	"net/http"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
 )
 
@@ -119,5 +121,12 @@ func UserInfoFromRequestHeader(r *http.Request) (kuser.Info, error) {
 		return nil, nil
 	}
 
+	user, ok := request.UserFrom(r.Context())
+	if !ok {
+		return nil, errors.New("permission to do soft impersonation could not be checked")
+	}
+	if !sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
+		return nil, errors.New("soft impersonation not allowed")
+	}
 	return UnmarshalUserInfo(val)
 }
