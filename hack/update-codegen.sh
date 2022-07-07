@@ -51,4 +51,4 @@ ${CONTROLLER_GEN} \
     paths="./test/e2e/reconciler/cluster/..." \
     output:crd:artifacts:config=test/e2e/reconciler/cluster/
 
-./bin/apigen --input-dir ./config/crds --output-dir  ./config/root-phase0
+go run ./cmd/apigen --input-dir ./config/crds --output-dir  ./config/root-phase0
