@@ -557,6 +557,11 @@ var _ = rest.Creater(&REST{})
 //      update the internalName and pretty annotation on cluster roles and cluster role bindings.
 //
 func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+	workspace, isWorkspace := obj.(*tenancyv1beta1.Workspace)
+	if !isWorkspace {
+		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
+	}
+
 	var zero int64
 	userInfo, ok := apirequest.UserFrom(ctx)
 	if !ok {
@@ -570,11 +575,6 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 
 	if scope := ctx.Value(WorkspacesScopeKey); scope != PersonalScope {
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("creating a workspace is only possible in the personal workspaces scope for now"))
-	}
-
-	workspace, isWorkspace := obj.(*tenancyv1beta1.Workspace)
-	if !isWorkspace {
-		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
 
 	if workspace.Spec.Type.Name == "" && workspace.Spec.Type.Path == "" {

@@ -923,7 +923,7 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 			}),
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1alpha1.ClusterWorkspace{
+			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
