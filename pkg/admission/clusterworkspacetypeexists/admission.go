@@ -413,3 +413,118 @@ func addAdditionalWorkspaceLabels(
 		}
 	}
 }
+
+type transitiveTypeResolver struct {
+	getter func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+}
+
+func (r *transitiveTypeResolver) Resolve(t *tenancyv1alpha1.ClusterWorkspaceType) ([]*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	return r.resolve(t, map[string]bool{}, map[string]bool{}, nil)
+}
+
+func (r *transitiveTypeResolver) resolve(cwt *tenancyv1alpha1.ClusterWorkspaceType, seen, pathSeen map[string]bool, path []string) ([]*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	seen[logicalcluster.From(cwt).Join(cwt.Name).String()] = true
+
+	var ret []*tenancyv1alpha1.ClusterWorkspaceType
+	for _, parentRef := range cwt.Spec.Extend.With {
+		qualifiedName := parentRef.Path + ":" + string(parentRef.Name)
+		if seen[qualifiedName] {
+			continue // already seen trunk
+		}
+
+		parent, err := r.getter(logicalcluster.New(parentRef.Path), string(parentRef.Name))
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve inherited workspace type %s", qualifiedName)
+		}
+
+		if pathSeen[qualifiedName] {
+			for i, t := range path {
+				if t == qualifiedName {
+					return nil, fmt.Errorf("circular dependency detected in workspace type %s: %s", qualifiedName, strings.Join(path[i:], " -> "))
+				}
+			}
+			// should never happen
+			return nil, fmt.Errorf("circular reference detected in workspace type %s", qualifiedName)
+		}
+
+		pathSeen[qualifiedName] = true
+		parents, err := r.resolve(parent, seen, pathSeen, append(path, qualifiedName))
+		pathSeen[qualifiedName] = false
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, parents...)
+	}
+
+	return ret, nil
+}
+
+func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.ClusterWorkspaceType, parentType, childType string) error {
+	parentAliasSet := sets.NewString()
+	for _, alias := range parentAliases {
+		parentAliasSet.Insert(alias.Name)
+	}
+
+	var errs []error
+	for _, childAlias := range childAliases {
+		if childAlias.Spec.AllowedParents == nil || childAlias.Spec.AllowedParents.Any {
+			continue
+		}
+
+		childAliasQualifiedName := logicalcluster.From(childAlias).Join(childAlias.Name).String()
+		found := false
+		for _, allowedParent := range childAlias.Spec.AllowedParents.Types {
+			allowedParentQualifiedName := logicalcluster.New(allowedParent.Path).Join(string(allowedParent.Name)).String()
+			if parentAliasSet.Has(allowedParentQualifiedName) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			allowedSet := sets.NewString()
+			for _, allowedParent := range childAlias.Spec.AllowedParents.Types {
+				allowedSet.Insert(logicalcluster.New(allowedParent.Path).Join(string(allowedParent.Name)).String())
+			}
+			errs = append(errs, fmt.Errorf("workspace type %s extends %s and %s only allows %v parent workspaces, but %s is neither that type nor extends any of those",
+				childType, childAliasQualifiedName, childAliasQualifiedName, allowedSet.List(), parentType),
+			)
+		}
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
+func validateAllowedChildren(childAliases, parentAliases []*tenancyv1alpha1.ClusterWorkspaceType, childType, parentType string) error {
+	childAliasSet := sets.NewString()
+	for _, alias := range childAliases {
+		childAliasSet.Insert(alias.Name)
+	}
+
+	var errs []error
+	for _, parentAlias := range parentAliases {
+		if parentAlias.Spec.AllowedChildren == nil || parentAlias.Spec.AllowedChildren.Any {
+			continue
+		}
+
+		parentAliasQualifiedName := logicalcluster.From(parentAlias).Join(parentAlias.Name).String()
+		found := false
+		for _, allowedChild := range parentAlias.Spec.AllowedChildren.Types {
+			allowedChildQualifiedName := logicalcluster.New(allowedChild.Path).Join(string(allowedChild.Name)).String()
+			if childAliasSet.Has(allowedChildQualifiedName) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			allowedSet := sets.NewString()
+			for _, allowedChild := range parentAlias.Spec.AllowedParents.Types {
+				allowedSet.Insert(logicalcluster.New(allowedChild.Path).Join(string(allowedChild.Name)).String())
+			}
+			errs = append(errs, fmt.Errorf("workspace type %s extends %s and %s only allows %v child workspace, but %s is neither that type nor extends any of those",
+				parentType, parentAliasQualifiedName, parentAliasQualifiedName, allowedSet.List(), childType),
+			)
+		}
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
