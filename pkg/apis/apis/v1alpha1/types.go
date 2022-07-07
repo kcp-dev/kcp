@@ -365,8 +365,8 @@ type APIExportSpec struct {
 	// for a consumer of this API. If the policy is not set, no upper bound is applied,
 	// i.e the consuming users can do whatever the user workspace allows the user to do.
 	//
-	// The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of an user in
-	// a workspace that binds to this APIExport via an APIBinding is additional checked against
+	// The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in
+	// a workspace that binds to this APIExport via an APIBinding is additionally checked against
 	// these rules, with the user name and the groups prefixed with `apis.kcp.dev:binding:`.
 	//
 	// For example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to

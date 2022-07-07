@@ -83,8 +83,8 @@ spec:
                   API. If the policy is not set, no upper bound is applied, i.e the
                   consuming users can do whatever the user workspace allows the user
                   to do. \n The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings.
-                  A request of an user in a workspace that binds to this APIExport
-                  via an APIBinding is additional checked against these rules, with
+                  A request of a user in a workspace that binds to this APIExport
+                  via an APIBinding is additionally checked against these rules, with
                   the user name and the groups prefixed with `apis.kcp.dev:binding:`.
                   \n For example: assume a user `adam` with groups `system:authenticated`
                   and `a-team` binds to this APIExport in another workspace root:org:ws.
