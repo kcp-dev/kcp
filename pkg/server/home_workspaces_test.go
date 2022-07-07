@@ -224,7 +224,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return nil, nil
+				return nil, kerrors.NewNotFound(schema.GroupResource{}, "user-1")
 			},
 
 			expectedFound: false,

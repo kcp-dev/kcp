@@ -142,9 +142,6 @@ func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.Sh
 		getClusterWorkspace: func(logicalCluster logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			parentLogicalCluster, workspaceName := logicalCluster.Split()
 			result, err := clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentLogicalCluster, workspaceName))
-			if kerrors.IsNotFound(err) {
-				return nil, nil
-			}
 			if err != nil {
 				return nil, err
 			}
@@ -271,7 +268,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 		homeLogicalClusterName := h.getHomeLogicalClusterName(user.GetName())
 		homeClusterWorkspace, err := h.localInformers.getClusterWorkspace(homeLogicalClusterName)
-		if err != nil {
+		if err != nil && !kerrors.IsNotFound(err) {
 			responsewriters.InternalError(rw, req, err)
 			return
 		}
@@ -454,7 +451,7 @@ func (h *homeWorkspaceHandler) needsAutomaticCreation(logicalClusterName logical
 // and if not answer to retry later.
 func searchForReadyWorkspaceInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, err error) {
 	workspace, err := h.localInformers.getClusterWorkspace(logicalClusterName)
-	if err != nil {
+	if err != nil && !kerrors.IsNotFound(err) {
 		return false, 0, err
 	}
 	if workspace == nil {
