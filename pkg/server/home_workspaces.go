@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
@@ -52,6 +53,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
 
 const (
@@ -239,6 +241,16 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		err := errors.New("No user in HomeWorkspaces filter !")
 		responsewriters.InternalError(rw, req, err)
 		return
+	}
+	if sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
+		// If we are the system privileged group, it might be a call from the virtual workspace
+		// in which case we also search the user in the soft impersonation header.
+		if impersonated, err := softimpersonation.UserInfoFromRequestHeader(req); err != nil {
+			responsewriters.InternalError(rw, req, err)
+			return
+		} else if impersonated != nil {
+			user = impersonated
+		}
 	}
 	requestInfo, ok := request.RequestInfoFrom(ctx)
 	if !ok {
