@@ -57,7 +57,7 @@ import (
 )
 
 const (
-	homeOwnerClusterRoleName = "home-owner"
+	homeOwnerClusterRolePrefix = "home-owner-"
 )
 
 var (
@@ -486,14 +486,7 @@ func searchForReadyWorkspaceInLocalInformers(h *homeWorkspaceHandler, logicalClu
 		}
 	}
 
-	if userName == kuser.APIServerUser {
-		// if request user is system:apiserver, don't wait for the RBAC resources to be setup
-		// (the system:apiserver user request is probably being creating those RBAC resources)
-		return true, 0, nil
-	}
-
-	// For home workspaces, also wait for related RBAC resources to be setup,
-	// unless it's a system:apiserver user request
+	// For home workspaces, also wait for related RBAC resources to be setup.
 	if rbacResourcesFound, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(logicalClusterName, userName); err != nil {
 		return false, 0, err
 	} else if !rbacResourcesFound {
@@ -589,25 +582,11 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 func searchForHomeWorkspaceRBACResourcesInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, userName string) (found bool, err error) {
 	parent, workspaceName := logicalClusterName.Split()
 
-	for _, check := range []struct {
-		lcluster         logicalcluster.Name
-		rbacResourceName string
-	}{
-		{
-			lcluster:         logicalClusterName,
-			rbacResourceName: homeOwnerClusterRoleName,
-		},
-		{
-			lcluster:         parent,
-			rbacResourceName: homeOwnerClusterRoleName + "-" + workspaceName,
-		},
-	} {
-		if ok, err := h.localInformers.searchClusterRole(check.lcluster, check.rbacResourceName); err != nil || !ok {
-			return ok, err
-		}
-		if ok, err := h.localInformers.searchClusterRoleBinding(check.lcluster, check.rbacResourceName); err != nil || !ok {
-			return ok, err
-		}
+	if ok, err := h.localInformers.searchClusterRole(parent, homeOwnerClusterRolePrefix+workspaceName); err != nil || !ok {
+		return ok, err
+	}
+	if ok, err := h.localInformers.searchClusterRoleBinding(parent, homeOwnerClusterRolePrefix+workspaceName); err != nil || !ok {
+		return ok, err
 	}
 
 	return true, nil
@@ -620,15 +599,13 @@ func createHomeWorkspaceRBACResources(h *homeWorkspaceHandler, ctx context.Conte
 	parent, name := homeWorkspace.Split()
 	if err := h.kcp.createClusterRole(ctx, parent, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: homeOwnerClusterRoleName + "-" + name,
+			Name: homeOwnerClusterRolePrefix + name,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{tenancyv1beta1.SchemeGroupVersion.Group},
-				Resources: []string{"clusterworkspaces/content"},
-				// TODO(david): In the future we should add the `admin` verb,
-				// since a user would be cluster admin in the content of his home workspavce
-				Verbs:         []string{"access"},
+				APIGroups:     []string{tenancyv1beta1.SchemeGroupVersion.Group},
+				Resources:     []string{"clusterworkspaces/content"},
+				Verbs:         []string{"access", "admin"},
 				ResourceNames: []string{name},
 			},
 		},
@@ -638,12 +615,12 @@ func createHomeWorkspaceRBACResources(h *homeWorkspaceHandler, ctx context.Conte
 
 	if err := h.kcp.createClusterRoleBinding(ctx, parent, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: homeOwnerClusterRoleName + "-" + name,
+			Name: homeOwnerClusterRolePrefix + name,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     homeOwnerClusterRoleName + "-" + name,
+			Name:     homeOwnerClusterRolePrefix + name,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -656,42 +633,6 @@ func createHomeWorkspaceRBACResources(h *homeWorkspaceHandler, ctx context.Conte
 		return err
 	}
 
-	// TODO(david): In the future this will not be required anymore,
-	// since the user would be cluster admin in the content of his home workspavce
-	if err := h.kcp.createClusterRole(ctx, homeWorkspace, &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: homeOwnerClusterRoleName,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{tenancyv1beta1.SchemeGroupVersion.Group},
-				Resources: []string{"clusterworkspaces/workspace"},
-				Verbs:     []string{"create", "get", "list", "watch"},
-			},
-		},
-	}); err != nil && !kerrors.IsAlreadyExists(err) {
-		return err
-	}
-
-	if err := h.kcp.createClusterRoleBinding(ctx, homeWorkspace, &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: homeOwnerClusterRoleName,
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
-			APIGroup: "rbac.authorization.k8s.io",
-			Name:     homeOwnerClusterRoleName,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "User",
-				Name:      userName,
-				Namespace: "",
-			},
-		},
-	}); err != nil && !kerrors.IsAlreadyExists(err) {
-		return err
-	}
 	return nil
 }
 

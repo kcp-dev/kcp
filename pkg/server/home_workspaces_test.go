@@ -302,23 +302,6 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			expectedCheckError:        "error",
 		},
 		{
-			testName: "return 'found' when workspace ready albeit RBAC resources not in local informers, but user is system:apiserver",
-
-			workspaceName: "root:users:ab:cd:user-1",
-			isHome:        true,
-			userName:      "system:apiserver",
-
-			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady},
-				}, nil
-			},
-
-			expectedFound:           true,
-			expectedToSearchForRBAC: false,
-		},
-		{
 			testName: "retry when workspace not ready nor unschedulable",
 
 			workspaceName: "root:users:ab:cd:user-1",
@@ -1094,44 +1077,6 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 			expectedCreateError: "error when creating ClusterRoleBinding",
 		},
 		{
-			testName: "return error when unexpected error on ClusterRole create",
-
-			workspaceName: "root:users:ab:cd:user-1",
-			userName:      "user-1",
-
-			createClusterRole: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRole) error {
-				if workspace.String() == "root:users:ab:cd:user-1" {
-					return errors.New("error when creating ClusterRole")
-				}
-				return nil
-			},
-
-			createClusterRoleBinding: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRoleBinding) error {
-				return nil
-			},
-
-			expectedCreateError: "error when creating ClusterRole",
-		},
-		{
-			testName: "return error when unexpected error on ClusterRoleBinding create",
-
-			workspaceName: "root:users:ab:cd:user-1",
-			userName:      "user-1",
-
-			createClusterRole: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRole) error {
-				return nil
-			},
-
-			createClusterRoleBinding: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRoleBinding) error {
-				if workspace.String() == "root:users:ab:cd:user-1" {
-					return errors.New("error when creating ClusterRoleBinding")
-				}
-				return nil
-			},
-
-			expectedCreateError: "error when creating ClusterRoleBinding",
-		},
-		{
 			testName: "Successfully create RBAC resources",
 
 			workspaceName: "root:users:ab:cd:user-1",
@@ -1168,37 +1113,6 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 							Kind:     "ClusterRole",
 							APIGroup: "rbac.authorization.k8s.io",
 							Name:     "home-owner-user-1",
-						},
-						Subjects: []rbacv1.Subject{
-							{
-								Kind:      "User",
-								Name:      "user-1",
-								Namespace: "",
-							},
-						},
-					},
-				},
-				{
-					workspace: "root:users:ab:cd:user-1",
-					resource: &rbacv1.ClusterRole{
-						ObjectMeta: metav1.ObjectMeta{Name: "home-owner"},
-						Rules: []rbacv1.PolicyRule{
-							{
-								APIGroups: []string{tenancyv1beta1.SchemeGroupVersion.Group},
-								Resources: []string{"clusterworkspaces/workspace"},
-								Verbs:     []string{"create", "get", "list", "watch"},
-							},
-						},
-					},
-				},
-				{
-					workspace: "root:users:ab:cd:user-1",
-					resource: &rbacv1.ClusterRoleBinding{
-						ObjectMeta: metav1.ObjectMeta{Name: "home-owner"},
-						RoleRef: rbacv1.RoleRef{
-							Kind:     "ClusterRole",
-							APIGroup: "rbac.authorization.k8s.io",
-							Name:     "home-owner",
 						},
 						Subjects: []rbacv1.Subject{
 							{
