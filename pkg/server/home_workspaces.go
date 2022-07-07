@@ -142,31 +142,21 @@ func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.Sh
 	return localInformersAccess{
 		getClusterWorkspace: func(logicalCluster logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			parentLogicalCluster, workspaceName := logicalCluster.Split()
-			result, err := clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentLogicalCluster, workspaceName))
-			if err != nil {
-				return nil, err
-			}
-			return result, nil
+			return clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentLogicalCluster, workspaceName))
 		},
 		searchClusterRole: func(workspace logicalcluster.Name, name string) (bool, error) {
 			_, err := crLister.Get(clusters.ToClusterAwareKey(workspace, name))
 			if kerrors.IsNotFound(err) {
 				return false, nil
 			}
-			if err != nil {
-				return false, err
-			}
-			return true, nil
+			return err == nil, err
 		},
 		searchClusterRoleBinding: func(workspace logicalcluster.Name, name string) (bool, error) {
 			_, err := crbLister.Get(clusters.ToClusterAwareKey(workspace, name))
 			if kerrors.IsNotFound(err) {
 				return false, nil
 			}
-			if err != nil {
-				return false, err
-			}
-			return true, nil
+			return err == nil, err
 		},
 		synced: func() bool {
 			return clusterWorkspaceInformer.HasSynced() &&
@@ -291,7 +281,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		attributes := homeWorkspaceAuthorizerAttributes(user, "get")
 		decision, reason, err := h.authz.Authorize(ctx, attributes)
 		if err != nil {
-			responsewriters.InternalError(rw, req, err)
+			klog.Errorf("failed to authorize user %q to get a home workspace %q: %w", user.GetName(), lcluster.Name, err)
+			responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 			return
 		}
 		if decision != authorizer.DecisionAllow {
@@ -366,7 +357,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	if decision, reason, err := h.authz.Authorize(
 		request.WithCluster(ctx, request.Cluster{Name: tenancyv1alpha1.RootCluster}),
 		attributes); err != nil {
-		responsewriters.InternalError(rw, req, err)
+		klog.Errorf("failed to authorize user %q to create a home workspace %q: %w", user.GetName(), lcluster.Name, err)
+		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 		return
 	} else if decision != authorizer.DecisionAllow {
 		responsewriters.Forbidden(ctx, attributes, rw, req, reason, homeWorkspaceCodecs)
@@ -384,11 +376,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 }
 
-// reHomeWorkspaceNameDisallowedtChars is the regexp that defines what characters
+// reHomeWorkspaceNameDisallowedChars is the regexp that defines what characters
 // are disallowed in a home workspace name.
 // Home workspace name is derived from the user name, with disallowed characters
 // replaced.
-var reHomeWorkspaceNameDisallowedtChars = regexp.MustCompile("[^a-z0-9-]")
+var reHomeWorkspaceNameDisallowedChars = regexp.MustCompile("[^a-z0-9-]")
 
 // getHomeLogicalClusterName returns the logicalcluster name of the home workspace for a given user
 // The home workspace logical cluster ancestors are home bucket workspaces whose name is based
@@ -411,7 +403,7 @@ func (h *homeWorkspaceHandler) getHomeLogicalClusterName(userName string) logica
 		result = result.Join(string(bucketBytes))
 	}
 
-	userName = reHomeWorkspaceNameDisallowedtChars.ReplaceAllLiteralString(userName, "-")
+	userName = reHomeWorkspaceNameDisallowedChars.ReplaceAllLiteralString(userName, "-")
 	userName = strings.TrimLeftFunc(userName, func(r rune) bool {
 		return r <= '9'
 	})

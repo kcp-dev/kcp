@@ -1419,9 +1419,9 @@ func TestServeHTTP(t *testing.T) {
 				return authorizer.DecisionDeny, "", errors.New("an error")
 			},
 
-			expectedStatusCode:   500,
+			expectedStatusCode:   403,
 			expectedToDelegate:   false,
-			expectedResponseBody: `Internal Server Error: "/dummy-target": an error`,
+			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot get resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
 			testName:       "return the real home workspace when it already exists",
@@ -1579,8 +1579,8 @@ func TestServeHTTP(t *testing.T) {
 				},
 			},
 
-			expectedStatusCode:   500,
-			expectedResponseBody: `Internal Server Error: "/dummy-target": error when checking user permission`,
+			expectedStatusCode:   403,
+			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot create resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
 			testName:       "try to create when home workspace doesn't exist and user has permission",
