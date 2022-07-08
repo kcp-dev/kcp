@@ -181,6 +181,13 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		u.Path = path.Join(u.Path, parentClusterName.Path())
 		newServerHost = u.String()
 
+	case "~":
+		homeWorkspace, err := kc.clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		newServerHost = homeWorkspace.Status.URL
+
 	case "":
 		return kc.CurrentWorkspace(ctx, false)
 

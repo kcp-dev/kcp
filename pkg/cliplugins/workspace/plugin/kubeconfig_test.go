@@ -234,6 +234,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUse(t *testing.T) {
+	homeWorkspaceLogicalCluster := logicalcluster.New("root:users:ab:cd:user-name")
 	tests := []struct {
 		name   string
 		config clientcmdapi.Config
@@ -648,6 +649,30 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{"Current workspace is the URL \"https://other2/\""},
 		},
+		{
+			name: "~",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				tenancyv1alpha1.RootCluster: {"~"},
+			},
+			param: "~",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+					"workspace.kcp.dev/current":  {Server: "https://test" + homeWorkspaceLogicalCluster.Path()},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{fmt.Sprintf("Current workspace is \"%s\"", homeWorkspaceLogicalCluster.String())},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -688,6 +713,28 @@ func TestUse(t *testing.T) {
 					prettyObjs = append(prettyObjs, obj)
 				}
 				clients[lcluster] = tenancyfake.NewSimpleClientset(objs...)
+				if lcluster == tenancyv1alpha1.RootCluster {
+					clients[lcluster].PrependReactor("get", "workspaces", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+						getAction := action.(clientgotesting.GetAction)
+						if getAction.GetName() == "~" {
+							return true, &tenancyv1beta1.Workspace{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "user-name",
+								},
+								Spec: tenancyv1beta1.WorkspaceSpec{
+									Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+										Name: "Home",
+										Path: "root",
+									},
+								},
+								Status: tenancyv1beta1.WorkspaceStatus{
+									URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.Path()),
+								},
+							}, nil
+						}
+						return false, nil, nil
+					})
+				}
 				personalClients[lcluster] = tenancyfake.NewSimpleClientset(prettyObjs...)
 			}
 
