@@ -31,6 +31,7 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
@@ -61,11 +62,11 @@ func TestIngressController(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface)
+		work func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture)
 	}{
 		{
 			name: "ingress lifecycle",
-			work: func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface) {
+			work: func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture) {
 				// We create a root ingress. Ingress is excluded (through a hack) in namespace controller to be labeled.
 				// The ingress-controller will take over the labelling of the leaves. After that the normal syncer will
 				// sync the leaves into the physical cluster.
@@ -79,7 +80,8 @@ func TestIngressController(t *testing.T) {
 				rootIngress, err = sourceClient.Ingresses(testNamespace).Create(ctx, rootIngress, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ingress")
 
-				nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(rootIngress), Namespace: rootIngress.Namespace}
+				rootIngressLogicalCluster := logicalcluster.From(rootIngress)
+				nsLocator := shared.NewNamespaceLocator(rootIngressLogicalCluster, syncerFixture.SyncerConfig.KCPClusterName, types.UID("syncTargetUID"), syncerFixture.SyncerConfig.SyncTargetName, rootIngress.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator) // nolint: staticcheck
 				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 
@@ -357,7 +359,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err, "failed to start ingress controller")
 
 			t.Log("Starting test...")
-			testCase.work(ctx, t, sourceKubeClient.NetworkingV1(), syncerFixture.DownstreamKubeClient.NetworkingV1())
+			testCase.work(ctx, t, sourceKubeClient.NetworkingV1(), syncerFixture.DownstreamKubeClient.NetworkingV1(), syncerFixture)
 		})
 	}
 }

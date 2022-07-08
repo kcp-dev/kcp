@@ -195,14 +195,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.KCPClusterName, cfg.SyncTargetName, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers)
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
 
 	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.SyncTargetName, resources)
 	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.KCPClusterName, cfg.SyncTargetName, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers)
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -43,7 +44,8 @@ import (
 
 const (
 	controllerName                   = "kcp-workload-syncer-spec"
-	byWorkspaceAndNamespaceIndexName = "syncer-spec-WorkspaceNamespace-index" // will go away with scoping
+	byNamespaceLocatorIndexName      = "syncer-spec-ByNamespaceLocator"
+	byWorkspaceAndNamespaceIndexName = "syncer-spec-WorkspaceNamespace" // will go away with scoping
 )
 
 type Controller struct {
@@ -55,13 +57,14 @@ type Controller struct {
 	downstreamClient                       dynamic.Interface
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
 
-	syncTargetName               string
-	syncTargetLogicalClusterName logicalcluster.Name
-	advancedSchedulingEnabled    bool
+	syncTargetName            string
+	syncTargetClusterName     logicalcluster.Name
+	syncTargetUID             types.UID
+	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterName logicalcluster.Name, syncTargetName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory) (*Controller, error) {
+func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName logicalcluster.Name, syncTargetName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
@@ -71,9 +74,10 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterN
 		upstreamInformers:   upstreamInformers,
 		downstreamInformers: downstreamInformers,
 
-		syncTargetName:               syncTargetName,
-		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
-		advancedSchedulingEnabled:    advancedSchedulingEnabled,
+		syncTargetName:            syncTargetName,
+		syncTargetClusterName:     syncTargetClusterName,
+		syncTargetUID:             syncTargetUID,
+		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
 	namespaceGVR := schema.GroupVersionResource{
@@ -82,6 +86,11 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterN
 		Resource: "namespaces",
 	}
 	namespaceLister := downstreamInformers.ForResource(namespaceGVR).Lister()
+
+	err := downstreamInformers.ForResource(namespaceGVR).Informer().AddIndexers(cache.Indexers{byNamespaceLocatorIndexName: indexByNamespaceLocator})
+	if err != nil {
+		return nil, err
+	}
 
 	for _, gvr := range gvrs {
 		gvr := gvr // because used in closure
@@ -102,7 +111,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterN
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.V(2).InfoS("Set up upstream informer", "clusterName", syncTargetLogicalClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
+		klog.V(2).InfoS("Set up upstream informer", "clusterName", syncTargetClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
 
 		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			DeleteFunc: func(obj interface{}) {
@@ -141,14 +150,14 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetLogicalClusterN
 				}
 				klog.V(4).InfoS("found", "NamespaceLocator", nsLocator)
 				m := &metav1.ObjectMeta{
-					ClusterName: nsLocator.LogicalCluster.String(),
+					ClusterName: nsLocator.Workspace.String(),
 					Namespace:   nsLocator.Namespace,
 					Name:        name,
 				}
 				c.AddToQueue(gvr, m)
 			},
 		})
-		klog.V(2).InfoS("Set up downstream informer", "clusterName", syncTargetLogicalClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
+		klog.V(2).InfoS("Set up downstream informer", "clusterName", syncTargetClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
 	}
 
 	secretMutator := specmutators.NewSecretMutator()
@@ -259,4 +268,17 @@ func indexByWorkspaceAndNamespace(obj interface{}) ([]string, error) {
 
 func workspaceAndNamespaceIndexKey(logicalcluster logicalcluster.Name, namespace string) string {
 	return logicalcluster.String() + "/" + namespace
+}
+
+// indexByNamespaceLocator is a cache.IndexFunc that indexes namespaces by the namespaceLocator annotation.
+func indexByNamespaceLocator(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	locator, ok := metaObj.GetAnnotations()[shared.NamespaceLocatorAnnotation]
+	if !ok {
+		return []string{}, nil
+	}
+	return []string{locator}, nil
 }

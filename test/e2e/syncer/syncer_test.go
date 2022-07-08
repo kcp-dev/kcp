@@ -41,6 +41,7 @@ import (
 	kyaml "sigs.k8s.io/yaml"
 
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -87,10 +88,32 @@ func TestSyncerLifecycle(t *testing.T) {
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(syncerFixture.DownstreamConfig)
 	require.NoError(t, err)
 
-	// Determine downstream name of the namespace
-	nsLocator := shared.NamespaceLocator{LogicalCluster: logicalcluster.From(upstreamNamespace), Namespace: upstreamNamespace.Name}
-	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(nsLocator)
+	kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	require.NoError(t, err)
+
+	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+		syncerFixture.SyncerConfig.SyncTargetName,
+		metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+
+	desiredNSLocator := shared.NewNamespaceLocator(wsClusterName, logicalcluster.From(syncTarget),
+		syncTarget.GetUID(), syncTarget.Name, upstreamNamespace.Name)
+	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(desiredNSLocator)
+	require.NoError(t, err)
+
+	t.Logf("Waiting for downstream namespace to be created...")
+	require.Eventually(t, func() bool {
+		_, err = downstreamKubeClient.CoreV1().Namespaces().Get(ctx, downstreamNamespaceName, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return false
+			}
+			require.NoError(t, err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream namespace %s for upstream namespace %s was not created", downstreamNamespaceName, upstreamNamespace.Name)
 
 	configMapName := "kcp-root-ca.crt"
 	t.Logf("Waiting for downstream configmap %s/%s to be created...", downstreamNamespaceName, configMapName)
