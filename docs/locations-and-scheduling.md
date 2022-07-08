@@ -1,4 +1,4 @@
-# Locations and Scheduling
+# Placement, Locations and Scheduling
 
 KCP implements *Compute as a Service* via a concept of Transparent Multi Cluster (TMC). TMC means that
 Kubernetes clusters are attached to a kcp installation to execute workload objects from the users'
@@ -29,77 +29,106 @@ The APIs used for Compute as a Service are:
   Locations are visible to users, but owned by the compute service team, i.e. read-only to the users and only projected
   into their workspaces for visibility. A placement decision references a location by name.
 
+  `SyncTarget`s in a `Location` are transparent to the user. Workload should be able to seamless move from one `SyncTarget` to another
+  within a `Location`. It is compute service's responsibility to ensure that:
+
+  1. Network connectivity: a workload in one `SyncTarget` can access service in another `SyncTarget` with a predefined DNS format.
+  2. Storage compatibility: a storage in one `SyncTarget` can be easily moved to another `SyncTarget`.
+
+- `Placement` in `scheduling.kcp.dev/v1alpha1` – represents a selection rule to choose ONE `Location` via location labels, and bind
+  the selected location to MULTIPLE namespaces in a user workspace. Users can create multiple `Placement`s to select multiple `Locations`
+  for namespaces.
+
+  `Placement` are visible and writable to users. A default `Placement` is automatically created when a workload `APIBinding` is
+  created on the user workspace, which randomly select a `Location` and bind to all namespaces in this workspace. User can mutate or delete
+  the default placement.
+
 - *Compute Service Workspace* (previously *Negotiation Workspace*) – the workspace owned by the compute service team to hold
   the `APIExport` (named `kubernetes` today) with the synced resources, and `SyncTarget` and `Location` objects.
 
   The user binds to the `APIExport` called `kubernetes` using an `APIBinding`. From this moment on, the users' workspaces
   are subject to placement.
 
-- *Placement* – the process of selecting a `Location` matching the scheduling constraints and a `SyncTarget` in that location
-  for a user namespace. A placement decision is not necessarily permanent and can be changed over time. The placement onto a location
-  is sticky, while the placement onto a sync target is not. I.e. when evicted from a sync target, another sync target
-  in the same location is selected.
-
 Note: binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
 workload objects.
 
 Note: it is planned to allow multiple location workspaces for the same compute service, even with different owners.
 
-## State Machines
-
-There are two state machines involved in TMC.
-
-1. the *placement state machine*, stored in the `scheduling.kcp.dev/placement` annotation on namespaces. This state machine is used to
-   track the placement decisions of the user namespaces. The actors are:
-   - the *placement controller* (= scheduler), which is responsible for the placement decision.
-   - the *workload/namespace controller*, which is responsible for implementing the placement via syncing of workload objects to physical clusters.
-2. the *syncing state machine*, stored in the `state.internal.workload.kcp.dev/<cluster-id>` labels on workload objects. This state machine is used to
-   track the syncing of workload objects to physical clusters. The actors are:
-   - the *workload controller*, which is responsible for syncing workload objects to physical clusters.
-   - the *workload/namespace controller*, which is responsible for implement the syncing via syncing of workload objects to physical clusters.
-
-<img alt="Diagram of kcp" width="100%" src="./images/scheduling-state-machine.svg"></img>
-
-### Placement
-
-`scheduling.kcp.dev/placement` holds a JSON object, consisting of a map of from location strings to a placement state.
+### Placement and resource scheduling
 
 The placement state is one of
-- `Pending` – the placement controller waits for the namespace controller to adopt the namespace 
-  by setting setting the state to `Bound`.
-- `Bound` – the namespace is bound to a sync target and with that to a syncer.
-- `Removing` – the placement controller can set the state to `Removing` in order to ask the namespace controller to
-  start the process of removing the namespace from the sync target.
-- `Unbound` – the namespace has been removed and with that released by the sync target and with that from a syncer.
-  This state is set by the namespace controller. The placement controller will notice, and remove the entry in the placement annotation.
+- `Pending` – the placement controller waits for a valid `Location` to select
+- `Bound` – at least one namespace is bound to the placement. When the user updates the spec of the `Placement`, the selected location of 
+  the placement will be changed in `Bound` state.
+- `Unbound` – a location is selected by the placement, but no namespace is bound to the placement. When the user updates the spec of the `Placement`, the
+  selected location of the placement will be changed in `Unbound` state.
 
-The location strings are of the form `<locationClusterName>+<locationName>+<syncTargetIdentifier>`.
+Note: sync targets from different locations can be bound at the same time, while each location can only have one sync target bound to the
+namespace.
 
-Example:
+The user interface to influence the placement decisions is the `Placement` object. For example, use can create a placement to bind namespace with
+label of "app=foo" to a location with label "cloud=aws" as below:
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-  name: default
-  annotations:
-    scheduling.kcp.dev/placement: {"root:compute+us-east1-gcp+a7fcajg8a-a9sf-a738":"Bound"}
+apiVersion: scheduling.kcp.dev/v1alpha1
+kind: Placement
+metadata:
+  name: aws
+spec:
+  locationSelectors:
+  - matchLabels:
+      cloud: aws
+  namespaceSelector:
+    matchLabels:
+      app: foo
+  locationWorkspace: root:default:location-ws
 ```
 
-Note: multiple sync targets can be bound at the same time.
+A matched location will be selected for this `Placement` at first, which makes the `Placement` turns from `Pending` to `Unbound`. Then if there is at
+least one matched ns, the ns will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`. After this, a
+`SyncTarget` will be selected from the location picked by the placement.  `state.internal.workload.kcp.dev/<cluster-id>` label with value of `Sync` will
+be set if a valid `SyncTarget` is selected.
 
-The placement state machine is (to be) protected against mutation by the user via admission. The user interface
-to influence the placement decisions is (will be) the `Placement` object.
+The use can create another placement targeted to a different location for this ns, e.g. 
+
+```yaml
+apiVersion: scheduling.kcp.dev/v1alpha1
+kind: Placement
+metadata:
+  name: gce
+spec:
+  locationSelectors:
+  - matchLabels:
+      cloud: gce
+  namespaceSelector:
+    matchLabels:
+      app: foo
+  locationWorkspace: root:default:location-ws
+```
+
+which wiil finally result in another `state.internal.workload.kcp.dev/<cluster-id>` label added to the ns, and the ns will have two different
+`state.internal.workload.kcp.dev/<cluster-id>` label.
+
+Placement is in the `Ready` status condition when
+
+1. selected location matchs the `Placement` spec.
+2. selected location exists in the location workspace.
+
+#### Sync target removing
+
+A sync target will be removed when:
+
+1. corresponding `Placement` is deleted.
+2. corresponding `Placement` is not in `Ready` condition.
+3. corresponding `SyncTarget` is evicting/not Ready/deleted
+
+All above cases will make the `SyncTraget` represented in the label `state.internal.workload.kcp.dev/<cluster-id>` invalid, which will cause
+`finalizers.workload.kcp.dev/<cluster-id>` annotation with removing time in the format of RFC-3339 added on the ns.
 
 ### Resource Syncing
 
-As soon as the `scheduling.kcp.dev/placement` annotation is set with state `Pending` on a namespace, the workload namespace 
-controller will pick up the namespace and
-
-1. set the `scheduling.kcp.dev/placement` annotation state to `Bound` and
-2. set the `state.internal.workload.kcp.dev/<cluster-id>` label to `Sync`.
-
-Then the workload resource controller will copy the `state.internal.workload.kcp.dev/<cluster-id>` label to the 
-resources in that namespace.
+As soon as the `state.internal.workload.kcp.dev/<cluster-id>` label is set on the ns the workload resource controller will 
+copy the `state.internal.workload.kcp.dev/<cluster-id>` label to the resources in that namespace.
 
 Note: in the future, the label on the resources is first set to empty string `""`, and a coordination controller will be 
 able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
@@ -113,8 +142,7 @@ and starts syncing them downstream, first by creating the namespace. Before sync
 a finalizer `workload.kcp.dev/syncer-<cluster-id>` on the upstream object in order to delay upstream deletion until
 the downstream object is also deleted.
 
-When the `scheduling.kcp.dev/placement` annotation signals `Removing`, the namespace controller will
-add the `deletion.internal.workload.kcp.dev/<cluster-id>` annotation with a RFC3339 timestamp. The virtual workspace apiserver
+When the `deletion.internal.workload.kcp.dev/<cluster-id>` is added to the ns. The virtual workspace apiserver
 will translate that annotation into a deletion timestamp on the object the syncer sees. The syncer
 notices that as a started deletion flow. As soon as there are no coordination controller finalizers registered via the
 `finalizers.workload.kcp.dev/<cluster-id>` annotation anymore, the syncer will start a deletion of the downstream object.
@@ -123,9 +151,6 @@ When the downstream deletion is complete, the syncer will remove the finalizer f
 `state.internal.workload.kcp.dev/<cluster-id>` labels gets deleted as well. The syncer stops seeing the object in the virtual
 workspace.
 
-In case of namespaces, the workload namespace controller will notice that removal of the `state.internal.workload.kcp.dev/<cluster-id>` 
-labels and set the `scheduling.kcp.dev/placement` state to `Unbound`. The placement controller will notice and remove the
-`scheduling.kcp.dev/placement` for that location.
 
 Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.internal.workload.kcp.dev/<cluster-id>` 
 label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
