@@ -56,6 +56,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpclusterexternalversions "github.com/kcp-dev/kcp/pkg/clusterclient/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -91,6 +92,7 @@ type Server struct {
 	syncedCh chan struct{}
 
 	kcpSharedInformerFactory              kcpexternalversions.SharedInformerFactory
+	kcpClusterSharedInformerFactory       kcpclusterexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory             coreexternalversions.SharedInformerFactory
 	apiextensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
@@ -178,6 +180,10 @@ func (s *Server) Run(ctx context.Context) error {
 		resyncPeriod,
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+	)
+	s.kcpClusterSharedInformerFactory = kcpclusterexternalversions.NewSharedInformerFactoryWithOptions(
+		kcpClient,
+		resyncPeriod,
 	)
 
 	// Setup kube * informers
@@ -432,9 +438,11 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Finished getting kcp APIExport identities")
 
 		s.kcpSharedInformerFactory.Start(ctx.StopCh)
+		s.kcpClusterSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
 
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.kcpClusterSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
 		select {
