@@ -356,13 +356,14 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	s.dynamicDiscoverySharedInformerFactory = informer.NewDynamicDiscoverySharedInformerFactory(
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		kubeClusterClient.DiscoveryClient,
+
+	s.dynamicDiscoverySharedInformerFactory, err = informer.NewDynamicDiscoverySharedInformerFactory(
 		metadataClusterClient.Cluster(logicalcluster.Wildcard),
-		func(obj interface{}) bool { return true }, s.options.Extra.DiscoveryPollInterval,
+		func(obj interface{}) bool { return true },
+		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		indexers.NamespaceScoped(),
 	)
-	if err := s.dynamicDiscoverySharedInformerFactory.AddIndexers(indexers.NamespaceScoped()); err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -452,8 +453,8 @@ func (s *Server) Run(ctx context.Context) error {
 
 		klog.Infof("Finished starting (remaining) kcp informers")
 
-		klog.Infof("Starting dynamic metadata informer")
-		s.dynamicDiscoverySharedInformerFactory.StartPolling(goContext(ctx))
+		klog.Infof("Starting dynamic metadata informer worker")
+		go s.dynamicDiscoverySharedInformerFactory.StartWorker(goContext(ctx))
 
 		klog.Infof("Synced all informers. Ready to start controllers")
 		close(s.syncedCh)

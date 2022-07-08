@@ -24,84 +24,171 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
-
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 const (
 	resyncPeriod = 10 * time.Hour
-)
 
-type clusterDiscovery interface {
-	WithCluster(name logicalcluster.Name) discovery.DiscoveryInterface
-}
+	groupFirstFoundVersionResourceIndex = "group-firstFoundVersion-resource"
+)
 
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
 type DynamicDiscoverySharedInformerFactory struct {
-	workspaceLister tenancylisters.ClusterWorkspaceLister
-	disco           clusterDiscovery
-	dynamicClient   dynamic.Interface
-	filterFunc      func(interface{}) bool
-	pollInterval    time.Duration
-	indexers        cache.Indexers
+	dynamicClient dynamic.Interface
+	filterFunc    func(interface{}) bool
+	indexers      cache.Indexers
+	crdIndexer    cache.Indexer
 
 	// handlersLock protects multiple writers racing to update handlers.
 	handlersLock sync.Mutex
 	handlers     atomic.Value
 
-	mu               sync.RWMutex
+	updateCh chan struct{}
+
+	informersLock    sync.RWMutex
 	informers        map[schema.GroupVersionResource]informers.GenericInformer
 	startedInformers map[schema.GroupVersionResource]bool
 	informerStops    map[schema.GroupVersionResource]chan struct{}
 	terminating      bool
 }
 
+// NewDynamicDiscoverySharedInformerFactory returns a factory for shared
+// informers that discovers new types and informs on updates to resources of
+// those types.
+func NewDynamicDiscoverySharedInformerFactory(
+	dynClient dynamic.Interface,
+	filterFunc func(obj interface{}) bool,
+	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
+	indexers cache.Indexers,
+) (*DynamicDiscoverySharedInformerFactory, error) {
+	f := &DynamicDiscoverySharedInformerFactory{
+		dynamicClient: dynClient,
+		filterFunc:    filterFunc,
+		indexers:      indexers,
+		crdIndexer:    crdInformer.Informer().GetIndexer(),
+
+		// Use a buffered channel of size 1 to allow enqueuing 1 update notification
+		updateCh: make(chan struct{}, 1),
+
+		informers:        make(map[schema.GroupVersionResource]informers.GenericInformer),
+		startedInformers: make(map[schema.GroupVersionResource]bool),
+		informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
+	}
+
+	f.handlers.Store([]GVREventHandler{})
+
+	// Add an index function that indexes a CRD by its group/firstServedVersion/resource. We only need the first
+	// served version because this shared informer factory is expected to be using a wildcard client for partial
+	// metadata only. In this instance, version does not matter, because a wildcard partial metadata list request
+	// for CRs always serves all CRs for the group-resource, regardless of storage version.
+	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
+		groupFirstFoundVersionResourceIndex: func(obj interface{}) ([]string, error) {
+			crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+			if !ok {
+				return nil, fmt.Errorf("%T is not a CustomResourceDefinition", obj)
+			}
+
+			firstServedVersion := ""
+			for _, version := range crd.Spec.Versions {
+				if !version.Served {
+					continue
+				}
+				firstServedVersion = version.Name
+				break
+			}
+
+			if firstServedVersion == "" {
+				return []string{}, nil
+			}
+
+			group := crd.Spec.Group
+			resource := crd.Spec.Names.Plural
+
+			indexValue := fmt.Sprintf("%s/%s/%s", group, firstServedVersion, resource)
+			return []string{indexValue}, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	// Any time a CRD event comes in, let StartWorker() know about it
+	notifyUpdateNeeded := func() {
+		select {
+		case f.updateCh <- struct{}{}:
+			klog.V(4).InfoS("Enqueued update notification for dynamic informer recalculation")
+		default:
+			klog.V(5).InfoS("Dropping update notification for dynamic informer recalculation because a notification is already pending")
+		}
+	}
+
+	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			notifyUpdateNeeded()
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			notifyUpdateNeeded()
+		},
+		DeleteFunc: func(obj interface{}) {
+			notifyUpdateNeeded()
+		},
+	})
+
+	return f, nil
+}
+
 // InformerForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
 // by calling Start on the DynamicDiscoverySharedInformerFactory before the GenericInformer can be used.
 func (d *DynamicDiscoverySharedInformerFactory) InformerForResource(gvr schema.GroupVersionResource) (informers.GenericInformer, error) {
 	// See if we already have it
-	d.mu.RLock()
+	d.informersLock.RLock()
 	inf := d.informers[gvr]
-	d.mu.RUnlock()
+	d.informersLock.RUnlock()
 
 	if inf != nil {
 		return inf, nil
 	}
 
 	// Grab the write lock, then find-or-create
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.informersLock.Lock()
+	defer d.informersLock.Unlock()
 
-	return d.informerForResourceLockHeld(gvr)
+	return d.informerForResourceLockHeld(gvr), nil
 }
 
 // informerForResourceLockHeld returns the GenericInformer for gvr, creating it if needed. The caller must have the write
 // lock before calling this method.
-func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) (informers.GenericInformer, error) {
+func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) informers.GenericInformer {
 	// In case it was created in between the initial check while the rlock was held and when the write lock was
 	// acquired, return it instead of creating a 2nd copy and overwriting.
 	inf := d.informers[gvr]
 	if inf != nil {
-		return inf, nil
+		return inf
 	}
 
 	klog.Infof("Adding dynamic informer for %q", gvr)
+
+	// TODO(ncdc) remove NamespaceIndex when scoping is fully integrated
+	indexers := cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
+
+	for k, v := range d.indexers {
+		if k == cache.NamespaceIndex {
+			// Don't allow overriding NamespaceIndex
+			continue
+		}
+
+		indexers[k] = v
+	}
 
 	// Definitely need to create it
 	inf = dynamicinformer.NewFilteredDynamicInformer(
@@ -109,7 +196,7 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 		gvr,
 		corev1.NamespaceAll,
 		resyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+		indexers,
 		nil,
 	)
 
@@ -134,14 +221,10 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 		},
 	})
 
-	if err := inf.Informer().AddIndexers(d.indexers); err != nil {
-		return nil, err
-	}
-
 	// Store in cache
 	d.informers[gvr] = inf
 
-	return inf, nil
+	return inf
 }
 
 // Listers returns a map of per-resource-type listers for all types that are
@@ -152,8 +235,8 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.GroupVersionResource]cache.GenericLister, notSynced []schema.GroupVersionResource) {
 	listers = map[schema.GroupVersionResource]cache.GenericLister{}
 
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
 
 	if d.terminating {
 		return
@@ -171,32 +254,6 @@ func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.Gr
 	}
 
 	return listers, notSynced
-}
-
-// NewDynamicDiscoverySharedInformerFactory returns a factory for shared
-// informers that discovers new types and informs on updates to resources of
-// those types.
-func NewDynamicDiscoverySharedInformerFactory(
-	workspaceLister tenancylisters.ClusterWorkspaceLister,
-	disco clusterDiscovery,
-	dynClient dynamic.Interface,
-	filterFunc func(obj interface{}) bool,
-	pollInterval time.Duration,
-) *DynamicDiscoverySharedInformerFactory {
-	f := &DynamicDiscoverySharedInformerFactory{
-		workspaceLister:  workspaceLister,
-		disco:            disco,
-		dynamicClient:    dynClient,
-		filterFunc:       filterFunc,
-		pollInterval:     pollInterval,
-		informers:        make(map[schema.GroupVersionResource]informers.GenericInformer),
-		informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
-		startedInformers: make(map[schema.GroupVersionResource]bool),
-	}
-
-	f.handlers.Store([]GVREventHandler{})
-
-	return f
 }
 
 // GVREventHandler is an event handler that includes the GroupVersionResource
@@ -244,129 +301,98 @@ func (d *DynamicDiscoverySharedInformerFactory) AddEventHandler(handler GVREvent
 	d.handlersLock.Unlock()
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) AddIndexers(indexers cache.Indexers) error {
-	if d.indexers == nil {
-		d.indexers = map[string]cache.IndexFunc{}
-	}
-	for name, indexer := range indexers {
-		if _, found := d.indexers[name]; found {
-			return fmt.Errorf("indexer %q already exists", name)
+// StartWorker starts the worker that waits for notifications that informer updates are needed. This call is blocking,
+// stopping when ctx.Done() is closed.
+func (d *DynamicDiscoverySharedInformerFactory) StartWorker(ctx context.Context) {
+	defer func() {
+		d.informersLock.Lock()
+
+		for _, stopCh := range d.informerStops {
+			close(stopCh)
 		}
-		d.indexers[name] = indexer
-	}
 
-	return nil
-}
-
-// StartPolling starts the polling process that periodically discovers new resources and starts informers for them.
-// This call is non-blocking.
-func (d *DynamicDiscoverySharedInformerFactory) StartPolling(ctx context.Context) {
-	// Immediately discover types and start informing.
-	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
-		if err := d.discoverTypes(ctx); err != nil {
-			klog.Errorf("Error discovering initial types: %v", err)
-			return false, nil
-		}
-		return true, nil
-	}); err != nil {
-		klog.Errorf("Error discovering initial types: %v", err)
-		return
-	}
-
-	// Poll for new types in the background.
-	ticker := time.NewTicker(d.pollInterval)
-	go func() {
-		defer func() {
-			d.mu.Lock()
-			defer d.mu.Unlock()
-
-			// tear down all informers when done.
-			for _, stopCh := range d.informerStops {
-				close(stopCh)
-			}
-
-			// Note: it does not matter if after this another informer is added. It won't be started without
-			// calling discoverTypes.
-		}()
-
-		for {
-			select {
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				if err := d.discoverTypes(ctx); err != nil {
-					klog.Errorf("Error discovering types: %v", err)
-				}
-			}
-		}
+		d.informersLock.Unlock()
 	}()
+
+	// Use UntilWithContext here so that we only check updateCh at most once every second. Because a flurry of several
+	// watch events for CRDs can come in quickly, this effectively "batches" them, so we aren't recalculating the
+	// informers for each watch event in a tightly grouped set of events.
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		klog.V(4).InfoS("Waiting for notification")
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.updateCh:
+		}
+
+		klog.V(4).InfoS("Notification received")
+		d.updateInformers()
+	}, time.Second)
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Context) error {
-	latest := map[schema.GroupVersionResource]struct{}{}
+func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
+	klog.V(2).InfoS("Determining dynamic informer additions and removals")
 
-	// Get a list of all the logical cluster names. We'll get discovery from all of them, union all the GVRs, and use
-	// that union for the informer.
-
-	// TODO(ncdc): this may not scale well. Watchable discovery or something like that
-	// is a better long term solution.
-	workspaces, err := d.workspaceLister.List(labels.Everything())
-	if err != nil {
-		return err
+	gvrFor := func(group, version, resource string) schema.GroupVersionResource {
+		return schema.GroupVersionResource{
+			Group:    group,
+			Version:  version,
+			Resource: resource,
+		}
 	}
-	for i := range workspaces {
-		logicalClusterName := logicalcluster.From(workspaces[i]).Join(workspaces[i].Name).String()
 
-		klog.Infof("Discovering types for logical cluster %q", logicalClusterName)
-		rs, err := d.disco.WithCluster(logicalcluster.New(logicalClusterName)).ServerPreferredResources()
-		if err != nil {
-			return err
-		}
-		for _, r := range rs {
-			gv, err := schema.ParseGroupVersion(r.GroupVersion)
-			if err != nil {
-				return err
-			}
-			for _, ai := range r.APIResources {
-				gvr := gv.WithResource(ai.Name)
+	// Hard-code built in types that support list+watch
+	latest := map[schema.GroupVersionResource]struct{}{
+		gvrFor("", "v1", "configmaps"):                                                   {},
+		gvrFor("", "v1", "events"):                                                       {},
+		gvrFor("", "v1", "limitranges"):                                                  {},
+		gvrFor("", "v1", "namespaces"):                                                   {},
+		gvrFor("", "v1", "resourcequotas"):                                               {},
+		gvrFor("", "v1", "secrets"):                                                      {},
+		gvrFor("", "v1", "serviceaccounts"):                                              {},
+		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):                {},
+		gvrFor("coordination.k8s.io", "v1", "leases"):                                    {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                        {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                 {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                               {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                        {},
+		gvrFor("flowcontrol.apiserver.k8s.io", "v1beta2", "flowschemas"):                 {},
+		gvrFor("flowcontrol.apiserver.k8s.io", "v1beta2", "prioritylevelconfigurations"): {},
+		gvrFor("events.k8s.io", "v1", "events"):                                          {},
+		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):    {},
+		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"):  {},
+		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):                {},
+	}
 
-				if strings.Contains(ai.Name, "/") {
-					// foo/status, pods/exec, namespace/finalize, etc.
-					continue
-				}
-				if !ai.Namespaced {
-					// Ignore cluster-scoped things.
-					continue
-				}
-				if !sets.NewString([]string(ai.Verbs)...).HasAll("list", "watch") {
-					klog.V(4).InfoS("resource is not list+watchable", "logical-cluster", logicalClusterName, "group", gv.Group, "version", gv.Version, "resource", ai.Name, "verbs", ai.Verbs)
-					continue
-				}
-
-				latest[gvr] = struct{}{}
-			}
-		}
+	// Get the unique set of Group(Version)Resources (version doesn't matter because we're expecting a wildcard
+	// partial metadata client, but we need a version in the request, so we need it here) and add them to latest.
+	crdGVRs := d.crdIndexer.ListIndexFuncValues(groupFirstFoundVersionResourceIndex)
+	for _, s := range crdGVRs {
+		parts := strings.Split(s, "/")
+		group := parts[0]
+		version := parts[1]
+		resource := parts[2]
+		latest[gvrFor(group, version, resource)] = struct{}{}
 	}
 
 	// Grab a read lock to compare against d.informers to see if we need to start or stop any informers
-	d.mu.RLock()
+	d.informersLock.RLock()
 	informersToAdd, informersToRemove := d.calculateInformersLockHeld(latest)
-	d.mu.RUnlock()
+	d.informersLock.RUnlock()
 
 	if len(informersToAdd) == 0 && len(informersToRemove) == 0 {
-		return nil
+		return
 	}
 
 	// We have to add/remove, so we need the write lock
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.informersLock.Lock()
+	defer d.informersLock.Unlock()
 
 	// Recalculate in case another goroutine did this work in between when we had the read lock and when we acquired
 	// the write lock
 	informersToAdd, informersToRemove = d.calculateInformersLockHeld(latest)
 	if len(informersToAdd) == 0 && len(informersToRemove) == 0 {
-		return nil
+		return
 	}
 
 	// Now we definitely need to do this work
@@ -374,10 +400,7 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 		gvr := informersToAdd[i]
 
 		// We have the write lock, so call the LH variant
-		inf, err := d.informerForResourceLockHeld(gvr)
-		if err != nil {
-			return err
-		}
+		inf := d.informerForResourceLockHeld(gvr)
 
 		// Set up a stop channel for this specific informer
 		stop := make(chan struct{})
@@ -404,16 +427,14 @@ func (d *DynamicDiscoverySharedInformerFactory) discoverTypes(ctx context.Contex
 		delete(d.informerStops, gvr)
 		delete(d.startedInformers, gvr)
 	}
-
-	return nil
 }
 
 // Start starts any informers that have been created but not yet started. The passed in stop channel is ignored;
 // instead, a new stop channel is created, so the factory can properly stop the informer if/when the API is removed.
 // Like other shared informer factories, this call is non-blocking.
 func (d *DynamicDiscoverySharedInformerFactory) Start(_ <-chan struct{}) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.informersLock.Lock()
+	defer d.informersLock.Unlock()
 
 	for gvr, informer := range d.informers {
 		if !d.startedInformers[gvr] {
@@ -428,11 +449,6 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(_ <-chan struct{}) {
 	}
 }
 
-var (
-	crdGVR         = apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")
-	apibindingsGVR = apisv1alpha1.SchemeGroupVersion.WithResource("apibindings")
-)
-
 func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(latest map[schema.GroupVersionResource]struct{}) (toAdd, toRemove []schema.GroupVersionResource) {
 	for gvr := range latest {
 		if _, found := d.informers[gvr]; !found {
@@ -441,11 +457,6 @@ func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(lates
 	}
 
 	for gvr := range d.informers {
-		// HACK(ncdc): these are needed by our kubeQuota controller - don't delete them
-		if gvr == crdGVR || gvr == apibindingsGVR {
-			continue
-		}
-
 		if _, found := latest[gvr]; !found {
 			toRemove = append(toRemove, gvr)
 		}
