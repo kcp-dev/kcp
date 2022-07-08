@@ -81,7 +81,6 @@ func TestServerArgs() []string {
 // start a test server with the given token auth file.
 func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
 	return []string{
-		"--discovery-poll-interval=5s",
 		"-v=4",
 		"--token-auth-file", tokenAuthFile,
 	}
