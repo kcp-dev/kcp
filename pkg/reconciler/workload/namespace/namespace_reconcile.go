@@ -18,6 +18,7 @@ package namespace
 
 import (
 	"context"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -52,6 +53,7 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 			getLocation:    c.getLocation,
 			enqueueAfter:   c.enqueueAfter,
 			patchNamespace: c.patchNamespace,
+			now:            time.Now,
 		},
 		&statusConditionReconciler{
 			patchNamespace: c.patchNamespace,
