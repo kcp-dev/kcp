@@ -958,8 +958,8 @@ func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, conf
 
 	c := virtualworkspaceurlscontroller.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.kcpClusterSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.kcpClusterSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
 		return err
