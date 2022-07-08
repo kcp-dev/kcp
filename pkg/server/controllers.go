@@ -624,9 +624,9 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		kcpClusterClient,
 		dynamicClusterClient,
 		ddsif,
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
@@ -639,8 +639,8 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
 		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			crdsSynced := s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			exportsSynced := s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			bindingsSynced := s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 			return crdsSynced && exportsSynced && bindingsSynced, nil
 		}); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
@@ -658,7 +658,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	apibindingDeletionController := apibindingdeletion.NewController(
 		metadataClient,
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 
 	if err := server.AddPostStartHook("kcp-install-apibinding-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -45,8 +46,8 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	apisinformers "github.com/kcp-dev/kcp/pkg/clusterclient/informers/externalversions/apis/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/clusterclient/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
@@ -80,7 +81,7 @@ func NewController(
 
 		apiBindingsLister: apiBindingInformer.Lister(),
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			list, err := apiBindingInformer.Lister().List(labels.Everything())
+			list, err := apiBindingInformer.Lister().Cluster(clusterName).List(labels.Everything())
 			if err != nil {
 				return nil, err
 			}
@@ -100,12 +101,12 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			return apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			return apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			return apiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
 
@@ -198,7 +199,7 @@ type controller struct {
 	dynamicClusterClient dynamic.ClusterInterface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
-	apiBindingsLister  apislisters.APIBindingLister
+	apiBindingsLister  apislisters.APIBindingClusterLister
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	apiBindingsIndexer cache.Indexer
 
@@ -217,7 +218,7 @@ type controller struct {
 
 // enqueueAPIBinding enqueues an APIBinding .
 func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.ClusterAwareKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -229,7 +230,7 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
 func (c *controller) enqueueAPIExport(obj interface{}, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.ClusterAwareKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -275,7 +276,7 @@ func (c *controller) enqueueCRD(obj interface{}) {
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
 func (c *controller) enqueueAPIResourceSchema(obj interface{}, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.ClusterAwareKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -334,14 +335,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	cluster, _, name, err := kcpcache.SplitClusterAwareKey(key)
 	if err != nil {
-		klog.Errorf("invalid key: %q: %v", key, err)
-		return nil
+		return err
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
+	clusterName := logicalcluster.New(cluster)
 
-	obj, err := c.apiBindingsLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name) // TODO: clients need a way to scope down the lister per-cluster
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

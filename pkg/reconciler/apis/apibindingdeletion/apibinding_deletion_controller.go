@@ -26,6 +26,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,8 +44,8 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	apisinformers "github.com/kcp-dev/kcp/pkg/clusterclient/informers/externalversions/apis/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/clusterclient/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
 
@@ -104,11 +105,11 @@ type Controller struct {
 	metadataClient   metadata.Interface
 	kcpClusterClient kcpclient.ClusterInterface
 
-	apiBindingsLister apislisters.APIBindingLister
+	apiBindingsLister apislisters.APIBindingClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.ClusterAwareKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -179,7 +180,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		klog.V(4).Infof("Finished syncing apibinding %q (%v)", key, time.Since(startTime))
 	}()
 
-	apibinding, deleteErr := c.apiBindingsLister.Get(key)
+	cluster, _, name, err := kcpcache.SplitClusterAwareKey(key)
+	if err != nil {
+		return err
+	}
+	clusterName := logicalcluster.New(cluster)
+
+	apibinding, deleteErr := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
 		klog.V(3).Infof("apibinding has been deleted %v", key)
 		return nil

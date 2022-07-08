@@ -19,10 +19,10 @@ package apibinding
 import (
 	"fmt"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -43,7 +43,7 @@ func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
 			// this will never happen due to validation
 			return []string{}, fmt.Errorf("invalid export reference")
 		}
-		key := clusters.ToClusterAwareKey(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
+		key := kcpcache.ToClusterAwareKey(apiExportClusterName.String(), "", apiBinding.Spec.Reference.Workspace.ExportName)
 		return []string{key}, nil
 	}
 
@@ -61,7 +61,7 @@ func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) 
 
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = clusters.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = kcpcache.ToClusterAwareKey(logicalcluster.From(apiExport).String(), "", apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil
