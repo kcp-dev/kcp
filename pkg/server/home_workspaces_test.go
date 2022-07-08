@@ -565,6 +565,30 @@ func TestTryToCreate(t *testing.T) {
 			expectedRetryAfterSeconds: 1,
 		},
 		{
+			testName: "return error when the owner does not match",
+
+			workspaceName: "root:users:ab:cd:u--r-1",
+			workspaceType: "Home",
+			userName:      "u$€r-1",
+
+			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
+				return kerrors.NewAlreadyExists(schema.GroupResource{}, "u--r-1")
+			},
+
+			getClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+				return &tenancyv1alpha1.ClusterWorkspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "u--r-1",
+						Annotations: map[string]string{
+							"tenancy.kcp.dev/owner": "u§Ɛr-1",
+						},
+					},
+				}, nil
+			},
+
+			expectedCreateError: "clusterworkspaces.tenancy.kcp.dev \"u--r-1\" is forbidden: workspace access not permitted",
+		},
+		{
 			testName: "create RBAC and retry quicky when success creating home ClusterWorkspace",
 
 			workspaceName: "root:users:ab:cd:user-1",
@@ -601,6 +625,17 @@ func TestTryToCreate(t *testing.T) {
 				return kerrors.NewAlreadyExists(schema.GroupResource{}, "user-1")
 			},
 
+			getClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+				return &tenancyv1alpha1.ClusterWorkspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "user-1",
+						Annotations: map[string]string{
+							"tenancy.kcp.dev/owner": "user-1",
+						},
+					},
+				}, nil
+			},
+
 			mocks: homeWorkspaceFeatureLogic{
 				createHomeWorkspaceRBACResources: func(ctx context.Context, userName string, homeWorkspace logicalcluster.Name) error {
 					return nil
@@ -619,6 +654,17 @@ func TestTryToCreate(t *testing.T) {
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
 				return kerrors.NewAlreadyExists(schema.GroupResource{}, "user-1")
+			},
+
+			getClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+				return &tenancyv1alpha1.ClusterWorkspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "user-1",
+						Annotations: map[string]string{
+							"tenancy.kcp.dev/owner": "user-1",
+						},
+					},
+				}, nil
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
@@ -1352,7 +1398,7 @@ func TestServeHTTP(t *testing.T) {
 
 			expectedStatusCode:   200,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"Home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"Home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
 		},
 		{
 			testName:       "return error if error when getting home workspace in the local informers",

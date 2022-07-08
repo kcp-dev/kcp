@@ -310,6 +310,9 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
 				ClusterName: parent.String(),
+				Annotations: map[string]string{
+					tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey: effectiveUser.GetName(),
+				},
 			},
 			Spec: tenancyv1beta1.WorkspaceSpec{
 				Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -525,6 +528,17 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 
 	if err == nil || kerrors.IsAlreadyExists(err) {
 		if workspaceType == "Home" {
+			if kerrors.IsAlreadyExists(err) {
+				cw, err := h.kcp.getClusterWorkspace(ctx, parent, name)
+				if err != nil {
+					return 0, err
+				}
+
+				if cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] != userName {
+					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
+				}
+			}
+
 			if err := h.createHomeWorkspaceRBACResources(ctx, userName, logicalClusterName); err != nil {
 				return 0, err
 			}
