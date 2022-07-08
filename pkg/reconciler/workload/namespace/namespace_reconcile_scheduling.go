@@ -50,6 +50,8 @@ type placementSchedulingReconciler struct {
 	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 
 	enqueueAfter func(*corev1.Namespace, time.Duration)
+
+	now func() time.Time
 }
 
 type locationClusters struct {
@@ -163,7 +165,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		}
 		if !clusterScheduledByLocation {
 			// it is no longer a synced cluster, mark it as removing.
-			now := time.Now().UTC().Format(time.RFC3339)
+			now := r.now().UTC().Format(time.RFC3339)
 			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = now
 			klog.V(4).Infof("set cluster %s removing for ns %s|%s since it is not a valid cluster anymore", cluster, clusterName, ns.Name)
 		}
@@ -178,7 +180,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 			locationClusters.exclude(cluster)
 		}
 
-		if removingTime.Add(removingGracePeriod).Before(time.Now()) {
+		if removingTime.Add(removingGracePeriod).Before(r.now()) {
 			expectedLabels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+cluster] = nil
 			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = nil
 			klog.V(4).Infof("remove cluster %s for ns %s|%s", cluster, clusterName, ns.Name)

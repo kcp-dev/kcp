@@ -204,7 +204,10 @@ func applyTest(t *testing.T, test TestDescription) {
 		getFilteredClusterWorkspaces: func(orgName logicalcluster.Name) FilteredClusterWorkspaces {
 			return &clusterWorkspaces{clusterWorkspaceLister: clusterWorkspaceLister}
 		},
-		crbInformer:           crbInformer,
+		crbInformer: crbInformer,
+		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.ClusterInterface, error) {
+			return mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }), nil
+		},
 		kubeClusterClient:     mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }),
 		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.Name) kcpclientset.Interface { return mockKCPClient }),
 		clusterWorkspaceCache: nil,

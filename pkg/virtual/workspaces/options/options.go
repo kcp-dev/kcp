@@ -69,7 +69,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	}
 
 	virtualWorkspaces := map[string]framework.VirtualWorkspace{
-		"workspaces": builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
+		"workspaces": builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
 	}
 	return virtualWorkspaces, nil
 }

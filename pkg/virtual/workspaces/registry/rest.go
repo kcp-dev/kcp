@@ -37,6 +37,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
+	clientrest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util/sets"
@@ -50,6 +51,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceprinters "github.com/kcp-dev/kcp/pkg/virtual/workspaces/printers"
@@ -90,8 +92,9 @@ type REST struct {
 	// crbInformer allows listing or searching for RBAC cluster role bindings through all orgs
 	crbInformer rbacinformers.ClusterRoleBindingInformer
 
-	kubeClusterClient kubernetes.ClusterInterface
-	kcpClusterClient  kcpclientset.ClusterInterface
+	impersonatedkubeClusterClient func(user kuser.Info) (kubernetes.ClusterInterface, error)
+	kubeClusterClient             kubernetes.ClusterInterface
+	kcpClusterClient              kcpclientset.ClusterInterface
 
 	// clusterWorkspaceCache is a global cache of cluster workspaces (for all orgs) used by the watcher.
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
@@ -136,6 +139,7 @@ var _ rest.GracefulDeleter = &REST{}
 // NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
 // org workspaces, projecting them to the Workspace type.
 func NewREST(
+	cfg *clientrest.Config,
 	rootTenancyClient tenancyclient.TenancyV1alpha1Interface,
 	kubeClusterClient kubernetes.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
@@ -146,6 +150,13 @@ func NewREST(
 	mainRest := &REST{
 		getFilteredClusterWorkspaces: getFilteredClusterWorkspaces,
 
+		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.ClusterInterface, error) {
+			impersonatedConfig, err := softimpersonation.WithSoftImpersonatedConfig(cfg, user)
+			if err != nil {
+				return nil, err
+			}
+			return kubernetes.NewClusterForConfig(impersonatedConfig)
+		},
 		kubeClusterClient: kubeClusterClient,
 		kcpClusterClient:  kcpClusterClient,
 		delegatedAuthz:    delegated.NewDelegatedAuthorizer,
@@ -257,10 +268,10 @@ func (s *REST) deprecatedAuthorizeOrgForUser(ctx context.Context, orgClusterName
 	return nil
 }
 
-func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalcluster.Name, user kuser.Info, verb string, resourceName string) error {
+func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalcluster.Name, currentUser kuser.Info, verb string, resourceName string) error {
 	// Root org access is implicit for every user. For non-root orgs, we need to check for
 	// verb permissions against the clusterworkspaces/workspace sub-resource.
-	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
+	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(currentUser.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
 		return nil
 	}
 
@@ -269,11 +280,11 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 	if parent, _ := orgClusterName.Split(); parent == tenancyv1alpha1.RootCluster {
 		switch verb {
 		case "get", "watch", "list":
-			return s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, user, "access")
+			return s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, currentUser, "access")
 		case "create":
-			return s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, user, "member")
+			return s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, currentUser, "member")
 		case "delete":
-			if err := s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, user, "access"); err != nil {
+			if err := s.deprecatedAuthorizeOrgForUser(ctx, orgClusterName, currentUser, "access"); err != nil {
 				return err
 			}
 			// Let's fall through here:
@@ -286,14 +297,26 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 
 	}
 
-	// check for <verb> permission on the ClusterWorkspace workspace subresource for the <resourceName>
-	authz, err := s.delegatedAuthz(orgClusterName, s.kubeClusterClient)
+	// We need to softly impersonate the name of the user here, because the user Home workspace
+	// might be created on-the-fly when receiving the SAR call.
+	// And this automatically creation of the Home workspace needs to be done with the right user.
+	//
+	// We call this "soft" impersonation in the sense that the whole user JSON is added as an
+	// additional request header, that will be explicitly read by the Home Workspace handler,
+	// instead of changing the real user before authorization as for "hard" impersonation.
+	softlyImpersonatedSARClusterClient, err := s.impersonatedkubeClusterClient(currentUser)
 	if err != nil {
-		klog.Errorf("failed to get delegated authorizer for logical cluster %s", user, orgClusterName)
+		return err
+	}
+
+	// check for <verb> permission on the ClusterWorkspace workspace subresource for the <resourceName>
+	authz, err := s.delegatedAuthz(orgClusterName, softlyImpersonatedSARClusterClient)
+	if err != nil {
+		klog.Errorf("failed to get delegated authorizer for logical cluster %s", currentUser, orgClusterName)
 		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), resourceName, fmt.Errorf("%q workspace %q in workspace %q is not allowed", verb, resourceName, orgClusterName))
 	}
 	workspaceAttr := authorizer.AttributesRecord{
-		User:            user,
+		User:            currentUser,
 		Verb:            verb,
 		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
 		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
@@ -303,10 +326,10 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 		ResourceRequest: true,
 	}
 	if decision, reason, err := authz.Authorize(ctx, workspaceAttr); err != nil {
-		klog.Errorf("failed to authorize user %q to %q clusterworkspaces/workspace name %q in %s", user.GetName(), verb, resourceName, orgClusterName)
+		klog.Errorf("failed to authorize user %q to %q clusterworkspaces/workspace name %q in %s", currentUser.GetName(), verb, resourceName, orgClusterName)
 		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("%q workspace %q in workspace %q is not allowed", verb, resourceName, orgClusterName))
 	} else if decision != authorizer.DecisionAllow {
-		klog.Errorf("user %q lacks (%s) clusterworkspaces/workspace %s permission for %q in %s: %s", user.GetName(), decisions[decision], verb, resourceName, orgClusterName, reason)
+		klog.Errorf("user %q lacks (%s) clusterworkspaces/workspace %s permission for %q in %s: %s", currentUser.GetName(), decisions[decision], verb, resourceName, orgClusterName, reason)
 		return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), resourceName, fmt.Errorf("%q workspace %q in workspace %q is not allowed", verb, resourceName, orgClusterName))
 	}
 

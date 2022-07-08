@@ -50,6 +50,7 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
@@ -201,10 +202,20 @@ func WithClusterAnnotation(handler http.Handler) http.HandlerFunc {
 // workspace URL space. This means you can do `kubectl get workspaces` from an org workspace.
 func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 	toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1beta1.SchemeGroupVersion.Version, "workspaces/")
+	getHomeWorkspaceRequestPath := path.Join(toRedirectPath, "~")
 
 	return func(w http.ResponseWriter, req *http.Request) {
 		cluster := request.ClusterFrom(req.Context())
 		if cluster.Name.Empty() {
+			apiHandler.ServeHTTP(w, req)
+			return
+		}
+
+		if cluster.Name == tenancyv1alpha1.RootCluster && req.URL.Path == getHomeWorkspaceRequestPath {
+			// Do not rewrite URL to point to the `workspaces` virtual workspace if we are in the special case
+			// of a `kubectl get workspace ~` request which returns the Home workspace definition of the
+			// current user.
+			// This special request is managed later in the handler chain by the home workspace handler.
 			apiHandler.ServeHTTP(w, req)
 			return
 		}

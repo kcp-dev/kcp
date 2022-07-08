@@ -36,7 +36,8 @@ import (
 )
 
 func TestScheduling(t *testing.T) {
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now()
+	now3339 := now.UTC().Format(time.RFC3339)
 	testPlacement := newPlacement("test-placement", "test-location")
 	testLocation := newLocation("test-location", map[string]string{})
 
@@ -69,7 +70,7 @@ func TestScheduling(t *testing.T) {
 			wantPatch:    true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                      "",
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "cluster1": now,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "cluster1": now3339,
 			},
 			expectedLabels: map[string]string{
 				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
@@ -157,7 +158,7 @@ func TestScheduling(t *testing.T) {
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                          "",
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			expectedLabels: map[string]string{
 				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
@@ -180,7 +181,7 @@ func TestScheduling(t *testing.T) {
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                          "",
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			expectedLabels: map[string]string{
 				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster":   string(workloadv1alpha1.ResourceStateSync),
@@ -191,7 +192,7 @@ func TestScheduling(t *testing.T) {
 			name: "scheduled cluster is removing",
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                          "",
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			labels: map[string]string{
 				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
@@ -205,7 +206,7 @@ func TestScheduling(t *testing.T) {
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                          "",
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			expectedLabels: map[string]string{
 				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster":   string(workloadv1alpha1.ResourceStateSync),
@@ -270,6 +271,7 @@ func TestScheduling(t *testing.T) {
 				listSyncTarget: listSyncTarget,
 				patchNamespace: patchNamespaceFunc(&patched, ns),
 				enqueueAfter:   func(*corev1.Namespace, time.Duration) {},
+				now:            func() time.Time { return now },
 			}
 
 			_, updated, err := reconciler.reconcile(context.TODO(), ns)
@@ -282,7 +284,8 @@ func TestScheduling(t *testing.T) {
 }
 
 func TestMultiplePlacements(t *testing.T) {
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now()
+	now3339 := now.UTC().Format(time.RFC3339)
 
 	testCases := []struct {
 		name string
@@ -397,8 +400,8 @@ func TestMultiplePlacements(t *testing.T) {
 			},
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                "",
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c1": now,
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c2": now,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c1": now3339,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c2": now3339,
 			},
 			labels: map[string]string{
 				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
@@ -407,8 +410,8 @@ func TestMultiplePlacements(t *testing.T) {
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                "",
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c1": now,
-				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c2": now,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c1": now3339,
+				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c2": now3339,
 			},
 			expectedLabels: map[string]string{
 				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
@@ -456,6 +459,7 @@ func TestMultiplePlacements(t *testing.T) {
 				listSyncTarget: listSyncTarget,
 				patchNamespace: patchNamespaceFunc(&patched, ns),
 				enqueueAfter:   func(*corev1.Namespace, time.Duration) {},
+				now:            func() time.Time { return now },
 			}
 
 			_, updated, err := reconciler.reconcile(context.TODO(), ns)
