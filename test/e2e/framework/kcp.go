@@ -621,11 +621,8 @@ func (s *unmanagedKCPServer) DefaultConfig(t *testing.T) *rest.Config {
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
-	return defaultConfig
-}
-
-func (s *unmanagedKCPServer) ClusterConfig(r *rest.Config) *rest.Config {
-	return kcpclienthelper.NewClusterConfig(r)
+	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
+	return wrappedCfg
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
