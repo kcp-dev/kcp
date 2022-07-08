@@ -183,14 +183,13 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 }
 
 func (o *clusterWorkspaceTypeExists) resolveTypeRef(clusterName logicalcluster.Name, ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-	if ref.Name == "root" && ref.Path == "root" {
-		return tenancyv1alpha1.RootWorkspaceType, nil
-	}
-
 	if ref.Path != "" {
 		cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(ref.Path), tenancyv1alpha1.ObjectName(ref.Name)))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
+				if ref.Name == "root" && ref.Path == "root" {
+					return tenancyv1alpha1.RootWorkspaceType, nil
+				}
 				return nil, fmt.Errorf("workspace type %s does not exist", ref.String())
 			}
 			return nil, apierrors.NewInternalError(err)

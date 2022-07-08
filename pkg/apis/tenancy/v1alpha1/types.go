@@ -543,12 +543,9 @@ var (
 			ClusterName: RootWorkspaceTypeReference.Path,
 		},
 		Spec: ClusterWorkspaceTypeSpec{
-			Extend: ClusterWorkspaceTypeExtension{
-				With: []ClusterWorkspaceTypeReference{
-					{Path: "root", Name: "universal"},
-				},
+			LimitAllowedParents: &ClusterWorkspaceTypeSelector{
+				None: true,
 			},
 		},
-		Status: ClusterWorkspaceTypeStatus{},
 	}
 )

@@ -80,6 +80,7 @@ func TestAdmit(t *testing.T) {
 		name        string
 		types       []*tenancyv1alpha1.ClusterWorkspaceType
 		workspaces  []*tenancyv1alpha1.ClusterWorkspace
+		clusterName logicalcluster.Name
 		a           admission.Attributes
 		expectedObj runtime.Object
 		wantErr     bool
@@ -90,6 +91,7 @@ func TestAdmit(t *testing.T) {
 				newType("root:org:other").withInitializer().ClusterWorkspaceType,
 				newType("root:org:foo").withInitializer().extending("root:org:other").ClusterWorkspaceType,
 			},
+			clusterName: logicalcluster.New("root:org:ws"),
 			a: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -113,6 +115,7 @@ func TestAdmit(t *testing.T) {
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:org:foo").ClusterWorkspaceType,
 			},
+			clusterName: logicalcluster.New("root:org:ws"),
 			a: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
@@ -135,6 +138,7 @@ func TestAdmit(t *testing.T) {
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:org:foo").withInitializer().ClusterWorkspaceType,
 			},
+			clusterName: logicalcluster.New("root:org:ws"),
 			a: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
@@ -154,7 +158,8 @@ func TestAdmit(t *testing.T) {
 			}).ClusterWorkspace,
 		},
 		{
-			name: "ignores different resources",
+			name:        "ignores different resources",
+			clusterName: logicalcluster.New("root:org:ws"),
 			a: admission.NewAttributesRecord(
 				&unstructured.Unstructured{Object: map[string]interface{}{
 					"apiVersion": tenancyv1alpha1.SchemeGroupVersion.String(),
@@ -197,6 +202,7 @@ func TestAdmit(t *testing.T) {
 					"existing-label": "default",
 				}).ClusterWorkspaceType,
 			},
+			clusterName: logicalcluster.New("root:org:ws"),
 			a: createAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withLabels(map[string]string{
 					"existing-label": "non-default",
@@ -216,8 +222,19 @@ func TestAdmit(t *testing.T) {
 				newType("root:org:parent").withDefault("root:org:foo").ClusterWorkspaceType,
 				newType("root:org:foo").ClusterWorkspaceType,
 			},
+			clusterName: logicalcluster.New("root:org:ws"),
 			a:           createAttr(newWorkspace("root:org:ws:test").ClusterWorkspace),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").ClusterWorkspace,
+		},
+		{
+			name: "adds default workspace type if missing in root",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:root").withDefault("root:organization").ClusterWorkspaceType,
+				newType("root:organization").ClusterWorkspaceType,
+			},
+			clusterName: logicalcluster.New("root"),
+			a:           createAttr(newWorkspace("root:test").ClusterWorkspace),
+			expectedObj: newWorkspace("root:test").withType("root:organization").ClusterWorkspace,
 		},
 		{
 			name: "resolves path of incomplete type reference in local workspace",
@@ -228,11 +245,12 @@ func TestAdmit(t *testing.T) {
 				newType("root:org:parent").withDefault("root:org:foo").ClusterWorkspaceType,
 				newType("root:org:foo").ClusterWorkspaceType,
 			},
+			clusterName: logicalcluster.New("root:org:ws"),
 			a:           createAttr(newWorkspace("root:org:ws:test").withType("foo").ClusterWorkspace),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").ClusterWorkspace,
 		},
 		{
-			name: "resolves path of incomplete type reference in local in the hierarchy",
+			name: "resolves path of incomplete type reference in the hierarchy",
 			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
 				newWorkspace("root:org:ws").withType("root:org:parent").ClusterWorkspace,
 			},
@@ -240,6 +258,7 @@ func TestAdmit(t *testing.T) {
 				newType("root:org:parent").withDefault("root:org:foo").ClusterWorkspaceType,
 				newType("root:foo").ClusterWorkspaceType,
 			},
+			clusterName: logicalcluster.New("root:org:ws"),
 			a:           createAttr(newWorkspace("root:org:ws:test").withType("foo").ClusterWorkspace),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:foo").ClusterWorkspace,
 		},
@@ -257,7 +276,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org:ws")})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Admit() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
@@ -383,6 +402,15 @@ func TestValidate(t *testing.T) {
 			name:    "fails if type does not exist",
 			path:    logicalcluster.New("root:org:ws"),
 			attr:    createAttr(newWorkspace("root:org:ws:test").withType("root:org:foo").ClusterWorkspace),
+			wantErr: true,
+		},
+		{
+			name: "fails if type is root:root",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				tenancyv1alpha1.RootWorkspaceType,
+			},
+			path:    logicalcluster.New("root:org:ws"),
+			attr:    createAttr(newWorkspace("root:test").withType("root:root").ClusterWorkspace),
 			wantErr: true,
 		},
 		{

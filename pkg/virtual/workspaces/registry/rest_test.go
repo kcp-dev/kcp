@@ -1074,45 +1074,6 @@ func TestCreateWorkspace(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestCreateWorkspaceFailNoPermissionForType(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1beta1.Workspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "foo",
-				},
-			}
-			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, `workspaces.tenancy.kcp.dev "foo" is forbidden: use of the cluster workspace type "root:universal" in workspace "root:orgName" is not allowed`)
-			require.Nil(t, response)
-		},
-	}
-	applyTest(t, test)
-}
-
 func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
@@ -1320,12 +1281,6 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 				tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: clusterWorkspace.Name,
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "universal",
-							Path: "root",
-						},
 					},
 				},
 			))
