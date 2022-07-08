@@ -892,8 +892,8 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 		workspaceName string
 		userName      string
 
-		searchLocalClusterRole        func(lcluster logicalcluster.Name, name string) (bool, error)
-		searchLocalClusterRoleBinding func(lcluster logicalcluster.Name, name string) (bool, error)
+		getLocalClusterRole        func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
+		getLocalClusterRoleBinding func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error)
 
 		expectedFound       bool
 		expectedSearchError string
@@ -904,11 +904,11 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 			workspaceName: "root:users:ab:cd:user-1",
 			userName:      "user-1",
 
-			searchLocalClusterRole: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return false, errors.New("error searching for ClusterRole")
+			getLocalClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
+				return nil, errors.New("error searching for ClusterRole")
 			},
-			searchLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return true, nil
+			getLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
+				return &rbacv1.ClusterRoleBinding{}, nil
 			},
 
 			expectedFound:       false,
@@ -920,11 +920,11 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 			workspaceName: "root:users:ab:cd:user-1",
 			userName:      "user-1",
 
-			searchLocalClusterRole: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return true, nil
+			getLocalClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
+				return &rbacv1.ClusterRole{}, nil
 			},
-			searchLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return false, errors.New("error searching for ClusterRoleBinding")
+			getLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
+				return nil, errors.New("error searching for ClusterRoleBinding")
 			},
 
 			expectedFound:       false,
@@ -936,11 +936,11 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 			workspaceName: "root:users:ab:cd:user-1",
 			userName:      "user-1",
 
-			searchLocalClusterRole: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return false, nil
+			getLocalClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
+				return nil, kerrors.NewNotFound(schema.GroupResource{Group: "rbac.k8s.io/v1", Resource: "clusterroles"}, "name")
 			},
-			searchLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return true, nil
+			getLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
+				return &rbacv1.ClusterRoleBinding{}, nil
 			},
 
 			expectedFound: false,
@@ -951,11 +951,11 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 			workspaceName: "root:users:ab:cd:user-1",
 			userName:      "user-1",
 
-			searchLocalClusterRole: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return true, nil
+			getLocalClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
+				return &rbacv1.ClusterRole{}, nil
 			},
-			searchLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (bool, error) {
-				return false, nil
+			getLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
+				return nil, kerrors.NewNotFound(schema.GroupResource{Group: "rbac.k8s.io/v1", Resource: "clusterrolebindings"}, name)
 			},
 
 			expectedFound: false,
@@ -966,24 +966,24 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 			workspaceName: "root:users:ab:cd:user-1",
 			userName:      "user-1",
 
-			searchLocalClusterRole: func(workspace logicalcluster.Name, name string) (bool, error) {
+			getLocalClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
 				switch {
-				case workspace.String() == "root:users:ab:cd" && name == "home-owner-user-1":
+				case workspace.String() == "root:users:ab:cd" && name == "system:kcp:tenancy:home-owner:user-1":
 					fallthrough
 				case workspace.String() == "root:users:ab:cd:user-1" && name == "home-owner":
-					return true, nil
+					return &rbacv1.ClusterRole{}, nil
 				default:
-					return false, nil
+					return nil, kerrors.NewNotFound(schema.GroupResource{Group: "rbac.k8s.io/v1", Resource: "clusterrolebindings"}, name)
 				}
 			},
-			searchLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (bool, error) {
+			getLocalClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
 				switch {
-				case workspace.String() == "root:users:ab:cd" && name == "home-owner-user-1":
+				case workspace.String() == "root:users:ab:cd" && name == "system:kcp:tenancy:home-owner:user-1":
 					fallthrough
 				case workspace.String() == "root:users:ab:cd:user-1" && name == "home-owner":
-					return true, nil
+					return &rbacv1.ClusterRoleBinding{}, nil
 				default:
-					return false, nil
+					return nil, kerrors.NewNotFound(schema.GroupResource{Group: "rbac.k8s.io/v1", Resource: "clusterrolebindings"}, name)
 				}
 			},
 
@@ -1001,8 +1001,8 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 					homePrefix:           logicalcluster.New("root:users"),
 					creationDelaySeconds: creationDelaySeconds,
 					localInformers: localInformersAccess{
-						searchClusterRole:        testCase.searchLocalClusterRole,
-						searchClusterRoleBinding: testCase.searchLocalClusterRoleBinding,
+						getClusterRole:        testCase.getLocalClusterRole,
+						getClusterRoleBinding: testCase.getLocalClusterRoleBinding,
 					},
 				}.build()
 
@@ -1094,7 +1094,7 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 				{
 					workspace: "root:users:ab:cd",
 					resource: &rbacv1.ClusterRole{
-						ObjectMeta: metav1.ObjectMeta{Name: "home-owner-user-1"},
+						ObjectMeta: metav1.ObjectMeta{Name: "system:kcp:tenancy:home-owner:user-1"},
 						Rules: []rbacv1.PolicyRule{
 							{
 								APIGroups:     []string{tenancyv1beta1.SchemeGroupVersion.Group},
@@ -1108,11 +1108,11 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 				{
 					workspace: "root:users:ab:cd",
 					resource: &rbacv1.ClusterRoleBinding{
-						ObjectMeta: metav1.ObjectMeta{Name: "home-owner-user-1"},
+						ObjectMeta: metav1.ObjectMeta{Name: "system:kcp:tenancy:home-owner:user-1"},
 						RoleRef: rbacv1.RoleRef{
 							Kind:     "ClusterRole",
 							APIGroup: "rbac.authorization.k8s.io",
-							Name:     "home-owner-user-1",
+							Name:     "system:kcp:tenancy:home-owner:user-1",
 						},
 						Subjects: []rbacv1.Subject{
 							{
@@ -1143,7 +1143,7 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 				{
 					workspace: "root:users:ab:cd",
 					resource: &rbacv1.ClusterRole{
-						ObjectMeta: metav1.ObjectMeta{Name: "home-owner-system-apiserver-company-2"},
+						ObjectMeta: metav1.ObjectMeta{Name: "system:kcp:tenancy:home-owner:system-apiserver-company-2"},
 						Rules: []rbacv1.PolicyRule{
 							{
 								APIGroups:     []string{tenancyv1beta1.SchemeGroupVersion.Group},
@@ -1157,11 +1157,11 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 				{
 					workspace: "root:users:ab:cd",
 					resource: &rbacv1.ClusterRoleBinding{
-						ObjectMeta: metav1.ObjectMeta{Name: "home-owner-system-apiserver-company-2"},
+						ObjectMeta: metav1.ObjectMeta{Name: "system:kcp:tenancy:home-owner:system-apiserver-company-2"},
 						RoleRef: rbacv1.RoleRef{
 							Kind:     "ClusterRole",
 							APIGroup: "rbac.authorization.k8s.io",
-							Name:     "home-owner-system-apiserver-company-2",
+							Name:     "system:kcp:tenancy:home-owner:system-apiserver-company-2",
 						},
 						Subjects: []rbacv1.Subject{
 							{

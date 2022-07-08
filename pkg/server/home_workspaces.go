@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -44,7 +45,6 @@ import (
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
-	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -57,7 +57,9 @@ import (
 )
 
 const (
-	homeOwnerClusterRolePrefix = "home-owner-"
+	homeOwnerClusterRolePrefix     = "system:kcp:tenancy:home-owner:"
+	HomeBucketClusterWorkspaceType = "Homebucket"
+	HomeClusterWorkspaceType       = "Home"
 )
 
 var (
@@ -69,7 +71,7 @@ func init() {
 	_ = tenancyv1beta1.AddToScheme(homeWorkspaceScheme)
 }
 
-// HTTP handler, in the KCP server, which:
+// WithHomeWorkspaces implements an HTTP handler, in the KCP server, which:
 //
 // - creates a Home workspace on-demand for requests that target the home workspace or its descendants,
 // taking care of the optional creation of bucket workspaces,
@@ -83,7 +85,22 @@ func init() {
 // - bucketSize is the number of chars comprising each bucket.
 //
 // Bucket workspace names are calculated based on the user name hash.
-func WithHomeWorkspaces(apiHandler http.Handler, a authorizer.Authorizer, kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, kubeSharedInformerFactory coreexternalversions.SharedInformerFactory, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory, externalHost string, creationDelaySeconds int, homePrefix logicalcluster.Name, bucketLevels, bucketSize int) http.Handler {
+func WithHomeWorkspaces(
+	apiHandler http.Handler,
+	a authorizer.Authorizer,
+	kubeClusterClient kubernetes.ClusterInterface,
+	kcpClusterClient kcpclient.ClusterInterface,
+	kubeSharedInformerFactory coreexternalversions.SharedInformerFactory,
+	kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory,
+	externalHost string,
+	creationDelaySeconds int,
+	homePrefix logicalcluster.Name,
+	bucketLevels,
+	bucketSize int,
+) http.Handler {
+	if bucketLevels > 5 || bucketSize > 4 {
+		panic("bucketLevels and bucketSize must be <= 5 and <= 4")
+	}
 	return homeWorkspaceHandlerBuilder{
 		apiHandler:           apiHandler,
 		externalHost:         externalHost,
@@ -125,10 +142,10 @@ func buildExternalClientsAccess(kubeClusterClient kubernetes.ClusterInterface, k
 }
 
 type localInformersAccess struct {
-	getClusterWorkspace      func(logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error)
-	searchClusterRole        func(lcluster logicalcluster.Name, name string) (bool, error)
-	searchClusterRoleBinding func(lcluster logicalcluster.Name, name string) (bool, error)
-	synced                   func() bool
+	getClusterWorkspace   func(logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getClusterRole        func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
+	getClusterRoleBinding func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error)
+	synced                func() bool
 }
 
 func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.SharedInformerFactory, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory) localInformersAccess {
@@ -144,19 +161,11 @@ func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.Sh
 			parentLogicalCluster, workspaceName := logicalCluster.Split()
 			return clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentLogicalCluster, workspaceName))
 		},
-		searchClusterRole: func(workspace logicalcluster.Name, name string) (bool, error) {
-			_, err := crLister.Get(clusters.ToClusterAwareKey(workspace, name))
-			if kerrors.IsNotFound(err) {
-				return false, nil
-			}
-			return err == nil, err
+		getClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
+			return crLister.Get(clusters.ToClusterAwareKey(workspace, name))
 		},
-		searchClusterRoleBinding: func(workspace logicalcluster.Name, name string) (bool, error) {
-			_, err := crbLister.Get(clusters.ToClusterAwareKey(workspace, name))
-			if kerrors.IsNotFound(err) {
-				return false, nil
-			}
-			return err == nil, err
+		getClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
+			return crbLister.Get(clusters.ToClusterAwareKey(workspace, name))
 		},
 		synced: func() bool {
 			return clusterWorkspaceInformer.HasSynced() &&
@@ -183,7 +192,7 @@ type homeWorkspaceHandlerBuilder struct {
 type homeWorkspaceFeatureLogic struct {
 	searchForHomeWorkspaceRBACResourcesInLocalInformers func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error)
 	createHomeWorkspaceRBACResources                    func(ctx context.Context, userName string, homeWorkspace logicalcluster.Name) error
-	searchForReadyWorkspaceInLocalInformers             func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error)
+	searchForReadyWorkspaceInLocalInformers             func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, checkError error)
 	tryToCreate                                         func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error)
 }
 
@@ -225,20 +234,20 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		responsewriters.InternalError(rw, req, err)
 		return
 	}
-	user, ok := request.UserFrom(ctx)
+	effectiveUser, ok := request.UserFrom(ctx)
 	if !ok {
 		err := errors.New("No user in HomeWorkspaces filter !")
 		responsewriters.InternalError(rw, req, err)
 		return
 	}
-	if sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
+	if sets.NewString(effectiveUser.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
 		// If we are the system privileged group, it might be a call from the virtual workspace
 		// in which case we also search the user in the soft impersonation header.
 		if impersonated, err := softimpersonation.UserInfoFromRequestHeader(req); err != nil {
 			responsewriters.InternalError(rw, req, err)
 			return
 		} else if impersonated != nil {
-			user = impersonated
+			effectiveUser = impersonated
 		}
 	}
 	requestInfo, ok := request.RequestInfoFrom(ctx)
@@ -258,7 +267,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		// we return the Home workspace definition of the current user, possibly even before its
 		// underlying ClusterWorkspace resource exists.
 
-		homeLogicalClusterName := h.getHomeLogicalClusterName(user.GetName())
+		homeLogicalClusterName := h.getHomeLogicalClusterName(effectiveUser.GetName())
 		homeClusterWorkspace, err := h.localInformers.getClusterWorkspace(homeLogicalClusterName)
 		if err != nil && !kerrors.IsNotFound(err) {
 			responsewriters.InternalError(rw, req, err)
@@ -278,10 +287,10 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		// Test if the user has the right to see his Home workspace even though it doesn't exists
 		// => test the get verb on the clusterworkspaces/workspace subresource named ~ in the root workspace.
 
-		attributes := homeWorkspaceAuthorizerAttributes(user, "get")
+		attributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "get")
 		decision, reason, err := h.authz.Authorize(ctx, attributes)
 		if err != nil {
-			klog.Errorf("failed to authorize user %q to get a home workspace %q: %w", user.GetName(), lcluster.Name, err)
+			utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to get a home workspace %q: %w", effectiveUser.GetName(), lcluster.Name, err))
 			responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 			return
 		}
@@ -324,7 +333,10 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 
 	isHome := workspaceType == "Home"
-	if foundLocally, retryAfterSeconds, err := h.searchForReadyWorkspaceInLocalInformers(lcluster.Name, isHome, user.GetName()); foundLocally {
+	if foundLocally, retryAfterSeconds, err := h.searchForReadyWorkspaceInLocalInformers(lcluster.Name, isHome, effectiveUser.GetName()); err != nil {
+		responsewriters.InternalError(rw, req, err)
+		return
+	} else if foundLocally {
 		if retryAfterSeconds > 0 {
 			// Return a 429 status asking the client to try again after the creationDelay
 			rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
@@ -333,20 +345,17 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 		h.apiHandler.ServeHTTP(rw, req)
 		return
-	} else if err != nil {
-		responsewriters.InternalError(rw, req, err)
-		return
 	}
 
 	// Home or bucket workspace not found in the local informer
 	// Let's try to create it
 
 	// But first check we have the right to do so.
-	attributes := homeWorkspaceAuthorizerAttributes(user, "create")
+	attributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "create")
 
-	if isHome && lcluster.Name != h.getHomeLogicalClusterName(user.GetName()) {
+	if isHome && lcluster.Name != h.getHomeLogicalClusterName(effectiveUser.GetName()) {
 		// If we're checking a home workspace or home bucket workspace, but not of the consistent user, let's refuse.
-		klog.Errorf("failed to authorize user %q to create a home workspace %q: home workspace can only be created by the user of the home workspace", user.GetName(), lcluster.Name)
+		utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to create a home workspace %q: home workspace can only be created by the user of the home workspace", effectiveUser.GetName(), lcluster.Name))
 		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 		return
 	}
@@ -356,8 +365,9 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	if decision, reason, err := h.authz.Authorize(
 		request.WithCluster(ctx, request.Cluster{Name: tenancyv1alpha1.RootCluster}),
-		attributes); err != nil {
-		klog.Errorf("failed to authorize user %q to create a home workspace %q: %w", user.GetName(), lcluster.Name, err)
+		attributes,
+	); err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to create a home workspace %q: %w", effectiveUser.GetName(), lcluster.Name, err))
 		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 		return
 	} else if decision != authorizer.DecisionAllow {
@@ -365,7 +375,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	if retryAfterSeconds, err := h.tryToCreate(ctx, user.GetName(), lcluster.Name, workspaceType); err != nil {
+	if retryAfterSeconds, err := h.tryToCreate(ctx, effectiveUser.GetName(), lcluster.Name, workspaceType); err != nil {
 		responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, rw, req)
 		return
 	} else {
@@ -415,7 +425,7 @@ func (h *homeWorkspaceHandler) getHomeLogicalClusterName(userName string) logica
 }
 
 // needsAutomaticCreation deduces, from the logical cluster name,
-// according the the expected home root and home bucket level number,
+// according to the expected home root and home bucket level number,
 // whether the corresponding workspace has to be checked for automatic creation
 // and what its workspace type will be.
 func (h *homeWorkspaceHandler) needsAutomaticCreation(logicalClusterName logicalcluster.Name) (needsCheck bool, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) {
@@ -434,9 +444,9 @@ func (h *homeWorkspaceHandler) needsAutomaticCreation(logicalClusterName logical
 
 	switch {
 	case levelsToHomePrefix <= h.bucketLevels:
-		return true, "Homebucket"
+		return true, HomeBucketClusterWorkspaceType
 	case levelsToHomePrefix == h.bucketLevels+1:
-		return true, "Home"
+		return true, HomeClusterWorkspaceType
 	default:
 		return false, ""
 	}
@@ -448,7 +458,7 @@ func (h *homeWorkspaceHandler) needsAutomaticCreation(logicalClusterName logical
 //   - if related RBAC resources are there,
 //   - if the workspace phase is READY
 // and if not answer to retry later.
-func searchForReadyWorkspaceInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, err error) {
+func searchForReadyWorkspaceInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, err error) {
 	workspace, err := h.localInformers.getClusterWorkspace(logicalClusterName)
 	if err != nil && !kerrors.IsNotFound(err) {
 		return false, 0, err
@@ -459,7 +469,6 @@ func searchForReadyWorkspaceInLocalInformers(h *homeWorkspaceHandler, logicalClu
 
 	// Workspace has been found in local informer: check its status.
 	if workspaceUnschedulable(workspace) {
-		// The workspace cannot be scheduled => return the error.
 		return false, 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), workspace.Name, errors.New("unschedulable workspace cannot be accessed"))
 	}
 
@@ -522,7 +531,7 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 		}
 		// Retry sooner than the creation delay, because it's probably a question of
 		// letting the local informer cache being updated.
-		// Retrying quicly (after 1 second) should be sufficient to it.
+		// Retrying quickly (after 1 second) should be sufficient to it.
 		return 1, nil
 	}
 
@@ -578,11 +587,15 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 func searchForHomeWorkspaceRBACResourcesInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, userName string) (found bool, err error) {
 	parent, workspaceName := logicalClusterName.Split()
 
-	if ok, err := h.localInformers.searchClusterRole(parent, homeOwnerClusterRolePrefix+workspaceName); err != nil || !ok {
-		return ok, err
+	if _, err := h.localInformers.getClusterRole(parent, homeOwnerClusterRolePrefix+workspaceName); kerrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
 	}
-	if ok, err := h.localInformers.searchClusterRoleBinding(parent, homeOwnerClusterRolePrefix+workspaceName); err != nil || !ok {
-		return ok, err
+	if _, err := h.localInformers.getClusterRoleBinding(parent, homeOwnerClusterRolePrefix+workspaceName); kerrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
 	}
 
 	return true, nil
