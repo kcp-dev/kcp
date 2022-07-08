@@ -59,8 +59,8 @@ import (
 
 const (
 	homeOwnerClusterRolePrefix     = "system:kcp:tenancy:home-owner:"
-	HomeBucketClusterWorkspaceType = "Homebucket"
-	HomeClusterWorkspaceType       = "Home"
+	HomeBucketClusterWorkspaceType = "homebucket"
+	HomeClusterWorkspaceType       = "home"
 
 	// the amount of time while the create delay is repeatedly returned to the client
 	createDelayTimeout = time.Minute
@@ -328,7 +328,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			},
 			Spec: tenancyv1beta1.WorkspaceSpec{
 				Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Home"),
+					Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
 					Path: tenancyv1alpha1.RootCluster.String(),
 				},
 			},
@@ -347,7 +347,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	isHome := workspaceType == "Home"
+	isHome := workspaceType == HomeClusterWorkspaceType
 	if foundLocally, retryAfterSeconds, err := h.searchForReadyWorkspaceInLocalInformers(lcluster.Name, isHome, effectiveUser.GetName()); err != nil {
 		responsewriters.InternalError(rw, req, err)
 		return
@@ -539,7 +539,7 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 	})
 
 	if err == nil || kerrors.IsAlreadyExists(err) {
-		if workspaceType == "Home" {
+		if workspaceType == "home" {
 			if kerrors.IsAlreadyExists(err) {
 				cw, err := h.kcp.getClusterWorkspace(ctx, parent, name)
 				if err != nil {

@@ -60,7 +60,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "Universal",
+							Name: "universal",
 							Path: "root",
 						},
 						Shard: &tenancyv1alpha1.ShardConstraints{

@@ -303,15 +303,15 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ClusterRoleBinding 'user1-workspace-create'")
 
-				t.Logf("Create custom ClusterWorkspaceType 'Custom'")
+				t.Logf("Create custom ClusterWorkspaceType 'custom'")
 				cwt, err := server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "custom"},
 				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create custom ClusterWorkspaceType 'Custom'")
+				require.NoError(t, err, "failed to create custom ClusterWorkspaceType 'custom'")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "custom", metav1.GetOptions{})
 				})
-				t.Logf("Wait for type Custom to be usable")
+				t.Logf("Wait for type custom to be usable")
 				cwtName := cwt.Name
 				framework.EventuallyReady(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
@@ -360,7 +360,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 						ObjectMeta: metav1.ObjectMeta{Name: testData.workspace1.Name},
 						Spec: tenancyv1beta1.WorkspaceSpec{
 							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-								Name: "Custom",
+								Name: "custom",
 								Path: logicalcluster.From(cwt).String(),
 							},
 						},
@@ -378,9 +378,9 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 				require.Equal(t, tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: "Custom",
+					Name: "custom",
 					Path: logicalcluster.From(cwt).String(),
-				}, workspace1.Spec.Type, "expected workspace1 to be of type Custom")
+				}, workspace1.Spec.Type, "expected workspace1 to be of type custom")
 
 				t.Logf("Create Workspace workspace2 in the virtual workspace")
 
@@ -389,7 +389,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					ObjectMeta: metav1.ObjectMeta{Name: testData.workspace2.Name},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "Custom",
+							Name: "custom",
 							Path: logicalcluster.From(cwt).String(),
 						},
 					},
@@ -401,7 +401,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					ObjectMeta: metav1.ObjectMeta{Name: testData.workspace2.Name},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "Custom2",
+							Name: "custom2",
 							Path: logicalcluster.From(cwt).String(),
 						},
 					},
@@ -541,7 +541,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 						ObjectMeta: metav1.ObjectMeta{Name: testData.workspace1.Name},
 						Spec: tenancyv1beta1.WorkspaceSpec{
 							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-								Name: "Universal",
+								Name: "universal",
 								Path: "root",
 							},
 						},

@@ -601,7 +601,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	}
 
 	if workspace.Spec.Type.Name == "" && workspace.Spec.Type.Path == "" {
-		workspace.Spec.Type.Name = "Universal"
+		workspace.Spec.Type.Name = "universal"
 		workspace.Spec.Type.Path = "root"
 	}
 

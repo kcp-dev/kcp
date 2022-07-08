@@ -5,15 +5,15 @@ metadata:
 spec:
   initializer: true
   defaultChildWorkspaceType:
-    name: Universal
+    name: universal
     path: root
   limitAllowedChildren:
     types:
-    - name: Team
+    - name: team
       path: root
-    - name: Universal
+    - name: universal
       path: root
   limitAllowedParents:
     types:
-    - name: Root
+    - name: root
       path: root

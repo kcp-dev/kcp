@@ -71,11 +71,11 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					return err == nil && workspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace should be ready")
 
-				t.Logf("Expect workspace to be of Universal type, and no initializers")
+				t.Logf("Expect workspace to be of universal type, and no initializers")
 				workspace, err = server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				require.NoError(t, err, "failed to get workspace")
 				require.Equalf(t, workspace.Spec.Type, tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: "Universal",
+					Name: "universal",
 					Path: "root",
 				}, "workspace type is not universal")
 				require.Emptyf(t, workspace.Status.Initializers, "workspace has initializers")
@@ -89,7 +89,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				workspace, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: "Foo",
+						Name: "foo",
 						Path: "root",
 					}},
 				}, metav1.CreateOptions{})
@@ -125,7 +125,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "myapp", metav1.GetOptions{})
 				})
 				require.Equal(t, workspace.Spec.Type, tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: "Foo",
+					Name: "foo",
 					Path: logicalcluster.From(cwt).String(),
 				})
 
@@ -167,7 +167,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 						Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "Foo",
+							Name: "foo",
 							Path: logicalcluster.From(cwt).String(),
 						}},
 					}, metav1.CreateOptions{})
@@ -210,7 +210,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			name: "create a workspace with deeper nesting",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				org := framework.NewOrganizationFixture(t, server)
-				team := framework.NewWorkspaceFixture(t, server, org, framework.WithType(tenancyv1alpha1.RootCluster, "Team"))
+				team := framework.NewWorkspaceFixture(t, server, org, framework.WithType(tenancyv1alpha1.RootCluster, "team"))
 				universal := framework.NewWorkspaceFixture(t, server, team)
 
 				require.Len(t, strings.Split(universal.String(), ":"), 4, "expecting root:org:team:universal, i.e. 4 levels")

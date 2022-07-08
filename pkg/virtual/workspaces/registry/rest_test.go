@@ -1106,7 +1106,7 @@ func TestCreateWorkspaceFailNoPermissionForType(t *testing.T) {
 				},
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, `workspaces.tenancy.kcp.dev "foo" is forbidden: use of the cluster workspace type "root:Universal" in workspace "root:orgName" is not allowed`)
+			require.EqualError(t, err, `workspaces.tenancy.kcp.dev "foo" is forbidden: use of the cluster workspace type "root:universal" in workspace "root:orgName" is not allowed`)
 			require.Nil(t, response)
 		},
 	}
@@ -1323,7 +1323,7 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Universal"),
+							Name: "universal",
 							Path: "root",
 						},
 					},

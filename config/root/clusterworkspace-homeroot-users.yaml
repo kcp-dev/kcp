@@ -6,5 +6,5 @@ metadata:
     "bootstrap.kcp.dev/create-only": "true"
 spec:
   type:
-    name: Homeroot
+    name: homeroot
     path: root

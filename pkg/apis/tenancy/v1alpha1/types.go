@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -132,7 +131,7 @@ type ClusterWorkspaceTypeReference struct {
 
 // ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
 //
-// +kubebuilder:validation:Pattern=`^[A-Z][a-zA-Z0-9]+$`
+// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9]+$`
 type ClusterWorkspaceTypeName string
 
 func (r ClusterWorkspaceTypeReference) String() string {
@@ -288,13 +287,13 @@ func (in *ClusterWorkspaceType) SetConditions(conditions conditionsv1alpha1.Cond
 // ObjectName converts the proper name of a type that users interact with to the
 // metadata.name of the ClusterWorkspaceType object.
 func ObjectName(typeName ClusterWorkspaceTypeName) string {
-	return strings.ToLower(string(typeName))
+	return string(typeName)
 }
 
 // TypeName converts the metadata.name of a ClusterWorkspaceType to the proper
 // name of a type, as users interact with it.
 func TypeName(objectName string) ClusterWorkspaceTypeName {
-	return ClusterWorkspaceTypeName(strings.ToUpper(string(objectName[0])) + objectName[1:])
+	return ClusterWorkspaceTypeName(objectName)
 }
 
 // ReferenceFor returns a reference to the type.
@@ -318,7 +317,7 @@ type ClusterWorkspaceTypeList struct {
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
-// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[A-Z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$"
+// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$"
 type ClusterWorkspaceInitializer string
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
@@ -528,7 +527,7 @@ const (
 
 const (
 	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceTypeName = ClusterWorkspaceTypeName("Root")
+	RootWorkspaceTypeName = ClusterWorkspaceTypeName("root")
 )
 
 var (
@@ -547,7 +546,7 @@ var (
 		Spec: ClusterWorkspaceTypeSpec{
 			Extend: ClusterWorkspaceTypeExtension{
 				With: []ClusterWorkspaceTypeReference{
-					{Path: "root", Name: "Universal"},
+					{Path: "root", Name: "universal"},
 				},
 			},
 		},

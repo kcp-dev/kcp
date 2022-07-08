@@ -45,13 +45,13 @@ func TestReconcile(t *testing.T) {
 			name: "no shards, no URLs in status",
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -74,13 +74,13 @@ func TestReconcile(t *testing.T) {
 			listErr: fmt.Errorf("oops"),
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
@@ -112,20 +112,20 @@ func TestReconcile(t *testing.T) {
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
-						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
-						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
+						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
@@ -149,12 +149,12 @@ func TestReconcile(t *testing.T) {
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
+						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
@@ -170,14 +170,14 @@ func TestReconcile(t *testing.T) {
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "someType",
+					Name:        "sometype",
 					ClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
-						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
-						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:SomeType"},
+						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{

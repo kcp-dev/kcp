@@ -217,7 +217,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: "Organization",
+				Name: "organization",
 				Path: "root",
 			},
 		},
@@ -314,7 +314,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Universal"),
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName("universal"),
 				Path: "root",
 			},
 		},

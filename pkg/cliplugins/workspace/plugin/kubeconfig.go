@@ -330,12 +330,12 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		switch separatorIndex {
 		case -1:
 			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType),
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(workspaceType)),
 				Path: currentClusterName.String(),
 			}
 		default:
 			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType[separatorIndex+1:]),
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(workspaceType[separatorIndex+1:])),
 				Path: workspaceType[:separatorIndex],
 			}
 		}
@@ -355,7 +355,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		// indpenedently whether the CRD is installed in the workspace. Universal workspaces though don't have that
 		// resource, but the virtual apiserver return 404 in that case, confusingly for clients.
 		// This hack avoids a message confusing for the user.
-		return fmt.Errorf("creating a workspace under a Universal type workspace is not supported")
+		return fmt.Errorf("creating a workspace under a universal type workspace is not supported")
 	}
 	if apierrors.IsAlreadyExists(err) && ignoreExisting {
 		preExisting = true

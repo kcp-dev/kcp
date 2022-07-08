@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220711-77953523.clusterworkspacetypes.tenancy.kcp.dev
+  name: v220711-1fe32801.clusterworkspacetypes.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -52,7 +52,7 @@ spec:
               type: object
             defaultChildWorkspaceType:
               default:
-                name: Universal
+                name: universal
                 path: root
               description: defaultChildWorkspaceType is the ClusterWorkspaceType that
                 will be used by default if another, nested ClusterWorkspace is created
@@ -62,7 +62,7 @@ spec:
               properties:
                 name:
                   description: name is the name of the ClusterWorkspaceType
-                  pattern: ^[A-Z][a-zA-Z0-9]+$
+                  pattern: ^[a-z][a-z0-9]+$
                   type: string
                 path:
                   description: path is an absolute reference to the workspace that
@@ -94,7 +94,7 @@ spec:
                     properties:
                       name:
                         description: name is the name of the ClusterWorkspaceType
-                        pattern: ^[A-Z][a-zA-Z0-9]+$
+                        pattern: ^[a-z][a-z0-9]+$
                         type: string
                       path:
                         description: path is an absolute reference to the workspace
@@ -142,7 +142,7 @@ spec:
                     properties:
                       name:
                         description: name is the name of the ClusterWorkspaceType
-                        pattern: ^[A-Z][a-zA-Z0-9]+$
+                        pattern: ^[a-z][a-z0-9]+$
                         type: string
                       path:
                         description: path is an absolute reference to the workspace
@@ -175,7 +175,7 @@ spec:
                     properties:
                       name:
                         description: name is the name of the ClusterWorkspaceType
-                        pattern: ^[A-Z][a-zA-Z0-9]+$
+                        pattern: ^[a-z][a-z0-9]+$
                         type: string
                       path:
                         description: path is an absolute reference to the workspace

@@ -181,7 +181,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 
 func (o *clusterWorkspaceTypeExists) resolveTypeRef(ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	var cwt *tenancyv1alpha1.ClusterWorkspaceType
-	if ref.Name == "Root" && ref.Path == "root" {
+	if ref.Name == "root" && ref.Path == "root" {
 		cwt = tenancyv1alpha1.RootWorkspaceType
 	} else {
 		var err error
@@ -202,7 +202,7 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 		// the clusterWorkspace exists in the root logical cluster, and therefore there is no
 		// higher clusterWorkspaceType to check for allowed sub-types; the mere presence of the
 		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
-		return tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Root"}, nil
+		return tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "root"}, nil
 	}
 	parentCluster, err := o.workspaceLister.Get(clusters.ToClusterAwareKey(grandparent, parentClusterName.Base()))
 	if err != nil {
