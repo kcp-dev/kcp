@@ -6,8 +6,8 @@ metadata:
 spec:
   latestResourceSchemas:
   - v220711-1fe32801.clusterworkspaces.tenancy.kcp.dev
-  - v220711-1fe32801.clusterworkspacetypes.tenancy.kcp.dev
   - v220711-1fe32801.workspaces.tenancy.kcp.dev
+  - v220711-e9c8ae2c.clusterworkspacetypes.tenancy.kcp.dev
   maximalPermissionPolicy:
     local: {}
 status: {}

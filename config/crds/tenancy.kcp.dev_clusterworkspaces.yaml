@@ -150,7 +150,6 @@ spec:
                     type: string
                 required:
                 - name
-                - path
                 type: object
             type: object
           status:

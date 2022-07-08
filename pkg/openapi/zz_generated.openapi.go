@@ -3027,7 +3027,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeReference(ref common.R
 						},
 					},
 				},
-				Required: []string{"name", "path"},
+				Required: []string{"name"},
 			},
 		},
 	}

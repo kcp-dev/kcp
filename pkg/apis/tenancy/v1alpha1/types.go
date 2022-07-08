@@ -123,8 +123,7 @@ type ClusterWorkspaceTypeReference struct {
 
 	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
 	//
-	// +required
-	// +kubebuilder:validation:Required
+	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path"`
 }

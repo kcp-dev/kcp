@@ -219,6 +219,30 @@ func TestAdmit(t *testing.T) {
 			a:           createAttr(newWorkspace("root:org:ws:test").ClusterWorkspace),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").ClusterWorkspace,
 		},
+		{
+			name: "resolves path of incomplete type reference in local workspace",
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				newWorkspace("root:org:ws").withType("root:org:parent").ClusterWorkspace,
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:org:parent").withDefault("root:org:foo").ClusterWorkspaceType,
+				newType("root:org:foo").ClusterWorkspaceType,
+			},
+			a:           createAttr(newWorkspace("root:org:ws:test").withType("foo").ClusterWorkspace),
+			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").ClusterWorkspace,
+		},
+		{
+			name: "resolves path of incomplete type reference in local in the hierarchy",
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				newWorkspace("root:org:ws").withType("root:org:parent").ClusterWorkspace,
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:org:parent").withDefault("root:org:foo").ClusterWorkspaceType,
+				newType("root:foo").ClusterWorkspaceType,
+			},
+			a:           createAttr(newWorkspace("root:org:ws:test").withType("foo").ClusterWorkspace),
+			expectedObj: newWorkspace("root:org:ws:test").withType("root:foo").ClusterWorkspace,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -274,6 +298,21 @@ func TestValidate(t *testing.T) {
 			},
 			attr:          createAttr(newWorkspace("root:org:ws:test").withType("root:org:foo").ClusterWorkspace),
 			authzDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "passes create if unqualified type can be resolve locally",
+			path: logicalcluster.New("root:org:ws"),
+			workspaces: []*tenancyv1alpha1.ClusterWorkspace{
+				newWorkspace("root:org:ws").withType("root:org:parent").ClusterWorkspace,
+			},
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:universal").ClusterWorkspaceType,
+				newType("root:org:foo").ClusterWorkspaceType,
+				newType("root:foo").ClusterWorkspaceType,
+				newType("root").ClusterWorkspaceType,
+			},
+			attr:    createAttr(newWorkspace("root:org:ws:test").withType("foo").ClusterWorkspace),
+			wantErr: true,
 		},
 		{
 			name: "passes create if parent type allows all children",

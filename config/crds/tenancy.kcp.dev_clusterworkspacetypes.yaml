@@ -74,7 +74,6 @@ spec:
                     type: string
                 required:
                 - name
-                - path
                 type: object
               extend:
                 description: "extend is a list of other ClusterWorkspaceTypes whose
@@ -107,7 +106,6 @@ spec:
                           type: string
                       required:
                       - name
-                      - path
                       type: object
                     type: array
                 type: object
@@ -156,7 +154,6 @@ spec:
                           type: string
                       required:
                       - name
-                      - path
                       type: object
                     minItems: 1
                     type: array
@@ -189,7 +186,6 @@ spec:
                           type: string
                       required:
                       - name
-                      - path
                       type: object
                     minItems: 1
                     type: array

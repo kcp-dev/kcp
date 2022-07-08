@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220711-1fe32801.clusterworkspacetypes.tenancy.kcp.dev
+  name: v220711-e9c8ae2c.clusterworkspacetypes.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -71,7 +71,6 @@ spec:
                   type: string
               required:
               - name
-              - path
               type: object
             extend:
               description: "extend is a list of other ClusterWorkspaceTypes whose
@@ -103,7 +102,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - path
                     type: object
                   type: array
               type: object
@@ -151,7 +149,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - path
                     type: object
                   minItems: 1
                   type: array
@@ -184,7 +181,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - path
                     type: object
                   minItems: 1
                   type: array

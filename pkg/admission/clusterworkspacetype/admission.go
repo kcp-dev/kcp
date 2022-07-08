@@ -65,5 +65,25 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
 	}
 
+	if cwt.Spec.DefaultChildWorkspaceType != nil && cwt.Spec.DefaultChildWorkspaceType.Path == "" {
+		return admission.NewForbidden(a, fmt.Errorf(".spec.defaultChildWorkspaceType.path must be set"))
+	}
+
+	if cwt.Spec.LimitAllowedChildren != nil {
+		for i, t := range cwt.Spec.LimitAllowedChildren.Types {
+			if t.Path == "" {
+				return admission.NewForbidden(a, fmt.Errorf(".spec.limitAllowedChildren.types[%d].path must be set", i))
+			}
+		}
+	}
+
+	if cwt.Spec.LimitAllowedParents != nil {
+		for i, t := range cwt.Spec.LimitAllowedParents.Types {
+			if t.Path == "" {
+				return admission.NewForbidden(a, fmt.Errorf(".spec.limitAllowedParents.types[%d].path must be set", i))
+			}
+		}
+	}
+
 	return nil
 }

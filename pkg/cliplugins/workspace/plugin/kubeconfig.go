@@ -331,7 +331,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		case -1:
 			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
 				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(workspaceType)),
-				Path: currentClusterName.String(),
+				// path is defaulted through admission
 			}
 		default:
 			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
