@@ -43,7 +43,7 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-func createAttrWithUser(obj *tenancyv1alpha1.ClusterWorkspace, info user.Info) admission.Attributes {
+func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		nil,
@@ -55,12 +55,8 @@ func createAttrWithUser(obj *tenancyv1alpha1.ClusterWorkspace, info user.Info) a
 		admission.Create,
 		&metav1.CreateOptions{},
 		false,
-		info,
+		&user.DefaultInfo{},
 	)
-}
-
-func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
-	return createAttrWithUser(obj, &user.DefaultInfo{})
 }
 
 func updateAttr(obj, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
@@ -415,9 +411,6 @@ func TestAdmit(t *testing.T) {
 			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
-					Annotations: map[string]string{
-						"tenancy.kcp.dev/owner": `{}`,
-					},
 					Labels: map[string]string{
 						"new-label":      "default",
 						"existing-label": "non-default",
@@ -492,60 +485,6 @@ func TestAdmit(t *testing.T) {
 			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
-					Annotations: map[string]string{
-						"tenancy.kcp.dev/owner": `{}`,
-					},
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: "Foo",
-						Path: "root:org",
-					},
-				},
-			},
-		},
-		{
-			name: "adds user information on create",
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "foo",
-						ClusterName: "root:org",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-			},
-			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: "Foo",
-						Path: "root:org",
-					},
-				},
-			}, &user.DefaultInfo{
-				Name:   "someone",
-				UID:    "id",
-				Groups: []string{"a", "b"},
-				Extra: map[string][]string{
-					"one": {"1", "01"},
-				},
-			}),
-			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"tenancy.kcp.dev/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
-					},
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -565,7 +504,7 @@ func TestAdmit(t *testing.T) {
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org:ws")})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
-				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("Admit() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
 				got, ok := tt.a.GetObject().(*unstructured.Unstructured)
 				require.True(t, ok, "expected unstructured, got %T", tt.a.GetObject())
