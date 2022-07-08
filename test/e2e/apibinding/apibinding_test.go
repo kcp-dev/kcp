@@ -302,5 +302,5 @@ func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, clusterName
 	config, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "apiexport", nil, nil).ClientConfig()
 	require.NoError(t, err)
 
-	return config
+	return rest.AddUserAgent(rest.CopyConfig(config), t.Name())
 }
