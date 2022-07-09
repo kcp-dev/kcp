@@ -284,6 +284,7 @@ func (s *Server) Run(ctx context.Context) error {
 		kcpadmissioninitializers.NewKcpInformersInitializer(s.kcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(kubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(kcpClusterClient),
+		kcpadmissioninitializers.NewShardBaseURLInitializer(func() string { return s.options.Extra.ShardBaseURL }),
 		// The external address is provided as a function, as its value may be updated
 		// with the default secure port, when the config is later completed.
 		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return genericConfig.ExternalAddress }),
