@@ -28,7 +28,7 @@ func TestNewSyncerYAML(t *testing.T) {
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
   labels:
     workload.kcp.io/logical-cluster: root_default_foo
     workload.kcp.io/sync-target: sync-target-name
@@ -36,13 +36,13 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kcp-syncer
-  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
 rules:
 - apiGroups:
   - ""
@@ -71,21 +71,21 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
 subjects:
 - kind: ServiceAccount
-  name: kcp-syncer
-  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: kcp-syncer-config
-  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
 stringData:
   kubeconfig: |
     apiVersion: v1
@@ -110,19 +110,19 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kcp-syncer
-  namespace:  kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+  name: kcp-syncer-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+      app: kcp-syncer-sync-target-name-34b23c4k
   template:
     metadata:
       labels:
-        app: kcpsync3c05582c738de0f4d607d01f180062e37de58a9e3e6fd59b586bbccc
+        app: kcp-syncer-sync-target-name-34b23c4k
     spec:
       containers:
       - name: kcp-syncer
@@ -141,11 +141,11 @@ spec:
         - name: kcp-config
           mountPath: /kcp/
           readOnly: true
-      serviceAccountName: kcp-syncer
+      serviceAccountName: kcp-syncer-sync-target-name-34b23c4k
       volumes:
         - name: kcp-config
           secret:
-            secretName: kcp-syncer-config
+            secretName: kcp-syncer-sync-target-name-34b23c4k
             optional: false
 `
 	actualYAML, err := renderSyncerResources(templateInput{
@@ -153,12 +153,13 @@ spec:
 		Token:           "token",
 		CAData:          "ca-data",
 		KCPNamespace:    "kcp-namespace",
+		Namespace:       "kcp-syncer-sync-target-name-34b23c4k",
 		LogicalCluster:  "root:default:foo",
 		SyncTarget:      "sync-target-name",
 		Image:           "image",
 		Replicas:        1,
 		ResourcesToSync: []string{"resource1", "resource2"},
-	})
+	}, "kcp-syncer-sync-target-name-34b23c4k")
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(expectedYAML, string(actualYAML)))
 }

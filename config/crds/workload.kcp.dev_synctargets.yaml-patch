@@ -1,0 +1,7 @@
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/metadata/properties
+  value:
+    name:
+      minLength: 1
+      maxLength: 234 # 253 - 10 (prefix) - 9 (hash)
+      type: string
