@@ -17,9 +17,11 @@ limitations under the License.
 package framework
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -781,12 +783,36 @@ func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, subcommand []string) [
 
 	t.Logf("running: KUBECONFIG=%s %s", kubeconfigPath, strings.Join(cmdParts, " "))
 
-	output, err := cmd.CombinedOutput()
+	var output, _, combined bytes.Buffer
+	var lock sync.Mutex
+	cmd.Stdout = split{a: locked{mu: &lock, w: &combined}, b: &output}
+	cmd.Stderr = locked{mu: &lock, w: &combined}
+	err := cmd.Run()
 	if err != nil {
-		t.Logf("kcp plugin output:\n%s", output)
+		t.Logf("kcp plugin output:\n%s", combined.String())
 	}
 	require.NoError(t, err, "error running kcp plugin command")
-	return output
+	return output.Bytes()
+}
+
+type split struct {
+	a, b io.Writer
+}
+
+func (w split) Write(p []byte) (int, error) {
+	w.a.Write(p) // nolint: errcheck
+	return w.b.Write(p)
+}
+
+type locked struct {
+	mu *sync.Mutex
+	w  io.Writer
+}
+
+func (w locked) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.w.Write(p)
 }
 
 // KubectlApply runs kubectl apply -f with the supplied input piped to stdin and returns

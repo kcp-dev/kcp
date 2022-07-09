@@ -31,7 +31,11 @@ import (
 var (
 	syncExample = `
 	# Ensure a syncer is running on the specified sync target.
-	%[1]s workload sync <sync-target-name> --syncer-image <kcp-syncer-image>
+	%[1]s workload sync <sync-target-name> --syncer-image <kcp-syncer-image> -o syncer.yaml
+	kubectl apply -f syncer.yaml
+
+	# Directly apply the manifest
+	%[1]s workload sync <sync-target-name> --syncer-image <kcp-syncer-image> -o - | kubectl apply -f -
 `
 	cordonExample = `
 	# Mark a sync target as unschedulable.
@@ -73,10 +77,11 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	var userResourcesToSync []string
 	var syncerImage string
 	var replicas int = 1
+	var outputFile string
 	kcpNamespaceName := "default"
 	enableSyncerCmd := &cobra.Command{
-		Use:          "sync <sync-target-name> --syncer-image <kcp-syncer-image> [--resources=<resource1>,<resource2>..]",
-		Short:        "Deploy a syncer for the given sync target",
+		Use:          "sync <sync-target-name> --syncer-image <kcp-syncer-image> [--resources=<resource1>,<resource2>..] -o <output-file>",
+		Short:        "Create a synctarget in kcp with service account and RBAC permissions. Output a manifest to deploy a syncer for the given sync target in a physical cluster.",
 		Example:      fmt.Sprintf(syncExample, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -107,6 +112,9 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 				// TODO: relax when we have leader-election in the syncer
 				return errors.New("only 0 and 1 are allowed as --replicas values")
 			}
+			if len(outputFile) == 0 {
+				return errors.New("a value must be specified for --output-file")
+			}
 
 			syncTargetName := args[0]
 			if len(syncTargetName)+len(plugin.SyncerAuthResourcePrefix) > plugin.MaxSyncerAuthResourceName {
@@ -115,13 +123,14 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 			resourcesToSync := sets.NewString(userResourcesToSync...).Union(requiredResourcesToSync).List()
 
-			return kubeconfig.Sync(c.Context(), syncTargetName, kcpNamespaceName, syncerImage, resourcesToSync, replicas)
+			return kubeconfig.Sync(c.Context(), outputFile, syncTargetName, kcpNamespaceName, syncerImage, resourcesToSync, replicas)
 		},
 	}
 	enableSyncerCmd.Flags().StringSliceVar(&userResourcesToSync, "resources", userResourcesToSync, "Resources to synchronize with kcp.")
-	enableSyncerCmd.Flags().StringVar(&syncerImage, "syncer-image", syncerImage, "The syncer image to use in the syncer's deployment YAML.")
+	enableSyncerCmd.Flags().StringVar(&syncerImage, "syncer-image", syncerImage, "The syncer image to use in the syncer's deployment YAML. Images are published at https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer.")
 	enableSyncerCmd.Flags().IntVar(&replicas, "replicas", replicas, "Number of replicas of the syncer deployment.")
 	enableSyncerCmd.Flags().StringVar(&kcpNamespaceName, "kcp-namespace", kcpNamespaceName, "The name of the kcp namespace to create a service account in.")
+	enableSyncerCmd.Flags().StringVarP(&outputFile, "output-file", "o", outputFile, "The manifest file to be created and applied to the physical cluster. Use - for stdout.")
 
 	cmd.AddCommand(enableSyncerCmd)
 

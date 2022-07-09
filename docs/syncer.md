@@ -22,7 +22,7 @@ Current workspace is "root:default:my-workspace".
 1. Enable the syncer for a new cluster
 
 ```sh
-$ kubectl kcp workload sync <mycluster> --syncer-image <image name> > syncer.yaml
+$ kubectl kcp workload sync <mycluster> --syncer-image <image name> -o syncer.yaml
 ```
 
 1. Create a kind cluster to back the sync target

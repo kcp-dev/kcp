@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"text/template"
@@ -76,13 +77,24 @@ const (
 
 // Sync prepares a kcp workspace for use with a syncer and outputs the
 // configuration required to deploy a syncer to the pcluster to stdout.
-func (c *Config) Sync(ctx context.Context, syncTargetName, kcpNamespaceName, image string, resourcesToSync []string, replicas int) error {
+func (c *Config) Sync(ctx context.Context, outputFilePath, syncTargetName, kcpNamespaceName, image string, resourcesToSync []string, replicas int) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	token, err := enableSyncerForWorkspace(ctx, config, syncTargetName, kcpNamespaceName)
+	var outputFile *os.File
+	if outputFilePath == "-" {
+		outputFile = os.Stdout
+	} else {
+		outputFile, err = os.Create(outputFilePath)
+		if err != nil {
+			return err
+		}
+		defer outputFile.Close() // nolint: errcheck
+	}
+
+	token, err := c.enableSyncerForWorkspace(ctx, config, syncTargetName, kcpNamespaceName)
 	if err != nil {
 		return err
 	}
@@ -116,7 +128,10 @@ func (c *Config) Sync(ctx context.Context, syncTargetName, kcpNamespaceName, ima
 		return err
 	}
 
-	_, err = c.Out.Write(resources)
+	_, err = outputFile.Write(resources)
+	if outputFilePath != "-" {
+		c.ErrOut.Write([]byte(fmt.Sprintf("Wrote physical cluster manifest to %s. Use\n\n  KUBECONFIG=<pcluster-config> kubectl apply -f %q\n\nto apply it.\n", outputFilePath, outputFilePath))) // nolint: errcheck
+	}
 	return err
 }
 
@@ -131,7 +146,7 @@ func GetSyncerID(logicalClusterName string, syncTargetName string) string {
 // enableSyncerForWorkspace creates a sync target with the given name and creates a service
 // account for the syncer in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the syncer will use to connect to kcp.
-func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (string, error) {
+func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (string, error) {
 	kcpClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to create kcp client: %w", err)
@@ -142,12 +157,13 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTarg
 		metav1.GetOptions{},
 	)
 	if err != nil && !errors.IsNotFound(err) {
-		return "", fmt.Errorf("failed to get synctarget %s: %w", syncTargetName, err)
-	}
-	if errors.IsNotFound(err) {
+		return "", fmt.Errorf("failed to get synctarget %q: %w", syncTargetName, err)
+	} else if errors.IsNotFound(err) {
 		// Create the sync target that will serve as a point of coordination between
 		// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
 		// to the syncer).
+		// nolint: errcheck
+		c.ErrOut.Write([]byte(fmt.Sprintf("Creating synctarget %q\n", syncTargetName)))
 		syncTarget, err = kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx,
 			&workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
@@ -157,8 +173,11 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTarg
 			metav1.CreateOptions{},
 		)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return "", fmt.Errorf("failed to create synctarget %s: %w", syncTargetName, err)
+			return "", fmt.Errorf("failed to create synctarget %q: %w", syncTargetName, err)
 		}
+	} else if err == nil {
+		// nolint: errcheck
+		c.ErrOut.Write([]byte(fmt.Sprintf("Synctarget %q already exists.\n", syncTargetName)))
 	}
 
 	kubeClient, err := kubernetesclientset.NewForConfig(config)
@@ -180,6 +199,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTarg
 
 	switch {
 	case errors.IsNotFound(err):
+		c.ErrOut.Write([]byte(fmt.Sprintf("Creating service account %q\n", authResourceName))) // nolint: errcheck
 		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            authResourceName,
@@ -214,6 +234,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTarg
 			return "", fmt.Errorf("failed to create patch for ServiceAccount %s|%s/%s: %w", syncTargetName, namespace, authResourceName, err)
 		}
 
+		c.ErrOut.Write([]byte(fmt.Sprintf("Updating service account %q.\n", authResourceName))) // nolint: errcheck
 		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Patch(ctx, sa.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return "", fmt.Errorf("failed to patch ServiceAccount %s|%s/%s: %w", syncTargetName, authResourceName, namespace, err)
 		}
@@ -254,6 +275,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTarg
 		metav1.GetOptions{})
 	switch {
 	case errors.IsNotFound(err):
+		c.ErrOut.Write([]byte(fmt.Sprintf("Creating cluster role %q to give service account %q\n\n 1. write and sync access to the synctarget %q\n 2. write access to apiresourceimports.\n", authResourceName))) // nolint: errcheck
 		if _, err = kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            authResourceName,
@@ -291,6 +313,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTarg
 			return "", fmt.Errorf("failed to create patch for ClusterRole %s|%s: %w", syncTargetName, authResourceName, err)
 		}
 
+		c.ErrOut.Write([]byte(fmt.Sprintf("Updating cluster role %q with\n\n 1. write and sync access to the synctarget %q\n 2. write access to apiresourceimports.\n\n", authResourceName, authResourceName))) // nolint: errcheck
 		if _, err = kubeClient.RbacV1().ClusterRoles().Patch(ctx, cr.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return "", fmt.Errorf("failed to patch ClusterRole %s|%s/%s: %w", syncTargetName, authResourceName, namespace, err)
 		}
@@ -322,6 +345,7 @@ func enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTarg
 		}
 	}
 
+	c.ErrOut.Write([]byte(fmt.Sprintf("Creating cluster role binding %q to bind service account %q to cluster role %q.\n", authResourceName, authResourceName, authResourceName))) // nolint: errcheck
 	if _, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            authResourceName,
