@@ -28,6 +28,15 @@ func ProjectClusterWorkspaceToWorkspace(from *tenancyv1alpha1.ClusterWorkspace, 
 	to.Status.Phase = from.Status.Phase
 	to.Status.Initializers = from.Status.Initializers
 
+	to.Annotations = make(map[string]string, len(from.Annotations))
+	for k, v := range from.Annotations {
+		if k == tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey {
+			// do not leak user information
+			continue
+		}
+		to.Annotations[k] = v
+	}
+
 	for i := range from.Status.Conditions {
 		c := &from.Status.Conditions[i]
 		switch c.Type {
