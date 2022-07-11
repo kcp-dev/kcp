@@ -27,6 +27,8 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/utils/strings/slices"
+
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 const (
@@ -34,11 +36,11 @@ const (
 )
 
 var (
-	annotationAllowList = []string{}
-
-	labelAllowList = []string{
-		"experimental.workload.kcp.dev/scheduling-disabled",
+	annotationAllowList = []string{
+		workloadv1alpha1.AnnotationSkipDefaultObjectCreation,
 	}
+
+	labelAllowList = []string{}
 )
 
 // Register registers the reserved metadata plugin for creation and updates.
