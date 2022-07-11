@@ -30,18 +30,17 @@ The APIs used for Compute as a Service are:
   into their workspaces for visibility. A placement decision references a location by name.
 
   `SyncTarget`s in a `Location` are transparent to the user. Workload should be able to seamless move from one `SyncTarget` to another
-  within a `Location`. It is compute service's responsibility to ensure that:
-
-  1. Network connectivity: a workload in one `SyncTarget` can access service in another `SyncTarget` with a predefined DNS format.
-  2. Storage compatibility: a storage in one `SyncTarget` can be easily moved to another `SyncTarget`.
+  within a `Location`. It is compute service's responsibility to ensure kube conformance for workloads in a location in the sense 
+  that for the user it looks like ONE cluster.
 
 - `Placement` in `scheduling.kcp.dev/v1alpha1` – represents a selection rule to choose ONE `Location` via location labels, and bind
-  the selected location to MULTIPLE namespaces in a user workspace. Users can create multiple `Placement`s to select multiple `Locations`
-  for namespaces.
+  the selected location to MULTIPLE namespaces in a user workspace. For Workspaces with multiple Namespaces, users can create multiple 
+  Placements to assign specific Namespace(s) to specific Locations.
 
   `Placement` are visible and writable to users. A default `Placement` is automatically created when a workload `APIBinding` is
-  created on the user workspace, which randomly select a `Location` and bind to all namespaces in this workspace. User can mutate or delete
-  the default placement.
+  created on the user workspace, which randomly select a `Location` and bind to all namespaces in this workspace. The user can mutate 
+  or delete the default `Placement`. The corresponding `APIBinding` will be annotated with `workload.kcp.dev/skip-default-object-creation`,
+  so that the default `Placement` will not be recreated upon deletion.
 
 - *Compute Service Workspace* (previously *Negotiation Workspace*) – the workspace owned by the compute service team to hold
   the `APIExport` (named `kubernetes` today) with the synced resources, and `SyncTarget` and `Location` objects.
@@ -85,11 +84,10 @@ spec:
 ```
 
 A matched location will be selected for this `Placement` at first, which makes the `Placement` turns from `Pending` to `Unbound`. Then if there is at
-least one matched ns, the ns will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`. After this, a
-`SyncTarget` will be selected from the location picked by the placement.  `state.internal.workload.kcp.dev/<cluster-id>` label with value of `Sync` will
-be set if a valid `SyncTarget` is selected.
+least one matchins Namespace, the Namespace will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`. 
+After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.internal.workload.kcp.dev/<cluster-id>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
 
-The use can create another placement targeted to a different location for this ns, e.g. 
+The user can create another placement targeted to a different location for this Namespace, e.g. 
 
 ```yaml
 apiVersion: scheduling.kcp.dev/v1alpha1
@@ -106,12 +104,12 @@ spec:
   locationWorkspace: root:default:location-ws
 ```
 
-which wiil finally result in another `state.internal.workload.kcp.dev/<cluster-id>` label added to the ns, and the ns will have two different
+which will result in another `state.internal.workload.kcp.dev/<cluster-id>` label added to the Namespace, and the Namespace will have two different
 `state.internal.workload.kcp.dev/<cluster-id>` label.
 
 Placement is in the `Ready` status condition when
 
-1. selected location matchs the `Placement` spec.
+1. selected location matches the `Placement` spec.
 2. selected location exists in the location workspace.
 
 #### Sync target removing
@@ -123,11 +121,11 @@ A sync target will be removed when:
 3. corresponding `SyncTarget` is evicting/not Ready/deleted
 
 All above cases will make the `SyncTraget` represented in the label `state.internal.workload.kcp.dev/<cluster-id>` invalid, which will cause
-`finalizers.workload.kcp.dev/<cluster-id>` annotation with removing time in the format of RFC-3339 added on the ns.
+`finalizers.workload.kcp.dev/<cluster-id>` annotation with removing time in the format of RFC-3339 added on the Namespace.
 
 ### Resource Syncing
 
-As soon as the `state.internal.workload.kcp.dev/<cluster-id>` label is set on the ns the workload resource controller will 
+As soon as the `state.internal.workload.kcp.dev/<cluster-id>` label is set on the Namespace, the workload resource controller will 
 copy the `state.internal.workload.kcp.dev/<cluster-id>` label to the resources in that namespace.
 
 Note: in the future, the label on the resources is first set to empty string `""`, and a coordination controller will be 
@@ -142,7 +140,7 @@ and starts syncing them downstream, first by creating the namespace. Before sync
 a finalizer `workload.kcp.dev/syncer-<cluster-id>` on the upstream object in order to delay upstream deletion until
 the downstream object is also deleted.
 
-When the `deletion.internal.workload.kcp.dev/<cluster-id>` is added to the ns. The virtual workspace apiserver
+When the `deletion.internal.workload.kcp.dev/<cluster-id>` is added to the Namespace. The virtual workspace apiserver
 will translate that annotation into a deletion timestamp on the object the syncer sees. The syncer
 notices that as a started deletion flow. As soon as there are no coordination controller finalizers registered via the
 `finalizers.workload.kcp.dev/<cluster-id>` annotation anymore, the syncer will start a deletion of the downstream object.
