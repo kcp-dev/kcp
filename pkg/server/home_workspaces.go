@@ -271,6 +271,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		// we return the Home workspace definition of the current user, possibly even before its
 		// underlying ClusterWorkspace resource exists.
 
+		getAttributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "get")
 		homeLogicalClusterName := h.getHomeLogicalClusterName(effectiveUser.GetName())
 
 		homeClusterWorkspace, err := h.localInformers.getClusterWorkspace(homeLogicalClusterName)
@@ -279,6 +280,13 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 		if homeClusterWorkspace != nil {
+			// check for collision. Chance is super low hitting it by accident. But to protect against malicious users,
+			// we check for collision and return 403.
+			if info, _ := unmarshalOwner(homeClusterWorkspace); info == nil || info.Username != effectiveUser.GetName() {
+				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+				return
+			}
+
 			if found, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(homeLogicalClusterName); err != nil {
 				responsewriters.InternalError(rw, req, err)
 				return
