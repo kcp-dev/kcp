@@ -467,7 +467,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := configroot.Bootstrap(goContext(ctx),
 			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-			"root",
+			s.options.Extra.ShardName,
 			clientcmdapi.Config{
 				Clusters: map[string]*clientcmdapi.Cluster{
 					// cross-cluster is the virtual cluster running by default

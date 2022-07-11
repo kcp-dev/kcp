@@ -132,6 +132,7 @@ var (
 		"profiler-address",            // [Address]:port to bind the profiler to
 		"root-directory",              // Root directory.
 		"shard-base-url",              // Base URL to the this kcp shard. Defaults to external address.
+		"shard-name",                  // A name of this kcp shard.
 		"shard-kubeconfig-file",       // Kubeconfig holding admin(!) credentials to peer kcp shards.
 		"experimental-bind-free-port", // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
 
