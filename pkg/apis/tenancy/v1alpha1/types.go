@@ -130,7 +130,7 @@ type ClusterWorkspaceTypeReference struct {
 
 // ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
 //
-// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9]+$`
+// +kubebuilder:validation:Pattern=`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?`
 type ClusterWorkspaceTypeName string
 
 func (r ClusterWorkspaceTypeReference) String() string {

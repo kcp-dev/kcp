@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220711-1fe32801.workspaces.tenancy.kcp.dev
+  name: v220711-d5b6ca98.workspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -75,7 +75,7 @@ spec:
               properties:
                 name:
                   description: name is the name of the ClusterWorkspaceType
-                  pattern: ^[a-z][a-z0-9]+$
+                  pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                   type: string
                 path:
                   description: path is an absolute reference to the workspace that
