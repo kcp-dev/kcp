@@ -58,7 +58,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 		work        func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
-			name: "Create a workspace in the non-existing home and have it created authomatically",
+			name: "Create a workspace in the non-existing home and have it created automatically",
 			clientInfos: []clientInfo{
 				{
 					Token: "user-1-token",

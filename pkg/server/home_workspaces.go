@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -60,6 +61,9 @@ const (
 	homeOwnerClusterRolePrefix     = "system:kcp:tenancy:home-owner:"
 	HomeBucketClusterWorkspaceType = "Homebucket"
 	HomeClusterWorkspaceType       = "Home"
+
+	// the amount of time while the create delay is repeatedly returned to the client
+	createDelayTimeout = time.Minute
 )
 
 var (
@@ -274,7 +278,15 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 		if homeClusterWorkspace != nil {
-			// The home workspace for the user exists, so let's return it to the user if he requests to see its definition.
+			if homeClusterWorkspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+				if h.creationDelaySeconds > 0 && time.Now().After(homeClusterWorkspace.CreationTimestamp.Add(createDelayTimeout)) {
+					// Return a 429 status asking the client to try again after the creationDelay
+					rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
+					http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
+					return
+				}
+			}
+
 			// We don't need to check any permission before returning the home workspace definition since,
 			// once it has been created, a home workspace is owned by the user.
 

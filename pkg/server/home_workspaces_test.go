@@ -1470,7 +1470,7 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot get resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
-			testName:       "return the real home workspace when it already exists",
+			testName:       "return the real home workspace when it already exists and is ready in informer",
 			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
 			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
 			contextRequestInfo: &request.RequestInfo{
@@ -1497,6 +1497,7 @@ func TestServeHTTP(t *testing.T) {
 						},
 					},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+						Phase:   tenancyv1alpha1.ClusterWorkspacePhaseReady,
 						BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
 					},
 				}, nil
@@ -1504,7 +1505,48 @@ func TestServeHTTP(t *testing.T) {
 
 			expectedStatusCode:   200,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":"2022-07-05T15:46:00Z","clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"Home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":"2022-07-05T15:46:00Z","clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"Home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
+		},
+		{
+			testName:       "return 429 with retry-after header when the home workspace is not ready yet",
+			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{
+				IsResourceRequest: true,
+				APIGroup:          "tenancy.kcp.dev",
+				Resource:          "workspaces",
+				Name:              "~",
+				Verb:              "get",
+			},
+
+			synced: true,
+			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
+				return &tenancyv1alpha1.ClusterWorkspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "user-1",
+						ClusterName:       "root:users:bi:ie",
+						ResourceVersion:   "someRealResourceVersion",
+						CreationTimestamp: metav1.Time{Time: time.Date(2022, time.July, 5, 15, 46, 0, 0, time.UTC)},
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Home"),
+							Path: "root",
+						},
+					},
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+						Phase:   tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+						BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
+					},
+				}, nil
+			},
+
+			expectedStatusCode:   429,
+			expectedToDelegate:   false,
+			expectedResponseBody: "Creating the home workspace",
+			expectedResponseHeaders: map[string]string{
+				"Retry-After": "5",
+			},
 		},
 		{
 			testName:       "return error when workspace cannot be checked in local informers",
@@ -1682,13 +1724,13 @@ func TestServeHTTP(t *testing.T) {
 					return
 				},
 				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
-					return 0, errors.New("error when trying to create the Home workspace")
+					return 0, errors.New("error when trying to create the home workspace")
 				},
 			},
 
 			expectedStatusCode:   500,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"error when trying to create the Home workspace","code":500}`,
+			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"error when trying to create the home workspace","code":500}`,
 		},
 	}
 
