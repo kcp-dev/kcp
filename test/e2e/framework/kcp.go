@@ -487,7 +487,7 @@ func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
 		req := rest.NewRequest(client).RequestURI(endpoint)
 		_, err := req.Do(ctx).Raw()
 		if err != nil {
-			lastError = fmt.Errorf("error contacting %s: %w", req.URL(), err)
+			lastError = fmt.Errorf("error contacting %s: components unready: %v", req.URL(), unreadyComponentsFromError(err))
 			return false, nil
 		}
 
@@ -513,9 +513,25 @@ func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
 			return
 		}
 		if err != nil {
-			c.t.Errorf("error contacting %s: %v", endpoint, err)
+			c.t.Errorf("error contacting %s: %v", endpoint, unreadyComponentsFromError(err))
 		}
 	}, 1*time.Second)
+}
+
+// there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
+// the content in a string-formatted error, unfortunately.
+func unreadyComponentsFromError(err error) string {
+	innerErr := strings.TrimPrefix(strings.TrimSuffix(err.Error(), `") has prevented the request from succeeding`), `an error on the server ("`)
+	var unreadyComponents []string
+	for _, line := range strings.Split(innerErr, `\n`) {
+		if name := strings.TrimPrefix(strings.TrimSuffix(line, ` failed: reason withheld`), `[-]`); name != line {
+			// NB: sometimes the error we get is truncated (server-side?) to something like: `\n[-]poststar") has prevented the request from succeeding`
+			// In those cases, the `name` here is also truncated, but nothing we can do about that. For that reason, we don't expose a list of components
+			// from this function or else we'd need to handle more edge cases.
+			unreadyComponents = append(unreadyComponents, name)
+		}
+	}
+	return strings.Join(unreadyComponents, ", ")
 }
 
 // loadKubeConfig loads a kubeconfig from disk. This method is
