@@ -40,7 +40,6 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
 	"github.com/kcp-dev/kcp/pkg/syncer/status"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
@@ -67,10 +66,6 @@ type SyncerConfig struct {
 	ResourcesToSync  sets.String
 	KCPClusterName   logicalcluster.Name
 	SyncTargetName   string
-}
-
-func (sc *SyncerConfig) ID() string {
-	return workloadcliplugin.GetSyncerID(sc.KCPClusterName.String(), sc.SyncTargetName)
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {

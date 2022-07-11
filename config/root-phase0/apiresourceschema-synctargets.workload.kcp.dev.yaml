@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220706-3993e86b.synctargets.workload.kcp.dev
+  name: v220709-4a74a96f.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -42,6 +42,11 @@ spec:
             submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
+          properties:
+            name:
+              maxLength: 234
+              minLength: 1
+              type: string
           type: object
         spec:
           description: Spec holds the desired state.

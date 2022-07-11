@@ -17,9 +17,11 @@ limitations under the License.
 package framework
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -425,6 +427,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		"sync",
 		sf.SyncTargetName,
 		"--syncer-image", syncerImage,
+		"--output-file", "-",
 	}
 	for _, resource := range sf.ResourcesToSync.List() {
 		pluginArgs = append(pluginArgs, "--resources", resource)
@@ -467,8 +470,20 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Extract the configuration for an in-process syncer from the resources that were
 	// applied to the downstream server. This maximizes the parity between the
 	// configuration of a deployed and in-process syncer.
-	syncerNamespace := workloadcliplugin.GetSyncerID(sf.WorkspaceClusterName.String(), sf.SyncTargetName)
-	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerNamespace)
+	var syncerID string
+	for _, doc := range strings.Split(string(syncerYAML), "\n---\n") {
+		var manifest struct {
+			metav1.ObjectMeta `json:"metadata"`
+		}
+		err := yaml.Unmarshal([]byte(doc), &manifest)
+		require.NoError(t, err)
+		if manifest.Namespace != "" {
+			syncerID = manifest.Namespace
+			break
+		}
+	}
+	require.NotEmpty(t, syncerID, "failed to extract syncer ID from yaml produced by plugin:\n%s", string(syncerYAML))
+	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerID, syncerID)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -522,7 +537,6 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	})
 
 	if useDeployedSyncer {
-		syncerID := syncerConfig.ID()
 		t.Cleanup(func() {
 			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 			defer cancelFn()
@@ -670,7 +684,7 @@ func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clus
 
 // syncerConfigFromCluster reads the configuration needed to start an in-process
 // syncer from the resources applied to a cluster for a deployed syncer.
-func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string) *syncer.SyncerConfig {
+func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace, syncerID string) *syncer.SyncerConfig {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -678,7 +692,7 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	require.NoError(t, err)
 
 	// Read the upstream kubeconfig from the syncer secret
-	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, workloadcliplugin.SyncerSecretName, metav1.GetOptions{})
+	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, syncerID, metav1.GetOptions{})
 	require.NoError(t, err)
 	upstreamConfigBytes := secret.Data[workloadcliplugin.SyncerSecretConfigKey]
 	require.NotEmpty(t, upstreamConfigBytes, "upstream config is required")
@@ -686,7 +700,7 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 	require.NoError(t, err, "failed to load upstream config")
 
 	// Read the arguments from the syncer deployment
-	deployment, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, workloadcliplugin.SyncerResourceName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, syncerID, metav1.GetOptions{})
 	require.NoError(t, err)
 	containers := deployment.Spec.Template.Spec.Containers
 	require.NotEmpty(t, containers, "expected at least one container in syncer deployment")
@@ -714,7 +728,7 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace string
 			return false
 		}
 		for _, secret := range secrets.Items {
-			if secret.Annotations[corev1.ServiceAccountNameKey] == workloadcliplugin.SyncerResourceName {
+			if secret.Annotations[corev1.ServiceAccountNameKey] == syncerID {
 				tokenSecret = secret
 				return true
 			}
@@ -781,12 +795,36 @@ func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, subcommand []string) [
 
 	t.Logf("running: KUBECONFIG=%s %s", kubeconfigPath, strings.Join(cmdParts, " "))
 
-	output, err := cmd.CombinedOutput()
+	var output, _, combined bytes.Buffer
+	var lock sync.Mutex
+	cmd.Stdout = split{a: locked{mu: &lock, w: &combined}, b: &output}
+	cmd.Stderr = locked{mu: &lock, w: &combined}
+	err := cmd.Run()
 	if err != nil {
-		t.Logf("kcp plugin output:\n%s", output)
+		t.Logf("kcp plugin output:\n%s", combined.String())
 	}
 	require.NoError(t, err, "error running kcp plugin command")
-	return output
+	return output.Bytes()
+}
+
+type split struct {
+	a, b io.Writer
+}
+
+func (w split) Write(p []byte) (int, error) {
+	w.a.Write(p) // nolint: errcheck
+	return w.b.Write(p)
+}
+
+type locked struct {
+	mu *sync.Mutex
+	w  io.Writer
+}
+
+func (w locked) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.w.Write(p)
 }
 
 // KubectlApply runs kubectl apply -f with the supplied input piped to stdin and returns
