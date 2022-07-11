@@ -55,6 +55,40 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+func TestMultiShardScheduling(t *testing.T) {
+	server := framework.SharedKcpServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	config := server.DefaultConfig(t)
+	nonIdentityKcpClusterClient, err := kcpclientset.NewClusterForConfig(config) // can only used for wildcard requests of apis.kcp.dev
+	require.NoError(t, err)
+
+	// since wildcard request are only allowed against a shard
+	// create a cfg that points to the root shard and use it to create ddsif
+	rootConfig := framework.ShardConfig(t, nonIdentityKcpClusterClient, "root", config)
+	rootConfig.QPS = 100
+	rootConfig.Burst = 200
+
+	// resolve identities for system APIBindings
+	identityRootConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(rootConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	require.Eventually(t, func() bool {
+		if err := resolveIdentities(ctx); err != nil {
+			klog.Errorf("failed to resolve identities, keeping trying: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	rootKcpClusterClient, err := kcpclientset.NewClusterForConfig(identityRootConfig)
+	require.NoError(t, err)
+
+	shards, err := rootKcpClusterClient.Cluster(logicalcluster.New("root")).TenancyV1alpha1().ClusterWorkspaceShards().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	for _, shard := range shards.Items {
+		klog.Infof("discovered shard = %v", shard.Name)
+	}
+}
+
 func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Parallel()
 	server := framework.SharedKcpServer(t)
