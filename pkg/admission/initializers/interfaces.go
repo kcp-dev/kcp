@@ -46,3 +46,9 @@ type WantsKcpClusterClient interface {
 type WantsExternalAddressProvider interface {
 	SetExternalAddressProvider(externalAddressProvider func() string)
 }
+
+// WantsShardBaseURL interface should be implemented by admission plugins
+// that want to have the default shard base url injected.
+type WantsShardBaseURL interface {
+	SetShardBaseURL(shardBaseURL string)
+}
