@@ -24,13 +24,18 @@ import (
 
 const (
 	SystemKcpClusterWorkspaceAccessGroup = "system:kcp:clusterworkspace:access"
-	SystemKcpClusterWorkspaceAdminGroup  = "system:kcp:clusterworkspace:admin"
+	// An admin group per cluster workspace.
+	// Members of this group have all permissions in the referenced cluster workspace (capped by maximal permission policy).
+	SystemKcpClusterWorkspaceAdminGroup = "system:kcp:clusterworkspace:admin"
+	// A global admin group.
+	// Members of this group have all permissions across all cluster workspaces.
+	SystemKcpAdminGroup = "system:kcp:admin"
 )
 
 // ClusterRoleBindings return default rolebindings to the default roles
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup).BindingOrDie(), "system:kcp:clusterworkspace:admin"),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup, SystemKcpAdminGroup).BindingOrDie(), "system:kcp:clusterworkspace:admin"),
 	}
 }
 

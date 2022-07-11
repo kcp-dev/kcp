@@ -29,6 +29,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 func main() {
@@ -80,7 +81,7 @@ func start(proxyFlags, shardFlags []string, numberOfShards int) error {
 	}
 	_, err = clientCA.MakeClientCertificate(".kcp/kcp-admin.crt", ".kcp/kcp-admin.key", &user.DefaultInfo{
 		Name:   "kcp-admin",
-		Groups: []string{"system:kcp:clusterworkspace:admin"},
+		Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup, bootstrap.SystemKcpAdminGroup},
 	}, 365)
 	if err != nil {
 		fmt.Printf("failed to create kcp-admin client cert: %v\n", err)

@@ -112,9 +112,13 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 	}
 
 	kcpAdminUser := &user.DefaultInfo{
-		Name:   kcpAdminUserName,
-		UID:    uuid.New().String(),
-		Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup, bootstrap.SystemKcpClusterWorkspaceAccessGroup},
+		Name: kcpAdminUserName,
+		UID:  uuid.New().String(),
+		Groups: []string{
+			bootstrap.SystemKcpAdminGroup,
+			bootstrap.SystemKcpClusterWorkspaceAdminGroup,
+			bootstrap.SystemKcpClusterWorkspaceAccessGroup,
+		},
 	}
 
 	newAuthenticator := group.NewAuthenticatedGroupAdder(bearertoken.New(authenticator.WrapAudienceAgnosticToken(config.Authentication.APIAudiences, authenticator.TokenFunc(func(ctx context.Context, requestToken string) (*authenticator.Response, bool, error) {
