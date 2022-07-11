@@ -610,18 +610,19 @@ func TestReconcileBound(t *testing.T) {
 		apiExport             *apisv1alpha1.APIExport
 		getAPIExportError     error
 		apiResourceSchemas    map[string]*apisv1alpha1.APIResourceSchema
-		wantBinding           bool
-		wantBound             bool
+		wantRebinding         bool
+		wantPhase             string
 		wantError             bool
 		wantAPIExportNotFound bool
 	}{
-		"bound becomes binding when referenced export changes": {
+		"rebinding when referenced export changes": {
 			apiBinding: bound.DeepCopy().
 				WithWorkspaceReference("root:org:new-workspace", "new-export").
 				Build(),
-			wantBinding: true,
+			wantRebinding: true,
+			wantPhase:     "Bound",
 		},
-		"bound becomes binding when export changes what it's exporting": {
+		"rebinding when export changes what it's exporting": {
 			apiBinding: bound.Build(),
 			apiExport: &apisv1alpha1.APIExport{
 				Spec: apisv1alpha1.APIExportSpec{
@@ -642,9 +643,10 @@ func TestReconcileBound(t *testing.T) {
 					},
 				},
 			},
-			wantBinding: true,
+			wantRebinding: true,
+			wantPhase:     "Bound",
 		},
-		"bound becomes binding when bound APIResourceSchema UID changes": {
+		"rebinding when bound APIResourceSchema UID changes": {
 			apiBinding: bound.Build(),
 			apiExport: &apisv1alpha1.APIExport{
 				Spec: apisv1alpha1.APIExportSpec{
@@ -665,12 +667,14 @@ func TestReconcileBound(t *testing.T) {
 					},
 				},
 			},
-			wantBinding: true,
+			wantRebinding: true,
+			wantPhase:     "Bound",
 		},
 		"APIExportValid warning condition set when error getting previously bound APIExport": {
 			apiBinding:            bound.Build(),
 			getAPIExportError:     apierrors.NewNotFound(schema.GroupResource{}, "foo"),
 			wantAPIExportNotFound: true,
+			wantPhase:             "Bound",
 		},
 	}
 
@@ -688,19 +692,15 @@ func TestReconcileBound(t *testing.T) {
 				},
 			}
 
-			err := c.reconcile(context.Background(), tc.apiBinding)
+			rebind, err := c.reconcileBound(context.Background(), tc.apiBinding)
 			if tc.wantError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
 
-			switch {
-			case tc.wantBinding:
-				require.Equal(t, apisv1alpha1.APIBindingPhaseBinding, tc.apiBinding.Status.Phase)
-			case tc.wantBound:
-				require.Equal(t, apisv1alpha1.APIBindingPhaseBound, tc.apiBinding.Status.Phase)
-			}
+			require.Equal(t, tc.wantRebinding, rebind, "rebinding expected to be %v", tc.wantRebinding)
+			require.Equal(t, apisv1alpha1.APIBindingPhaseType(tc.wantPhase), tc.apiBinding.Status.Phase, "phase expected to be %q, got %q", tc.wantPhase, tc.apiBinding.Status.Phase)
 
 			if tc.wantAPIExportNotFound {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{

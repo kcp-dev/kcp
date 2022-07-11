@@ -55,7 +55,14 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	case apisv1alpha1.APIBindingPhaseBinding:
 		return c.reconcileBinding(ctx, apiBinding)
 	case apisv1alpha1.APIBindingPhaseBound:
-		return c.reconcileBound(ctx, apiBinding)
+		needsRebind, err := c.reconcileBound(ctx, apiBinding)
+		if err != nil {
+			return err
+		}
+		if needsRebind {
+			return c.reconcileBinding(ctx, apiBinding)
+		}
+		return nil
 	default:
 		klog.Errorf("Invalid phase %q for APIBinding %s|%s", apiBinding.Status.Phase, logicalcluster.From(apiBinding).String(), apiBinding.Name)
 		return nil
@@ -408,7 +415,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 	return nil
 }
 
-func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (rebind bool, err error) {
 	apiExportClusterName, err := getAPIExportClusterName(apiBinding)
 	apiBindingClusterName := logicalcluster.From(apiBinding)
 	if err != nil {
@@ -421,15 +428,12 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 			err.Error(),
 		)
 
-		return nil
+		return false, nil
 	}
 
 	if referencedAPIExportChanged(apiBinding) {
-		klog.V(4).Infof("APIBinding %s|%s needs rebinding because it now points to a different APIExport", apiBindingClusterName, apiBinding.Name)
-
-		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
-
-		return nil
+		klog.V(2).Infof("APIBinding %s|%s needs rebinding because it now points to a different APIExport", apiBindingClusterName, apiBinding.Name)
+		return true, nil
 	}
 
 	apiExport, err := c.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
@@ -446,7 +450,7 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 
 		// Return nil here so we don't retry. If/when there is an informer event for the correct APIExport, this
 		// APIBinding will automatically be requeued.
-		return nil
+		return false, nil
 	}
 	if err != nil {
 		conditions.MarkFalse(
@@ -460,7 +464,7 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 			err,
 		)
 
-		return err
+		return false, err
 	}
 
 	var exportedSchemas []*apisv1alpha1.APIResourceSchema
@@ -479,22 +483,21 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 				// Return nil here so we don't retry. If/when there is an informer event for
 				// the correct APIExport and/or APIResourcesSchema, this APIBinding will
 				// automatically be requeued.
-				return nil
+				return false, nil
 			}
 
-			return err
+			return false, err
 		}
 
 		exportedSchemas = append(exportedSchemas, apiResourceSchema)
 	}
 
 	if apiExportLatestResourceSchemasChanged(apiBinding, exportedSchemas) {
-		klog.V(4).Infof("APIBinding %s|%s needs rebinding because the APIExport's latestResourceSchemas has changed", apiBindingClusterName, apiBinding.Name)
-
-		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+		klog.V(2).Infof("APIBinding %s|%s needs rebinding because the APIExport's latestResourceSchemas has changed", apiBindingClusterName, apiBinding.Name)
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {

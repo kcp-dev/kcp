@@ -18,12 +18,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-
-	flag "github.com/spf13/pflag"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
