@@ -62,7 +62,14 @@ const (
 
 // Sync prepares a kcp workspace for use with a syncer and outputs the
 // configuration required to deploy a syncer to the pcluster to stdout.
-func (c *Config) Sync(ctx context.Context, outputFilePath, syncTargetName, kcpNamespaceName, downstreamNamespace, image string, resourcesToSync []string, replicas int) error {
+func (c *Config) Sync(
+	ctx context.Context,
+	outputFilePath, syncTargetName, kcpNamespaceName, downstreamNamespace, image string,
+	resourcesToSync []string,
+	replicas int,
+	qps float32,
+	burst int,
+) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
 		return err
@@ -111,6 +118,8 @@ func (c *Config) Sync(ctx context.Context, outputFilePath, syncTargetName, kcpNa
 		Image:           image,
 		Replicas:        replicas,
 		ResourcesToSync: resourcesToSync,
+		QPS:             qps,
+		Burst:           burst,
 	}
 
 	resources, err := renderSyncerResources(input, syncerID)
@@ -428,6 +437,10 @@ type templateInput struct {
 	Image string
 	// Replicas is the number of syncer pods to run (should be 0 or 1).
 	Replicas int
+	// QPS is the qps the syncer uses when talking to an apiserver.
+	QPS float32
+	// Burst is the burst the syncer uses when talking to an apiserver.
+	Burst int
 }
 
 // templateArgs represents the full set of arguments required to render the resources

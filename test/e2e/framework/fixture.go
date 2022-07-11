@@ -428,6 +428,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		sf.SyncTargetName,
 		"--syncer-image", syncerImage,
 		"--output-file", "-",
+		"--qps", "-1",
 	}
 	for _, resource := range sf.ResourcesToSync.List() {
 		pluginArgs = append(pluginArgs, "--resources", resource)

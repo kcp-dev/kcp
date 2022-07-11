@@ -30,6 +30,8 @@ import (
 )
 
 type Options struct {
+	QPS                 float32
+	Burst               int
 	FromKubeconfig      string
 	FromContext         string
 	FromClusterName     string
@@ -48,6 +50,8 @@ func NewOptions() *Options {
 	logs.Config.Verbosity = config.VerbosityLevel(2)
 
 	return &Options{
+		QPS:                   30,
+		Burst:                 20,
 		SyncedResourceTypes:   []string{},
 		Logs:                  logs,
 		APIImportPollInterval: 1 * time.Minute,
@@ -55,6 +59,8 @@ func NewOptions() *Options {
 }
 
 func (options *Options) AddFlags(fs *pflag.FlagSet) {
+	fs.Float32Var(&options.QPS, "qps", options.QPS, "QPS to use when talking to API servers.")
+	fs.IntVar(&options.Burst, "burst", options.Burst, "Burst to use when talking to API servers.")
 	fs.StringVar(&options.FromKubeconfig, "from-kubeconfig", options.FromKubeconfig, "Kubeconfig file for -from cluster.")
 	fs.StringVar(&options.FromContext, "from-context", options.FromContext, "Context to use in the Kubeconfig file for -from cluster, instead of the current context.")
 	fs.StringVar(&options.FromClusterName, "from-cluster", options.FromClusterName, "Name of the -from logical cluster.")
