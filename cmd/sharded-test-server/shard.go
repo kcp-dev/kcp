@@ -29,7 +29,7 @@ import (
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 )
 
-func startShard(ctx context.Context, n uint, args []string, servingCA *crypto.CA, hostIP string) (<-chan error, error) {
+func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string) (<-chan error, error) {
 	// create serving cert
 	hostnames := sets.NewString("localhost", hostIP)
 	klog.Infof("Creating shard server %d serving cert with hostnames %v", n, hostnames)
@@ -51,7 +51,9 @@ func startShard(ctx context.Context, n uint, args []string, servingCA *crypto.CA
 	}
 
 	if n > 0 {
-		args = append(args, "--root-kubeconfig=.kcp-0/root.kubeconfig")
+		// args = append(args, "--root-kubeconfig=.kcp-0/root.kubeconfig")
+		args = append(args, fmt.Sprintf("--embedded-etcd-client-port=%d", 2379+n+1))
+		args = append(args, fmt.Sprintf("--embedded-etcd-peer-port=%d", (2379+n+1)+1)) // prev value +1
 	}
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/

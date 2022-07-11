@@ -32,16 +32,14 @@ import (
 )
 
 func main() {
+	var numberOfShards int
 	flag.String("log-dir-path", "", "Path to the log files. If empty, log files are stored in the dot directories.")
+	flag.IntVar(&numberOfShards, "number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
 
 	// split flags into --proxy-*, --shard-* and everything elese (generic). The former are
-	// passed to the respective components. Everything after "--" is considered a shard flag.
+	// passed to the respective components.
 	var proxyFlags, shardFlags, genericFlags []string
-	for i, arg := range os.Args[1:] {
-		if arg == "--" {
-			shardFlags = append(shardFlags, os.Args[i+1:]...)
-			break
-		}
+	for _, arg := range os.Args[1:] {
 		if strings.HasPrefix(arg, "--proxy-") {
 			proxyFlags = append(proxyFlags, "-"+strings.TrimPrefix(arg, "--proxy"))
 		} else if strings.HasPrefix(arg, "--shard-") {
@@ -52,13 +50,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) // nolint: errcheck
 
-	if err := start(proxyFlags, shardFlags); err != nil {
+	if err := start(proxyFlags, shardFlags, numberOfShards); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string) error {
+func start(proxyFlags, shardFlags []string, numberOfShards int) error {
 	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer cancelFn()
 
@@ -108,10 +106,18 @@ func start(proxyFlags, shardFlags []string) error {
 		return err
 	}
 
-	// start root shard
-	shardErrCh, err := startShard(ctx, 0, shardFlags, servingCA, hostIP.String())
-	if err != nil {
-		return err
+	// start shards
+	shardsErrCh := make(chan shardErrTuple)
+	for i := 0; i < numberOfShards; i++ {
+		shardErrCh, err := startShard(ctx, i, shardFlags, servingCA, hostIP.String())
+		if err != nil {
+			return err
+		}
+		go func(shardIndex int, shardErrCh <-chan error) {
+			err := <-shardErrCh
+			shardsErrCh <- shardErrTuple{shardIndex, err}
+
+		}(i, shardErrCh)
 	}
 
 	// write kcp-admin kubeconfig talking to the front-proxy with a client-cert
@@ -125,9 +131,14 @@ func start(proxyFlags, shardFlags []string) error {
 	}
 
 	select {
-	case <-shardErrCh:
-		return fmt.Errorf("shard 0 exited: %w", err)
+	case shardIndexErr := <-shardsErrCh:
+		return fmt.Errorf("shard %d exited: %w", shardIndexErr.index, shardIndexErr.error)
 	case <-ctx.Done():
 	}
 	return nil
+}
+
+type shardErrTuple struct {
+	index int
+	error error
 }
