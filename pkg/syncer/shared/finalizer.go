@@ -73,7 +73,7 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 
 	// remove the cluster label.
 	upstreamLabels := upstreamObj.GetLabels()
-	delete(upstreamLabels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+syncTargetName)
+	delete(upstreamLabels, workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetName)
 	upstreamObj.SetLabels(upstreamLabels)
 	// - End of block to be removed once the virtual workspace syncer is integrated -
 

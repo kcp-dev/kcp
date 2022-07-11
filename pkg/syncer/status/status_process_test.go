@@ -338,7 +338,7 @@ func TestSyncerProcess(t *testing.T) {
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "",
@@ -351,7 +351,7 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "", map[string]string{
-							"state.internal.workload.kcp.dev/us-west1": "Sync",
+							"state.workload.kcp.dev/us-west1": "Sync",
 						}, nil, nil),
 						addDeploymentStatus(appsv1.DeploymentStatus{
 							Replicas: 15,
@@ -376,7 +376,7 @@ func TestSyncerProcess(t *testing.T) {
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "",
@@ -407,7 +407,7 @@ func TestSyncerProcess(t *testing.T) {
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "",
@@ -421,7 +421,7 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.internal.workload.kcp.dev/us-west1": "Sync",
+							"state.workload.kcp.dev/us-west1": "Sync",
 						}, map[string]string{
 							"experimental.status.workload.kcp.dev/us-west1": "{\"replicas\":15}",
 						}, nil)))),
@@ -446,7 +446,7 @@ func TestSyncerProcess(t *testing.T) {
 				})),
 			toResources: []runtime.Object{
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, map[string]string{
 					"deletion.internal.workload.kcp.dev/us-west1":   time.Now().Format(time.RFC3339),
 					"experimental.status.workload.kcp.dev/us-west1": "{\"replicas\":15}",
@@ -474,9 +474,9 @@ func TestSyncerProcess(t *testing.T) {
 			gvr:          schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: nil,
 			toResources: []runtime.Object{
-				namespace("test", "root:org:ws", map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"}, nil),
+				namespace("test", "root:org:ws", map[string]string{"state.workload.kcp.dev/us-west1": "Sync"}, nil),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, map[string]string{
 					"deletion.internal.workload.kcp.dev/us-west1":   time.Now().Format(time.RFC3339),
 					"experimental.status.workload.kcp.dev/us-west1": `{"replicas":15}`,
@@ -532,7 +532,7 @@ func TestSyncerProcess(t *testing.T) {
 				o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + tc.syncTargetName
 			})
 			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
+				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 
 			setupServersideApplyPatchReactor(toClient)

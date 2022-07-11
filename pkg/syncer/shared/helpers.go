@@ -28,8 +28,8 @@ import (
 // Deprecated: use GetResourceState per cluster instead.
 func DeprecatedGetAssignedSyncTarget(labels map[string]string) string {
 	for k, v := range labels {
-		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateSync) {
-			return strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix)
+		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateSync) {
+			return strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix)
 		}
 	}
 	return ""

@@ -181,7 +181,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		}
 
 		if removingTime.Add(removingGracePeriod).Before(r.now()) {
-			expectedLabels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+cluster] = nil
+			expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster] = nil
 			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = nil
 			klog.V(4).Infof("remove cluster %s for ns %s|%s", cluster, clusterName, ns.Name)
 		} else {
@@ -206,7 +206,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 			continue
 		}
 
-		expectedLabels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+chosenCluster.Name] = string(workloadv1alpha1.ResourceStateSync)
+		expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+chosenCluster.Name] = string(workloadv1alpha1.ResourceStateSync)
 		klog.V(4).Infof("set cluster %s sync for ns %s|%s", chosenCluster.Name, clusterName, ns.Name)
 	}
 
@@ -288,11 +288,11 @@ func syncedRemovingCluster(ns *corev1.Namespace) ([]string, map[string]time.Time
 	synced := []string{}
 	removing := map[string]time.Time{}
 	for k := range ns.Labels {
-		if !strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) {
+		if !strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) {
 			continue
 		}
 
-		syncTarget := strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix)
+		syncTarget := strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix)
 
 		deletionAnnotationKey := workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + syncTarget
 

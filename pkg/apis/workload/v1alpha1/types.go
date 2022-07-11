@@ -25,7 +25,7 @@ const (
 	ResourceStatePending ResourceState = ""
 	// ResourceStateSync is the state of a resource when it is synced to the sync target.
 	// This includes the deletion process until the resource is deleted downstream and the
-	// syncer removes the state.internal.workload.kcp.dev/<sync-target-name> label.
+	// syncer removes the state.workload.kcp.dev/<sync-target-name> label.
 	ResourceStateSync ResourceState = "Sync"
 )
 
@@ -55,9 +55,9 @@ const (
 	// TODO(sttts): use sync-target-uid instead of sync-target-name
 	ClusterFinalizerAnnotationPrefix = "finalizers.workload.kcp.dev/"
 
-	// InternalClusterResourceStateLabelPrefix is the prefix of the label
+	// ClusterResourceStateLabelPrefix is the prefix of the label
 	//
-	//   state.internal.workload.kcp.dev/<sync-target-name>
+	//   state.workload.kcp.dev/<sync-target-name>
 	//
 	// on upstream resources storing the state of the sync target syncer state machine.
 	// The workload controllers will set this label and the syncer will react and drive the
@@ -73,12 +73,12 @@ const (
 	// will signal the start of the deletion process of the object. During the deletion process
 	// the object will stay in "Sync" state. The syncer will block deletion while
 	// finalizers.workload.kcp.dev/<sync-target-name> exists and is non-empty, and it
-	// will eventually remove state.internal.workload.kcp.dev/<sync-target-name> after
+	// will eventually remove state.workload.kcp.dev/<sync-target-name> after
 	// the object has been deleted downstream.
 	//
 	// The workload controllers will consider the object deleted from the sync target when
 	// the label is removed. They then set the placement state to "Unbound".
-	InternalClusterResourceStateLabelPrefix = "state.internal.workload.kcp.dev/"
+	ClusterResourceStateLabelPrefix = "state.workload.kcp.dev/"
 
 	// InternalClusterStatusAnnotationPrefix is the prefix of the annotation
 	//
@@ -106,6 +106,6 @@ const (
 	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workload.kcp.dev/"
 
 	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
-	// instead of state.internal.workload.kcp.dev/<sync-target-name> which is used upstream.
+	// instead of state.workload.kcp.dev/<sync-target-name> which is used upstream.
 	InternalDownstreamClusterLabel = "internal.workload.kcp.dev/cluster"
 )

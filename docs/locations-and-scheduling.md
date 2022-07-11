@@ -85,7 +85,7 @@ spec:
 
 A matched location will be selected for this `Placement` at first, which makes the `Placement` turns from `Pending` to `Unbound`. Then if there is at
 least one matchins Namespace, the Namespace will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`. 
-After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.internal.workload.kcp.dev/<cluster-id>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
+After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.workload.kcp.dev/<cluster-id>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
 
 The user can create another placement targeted to a different location for this Namespace, e.g. 
 
@@ -104,8 +104,8 @@ spec:
   locationWorkspace: root:default:location-ws
 ```
 
-which will result in another `state.internal.workload.kcp.dev/<cluster-id>` label added to the Namespace, and the Namespace will have two different
-`state.internal.workload.kcp.dev/<cluster-id>` label.
+which will result in another `state.workload.kcp.dev/<cluster-id>` label added to the Namespace, and the Namespace will have two different
+`state.workload.kcp.dev/<cluster-id>` label.
 
 Placement is in the `Ready` status condition when
 
@@ -120,13 +120,13 @@ A sync target will be removed when:
 2. corresponding `Placement` is not in `Ready` condition.
 3. corresponding `SyncTarget` is evicting/not Ready/deleted
 
-All above cases will make the `SyncTraget` represented in the label `state.internal.workload.kcp.dev/<cluster-id>` invalid, which will cause
+All above cases will make the `SyncTraget` represented in the label `state.workload.kcp.dev/<cluster-id>` invalid, which will cause
 `finalizers.workload.kcp.dev/<cluster-id>` annotation with removing time in the format of RFC-3339 added on the Namespace.
 
 ### Resource Syncing
 
-As soon as the `state.internal.workload.kcp.dev/<cluster-id>` label is set on the Namespace, the workload resource controller will 
-copy the `state.internal.workload.kcp.dev/<cluster-id>` label to the resources in that namespace.
+As soon as the `state.workload.kcp.dev/<cluster-id>` label is set on the Namespace, the workload resource controller will 
+copy the `state.workload.kcp.dev/<cluster-id>` label to the resources in that namespace.
 
 Note: in the future, the label on the resources is first set to empty string `""`, and a coordination controller will be 
 able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
@@ -146,10 +146,10 @@ notices that as a started deletion flow. As soon as there are no coordination co
 `finalizers.workload.kcp.dev/<cluster-id>` annotation anymore, the syncer will start a deletion of the downstream object.
 
 When the downstream deletion is complete, the syncer will remove the finalizer from the upstream object, and the
-`state.internal.workload.kcp.dev/<cluster-id>` labels gets deleted as well. The syncer stops seeing the object in the virtual
+`state.workload.kcp.dev/<cluster-id>` labels gets deleted as well. The syncer stops seeing the object in the virtual
 workspace.
 
 
-Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.internal.workload.kcp.dev/<cluster-id>` 
+Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.dev/<cluster-id>` 
 label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
-downstream namespace deletion via `state.internal.workload.kcp.dev/<cluster-id>` label removal.
+downstream namespace deletion via `state.workload.kcp.dev/<cluster-id>` label removal.

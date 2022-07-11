@@ -234,7 +234,7 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 		vd.Name = root.Name + "-" + cl
 
 		vd.Labels = map[string]string{}
-		vd.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+cl] = string(workloadv1alpha1.ResourceStateSync)
+		vd.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+cl] = string(workloadv1alpha1.ResourceStateSync)
 
 		// Label the leaf with the rootIngress information, so we can construct the ingress key
 		// from it.

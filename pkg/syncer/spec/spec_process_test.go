@@ -487,14 +487,14 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -505,7 +505,7 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.internal.workload.kcp.dev/us-west1": "Sync",
+							"state.workload.kcp.dev/us-west1": "Sync",
 						}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
 					))),
 			},
@@ -542,19 +542,19 @@ func TestSyncerProcess(t *testing.T) {
 		"SpecSyncer sync to downstream, syncer finalizer already there": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"state.workload.kcp.dev/us-west1": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -592,15 +592,15 @@ func TestSyncerProcess(t *testing.T) {
 				),
 			},
 		},
-		"SpecSyncer upstream resource has state.internal annotation removed, expect deletion downstream": {
+		"SpecSyncer upstream resource has the state workload annotation removed, expect deletion downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"state.workload.kcp.dev/us-west1": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
@@ -623,12 +623,12 @@ func TestSyncerProcess(t *testing.T) {
 		"SpecSyncer deletion: object exist downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"state.workload.kcp.dev/us-west1": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				},
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
@@ -639,14 +639,14 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
 					[]string{"workload.kcp.dev/syncer-us-west1"}),
 			},
@@ -670,7 +670,7 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				},
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
@@ -678,14 +678,14 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"another.valid.annotation/this": "value",
 						"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339)},
 					[]string{"workload.kcp.dev/syncer-us-west1"}),
@@ -718,13 +718,13 @@ func TestSyncerProcess(t *testing.T) {
 		"SpecSyncer deletion: upstream object has external finalizer, the object shouldn't be deleted": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"state.workload.kcp.dev/us-west1": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
-					"internal.workload.kcp.dev/cluster":        "us-west1",
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"internal.workload.kcp.dev/cluster": "us-west1",
+					"state.workload.kcp.dev/us-west1":   "Sync",
 				},
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
@@ -735,14 +735,14 @@ func TestSyncerProcess(t *testing.T) {
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{
 						"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
 						"finalizers.workload.kcp.dev/us-west1":        "another-controller-finalizer",
@@ -794,14 +794,14 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, map[string]string{"experimental.spec-diff.workload.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -813,7 +813,7 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.internal.workload.kcp.dev/us-west1": "Sync",
+							"state.workload.kcp.dev/us-west1": "Sync",
 						}, map[string]string{"experimental.spec-diff.workload.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, []string{shared.SyncerFinalizerNamePrefix + "us-west1"}),
 					))),
 			},
@@ -869,20 +869,20 @@ func TestSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
-					"internal.workload.kcp.dev/cluster":        "us-west1",
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"internal.workload.kcp.dev/cluster": "us-west1",
+					"state.workload.kcp.dev/us-west1":   "Sync",
 				}, map[string]string{
 					"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
 				}),
@@ -897,25 +897,25 @@ func TestSyncerProcess(t *testing.T) {
 		"SpecSyncer namespace conflict: try to sync to an already existing namespace without a namespace-locator, expect error": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.internal.workload.kcp.dev/us-west1": "Sync",
+				"state.workload.kcp.dev/us-west1": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.internal.workload.kcp.dev/us-west1": "Sync"},
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"state.workload.kcp.dev/us-west1": "Sync",
 				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
-					"internal.workload.kcp.dev/cluster":        "us-west1",
-					"state.internal.workload.kcp.dev/us-west1": "Sync",
+					"internal.workload.kcp.dev/cluster": "us-west1",
+					"state.workload.kcp.dev/us-west1":   "Sync",
 				}, map[string]string{},
 				),
 			},
@@ -953,10 +953,10 @@ func TestSyncerProcess(t *testing.T) {
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 
 			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
+				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
+				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + tc.syncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 
 			setupServersideApplyPatchReactor(toClient)
