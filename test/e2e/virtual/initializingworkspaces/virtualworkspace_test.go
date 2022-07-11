@@ -115,7 +115,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sourceConfig)
 	require.NoError(t, err)
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(sourceConfig)
+	kubeClusterClient, err := kubernetes.NewForConfig(sourceConfig)
 	require.NoError(t, err)
 
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, clusterName, []string{"user-1"}, nil, []string{"access"})
@@ -281,7 +281,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		cwt := clusterWorkspaceTypes[initializer]
-		role, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		role, err := kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, clusterName), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: string(initialization.InitializerForType(cwt)) + "-initializer",
 			},
@@ -296,9 +296,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Get(ctx, role.Name, metav1.GetOptions{})
+			return kubeClusterClient.RbacV1().ClusterRoles().Get(logicalcluster.WithCluster(ctx, clusterName), role.Name, metav1.GetOptions{})
 		})
-		binding, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+		binding, err := kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, clusterName), &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: role.Name,
 			},
@@ -315,7 +315,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			return kubeClusterClient.RbacV1().ClusterRoleBindings().Get(logicalcluster.WithCluster(ctx, clusterName), binding.Name, metav1.GetOptions{})
 		})
 	}
 
@@ -443,7 +443,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{*configMap}))
 
 		t.Log("Ensure that the object is visible from outside the virtual workspace")
-		configMaps, err = kubeClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err = kubeClusterClient.CoreV1().ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{*configMap}))
 

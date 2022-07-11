@@ -56,7 +56,7 @@ func TestAuthorizer(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	cfg := server.DefaultConfig(t)
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err)
 	kcpClusterClient, err := kcp.NewClusterForConfig(cfg)
 	require.NoError(t, err)

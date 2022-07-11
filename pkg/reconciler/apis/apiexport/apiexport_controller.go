@@ -62,10 +62,10 @@ const (
 
 // NewController returns a new controller for APIExports.
 func NewController(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	apiExportInformer apisinformers.APIExportInformer,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	secretInformer coreinformers.SecretInformer,
 ) (*controller, error) {
@@ -81,13 +81,13 @@ func NewController(
 			return namespaceInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
 		},
 		createNamespace: func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error {
-			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+			_, err := kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, clusterName), ns, metav1.CreateOptions{})
 			return err
 		},
 		secretLister:    secretInformer.Lister(),
 		secretNamespace: DefaultIdentitySecretNamespace,
 		createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
-			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+			_, err := kubeClusterClient.CoreV1().Secrets(secret.Namespace).Create(logicalcluster.WithCluster(ctx, clusterName), secret, metav1.CreateOptions{})
 			return err
 		},
 		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
@@ -172,11 +172,11 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 	apiExportLister  apislisters.APIExportLister
 	apiExportIndexer cache.Indexer
 
-	kubeClusterClient kubernetes.ClusterInterface
+	kubeClusterClient kubernetes.Interface
 
 	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
 	createNamespace func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error
@@ -374,7 +374,7 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 	}
 
 	klog.V(2).Infof("Patching APIExport %s|%s: %s", clusterName, name, string(patchBytes))
-	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	_, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	if err != nil {
 		return fmt.Errorf("failed to patch APIExport %s|%s: %w", clusterName, name, err)
 	}
@@ -395,7 +395,7 @@ func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logic
 	}
 
 	// In case the lister is slow to catch up, try a live read
-	secret, err = c.kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+	secret, err = c.kubeClusterClient.CoreV1().Secrets(ns).Get(logicalcluster.WithCluster(ctx, clusterName), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

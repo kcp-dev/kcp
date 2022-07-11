@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -392,7 +393,8 @@ func (c *kcpServer) defaultConfig() (*rest.Config, error) {
 func (c *kcpServer) DefaultConfig(t *testing.T) *rest.Config {
 	cfg, err := c.defaultConfig()
 	require.NoError(t, err)
-	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
+	wrappedConfig := kcpclienthelper.NewClusterConfig(cfg)
+	return rest.AddUserAgent(rest.CopyConfig(wrappedConfig), t.Name())
 }
 
 // RawConfig exposes a copy of the client config for this server.
@@ -619,7 +621,8 @@ func (s *unmanagedKCPServer) DefaultConfig(t *testing.T) *rest.Config {
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
-	return defaultConfig
+	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
+	return wrappedCfg
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {

@@ -208,7 +208,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	t.Cleanup(cancelFunc)
 
 	cfg := server.DefaultConfig(t)
-	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
 
 	tmpl := &tenancyv1alpha1.ClusterWorkspace{
@@ -233,7 +233,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	var org *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
+		org, err = clusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), tmpl, metav1.CreateOptions{})
 		if err != nil {
 			t.Logf("error creating org workspace under %s: %v", tenancyv1alpha1.RootCluster, err)
 		}
@@ -248,7 +248,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+		err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), org.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
 		}
@@ -256,7 +256,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	})
 
 	Eventually(t, func() (bool, string) {
-		ws, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+		ws, err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		if err != nil {
 			t.Logf("failed to get workspace %s: %v", org.Name, err)
