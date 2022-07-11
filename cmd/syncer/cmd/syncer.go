@@ -86,6 +86,9 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 		return err
 	}
 
+	kcpConfig.QPS = options.QPS
+	kcpConfig.Burst = options.Burst
+
 	toConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.ToKubeconfig},
 		&clientcmd.ConfigOverrides{
@@ -94,6 +97,9 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	toConfig.QPS = options.QPS
+	toConfig.Burst = options.Burst
 
 	if err := syncer.StartSyncer(
 		ctx,
