@@ -462,32 +462,34 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Synced all informers. Ready to start controllers")
 		close(s.syncedCh)
 
-		klog.Infof("Starting bootstrapping root workspace phase 1")
-		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
-		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-			s.options.Extra.ShardName,
-			clientcmdapi.Config{
-				Clusters: map[string]*clientcmdapi.Cluster{
-					// cross-cluster is the virtual cluster running by default
-					"shard": {
-						Server:                   "https://" + server.ExternalAddress,
-						CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
+		if s.options.Extra.ShardName == "root" {
+			klog.Infof("Starting bootstrapping root workspace phase 1")
+			servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
+			if err := configroot.Bootstrap(goContext(ctx),
+				apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+				dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.options.Extra.ShardName,
+				clientcmdapi.Config{
+					Clusters: map[string]*clientcmdapi.Cluster{
+						// cross-cluster is the virtual cluster running by default
+						"shard": {
+							Server:                   "https://" + server.ExternalAddress,
+							CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
+						},
 					},
+					Contexts: map[string]*clientcmdapi.Context{
+						"shard": {Cluster: "shard"},
+					},
+					CurrentContext: "shard",
 				},
-				Contexts: map[string]*clientcmdapi.Context{
-					"shard": {Cluster: "shard"},
-				},
-				CurrentContext: "shard",
-			},
-			[]string{user.AllAuthenticated},
-			[]string{user.AllAuthenticated},
-		); err != nil {
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
+				[]string{user.AllAuthenticated},
+				[]string{user.AllAuthenticated},
+			); err != nil {
+				// nolint:nilerr
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+			klog.Infof("Finished bootstrapping root workspace phase 1")
 		}
-		klog.Infof("Finished bootstrapping root workspace phase 1")
 
 		return nil
 	})
