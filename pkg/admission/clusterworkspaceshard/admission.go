@@ -52,7 +52,7 @@ func Register(plugins *admission.Plugins) {
 type clusterWorkspaceShard struct {
 	*admission.Handler
 
-	shardBaseURLProvider    func() string
+	shardBaseURL            string
 	externalAddressProvider func() string
 }
 
@@ -103,23 +103,18 @@ func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attribute
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceShard: %w", err)
 	}
 
-	defaultShardBaseURL := ""
-	if o.shardBaseURLProvider != nil {
-		defaultShardBaseURL = o.shardBaseURLProvider()
-	}
-
-	defaultExternalAddress := ""
-	if o.externalAddressProvider != nil {
-		defaultExternalAddress = o.externalAddressProvider()
-	}
-
 	if cws.Spec.BaseURL == "" {
-		if defaultShardBaseURL == "" && defaultExternalAddress == "" {
+		defaultExternalAddress := ""
+		if o.externalAddressProvider != nil {
+			defaultExternalAddress = o.externalAddressProvider()
+		}
+
+		if o.shardBaseURL == "" && defaultExternalAddress == "" {
 			return fmt.Errorf("cannot default baseURL for ClusterWorkspaceShard %q: no default shard base URL and no default external address provided", tenancyhelper.QualifiedObjectName(cws))
 		}
 
-		if defaultShardBaseURL != "" {
-			cws.Spec.BaseURL = defaultShardBaseURL
+		if o.shardBaseURL != "" {
+			cws.Spec.BaseURL = o.shardBaseURL
 		} else {
 			cws.Spec.BaseURL = "https://" + defaultExternalAddress
 		}
@@ -138,8 +133,8 @@ func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attribute
 	return nil
 }
 
-func (o *clusterWorkspaceShard) SetShardBaseURLProvider(shardBaseURLProvider func() string) {
-	o.shardBaseURLProvider = shardBaseURLProvider
+func (o *clusterWorkspaceShard) SetShardBaseURL(shardBaseURL string) {
+	o.shardBaseURL = shardBaseURL
 }
 
 func (o *clusterWorkspaceShard) SetExternalAddressProvider(externalAddressProvider func() string) {
