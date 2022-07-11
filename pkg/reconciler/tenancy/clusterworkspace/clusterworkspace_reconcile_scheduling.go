@@ -93,6 +93,19 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				if err != nil {
 					return reconcileStatusStopAndRequeue, err
 				}
+
+				// hack, trim the list to contain only the "root" ws (if exists)
+				// so that we always schedule onto it
+				var rootShard *tenancyv1alpha1.ClusterWorkspaceShard
+				for _, shard := range shards {
+					if shard.Name == "root" {
+						rootShard = shard
+					}
+				}
+
+				if rootShard != nil {
+					shards = []*tenancyv1alpha1.ClusterWorkspaceShard{rootShard}
+				}
 			}
 
 			validShards := make([]*tenancyv1alpha1.ClusterWorkspaceShard, 0, len(shards))
