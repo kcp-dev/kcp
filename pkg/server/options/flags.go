@@ -128,7 +128,6 @@ var (
 
 		// KCP flags
 		"discovery-poll-interval",     // Polling interval for dynamic discovery informers.
-		"enable-sharding",             // Enable delegating to peer kcp shards.
 		"profiler-address",            // [Address]:port to bind the profiler to
 		"root-directory",              // Root directory.
 		"shard-base-url",              // Base URL to the this kcp shard. Defaults to external address.

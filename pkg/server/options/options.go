@@ -56,7 +56,6 @@ type ExtraOptions struct {
 	ShardKubeconfigFile      string
 	ShardBaseURL             string
 	ShardName                string
-	EnableSharding           bool
 	DiscoveryPollInterval    time.Duration
 	ExperimentalBindFreePort bool
 }
@@ -94,7 +93,6 @@ func NewOptions(rootDir string) *Options {
 			ShardKubeconfigFile:      "",
 			ShardBaseURL:             "",
 			ShardName:                "root",
-			EnableSharding:           false,
 			DiscoveryPollInterval:    60 * time.Second,
 			ExperimentalBindFreePort: false,
 		},
@@ -156,7 +154,6 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.StringVar(&o.Extra.ShardKubeconfigFile, "shard-kubeconfig-file", o.Extra.ShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to peer kcp shards.")
 	fs.StringVar(&o.Extra.ShardBaseURL, "shard-base-url", o.Extra.ShardBaseURL, "Base URL to the this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardName, "shard-name", o.Extra.ShardName, "A name of this kcp shard. Defaults to the \"root\" name.")
-	fs.BoolVar(&o.Extra.EnableSharding, "enable-sharding", o.Extra.EnableSharding, "Enable delegating to peer kcp shards.")
 	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 	fs.DurationVar(&o.Extra.DiscoveryPollInterval, "discovery-poll-interval", o.Extra.DiscoveryPollInterval, "Polling interval for dynamic discovery informers.")
 
