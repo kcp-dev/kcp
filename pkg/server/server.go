@@ -64,7 +64,6 @@ import (
 	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
-	"github.com/kcp-dev/kcp/pkg/sharding"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -234,16 +233,6 @@ func (s *Server) Run(ctx context.Context) error {
 	// to give handlers below one mux.Handle func to call.
 	var preHandlerChainMux handlerChainMuxes
 	genericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
-		// we want a request to hit the chain like:
-		// - lcluster handler (this package's ServeHTTP)
-		// - shard proxy (sharding.ServeHTTP)
-		// - original handler chain
-		// the lcluster handler is a pass-through, not a delegate, so the wrapping looks weird
-		if s.options.Extra.EnableSharding {
-			clientLoader := sharding.NewClientLoader()
-			clientLoader.Add(genericConfig.ExternalAddress, genericConfig.LoopbackClientConfig)
-			apiHandler = sharding.WithSharding(apiHandler, clientLoader)
-		}
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithWildcardIdentity(apiHandler)
 
