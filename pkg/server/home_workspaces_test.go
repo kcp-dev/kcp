@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -554,7 +555,12 @@ func TestTryToCreate(t *testing.T) {
 			},
 
 			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "user-1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "user-1",
+					Annotations: map[string]string{
+						"tenancy.kcp.dev/owner": "{\"username\":\"user-1\"}",
+					},
+				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
 				}},
@@ -864,7 +870,10 @@ func TestTryToCreate(t *testing.T) {
 					return testCase.mocks.createHomeWorkspaceRBACResources(ctx, userName, homeWorkspace)
 				}
 
-				retryAfterSeconds, createError := handler.tryToCreate(testCase.context, testCase.userName, logicalcluster.New(testCase.workspaceName), tenancyv1alpha1.ClusterWorkspaceTypeName(testCase.workspaceType))
+				user := &kuser.DefaultInfo{
+					Name: testCase.userName,
+				}
+				retryAfterSeconds, createError := handler.tryToCreate(testCase.context, user, logicalcluster.New(testCase.workspaceName), tenancyv1alpha1.ClusterWorkspaceTypeName(testCase.workspaceType))
 
 				require.Equal(t, testCase.expectedRetryAfterSeconds, retryAfterSeconds, "'retryAfterSeconds' value is wrong")
 				var createErrorString string
@@ -1335,7 +1344,7 @@ func TestServeHTTP(t *testing.T) {
 				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
-				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+				tryToCreate: func(ctx context.Context, user kuser.Info, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 					retryAfterSeconds = 11
 					return
 				},
@@ -1412,7 +1421,7 @@ func TestServeHTTP(t *testing.T) {
 				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (bool, error) {
 					return false, nil
 				},
-				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+				tryToCreate: func(ctx context.Context, user kuser.Info, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 					retryAfterSeconds = 11
 					return
 				},
@@ -1448,7 +1457,7 @@ func TestServeHTTP(t *testing.T) {
 				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
-				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+				tryToCreate: func(ctx context.Context, user kuser.Info, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 					retryAfterSeconds = 11
 					return
 				},
@@ -1567,7 +1576,7 @@ func TestServeHTTP(t *testing.T) {
 				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
-				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+				tryToCreate: func(ctx context.Context, user kuser.Info, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 					retryAfterSeconds = 11
 					return
 				},
@@ -1594,7 +1603,7 @@ func TestServeHTTP(t *testing.T) {
 				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
-				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+				tryToCreate: func(ctx context.Context, user kuser.Info, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 					return 0, errors.New("error when trying to create the home workspace")
 				},
 			},

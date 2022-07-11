@@ -31,6 +31,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 // Validate ClusterWorkspace creation and updates for
@@ -87,7 +88,7 @@ func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ 
 	}
 
 	if a.GetOperation() == admission.Create {
-		userInfo, err := userAnnotationValue(a)
+		userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}
@@ -150,7 +151,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 	}
 
 	if a.GetOperation() == admission.Create {
-		userInfo, err := userAnnotationValue(a)
+		userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}
@@ -188,8 +189,8 @@ func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1alpha1.Cluste
 	return nil
 }
 
-func userAnnotationValue(a admission.Attributes) (string, error) {
-	user := a.GetUserInfo()
+// ClusterWorkspaceOwnerAnnotationValue returns the value of the ClusterWorkspaceOwnerAnnotationKey annotation.
+func ClusterWorkspaceOwnerAnnotationValue(user kuser.Info) (string, error) {
 	info := &authenticationv1.UserInfo{
 		Username: user.GetName(),
 		UID:      user.GetUID(),
