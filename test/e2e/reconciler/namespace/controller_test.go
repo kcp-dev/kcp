@@ -195,7 +195,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						klog.Errorf("failed to get sheriff: %v", err)
 						return false
 					}
-					return obj.GetLabels()[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+cluster.Name] != ""
+					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster.Name] != ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see sheriff scheduled")
 
 				t.Log("Delete the sheriff and the sheriff CRD")
@@ -221,7 +221,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						klog.Errorf("failed to get sheriff: %v", err)
 						return false
 					}
-					return obj.GetLabels()[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+cluster.Name] != ""
+					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster.Name] != ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see sheriff scheduled")
 			},
 		},
@@ -296,7 +296,7 @@ func unscheduledMatcher(reason string) namespaceExpectation {
 
 func scheduledMatcher(target string) namespaceExpectation {
 	return func(object *corev1.Namespace) error {
-		if _, found := object.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+target]; found {
+		if _, found := object.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+target]; found {
 			return nil
 		}
 		return fmt.Errorf("expected a scheduled namespace, got status.conditions: %#v", object.Status.Conditions)

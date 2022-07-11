@@ -138,7 +138,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 
 	labels := upstreamObj.GetLabels()
 	delete(labels, workloadv1alpha1.InternalDownstreamClusterLabel)
-	labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+c.syncTargetName] = string(workloadv1alpha1.ResourceStateSync)
+	labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+c.syncTargetName] = string(workloadv1alpha1.ResourceStateSync)
 	upstreamObj.SetLabels(labels)
 
 	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.

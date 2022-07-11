@@ -100,7 +100,7 @@ func NewController(
 func scheduleStateLabels(ls map[string]string) map[string]string {
 	ret := make(map[string]string, len(ls))
 	for k, v := range ls {
-		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) {
+		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) {
 			ret[k] = v
 		}
 	}
@@ -349,13 +349,13 @@ func locations(annotations, labels map[string]string, skipPending bool) (locatio
 	deleting = sets.NewString()
 
 	for k, v := range labels {
-		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix) && (!skipPending || v == string(workloadv1alpha1.ResourceStateSync)) {
-			locations.Insert(strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix))
+		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && (!skipPending || v == string(workloadv1alpha1.ResourceStateSync)) {
+			locations.Insert(strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix))
 		}
 	}
 	for k := range annotations {
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
-			deleting.Insert(strings.TrimPrefix(k, workloadv1alpha1.InternalClusterResourceStateLabelPrefix))
+			deleting.Insert(strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix))
 		}
 	}
 	return

@@ -263,7 +263,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"state.internal.workload.kcp.dev/" + syncTargetName: "Sync",
+				"state.workload.kcp.dev/" + syncTargetName: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -282,7 +282,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "second",
 			Labels: map[string]string{
-				"state.internal.workload.kcp.dev/" + syncTargetName: "Sync",
+				"state.workload.kcp.dev/" + syncTargetName: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{

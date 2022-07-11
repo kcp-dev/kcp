@@ -165,7 +165,7 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		return svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
+		return svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for the service to be sync to the downstream cluster")
@@ -320,7 +320,7 @@ func TestPlacementUpdate(t *testing.T) {
 		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetName]) != 0 {
 			return false, fmt.Sprintf("resource should not be removed but got %s", toYaml(svc))
 		}
-		return svc.Labels[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
+		return svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for the service to be sync to the downstream cluster")

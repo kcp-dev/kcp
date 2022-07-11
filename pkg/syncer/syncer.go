@@ -144,7 +144,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	upstreamDiscoveryClient := upstreamDiscoveryClusterClient.WithCluster(logicalcluster.Wildcard)
 
 	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalClusterResourceStateLabelPrefix + cfg.SyncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
+		o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + cfg.SyncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
 	})
 	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(downstreamDynamicClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + cfg.SyncTargetName

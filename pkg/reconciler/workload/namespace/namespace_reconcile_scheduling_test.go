@@ -61,7 +61,7 @@ func TestScheduling(t *testing.T) {
 		{
 			name: "placement not found",
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
 			},
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
@@ -73,7 +73,7 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "cluster1": now3339,
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -118,7 +118,7 @@ func TestScheduling(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -127,7 +127,7 @@ func TestScheduling(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 			placement: testPlacement,
 			location:  testLocation,
@@ -139,7 +139,7 @@ func TestScheduling(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -148,7 +148,7 @@ func TestScheduling(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 			placement: testPlacement,
 			location:  testLocation,
@@ -161,7 +161,7 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -170,7 +170,7 @@ func TestScheduling(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 			placement: testPlacement,
 			location:  testLocation,
@@ -184,8 +184,8 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster":   string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster-2": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster":   string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster-2": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -195,7 +195,7 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 			placement: testPlacement,
 			location:  testLocation,
@@ -209,8 +209,8 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": now3339,
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster":   string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster-1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster":   string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster-1": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -220,7 +220,7 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "test-cluster": time.Now().Add(-1 * (removingGracePeriod + 1)).UTC().Format(time.RFC3339),
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "test-cluster": string(workloadv1alpha1.ResourceStateSync),
 			},
 			placement: testPlacement,
 			location:  testLocation,
@@ -323,8 +323,8 @@ func TestMultiplePlacements(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -347,7 +347,7 @@ func TestMultiplePlacements(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -370,16 +370,16 @@ func TestMultiplePlacements(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
 			},
 			wantPatch: false,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 		{
@@ -404,8 +404,8 @@ func TestMultiplePlacements(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c2": now3339,
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
 			},
 			wantPatch: true,
 			expectedAnnotations: map[string]string{
@@ -414,10 +414,10 @@ func TestMultiplePlacements(t *testing.T) {
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "c2": now3339,
 			},
 			expectedLabels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c3": string(workloadv1alpha1.ResourceStateSync),
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "c4": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c2": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c3": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "c4": string(workloadv1alpha1.ResourceStateSync),
 			},
 		},
 	}

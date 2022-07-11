@@ -135,7 +135,7 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 	labelPatch = map[string]interface{}{}
 	for _, loc := range objLocations.Difference(nsLocations).List() {
 		// location was removed from namespace, but is still on the object
-		labelPatch[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+loc] = nil
+		labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = nil
 		if _, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found {
 			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nil
 		}
@@ -151,7 +151,7 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 	for _, loc := range nsLocations.Difference(objLocations).List() {
 		// location was missing on the object
 		// TODO(sttts): add way to go into pending state first, maybe with a namespace annotation
-		labelPatch[workloadv1alpha1.InternalClusterResourceStateLabelPrefix+loc] = string(workloadv1alpha1.ResourceStateSync)
+		labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = string(workloadv1alpha1.ResourceStateSync)
 	}
 
 	if len(annotationPatch) == 0 {

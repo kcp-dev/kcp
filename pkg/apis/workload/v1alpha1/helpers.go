@@ -23,6 +23,6 @@ import (
 // GetResourceState returns the state of the resource for the given sync target, and
 // whether the state value is a valid state. A missing label is considered invalid.
 func GetResourceState(obj metav1.Object, cluster string) (state ResourceState, valid bool) {
-	value, found := obj.GetLabels()[InternalClusterResourceStateLabelPrefix+cluster]
+	value, found := obj.GetLabels()[ClusterResourceStateLabelPrefix+cluster]
 	return ResourceState(value), found && (value == "" || ResourceState(value) == ResourceStateSync)
 }

@@ -42,7 +42,7 @@ func TestSetScheduledCondition(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			labels: map[string]string{
-				workloadv1alpha1.InternalClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "cluster1": string(workloadv1alpha1.ResourceStateSync),
 			},
 			scheduled: true,
 		},

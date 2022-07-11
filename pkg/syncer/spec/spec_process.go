@@ -296,7 +296,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// replace upstream state label with downstream cluster label. We don't want to leak upstream state machine
 	// state to downstream, and also we don't need downstream updates every time the upstream state machine changes.
 	labels := downstreamObj.GetLabels()
-	delete(labels, workloadv1alpha1.InternalClusterResourceStateLabelPrefix+c.syncTargetName)
+	delete(labels, workloadv1alpha1.ClusterResourceStateLabelPrefix+c.syncTargetName)
 	labels[workloadv1alpha1.InternalDownstreamClusterLabel] = c.syncTargetName
 	downstreamObj.SetLabels(labels)
 
