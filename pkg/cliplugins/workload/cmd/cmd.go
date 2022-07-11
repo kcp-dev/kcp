@@ -74,12 +74,17 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	// TODO(marun) Consider allowing a user-specified and exclusive set of types.
 	requiredResourcesToSync := sets.NewString("deployments.apps", "secrets", "configmaps", "serviceaccounts")
 
-	var userResourcesToSync []string
-	var syncerImage string
-	var replicas int = 1
-	var outputFile string
-	var downstreamNamespace string
-	kcpNamespace := "default"
+	var (
+		userResourcesToSync []string
+		syncerImage         string
+		replicas            = 1
+		outputFile          string
+		downstreamNamespace string
+		kcpNamespace                = "default"
+		qps                 float32 = 30
+		burst                       = 20
+	)
+
 	enableSyncerCmd := &cobra.Command{
 		Use:          "sync <sync-target-name> --syncer-image <kcp-syncer-image> [--resources=<resource1>,<resource2>..] -o <output-file>",
 		Short:        "Create a synctarget in kcp with service account and RBAC permissions. Output a manifest to deploy a syncer for the given sync target in a physical cluster.",
@@ -124,7 +129,18 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 			resourcesToSync := sets.NewString(userResourcesToSync...).Union(requiredResourcesToSync).List()
 
-			return kubeconfig.Sync(c.Context(), outputFile, syncTargetName, kcpNamespace, downstreamNamespace, syncerImage, resourcesToSync, replicas)
+			return kubeconfig.Sync(
+				c.Context(),
+				outputFile,
+				syncTargetName,
+				kcpNamespace,
+				downstreamNamespace,
+				syncerImage,
+				resourcesToSync,
+				replicas,
+				qps,
+				burst,
+			)
 		},
 	}
 	enableSyncerCmd.Flags().StringSliceVar(&userResourcesToSync, "resources", userResourcesToSync, "Resources to synchronize with kcp.")
@@ -133,6 +149,8 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	enableSyncerCmd.Flags().StringVar(&kcpNamespace, "kcp-namespace", kcpNamespace, "The name of the kcp namespace to create a service account in.")
 	enableSyncerCmd.Flags().StringVarP(&outputFile, "output-file", "o", outputFile, "The manifest file to be created and applied to the physical cluster. Use - for stdout.")
 	enableSyncerCmd.Flags().StringVarP(&downstreamNamespace, "namespace", "n", downstreamNamespace, "The namespace to create the syncer in in the physical cluster. By default this is \"kcp-syncer-<synctarget-name>-<uid>\".")
+	enableSyncerCmd.Flags().Float32Var(&qps, "qps", qps, "QPS to use when talking to API servers.")
+	enableSyncerCmd.Flags().IntVar(&burst, "burst", burst, "Burst to use when talking to API servers.")
 
 	cmd.AddCommand(enableSyncerCmd)
 

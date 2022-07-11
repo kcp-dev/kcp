@@ -134,6 +134,8 @@ spec:
         - --from-cluster=root:default:foo
         - --resources=resource1
         - --resources=resource2
+        - --qps=123.4
+        - --burst=456
         image: image
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
@@ -159,6 +161,8 @@ spec:
 		Image:           "image",
 		Replicas:        1,
 		ResourcesToSync: []string{"resource1", "resource2"},
+		QPS:             123.4,
+		Burst:           456,
 	}, "kcp-syncer-sync-target-name-34b23c4k")
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(expectedYAML, string(actualYAML)))

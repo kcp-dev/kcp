@@ -112,6 +112,8 @@ spec:
 {{- range $resourceToSync := .ResourcesToSync}}
         - --resources={{$resourceToSync}}
 {{- end}}
+        - --qps={{.QPS}}
+        - --burst={{.Burst}}
         image: {{.Image}}
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
