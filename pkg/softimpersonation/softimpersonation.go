@@ -38,7 +38,7 @@ const (
 func WithSoftImpersonatedConfig(config *rest.Config, userInfo kuser.Info) (*rest.Config, error) {
 	impersonatedonfig := *config
 
-	userInfoJson, err := MarshalUserInfo(userInfo)
+	userInfoJson, err := marshalUserInfo(userInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +65,9 @@ func (t *softImpersonationTransport) RoundTrip(req *http.Request) (*http.Respons
 	return t.RoundTripper.RoundTrip(req)
 }
 
-// MarshalUserInfo builds a string that contains
+// marshalUserInfo builds a string that contains
 // the user information, marshalled as json.
-func MarshalUserInfo(userInfo kuser.Info) (string, error) {
+func marshalUserInfo(userInfo kuser.Info) (string, error) {
 	if userInfo == nil {
 		return "", errors.New("no user info")
 	}
@@ -89,9 +89,9 @@ func MarshalUserInfo(userInfo kuser.Info) (string, error) {
 	return string(rawInfo), nil
 }
 
-// UnmarshalUserInfo builds a user.Info object from a string
+// unmarshalUserInfo builds a user.Info object from a string
 // that contains the user information marshalled as json.
-func UnmarshalUserInfo(userInfoJson string) (kuser.Info, error) {
+func unmarshalUserInfo(userInfoJson string) (kuser.Info, error) {
 	info := authenticationv1.UserInfo{}
 	if err := json.Unmarshal([]byte(userInfoJson), &info); err != nil {
 		return nil, err
@@ -128,5 +128,5 @@ func UserInfoFromRequestHeader(r *http.Request) (kuser.Info, error) {
 	if !sets.NewString(user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
 		return nil, errors.New("soft impersonation not allowed")
 	}
-	return UnmarshalUserInfo(val)
+	return unmarshalUserInfo(val)
 }
