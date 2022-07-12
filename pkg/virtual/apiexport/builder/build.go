@@ -34,7 +34,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -138,27 +137,13 @@ func BuildVirtualWorkspace(
 				kcpClusterClient,
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, permissionClaim *apisv1alpha1.PermissionClaim) (apidefinition.APIDefinition, error) {
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
 					var wrapper forwardingregistry.StorageWrapper = nil
-					if permissionClaim != nil {
-						key, label, err := permissionclaims.ToLabelKeyAndValue(*permissionClaim)
-						if err != nil {
-							panic(fmt.Sprintf("unable to get permission claim label: %v", err))
-						}
+					if len(optionalLabelRequirements) > 0 {
 						wrapper = forwardingregistry.WithLabelSelector(func(_ context.Context) labels.Requirements {
-							selector := labels.SelectorFromSet(labels.Set{key: label})
-							reqs, selectable := selector.Requirements()
-							if selectable {
-								return reqs
-							} else {
-								klog.Warningf("unable to get label selector for permision claim %v",
-									permissionClaim,
-								)
-								reqs, _ = labels.Nothing().Requirements()
-							}
-							return reqs
+							return optionalLabelRequirements
 						})
 					}
 
