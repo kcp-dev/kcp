@@ -19,6 +19,7 @@ package apireconciler
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -34,11 +35,6 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
-
-type exportAndClaimInfo struct {
-	identityHash string
-	claim        *apisv1alpha1.PermissionClaim
-}
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
 	if apiExport == nil || apiExport.Status.IdentityHash == "" {
@@ -63,66 +59,75 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	oldSet := c.apiSets[apiDomainKey]
 	c.mutex.RUnlock()
 
-	// Get schemas and identities for base api export
-	// schemaIdentity will map the schema to the given API export that it comes from.
-	// and potentially a
-	apiResourceSchemas, schemaIdentity, err := c.getSchemasFromAPIExport(apiExport)
+	// Get schemas and identities for base api export.
+	apiResourceSchemas, err := c.getSchemasFromAPIExport(apiExport)
 	if err != nil {
 		return err
 	}
+	identities := map[schema.GroupResource]string{}
+	for gr := range apiResourceSchemas {
+		identities[gr] = apiExport.Status.IdentityHash
+	}
 
-	for _, pc := range apiExport.Spec.PermissionClaims {
-		internal, schema := isPermissionClaimForInternalAPI(pc)
-		if internal {
-			shallow := *schema
-			shallow.ClusterName = logicalcluster.From(apiExport).String()
-			apiResourceSchemas = append(apiResourceSchemas, &shallow)
-			schemaIdentity[shallow.Name] = exportAndClaimInfo{}
+	// Find schemas for claimed resources
+	claims := map[schema.GroupResource]*apisv1alpha1.PermissionClaim{}
+	for i := range apiExport.Spec.PermissionClaims {
+		pc := &apiExport.Spec.PermissionClaims[i]
+
+		// APIExport resource trump over claims.
+		gr := schema.GroupResource{Group: pc.Group, Resource: pc.Resource}
+		if _, found := apiResourceSchemas[gr]; found {
+			if otherClaim, found := claims[gr]; found {
+				klog.Warningf("Permission claim %v for APIExport %s|%s is shadowed by %v", pc, logicalcluster.From(apiExport), apiExport.Name, otherClaim)
+			} else {
+				klog.Warningf("Permission claim %v for APIExport %s|%s is shadowed exported resource", pc, logicalcluster.From(apiExport), apiExport.Name)
+			}
 			continue
 		}
-		if !internal && pc.IdentityHash != "" {
-			exports, err := c.apiExportIndexer.ByIndex(indexers.IndexAPIExportByIdentity, pc.IdentityHash)
+
+		// internal APIs have no identity and a fixed schema.
+		internal, apiResourceSchema := isPermissionClaimForInternalAPI(pc)
+		if internal {
+			shallow := *apiResourceSchema
+			shallow.ClusterName = logicalcluster.From(apiExport).String()
+			apiResourceSchemas[gr] = &shallow
+			continue
+		} else if pc.IdentityHash == "" {
+			// TODO: add validation through admission to avoid this case
+			klog.Warningf("Permission claim %v for APIExport %s|%s is not internal and does not have an identity hash", pc, logicalcluster.From(apiExport), apiExport.Name)
+			continue
+		}
+
+		exports, err := c.apiExportIndexer.ByIndex(indexers.IndexAPIExportByIdentity, pc.IdentityHash)
+		if err != nil {
+			return err
+		}
+
+		// there might be multiple exports with the same identity hash all exporting the same GR.
+		// This is fine. Same identity means same owner. They have to ensure the schemas are compatible.
+		// The kcp server resource handlers will make sure the right structural schemas are applied. Here,
+		// we can just pick one. To make it deterministic, we sort the exports.
+		sort.Slice(exports, func(i, j int) bool {
+			a := exports[i].(*apisv1alpha1.APIExport)
+			b := exports[j].(*apisv1alpha1.APIExport)
+			return a.Name < b.Name && logicalcluster.From(a).String() < logicalcluster.From(b).String()
+		})
+
+		for _, obj := range exports {
+			export := obj.(*apisv1alpha1.APIExport)
+			candidates, err := c.getSchemasFromAPIExport(export)
 			if err != nil {
 				return err
 			}
-			if len(exports) != 1 {
-				return fmt.Errorf("got %d api exports expected one", len(exports))
-			}
-			export := exports[0]
-			// For the export that si found based on an the identity hash
-			// we need to add all the latest schemas that the export provides
-			// We all need to map the schema to the given APIExport that it comes from
-			// so that when creating the api definition for it, we can use the given
-			// api export to fully fill in and serve the API for the virtual workspace.
-			owningExport, ok := export.(*apisv1alpha1.APIExport)
-			if !ok {
-				return fmt.Errorf("invalid type from apiExportIndexer got: %T, expected %T", export, apiExport)
-			}
-			schemas, schemaIDs, err := c.getSchemasFromAPIExport(owningExport)
-			if err != nil {
-				return err
-			}
-			for _, schema := range schemas {
-				if schema.Spec.Group != pc.Group || schema.Spec.Names.Plural != pc.Resource {
+			for _, apiResourceSchema := range candidates {
+				if apiResourceSchema.Spec.Group != pc.Group || apiResourceSchema.Spec.Names.Plural != pc.Resource {
 					continue
 				}
-				apiResourceSchemas = append(apiResourceSchemas, schema)
+				apiResourceSchemas[gr] = apiResourceSchema
+				identities[gr] = pc.IdentityHash
+				claims[gr] = pc
 			}
-			for k := range schemaIDs {
-				// Override the permission claims that should be used. for this schema identity
-				// Here we will set the identity for the schema for a permission claim.
-				exportAndClaim := schemaIdentity[k]
-				exportAndClaim.claim = &pc
-				exportAndClaim.identityHash = owningExport.Status.IdentityHash
-				schemaIdentity[k] = exportAndClaim
-			}
-			continue
 		}
-		// TODO: Add a openapi validation to catch this case, and it should never happen
-		klog.Warningf("Permission claim %v for APIEXport %s is not internal and does not have an identity hash",
-			pc,
-			fmt.Sprintf("%s|%s", logicalcluster.From(apiExport), apiExport.Name),
-		)
 	}
 
 	// reconcile APIs for APIResourceSchemas
@@ -152,8 +157,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 			}
 
-			apiExportAndClaim := schemaIdentity[apiResourceSchema.Name]
-			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, apiExportAndClaim.identityHash, apiExportAndClaim.claim)
+			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], claims[gvr.GroupResource()])
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
 				klog.Errorf("error creating api definition for schema: %v/%v err: %v", apiResourceSchema.Spec.Group, apiResourceSchema.Spec.Names, err)
@@ -202,29 +206,24 @@ func gvrString(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
 }
 
-func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIResourceSchema, map[string]exportAndClaimInfo, error) {
-	apiResourceSchemas := []*apisv1alpha1.APIResourceSchema{}
-	schemaIdentity := map[string]exportAndClaimInfo{}
+func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
+	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		apiResourceSchema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
 		if err != nil && !apierrors.IsNotFound(err) {
-			return nil, nil, err
+			return nil, err
 		}
 		if apierrors.IsNotFound(err) {
 			klog.V(3).Infof("APIResourceSchema %s in APIExport %s|% not found", schemaName, apiExport.Namespace, apiExport.Name)
 			continue
 		}
-		apiResourceSchemas = append(apiResourceSchemas, apiResourceSchema)
-		// We may need to change/mutate this API Export to get the permission claims.
-		schemaIdentity[schemaName] = exportAndClaimInfo{
-			identityHash: apiExport.Status.IdentityHash,
-		}
+		apiResourceSchemas[schema.GroupResource{Group: apiResourceSchema.Spec.Group, Resource: apiResourceSchema.Spec.Names.Plural}] = apiResourceSchema
 	}
 
-	return apiResourceSchemas, schemaIdentity, nil
+	return apiResourceSchemas, nil
 }
 
-func isPermissionClaimForInternalAPI(claim apisv1alpha1.PermissionClaim) (bool, *apisv1alpha1.APIResourceSchema) {
+func isPermissionClaimForInternalAPI(claim *apisv1alpha1.PermissionClaim) (bool, *apisv1alpha1.APIResourceSchema) {
 	for _, schema := range internalapis.Schemas {
 		if claim.GroupResource.Group == schema.Spec.Group && claim.GroupResource.Resource == schema.Spec.Names.Plural {
 			return true, schema
