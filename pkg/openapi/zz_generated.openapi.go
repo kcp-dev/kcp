@@ -60,9 +60,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource":                            schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference":                             schema_pkg_apis_apis_v1alpha1_ExportReference(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.GroupResource":                               schema_pkg_apis_apis_v1alpha1_GroupResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity":                                    schema_pkg_apis_apis_v1alpha1_Identity(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim":                             schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace":                            schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference":                    schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":                schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
@@ -1165,12 +1167,26 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
 						},
 					},
+					"acceptedPermissionClaims": {
+						SchemaProps: spec.SchemaProps{
+							Description: "acceptedPermissionClaims records the permissions that are granted to the bound workspace. Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"reference"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"},
 	}
 }
 
@@ -1231,11 +1247,25 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 							},
 						},
 					},
+					"ObservedAcceptedPermissionClaims": {
+						SchemaProps: spec.SchemaProps{
+							Description: "observedAcceptedPermissionClaims records the permissions that the export provider is granted to the bound workspace. This is granted by binding implictily to an export that contains permissionClaims. Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -1376,11 +1406,34 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy"),
 						},
 					},
+					"permissionClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "permissionClaims make resources available in APIExport's virtual workspace that are not part of the actual APIExport resources.\n\nPermissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GroupResource + identity basis.\n\nPermissionClaims must be accepted by the user's explicit acknowledgement. Hence, when claims change, the respecting objects are not visible immediately.\n\nPermissionClaims overlapping with the APIExport resources are ignored.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"},
 	}
 }
 
@@ -1799,6 +1852,35 @@ func schema_pkg_apis_apis_v1alpha1_ExportReference(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_apis_v1alpha1_GroupResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupResource identifies a resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the name of an API group. For core groups this is the empty string '\"\"'.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"resource"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_apis_v1alpha1_Identity(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1849,6 +1931,26 @@ func schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaim identifies an object by GR and identity hash. It's purpose is to determine the added permisions that a service provider may request and that a consumer may accept and alllow the service provider access to.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"identityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

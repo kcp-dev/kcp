@@ -229,8 +229,13 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumer)
 		if serviceProvider == rbacServiceProviderWorkspace {
 			t.Logf("Make sure that the status of cowboy can not be updated in workspace %q", consumer)
-			_, err = cowboyClient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
-			require.Error(t, err, "expected error updating status of cowboys")
+			framework.Eventually(t, func() (bool, string) {
+				_, err = cowboyClient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
+				if err == nil {
+					return false, "error"
+				}
+				return true, err.Error()
+			}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 			// in consumer workspace 1 we will create a RBAC for user 2 such that they can only get/list.
 			t.Logf("Install RBAC in consumer workspace %q for user 2", consumer)

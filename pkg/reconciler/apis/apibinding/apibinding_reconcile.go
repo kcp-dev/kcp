@@ -30,6 +30,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
@@ -53,16 +54,19 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	case "":
 		return c.reconcileNew(ctx, apiBinding)
 	case apisv1alpha1.APIBindingPhaseBinding:
-		return c.reconcileBinding(ctx, apiBinding)
+		return kerrors.NewAggregate([]error{c.reconcileBinding(ctx, apiBinding), c.reconcilePermissionClaims(ctx, apiBinding)})
 	case apisv1alpha1.APIBindingPhaseBound:
 		needsRebind, err := c.reconcileBound(ctx, apiBinding)
 		if err != nil {
-			return err
+			// Need to run permission claim reconcile
+			permissionClaimErr := c.reconcilePermissionClaims(ctx, apiBinding)
+			return kerrors.NewAggregate([]error{err, permissionClaimErr})
 		}
 		if needsRebind {
-			return c.reconcileBinding(ctx, apiBinding)
+			return kerrors.NewAggregate([]error{c.reconcileBinding(ctx, apiBinding), c.reconcilePermissionClaims(ctx, apiBinding)})
 		}
-		return nil
+		permissionClaimErr := c.reconcilePermissionClaims(ctx, apiBinding)
+		return permissionClaimErr
 	default:
 		klog.Errorf("Invalid phase %q for APIBinding %s|%s", apiBinding.Status.Phase, logicalcluster.From(apiBinding).String(), apiBinding.Name)
 		return nil

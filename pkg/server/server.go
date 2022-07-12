@@ -545,7 +545,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("apibinding") {
-		if err := s.installAPIBindingController(ctx, controllerConfig, server); err != nil {
+		if err := s.installAPIBindingController(ctx, controllerConfig, server, s.dynamicDiscoverySharedInformerFactory); err != nil {
 			return err
 		}
 	}

@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -46,6 +47,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
 const (
@@ -60,6 +62,8 @@ var (
 func NewController(
 	crdClusterClient apiextensionclientset.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
+	dynamicClusterClient dynamic.ClusterInterface,
+	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
@@ -68,9 +72,11 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
-		queue:            queue,
-		crdClusterClient: crdClusterClient,
-		kcpClusterClient: kcpClusterClient,
+		queue:                queue,
+		crdClusterClient:     crdClusterClient,
+		kcpClusterClient:     kcpClusterClient,
+		dynamicClusterClient: dynamicClusterClient,
+		ddsif:                dynamicDiscoverySharedInformerFactory,
 
 		apiBindingsLister: apiBindingInformer.Lister(),
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
@@ -187,8 +193,10 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient apiextensionclientset.ClusterInterface
-	kcpClusterClient kcpclient.ClusterInterface
+	crdClusterClient     apiextensionclientset.ClusterInterface
+	kcpClusterClient     kcpclient.ClusterInterface
+	dynamicClusterClient dynamic.ClusterInterface
+	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister  apislisters.APIBindingLister
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)

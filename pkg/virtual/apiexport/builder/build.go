@@ -24,6 +24,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -42,6 +43,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
 const VirtualWorkspaceName string = "apiexport"
@@ -135,9 +137,17 @@ func BuildVirtualWorkspace(
 				kcpClusterClient,
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, nil)
+
+					var wrapper forwardingregistry.StorageWrapper = nil
+					if len(optionalLabelRequirements) > 0 {
+						wrapper = forwardingregistry.WithLabelSelector(func(_ context.Context) labels.Requirements {
+							return optionalLabelRequirements
+						})
+					}
+
+					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, identityHash, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
