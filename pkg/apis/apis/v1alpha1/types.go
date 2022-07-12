@@ -402,10 +402,21 @@ type APIExportSpec struct {
 	// +optional
 	MaximalPermissionPolicy *MaximalPermissionPolicy `json:"maximalPermissionPolicy,omitempty"`
 
-	// permissionClaims adds resources to the APIExports virtual workspace.
-	// permissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs.
-	// Access is asked for on a GroupResource basis and can be filtered on objects by many different selectors.
+	// permissionClaims make resources available in APIExport's virtual workspace that are not part
+	// of the actual APIExport resources.
+	//
+	// PermissionClaims are optional and should be the least access necessary to complete the functions
+	// that the service provider needs. Access is asked for on a GroupResource + identity basis.
+	//
+	// PermissionClaims must be accepted by the user's explicit acknowledgement. Hence, when claims
+	// change, the respecting objects are not visible immediately.
+	//
+	// PermissionClaims overlapping with the APIExport resources are ignored.
+	//
 	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
 	PermissionClaims []PermissionClaim `json:"permissionClaims,omitempty"`
 }
 
