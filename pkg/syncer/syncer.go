@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	advancedSchedulingFeatureAnnotation = "featuregates.experimental.workload.kcp.dev/advancedscheduling"
+	AdvancedSchedulingFeatureAnnotation = "featuregates.experimental.workload.kcp.dev/advancedscheduling"
 
 	resyncPeriod = 10 * time.Hour
 
@@ -179,7 +179,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	// Check whether we're in the Advanced Scheduling feature-gated mode.
 	advancedSchedulingEnabled := false
-	if syncTarget.GetAnnotations()[advancedSchedulingFeatureAnnotation] == "true" {
+	if syncTarget.GetAnnotations()[AdvancedSchedulingFeatureAnnotation] == "true" {
 		klog.Infof("Advanced Scheduling feature is enabled for syncTarget %s", cfg.SyncTargetName)
 		advancedSchedulingEnabled = true
 	}
