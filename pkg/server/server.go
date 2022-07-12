@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
@@ -160,14 +161,30 @@ func (s *Server) Run(ctx context.Context) error {
 	genericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
-	// The identities are not known before we can get them from the APIExports via the loopback client, hence we postpone
+	// The identities are not known before we can get them from the APIExports via the loopback client or RootShardKubeconfigFile, hence we postpone
 	// this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
 	// The informers here are not  used before the informers are actually started (i.e. no race).
-	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
+	nonIdentityRootKcpClusterConfig := genericConfig.LoopbackClientConfig
+	if len(s.options.Extra.RootShardKubeconfigFile) > 0 {
+		var err error
+		nonIdentityRootKcpClusterConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: s.options.Extra.RootShardKubeconfigFile}, nil).ClientConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load root kcp kubeconfig from: %s, err: %w", s.options.Extra.RootShardKubeconfigFile, err)
+		}
+		// if the Host already points to some cluster just clear it up, the root cluster will be added explicitly.
+		nonIdentityRootKcpServerURL, err := url.Parse(nonIdentityRootKcpClusterConfig.Host)
+		if err != nil {
+			return fmt.Errorf("unable to parse the root kcp server host to a URL struct, err: %w", err)
+		}
+		if len(nonIdentityRootKcpServerURL.Path) > 0 {
+			nonIdentityRootKcpClusterConfig.Host = nonIdentityRootKcpServerURL.Host
+		}
+	}
+	nonIdentityRootKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityRootKcpClusterConfig) // can only used for wildcard requests of apis.kcp.dev
 	if err != nil {
 		return err
 	}
-	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(genericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(genericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
 		return err

@@ -83,7 +83,7 @@ func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
 func NewConfigWithWildcardIdentities(config *rest.Config,
 	groupExportNames map[string]string,
 	grouptResourceExportNames map[schema.GroupResource]string,
-	kcpClient kcpclient.Interface) (identityConfig *rest.Config, resolve func(ctx context.Context) error) {
+	rootKcpClient kcpclient.Interface) (identityConfig *rest.Config, resolve func(ctx context.Context) error) {
 
 	ids := &identities{
 		groupIdentities:         map[string]string{},
@@ -111,7 +111,7 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 				continue
 			}
 
-			apiExport, err := kcpClient.ApisV1alpha1().APIExports().Get(ctx, name, metav1.GetOptions{})
+			apiExport, err := rootKcpClient.ApisV1alpha1().APIExports().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -136,7 +136,7 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 				continue
 			}
 
-			apiExport, err := kcpClient.ApisV1alpha1().APIExports().Get(ctx, name, metav1.GetOptions{})
+			apiExport, err := rootKcpClient.ApisV1alpha1().APIExports().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				errs = append(errs, err)
 				continue
