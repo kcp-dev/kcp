@@ -27,6 +27,8 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/utils/strings/slices"
+
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 const (
@@ -38,6 +40,7 @@ var (
 
 	labelAllowList = []string{
 		"experimental.workload.kcp.dev/scheduling-disabled",
+		apisv1alpha1.APIExportPermissionClaimLabelPrefix + "*", // protected by the permissionclaim admission plugin
 	}
 )
 
