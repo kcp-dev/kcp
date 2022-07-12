@@ -37,6 +37,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
@@ -199,7 +200,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	if value, found := workloadBinding.Annotations[apisv1alpha1.AnnotationSkipDefaultObjectCreation]; found && value == "true" {
+	if value, found := workloadBinding.Annotations[workloadv1alpha1.AnnotationSkipDefaultObjectCreation]; found && value == "true" {
 		return nil
 	}
 
@@ -235,7 +236,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// patch the apibinding, so we do not create the placement again even if it is deleted.
 	bindingPatch := map[string]interface{}{}
 	expectedAnnotations := map[string]interface{}{
-		apisv1alpha1.AnnotationSkipDefaultObjectCreation: "true",
+		workloadv1alpha1.AnnotationSkipDefaultObjectCreation: "true",
 	}
 	if err := unstructured.SetNestedField(bindingPatch, expectedAnnotations, "metadata", "annotations"); err != nil {
 		return err
