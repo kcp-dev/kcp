@@ -1407,8 +1407,17 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 						},
 					},
 					"permissionClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
-							Description: "permissionClaims adds resources to the APIExports virtual workspace. permissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GroupResource basis and can be filtered on objects by many different selectors.",
+							Description: "permissionClaims make resources available in APIExport's virtual workspace that are not part of the actual APIExport resources.\n\nPermissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GroupResource + identity basis.\n\nPermissionClaims must be accepted by the user's explicit acknowledgement. Hence, when claims change, the respecting objects are not visible immediately.\n\nPermissionClaims overlapping with the APIExport resources are ignored.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
