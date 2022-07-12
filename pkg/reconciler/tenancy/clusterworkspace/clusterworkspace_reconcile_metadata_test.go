@@ -135,6 +135,32 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			wantStatus: reconcileStatusContinue,
 		},
+		{
+			name: "removes owner when ready",
+			input: &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"internal.kcp.dev/phase": "Ready",
+					},
+					Annotations: map[string]string{
+						"a":                     "b",
+						"tenancy.kcp.dev/owner": `{"username":"user-1"}`,
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"internal.kcp.dev/phase": "Ready",
+				},
+				Annotations: map[string]string{
+					"a": "b",
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			reconciler := metaDataReconciler{}
