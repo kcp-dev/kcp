@@ -18,10 +18,12 @@ package clusterworkspace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,6 +60,7 @@ type clusterWorkspace struct {
 }
 
 // Ensure that the required admission interfaces are implemented.
+var _ admission.MutationInterface = &clusterWorkspace{}
 var _ admission.ValidationInterface = &clusterWorkspace{}
 
 var phaseOrdinal = map[tenancyv1alpha1.ClusterWorkspacePhaseType]int{
@@ -67,10 +70,41 @@ var phaseOrdinal = map[tenancyv1alpha1.ClusterWorkspacePhaseType]int{
 	tenancyv1alpha1.ClusterWorkspacePhaseReady:        4,
 }
 
+// Admit ensures that
+// - the user is recorded in annotations on create
+func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
+	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
+		return nil
+	}
+
+	u, ok := a.GetObject().(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("unexpected type %T", a.GetObject())
+	}
+	cw := &tenancyv1alpha1.ClusterWorkspace{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
+		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
+	}
+
+	if a.GetOperation() == admission.Create {
+		userInfo, err := userAnnotationValue(a)
+		if err != nil {
+			return admission.NewForbidden(a, err)
+		}
+		if cw.Annotations == nil {
+			cw.Annotations = map[string]string{}
+		}
+		cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = userInfo
+	}
+
+	return updateUnstructured(u, cw)
+}
+
 // Validate ensures that
 // - the workspace only does a valid phase transition
 // - has a valid type
 // - has valid initializers when transitioning to initializing
+// - the user is recorded in annotations on create
 func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
 		return nil
@@ -115,6 +149,19 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 		}
 	}
 
+	if a.GetOperation() == admission.Create {
+		userInfo, err := userAnnotationValue(a)
+		if err != nil {
+			return admission.NewForbidden(a, err)
+		}
+		if cw.Annotations == nil {
+			cw.Annotations = map[string]string{}
+		}
+		if got := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; got != userInfo {
+			return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, userInfo))
+		}
+	}
+
 	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.ClusterWorkspacePhaseInitializing] && len(cw.Status.Initializers) > 0 {
 		return admission.NewForbidden(a, fmt.Errorf("spec.initializers must be empty for phase %s", cw.Status.Phase))
 	}
@@ -129,4 +176,34 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 	}
 
 	return nil
+}
+
+// updateUnstructured updates the given unstructured object to match the given cluster workspace.
+func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1alpha1.ClusterWorkspace) error {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
+	if err != nil {
+		return err
+	}
+	u.Object = raw
+	return nil
+}
+
+func userAnnotationValue(a admission.Attributes) (string, error) {
+	user := a.GetUserInfo()
+	info := &authenticationv1.UserInfo{
+		Username: user.GetName(),
+		UID:      user.GetUID(),
+		Groups:   user.GetGroups(),
+	}
+	extra := map[string]authenticationv1.ExtraValue{}
+	for k, v := range user.GetExtra() {
+		extra[k] = v
+	}
+	info.Extra = extra
+	rawInfo, err := json.Marshal(info)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal user info: %w", err)
+	}
+
+	return string(rawInfo), nil
 }
