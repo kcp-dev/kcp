@@ -29,6 +29,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver"
+	"k8s.io/apiextensions-apiserver/pkg/crdserverscheme"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -73,7 +74,10 @@ func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, apiExportI
 		&metav1.DeleteOptions{},
 	)
 
-	typer := apiserver.NewUnstructuredObjectTyper(parameterScheme)
+	typer := apiserver.UnstructuredObjectTyper{
+		Delegate:          parameterScheme,
+		UnstructuredTyper: crdserverscheme.NewUnstructuredObjectTyper(),
+	}
 
 	kind := groupVersion.WithKind("Noxu")
 	listKind := groupVersion.WithKind("NoxuItemList")

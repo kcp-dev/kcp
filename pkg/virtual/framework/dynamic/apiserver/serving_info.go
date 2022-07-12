@@ -29,9 +29,11 @@ import (
 	structuraldefaulting "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
 	apiservervalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
+	"k8s.io/apiextensions-apiserver/pkg/crdserverscheme"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,7 +46,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
-	klog "k8s.io/klog/v2"
+	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"k8s.io/kube-openapi/pkg/validation/strfmt"
 	"k8s.io/kube-openapi/pkg/validation/validate"
@@ -147,8 +149,11 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 
 	equivalentResourceRegistry.RegisterKindFor(gvr, "", gvk)
 
-	typer := apiextensionsapiserver.NewUnstructuredObjectTyper(parameterScheme)
-	creator := apiextensionsapiserver.UnstructuredCreator{}
+	typer := apiextensionsapiserver.UnstructuredObjectTyper{
+		Delegate:          parameterScheme,
+		UnstructuredTyper: crdserverscheme.NewUnstructuredObjectTyper(),
+	}
+	creator := unstructuredCreator{}
 
 	internalValidationSchema := &apiextensionsinternal.CustomResourceValidation{
 		OpenAPIV3Schema: internalSchema,
@@ -411,4 +416,12 @@ func findAPIResourceVersion(schema *apisv1alpha1.APIResourceSchema, version stri
 		}
 	}
 	return nil, false
+}
+
+type unstructuredCreator struct{}
+
+func (c unstructuredCreator) New(kind schema.GroupVersionKind) (runtime.Object, error) {
+	ret := &unstructured.Unstructured{}
+	ret.SetGroupVersionKind(kind)
+	return ret, nil
 }
