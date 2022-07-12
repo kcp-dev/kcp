@@ -29,6 +29,7 @@ import (
 	"k8s.io/utils/strings/slices"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer"
 )
 
 const (
@@ -38,6 +39,7 @@ const (
 var (
 	annotationAllowList = []string{
 		workloadv1alpha1.AnnotationSkipDefaultObjectCreation,
+		syncer.AdvancedSchedulingFeatureAnnotation,
 	}
 
 	labelAllowList = []string{}
