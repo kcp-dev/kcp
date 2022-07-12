@@ -58,6 +58,13 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		}
 	}
 
+	if workspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
+		if _, found := workspace.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; found {
+			delete(workspace.Annotations, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey)
+			changed = true
+		}
+	}
+
 	if changed {
 		// first update ObjectMeta before status
 		return reconcileStatusStopAndRequeue, nil
