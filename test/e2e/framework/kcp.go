@@ -45,6 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -487,7 +488,7 @@ func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
 		req := rest.NewRequest(client).RequestURI(endpoint)
 		_, err := req.Do(ctx).Raw()
 		if err != nil {
-			lastError = fmt.Errorf("error contacting %s: %w", req.URL(), err)
+			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
 			return false, nil
 		}
 
@@ -507,15 +508,43 @@ func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
 		ctx = deadlinedCtx
 		c.t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
 	}
+	var errCount int
+	errs := sets.NewString()
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
 		if errors.Is(err, context.Canceled) || c.ctx.Err() != nil {
 			return
 		}
+		// if we're noticing an error, record it and fail the test if things stay failed for two consecutive polls
 		if err != nil {
-			c.t.Errorf("error contacting %s: %v", endpoint, err)
+			errCount++
+			errs.Insert(fmt.Sprintf("failed components: %v", unreadyComponentsFromError(err)))
+			if errCount == 2 {
+				c.t.Errorf("error contacting %s: %v", endpoint, errs.List())
+			}
+		}
+		// otherwise, reset the counters
+		errCount = 0
+		if errs.Len() > 0 {
+			errs = sets.NewString()
 		}
 	}, 1*time.Second)
+}
+
+// there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
+// the content in a string-formatted error, unfortunately.
+func unreadyComponentsFromError(err error) string {
+	innerErr := strings.TrimPrefix(strings.TrimSuffix(err.Error(), `") has prevented the request from succeeding`), `an error on the server ("`)
+	var unreadyComponents []string
+	for _, line := range strings.Split(innerErr, `\n`) {
+		if name := strings.TrimPrefix(strings.TrimSuffix(line, ` failed: reason withheld`), `[-]`); name != line {
+			// NB: sometimes the error we get is truncated (server-side?) to something like: `\n[-]poststar") has prevented the request from succeeding`
+			// In those cases, the `name` here is also truncated, but nothing we can do about that. For that reason, we don't expose a list of components
+			// from this function or else we'd need to handle more edge cases.
+			unreadyComponents = append(unreadyComponents, name)
+		}
+	}
+	return strings.Join(unreadyComponents, ", ")
 }
 
 // loadKubeConfig loads a kubeconfig from disk. This method is
