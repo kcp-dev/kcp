@@ -281,11 +281,11 @@ func removeClaims(claims []apisv1alpha1.PermissionClaim, removedClaim permission
 }
 
 func (c *controller) getInformerForGroupResource(group, resource string) (informers.GenericInformer, schema.GroupVersionResource, error) {
-	listers, _ := c.dynamicDiscoverySharedInformerFactory.Listers()
+	listers, _ := c.ddsif.Listers()
 
 	for gvr := range listers {
 		if gvr.Group == group && gvr.Resource == resource {
-			informer, err := c.dynamicDiscoverySharedInformerFactory.InformerForResource(gvr)
+			informer, err := c.ddsif.InformerForResource(gvr)
 			// once we find one, return.
 			return informer, gvr, err
 		}

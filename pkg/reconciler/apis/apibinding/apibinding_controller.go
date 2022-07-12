@@ -72,11 +72,11 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
-		queue:                                 queue,
-		crdClusterClient:                      crdClusterClient,
-		kcpClusterClient:                      kcpClusterClient,
-		dynamicClusterClient:                  dynamicClusterClient,
-		dynamicDiscoverySharedInformerFactory: dynamicDiscoverySharedInformerFactory,
+		queue:                queue,
+		crdClusterClient:     crdClusterClient,
+		kcpClusterClient:     kcpClusterClient,
+		dynamicClusterClient: dynamicClusterClient,
+		ddsif:                dynamicDiscoverySharedInformerFactory,
 
 		apiBindingsLister: apiBindingInformer.Lister(),
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
@@ -193,10 +193,10 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient                      apiextensionclientset.ClusterInterface
-	kcpClusterClient                      kcpclient.ClusterInterface
-	dynamicClusterClient                  dynamic.ClusterInterface
-	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
+	crdClusterClient     apiextensionclientset.ClusterInterface
+	kcpClusterClient     kcpclient.ClusterInterface
+	dynamicClusterClient dynamic.ClusterInterface
+	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister  apislisters.APIBindingLister
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
