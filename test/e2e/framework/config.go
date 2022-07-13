@@ -23,11 +23,11 @@ import (
 )
 
 type testConfig struct {
-	syncerImage         string
-	kcpTestImage        string
-	pclusterKubeconfig  string
-	kcpKubeconfig       string
-	useDefaultKCPServer bool
+	syncerImage                        string
+	kcpTestImage                       string
+	pclusterKubeconfig                 string
+	kcpKubeconfig, rootShardKubeconfig string
+	useDefaultKCPServer                bool
 }
 
 var TestConfig *testConfig
@@ -57,6 +57,13 @@ func (c *testConfig) KCPKubeconfig() string {
 	}
 }
 
+func (c *testConfig) RootShardKubeconfig() string {
+	if c.rootShardKubeconfig == "" {
+		return c.KCPKubeconfig()
+	}
+	return c.rootShardKubeconfig
+}
+
 func init() {
 	TestConfig = &testConfig{}
 	registerFlags(TestConfig)
@@ -65,6 +72,7 @@ func init() {
 
 func registerFlags(c *testConfig) {
 	flag.StringVar(&c.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
+	flag.StringVar(&c.rootShardKubeconfig, "root-shard-kubeconfig", "", "Path to the kubeconfig for a kcp shard server. If unset, kcp-kubeconfig is used.")
 	flag.StringVar(&c.pclusterKubeconfig, "pcluster-kubeconfig", "", "Path to the kubeconfig for a kubernetes cluster to sync to. Requires --syncer-image.")
 	flag.StringVar(&c.syncerImage, "syncer-image", "", "The syncer image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.StringVar(&c.kcpTestImage, "kcp-test-image", "", "The test image to use with the pcluster. Requires --pcluster-kubeconfig")

@@ -117,7 +117,7 @@ func SharedKcpServer(t *testing.T) RunningServer {
 		// Use a persistent server
 
 		t.Logf("shared kcp server will target configuration %q", kubeconfig)
-		server, err := newPersistentKCPServer(serverName, kubeconfig)
+		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.RootShardKubeconfig())
 		require.NoError(t, err, "failed to create persistent server fixture")
 		return server
 	}

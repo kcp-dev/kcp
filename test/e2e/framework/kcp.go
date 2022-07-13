@@ -63,6 +63,7 @@ type RunningServer interface {
 	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
 	DefaultConfig(t *testing.T) *rest.Config
+	RootShardConfig(t *testing.T) *rest.Config
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
@@ -375,8 +376,8 @@ func (c *kcpServer) KubeconfigPath() string {
 	return c.kubeconfigPath
 }
 
-// Config exposes a copy of the neutral client config for this server.
-func (c *kcpServer) defaultConfig() (*rest.Config, error) {
+// Config exposes a copy of the base client config for this server.
+func (c *kcpServer) config(context string) (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
@@ -396,6 +397,13 @@ func (c *kcpServer) DefaultConfig(t *testing.T) *rest.Config {
 	require.NoError(t, err)
 	wrappedConfig := kcpclienthelper.NewClusterConfig(cfg)
 	return rest.AddUserAgent(rest.CopyConfig(wrappedConfig), t.Name())
+}
+
+func (c *kcpServer) RootShardConfig(t *testing.T) *rest.Config {
+	cfg, err := c.config("system:admin")
+	require.NoError(t, err)
+	cfg = kcpclienthelper.NewClusterConfig(cfg)
+	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
 }
 
 // RawConfig exposes a copy of the client config for this server.
@@ -569,9 +577,10 @@ func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
 }
 
 type unmanagedKCPServer struct {
-	name           string
-	kubeconfigPath string
-	cfg            clientcmd.ClientConfig
+	name                    string
+	kubeconfigPath          string
+	rootShardKubeconfigPath string
+	cfg, rootShardCfg       clientcmd.ClientConfig
 }
 
 // newPersistentKCPServer returns a RunningServer for a kubeconfig
@@ -579,16 +588,23 @@ type unmanagedKCPServer struct {
 // kubeconfig is expected to exist prior to running tests against it,
 // the configuration can be loaded synchronously and no locking is
 // required to subsequently access it.
-func newPersistentKCPServer(name, kubeconfigPath string) (RunningServer, error) {
+func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string) (RunningServer, error) {
 	cfg, err := loadKubeConfig(kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
 
+	rootShardCfg, err := loadKubeConfig(rootShardKubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &unmanagedKCPServer{
-		name:           name,
-		kubeconfigPath: kubeconfigPath,
-		cfg:            cfg,
+		name:                    name,
+		kubeconfigPath:          kubeconfigPath,
+		rootShardKubeconfigPath: rootShardKubeconfigPath,
+		cfg:                     cfg,
+		rootShardCfg:            rootShardCfg,
 	}, nil
 }
 
@@ -652,6 +668,16 @@ func (s *unmanagedKCPServer) DefaultConfig(t *testing.T) *rest.Config {
 	require.NoError(t, err)
 	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
 	return wrappedCfg
+}
+
+func (s *unmanagedKCPServer) RootShardConfig(t *testing.T) *rest.Config {
+	raw, err := s.rootShardCfg.RawConfig()
+	require.NoError(t, err)
+
+	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
+	defaultConfig, err := config.ClientConfig()
+	require.NoError(t, err)
+	return defaultConfig
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
