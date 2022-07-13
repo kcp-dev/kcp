@@ -42,6 +42,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/logicalcluster"
 )
 
 const (
@@ -51,10 +52,10 @@ const (
 func NewController(
 	dynamicCLient dynamic.ClusterInterface,
 	crdClusterClient apiextensionclientset.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
-	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface) error,
+	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, logicalcluster.Name) error,
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -90,14 +91,14 @@ type controller struct {
 
 	dynamicClient dynamic.ClusterInterface
 	crdClient     apiextensionclientset.ClusterInterface
-	kcpClient     kcpclient.ClusterInterface
+	kcpClient     kcpclient.Interface
 
 	workspaceLister tenancylister.ClusterWorkspaceLister
 
 	syncChecks []cache.InformerSynced
 
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
-	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface) error
+	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, logicalcluster.Name) error
 }
 
 func (c *controller) enqueue(obj interface{}) {
@@ -203,7 +204,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

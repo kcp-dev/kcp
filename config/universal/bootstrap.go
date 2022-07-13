@@ -25,6 +25,7 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/logicalcluster"
 )
 
 //go:embed *.yaml
@@ -33,8 +34,8 @@ var fs embed.FS
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, kcpClient kcpclient.Interface) error {
-	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev"); err != nil {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, kcpClient kcpclient.Interface, clusterName logicalcluster.Name) error {
+	if err := confighelpers.BindRootAPIs(logicalcluster.WithCluster(ctx, clusterName), kcpClient, "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev"); err != nil {
 		return err
 	}
 

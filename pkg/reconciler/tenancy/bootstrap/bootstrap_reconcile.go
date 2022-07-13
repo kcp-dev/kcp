@@ -47,7 +47,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	klog.Infof("Bootstrapping resources for org workspace %s, logical cluster %s", workspace.Name, wsClusterName)
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
-	if err := c.bootstrap(bootstrapCtx, c.crdClient.Cluster(wsClusterName).Discovery(), c.dynamicClient.Cluster(wsClusterName), c.kcpClient.Cluster(wsClusterName)); err != nil {
+	if err := c.bootstrap(bootstrapCtx, c.crdClient.Cluster(wsClusterName).Discovery(), c.dynamicClient.Cluster(wsClusterName), c.kcpClient, wsClusterName); err != nil {
 		return err // requeue
 	}
 

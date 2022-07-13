@@ -24,11 +24,12 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/logicalcluster"
 )
 
 // Bootstrap creates CRDs and the resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, kcpClient kcpclient.Interface) error {
-	return confighelpers.BindRootAPIs(ctx, kcpClient, "tenancy.kcp.dev")
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, kcpClient kcpclient.Interface, clusterName logicalcluster.Name) error {
+	return confighelpers.BindRootAPIs(logicalcluster.WithCluster(ctx, clusterName), kcpClient, "tenancy.kcp.dev")
 }
