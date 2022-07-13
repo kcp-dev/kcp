@@ -43,7 +43,6 @@ import (
 	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -56,24 +55,10 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
 
 	source := framework.SharedKcpServer(t)
+	rootShardCfg := source.RootShardConfig(t)
+	rootShardCfg.Host = rootShardCfg.Host + "/services/initializingworkspaces/whatever"
 
-	rawConfig, err := source.RawConfig()
-	require.NoError(t, err)
-
-	adminCluster := rawConfig.Clusters["system:admin"]
-	adminContext := rawConfig.Contexts["system:admin"]
-	virtualWorkspaceRawConfig := rawConfig.DeepCopy()
-
-	virtualWorkspaceRawConfig.Clusters["virtual"] = adminCluster.DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["virtual"].Server = adminCluster.Server + "/services/initializingworkspaces/whatever"
-	virtualWorkspaceRawConfig.Contexts["virtual"] = adminContext.DeepCopy()
-	virtualWorkspaceRawConfig.Contexts["virtual"].Cluster = "virtual"
-
-	virtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "virtual", nil, nil).ClientConfig()
-	virtualWorkspaceConfig = rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name())
-	require.NoError(t, err)
-
-	virtualWorkspaceDiscoveryClient, err := clientgodiscovery.NewDiscoveryClientForConfig(virtualWorkspaceConfig)
+	virtualWorkspaceDiscoveryClient, err := clientgodiscovery.NewDiscoveryClientForConfig(rootShardCfg)
 	require.NoError(t, err)
 	_, apiResourceLists, err := virtualWorkspaceDiscoveryClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
 	require.NoError(t, err)
@@ -110,7 +95,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	sourceConfig := source.DefaultConfig(t)
+	sourceConfig := source.BaseConfig(t)
 
 	sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sourceConfig)
 	require.NoError(t, err)

@@ -54,7 +54,8 @@ func TestAuthorizer(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	server := framework.SharedKcpServer(t)
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
+	rootShardCfg := server.RootShardConfig(t)
 
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -126,7 +127,7 @@ func TestAuthorizer(t *testing.T) {
 		},
 		"cluster admins can use wildcard clusters, non-cluster admin cannot": func(t *testing.T) {
 			// create client talking directly to root shard to test wildcard requests
-			rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
+			rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", rootShardCfg)
 			rootKubeClusterClient, err := kubernetes.NewClusterForConfig(rootCfg)
 			require.NoError(t, err)
 			user1RootKubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", rootCfg))
@@ -141,7 +142,7 @@ func TestAuthorizer(t *testing.T) {
 			// get workspace2 shard and create a client to tweak the local bootstrap policy
 			org1Workspace, err := kcpClusterClient.Cluster(org1).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "workspace2", metav1.GetOptions{})
 			require.NoError(t, err)
-			shardCfg := framework.ShardConfig(t, kcpClusterClient, org1Workspace.Status.Location.Current, cfg)
+			shardCfg := framework.ShardConfig(t, kcpClusterClient, org1Workspace.Status.Location.Current, rootShardCfg)
 			shardKubeClusterClient, err := kubernetes.NewClusterForConfig(shardCfg)
 			require.NoError(t, err)
 

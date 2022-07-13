@@ -143,13 +143,13 @@ func TestNamespaceScheduler(t *testing.T) {
 		{
 			name: "GVRs are removed, and then quickly re-added to a new workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				crdClusterClient, err := apiextensionsclient.NewClusterForConfig(server.DefaultConfig(t))
+				crdClusterClient, err := apiextensionsclient.NewClusterForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct apiextensions client for server")
 
-				dynamicClusterClient, err := dynamic.NewClusterForConfig(server.DefaultConfig(t))
+				dynamicClusterClient, err := dynamic.NewClusterForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct dynamic client for server")
 
-				kubeClusterClient, err := kubernetes.NewClusterForConfig(server.DefaultConfig(t))
+				kubeClusterClient, err := kubernetes.NewClusterForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct kubernetes client for server")
 
 				t.Log("Create a ready SyncTarget, and keep it artificially ready") // we don't want the syncer to do anything with CRDs, hence we fake the syncer
@@ -241,7 +241,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			cfg := server.DefaultConfig(t)
+			cfg := server.BaseConfig(t)
 
 			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")

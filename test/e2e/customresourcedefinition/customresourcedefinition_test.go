@@ -46,7 +46,7 @@ func TestCustomResourceCreation(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 	sourceWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	kcpClients, err := clientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")

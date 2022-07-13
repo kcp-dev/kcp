@@ -59,7 +59,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
+	rootShardCfg := server.RootShardConfig(t)
 
 	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
@@ -92,7 +93,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	}
 
 	t.Logf("Listing ClusterWorkspace CRs across logical clusters with identity")
-	rootCfg := framework.ShardConfig(t, kcpClients, "root", cfg)
+	rootCfg := framework.ShardConfig(t, kcpClients, "root", rootShardCfg)
 	tenancyExport, err := kcpClients.Cluster(tenancyapi.RootCluster).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.dev", metav1.GetOptions{})
 	require.NoError(t, err, "error getting tenancy API export")
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
@@ -159,9 +160,10 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	// Make sure the informers aren't throttled because dynamic informers do lots of discovery which slows down tests
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 	cfg.QPS = 500
 	cfg.Burst = 1000
+	rootShardConfig := server.RootShardConfig(t)
 
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
@@ -186,7 +188,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	bootstrapCRD(t, wsNormalCRD1b, crdClusterClient.Cluster(wsNormalCRD1b).ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
 
 	t.Logf("Create a root shard client that is able to do wildcard requests")
-	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
+	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", rootShardConfig)
 	rootShardDynamicClients, err := dynamic.NewClusterForConfig(rootCfg)
 	require.NoError(t, err)
 
@@ -270,12 +272,13 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	org := framework.NewOrganizationFixture(t, server)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
+	rootShardCfg := server.RootShardConfig(t)
 
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
 
-	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
+	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", rootShardCfg)
 
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")

@@ -62,17 +62,17 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Cleanup(cancel)
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org)
-	cfg := server.DefaultConfig(t)
+	rootShardConfig := server.RootShardConfig(t)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
-	apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(cfg)
+	apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	crdClient := apiExtensionsClients.Cluster(cluster).ApiextensionsV1().CustomResourceDefinitions()
 
 	t.Log("Creating wildwest.dev.cowboys CR")
 	wildwest.Create(t, crdClient, cowBoysGR)
-	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(cfg)
+	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	_, err = wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -102,7 +102,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
 	}
 
-	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, server.DefaultConfig(t), "/wildwest.dev/cowboys/customresources")
+	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, server.RootShardConfig(t), "/wildwest.dev/cowboys/customresources")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -110,7 +110,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 		t.Fatalf("expected to get cowboys.wildwest.dev CRD from the cache at least 10 times, got %v", cowboysCacheHit)
 	}
 
-	testDynamicDiscoverySharedInformerFactory(ctx, t, cfg, schema.GroupVersionResource{Group: cowBoysGR.Group, Resource: cowBoysGR.Resource, Version: "v1alpha1"}, "efficientluke", cluster)
+	testDynamicDiscoverySharedInformerFactory(ctx, t, rootShardConfig, schema.GroupVersionResource{Group: cowBoysGR.Group, Resource: cowBoysGR.Resource, Version: "v1alpha1"}, "efficientluke", cluster)
 }
 
 func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
@@ -118,10 +118,10 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	cfg := server.DefaultConfig(t)
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	rootShardConfig := server.RootShardConfig(t)
+	kcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(cfg)
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 
 	org := framework.NewOrganizationFixture(t, server)
@@ -152,7 +152,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one sheriff")
 	}
 
-	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, server.DefaultConfig(t), "/newyork.io/sheriffs")
+	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardConfig(t), "/newyork.io/sheriffs")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -160,7 +160,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 		t.Fatalf("expected to get sheriffs.newyork.io from the cache at least 10 times, got %v", sheriffsCacheHit)
 	}
 
-	testDynamicDiscoverySharedInformerFactory(ctx, t, cfg, sheriffsGVR, strings.Replace(wsConsume1a.String(), ":", "-", -1), wsConsume1a)
+	testDynamicDiscoverySharedInformerFactory(ctx, t, rootShardConfig, sheriffsGVR, strings.Replace(wsConsume1a.String(), ":", "-", -1), wsConsume1a)
 }
 
 func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
@@ -168,8 +168,8 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	cfg := server.DefaultConfig(t)
-	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(cfg)
+	rootShardConfig := server.RootShardConfig(t)
+	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
@@ -211,7 +211,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 		}
 	}
 
-	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, server.DefaultConfig(t), "/core/secrets")
+	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardConfig(t), "/core/secrets")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -219,7 +219,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 		t.Fatalf("expected to get core.secrets from the cache at least 115 times, got %v", secretsCacheHit)
 	}
 
-	testDynamicDiscoverySharedInformerFactory(ctx, t, cfg, schema.GroupVersionResource{Group: secretsGR.Group, Resource: secretsGR.Resource, Version: "v1"}, "topsecret", cluster)
+	testDynamicDiscoverySharedInformerFactory(ctx, t, rootShardConfig, schema.GroupVersionResource{Group: secretsGR.Group, Resource: secretsGR.Resource, Version: "v1"}, "topsecret", cluster)
 }
 
 func collectCacheHitsFor(ctx context.Context, t *testing.T, config *rest.Config, metricResourcePrefix string) (int, int) {

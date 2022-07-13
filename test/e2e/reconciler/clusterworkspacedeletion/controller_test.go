@@ -151,7 +151,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Finally check if all resources has been removed")
 
 				// Note: we have to access the shard direction to access a logical cluster without workspace
-				rootCfg := framework.ShardConfig(t, server.kcpClusterClient, "root", server.RunningServer.DefaultConfig(t))
+				rootCfg := framework.ShardConfig(t, server.kcpClusterClient, "root", server.RunningServer.RootShardConfig(t))
 				rootShardKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(rootCfg)
 
 				nslist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
@@ -201,12 +201,12 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				// get clients for the right shards. We have to access the shards directly to see object (Namespace and ClusterWorkspace) deletion
 				// without being stopped at the (front-proxy) gate because the parent workspace is already gone.
-				rootShardConfig := framework.ShardConfig(t, server.kcpClusterClient, "root", server.RunningServer.DefaultConfig(t))
+				rootShardConfig := framework.ShardConfig(t, server.kcpClusterClient, "root", server.RunningServer.BaseConfig(t))
 				rootShardKcpClusterClient, err := clientset.NewClusterForConfig(rootShardConfig)
 				require.NoError(t, err, "failed to create kube client for root shard")
 				rootShardKcpClient := rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster)
-				orgShardKcpClient, orgShardKubeClient := shardClients(t, server.kcpClusterClient, server.DefaultConfig(t), server.orgClusterName)
-				_, wsShardKubeClient := shardClients(t, server.kcpClusterClient, server.DefaultConfig(t), workspaceClusterName)
+				orgShardKcpClient, orgShardKubeClient := shardClients(t, server.kcpClusterClient, server.BaseConfig(t), server.orgClusterName)
+				_, wsShardKubeClient := shardClients(t, server.kcpClusterClient, server.BaseConfig(t), workspaceClusterName)
 
 				t.Logf("Delete org workspace")
 				err = server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, orgWorkspaceName, metav1.DeleteOptions{})
@@ -263,7 +263,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 			server := sharedServer
 
-			cfg := server.DefaultConfig(t)
+			cfg := server.BaseConfig(t)
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 

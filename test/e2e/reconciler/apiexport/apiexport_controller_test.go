@@ -46,7 +46,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	workspaceClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	t.Logf("Running test in cluster %s", workspaceClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	kcpClients, err := clientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")

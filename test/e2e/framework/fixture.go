@@ -207,7 +207,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
 
@@ -304,7 +304,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
@@ -407,7 +407,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := sf.UpstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, sf.WorkspaceClusterName)
+	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, sf.WorkspaceClusterName, "base")
 
 	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
 
@@ -455,7 +455,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		parentClusterName, ok := sf.WorkspaceClusterName.Parent()
 		require.True(t, ok, "%s does not have a parent", sf.WorkspaceClusterName)
 		downstreamServer := NewFakeWorkloadServer(t, sf.UpstreamServer, parentClusterName)
-		downstreamConfig = downstreamServer.DefaultConfig(t)
+		downstreamConfig = downstreamServer.BaseConfig(t)
 		downstreamKubeconfigPath = downstreamServer.KubeconfigPath()
 	}
 
@@ -503,7 +503,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		defer cancelFn()
 
 		t.Logf("Collecting imported resource info: %s", artifactDir)
-		upstreamCfg := sf.UpstreamServer.DefaultConfig(t)
+		upstreamCfg := sf.UpstreamServer.BaseConfig(t)
 
 		gather := func(client dynamic.Interface, gvr schema.GroupVersionResource) {
 			resourceClient := client.Resource(gvr)
@@ -671,8 +671,8 @@ func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx cont
 // WriteLogicalClusterConfig creates a logical cluster config for the given config and
 // cluster name and writes it to the test's artifact path. Useful for configuring the
 // workspace plugin with --kubeconfig.
-func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clusterName logicalcluster.Name) (clientcmd.ClientConfig, string) {
-	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName)
+func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clusterName logicalcluster.Name, contextName string) (clientcmd.ClientConfig, string) {
+	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName, contextName)
 	artifactDir, err := CreateTempDirForTest(t, "artifacts")
 	require.NoError(t, err)
 	pathSafeClusterName := strings.ReplaceAll(clusterName.String(), ":", "_")

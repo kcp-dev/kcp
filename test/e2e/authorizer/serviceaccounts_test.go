@@ -47,7 +47,7 @@ func TestServiceAccounts(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err)
 
@@ -151,7 +151,7 @@ func TestServiceAccounts(t *testing.T) {
 	}
 	for _, ttc := range testCases {
 		t.Run(ttc.name, func(t *testing.T) {
-			saRestConfig := framework.ConfigWithToken(ttc.token(t), server.DefaultConfig(t))
+			saRestConfig := framework.ConfigWithToken(ttc.token(t), server.BaseConfig(t))
 			saKubeClusterClient, err := kubernetes.NewClusterForConfig(saRestConfig)
 			require.NoError(t, err)
 			saKubeClient, err := kubernetes.NewForConfig(saRestConfig)

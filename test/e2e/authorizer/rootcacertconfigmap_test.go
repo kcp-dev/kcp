@@ -44,7 +44,7 @@ func TestRootCACertConfigmap(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err)
 

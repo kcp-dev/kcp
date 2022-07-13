@@ -152,7 +152,7 @@ func TestIngressController(t *testing.T) {
 			clusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
 			// clients
-			sourceConfig := source.DefaultConfig(t)
+			sourceConfig := source.BaseConfig(t)
 			sourceKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
 			sourceKubeClient := sourceKubeClusterClient.Cluster(clusterName)
@@ -332,16 +332,16 @@ func TestIngressController(t *testing.T) {
 
 			ingressConfig := clientcmdapi.Config{
 				Clusters: map[string]*clientcmdapi.Cluster{
-					"ingress-workspace": adminConfig.Clusters["system:admin"],
+					"ingress-workspace": adminConfig.Clusters["base"],
 				},
 				Contexts: map[string]*clientcmdapi.Context{
 					"ingress-workspace": {
 						Cluster:  "ingress-workspace",
-						AuthInfo: "admin",
+						AuthInfo: "kcp-admin",
 					},
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"admin": adminConfig.AuthInfos["admin"],
+					"kcp-admin": adminConfig.AuthInfos["kcp-admin"],
 				},
 				CurrentContext: "ingress-workspace",
 			}

@@ -715,7 +715,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 		// write kubeconfig to disk, next to kcp kubeconfig
 		kcpAdminConfig, _ := server.RawConfig()
-		var baseCluster = *kcpAdminConfig.Clusters["system:admin"] // shallow copy
+		var baseCluster = *kcpAdminConfig.Clusters["base"] // shallow copy
 		virtualWorkspaceKubeConfig := clientcmdapi.Config{
 			Clusters: map[string]*clientcmdapi.Cluster{
 				"shard": &baseCluster,
@@ -727,7 +727,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				},
 			},
 			AuthInfos: map[string]*clientcmdapi.AuthInfo{
-				"virtualworkspace": kcpAdminConfig.AuthInfos["admin"],
+				"virtualworkspace": kcpAdminConfig.AuthInfos["shard-admin"],
 			},
 			CurrentContext: "shard",
 		}
@@ -784,7 +784,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			// create non-virtual clients
-			kcpConfig := server.DefaultConfig(t)
+			kcpConfig := server.BaseConfig(t)
 			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
 			kcpClusterClient, err := kcpclientset.NewClusterForConfig(kcpConfig)
