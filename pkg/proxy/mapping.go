@@ -62,6 +62,12 @@ func NewHandler(o *proxyoptions.Options, index index.Index) (http.Handler, error
 		w.WriteHeader(http.StatusOK)
 	}))
 
+	// TODO: implement proper livez handler
+	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK")) // nolint: errcheck
+		w.WriteHeader(http.StatusOK)
+	}))
+
 	for _, m := range mapping {
 		klog.V(2).Infof("Adding mapping %v", m)
 
