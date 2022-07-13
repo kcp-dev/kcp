@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"io/ioutil"
 	_ "net/http/pprof"
 	"os"
@@ -619,6 +620,14 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
+	var rootApiExportInformer apisinformers.APIExportInformer
+	var rootApiResourceSchemaInformer apisinformers.APIResourceSchemaInformer
+
+	if s.rootShardKcpSharedInformerFactory != nil {
+		rootApiExportInformer = s.rootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports()
+		rootApiResourceSchemaInformer = s.rootShardKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas()
+	}
+
 	c, err := apibinding.NewController(
 		crdClusterClient,
 		kcpClusterClient,
@@ -626,7 +635,9 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		ddsif,
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		rootApiExportInformer,
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		rootApiResourceSchemaInformer,
 		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
