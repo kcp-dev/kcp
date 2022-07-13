@@ -90,6 +90,7 @@ type Server struct {
 	syncedCh chan struct{}
 
 	kcpSharedInformerFactory              kcpexternalversions.SharedInformerFactory
+	rootShardKcpSharedInformerFactory     kcpexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory             coreexternalversions.SharedInformerFactory
 	apiextensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
