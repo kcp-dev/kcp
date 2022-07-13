@@ -443,6 +443,7 @@ func TestReconcileBinding(t *testing.T) {
 					// for conflicts
 					if name == "anotherwidgetsuid" {
 						return &apiextensionsv1.CustomResourceDefinition{
+							Spec: apiextensionsv1.CustomResourceDefinitionSpec{Group: "kcp.dev"},
 							Status: apiextensionsv1.CustomResourceDefinitionStatus{
 								AcceptedNames: apiextensionsv1.CustomResourceDefinitionNames{
 									Plural: "widgets",
@@ -579,7 +580,7 @@ func TestReconcileBinding(t *testing.T) {
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 					Reason:   apisv1alpha1.NamingConflictsReason,
-					Message:  "naming conflict with APIBinding conflicting",
+					Message:  "naming conflict with a bound API conflicting, spec.names.plural=widgets is forbidden",
 				})
 			}
 
