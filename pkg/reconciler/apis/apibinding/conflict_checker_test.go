@@ -17,7 +17,6 @@ limitations under the License.
 package apibinding
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -130,46 +129,112 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 }
 
 func TestNamesConflict(t *testing.T) {
-	existing := &apiextensionsv1.CustomResourceDefinition{
-		Status: apiextensionsv1.CustomResourceDefinitionStatus{
-			AcceptedNames: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:     "a",
-				Singular:   "b",
-				ShortNames: []string{"c", "d"},
-				Kind:       "e",
-				ListKind:   "f",
-			},
-		},
+	existingCRDFn := func(group, plural, singular, shortName, kind, listKind string) *apiextensionsv1.CustomResourceDefinition {
+		return &apiextensionsv1.CustomResourceDefinition{
+			Spec: apiextensionsv1.CustomResourceDefinitionSpec{Group: group},
+			Status: apiextensionsv1.CustomResourceDefinitionStatus{AcceptedNames: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:     plural,
+				Singular:   singular,
+				ShortNames: []string{shortName},
+				Kind:       kind,
+				ListKind:   listKind,
+			}},
+		}
 	}
 
-	crdWithNames := func(names apiextensionsv1.CustomResourceDefinitionNames) *apiextensionsv1.CustomResourceDefinition {
+	newCRDFn := func(group, plural, singular, shortName, kind, listKind string) *apiextensionsv1.CustomResourceDefinition {
 		return &apiextensionsv1.CustomResourceDefinition{
 			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-				Names: names,
+				Group: group,
+				Names: apiextensionsv1.CustomResourceDefinitionNames{
+					Plural:     plural,
+					Singular:   singular,
+					ShortNames: []string{shortName},
+					Kind:       kind,
+					ListKind:   listKind,
+				},
 			},
 		}
 	}
 
-	names := []string{"a", "b", "c", "d"}
-	for _, v := range names {
-		t.Run(fmt.Sprintf("plural-%s", v), func(t *testing.T) {
-			require.True(t, namesConflict(existing, crdWithNames(apiextensionsv1.CustomResourceDefinitionNames{Plural: v})))
-		})
-		t.Run(fmt.Sprintf("singular-%s", v), func(t *testing.T) {
-			require.True(t, namesConflict(existing, crdWithNames(apiextensionsv1.CustomResourceDefinitionNames{Singular: v})))
-		})
-		t.Run(fmt.Sprintf("shortnames-%s", v), func(t *testing.T) {
-			require.True(t, namesConflict(existing, crdWithNames(apiextensionsv1.CustomResourceDefinitionNames{ShortNames: []string{v}})))
-		})
+	scenarios := []struct {
+		name         string
+		existingCrd  *apiextensionsv1.CustomResourceDefinition
+		newCrd       *apiextensionsv1.CustomResourceDefinition
+		wantConflict bool
+	}{
+		{
+			name:         "same group, plural conflict",
+			existingCrd:  existingCRDFn("acme.dev", "a", "", "", "", ""),
+			newCrd:       newCRDFn("acme.dev", "a", "", "", "", ""),
+			wantConflict: true,
+		},
+
+		{
+			name:         "same group, singular conflict",
+			existingCrd:  existingCRDFn("acme.dev", "", "b", "", "", ""),
+			newCrd:       newCRDFn("acme.dev", "", "b", "", "", ""),
+			wantConflict: true,
+		},
+
+		{
+			name:         "same group, shortnames conflict",
+			existingCrd:  existingCRDFn("acme.dev", "", "", "c", "", ""),
+			newCrd:       newCRDFn("acme.dev", "", "", "c", "", ""),
+			wantConflict: true,
+		},
+
+		{
+			name:         "same group, kind conflict",
+			existingCrd:  existingCRDFn("acme.dev", "", "", "", "d", ""),
+			newCrd:       newCRDFn("acme.dev", "", "", "", "d", ""),
+			wantConflict: true,
+		},
+
+		{
+			name:         "same group, listKind conflict",
+			existingCrd:  existingCRDFn("acme.dev", "", "", "", "", "e"),
+			newCrd:       newCRDFn("acme.dev", "", "", "", "", "e"),
+			wantConflict: true,
+		},
+
+		{
+			name:        "different group, no plural conflict",
+			existingCrd: existingCRDFn("acme.dev", "a", "", "", "", ""),
+			newCrd:      newCRDFn("new.acme.dev", "a", "", "", "", ""),
+		},
+
+		{
+			name:        "different group, no singular conflict",
+			existingCrd: existingCRDFn("acme.dev", "", "b", "", "", ""),
+			newCrd:      newCRDFn("new.acme.dev", "", "b", "", "", ""),
+		},
+
+		{
+			name:        "different group, no shortnames conflict",
+			existingCrd: existingCRDFn("acme.dev", "", "", "c", "", ""),
+			newCrd:      newCRDFn("new.acme.dev", "", "", "c", "", ""),
+		},
+
+		{
+			name:        "different group, no kind conflict",
+			existingCrd: existingCRDFn("acme.dev", "", "", "", "d", ""),
+			newCrd:      newCRDFn("new.acme.dev", "", "", "", "d", ""),
+		},
+
+		{
+			name:        "different group, no listKind conflict",
+			existingCrd: existingCRDFn("acme.dev", "", "", "", "", "e"),
+			newCrd:      newCRDFn("new.acme.dev", "", "", "", "", "e"),
+		},
 	}
 
-	kinds := []string{"e", "f"}
-	for _, v := range kinds {
-		t.Run(fmt.Sprintf("kind-%s", v), func(t *testing.T) {
-			require.True(t, namesConflict(existing, crdWithNames(apiextensionsv1.CustomResourceDefinitionNames{Kind: v})))
-		})
-		t.Run(fmt.Sprintf("listkind-%s", v), func(t *testing.T) {
-			require.True(t, namesConflict(existing, crdWithNames(apiextensionsv1.CustomResourceDefinitionNames{ListKind: v})))
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			actualConflict, _ := namesConflict(scenario.existingCrd, scenario.newCrd)
+			if actualConflict != scenario.wantConflict {
+				t.Fatal("didn't expect to hit name conflict")
+			}
 		})
 	}
 }

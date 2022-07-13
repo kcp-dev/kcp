@@ -18,6 +18,7 @@ package apibinding
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -27,6 +28,13 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
+
+// byUID implements sort.Interface based on the UID field of CustomResourceDefinition
+type byUID []*apiextensionsv1.CustomResourceDefinition
+
+func (u byUID) Len() int           { return len(u) }
+func (u byUID) Less(i, j int) bool { return u[i].UID < u[j].UID }
+func (u byUID) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
 
 type conflictChecker struct {
 	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
@@ -89,6 +97,7 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 		}
 	}
 
+	sort.Sort(byUID(ncc.boundCRDs))
 	return nil
 }
 
@@ -98,9 +107,9 @@ func (ncc *conflictChecker) checkForConflicts(crd *apiextensionsv1.CustomResourc
 	}
 
 	for _, boundCRD := range ncc.boundCRDs {
-		if namesConflict(boundCRD, crd) {
+		if foundConflict, details := namesConflict(boundCRD, crd); foundConflict {
 			conflict := ncc.crdToBinding[boundCRD.Name]
-			return fmt.Errorf("naming conflict with APIBinding %s", conflict.Name)
+			return fmt.Errorf("naming conflict with a bound API %s, %s", conflict.Name, details)
 		}
 	}
 
@@ -123,23 +132,26 @@ func (ncc *conflictChecker) gvrConflict(crd *apiextensionsv1.CustomResourceDefin
 	return nil
 }
 
-func namesConflict(existing, incoming *apiextensionsv1.CustomResourceDefinition) bool {
+func namesConflict(existing, incoming *apiextensionsv1.CustomResourceDefinition) (bool, string) {
+	if existing.Spec.Group != incoming.Spec.Group {
+		return false, ""
+	}
 	existingNames := sets.NewString()
 	existingNames.Insert(existing.Status.AcceptedNames.Plural)
 	existingNames.Insert(existing.Status.AcceptedNames.Singular)
 	existingNames.Insert(existing.Status.AcceptedNames.ShortNames...)
 
 	if existingNames.Has(incoming.Spec.Names.Plural) {
-		return true
+		return true, fmt.Sprintf("spec.names.plural=%v is forbidden", incoming.Spec.Names.Plural)
 	}
 
 	if existingNames.Has(incoming.Spec.Names.Singular) {
-		return true
+		return true, fmt.Sprintf("spec.names.singular=%v is forbidden", incoming.Spec.Names.Singular)
 	}
 
 	for _, shortName := range incoming.Spec.Names.ShortNames {
 		if existingNames.Has(shortName) {
-			return true
+			return true, fmt.Sprintf("spec.names.shortNames=%v is forbidden", incoming.Spec.Names.ShortNames)
 		}
 	}
 
@@ -148,12 +160,12 @@ func namesConflict(existing, incoming *apiextensionsv1.CustomResourceDefinition)
 	existingKinds.Insert(existing.Status.AcceptedNames.ListKind)
 
 	if existingKinds.Has(incoming.Spec.Names.Kind) {
-		return true
+		return true, fmt.Sprintf("spec.names.kind=%v is forbidden", incoming.Spec.Names.Kind)
 	}
 
 	if existingKinds.Has(incoming.Spec.Names.ListKind) {
-		return true
+		return true, fmt.Sprintf("spec.names.listKind=%v is forbidden", incoming.Spec.Names.ListKind)
 	}
 
-	return false
+	return false, ""
 }
