@@ -292,6 +292,22 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Logf("bind cowboys from %v to consumer workspace %v", serviceProviderWorkspace, consumerWorkspace)
 	bindConsumerToProviderWithPermissionClaims(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg, identityHash)
 
+	framework.Eventually(t, func() (success bool, reason string) {
+		//Get the binding and make sure that observed permission claims are all set.
+		binding, err := kcpClients.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys", metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		for _, claim := range binding.Status.ObservedAcceptedPermissionClaims {
+			if claim.IdentityHash == identityHash {
+				return true, "found observed accepted claim for identity"
+			}
+		}
+		return false, "unable to find observed accepted claim"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to find observed accepted permission claim for identityHash")
+
 	t.Logf("create cowboy in consumer %v", consumerWorkspace)
 	createCowboyInConsumer(ctx, t, consumerWorkspace, wildwestClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClients, consumerWorkspace, "wild.wild.west", "in-vw")
