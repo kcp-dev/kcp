@@ -66,7 +66,9 @@ func NewController(
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
+	rootApiExportInformer apisinformers.APIExportInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
+	rootApiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
 	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -100,12 +102,20 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			return apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			export, err := apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			if errors.IsNotFound(err) && rootApiExportInformer != nil {
+				return rootApiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			}
+			return export, err
 		},
 		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			return apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			schema, err := apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			if errors.IsNotFound(err) && rootApiResourceSchemaInformer != nil {
+				return rootApiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			}
+			return schema, err
 		},
 		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
 
@@ -117,6 +127,13 @@ func NewController(
 		},
 		crdIndexer:        crdInformer.Informer().GetIndexer(),
 		deletedCRDTracker: newLockedStringSet(),
+	}
+
+	if rootApiExportInformer != nil {
+		c.rootApiExportsIndexer = rootApiExportInformer.Informer().GetIndexer()
+	}
+	if rootApiResourceSchemaInformer != nil {
+		c.rootApiResourceSchemaIndexer = rootApiResourceSchemaInformer.Informer().GetIndexer()
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -171,17 +188,39 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
 	})
+	if rootApiResourceSchemaInformer != nil {
+		rootApiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+			UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+			DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+		})
+	}
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
 	})
+	if rootApiExportInformer != nil {
+		rootApiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+			UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
+			DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+		})
+	}
 
 	if err := c.apiExportsIndexer.AddIndexers(cache.Indexers{
 		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
 	}); err != nil {
 		return nil, fmt.Errorf("error add CRD indexes: %w", err)
+	}
+
+	if c.rootApiExportsIndexer != nil {
+		if err := c.rootApiExportsIndexer.AddIndexers(cache.Indexers{
+			indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
+		}); err != nil {
+			return nil, fmt.Errorf("error add CRD indexes: %w", err)
+		}
 	}
 
 	return c, nil
@@ -202,11 +241,13 @@ type controller struct {
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	apiBindingsIndexer cache.Indexer
 
-	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
-	apiExportsIndexer cache.Indexer
+	getAPIExport          func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	apiExportsIndexer     cache.Indexer
+	rootApiExportsIndexer cache.Indexer
 
-	getAPIResourceSchema     func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
-	apiResourceSchemaIndexer cache.Indexer
+	getAPIResourceSchema         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	apiResourceSchemaIndexer     cache.Indexer
+	rootApiResourceSchemaIndexer cache.Indexer
 
 	createCRD  func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
 	getCRD     func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
@@ -283,8 +324,16 @@ func (c *controller) enqueueAPIResourceSchema(obj interface{}, logSuffix string)
 
 	apiExports, err := c.apiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
 	if err != nil {
-		runtime.HandleError(err)
-		return
+		if c.rootApiExportsIndexer != nil {
+			apiExports, err = c.rootApiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
+			if err != nil {
+				runtime.HandleError(err)
+				return
+			}
+		} else {
+			runtime.HandleError(err)
+			return
+		}
 	}
 
 	for _, obj := range apiExports {
