@@ -49,6 +49,7 @@ import (
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -67,6 +68,10 @@ import (
 )
 
 const resyncPeriod = 10 * time.Hour
+
+// systemShardCluster is the name of a logical cluster on every shard (including the root
+// shard) that holds essential system resources.
+var systemShardCluster = logicalcluster.New("system:shard")
 
 // Server manages the configuration and kcp api-server. It allows callers to easily use kcp
 // as a library rather than as a single binary. Using its constructor function, you can easily
@@ -164,10 +169,10 @@ func (s *Server) Run(ctx context.Context) error {
 	// The identities are not known before we can get them from the APIExports via the loopback client or RootShardKubeconfigFile, hence we postpone
 	// this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
 	// The informers here are not  used before the informers are actually started (i.e. no race).
-	nonIdentityRootKcpClusterConfig := genericConfig.LoopbackClientConfig
+
+	resolveRootIdentitiesFn := func(ctx context.Context) error { return nil }
 	if len(s.options.Extra.RootShardKubeconfigFile) > 0 {
-		var err error
-		nonIdentityRootKcpClusterConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: s.options.Extra.RootShardKubeconfigFile}, nil).ClientConfig()
+		nonIdentityRootKcpClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: s.options.Extra.RootShardKubeconfigFile}, nil).ClientConfig()
 		if err != nil {
 			return fmt.Errorf("failed to load root kcp kubeconfig from: %s, err: %w", s.options.Extra.RootShardKubeconfigFile, err)
 		}
@@ -179,12 +184,30 @@ func (s *Server) Run(ctx context.Context) error {
 		if len(nonIdentityRootKcpServerURL.Path) > 0 {
 			nonIdentityRootKcpClusterConfig.Host = nonIdentityRootKcpServerURL.Host
 		}
+
+		nonIdentityRootKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityRootKcpClusterConfig) // can only used for wildcard requests of apis.kcp.dev
+		if err != nil {
+			return err
+		}
+		rootIdentityConfig, resolveRootIdentities := boostrap.NewConfigWithWildcardIdentities(nonIdentityRootKcpClusterConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+		rootKcpClusterClient, err := kcpclient.NewClusterForConfig(rootIdentityConfig) // this is now generic to be used for all kcp API groups
+		if err != nil {
+			return err
+		}
+		resolveRootIdentitiesFn = resolveRootIdentities
+		rootKcpClient := rootKcpClusterClient.Cluster(logicalcluster.Wildcard)
+		s.rootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(
+			rootKcpClient,
+			resyncPeriod,
+			kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
+			kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+		)
 	}
-	nonIdentityRootKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityRootKcpClusterConfig) // can only used for wildcard requests of apis.kcp.dev
+	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
 	if err != nil {
 		return err
 	}
-	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(genericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(genericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
 		return err
@@ -430,16 +453,23 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Finished starting APIExport and APIBinding informers")
 
 		// bootstrap root workspace phase 0, no APIBinding resources yet
-		if err := configrootphase0.Bootstrap(goContext(ctx),
-			kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-		); err != nil {
+		if s.options.Extra.ShardName == tenancyv1alpha1.RootCluster.String() {
+			if err := configrootphase0.Bootstrap(goContext(ctx),
+				kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+				dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+			); err != nil {
+				// nolint:nilerr
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+			klog.Infof("Bootstrapped root workspace phase 0")
+		}
+
+		if err := configshard.Bootstrap(goContext(ctx), kcpClusterClient.Cluster(systemShardCluster)); err != nil {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-
-		klog.Infof("Bootstrapped root workspace phase 0")
+		klog.Infof("Bootstrapped shard workspace")
 
 		klog.Infof("Getting kcp APIExport identities")
 
@@ -454,14 +484,31 @@ func (s *Server) Run(ctx context.Context) error {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
+		if err := wait.PollImmediateInfiniteWithContext(goContext(ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := resolveRootIdentitiesFn(ctx); err != nil {
+				klog.V(3).Infof("failed to resolve root identities, keeping trying: %v", err)
+				return false, nil
+			}
+			return true, nil
+		}); err != nil {
+			klog.Errorf("failed to get or create root identities: %v", err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
 
 		klog.Infof("Finished getting kcp APIExport identities")
 
 		s.kcpSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
+		if s.rootShardKcpSharedInformerFactory != nil {
+			s.rootShardKcpSharedInformerFactory.Start(ctx.StopCh)
+		}
 
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		if s.rootShardKcpSharedInformerFactory != nil {
+			s.rootShardKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		}
 
 		select {
 		case <-ctx.StopCh:
@@ -477,32 +524,34 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Synced all informers. Ready to start controllers")
 		close(s.syncedCh)
 
-		klog.Infof("Starting bootstrapping root workspace phase 1")
-		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
-		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-			s.options.Extra.ShardName,
-			clientcmdapi.Config{
-				Clusters: map[string]*clientcmdapi.Cluster{
-					// cross-cluster is the virtual cluster running by default
-					"shard": {
-						Server:                   "https://" + server.ExternalAddress,
-						CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
+		if s.options.Extra.ShardName == tenancyv1alpha1.RootCluster.String() {
+			klog.Infof("Starting bootstrapping root workspace phase 1")
+			servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
+			if err := configroot.Bootstrap(goContext(ctx),
+				apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+				dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.options.Extra.ShardName,
+				clientcmdapi.Config{
+					Clusters: map[string]*clientcmdapi.Cluster{
+						// cross-cluster is the virtual cluster running by default
+						"shard": {
+							Server:                   "https://" + server.ExternalAddress,
+							CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
+						},
 					},
+					Contexts: map[string]*clientcmdapi.Context{
+						"shard": {Cluster: "shard"},
+					},
+					CurrentContext: "shard",
 				},
-				Contexts: map[string]*clientcmdapi.Context{
-					"shard": {Cluster: "shard"},
-				},
-				CurrentContext: "shard",
-			},
-			logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix).Base(),
-			s.options.HomeWorkspaces.HomeCreatorGroups,
-		); err != nil {
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
+				logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix).Base(),
+				s.options.HomeWorkspaces.HomeCreatorGroups,
+			); err != nil {
+				// nolint:nilerr
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+			klog.Infof("Finished bootstrapping root workspace phase 1")
 		}
-		klog.Infof("Finished bootstrapping root workspace phase 1")
 
 		return nil
 	})
