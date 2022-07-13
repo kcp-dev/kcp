@@ -19,6 +19,7 @@ package clusterworkspacetypeexists
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -89,20 +91,26 @@ func TestAdmit(t *testing.T) {
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				{
 					ObjectMeta: metav1.ObjectMeta{
+						Name:        "other",
+						ClusterName: "root:org",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						Initializer: true,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root:org",
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
-							"root:org:Foo",
-							"root:org:Other",
+					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+						Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+							With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{
+								Name: "Other",
+								Path: "root:org",
+							}},
 						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
+						Initializer: true,
 					},
 				},
 			},
@@ -149,62 +157,11 @@ func TestAdmit(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"root:org:Foo", "root:org:Other"},
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"root:org:Other", "root:org:Foo"},
 					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-		},
-		{
-			name: "forbids when type does not have extensions resolved",
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "foo",
-						ClusterName: "root:org",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   tenancyv1alpha1.ClusterWorkspaceTypeExtensionsResolved,
-								Status: corev1.ConditionFalse,
-							},
-						},
-					},
-				},
-			},
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: "Foo",
-						Path: "root:org",
-					},
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
-				},
-			},
-				&tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "Foo",
-							Path: "root:org",
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-						Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
-					},
-				}),
-			wantErr: true,
 		},
 		{
 			name: "does not add initializer during transition to initializing when type has none",
@@ -213,14 +170,6 @@ func TestAdmit(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root:org",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
 					},
 				},
 			},
@@ -497,10 +446,16 @@ func TestAdmit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			typeLister := fakeClusterWorkspaceTypeLister(tt.types)
 			o := &clusterWorkspaceTypeExists{
 				Handler:         admission.NewHandler(admission.Create, admission.Update),
-				typeLister:      fakeClusterWorkspaceTypeLister(tt.types),
+				typeLister:      typeLister,
 				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
+				transitiveTypeResolver: transitiveTypeResolver{
+					getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+						return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+					},
+				},
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org:ws")})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
@@ -548,25 +503,15 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:universal").ClusterWorkspaceType,
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "parent",
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Foo", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -576,26 +521,16 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Parent", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
 			},
 			attr: createAttr(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:        "test",
+					ClusterName: "root:org",
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -629,20 +564,6 @@ func TestValidate(t *testing.T) {
 						Name:        "parent",
 						ClusterName: "root:org",
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -650,19 +571,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Parent", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -704,19 +614,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Foo", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -724,20 +623,6 @@ func TestValidate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root:org",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
 					},
 				},
 			},
@@ -772,25 +657,15 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:org:fooalias").ClusterWorkspaceType,
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "parent",
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "FooAlias", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -800,18 +675,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-							{Path: "root:org", Name: "FooAlias"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
+						Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+							With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "FooAlias", Path: "root:org"}},
 						},
 					},
 				},
@@ -847,24 +712,15 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:org:parentalias").ClusterWorkspaceType,
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "parent",
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-							{Path: "root:org", Name: "ParentAlias"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
+						Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
+							With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "ParentAlias", Path: "root:org"}},
 						},
 					},
 				},
@@ -874,19 +730,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "ParentAlias", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -909,24 +754,11 @@ func TestValidate(t *testing.T) {
 			path:       logicalcluster.New("root"),
 			workspaces: []*tenancyv1alpha1.ClusterWorkspace{},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:universal").ClusterWorkspaceType,
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
 					},
 				},
 			},
@@ -983,19 +815,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Foo", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -1003,17 +824,6 @@ func TestValidate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root:bigcorp",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:bigcorp", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
 					},
 				},
 			},
@@ -1053,36 +863,11 @@ func TestValidate(t *testing.T) {
 						Name:        "parent",
 						ClusterName: "root:org",
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root:org",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
 					},
 				},
 			},
@@ -1122,36 +907,11 @@ func TestValidate(t *testing.T) {
 						Name:        "parent",
 						ClusterName: "root:org",
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root:org",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
 					},
 				},
 			},
@@ -1209,19 +969,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Foo", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -1229,17 +978,6 @@ func TestValidate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						ClusterName: "root:org",
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
 					},
 				},
 			},
@@ -1281,19 +1019,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Foo", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -1342,19 +1069,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Foo", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -1364,19 +1080,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializer:    true,
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
+						Initializer: true,
 					},
 				},
 			},
@@ -1435,19 +1139,8 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						AllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+						LimitAllowedChildren: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
 							Types: []tenancyv1alpha1.ClusterWorkspaceTypeReference{{Name: "Foo", Path: "root:org"}},
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Parent"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
 						},
 					},
 				},
@@ -1457,19 +1150,7 @@ func TestValidate(t *testing.T) {
 						ClusterName: "root:org",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
-						Initializer:    true,
-						AllowedParents: &tenancyv1alpha1.ClusterWorkspaceTypeSelector{Any: true},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
-						TypeAliases: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							{Path: "root:org", Name: "Foo"},
-						},
-						Conditions: []conditionsv1alpha1.Condition{
-							{
-								Type:   conditionsv1alpha1.ReadyCondition,
-								Status: corev1.ConditionTrue,
-							},
-						},
+						Initializer: true,
 					},
 				},
 			},
@@ -1531,15 +1212,21 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			typeLister := fakeClusterWorkspaceTypeLister(tt.types)
 			o := &clusterWorkspaceTypeExists{
 				Handler:         admission.NewHandler(admission.Create, admission.Update),
-				typeLister:      fakeClusterWorkspaceTypeLister(tt.types),
+				typeLister:      typeLister,
 				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,
 					}, nil
+				},
+				transitiveTypeResolver: transitiveTypeResolver{
+					getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+						return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+					},
 				},
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
@@ -1603,4 +1290,270 @@ type fakeAuthorizer struct {
 
 func (a *fakeAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	return a.authorized, "reason", a.err
+}
+
+func TestTransitiveTypeResolverResolve(t *testing.T) {
+	tests := []struct {
+		name    string
+		types   map[string]*tenancyv1alpha1.ClusterWorkspaceType
+		input   *tenancyv1alpha1.ClusterWorkspaceType
+		want    sets.String
+		wantErr bool
+	}{
+		{
+			name:  "no other types",
+			input: newType("root:org:ws").ClusterWorkspaceType,
+			want:  sets.NewString("root:org:ws"),
+		},
+		{
+			name:    "error on self-reference",
+			input:   newType("root:org:ws").extending("root:org:ws").ClusterWorkspaceType,
+			wantErr: true,
+		},
+		{
+			name: "extending types",
+			types: map[string]*tenancyv1alpha1.ClusterWorkspaceType{
+				"root:universal":    newType("root:universal").ClusterWorkspaceType,
+				"root:organization": newType("root:organization").ClusterWorkspaceType,
+			},
+			input: newType("root:org:type").extending("root:Universal").extending("root:Organization").ClusterWorkspaceType,
+			want:  sets.NewString("root:universal", "root:organization", "root:org:type"),
+		},
+		{
+			name:    "missing types",
+			input:   newType("root:org:type").extending("root:Universal").extending("root:Organization").ClusterWorkspaceType,
+			want:    sets.NewString("root:Universal", "root:organization", "root:org:Type"),
+			wantErr: true,
+		},
+		{
+			name: "extending types transitively",
+			types: map[string]*tenancyv1alpha1.ClusterWorkspaceType{
+				"root:universal":    newType("root:universal").ClusterWorkspaceType,
+				"root:organization": newType("root:organization").extending("root:Universal").ClusterWorkspaceType,
+			},
+			input: newType("root:org:type").extending("root:Organization").ClusterWorkspaceType,
+			want:  sets.NewString("root:universal", "root:organization", "root:org:type"),
+		},
+		{
+			name: "extending types transitively, one missing",
+			types: map[string]*tenancyv1alpha1.ClusterWorkspaceType{
+				"root:organization": newType("root:Organization").extending("root:Universal").ClusterWorkspaceType,
+			},
+			input:   newType("root:org:type").extending("root:organization").ClusterWorkspaceType,
+			want:    sets.NewString("root:universal", "root:organization", "root:org:type"),
+			wantErr: true,
+		},
+		{
+			name: "cycle",
+			types: map[string]*tenancyv1alpha1.ClusterWorkspaceType{
+				"root:a": newType("root:a").extending("root:B").ClusterWorkspaceType,
+				"root:b": newType("root:b").extending("root:C").ClusterWorkspaceType,
+				"root:c": newType("root:c").extending("root:A").ClusterWorkspaceType,
+			},
+			input:   newType("root:org:Type").extending("root:A").ClusterWorkspaceType,
+			want:    sets.NewString("root:universal", "root:organization", "root:org:type"),
+			wantErr: true,
+		},
+		{
+			name: "cycle starting at input",
+			types: map[string]*tenancyv1alpha1.ClusterWorkspaceType{
+				"root:b": newType("root:b").extending("root:C").ClusterWorkspaceType,
+				"root:c": newType("root:c").extending("root:A").ClusterWorkspaceType,
+			},
+			input:   newType("root:org:a").extending("root:B").ClusterWorkspaceType,
+			want:    sets.NewString("root:universal", "root:organization", "root:org:type"),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &transitiveTypeResolver{
+				getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+					if t, found := tt.types[cluster.Join(name).String()]; found {
+						return t, nil
+					}
+					return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetypes"), name)
+				},
+			}
+			gotTypes, err := r.Resolve(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				got := sets.NewString()
+				for _, t := range gotTypes {
+					got.Insert(logicalcluster.From(t).Join(t.Name).String())
+				}
+				if !got.Equal(tt.want) {
+					t.Errorf("Missing: %s\nUnexpected: %s", tt.want.Difference(got).List(), got.Difference(tt.want).List())
+				}
+			}
+		})
+	}
+}
+
+func TestValidateAllowedParents(t *testing.T) {
+	tests := []struct {
+		name          string
+		parentAliases []*tenancyv1alpha1.ClusterWorkspaceType
+		childAliases  []*tenancyv1alpha1.ClusterWorkspaceType
+		parentType    string
+		childType     string
+		wantErr       string
+	}{
+		{
+			name:       "no child",
+			childType:  "",
+			parentType: "",
+			wantErr:    "",
+		},
+		{
+			name:       "no parents",
+			childType:  "root:A",
+			parentType: "root:C",
+			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").allowingParent("root:B").ClusterWorkspaceType,
+			},
+			wantErr: "workspace type root:A only allows [root:B] parent workspaces, but parent type root:C only implements []",
+		},
+		{
+			name:       "no parents, any allowed parent",
+			childType:  "root:A",
+			parentType: "root:B",
+			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").ClusterWorkspaceType,
+			},
+		},
+		{
+			name:       "all parents allowed",
+			childType:  "root:A",
+			parentType: "root:A",
+			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").ClusterWorkspaceType,
+				newType("root:b").ClusterWorkspaceType,
+			},
+			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").allowingParent("root:A").allowingParent("root:D").ClusterWorkspaceType,
+				newType("root:b").allowingParent("root:B").allowingParent("root:D").ClusterWorkspaceType,
+				newType("root:c").allowingParent("root:A").allowingParent("root:B").allowingParent("root:D").ClusterWorkspaceType,
+			},
+			wantErr: "",
+		},
+		{
+			name:       "missing parent alias",
+			childType:  "root:A",
+			parentType: "root:A",
+			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").ClusterWorkspaceType,
+			},
+			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").allowingParent("root:A").allowingParent("root:D").ClusterWorkspaceType,
+				newType("root:b").allowingParent("root:B").allowingParent("root:D").ClusterWorkspaceType,
+			},
+			wantErr: "workspace type root:A extends root:B, which only allows [root:B root:D] parent workspaces, but parent type root:A only implements [root:A]",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateAllowedParents(tt.parentAliases, tt.childAliases, tt.parentType, tt.childType); (err != nil) != (tt.wantErr != "") {
+				t.Errorf("validateAllowedParents() error = %v, wantErr %q", err, tt.wantErr)
+			} else if tt.wantErr != "" {
+				require.Containsf(t, err.Error(), tt.wantErr, "expected error to contain %q, got %q", tt.wantErr, err)
+			}
+
+			// inverse child/parent inputs for validateAllowedChildren, fully symmetric
+			wantErr := strings.Replace(tt.wantErr, "parent", "child", -1)
+			childAliases := make([]*tenancyv1alpha1.ClusterWorkspaceType, len(tt.parentAliases))
+			for i, parent := range tt.parentAliases {
+				parent = parent.DeepCopy()
+				parent.Spec.LimitAllowedChildren, parent.Spec.LimitAllowedParents = parent.Spec.LimitAllowedParents, parent.Spec.LimitAllowedChildren
+				childAliases[i] = parent
+			}
+			parentAliases := make([]*tenancyv1alpha1.ClusterWorkspaceType, len(tt.childAliases))
+			for i, child := range tt.childAliases {
+				child := child.DeepCopy()
+				child.Spec.LimitAllowedChildren, child.Spec.LimitAllowedParents = child.Spec.LimitAllowedParents, child.Spec.LimitAllowedChildren
+				parentAliases[i] = child
+			}
+			parentType, childType := tt.childType, tt.parentType
+			if err := validateAllowedChildren(parentAliases, childAliases, parentType, childType); (err != nil) != (wantErr != "") {
+				t.Errorf("validateAllowedChildren() error = %v, wantErr %q", err, wantErr)
+			} else if tt.wantErr != "" {
+				require.Containsf(t, err.Error(), wantErr, "expected error to contain %q, got %q", wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateAllowedChildren(t *testing.T) {
+	tests := []struct {
+		name          string
+		parentAliases []*tenancyv1alpha1.ClusterWorkspaceType
+		childAliases  []*tenancyv1alpha1.ClusterWorkspaceType
+		parentType    string
+		childType     string
+		wantErr       string
+	}{
+		{
+			name:       "some type disallows children",
+			childType:  "root:A",
+			parentType: "root:A",
+			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").ClusterWorkspaceType,
+				newType("root:b").disallowingChildren().ClusterWorkspaceType,
+			},
+			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:a").allowingParent("root:A").allowingParent("root:D").ClusterWorkspaceType,
+				newType("root:b").allowingParent("root:B").allowingParent("root:D").ClusterWorkspaceType,
+				newType("root:c").allowingParent("root:A").allowingParent("root:B").allowingParent("root:D").ClusterWorkspaceType,
+			},
+			wantErr: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateAllowedParents(tt.parentAliases, tt.childAliases, tt.parentType, tt.childType); (err != nil) != (tt.wantErr != "") {
+				t.Errorf("validateAllowedParents() error = %v, wantErr %q", err, tt.wantErr)
+			} else if tt.wantErr != "" {
+				require.Containsf(t, err.Error(), tt.wantErr, "expected error to contain %q, got %q", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+type builder struct {
+	*tenancyv1alpha1.ClusterWorkspaceType
+}
+
+func newType(qualifiedName string) builder {
+	path, name := logicalcluster.New(qualifiedName).Split()
+	return builder{ClusterWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			ClusterName: path.String(),
+		},
+	}}
+}
+
+func (b builder) extending(qualifiedName string) builder {
+	path, name := logicalcluster.New(qualifiedName).Split()
+	b.Spec.Extend.With = append(b.Spec.Extend.With, tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: path.String(), Name: tenancyv1alpha1.ClusterWorkspaceTypeName(name)})
+	return b
+}
+
+func (b builder) allowingParent(qualifiedName string) builder {
+	path, name := logicalcluster.New(qualifiedName).Split()
+	if b.Spec.LimitAllowedParents == nil {
+		b.Spec.LimitAllowedParents = &tenancyv1alpha1.ClusterWorkspaceTypeSelector{}
+	}
+	b.Spec.LimitAllowedParents.Types = append(b.Spec.LimitAllowedParents.Types, tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: path.String(), Name: tenancyv1alpha1.ClusterWorkspaceTypeName(name)})
+	return b
+}
+
+func (b builder) disallowingChildren() builder {
+	b.ClusterWorkspaceType.Spec.LimitAllowedChildren = &tenancyv1alpha1.ClusterWorkspaceTypeSelector{
+		None: true,
+	}
+	return b
 }

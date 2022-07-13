@@ -2946,20 +2946,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeExtension(ref common.R
 							},
 						},
 					},
-					"without": {
-						SchemaProps: spec.SchemaProps{
-							Description: "without are ClusterWorkspaceTypes whose initializers are removed from the list computed for \"with\", and for whom the owning type does not become an alias. If a composite type in \"with\" has some part removed in \"without\", the composite type does not become an alias.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
-									},
-								},
-							},
-						},
-					},
 				},
 			},
 		},
@@ -3054,16 +3040,16 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSelector(ref common.Re
 				Description: "ClusterWorkspaceTypeSelector describes a set of types.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"any": {
+					"none": {
 						SchemaProps: spec.SchemaProps{
-							Description: "any matches all types if set.",
+							Description: "none means that no type matches.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"types": {
 						SchemaProps: spec.SchemaProps{
-							Description: "types is a list of ClusterWorkspaceTypes that match.\n\nBy default, no type matches. Use any to be permissive with matching types.",
+							Description: "types is a list of ClusterWorkspaceTypes that match. A workspace type extending another workspace type automatically is considered as that extended type as well (even transitively).\n\nAn empty list matches all types.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3098,7 +3084,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 					},
 					"extend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "extend allows this ClusterWorkspaceType to add functionality from other types. When some ClusterWorkspaceType `root:org:Alpha` lists another type `root:org:Beta` in spec.extend.with, the following occurs: - new ClusterWorkspaces of type `root:org:Alpha` get the initializers from both\n  types added, if they are enabled\n- any ClusterWorkspaceType that allows `root:org:Beta` as an allowed child or parent\n  type will implicitly allow `root:org:Alpha` as well\n\nThis field is immutable.",
+							Description: "extend is a list of other ClusterWorkspaceTypes whose initializers and allowedChildren and allowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending another ClusterWorkspaceType, this ClusterWorkspaceType will be considered as that other type in evaluation of allowedChildren and allowedParents constraints.\n\nA dependency cycle stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.\n\nA non-existing dependency stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension"),
 						},
@@ -3121,34 +3107,20 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 					},
 					"defaultChildWorkspaceType": {
 						SchemaProps: spec.SchemaProps{
-							Description: "defaultChildWorkspaceType is the ClusterWorkspaceType that will be used by default if another, nested ClusterWorkspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces.",
+							Description: "defaultChildWorkspaceType is the ClusterWorkspaceType that will be used by default if another, nested ClusterWorkspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another ClusterWorkspaceType does not inherit its defaultChildWorkspaceType.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
 						},
 					},
-					"allowedChildren": {
+					"limitAllowedChildren": {
 						SchemaProps: spec.SchemaProps{
-							Description: "allowedChildren is a set of ClusterWorkspaceTypes that can be created in a workspace of this type.\n\nBy default, no type is allowed. This means no other workspace can be nested within a workspace of the given type. Use allowedChildren.any=true to be permissive with child types.",
+							Description: "limitAllowedChildren specifies constraints for sub-workspaces created in workspaces of this type. These are in addition to child constraints of types this one extends.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"),
 						},
 					},
-					"allowedParents": {
+					"limitAllowedParents": {
 						SchemaProps: spec.SchemaProps{
-							Description: "allowedParents is a set of ClusterWorkspaceTypes that this type can be created in.\n\nBy default, no type is allowed. This means no other workspace can have a workspace of the given type nested inside it. Use allowedParents.any=true to be permissive with child types.",
+							Description: "limitAllowedParents specifies constraints for the parent workspace that workspaces of this type are created in. These are in addition to parent constraints of types this one extends.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"),
-						},
-					},
-					"allowedParentWorkspaceTypes": {
-						SchemaProps: spec.SchemaProps{
-							Description: "allowedParentWorkspaceTypes is a list of ClusterWorkspaceTypes that this type can be created in.\n\nBy default, no type is allowed. This means no other workspace can have a workspace of the given type nested inside it. Use allowAnyParentWorkspaceTypes to be permissive with parent types.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
-									},
-								},
-							},
 						},
 					},
 				},
@@ -3166,35 +3138,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.Refe
 				Description: "ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"initializers": {
-						SchemaProps: spec.SchemaProps{
-							Description: "initializers are the list of initializing controller references which need to be added to new ClusterWorkspaces of this type, resolved from the specified type compositions.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"typeAliases": {
-						SchemaProps: spec.SchemaProps{
-							Description: "typeAliases are other ClusterWorkspaceTypes for which this type is an alias. For example, if this type is `root:org:Alpha` and the `.status.typeAliases` list contains `root:org:Beta`, any parent or child restriction which allows `root:org:Beta` will implicitly also allow `root:org:Alpha` as it is an alias.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
-									},
-								},
-							},
-						},
-					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "conditions is a list of conditions that apply to the APIExport.",
@@ -3227,7 +3170,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 

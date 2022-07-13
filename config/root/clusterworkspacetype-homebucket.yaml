@@ -4,15 +4,18 @@ metadata:
   name: homebucket
 spec:
   initializer: true
-  allowedChildren:
+  defaultChildWorkspaceType:
+    name: Home
+    path: root
+  limitAllowedChildren:
     types:
-    - path: root
-      name: Homebucket
-    - path: root
-      name: Home
-  allowedParents:
+    - name: Homebucket
+      path: root
+    - name: Home
+      path: root
+  limitAllowedParents:
     types:
-    - path: root
-      name: Homebucket
-    - path: root
-      name: Homeroot
+    - name: Homebucket
+      path: root
+    - name: Homeroot
+      path: root
