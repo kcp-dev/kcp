@@ -176,10 +176,10 @@ type ClusterWorkspaceTypeSpec struct {
 	// +optional
 	Initializer bool `json:"initializer,omitempty"`
 
-	// extend is a list of other ClusterWorkspaceTypes whose initializers and allowedChildren
-	// and allowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending
+	// extend is a list of other ClusterWorkspaceTypes whose initializers and limitAllowedChildren
+	// and limitAllowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending
 	// another ClusterWorkspaceType, this ClusterWorkspaceType will be considered as that
-	// other type in evaluation of allowedChildren and allowedParents constraints.
+	// other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
 	//
 	// A dependency cycle stop this ClusterWorkspaceType from being admitted as the type
 	// of a ClusterWorkspace.
