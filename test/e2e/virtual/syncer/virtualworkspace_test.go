@@ -675,11 +675,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			virtualWorkspaceRawConfig := rawConfig.DeepCopy()
 			virtualWorkspaceRawConfig.Clusters["kubelike"] = rawConfig.Clusters["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Clusters["kubelike"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + kubelikeWorkspace.String() + "/kubelike"
-			virtualWorkspaceRawConfig.Contexts["kubelike"] = rawConfig.Contexts["system:admin"].DeepCopy()
+			virtualWorkspaceRawConfig.Contexts["kubelike"] = rawConfig.Contexts["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Contexts["kubelike"].Cluster = "kubelike"
 			virtualWorkspaceRawConfig.Clusters["wildwest"] = rawConfig.Clusters["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Clusters["wildwest"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + wildwestWorkspace.String() + "/" + wildwestSyncTargetName
-			virtualWorkspaceRawConfig.Contexts["wildwest"] = rawConfig.Contexts["system:admin"].DeepCopy()
+			virtualWorkspaceRawConfig.Contexts["wildwest"] = rawConfig.Contexts["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Contexts["wildwest"].Cluster = "wildwest"
 			kubelikeVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "kubelike", nil, nil).ClientConfig()
 			kubelikeVWConfig = rest.AddUserAgent(rest.CopyConfig(kubelikeVWConfig), t.Name())
