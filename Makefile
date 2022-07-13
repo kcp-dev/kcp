@@ -80,7 +80,7 @@ endif
 
 build: WHAT ?= ./cmd/...
 build: pre-build-checks ## Build the project
-	go build -ldflags="$(LDFLAGS)" -o bin $(WHAT)
+	go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
 .PHONY: build-all
