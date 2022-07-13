@@ -103,7 +103,7 @@ func NewController(
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 			export, err := apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
-			if errors.IsNotFound(err) && rootApiExportInformer != nil {
+			if err != nil && rootApiExportInformer != nil {
 				return rootApiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
 			}
 			return export, err
@@ -112,7 +112,7 @@ func NewController(
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			schema, err := apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
-			if errors.IsNotFound(err) && rootApiResourceSchemaInformer != nil {
+			if err != nil && rootApiResourceSchemaInformer != nil {
 				return rootApiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
 			}
 			return schema, err
@@ -323,7 +323,7 @@ func (c *controller) enqueueAPIResourceSchema(obj interface{}, logSuffix string)
 	}
 
 	apiExports, err := c.apiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
-	if err != nil {
+	if err != nil || (apiExports != nil && len(apiExports) == 0) {
 		if c.rootApiExportsIndexer != nil {
 			apiExports, err = c.rootApiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
 			if err != nil {

@@ -19,7 +19,11 @@ package watchcache
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
+	"github.com/kcp-dev/kcp/pkg/indexers"
+	"k8s.io/client-go/tools/clientcmd"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -43,6 +47,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -55,38 +60,114 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestMultiShardScheduling(t *testing.T) {
-	server := framework.SharedKcpServer(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	config := server.DefaultConfig(t)
-	nonIdentityKcpClusterClient, err := kcpclientset.NewClusterForConfig(config) // can only used for wildcard requests of apis.kcp.dev
+func TestKcpInformerMultiShard(t *testing.T) {
+	flag.Lookup("v").Value.Set("7")
+	ctx := context.TODO()
+	shardKubeconfigFile := `/Users/lszaszki/go/src/github.com/kcp-dev/kcp/.kcp-1/admin.kubeconfig`
+	shardkcpClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: shardKubeconfigFile}, nil).ClientConfig()
 	require.NoError(t, err)
 
-	// since wildcard request are only allowed against a shard
-	// create a cfg that points to the root shard and use it to create ddsif
-	rootConfig := framework.ShardConfig(t, nonIdentityKcpClusterClient, "root", config)
-	rootConfig.QPS = 100
-	rootConfig.Burst = 200
-
-	// resolve identities for system APIBindings
-	identityRootConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(rootConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
-	require.Eventually(t, func() bool {
-		if err := resolveIdentities(ctx); err != nil {
-			klog.Errorf("failed to resolve identities, keeping trying: %v", err)
-			return false
-		}
-		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	rootKcpClusterClient, err := kcpclientset.NewClusterForConfig(identityRootConfig)
+	shardRootKubeconfigFile := `/Users/lszaszki/go/src/github.com/kcp-dev/kcp/.kcp-0/admin.kubeconfig`
+	nonIdentityKcpClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: shardRootKubeconfigFile}, nil).ClientConfig()
 	require.NoError(t, err)
 
-	shards, err := rootKcpClusterClient.Cluster(logicalcluster.New("root")).TenancyV1alpha1().ClusterWorkspaceShards().List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	for _, shard := range shards.Items {
-		klog.Infof("discovered shard = %v", shard.Name)
+	// if the Host already points to some cluster just clear it up, the root cluster will be added explicitly.
+	nonIdentityRootKcpServerURL, err := url.Parse(nonIdentityKcpClusterConfig.Host)
+	if err != nil {
+		t.Errorf("unable to parse the root kcp server host to a URL struct, err: %v", err)
 	}
+	if len(nonIdentityRootKcpServerURL.Path) > 0 {
+		nonIdentityKcpClusterConfig.Host = fmt.Sprintf("%s://%s", nonIdentityRootKcpServerURL.Scheme, nonIdentityRootKcpServerURL.Host)
+	}
+
+	// if the Host already points to some cluster just clear it up, the root cluster will be added explicitly.
+	shardkcpClusterConfigServerURL, err := url.Parse(shardkcpClusterConfig.Host)
+	if err != nil {
+		t.Errorf("unable to parse the root kcp server host to a URL struct, err: %v", err)
+	}
+	if len(shardkcpClusterConfigServerURL.Path) > 0 {
+		shardkcpClusterConfig.Host = fmt.Sprintf("%s://%s", shardkcpClusterConfigServerURL.Scheme, shardkcpClusterConfigServerURL.Host)
+	}
+
+	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityKcpClusterConfig) // can only used for wildcard requests of apis.kcp.dev
+	require.NoError(t, err)
+	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(shardkcpClusterConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig) // this is now generic to be used for all kcp API groups
+	if err != nil {
+		t.Error(err)
+	}
+	kcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
+	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(
+		kcpClient,
+		resyncPeriod,
+		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
+		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+	)
+
+	if err := wait.PollImmediateInfiniteWithContext((ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+		if err := resolveIdentities(ctx); err != nil {
+			klog.Infof("failed to resolve identities, keeping trying: %v", err)
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		t.Errorf("failed to get or create identities: %v", err)
+	}
+
+	t.Logf("starting informers")
+	go kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().Run(ctx.Done())
+	t.Logf("waiting for informers")
+	if err := wait.PollImmediateInfiniteWithContext((ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+		return kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().HasSynced(), nil
+	}); err != nil {
+		t.Errorf("failed to sync ClusterWorkspaceShards() inf: %v", err)
+	}
+
+	t.Logf("starting root informers")
+	rootKcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
+	go rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().Run(ctx.Done())
+	t.Logf("waiting for root informers")
+	if err := wait.PollImmediateInfiniteWithContext((ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+		return rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().HasSynced(), nil
+	}); err != nil {
+		t.Errorf("failed to sync ClusterWorkspaceShards() for root inf: %v", err)
+	}
+
+	t.Logf("end")
+}
+
+func TestMultiShardScheduling(t *testing.T) {
+	flag.Lookup("v").Value.Set("7")
+	ctx := context.TODO()
+	shardKubeconfigFile := `/Users/lszaszki/go/src/github.com/kcp-dev/kcp/.kcp-1/admin.kubeconfig`
+	shardkcpClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: shardKubeconfigFile}, nil).ClientConfig()
+	require.NoError(t, err)
+
+	clusterClient, err := kcpclientset.NewForConfig(shardkcpClusterConfig)
+	require.NoError(t, err)
+
+	tmpl := &tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "e2e-org-",
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				Name: "Organization",
+				Path: "root",
+			},
+		},
+	}
+
+	var org *tenancyv1alpha1.ClusterWorkspace
+	require.Eventually(t, func() bool {
+		var err error
+		org, err = clusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), tmpl, metav1.CreateOptions{})
+		if err != nil {
+			t.Logf("error creating org workspace under %s: %v", tenancyv1alpha1.RootCluster, err)
+		}
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create org workspace under %s", tenancyv1alpha1.RootCluster)
+	t.Logf("creaed %v on a non-root shard", org.Name)
 }
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
