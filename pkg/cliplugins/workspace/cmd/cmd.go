@@ -111,7 +111,6 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 		},
 	}
 
-	var shortWorkspaceOutput bool
 	currentCmd := &cobra.Command{
 		Use:          "current [--short]",
 		Short:        "Print the current workspace. Same as 'kubectl ws .'.",
@@ -129,10 +128,9 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 			if len(args) != 0 {
 				return cmd.Help()
 			}
-			return kubeconfig.CurrentWorkspace(c.Context(), shortWorkspaceOutput)
+			return kubeconfig.CurrentWorkspace(c.Context())
 		},
 	}
-	currentCmd.Flags().BoolVar(&shortWorkspaceOutput, "short", shortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
 
 	listCmd := &cobra.Command{
 		Use:          "list",

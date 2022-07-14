@@ -242,6 +242,7 @@ func TestUse(t *testing.T) {
 		existingObjects map[logicalcluster.Name][]string
 		prettyNames     map[logicalcluster.Name]map[string]string
 		unready         map[logicalcluster.Name]map[string]bool // unready workspaces
+		short           bool
 
 		param string
 
@@ -323,6 +324,31 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace name, short output",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			short: true,
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{"root:foo:bar"},
 		},
 		{
 			name: "workspace name, no cluster URL",
@@ -765,8 +791,9 @@ func TestUse(t *testing.T) {
 			streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
 
 			kc := &KubeConfig{
-				startingConfig: tt.config.DeepCopy(),
-				currentContext: tt.config.CurrentContext,
+				startingConfig:       tt.config.DeepCopy(),
+				currentContext:       tt.config.CurrentContext,
+				shortWorkspaceOutput: tt.short,
 
 				clusterClient: fakeTenancyClient{
 					t:       t,

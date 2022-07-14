@@ -28,8 +28,9 @@ import (
 // Options provides options that will drive the update of the current context
 // on a user's KUBECONFIG based on actions done on KCP workspaces
 type Options struct {
-	KubectlOverrides *clientcmd.ConfigOverrides
-	Scope            string
+	KubectlOverrides     *clientcmd.ConfigOverrides
+	Scope                string
+	ShortWorkspaceOutput bool
 
 	genericclioptions.IOStreams
 }
@@ -63,6 +64,8 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().StringVar(&o.Scope, "scope", o.Scope, `The 'personal' scope shows only the workspaces you personally own, with the name you gave them at creation.
 	The 'all' scope returns all the workspaces you are allowed to see in the organization, with the disambiguated names they have inside the whole organization.`)
+
+	cmd.PersistentFlags().BoolVar(&o.ShortWorkspaceOutput, "short", o.ShortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
 }
 
 func (o *Options) Validate() error {
