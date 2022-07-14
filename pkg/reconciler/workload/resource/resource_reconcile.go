@@ -35,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 // reconcileResource is responsible for setting the cluster for a resource of
@@ -135,9 +136,25 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 	labelPatch = map[string]interface{}{}
 	for _, loc := range objLocations.Difference(nsLocations).List() {
 		// location was removed from namespace, but is still on the object
-		labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = nil
-		if _, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found {
-			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nil
+		var hasSyncerFinalizer, hasClusterFinalizer bool
+		// Check if there's still the syncer or the cluster finalizer.
+		for _, finalizer := range obj.GetFinalizers() {
+			if finalizer == shared.SyncerFinalizerNamePrefix+loc {
+				hasSyncerFinalizer = true
+			}
+		}
+		if val, exists := obj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+loc]; exists && val != "" {
+			hasClusterFinalizer = true
+		}
+		if hasSyncerFinalizer || hasClusterFinalizer {
+			if _, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; !found {
+				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = time.Now().Format(time.RFC3339)
+			}
+		} else {
+			if _, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found {
+				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nil
+				labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = nil
+			}
 		}
 	}
 	for _, loc := range nsLocations.Intersection(nsLocations).List() {
