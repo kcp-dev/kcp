@@ -116,7 +116,7 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 // from the `workspaces` virtual workspace `workspaces/kubeconfig` sub-resources,
 // and adds it (along with the Auth info that is currently used) to the Kubeconfig.
 // Then it make this new context the current context.
-func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
+func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error) {
 	// Store the currentContext content for later to set as previous context
 	currentContext, found := kc.startingConfig.Contexts[kc.currentContext]
 	if !found {
@@ -181,6 +181,14 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		u.Path = path.Join(u.Path, parentClusterName.Path())
 		newServerHost = u.String()
 
+	case "":
+		defer func() {
+			if err == nil {
+				_, err = fmt.Fprintf(kc.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
+			}
+		}()
+		fallthrough
+
 	case "~":
 		homeWorkspace, err := kc.clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
@@ -188,7 +196,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) error {
 		}
 		newServerHost = homeWorkspace.Status.URL
 
-	case "":
+	case ".":
 		return kc.CurrentWorkspace(ctx, false)
 
 	default:
