@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -78,7 +79,9 @@ func start(shardFlags []string) error {
 	defer cancelFn()
 
 	logFilePath := flag.Lookup("log-file-path").Value.String()
-	errCh, err := shard.Start(ctx, "kcp", ".kcp", logFilePath, shardFlags)
+	errCh, err := shard.Start(ctx, "kcp", ".kcp", logFilePath,
+		append(shardFlags, "--audit-log-path", filepath.Join(filepath.Dir(logFilePath), "audit.log")),
+	)
 	if err != nil {
 		return err
 	}

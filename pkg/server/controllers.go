@@ -124,7 +124,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		metadata,
 		discoverResourcesFn,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		time.Duration(30)*time.Second,
+		time.Duration(5)*time.Minute,
 		corev1.FinalizerKubernetes,
 	)
 

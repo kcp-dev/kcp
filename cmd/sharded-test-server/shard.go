@@ -41,13 +41,24 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
-	klog.Infof("Creating extra serving certs in .kcp with hostnames %v to be used by e2e webhooks", n, hostnames)
+	klog.Infof("Creating extra serving certs in .kcp with hostnames %v to be used by e2e webhooks", hostnames)
 	cert, err = servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
 	if err := cert.WriteCertConfigFile(".kcp/apiserver.crt", ".kcp/apiserver.key"); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
+	}
+
+	logDir := flag.Lookup("log-dir-path").Value.String()
+	if err != nil {
+		return nil, err
+	}
+	logFilePath := filepath.Join(fmt.Sprintf(".kcp-%d", n), "kcp.log")
+	auditFilePath := filepath.Join(fmt.Sprintf(".kcp-%d", n), "audit.log")
+	if logDir != "" {
+		logFilePath = filepath.Join(logDir, fmt.Sprintf("kcp-%d.log", n))
+		auditFilePath = filepath.Join(logDir, fmt.Sprintf("audit-%d.log", n))
 	}
 
 	if n > 0 {
@@ -64,19 +75,11 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 		"--requestheader-group-headers=X-Remote-Group",
 		"--service-account-key-file=.kcp/service-account.crt",
 		"--service-account-private-key-file=.kcp/service-account.key",
+		"--audit-log-path", auditFilePath,
 		fmt.Sprintf("--tls-cert-file=.kcp-%d/apiserver.crt", n),
 		fmt.Sprintf("--tls-private-key-file=.kcp-%d/apiserver.key", n),
 		fmt.Sprintf("--secure-port=%d", 6444+n),
 	)
-
-	logDir := flag.Lookup("log-dir-path").Value.String()
-	if err != nil {
-		return nil, err
-	}
-	logFilePath := filepath.Join(fmt.Sprintf(".kcp-%d", n), "kcp.log")
-	if logDir != "" {
-		logFilePath = filepath.Join(logDir, fmt.Sprintf("kcp-%d.log", n))
-	}
 
 	return shard.Start(ctx,
 		fmt.Sprintf("kcp-%d", n),  // name

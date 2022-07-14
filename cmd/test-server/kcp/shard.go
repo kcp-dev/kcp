@@ -18,6 +18,7 @@ package shard
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"net/http"
 	"os"
@@ -37,9 +38,13 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+//go:embed *.yaml
+var embeddedResources embed.FS
+
 // Start starts a kcp shard server. It returns with nil when it is ready, or
 // when the context is done.
 func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []string) (<-chan error, error) {
+	// setup color output
 	prefix := strings.ToUpper(name)
 	blue := color.New(color.BgBlue, color.FgHiWhite).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgBlue).SprintFunc()
@@ -52,8 +57,32 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		lineprefix.Color(color.New(color.FgHiWhite)),
 	)
 
+	// write audit policy
+	if err := os.MkdirAll(runtimeDir, 0755); err != nil {
+		return nil, err
+	}
+	bs, err := embeddedResources.ReadFile("audit-policy.yaml")
+	if err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filepath.Join(runtimeDir, "audit-policy.yaml"), bs, 0644); err != nil {
+		return nil, err
+	}
+
+	// setup command
 	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
 	commandLine = append(commandLine, args...)
+	commandLine = append(commandLine,
+		"--audit-log-maxsize", "1024",
+		"--audit-log-mode=batch",
+		"--audit-log-batch-max-wait=1s",
+		"--audit-log-batch-max-size=1000",
+		"--audit-log-batch-buffer-size=10000",
+		"--audit-log-batch-throttle-burst=15",
+		"--audit-log-batch-throttle-enable=true",
+		"--audit-log-batch-throttle-qps=10",
+		"--audit-policy-file", filepath.Join(runtimeDir, "audit-policy.yaml"),
+	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) // nolint: errcheck
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
