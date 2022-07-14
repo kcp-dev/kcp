@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -124,15 +123,14 @@ type ClusterWorkspaceTypeReference struct {
 
 	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
 	//
-	// +required
-	// +kubebuilder:validation:Required
+	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path"`
 }
 
 // ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
 //
-// +kubebuilder:validation:Pattern=`^[A-Z][a-zA-Z0-9]+$`
+// +kubebuilder:validation:Pattern=`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?`
 type ClusterWorkspaceTypeName string
 
 func (r ClusterWorkspaceTypeReference) String() string {
@@ -178,10 +176,10 @@ type ClusterWorkspaceTypeSpec struct {
 	// +optional
 	Initializer bool `json:"initializer,omitempty"`
 
-	// extend is a list of other ClusterWorkspaceTypes whose initializers and allowedChildren
-	// and allowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending
+	// extend is a list of other ClusterWorkspaceTypes whose initializers and limitAllowedChildren
+	// and limitAllowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending
 	// another ClusterWorkspaceType, this ClusterWorkspaceType will be considered as that
-	// other type in evaluation of allowedChildren and allowedParents constraints.
+	// other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
 	//
 	// A dependency cycle stop this ClusterWorkspaceType from being admitted as the type
 	// of a ClusterWorkspace.
@@ -288,13 +286,13 @@ func (in *ClusterWorkspaceType) SetConditions(conditions conditionsv1alpha1.Cond
 // ObjectName converts the proper name of a type that users interact with to the
 // metadata.name of the ClusterWorkspaceType object.
 func ObjectName(typeName ClusterWorkspaceTypeName) string {
-	return strings.ToLower(string(typeName))
+	return string(typeName)
 }
 
 // TypeName converts the metadata.name of a ClusterWorkspaceType to the proper
 // name of a type, as users interact with it.
 func TypeName(objectName string) ClusterWorkspaceTypeName {
-	return ClusterWorkspaceTypeName(strings.ToUpper(string(objectName[0])) + objectName[1:])
+	return ClusterWorkspaceTypeName(objectName)
 }
 
 // ReferenceFor returns a reference to the type.
@@ -318,7 +316,7 @@ type ClusterWorkspaceTypeList struct {
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
-// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[A-Z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$"
+// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$"
 type ClusterWorkspaceInitializer string
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
@@ -528,7 +526,7 @@ const (
 
 const (
 	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceTypeName = ClusterWorkspaceTypeName("Root")
+	RootWorkspaceTypeName = ClusterWorkspaceTypeName("root")
 )
 
 var (
@@ -545,12 +543,9 @@ var (
 			ClusterName: RootWorkspaceTypeReference.Path,
 		},
 		Spec: ClusterWorkspaceTypeSpec{
-			Extend: ClusterWorkspaceTypeExtension{
-				With: []ClusterWorkspaceTypeReference{
-					{Path: "root", Name: "Universal"},
-				},
+			LimitAllowedParents: &ClusterWorkspaceTypeSelector{
+				None: true,
 			},
 		},
-		Status: ClusterWorkspaceTypeStatus{},
 	}
 )

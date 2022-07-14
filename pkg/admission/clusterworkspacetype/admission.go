@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
@@ -52,6 +54,11 @@ type clusterWorkspaceType struct {
 var _ = admission.ValidationInterface(&clusterWorkspaceType{})
 
 func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
+	if err != nil {
+		return apierrors.NewInternalError(err)
+	}
+
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspacetypes") {
 		return nil
 	}
@@ -63,6 +70,30 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 	cwt := &tenancyv1alpha1.ClusterWorkspaceType{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cwt); err != nil {
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
+	}
+
+	if cwt.Name == "root" && clusterName != tenancyv1alpha1.RootCluster {
+		return admission.NewForbidden(a, fmt.Errorf("root workspace type can only be created in root cluster"))
+	}
+
+	if cwt.Spec.DefaultChildWorkspaceType != nil && cwt.Spec.DefaultChildWorkspaceType.Path == "" {
+		return admission.NewForbidden(a, fmt.Errorf(".spec.defaultChildWorkspaceType.path must be set"))
+	}
+
+	if cwt.Spec.LimitAllowedChildren != nil {
+		for i, t := range cwt.Spec.LimitAllowedChildren.Types {
+			if t.Path == "" {
+				return admission.NewForbidden(a, fmt.Errorf(".spec.limitAllowedChildren.types[%d].path must be set", i))
+			}
+		}
+	}
+
+	if cwt.Spec.LimitAllowedParents != nil {
+		for i, t := range cwt.Spec.LimitAllowedParents.Types {
+			if t.Path == "" {
+				return admission.NewForbidden(a, fmt.Errorf(".spec.limitAllowedParents.types[%d].path must be set", i))
+			}
+		}
 	}
 
 	return nil

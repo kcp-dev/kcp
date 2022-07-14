@@ -600,36 +600,6 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("creating a workspace is only possible in the personal workspaces scope for now"))
 	}
 
-	if workspace.Spec.Type.Name == "" && workspace.Spec.Type.Path == "" {
-		workspace.Spec.Type.Name = "Universal"
-		workspace.Spec.Type.Path = "root"
-	}
-
-	// check whether the user is allowed to use the cluster workspace type
-	authz, err := s.delegatedAuthz(logicalcluster.New(workspace.Spec.Type.Path), s.kubeClusterClient)
-	if err != nil {
-		klog.Errorf("failed to get delegated authorizer for logical cluster %s", userInfo.GetName(), orgClusterName)
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
-	}
-
-	typeName := tenancyv1alpha1.ObjectName(workspace.Spec.Type.Name)
-	typeUseAttr := authorizer.AttributesRecord{
-		User:            userInfo,
-		Verb:            "use",
-		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-		Resource:        "clusterworkspacetypes",
-		Name:            typeName,
-		ResourceRequest: true,
-	}
-	if decision, reason, err := authz.Authorize(ctx, typeUseAttr); err != nil {
-		klog.Errorf("failed to authorize user %q to %q clusterworkspacetypes name %q in %s", userInfo.GetName(), "use", typeName, orgClusterName)
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
-	} else if decision != authorizer.DecisionAllow {
-		klog.Errorf("user %q lacks (%s) clusterworkspacetypes %q permission for %q in %s: %s", userInfo.GetName(), decisions[decision], "use", typeName, orgClusterName, reason)
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, fmt.Errorf("use of the cluster workspace type %q in workspace %q is not allowed", workspace.Spec.Type, orgClusterName))
-	}
-
 	ownerRoleBindingName := getRoleBindingName(OwnerRoleType, workspace.Name, userInfo)
 
 	// First create the ClusterRoleBinding that will link the workspace cluster role with the user Subject

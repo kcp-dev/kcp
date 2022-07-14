@@ -5,9 +5,9 @@ metadata:
 spec:
   initializer: true
   defaultChildWorkspaceType:
-    name: Universal
+    name: universal
     path: root
   limitAllowedParents:
     types:
-    - name: Organization
+    - name: organization
       path: root

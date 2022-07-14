@@ -6,5 +6,5 @@ spec:
   initializer: true
   defaultChildren:
     types:
-    - name: Universal
+    - name: universal
       path: root

@@ -3027,7 +3027,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeReference(ref common.R
 						},
 					},
 				},
-				Required: []string{"name", "path"},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -3084,7 +3084,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 					},
 					"extend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "extend is a list of other ClusterWorkspaceTypes whose initializers and allowedChildren and allowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending another ClusterWorkspaceType, this ClusterWorkspaceType will be considered as that other type in evaluation of allowedChildren and allowedParents constraints.\n\nA dependency cycle stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.\n\nA non-existing dependency stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.",
+							Description: "extend is a list of other ClusterWorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending another ClusterWorkspaceType, this ClusterWorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.\n\nA non-existing dependency stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension"),
 						},

@@ -5,13 +5,13 @@ metadata:
 spec:
   initializer: true
   defaultChildWorkspaceType:
-    name: Homebucket
+    name: homebucket
     path: root
   limitAllowedChildren:
     types:
-    - name: Homebucket
+    - name: homebucket
       path: root
   limitAllowedParents:
     types:
-    - name: Root
+    - name: root
       path: root

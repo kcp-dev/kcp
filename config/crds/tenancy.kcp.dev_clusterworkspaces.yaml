@@ -141,7 +141,7 @@ spec:
                 properties:
                   name:
                     description: name is the name of the ClusterWorkspaceType
-                    pattern: ^[A-Z][a-zA-Z0-9]+$
+                    pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                     type: string
                   path:
                     description: path is an absolute reference to the workspace that
@@ -150,7 +150,6 @@ spec:
                     type: string
                 required:
                 - name
-                - path
                 type: object
             type: object
           status:
@@ -219,7 +218,7 @@ spec:
                   description: ClusterWorkspaceInitializer is a unique string corresponding
                     to a cluster workspace initialization controller for the given
                     type of workspaces.
-                  pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[A-Z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                  pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$
                   type: string
                 type: array
               location:

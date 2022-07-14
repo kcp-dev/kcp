@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220628-546034da.clusterworkspaces.tenancy.kcp.dev
+  name: v220711-d5b6ca98.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -138,7 +138,7 @@ spec:
               properties:
                 name:
                   description: name is the name of the ClusterWorkspaceType
-                  pattern: ^[A-Z][a-zA-Z0-9]+$
+                  pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                   type: string
                 path:
                   description: path is an absolute reference to the workspace that
@@ -147,7 +147,6 @@ spec:
                   type: string
               required:
               - name
-              - path
               type: object
           type: object
         status:
@@ -214,7 +213,7 @@ spec:
                 description: ClusterWorkspaceInitializer is a unique string corresponding
                   to a cluster workspace initialization controller for the given type
                   of workspaces.
-                pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[A-Z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$
                 type: string
               type: array
             location:

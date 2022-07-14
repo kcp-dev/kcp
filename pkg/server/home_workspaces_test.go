@@ -136,7 +136,7 @@ func TestNeedsAutomaticCreation(t *testing.T) {
 
 			workspaceName:         "root:users:ab:cd:user-1",
 			expectedNeedsCheck:    true,
-			expectedWorkspaceType: "Home",
+			expectedWorkspaceType: "home",
 		},
 		{
 			bucketLevels: 1,
@@ -151,7 +151,7 @@ func TestNeedsAutomaticCreation(t *testing.T) {
 
 			workspaceName:         "root:users:ab:cd",
 			expectedNeedsCheck:    true,
-			expectedWorkspaceType: "Homebucket",
+			expectedWorkspaceType: "homebucket",
 		},
 		{
 			bucketLevels: 2,
@@ -159,7 +159,7 @@ func TestNeedsAutomaticCreation(t *testing.T) {
 
 			workspaceName:         "root:users:ab",
 			expectedNeedsCheck:    true,
-			expectedWorkspaceType: "Homebucket",
+			expectedWorkspaceType: "homebucket",
 		},
 		{
 			bucketLevels: 2,
@@ -520,7 +520,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "retry quicky when success creating non-home ClusterWorkspace",
 
 			workspaceName: "root:users:ab:cd",
-			workspaceType: "Homebucket",
+			workspaceType: "homebucket",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -529,7 +529,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 				}},
 			},
 			expectedRetryAfterSeconds: 1,
@@ -538,7 +538,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "retry quicky when success creating non-home ClusterWorkspace",
 
 			workspaceName: "root:users:ab:cd",
-			workspaceType: "Homebucket",
+			workspaceType: "homebucket",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -547,7 +547,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 				}},
 			},
 			expectedRetryAfterSeconds: 1,
@@ -556,7 +556,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "retry quicky when non-home ClusterWorkspace already exists",
 
 			workspaceName: "root:users:ab:cd",
-			workspaceType: "Homebucket",
+			workspaceType: "homebucket",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -568,7 +568,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "return error when the owner does not match",
 
 			workspaceName: "root:users:ab:cd:u--r-1",
-			workspaceType: "Home",
+			workspaceType: "home",
 			userName:      "u$€r-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -592,7 +592,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "create RBAC and retry quicky when success creating home ClusterWorkspace",
 
 			workspaceName: "root:users:ab:cd:user-1",
-			workspaceType: "Home",
+			workspaceType: "home",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -608,7 +608,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "user-1"},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Home"),
+					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
 				}},
 			},
 			expectedRetryAfterSeconds: 1,
@@ -618,7 +618,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "create RBAC and retry quicky when home ClusterWorkspace already exists",
 
 			workspaceName: "root:users:ab:cd:user-1",
-			workspaceType: "Home",
+			workspaceType: "home",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -649,7 +649,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "return error when error trying to create RBAC after home ClusterWorkspace exists",
 
 			workspaceName: "root:users:ab:cd:user-1",
-			workspaceType: "Home",
+			workspaceType: "home",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -680,7 +680,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "retry later when creating ClusterWorkspace returns error suggesting delay",
 
 			workspaceName: "root:users:ab:cd",
-			workspaceType: "Homebucket",
+			workspaceType: "homebucket",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -716,7 +716,7 @@ func TestTryToCreate(t *testing.T) {
 				return &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 						Path: "root",
 					}},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -742,7 +742,7 @@ func TestTryToCreate(t *testing.T) {
 				return &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 						Path: "root",
 					}},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -775,7 +775,7 @@ func TestTryToCreate(t *testing.T) {
 				return &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 						Path: "root",
 					}},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -808,7 +808,7 @@ func TestTryToCreate(t *testing.T) {
 				return &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 						Path: "root",
 					}},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -841,7 +841,7 @@ func TestTryToCreate(t *testing.T) {
 				return &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+						Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 						Path: "root",
 					}},
 					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -856,7 +856,7 @@ func TestTryToCreate(t *testing.T) {
 			testName: "Go down one level, create parent and return quickly, on Forbidden error and the parent doesn't exist",
 
 			workspaceName: "root:users:ab:cd:user-1",
-			workspaceType: "Home",
+			workspaceType: "home",
 			userName:      "user-1",
 
 			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
@@ -870,7 +870,7 @@ func TestTryToCreate(t *testing.T) {
 					return &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "ab"},
 						Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 							Path: "root",
 						}},
 					}, nil
@@ -882,7 +882,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "cd"},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Homebucket"),
+					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 				}},
 			},
 		},
@@ -1398,7 +1398,7 @@ func TestServeHTTP(t *testing.T) {
 
 			expectedStatusCode:   200,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"Home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
 		},
 		{
 			testName:       "return error if error when getting home workspace in the local informers",
@@ -1492,7 +1492,7 @@ func TestServeHTTP(t *testing.T) {
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Home"),
+							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
 							Path: "root",
 						},
 					},
@@ -1505,7 +1505,7 @@ func TestServeHTTP(t *testing.T) {
 
 			expectedStatusCode:   200,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":"2022-07-05T15:46:00Z","clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"Home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":"2022-07-05T15:46:00Z","clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
 		},
 		{
 			testName:       "return 429 with retry-after header when the home workspace is not ready yet",

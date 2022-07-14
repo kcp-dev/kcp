@@ -1,13 +1,14 @@
 apiVersion: tenancy.kcp.dev/v1alpha1
 kind: ClusterWorkspaceType
 metadata:
-  name: home
+  name: root
 spec:
-  initializer: true
   defaultChildWorkspaceType:
-    name: universal
+    name: organization
     path: root
-  limitAllowedParents:
-    types:
-    - name: homebucket
+  parentConstraints:
+    none: true
+  extend:
+    with:
+    - name: universal
       path: root

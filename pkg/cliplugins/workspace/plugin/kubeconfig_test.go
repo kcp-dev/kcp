@@ -157,7 +157,7 @@ func TestCreate(t *testing.T) {
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "Universal",
+							Name: "universal",
 							Path: "root",
 						},
 					},
@@ -173,7 +173,7 @@ func TestCreate(t *testing.T) {
 			empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
 			if workspaceType == empty {
 				workspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: "Universal",
+					Name: "universal",
 					Path: "root",
 				}
 			}
@@ -694,7 +694,7 @@ func TestUse(t *testing.T) {
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
 							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-								Name: "Universal",
+								Name: "universal",
 								Path: "root",
 							},
 						},
@@ -723,7 +723,7 @@ func TestUse(t *testing.T) {
 								},
 								Spec: tenancyv1beta1.WorkspaceSpec{
 									Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-										Name: "Home",
+										Name: "home",
 										Path: "root",
 									},
 								},

@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220711-77953523.clusterworkspacetypes.tenancy.kcp.dev
+  name: v220713-f9bb7307.clusterworkspacetypes.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -36,7 +36,6 @@ spec:
               minLength: 1
               not:
                 enum:
-                - root
                 - system
                 - any
               pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$
@@ -52,7 +51,7 @@ spec:
               type: object
             defaultChildWorkspaceType:
               default:
-                name: Universal
+                name: universal
                 path: root
               description: defaultChildWorkspaceType is the ClusterWorkspaceType that
                 will be used by default if another, nested ClusterWorkspace is created
@@ -62,7 +61,7 @@ spec:
               properties:
                 name:
                   description: name is the name of the ClusterWorkspaceType
-                  pattern: ^[A-Z][a-zA-Z0-9]+$
+                  pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                   type: string
                 path:
                   description: path is an absolute reference to the workspace that
@@ -71,17 +70,17 @@ spec:
                   type: string
               required:
               - name
-              - path
               type: object
             extend:
               description: "extend is a list of other ClusterWorkspaceTypes whose
-                initializers and allowedChildren and allowedParents this ClusterWorkspaceType
-                is inheriting. By (transitively) extending another ClusterWorkspaceType,
-                this ClusterWorkspaceType will be considered as that other type in
-                evaluation of allowedChildren and allowedParents constraints. \n A
-                dependency cycle stop this ClusterWorkspaceType from being admitted
-                as the type of a ClusterWorkspace. \n A non-existing dependency stop
-                this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace."
+                initializers and limitAllowedChildren and limitAllowedParents this
+                ClusterWorkspaceType is inheriting. By (transitively) extending another
+                ClusterWorkspaceType, this ClusterWorkspaceType will be considered
+                as that other type in evaluation of limitAllowedChildren and limitAllowedParents
+                constraints. \n A dependency cycle stop this ClusterWorkspaceType
+                from being admitted as the type of a ClusterWorkspace. \n A non-existing
+                dependency stop this ClusterWorkspaceType from being admitted as the
+                type of a ClusterWorkspace."
               properties:
                 with:
                   description: with are ClusterWorkspaceTypes whose initializers are
@@ -94,7 +93,7 @@ spec:
                     properties:
                       name:
                         description: name is the name of the ClusterWorkspaceType
-                        pattern: ^[A-Z][a-zA-Z0-9]+$
+                        pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                         type: string
                       path:
                         description: path is an absolute reference to the workspace
@@ -103,7 +102,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - path
                     type: object
                   type: array
               type: object
@@ -142,7 +140,7 @@ spec:
                     properties:
                       name:
                         description: name is the name of the ClusterWorkspaceType
-                        pattern: ^[A-Z][a-zA-Z0-9]+$
+                        pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                         type: string
                       path:
                         description: path is an absolute reference to the workspace
@@ -151,7 +149,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - path
                     type: object
                   minItems: 1
                   type: array
@@ -175,7 +172,7 @@ spec:
                     properties:
                       name:
                         description: name is the name of the ClusterWorkspaceType
-                        pattern: ^[A-Z][a-zA-Z0-9]+$
+                        pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                         type: string
                       path:
                         description: path is an absolute reference to the workspace
@@ -184,7 +181,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - path
                     type: object
                   minItems: 1
                   type: array

@@ -410,7 +410,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Organization"},
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "organization"},
 		configorganization.Bootstrap,
 	)
 	if err != nil {
@@ -422,7 +422,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Team"},
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "team"},
 		configteam.Bootstrap,
 	)
 	if err != nil {
@@ -434,7 +434,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Universal"},
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "universal"},
 		configuniversal.Bootstrap,
 	)
 	if err != nil {
@@ -482,7 +482,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Homeroot"},
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homeroot"},
 		confighomeroot.Bootstrap,
 	)
 	if err != nil {
@@ -494,7 +494,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Homebucket"},
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homebucket"},
 		confighomebucket.Bootstrap,
 	)
 	if err != nil {
@@ -506,7 +506,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		crdClusterClient,
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "Home"},
+		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "home"},
 		confighome.Bootstrap,
 	)
 	if err != nil {
