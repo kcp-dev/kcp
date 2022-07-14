@@ -43,7 +43,6 @@ var (
 		syncer.AdvancedSchedulingFeatureAnnotation,
 	}
 	labelAllowList = []string{
-		"experimental.workload.kcp.dev/scheduling-disabled",
 		apisv1alpha1.APIExportPermissionClaimLabelPrefix + "*", // protected by the permissionclaim admission plugin
 	}
 )
