@@ -53,9 +53,10 @@ const (
 // and allows modifications on it through workspace-related
 // actions
 type KubeConfig struct {
-	startingConfig *clientcmdapi.Config
-	overrides      *clientcmd.ConfigOverrides
-	currentContext string // including override
+	startingConfig       *clientcmdapi.Config
+	overrides            *clientcmd.ConfigOverrides
+	currentContext       string // including override
+	shortWorkspaceOutput bool
 
 	clusterClient  tenancyclient.ClusterInterface
 	personalClient tenancyclient.ClusterInterface
@@ -97,9 +98,10 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 	}
 
 	return &KubeConfig{
-		startingConfig: startingConfig,
-		overrides:      opts.KubectlOverrides,
-		currentContext: currentContext,
+		startingConfig:       startingConfig,
+		overrides:            opts.KubectlOverrides,
+		currentContext:       currentContext,
+		shortWorkspaceOutput: opts.ShortWorkspaceOutput,
 
 		clusterClient:  clusterClient,
 		personalClient: &personalClusterClient{clusterConfig},
@@ -160,7 +162,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 			return err
 		}
 
-		return kc.currentWorkspace(ctx, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, nil, false)
+		return kc.currentWorkspace(ctx, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, nil)
 
 	case "..":
 		config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
@@ -197,7 +199,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 		newServerHost = homeWorkspace.Status.URL
 
 	case ".":
-		return kc.CurrentWorkspace(ctx, false)
+		return kc.CurrentWorkspace(ctx)
 
 	default:
 		cluster := logicalcluster.New(name)
@@ -268,30 +270,30 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, newServerHost, workspaceType, false)
+	return kc.currentWorkspace(ctx, newServerHost, workspaceType)
 }
 
 // CurrentWorkspace outputs the current workspace.
-func (kc *KubeConfig) CurrentWorkspace(ctx context.Context, shortWorkspaceOutput bool) error {
+func (kc *KubeConfig) CurrentWorkspace(ctx context.Context) error {
 	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, config.Host, nil, shortWorkspaceOutput)
+	return kc.currentWorkspace(ctx, config.Host, nil)
 }
 
-func (kc *KubeConfig) currentWorkspace(ctx context.Context, host string, workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference, shortWorkspaceOutput bool) error {
+func (kc *KubeConfig) currentWorkspace(ctx context.Context, host string, workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference) error {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
-		if shortWorkspaceOutput {
+		if kc.shortWorkspaceOutput {
 			return nil
 		}
 		_, err = fmt.Fprintf(kc.Out, "Current workspace is the URL %q.\n", host)
 		return err
 	}
 
-	if shortWorkspaceOutput {
+	if kc.shortWorkspaceOutput {
 		fmt.Fprintf(kc.Out, "%s\n", clusterName) // nolint: errcheck
 		return nil
 	}
