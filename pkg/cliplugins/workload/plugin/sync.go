@@ -57,7 +57,7 @@ var embeddedResources embed.FS
 const (
 	SyncerSecretConfigKey   = "kubeconfig"
 	SyncerIDPrefix          = "kcp-syncer-"
-	MaxSyncTargetNameLength = validation.DNS1123SubdomainMaxLength - 9 + len(SyncerIDPrefix)
+	MaxSyncTargetNameLength = validation.DNS1123SubdomainMaxLength - (9 + len(SyncerIDPrefix))
 )
 
 // Sync prepares a kcp workspace for use with a syncer and outputs the
