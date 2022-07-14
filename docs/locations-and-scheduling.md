@@ -84,7 +84,7 @@ spec:
 ```
 
 A matched location will be selected for this `Placement` at first, which makes the `Placement` turns from `Pending` to `Unbound`. Then if there is at
-least one matchins Namespace, the Namespace will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`. 
+least one matching Namespace, the Namespace will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`. 
 After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.workload.kcp.dev/<cluster-id>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
 
 The user can create another placement targeted to a different location for this Namespace, e.g. 
