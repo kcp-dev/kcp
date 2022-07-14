@@ -592,7 +592,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	}
 
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
-	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "create", ""); err != nil {
+	if err := s.authorizeForUser(ctx, orgClusterName, userInfo, "create", workspace.Name); err != nil {
 		return nil, err
 	}
 
