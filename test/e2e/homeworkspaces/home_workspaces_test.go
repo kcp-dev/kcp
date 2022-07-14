@@ -153,7 +153,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 						Name: "workspace1",
 					},
 				}, metav1.CreateOptions{})
-				require.EqualError(t, err, `workspaces.tenancy.kcp.dev is forbidden: "create" workspace "" in workspace "root:users:bi:ie:user-1" is not allowed`, "user-2 should be not able to trigger the automatic creation of user-1 home")
+				require.EqualError(t, err, `workspaces.tenancy.kcp.dev is forbidden: "create" workspace "workspace1" in workspace "root:users:bi:ie:user-1" is not allowed`, "user-2 should be not able to trigger the automatic creation of user-1 home")
 			},
 		},
 		{
