@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220711-d5b6ca98.workspaces.tenancy.kcp.dev
+  name: v220718-00525e83.workspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -11,6 +11,8 @@ spec:
     kind: Workspace
     listKind: WorkspaceList
     plural: workspaces
+    shortNames:
+    - ws
     singular: workspace
   scope: Cluster
   versions:
