@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/kcp-dev/logicalcluster"
 
 	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -42,7 +44,6 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
-	"github.com/kcp-dev/logicalcluster"
 )
 
 const (
@@ -50,23 +51,25 @@ const (
 )
 
 func NewController(
-	dynamicCLient dynamic.ClusterInterface,
-	crdClusterClient apiextensionclientset.ClusterInterface,
+	baseConfig *rest.Config,
+	dynamicClusterCLient dynamic.Interface,
+	crdClusterClient apiextensionclientset.Interface,
 	kcpClusterClient kcpclient.Interface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
-	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, logicalcluster.Name) error,
+	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface) error,
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
-		controllerName:  controllerName,
-		queue:           queue,
-		dynamicClient:   dynamicCLient,
-		crdClient:       crdClusterClient,
-		kcpClient:       kcpClusterClient,
-		workspaceLister: workspaceInformer.Lister(),
+		baseConfig:           baseConfig,
+		controllerName:       controllerName,
+		queue:                queue,
+		dynamicClusterClient: dynamicClusterCLient,
+		crdClusterClient:     crdClusterClient,
+		kcpClusterClient:     kcpClusterClient,
+		workspaceLister:      workspaceInformer.Lister(),
 		syncChecks: []cache.InformerSynced{
 			workspaceInformer.Informer().HasSynced,
 		},
@@ -86,19 +89,19 @@ func NewController(
 // state and bootstrap resources from the configs/<lower-case-type> package.
 type controller struct {
 	controllerName string
+	baseConfig     *rest.Config
+	queue          workqueue.RateLimitingInterface
 
-	queue workqueue.RateLimitingInterface
-
-	dynamicClient dynamic.ClusterInterface
-	crdClient     apiextensionclientset.ClusterInterface
-	kcpClient     kcpclient.Interface
+	dynamicClusterClient dynamic.Interface
+	crdClusterClient     apiextensionclientset.Interface
+	kcpClusterClient     kcpclient.Interface
 
 	workspaceLister tenancylister.ClusterWorkspaceLister
 
 	syncChecks []cache.InformerSynced
 
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
-	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, logicalcluster.Name) error
+	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface) error
 }
 
 func (c *controller) enqueue(obj interface{}) {
@@ -204,7 +207,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

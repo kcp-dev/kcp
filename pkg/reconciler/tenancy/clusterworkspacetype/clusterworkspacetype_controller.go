@@ -49,7 +49,7 @@ const (
 
 // NewController returns a new controller for APIExports.
 func NewController(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	clusterWorkspaceTypeInformer tenancyinformers.ClusterWorkspaceTypeInformer,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 ) (*controller, error) {
@@ -106,7 +106,7 @@ func keyFor(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) string {
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient            kcpclient.ClusterInterface
+	kcpClusterClient            kcpclient.Interface
 	clusterWorkspaceTypeLister  tenancyv1alpha1lister.ClusterWorkspaceTypeLister
 	listClusterWorkspaceShards  func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	resolveClusterWorkspaceType func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error)
@@ -268,6 +268,6 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 		subresources = []string{"status"}
 	}
 
-	_, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	return err
 }
